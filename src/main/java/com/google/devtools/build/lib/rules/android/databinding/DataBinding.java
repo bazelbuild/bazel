@@ -69,10 +69,10 @@ public final class DataBinding {
   private static final String ENABLE_DATA_BINDING_ATTR = "enable_data_binding";
 
   /** The directory where the annotation processor looks for dep metadata. */
-  private static final String DEP_METADATA_INPUT_DIR = "dependent-lib-artifacts";
+  public static final String DEP_METADATA_INPUT_DIR = "dependent-lib-artifacts";
 
   /** The directory where the annotation processor writes metadata output for the current rule. */
-  private static final String METADATA_OUTPUT_DIR = "bin-files";
+  public static final String METADATA_OUTPUT_DIR = "bin-files";
 
   @VisibleForTesting
   public static final DataBindingContext DISABLED_V1_CONTEXT = new DisabledDataBindingV1Context();
@@ -92,9 +92,9 @@ public final class DataBinding {
 
     if (enabled) {
       if (androidConfig.useDataBindingV2()) {
-        return new DataBindingV2Context(context);
+        return new DataBindingV2Context(context, androidConfig.useDataBindingUpdatedArgs());
       } else {
-        return new DataBindingV1Context(context);
+        return new DataBindingV1Context(context, androidConfig.useDataBindingUpdatedArgs());
       }
     } else {
       if (androidConfig.useDataBindingV2()) {
@@ -148,16 +148,6 @@ public final class DataBinding {
         binRelativeBasePath.getRelative(relativePath), ruleContext.getBinOrGenfilesDirectory());
   }
 
-  /** Turns a key/value pair into a javac annotation processor flag received by data binding. */
-  static String createProcessorFlag(String flag, String value) {
-    return String.format("-Aandroid.databinding.%s=%s", flag, value);
-  }
-
-  /** Turns a key/value pair into a javac annotation processor flag received by data binding. */
-  static String createProcessorFlag(String flag, Artifact value) {
-    return createProcessorFlag(flag, value.getExecPathString());
-  }
-
   static ImmutableList<Artifact> getAnnotationFile(RuleContext ruleContext) {
     // Add this rule's annotation processor input. If the rule doesn't have direct resources,
     // there's no direct data binding info, so there's strictly no need for annotation processing.
@@ -206,8 +196,7 @@ public final class DataBinding {
    * binary's compilation, enough information is available to only use the first version.
    */
   static ImmutableList<Artifact> getMetadataOutputs(
-      RuleContext ruleContext,
-      List<String> metadataOutputSuffixes) {
+      RuleContext ruleContext, boolean useUpdatedArgs, List<String> metadataOutputSuffixes) {
 
     if (!AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       // If this rule doesn't define local resources, no resource processing was done, so it
@@ -219,18 +208,24 @@ public final class DataBinding {
     for (String suffix : metadataOutputSuffixes) {
       // The annotation processor automatically creates files with this naming pattern under the
       // {@code -Aandroid.databinding.generationalFileOutDir} base directory.
-      outputs.add(
-          getDataBindingArtifact(
-              ruleContext,
-              String.format("%s/%s-%s-%s", METADATA_OUTPUT_DIR, javaPackage, javaPackage, suffix)));
+      if (useUpdatedArgs) {
+        outputs.add(
+            getDataBindingArtifact(
+                ruleContext, String.format("%s/%s-%s", METADATA_OUTPUT_DIR, javaPackage, suffix)));
+      } else {
+        outputs.add(
+            getDataBindingArtifact(
+                ruleContext,
+                String.format(
+                    "%s/%s-%s-%s", METADATA_OUTPUT_DIR, javaPackage, javaPackage, suffix)));
+      }
     }
     return outputs.build();
   }
 
   @Nullable
   static Artifact getMetadataOutput(
-      RuleContext ruleContext,
-      String metadataOutputSuffix) {
+      RuleContext ruleContext, boolean useUpdatedArgs, String metadataOutputSuffix) {
 
     if (!AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       // If this rule doesn't define local resources, no resource processing was done, so it
@@ -241,10 +236,16 @@ public final class DataBinding {
 
     // The annotation processor automatically creates files with this naming pattern under the
     // {@code -Aandroid.databinding.generationalFileOutDir} base directory.
-    return getDataBindingArtifact(
-            ruleContext,
-            String.format("%s/%s-%s-%s",
-                METADATA_OUTPUT_DIR, javaPackage, javaPackage, metadataOutputSuffix));
+    if (useUpdatedArgs) {
+      return getDataBindingArtifact(
+          ruleContext,
+          String.format("%s/%s-%s", METADATA_OUTPUT_DIR, javaPackage, metadataOutputSuffix));
+    } else {
+      return getDataBindingArtifact(
+          ruleContext,
+          String.format(
+              "%s/%s-%s-%s", METADATA_OUTPUT_DIR, javaPackage, javaPackage, metadataOutputSuffix));
+    }
   }
 
   /**

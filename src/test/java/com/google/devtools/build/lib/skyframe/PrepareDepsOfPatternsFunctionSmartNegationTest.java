@@ -84,7 +84,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         SequencedSkyframeExecutor.create(
             AnalysisMock.get()
                 .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider),
+                .build(ruleClassProvider, fileSystem),
             fileSystem,
             directories,
             new ActionKeyContext(),
@@ -107,7 +107,6 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         Options.getDefaults(PackageCacheOptions.class),
         Options.getDefaults(SkylarkSemanticsOptions.class),
-        AnalysisMock.get().getDefaultsPackageContent(),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(null));
@@ -206,8 +205,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
     // Then a event is published that says that negative non-TBD patterns are skipped.
     assertContainsEvent(
-        "Skipping '-//foo/bar': Negative target patterns of types other than \"targets below "
-            + "directory\" are not permitted.");
+        "Skipping '-//foo/bar, excludedSubdirs=[], filteringPolicy=[]': Negative target patterns of"
+            + " types other than \"targets below directory\" are not permitted.");
   }
 
   // Helpers:

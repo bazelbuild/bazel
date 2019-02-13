@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2018 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 syntax = "proto3";
 
@@ -20,8 +21,6 @@ import "google/api/annotations.proto";
 import "google/devtools/build/v1/build_status.proto";
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/wrappers.proto";
-import "google/rpc/status.proto";
 
 option cc_enable_arenas = true;
 option go_package = "google.golang.org/genproto/googleapis/devtools/build/v1;build";
@@ -29,8 +28,7 @@ option java_multiple_files = true;
 option java_outer_classname = "BuildEventProto";
 option java_package = "com.google.devtools.build.v1";
 
-
-// An event representing some state change that occured in the build. This
+// An event representing some state change that occurred in the build. This
 // message does not include field for uniquely identifying an event.
 message BuildEvent {
   // Notification that the build system has attempted to run the build tool.
@@ -39,23 +37,21 @@ message BuildEvent {
     // for each new attempt. Can be used to determine if there is a later
     // invocation attempt replacing the current one a client is processing.
     int64 attempt_number = 1;
+
+    // Additional details about the invocation.
+    google.protobuf.Any details = 2;
   }
 
   // Notification that an invocation attempt has finished.
   message InvocationAttemptFinished {
-    // The exit code of the build tool.
-    google.protobuf.Int32Value exit_code = 2;
-
     // Final status of the invocation.
     BuildStatus invocation_status = 3;
   }
 
-  // Notification that the build request is enqueued. It could happen when
-  // a new build request is inserted into the build queue, or when a
-  // build request is put back into the build queue due to a previous build
-  // failure.
+  // Notification that the build request is enqueued.
   message BuildEnqueued {
-
+    // Additional details about the Build.
+    google.protobuf.Any details = 1;
   }
 
   // Notification that the build request has finished, and no further

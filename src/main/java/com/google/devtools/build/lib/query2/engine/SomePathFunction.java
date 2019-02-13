@@ -77,12 +77,13 @@ class SomePathFunction implements QueryFunction {
 
             env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
-            // This set contains all nodes whose TC does not intersect "toValue".
-            Uniquifier<T> uniquifier = env.createUniquifier();
-
-            for (T x : uniquifier.unique(fromValue)) {
+            for (T x : fromValue) {
+              // TODO(b/122548314): if x was already seen as part of a previous node's tc, we should
+              // skip it here. That's subsumed by the TODO below.
               ThreadSafeMutableSet<T> xSet = env.createThreadSafeMutableSet();
               xSet.add(x);
+              // TODO(b/122548314): this transitive closure building should stop at any nodes that
+              // have already been visited.
               ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet, context);
               SetView<T> result;
               if (xtc.size() > toValue.size()) {
@@ -94,7 +95,6 @@ class SomePathFunction implements QueryFunction {
                 callback.process(env.getNodesOnPath(x, result.iterator().next(), context));
                 return null;
               }
-              uniquifier.unique(xtc);
             }
             callback.process(ImmutableSet.<T>of());
             return null;

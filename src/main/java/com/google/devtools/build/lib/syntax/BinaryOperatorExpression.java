@@ -189,14 +189,10 @@ public final class BinaryOperatorExpression extends Expression {
           return mult(lhs, rhs, env, location);
 
         case DIVIDE:
-          if (env.getSemantics().incompatibleDisallowSlashOperator()) {
-            throw new EvalException(
-                location,
-                "The `/` operator has been removed. Please use the `//` operator for integer "
-                    + "division. You can temporarily enable the `/` operator by passing "
-                    + "the flag --incompatible_disallow_slash_operator=false");
-          }
-          return divide(lhs, rhs, location);
+          throw new EvalException(
+              location,
+              "The `/` operator is not allowed. Please use the `//` operator for integer "
+                  + "division.");
 
         case FLOOR_DIVIDE:
           return divide(lhs, rhs, location);

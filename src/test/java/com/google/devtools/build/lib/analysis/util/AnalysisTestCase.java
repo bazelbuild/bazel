@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -166,8 +167,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
-    workspaceStatusActionFactory =
-        new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
+    workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
@@ -215,7 +215,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
-            .build(ruleClassProvider);
+            .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor =
         createSkyframeExecutor(pkgFactory, ruleClassProvider.getBuildInfoFactories());
@@ -233,8 +233,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         Options.getDefaults(SkylarkSemanticsOptions.class),
-        this.ruleClassProvider.getDefaultsPackageContent(
-            analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -369,8 +367,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         pathPackageLocator,
         packageCacheOptions,
         skylarkSemanticsOptions,
-        ruleClassProvider.getDefaultsPackageContent(
-            analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -390,8 +386,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
-    skyframeExecutor.setConfigurationFragmentFactories(
-        ruleClassProvider.getConfigurationFragments());
     analysisResult =
         buildView.update(
             loadingResult,
@@ -446,7 +440,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
+    ConfiguredTargetAndData configuredTargetAndData;
+    try {
+      configuredTargetAndData =
+          skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
+    } catch (TransitionException e) {
+      throw new AssertionError(e);
+    }
+    return configuredTargetAndData;
   }
 
   protected Target getTarget(String label) throws InterruptedException {
@@ -491,8 +492,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-        reporter, parsedLabel, configuration);
+    ConfiguredTargetAndData configuredTargetAndData;
+    try {
+      configuredTargetAndData =
+          skyframeExecutor.getConfiguredTargetAndDataForTesting(
+              reporter, parsedLabel, configuration);
+    } catch (TransitionException e) {
+      throw new AssertionError(e);
+    }
+    return configuredTargetAndData;
   }
 
   protected final BuildConfiguration getConfiguration(TransitiveInfoCollection ct) {

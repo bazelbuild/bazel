@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature.Shape;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkMutable;
@@ -242,13 +241,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     } else if (executableUnchecked instanceof String) {
       builder.setExecutable(PathFragment.create((String) executableUnchecked));
+    } else if (executableUnchecked instanceof FilesToRunProvider) {
+      builder.setExecutable((FilesToRunProvider) executableUnchecked);
     } else {
-      throw new EvalException(
-          null,
-          "expected file or string for "
-              + "executable but got "
-              + EvalUtils.getDataTypeName(executableUnchecked)
-              + " instead");
+      // Should have been verified by Starlark before this function is called
+      throw new IllegalStateException();
     }
     registerSpawnAction(
         outputs,
@@ -434,17 +431,30 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
 
     if (toolsUnchecked != Runtime.UNBOUND) {
-      final Iterable<Artifact> toolsIterable;
+      @SuppressWarnings("unchecked")
+      Iterable<Object> toolsIterable;
       if (toolsUnchecked instanceof SkylarkList) {
-        toolsIterable = ((SkylarkList) toolsUnchecked).getContents(Artifact.class, "tools");
+        toolsIterable = ((SkylarkList<Object>) toolsUnchecked).getContents(Object.class, "tools");
       } else {
-        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet(Artifact.class);
+        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet(Object.class);
       }
-      for (Artifact artifact : toolsIterable) {
-        builder.addInput(artifact);
-        FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-        if (provider != null) {
-          builder.addTool(provider);
+      for (Object toolUnchecked : toolsIterable) {
+        if (toolUnchecked instanceof Artifact) {
+          Artifact artifact = (Artifact) toolUnchecked;
+          builder.addInput(artifact);
+          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+          if (provider != null) {
+            builder.addTool(provider);
+          }
+        } else if (toolUnchecked instanceof FilesToRunProvider) {
+          builder.addTool((FilesToRunProvider) toolUnchecked);
+        } else {
+          throw new EvalException(
+              null,
+              "expected value of type 'File or FilesToRunProvider' for "
+                  + "a member of parameter 'tools' but got "
+                  + EvalUtils.getDataTypeName(toolUnchecked)
+                  + " instead");
         }
       }
     } else {
@@ -593,7 +603,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     private boolean useAlways;
 
     @Override
-    public NoneType addArgument(
+    public CommandLineArgsApi addArgument(
         Object argNameOrValue,
         Object value,
         Object format,
@@ -659,11 +669,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
             mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
             loc);
       }
-      return Runtime.NONE;
+      return this;
     }
 
     @Override
-    public NoneType addAll(
+    public CommandLineArgsApi addAll(
         Object argNameOrValue,
         Object values,
         Object mapEach,
@@ -703,11 +713,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
               : (Boolean) expandDirectories,
           terminateWith != Runtime.NONE ? (String) terminateWith : null,
           loc);
-      return Runtime.NONE;
+      return this;
     }
 
     @Override
-    public NoneType addJoined(
+    public CommandLineArgsApi addJoined(
         Object argNameOrValue,
         Object values,
         String joinWith,
@@ -747,7 +757,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
               : (Boolean) expandDirectories,
           /* terminateWith= */ null,
           loc);
-      return Runtime.NONE;
+      return this;
     }
 
     private void addVectorArg(
@@ -878,21 +888,26 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     }
 
     @Override
-    public void useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException {
+    public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
+        throws EvalException {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
-            "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"");
+            String.format(
+                "Invalid value for parameter \"param_file_arg\": "
+                    + "Expected string with a single \"%s\"",
+                paramFileArg));
       }
       this.flagFormatString = paramFileArg;
       this.useAlways = useAlways;
+      return this;
     }
 
     @Override
-    public void setParamFileFormat(String format) throws EvalException {
+    public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
@@ -910,6 +925,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
               "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
       }
       this.parameterFileType = parameterFileType;
+      return this;
     }
 
     private Args(@Nullable Mutability mutability, SkylarkSemantics skylarkSemantics) {

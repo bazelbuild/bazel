@@ -450,12 +450,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testConfigurationCachingWithWarningReplay() throws Exception {
-    useConfiguration("--test_sharding_strategy=experimental_heuristic");
+    useConfiguration("--strip=always", "--copt=-g");
     update();
-    assertContainsEvent("Heuristic sharding is intended as a one-off experimentation tool");
+    assertContainsEvent("Debug information will be generated and then stripped away");
     eventCollector.clear();
     update();
-    assertContainsEvent("Heuristic sharding is intended as a one-off experimentation tool");
+    assertContainsEvent("Debug information will be generated and then stripped away");
   }
 
   @Test
@@ -628,7 +628,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
             DiffResetOptions.PROBABLY_IRRELEVANT_OPTION, DiffResetOptions.ALSO_IRRELEVANT_OPTION);
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfig(DiffResetOptions.class, new DiffResetFactory());
+    builder.addConfigurationFragment(new DiffResetFactory());
     builder.overrideShouldInvalidateCacheForOptionDiffForTesting(
         (newOptions, changedOption, oldValue, newValue) -> {
           return !optionsThatCanChange.contains(changedOption);

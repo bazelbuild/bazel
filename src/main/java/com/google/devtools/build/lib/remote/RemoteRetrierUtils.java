@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -23,23 +22,22 @@ import io.grpc.StatusRuntimeException;
 public final class RemoteRetrierUtils {
 
   public static boolean causedByStatus(Throwable e, Status.Code expected) {
-    if (e instanceof RetryException) {
-      e = e.getCause();
-    }
     if (e instanceof StatusRuntimeException) {
       return ((StatusRuntimeException) e).getStatus().getCode() == expected;
     } else if (e instanceof StatusException) {
       return ((StatusException) e).getStatus().getCode() == expected;
+    } else if (e.getCause() != null) {
+      return causedByStatus(e.getCause(), expected);
     }
     return false;
   }
 
   public static boolean causedByExecTimeout(Throwable e) {
-    if (!(e instanceof RetryException)) {
-      return false;
+    if (e instanceof ExecutionStatusException) {
+      return ((ExecutionStatusException) e).isExecutionTimeout();
+    } else if (e.getCause() != null) {
+      return causedByExecTimeout(e.getCause());
     }
-    e = e.getCause();
-    return (e instanceof ExecutionStatusException
-        && ((ExecutionStatusException) e).isExecutionTimeout());
+    return false;
   }
 }

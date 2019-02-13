@@ -62,6 +62,12 @@ public abstract class MockCcSupport {
   public static final String DYNAMIC_LINKING_MODE_FEATURE =
       "feature { name: '" + CppRuleClasses.DYNAMIC_LINKING_MODE + "'}";
 
+  public static final String SUPPORTS_DYNAMIC_LINKER_FEATURE =
+      "feature { name: '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + " enabled: true'}";
+
+  public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES =
+      "feature { name: '" + CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES + "' enabled: true}";
+
   /** Feature expected by the C++ rules when pic build is requested */
   public static final String PIC_FEATURE =
       ""
@@ -73,8 +79,8 @@ public abstract class MockCcSupport {
           + "    action: 'c++-module-codegen'"
           + "    action: 'c++-module-compile'"
           + "    action: 'preprocess-assemble'"
-          + "    expand_if_all_available: 'pic'"
           + "    flag_group {"
+          + "      expand_if_all_available: 'pic'"
           + "      flag: '-fPIC'"
           + "    }"
           + "  }"
@@ -304,6 +310,17 @@ public abstract class MockCcSupport {
   public static final String FDO_IMPLICIT_THINLTO_CONFIGURATION =
       "" + "feature {  name: 'fdo_implicit_thinlto'}";
 
+  public static final String ENABLE_XFDO_THINLTO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'enable_xbinaryfdo_thinlto'"
+          + "  requires { feature: 'xbinaryfdo_implicit_thinlto' }"
+          + "  implies: 'thin_lto'"
+          + "}";
+
+  public static final String XFDO_IMPLICIT_THINLTO_CONFIGURATION =
+      "" + "feature {  name: 'xbinaryfdo_implicit_thinlto'}";
+
   public static final String AUTO_FDO_CONFIGURATION =
       ""
           + "feature {"
@@ -313,8 +330,8 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'lto-backend'"
-          + "    expand_if_all_available: 'fdo_profile_path'"
           + "    flag_group {"
+          + "      expand_if_all_available: 'fdo_profile_path'"
           + "      flag: '-fauto-profile=%{fdo_profile_path}'"
           + "      flag: '-fprofile-correction'"
           + "    }"
@@ -350,8 +367,8 @@ public abstract class MockCcSupport {
           + "  flag_set {"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
-          + "    expand_if_all_available: 'fdo_profile_path'"
           + "    flag_group {"
+          + "      expand_if_all_available: 'fdo_profile_path'"
           + "      flag: '-fprofile-use=%{fdo_profile_path}'"
           + "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'"
           + "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'"
@@ -383,6 +400,7 @@ public abstract class MockCcSupport {
       ""
           + "feature { "
           + "  name: 'per_object_debug_info'"
+          + "  enabled: true"
           + "  flag_set {"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
@@ -390,15 +408,18 @@ public abstract class MockCcSupport {
           + "    action: 'preprocess-assemble'"
           + "    action: 'c++-module-codegen'"
           + "    action: 'lto-backend'"
-          + "    expand_if_all_available: 'per_object_debug_info_file'"
           + "    flag_group {"
+          + "      expand_if_all_available: 'per_object_debug_info_file'"
           + "      flag: 'per_object_debug_info_option'"
           + "    }"
           + "  }"
           + "}";
 
   public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION =
-      "" + "feature { " + "  name: 'copy_dynamic_libraries_to_binary'" + "}";
+      "" + "feature { name: 'copy_dynamic_libraries_to_binary' }";
+
+  public static final String SUPPORTS_START_END_LIB_FEATURE =
+      "" + "feature {" + "   name: 'supports_start_end_lib'" + "   enabled: true" + "}";
 
   public static final String TARGETS_WINDOWS_CONFIGURATION =
       ""
@@ -528,7 +549,7 @@ public abstract class MockCcSupport {
   public abstract void setup(MockToolsConfig config) throws IOException;
 
   public void setupCrosstoolWithEmbeddedRuntimes(MockToolsConfig config) throws IOException {
-    createCrosstoolPackage(config, true);
+    createCrosstoolPackage(config, /* addEmbeddedRuntimes= */ true);
   }
 
   /**
@@ -549,7 +570,12 @@ public abstract class MockCcSupport {
    */
   public void setupCrosstool(MockToolsConfig config, CToolchain toolchain) throws IOException {
     createCrosstoolPackage(
-        config, /* addEmbeddedRuntimes= */ false, /* addModuleMap= */ true, null, null, toolchain);
+        config,
+        /* addEmbeddedRuntimes= */ false,
+        /* addModuleMap= */ true,
+        /* staticRuntimesLabel= */ null,
+        /* dynamicRuntimesLabel= */ null,
+        toolchain);
   }
 
   /**
@@ -600,7 +626,12 @@ public abstract class MockCcSupport {
 
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)
       throws IOException {
-    createCrosstoolPackage(config, addEmbeddedRuntimes, /*addModuleMap=*/ true, null, null);
+    createCrosstoolPackage(
+        config,
+        addEmbeddedRuntimes,
+        /* addModuleMap= */ true,
+        /* staticRuntimesLabel= */ null,
+        /* dynamicRuntimesLabel= */ null);
   }
 
   private void createCrosstoolPackage(
@@ -676,7 +707,7 @@ public abstract class MockCcSupport {
           PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
     } catch (LabelSyntaxException e) {
       Verify.verify(false);
-      throw new AssertionError();
+      throw new AssertionError(e);
     }
   }
 

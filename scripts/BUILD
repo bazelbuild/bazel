@@ -42,6 +42,7 @@ filegroup(
         "//scripts/docs:srcs",
         "//scripts/packages:srcs",
         "//scripts/release:srcs",
+        "//scripts/zsh_completion:srcs",
     ],
     visibility = ["//:__pkg__"],
 )

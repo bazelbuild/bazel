@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -234,13 +235,14 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
                 .put(
-                    SkyFunctions.WORKSPACE_FILE,
+                    WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
                         TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
                             .builder(directories)
-                            .build(TestRuleClassProvider.getRuleClassProvider()),
-                        directories))
+                            .build(TestRuleClassProvider.getRuleClassProvider(), fileSystem),
+                        directories,
+                        /*skylarkImportLookupFunctionForInlining=*/ null))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
@@ -261,7 +263,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                   ACTION_LOOKUP_KEY,
                   new BasicActionLookupValue(
                       Actions.filterSharedActionsAndThrowActionConflict(
-                          actionKeyContext, ImmutableList.copyOf(actions)))));
+                          actionKeyContext, ImmutableList.copyOf(actions)),
+                      /*nonceVersion=*/ null)));
         }
       }
 
@@ -420,7 +423,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected void buildArtifacts(Builder builder, Artifact... artifacts)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException,
           OptionsParsingException {
-    buildArtifacts(builder, new DummyExecutor(fileSystem, rootDirectory), artifacts);
+    buildArtifacts(builder, new DummyExecutor(fileSystem, rootDirectory, reporter), artifacts);
   }
 
   protected void buildArtifacts(Builder builder, Executor executor, Artifact... artifacts)

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -188,7 +189,7 @@ public abstract class GlobFunctionTest {
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
-        SkyFunctions.WORKSPACE_FILE,
+        WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock
@@ -196,8 +197,9 @@ public abstract class GlobFunctionTest {
                 .setEnvironmentExtensions(
                     ImmutableList.<EnvironmentExtension>of(
                         new PackageFactory.EmptyEnvironmentExtension()))
-                .build(ruleClassProvider),
-            directories));
+                .build(ruleClassProvider, fs),
+            directories,
+            /*skylarkImportLookupFunctionForInlining=*/ null));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     return skyFunctions;

@@ -18,7 +18,7 @@ foo.insert(10, 'g')
 assert_eq(foo, ['f', 'c', 'd', 'a', 'b', 'e', 'g'])
 
 ---
-(1, 2).insert(3) ### type 'tuple' has no method insert\(int\)
+(1, 2).insert(3) ### type 'tuple' has no method insert\(\)
 ---
 
 # append
@@ -30,7 +30,7 @@ foo.append('d')
 assert_eq(foo, ['a', 'b', 'c', 'd'])
 
 ---
-(1, 2).append(3) ### type 'tuple' has no method append\(int\)
+(1, 2).append(3) ### type 'tuple' has no method append\(\)
 ---
 
 # extend
@@ -41,7 +41,7 @@ foo.extend(('e', 'f'))
 assert_eq(foo, ['a', 'b', 'c', 'd', 'e', 'f'])
 
 ---
-(1, 2).extend([3, 4]) ### type 'tuple' has no method extend(list)
+(1, 2).extend([3, 4]) ### type 'tuple' has no method extend()
 ---
 [1, 2].extend(3) ### expected value of type 'sequence' for parameter 'items'
 
@@ -62,7 +62,7 @@ foo.remove('b')
 assert_eq(foo, [])
 
 ---
-(1, 2).remove(3) ### type 'tuple' has no method remove\(int\)
+(1, 2).remove(3) ### type 'tuple' has no method remove\(\)
 ---
 [1, 2].remove(3) ### item 3 not found in list
 ---

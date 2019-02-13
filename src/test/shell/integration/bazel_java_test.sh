@@ -72,7 +72,7 @@ EOF
   # Note that this will change in the future but is the current state.
   bazel aquery --output=text //java:javalib >& $TEST_log
   expect_not_log "exec external/embedded_jdk/bin/java"
-  expect_log "exec external/remotejdk_.*/bin/java"
+  expect_log "exec external/remotejdk10_.*/bin/java"
 
   bazel aquery --output=text --host_javabase=//:host_javabase \
     //java:javalib >& $TEST_log
@@ -202,6 +202,7 @@ EOF
   # Use --max_config_changes_to_show=0, as changed option names may otherwise
   # erroneously match the expected regexes.
 
+  # Test the genrule with no java dependencies.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps \
     'deps(//:without_java)' >& $TEST_log
   expect_not_log "foo"
@@ -210,40 +211,24 @@ EOF
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk10_"
 
+  # Test the genrule that specifically depends on :bar_runtime.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps \
     'deps(//:with_java)' >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
-  expect_log "remotejdk_"
+  expect_not_log "remotejdk_"
   expect_not_log "remotejdk10_"
 
+  # Setting the javabase should not change the use of :bar_runtime from the
+  # roolchains attribute.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps \
     'deps(//:with_java)' --host_javabase=:foo_javabase >& $TEST_log
-  expect_log "foo"
-  expect_log "bar"
-  expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk_"
-  expect_not_log "remotejdk10_"
-
-  bazel cquery --max_config_changes_to_show=0 --implicit_deps \
-    'deps(//:with_java)' --host_javabase=:foo_javabase \
-    >& $TEST_log
-  expect_log "foo"
-  expect_log "bar"
-  expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk_"
-  expect_not_log "remotejdk10_"
-
-  bazel cquery --max_config_changes_to_show=0 --implicit_deps \
-    'deps(//:with_java)' --incompatible_use_jdk10_as_host_javabase \
-    >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
-  expect_log "remotejdk10_"
-
+  expect_not_log "remotejdk10_"
 }
 
 run_suite "Tests of specifying custom server_javabase/host_javabase and javabase."

@@ -18,6 +18,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Platform;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -89,7 +90,10 @@ final class RemoteSpawnCache implements SpawnCache {
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
-    boolean checkCache = options.remoteAcceptCached && Spawns.mayBeCached(spawn);
+    if (!Spawns.mayBeCached(spawn) || !Spawns.mayBeExecutedRemotely(spawn)) {
+      return SpawnCache.NO_RESULT_NO_STORE;
+    }
+    boolean checkCache = options.remoteAcceptCached;
 
     if (checkCache) {
       context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
@@ -98,22 +102,21 @@ final class RemoteSpawnCache implements SpawnCache {
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     TreeNodeRepository repository =
-        new TreeNodeRepository(
-            execRoot,
-            context.getMetadataProvider(),
-            digestUtil,
-            options.incompatibleRemoteSymlinks);
+        new TreeNodeRepository(execRoot, context.getMetadataProvider(), digestUtil);
     TreeNode inputRoot;
     try (SilentCloseable c = Profiler.instance().profile("RemoteCache.computeMerkleDigests")) {
       inputRoot = repository.buildFromActionInputs(inputMap);
       repository.computeMerkleDigests(inputRoot);
     }
+
+    // Get the remote platform properties.
+    Platform platform =
+        RemoteSpawnRunner.parsePlatform(
+            spawn.getExecutionPlatform(), options.remoteDefaultPlatformProperties);
+
     Command command =
         RemoteSpawnRunner.buildCommand(
-            spawn.getOutputFiles(),
-            spawn.getArguments(),
-            spawn.getEnvironment(),
-            spawn.getExecutionPlatform());
+            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
     Action action;
     final ActionKey actionKey;
     try (SilentCloseable c = Profiler.instance().profile("RemoteCache.buildAction")) {
@@ -122,7 +125,7 @@ final class RemoteSpawnCache implements SpawnCache {
               digestUtil.compute(command),
               repository.getMerkleDigest(inputRoot),
               context.getTimeout(),
-              Spawns.mayBeCached(spawn));
+              true);
       // Look up action cache, and reuse the action output if it is found.
       actionKey = digestUtil.computeActionKey(action);
     }
@@ -155,15 +158,15 @@ final class RemoteSpawnCache implements SpawnCache {
                   .build();
           return SpawnCache.success(spawnResult);
         }
+      } catch (CacheNotFoundException e) {
+        // Intentionally left blank
       } catch (IOException e) {
-        if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
-          String errorMsg = e.getMessage();
-          if (isNullOrEmpty(errorMsg)) {
+        String errorMsg = e.getMessage();
+        if (isNullOrEmpty(errorMsg)) {
             errorMsg = e.getClass().getSimpleName();
-          }
-          errorMsg = "Error reading from the remote cache:\n" + errorMsg;
-          report(Event.warn(errorMsg));
         }
+          errorMsg = "Reading from Remote Cache:\n" + errorMsg;
+          report(Event.warn(errorMsg));
       } finally {
         withMetadata.detach(previous);
       }
@@ -186,8 +189,12 @@ final class RemoteSpawnCache implements SpawnCache {
         }
 
         @Override
-        public void store(SpawnResult result)
-            throws ExecException, InterruptedException, IOException {
+        public void store(SpawnResult result) throws ExecException, InterruptedException {
+          boolean uploadResults = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
+          if (!uploadResults) {
+            return;
+          }
+
           if (options.experimentalGuardAgainstConcurrentChanges) {
             try (SilentCloseable c =
                 Profiler.instance().profile("RemoteCache.checkForConcurrentModifications")) {
@@ -197,22 +204,19 @@ final class RemoteSpawnCache implements SpawnCache {
               return;
             }
           }
-          boolean uploadAction =
-              Spawns.mayBeCached(spawn)
-                  && Status.SUCCESS.equals(result.status())
-                  && result.exitCode() == 0;
+
           Context previous = withMetadata.attach();
           Collection<Path> files =
               RemoteSpawnRunner.resolveActionInputs(execRoot, spawn.getOutputFiles());
           try (SilentCloseable c = Profiler.instance().profile("RemoteCache.upload")) {
             remoteCache.upload(
-                actionKey, action, command, execRoot, files, context.getFileOutErr(), uploadAction);
+                actionKey, action, command, execRoot, files, context.getFileOutErr());
           } catch (IOException e) {
             String errorMsg = e.getMessage();
             if (isNullOrEmpty(errorMsg)) {
               errorMsg = e.getClass().getSimpleName();
             }
-            errorMsg = "Error writing to the remote cache:\n" + errorMsg;
+            errorMsg = "Writing to Remote Cache:\n" + errorMsg;
             report(Event.warn(errorMsg));
           } finally {
             withMetadata.detach(previous);

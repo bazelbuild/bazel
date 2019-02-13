@@ -588,13 +588,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
               "attempting to access 'build_setting_value' of non-build setting %s",
               ruleLabelCanonicalName));
     }
-    ImmutableMap<String, Object> skylarkFlagSettings =
+    ImmutableMap<Label, Object> skylarkFlagSettings =
         ruleContext.getConfiguration().getOptions().getStarlarkOptions();
 
     Type<?> buildSettingType =
         ruleContext.getRule().getRuleClassObject().getBuildSetting().getType();
-    if (skylarkFlagSettings.containsKey(ruleLabelCanonicalName)) {
-      return skylarkFlagSettings.get(ruleLabelCanonicalName);
+    if (skylarkFlagSettings.containsKey(ruleContext.getLabel())) {
+      return skylarkFlagSettings.get(ruleContext.getLabel());
     } else {
       return ruleContext
           .attributes()
@@ -610,7 +610,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       return false;
     }
     if (targetUnchecked == Runtime.NONE) {
-      return InstrumentedFilesCollector.shouldIncludeLocalSources(ruleContext);
+      return InstrumentedFilesCollector.shouldIncludeLocalSources(
+          ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
     }
     TransitiveInfoCollection target = (TransitiveInfoCollection) targetUnchecked;
     return (target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null)
@@ -1071,6 +1072,18 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     return Tuple.<Object>of(
         MutableList.copyOf(env, inputs),
         MutableList.copyOf(env, argv),
+        helper.getToolsRunfilesSuppliers());
+  }
+
+  @Override
+  public Tuple<Object> resolveTools(SkylarkList tools) throws ConversionException, EvalException {
+    checkMutable("resolve_tools");
+    CommandHelper helper =
+        CommandHelper.builder(getRuleContext())
+            .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
+            .build();
+    return Tuple.<Object>of(
+        SkylarkNestedSet.of(Artifact.class, helper.getResolvedTools()),
         helper.getToolsRunfilesSuppliers());
   }
 

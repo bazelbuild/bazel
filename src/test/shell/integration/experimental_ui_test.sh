@@ -294,7 +294,7 @@ function test_query_spacing() {
   BAZEL_QUERY_OUTPUT=`bazel query --experimental_ui 'deps(//pkg:true)'`
   echo "$BAZEL_QUERY_OUTPUT" | grep -q -v '^[@/]' \
    && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
-  if ! is_windows; then
+  if ! $is_windows; then
     echo "$BAZEL_QUERY_OUTPUT" | grep -q $'\r' \
      && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
   fi

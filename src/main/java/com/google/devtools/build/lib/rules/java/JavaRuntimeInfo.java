@@ -14,30 +14,36 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.HOST_JAVA_RUNTIME_ATTRIBUTE_NAME;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
 @AutoCodec
-public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
-  public static final String SKYLARK_NAME = "JavaRuntimeInfo";
-
-  public static final NativeProvider<JavaRuntimeInfo> PROVIDER =
-      new NativeProvider<JavaRuntimeInfo>(JavaRuntimeInfo.class, SKYLARK_NAME) {};
+public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
 
   public static JavaRuntimeInfo create(
       NestedSet<Artifact> javaBaseInputs,
@@ -57,21 +63,46 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
 
   // Helper methods to access an instance of JavaRuntimeInfo.
 
-  public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    return from(ruleContext, ":jvm", RuleConfiguredTarget.Mode.TARGET);
-  }
-
   public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
-    return from(ruleContext, ":host_jdk", RuleConfiguredTarget.Mode.HOST);
+    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.HOST);
   }
 
-  public static JavaRuntimeInfo forHost(RuleContext ruleContext, String attributeSuffix) {
-    return from(ruleContext, ":host_jdk" + attributeSuffix, RuleConfiguredTarget.Mode.HOST);
+  public static JavaRuntimeInfo from(RuleContext ruleContext) {
+    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.TARGET);
+  }
+
+  public static JavaRuntimeInfo forHost(RuleContext ruleContext, Label toolchainType) {
+    return from(
+        ruleContext,
+        HOST_JAVA_RUNTIME_ATTRIBUTE_NAME,
+        RuleConfiguredTarget.Mode.HOST,
+        toolchainType);
   }
 
   @Nullable
   private static JavaRuntimeInfo from(
       RuleContext ruleContext, String attributeName, RuleConfiguredTarget.Mode mode) {
+    Label toolchainType =
+        ruleContext.attributes().get(JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
+    return from(ruleContext, attributeName, mode, toolchainType);
+  }
+
+  private static JavaRuntimeInfo from(
+      RuleContext ruleContext, String attributeName, Mode mode, Label toolchainType) {
+    boolean useToolchainResolutionForJavaRules =
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(PlatformOptions.class)
+            .useToolchainResolutionForJavaRules;
+    if (toolchainType != null && useToolchainResolutionForJavaRules) {
+      ToolchainInfo toolchainInfo =
+          ruleContext.getToolchainContext().forToolchainType(toolchainType);
+      if (toolchainInfo instanceof JavaRuntimeInfo) {
+        return (JavaRuntimeInfo) toolchainInfo;
+      }
+    }
+
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return null;
     }
@@ -88,8 +119,7 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
   @Nullable
   protected static JavaRuntimeInfo from(
       TransitiveInfoCollection collection, RuleErrorConsumer errorConsumer) {
-
-    return collection.get(JavaRuntimeInfo.PROVIDER);
+    return (JavaRuntimeInfo) collection.get(ToolchainInfo.PROVIDER);
   }
 
   private final NestedSet<Artifact> javaBaseInputs;
@@ -108,7 +138,7 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
       PathFragment javaBinaryRunfilesPath) {
-    super(PROVIDER);
+    super(ImmutableMap.of(), Location.BUILTIN);
     this.javaBaseInputs = javaBaseInputs;
     this.javaBaseInputsMiddleman = javaBaseInputsMiddleman;
     this.javaHome = javaHome;
@@ -149,6 +179,11 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
   /** The runfiles path of the Java binary. */
   public PathFragment javaBinaryRunfilesPath() {
     return javaBinaryRunfilesPath;
+  }
+
+  @Override
+  public SkylarkNestedSet skylarkJavaBaseInputs() {
+    return SkylarkNestedSet.of(Artifact.class, javaBaseInputs());
   }
 
   // Not all of JavaRuntimeInfo is exposed to Skylark, which makes implementing deep equality

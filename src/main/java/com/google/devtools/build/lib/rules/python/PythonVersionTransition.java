@@ -14,49 +14,119 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.Objects;
 
 /**
- * A configuration transition that sets the Python version by setting {@link
- * PythonOptions#forcePython}.
+ * An abstract configuration transition that sets the Python version as per its {@link
+ * #determineNewVersion} method, if transitioning is allowed.
+ *
+ * <p>See {@link PythonOptions#canTransitionPythonVersion} for information on when transitioning is
+ * allowed.
+ *
+ * <p>Subclasses should override {@link #determineNewVersion}, as well as {@link #equals} and {@link
+ * #hashCode}.
  */
-@AutoCodec
-public class PythonVersionTransition implements PatchTransition {
-  private final PythonVersion defaultVersion;
+public abstract class PythonVersionTransition implements PatchTransition {
 
-  /**
-   * Creates a new transition that sets the given version if not already specified by
-   * {@link PythonOptions#forcePython}.
-   */
-  PythonVersionTransition(PythonVersion defaultVersion) {
-    this.defaultVersion = defaultVersion;
+  /** Returns a transition that sets the version to {@code newVersion}. */
+  public static PythonVersionTransition toConstant(PythonVersion newVersion) {
+    return new ToConstant(newVersion);
   }
 
+  /**
+   * Returns a transition that sets the version to {@link PythonOptions#getDefaultPythonVersion}.
+   */
+  public static PythonVersionTransition toDefault() {
+    return ToDefault.INSTANCE;
+  }
+
+  /**
+   * Returns the Python version to transition to, given the configuration.
+   *
+   * <p>Must return a target Python version ({@code PY2} or {@code PY3}).
+   *
+   * <p>Caution: This method must not modify {@code options}. See the class javadoc for {@link
+   * PatchTransition}.
+   */
+  protected abstract PythonVersion determineNewVersion(BuildOptions options);
+
   @Override
-   public BuildOptions patch(BuildOptions options) {
-    PythonOptions pyOptions = options.get(PythonOptions.class);
-    // The current Python version is either explicitly set by --force_python or a
-    // build-wide default.
-    PythonVersion currentVersion = pyOptions.getPythonVersion();
-    // The new Python version is either explicitly set by --force_python or this transition's
-    // default.
-    PythonVersion newVersion = pyOptions.getPythonVersion(defaultVersion);
-    if (currentVersion == newVersion) {
+  public abstract boolean equals(Object other);
+
+  @Override
+  public abstract int hashCode();
+
+  @Override
+  public BuildOptions patch(BuildOptions options) {
+    PythonVersion newVersion = determineNewVersion(options);
+    Preconditions.checkArgument(newVersion.isTargetValue());
+
+    PythonOptions opts = options.get(PythonOptions.class);
+    if (!opts.canTransitionPythonVersion(newVersion)) {
       return options;
     }
-
-    // forcePython must be one of PY2 or PY3 because these are the only values Blaze's output
-    // directories can safely distinguish. In other words, a configuration with forcePython=PY2
-    // would have the same output directory prefix as another with forcePython=PY2AND3, which is a
-    // major correctness failure.
-    //
-    // Even though this transition doesn't enforce the above, it only gets called on
-    // "default_python_version" attribute values, which happen to honor this. Proper enforcement is
-    // done in PythonConfiguration#getOutputDirectoryName.
     BuildOptions newOptions = options.clone();
-    newOptions.get(PythonOptions.class).forcePython = newVersion;
+    PythonOptions newOpts = newOptions.get(PythonOptions.class);
+    newOpts.setPythonVersion(newVersion);
     return newOptions;
+  }
+
+  /** A Python version transition that switches to the value specified in the constructor. */
+  private static class ToConstant extends PythonVersionTransition {
+
+    private final PythonVersion newVersion;
+
+    public ToConstant(PythonVersion newVersion) {
+      this.newVersion = newVersion;
+    }
+
+    @Override
+    protected PythonVersion determineNewVersion(BuildOptions options) {
+      return newVersion;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof ToConstant)) {
+        return false;
+      }
+      return newVersion.equals(((ToConstant) other).newVersion);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(ToConstant.class, newVersion);
+    }
+  }
+
+  /** A Python version transition that switches to the default given in the Python configuration. */
+  private static class ToDefault extends PythonVersionTransition {
+
+    private static final ToDefault INSTANCE = new ToDefault();
+
+    // Singleton.
+    private ToDefault() {}
+
+    @Override
+    protected PythonVersion determineNewVersion(BuildOptions options) {
+      return options.get(PythonOptions.class).getDefaultPythonVersion();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof ToDefault;
+    }
+
+    @Override
+    public int hashCode() {
+      // Avoid varargs array allocation by using hashCode() rather than hash().
+      return Objects.hashCode(ToDefault.class);
+    }
   }
 }

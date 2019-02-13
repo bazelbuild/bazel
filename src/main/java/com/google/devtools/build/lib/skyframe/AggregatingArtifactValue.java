@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.math.BigInteger;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /** Value for aggregating artifacts, which must be expanded to a set of other artifacts. */
 class AggregatingArtifactValue implements SkyValue {
@@ -30,9 +34,9 @@ class AggregatingArtifactValue implements SkyValue {
       ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs,
       ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs,
       FileArtifactValue selfData) {
-    this.fileInputs = fileInputs;
-    this.directoryInputs = directoryInputs;
-    this.selfData = selfData;
+    this.fileInputs = Preconditions.checkNotNull(fileInputs);
+    this.directoryInputs = Preconditions.checkNotNull(directoryInputs);
+    this.selfData = Preconditions.checkNotNull(selfData);
   }
 
   /** Returns the none tree artifacts that this artifact expands to, together with their data. */
@@ -51,5 +55,49 @@ class AggregatingArtifactValue implements SkyValue {
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
   FileArtifactValue getSelfData() {
     return selfData;
+  }
+
+  protected final BigIntegerFingerprint getFingerprintBuilder() {
+    BigIntegerFingerprint fp = new BigIntegerFingerprint();
+    fp.addNullableBigIntegerOrdered(selfData.getValueFingerprint());
+    addFingerprint(fileInputs, fp);
+    addFingerprint(directoryInputs, fp);
+    return fp;
+  }
+
+  private static void addFingerprint(
+      ImmutableList<? extends Pair<Artifact, ? extends SkyValue>> list,
+      BigIntegerFingerprint fingerprint) {
+    list.forEach(
+        pair -> {
+          fingerprint.addPath(pair.first.getExecPath());
+          fingerprint.addBigIntegerOrdered(pair.second.getValueFingerprint());
+        });
+  }
+
+  @Nullable
+  @Override
+  public BigInteger getValueFingerprint() {
+    return getFingerprintBuilder().getFingerprint();
+  }
+
+  @SuppressWarnings("EqualsGetClass") // RunfilesArtifactValue not equal to Aggregating.
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    AggregatingArtifactValue that = (AggregatingArtifactValue) o;
+    return selfData.equals(that.selfData)
+        && fileInputs.equals(that.fileInputs)
+        && directoryInputs.equals(that.directoryInputs);
+  }
+
+  @Override
+  public int hashCode() {
+    return 31 * 31 * directoryInputs.hashCode() + 31 * fileInputs.hashCode() + selfData.hashCode();
   }
 }

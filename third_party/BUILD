@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -12,6 +14,7 @@ filegroup(
         "//third_party/iossim:srcs",
         "//third_party/grpc:srcs",
         "//third_party/jarjar:srcs",
+        "//third_party/jaxb:srcs",
         "//third_party/java/android_databinding:srcs",
         "//third_party/java/aosp_gradle_core:srcs",
         "//third_party/java/apkbuilder:srcs",
@@ -19,6 +22,7 @@ filegroup(
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
+        "//third_party/java/java_tools:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
@@ -78,7 +82,7 @@ java_import(
         "android_common/com.android.tools.build_builder_2.0.0.jar",
         "android_common/com.android.tools.build_builder-model_2.0.0.jar",
         "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
-        "android_common/com.android.tools.build_manifest-merger_25.0.0.jar",
+        "android_common/com.android.tools.build_manifest-merger_25.0.0-patched.jar",
         "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
         # layoutlib has been upgraded to 26.1.2 *just* for font resource support.
         # We are unable to upgrade the other libraries yet due to internal
@@ -95,6 +99,9 @@ java_import(
         "android_common/com.android.tools_repository_25.0.0.jar",
         "android_common/com.android.tools_sdk-common_25.0.0.jar",
         "android_common/com.android.tools_sdklib_25.0.0.jar",
+    ],
+    deps = [
+        "//third_party/jaxb",
     ],
     runtime_deps = [
         ":asm",
@@ -292,13 +299,19 @@ java_library(
 
 java_import(
     name = "auto_value_value",
-    jars = ["auto/auto-value-1.6.3rc1.jar", "auto/auto-value-annotations-1.6.3rc1.jar"],
+    jars = [
+        "auto/auto-value-1.6.3rc1.jar",
+        "auto/auto-value-annotations-1.6.3rc1.jar",
+    ],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "auto_value-jars",
-    srcs = ["auto/auto-value-1.6.3rc1.jar", "auto/auto-value-annotations-1.6.3rc1.jar"],
+    srcs = [
+        "auto/auto-value-1.6.3rc1.jar",
+        "auto/auto-value-annotations-1.6.3rc1.jar",
+    ],
 )
 
 java_import(
@@ -438,11 +451,6 @@ java_import(
 )
 
 java_import(
-    name = "jgit",
-    jars = ["jgit/org.eclipse.jgit-4.10.0.201712302008-r.jar"],
-)
-
-java_import(
     name = "jimfs",
     jars = ["jimfs/jimfs-1.1.jar"],
 )
@@ -562,12 +570,7 @@ java_import(
 
 filegroup(
     name = "turbine_direct",
-    srcs = select({
-        "//src/conditions:darwin": ["turbine/turbine_direct.darwin"],
-        "//src/conditions:darwin_x86_64": ["turbine/turbine_direct.darwin"],
-        "//src/conditions:linux_x86_64": ["turbine/turbine_direct.linux"],
-        "//conditions:default": ["turbine/turbine_direct.jar"],
-    }),
+    srcs = ["turbine/turbine_direct.jar"],
 )
 
 java_import(
@@ -601,6 +604,28 @@ filegroup(
         "junit/junit-4.12.jar",
     ],
 )
+
+pkg_tar(
+    name = "java_tools_pkg",
+    srcs = [
+        "//third_party/java/java_tools:java_tools",
+        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:jdk_compiler_jar",
+        "//third_party/java/jdk/langtools:java_compiler_jar"
+    ],
+)
+
+pkg_tar(
+    name = "java_tools_pkg-gz",
+    srcs = [
+        "//third_party/java/java_tools:java_tools",
+        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:jdk_compiler_jar",
+        "//third_party/java/jdk/langtools:java_compiler_jar"
+    ],
+    extension = "tar.gz"
+)
+
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 

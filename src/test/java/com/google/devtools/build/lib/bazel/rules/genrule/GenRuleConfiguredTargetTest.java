@@ -652,4 +652,25 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:g");
     assertNoEvents();
   }
+
+  @Test
+  public void testDisableGenruleCcToolchainDependency() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "a/BUILD",
+        "genrule(",
+        "    name = 'a',",
+        "    outs = ['out.log'],",
+        "    cmd = 'echo $(CC_FLAGS) > $@',",
+        ")");
+
+    // Legacy behavior: CC_FLAGS is implicitly defined.
+    getConfiguredTarget("//a:a");
+    assertDoesNotContainEvent("$(CC_FLAGS) not defined");
+
+    // Updated behavior: CC_FLAGS must be explicitly supplied by a dependency.
+    useConfiguration("--incompatible_disable_genrule_cc_toolchain_dependency");
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("$(CC_FLAGS) not defined");
+  }
 }

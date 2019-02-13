@@ -21,11 +21,12 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.util.Pair;
 
 /** An implementation class for the InstrumentedFilesProvider interface. */
 @AutoCodec
-public final class InstrumentedFilesInfo extends Info {
+public final class InstrumentedFilesInfo extends Info implements InstrumentedFilesInfoApi {
   /** Singleton provider instance for {@link InstrumentedFilesInfo}. */
   public static final InstrumentedFilesProvider SKYLARK_CONSTRUCTOR =
       new InstrumentedFilesProvider();

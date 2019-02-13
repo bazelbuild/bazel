@@ -256,6 +256,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       env.getValue(actionDepKey);
       return null;
     }
+
+    @Override
+    public ImmutableSet<SkyKey> getSkyframeDependenciesForRewinding() {
+      throw new UnsupportedOperationException();
+    }
   }
 
   private interface ExecutionCountingActionFactory {
@@ -811,6 +816,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
           public Object establishSkyframeDependencies(Environment env) throws ExceptionBase {
             assertThat(env.valuesMissing()).isFalse();
             return null;
+          }
+
+          @Override
+          public ImmutableSet<SkyKey> getSkyframeDependenciesForRewinding() {
+            throw new UnsupportedOperationException();
           }
 
           @Override

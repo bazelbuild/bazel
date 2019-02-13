@@ -166,7 +166,7 @@ Each node in the DAG holds a list of direct elements and a list of child nodes.
 The contents of the depset are the transitive elements, i.e. the direct elements
 of all the nodes. A new depset can be created using the
 [depset](lib/globals.html#depset) constructor: it accepts a list of direct
-elemens and another list of child nodes.
+elements and another list of child nodes.
 
 ```python
 s = depset(["a", "b", "c"])

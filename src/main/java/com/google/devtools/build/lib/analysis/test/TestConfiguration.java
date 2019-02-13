@@ -27,15 +27,12 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -147,19 +144,15 @@ public class TestConfiguration extends Fragment {
     public List<String> testArguments;
 
     @Option(
-      name = "test_sharding_strategy",
-      defaultValue = "explicit",
-      converter = TestActionBuilder.ShardingStrategyConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specify strategy for test sharding: "
-              + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is present. "
-              + "'disabled' to never use test sharding. "
-              + "'experimental_heuristic' to enable sharding on remotely executed tests without an "
-              + "explicit  'shard_count' attribute which link in a supported framework. Considered "
-              + "experimental."
-    )
+        name = "test_sharding_strategy",
+        defaultValue = "explicit",
+        converter = TestActionBuilder.ShardingStrategyConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specify strategy for test sharding: "
+                + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is "
+                + "present. 'disabled' to never use test sharding.")
     public TestActionBuilder.TestShardingStrategy testShardingStrategy;
 
     @Option(
@@ -167,7 +160,7 @@ public class TestConfiguration extends Fragment {
       allowMultiple = true,
       defaultValue = "1",
       converter = RunsPerTestConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specifies number of times to run each test. If any of those attempts "
@@ -218,7 +211,7 @@ public class TestConfiguration extends Fragment {
     public Label coverageReportGenerator;
 
     @Option(
-        name = "incompatible_windows_native_test_wrapper",
+        name = "experimental_windows_native_test_wrapper",
         // Design:
         // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
         documentationCategory = OptionDocumentationCategory.TESTING,
@@ -227,10 +220,6 @@ public class TestConfiguration extends Fragment {
         effectTags = {
           OptionEffectTag.LOADING_AND_ANALYSIS,
           OptionEffectTag.TEST_RUNNER,
-        },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
         },
         defaultValue = "false",
         help =
@@ -284,18 +273,6 @@ public class TestConfiguration extends Fragment {
   private TestConfiguration(TestOptions options) {
     this.options = options;
     this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
-  }
-
-  @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    if (options.testShardingStrategy
-        == TestActionBuilder.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
-      reporter.handle(
-          Event.warn(
-              "Heuristic sharding is intended as a one-off experimentation tool for determining "
-                  + "the benefit from sharding certain tests. Please don't keep this option in "
-                  + "your .blazerc or continuous build"));
-    }
   }
 
   /** Returns test timeout mapping as set by --test_timeout options. */

@@ -237,7 +237,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
 
   @Before
   public final void initializeVisitor() throws Exception {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE, loadingMock.getDefaultsPackageContent());
+    setUpSkyframe(ConstantRuleVisibility.PRIVATE);
     this.visitor = skyframeExecutor.pkgLoader();
   }
 

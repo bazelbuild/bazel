@@ -7,6 +7,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -16,6 +17,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/aquery_differ/..."
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -23,6 +25,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -32,6 +35,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/aquery_differ/..."
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -39,6 +43,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -48,11 +53,13 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/aquery_differ/..."
   ubuntu1804_nojava:
     build_flags:
     - "--javabase=@openjdk_linux_archive//:runtime"
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--javabase=@openjdk_linux_archive//:runtime"
     - "--test_timeout=1200"
@@ -62,6 +69,7 @@ platforms:
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
+    - "//tools/aquery_differ/..."
     # We can't run Android tests without an installed Android SDK / NDK.
     - "-//src/test/java/com/google/devtools/build/android/..."
     - "-//src/test/shell/bazel/android/..."
@@ -96,6 +104,7 @@ platforms:
     - "-//src/test/shell/integration:discard_analysis_cache_test"
     - "-//src/test/shell/integration:discard_graph_edges_test"
     - "-//src/test/shell/integration:java_integration_test"
+    - "-//src/test/shell/integration:minimal_jdk_test"
     - "-//src/test/shell/integration:nonincremental_builds_test"
     - "-//src/test/shell/integration:output_filter_test"
     - "-//src/test/shell/integration:stub_finds_runfiles_test"
@@ -108,6 +117,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -117,6 +127,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/aquery_differ/..."
   ubuntu1804_java10:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -124,6 +135,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -133,13 +145,15 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-  macos:
+    - "//tools/aquery_differ/..."
+  ubuntu1804_java11:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
       android_ndk_repository/android_ndk_repository/' WORKSPACE
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -149,21 +163,55 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/aquery_differ/..."
+    # Some prebuilt jars doesn't run with Java 11
+    - "-//src/test/shell/bazel:external_integration_test"
+    - "-//src/test/shell/bazel:maven_test"
+    # Re-enable once bootstrap works with Java 11
+    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+  macos:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+      android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    build_flags:
+    - "--apple_platform_type=macos"
+    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
+    - "--noincompatible_strict_action_env"
+    build_targets:
+    - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
+    test_flags:
+    - "--test_timeout=1200"
+    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
+    - "--noincompatible_strict_action_env"
+    test_targets:
+    - "--"
+    - "//scripts/..."
+    - "//src/test/..."
+    - "//src/tools/singlejar/..."
+    - "//third_party/ijar/..."
+    - "//tools/android/..."
+    - "//tools/aquery_differ/..."
+    - "-//src/test/shell/integration:minimal_jdk_test"
   windows:
+    batch_commands:
+    - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
+    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
+    - "--noincompatible_strict_action_env"
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--copt=-w"
     - "--host_copt=-w"
     - "--test_env=JAVA_HOME"
-    # TODO(pcloudy): Need this for WindowsSubprocessTest.java.
-    # Remove this when release version Bazel sets SYSTEMDRIVE
-    # on Windows by default.
-    - "--test_env=SYSTEMDRIVE"
     - "--test_timeout=1200"
+    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
+    - "--noincompatible_strict_action_env"
     test_targets:
     - "--"
     - "//src:all_windows_tests"
@@ -174,3 +222,4 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"

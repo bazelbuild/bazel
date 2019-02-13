@@ -31,13 +31,15 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -51,7 +53,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -69,8 +70,8 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -235,7 +236,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final List<ConfigurationFragmentFactory> configurationFragmentFactories =
         new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
-    private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
+    private final Set<Class<? extends FragmentOptions>> configurationOptions =
+        new LinkedHashSet<>();
 
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
@@ -322,43 +324,26 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder addConfigurationOptions(Class<? extends FragmentOptions> configurationOptions) {
-      this.configurationOptions.add(configurationOptions);
-      return this;
-    }
-
     /**
-     * Adds an options class and a corresponding factory. There's usually a 1:1:1 correspondence
-     * between option classes, factories, and fragments, such that the factory depends only on the
-     * options class and creates the fragment. This method provides a convenient way of adding both
-     * the options class and the factory in a single call.
+     * Adds a configuration fragment factory and all build options required by its fragment.
      *
-     * <p>Note that configuration fragments annotated with a Skylark name must have a unique
-     * name; no two different configuration fragments can share the same name.
-     */
-    public Builder addConfig(
-        Class<? extends FragmentOptions> options, ConfigurationFragmentFactory factory) {
-      // Enforce that the factory requires the options.
-      Preconditions.checkState(factory.requiredOptions().contains(options));
-      this.configurationOptions.add(options);
-      this.configurationFragmentFactories.add(factory);
-      return this;
-    }
-
-    public Builder addConfigurationOptions(
-        Collection<Class<? extends FragmentOptions>> optionsClasses) {
-      this.configurationOptions.addAll(optionsClasses);
-      return this;
-    }
-
-    /**
-     * Adds a configuration fragment factory.
-     *
-     * <p>Note that configuration fragments annotated with a Skylark name must have a unique
-     * name; no two different configuration fragments can share the same name.
+     * <p>Note that configuration fragments annotated with a Skylark name must have a unique name;
+     * no two different configuration fragments can share the same name.
      */
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
+      this.configurationOptions.addAll(factory.requiredOptions());
       configurationFragmentFactories.add(factory);
+      return this;
+    }
+
+    /**
+     * Adds configuration options that aren't required by configuration fragments.
+     *
+     * <p>If {@link #addConfigurationFragment(ConfigurationFragmentFactory)} adds a fragment factory
+     * that also requires these options, this method is redundant.
+     */
+    public Builder addConfigurationOptions(Class<? extends FragmentOptions> configurationOptions) {
+      this.configurationOptions.add(configurationOptions);
       return this;
     }
 
@@ -756,21 +741,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
-   * Returns the defaults package for the default settings.
-   */
-  public String getDefaultsPackageContent(InvocationPolicy invocationPolicy) {
-    return DefaultsPackage.getDefaultsPackageContent(configurationOptions, invocationPolicy);
-  }
-
-  /**
-   * Returns the defaults package for the given options taken from an optionsProvider.
-   */
-  public String getDefaultsPackageContent(OptionsProvider optionsProvider) {
-    return DefaultsPackage.getDefaultsPackageContent(
-        BuildOptions.of(configurationOptions, optionsProvider));
-  }
-
-  /**
    * Creates a BuildOptions class for the given options taken from an optionsProvider.
    */
   public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
@@ -806,21 +776,28 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private Environment createSkylarkRuleClassEnvironment(
       Mutability mutability,
-      Environment.GlobalFrame globals,
+      GlobalFrame globals,
       SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
-      Map<String, Extension> importMap) {
+      Map<String, Extension> importMap,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      Label callerLabel) {
+    BazelStarlarkContext context =
+        new BazelStarlarkContext(
+            toolsRepository,
+            configurationFragmentMap,
+            repoMapping,
+            new SymbolGenerator<>(callerLabel));
     Environment env =
         Environment.builder(mutability)
             .setGlobals(globals)
             .setSemantics(skylarkSemantics)
             .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)
+            .setStarlarkContext(context)
             .setImportedExtensions(importMap)
             .build();
-    SkylarkUtils.setToolsRepository(env, toolsRepository);
-    SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
     SkylarkUtils.setPhase(env, Phase.LOADING);
     return env;
   }
@@ -832,14 +809,17 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
-      Map<String, Extension> importMap) {
+      Map<String, Extension> importMap,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
     return createSkylarkRuleClassEnvironment(
         mutability,
         globals.withLabel(extensionLabel),
         skylarkSemantics,
         eventHandler,
         astFileContentHashCode,
-        importMap);
+        importMap,
+        repoMapping,
+        extensionLabel);
   }
 
   @Override

@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportFunction.CcSkyframeSupportException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoMode;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
@@ -58,10 +58,13 @@ import javax.annotation.Nullable;
 public class CcToolchainProviderHelper {
 
   /**
-   * This file (found under the sysroot) may be unconditionally included in every C/C++ compilation.
+   * These files (found under the sysroot) may be unconditionally included in every C/C++
+   * compilation.
    */
-  static final PathFragment BUILTIN_INCLUDE_FILE_SUFFIX =
-      PathFragment.create("include/stdc-predef.h");
+  static final ImmutableList<PathFragment> BUILTIN_INCLUDE_FILE_SUFFIXES =
+      ImmutableList.of(
+          PathFragment.create("include/stdc-predef.h"),
+          PathFragment.create("android/_predefined_api_level.h"));
 
   private static final String SYSROOT_START = "%sysroot%/";
   private static final String WORKSPACE_START = "%workspace%/";
@@ -325,7 +328,7 @@ public class CcToolchainProviderHelper {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .addInput(rawProfileArtifact)
-            .addTransitiveInputs(attributes.getCrosstoolMiddleman())
+            .addTransitiveInputs(attributes.getAllFilesMiddleman())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA))
@@ -343,6 +346,15 @@ public class CcToolchainProviderHelper {
     return profileArtifact;
   }
 
+  static Pair<FdoInputFile, Artifact> getFdoInputs(
+      RuleContext ruleContext, FdoProfileProvider fdoProfileProvider) {
+    if (fdoProfileProvider == null) {
+      ruleContext.ruleError("--fdo_profile/--xbinary_fdo input needs to be an fdo_profile rule");
+      return null;
+    }
+    return Pair.of(fdoProfileProvider.getInputFile(), fdoProfileProvider.getProtoProfileArtifact());
+  }
+
   static CcToolchainProvider getCcToolchainProvider(
       RuleContext ruleContext,
       CcToolchainAttributesProvider attributes,
@@ -356,6 +368,7 @@ public class CcToolchainProviderHelper {
     FdoInputFile fdoInputFile = null;
     FdoInputFile prefetchHints = null;
     Artifact protoProfileArtifact = null;
+    Pair<FdoInputFile, Artifact> fdoInputs = null;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
       if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
         FdoPrefetchHintsProvider provider = attributes.getFdoPrefetch();
@@ -366,15 +379,14 @@ public class CcToolchainProviderHelper {
       } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
         FdoProfileProvider fdoProfileProvider = attributes.getFdoOptimizeProvider();
         if (fdoProfileProvider != null) {
-          fdoInputFile = fdoProfileProvider.getInputFile();
-          protoProfileArtifact = fdoProfileProvider.getProtoProfileArtifact();
+          fdoInputs = getFdoInputs(ruleContext, fdoProfileProvider);
         } else {
           fdoInputFile = fdoInputFileFromArtifacts(ruleContext, attributes);
         }
       } else if (cppConfiguration.getFdoProfileLabel() != null) {
-        FdoProfileProvider fdoProvider = attributes.getFdoProfileProvider();
-        fdoInputFile = fdoProvider.getInputFile();
-        protoProfileArtifact = fdoProvider.getProtoProfileArtifact();
+        fdoInputs = getFdoInputs(ruleContext, attributes.getFdoProfileProvider());
+      } else if (cppConfiguration.getXFdoProfileLabel() != null) {
+        fdoInputs = getFdoInputs(ruleContext, attributes.getXFdoProfileProvider());
       }
     }
 
@@ -382,17 +394,39 @@ public class CcToolchainProviderHelper {
       return null;
     }
 
-    // Is there a toolchain proto available on the target directly?
-    CToolchain toolchain = parseToolchainFromAttributes(ruleContext, attributes);
-    PackageIdentifier packageWithCrosstoolInIt = null;
-    if (toolchain == null && crosstoolFromCcToolchainSuiteProtoAttribute == null) {
-      packageWithCrosstoolInIt = ruleContext.getLabel().getPackageIdentifier();
+
+    if (fdoInputs != null) {
+      fdoInputFile = fdoInputs.getFirst();
+      protoProfileArtifact = fdoInputs.getSecond();
     }
 
-    CcSkyframeSupportValue ccSkyframeSupportValue = null;
-    if (packageWithCrosstoolInIt != null || fdoZip != null) {
-      SkyKey ccSupportKey = CcSkyframeSupportValue.key(fdoZip, packageWithCrosstoolInIt);
 
+    CcSkyframeSupportValue ccSkyframeSupportValue = null;
+    SkyKey ccSupportKey = null;
+    CToolchain toolchain = null;
+
+    if (cppConfiguration.disableCrosstool() && attributes.getCcToolchainConfigInfo() == null) {
+      ruleContext.ruleError(
+          "cc_toolchain.toolchain_config attribute must be specified. See "
+              + "https://github.com/bazelbuild/bazel/issues/7320 for details.");
+    }
+
+    if (attributes.getCcToolchainConfigInfo() != null) {
+      if (fdoZip != null) {
+        ccSupportKey = CcSkyframeSupportValue.key(fdoZip, /* packageWithCrosstoolInIt= */ null);
+      }
+    } else {
+      // Is there a toolchain proto available on the target directly?
+      toolchain = parseToolchainFromAttributes(ruleContext, attributes);
+      PackageIdentifier packageWithCrosstoolInIt = null;
+      if (toolchain == null && crosstoolFromCcToolchainSuiteProtoAttribute == null) {
+        packageWithCrosstoolInIt = ruleContext.getLabel().getPackageIdentifier();
+      }
+      if (packageWithCrosstoolInIt != null || fdoZip != null) {
+        ccSupportKey = CcSkyframeSupportValue.key(fdoZip, packageWithCrosstoolInIt);
+      }
+    }
+    if (ccSupportKey != null) {
       SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
       try {
         ccSkyframeSupportValue =
@@ -414,28 +448,6 @@ public class CcToolchainProviderHelper {
           FdoInputFile.fromAbsolutePath(ccSkyframeSupportValue.getFdoZipPath().asFragment());
     }
 
-    FdoMode fdoMode;
-    if (fdoInputFile == null) {
-      fdoMode = FdoMode.OFF;
-    } else if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoInputFile)) {
-      fdoMode = FdoMode.AUTO_FDO;
-    } else if (CppFileTypes.XBINARY_PROFILE.matches(fdoInputFile)) {
-      fdoMode = FdoMode.XBINARY_FDO;
-    } else if (CppFileTypes.LLVM_PROFILE.matches(fdoInputFile)) {
-      fdoMode = FdoMode.LLVM_FDO;
-    } else if (CppFileTypes.LLVM_PROFILE_RAW.matches(fdoInputFile)) {
-      fdoMode = FdoMode.LLVM_FDO;
-    } else if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoInputFile)) {
-      fdoMode = FdoMode.LLVM_FDO;
-    } else {
-      ruleContext.ruleError("invalid extension for FDO profile file.");
-      return null;
-    }
-
-    if (fdoMode != FdoMode.OFF && configuration.isCodeCoverageEnabled()) {
-      ruleContext.throwWithRuleError("coverage mode is not compatible with FDO optimization");
-    }
-
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
             ruleContext,
@@ -445,48 +457,94 @@ public class CcToolchainProviderHelper {
             toolchain,
             crosstoolFromCcToolchainSuiteProtoAttribute);
 
+    FdoContext.BranchFdoProfile branchFdoProfile = null;
+    if (fdoInputFile != null) {
+      BranchFdoMode branchFdoMode;
+      if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoInputFile)) {
+        branchFdoMode = BranchFdoMode.AUTO_FDO;
+      } else if (CppFileTypes.XBINARY_PROFILE.matches(fdoInputFile)) {
+        branchFdoMode = BranchFdoMode.XBINARY_FDO;
+      } else if (CppFileTypes.LLVM_PROFILE.matches(fdoInputFile)) {
+        branchFdoMode = BranchFdoMode.LLVM_FDO;
+      } else if (CppFileTypes.LLVM_PROFILE_RAW.matches(fdoInputFile)) {
+        branchFdoMode = BranchFdoMode.LLVM_FDO;
+      } else if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoInputFile)) {
+        branchFdoMode = BranchFdoMode.LLVM_FDO;
+      } else {
+        ruleContext.ruleError("invalid extension for FDO profile file.");
+        return null;
+      }
+      if (branchFdoMode != BranchFdoMode.XBINARY_FDO
+          && cppConfiguration.getXFdoProfileLabel() != null) {
+        ruleContext.throwWithRuleError(
+            "--xbinary_fdo cannot accept profile input other than *.xfdo");
+      }
+
+      if (configuration.isCodeCoverageEnabled()) {
+        ruleContext.throwWithRuleError("coverage mode is not compatible with FDO optimization");
+      }
+      // This tries to convert LLVM profiles to the indexed format if necessary.
+      Artifact profileArtifact = null;
+      if (branchFdoMode == BranchFdoMode.LLVM_FDO) {
+        profileArtifact =
+            convertLLVMRawProfileToIndexed(attributes, fdoInputFile, toolchainInfo, ruleContext);
+        if (ruleContext.hasErrors()) {
+          return null;
+        }
+      } else if (branchFdoMode == BranchFdoMode.AUTO_FDO
+          || branchFdoMode == BranchFdoMode.XBINARY_FDO) {
+        profileArtifact =
+            ruleContext.getUniqueDirectoryArtifact(
+                "fdo", fdoInputFile.getBasename(), ruleContext.getBinOrGenfilesDirectory());
+        symlinkTo(
+            ruleContext,
+            profileArtifact,
+            fdoInputFile,
+            "Symlinking FDO profile " + fdoInputFile.getBasename());
+      }
+      branchFdoProfile =
+          new FdoContext.BranchFdoProfile(branchFdoMode, profileArtifact, protoProfileArtifact);
+    }
+
     String purposePrefix = attributes.getPurposePrefix();
     String runtimeSolibDirBase = attributes.getRuntimeSolibDirBase();
     final PathFragment runtimeSolibDir =
         configuration.getBinFragment().getRelative(runtimeSolibDirBase);
 
     // Static runtime inputs.
-    TransitiveInfoCollection staticRuntimeLibDep =
-        selectDep(attributes.getStaticRuntimesLibs(), toolchainInfo.getStaticRuntimeLibsLabel());
+    TransitiveInfoCollection staticRuntimeLib = attributes.getStaticRuntimeLib();
     final NestedSet<Artifact> staticRuntimeLinkInputs;
     final Artifact staticRuntimeLinkMiddleman;
-    if (toolchainInfo.supportsEmbeddedRuntimes()) {
-      staticRuntimeLinkInputs =
-          staticRuntimeLibDep.getProvider(FileProvider.class).getFilesToBuild();
-    } else {
-      staticRuntimeLinkInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
 
-    if (!staticRuntimeLinkInputs.isEmpty()) {
-      NestedSet<Artifact> staticRuntimeLinkMiddlemanSet =
-          CompilationHelper.getAggregatingMiddleman(
-              ruleContext, purposePrefix + "static_runtime_link", staticRuntimeLibDep);
-      staticRuntimeLinkMiddleman =
-          staticRuntimeLinkMiddlemanSet.isEmpty()
-              ? null
-              : Iterables.getOnlyElement(staticRuntimeLinkMiddlemanSet);
+    if (staticRuntimeLib != null) {
+      staticRuntimeLinkInputs = staticRuntimeLib.getProvider(FileProvider.class).getFilesToBuild();
+      if (!staticRuntimeLinkInputs.isEmpty()) {
+        NestedSet<Artifact> staticRuntimeLinkMiddlemanSet =
+            CompilationHelper.getAggregatingMiddleman(
+                ruleContext, purposePrefix + "static_runtime_link", staticRuntimeLib);
+        staticRuntimeLinkMiddleman =
+            staticRuntimeLinkMiddlemanSet.isEmpty()
+                ? null
+                : Iterables.getOnlyElement(staticRuntimeLinkMiddlemanSet);
+      } else {
+        staticRuntimeLinkMiddleman = null;
+      }
+      Preconditions.checkState(
+          (staticRuntimeLinkMiddleman == null) == staticRuntimeLinkInputs.isEmpty());
     } else {
+      staticRuntimeLinkInputs = null;
       staticRuntimeLinkMiddleman = null;
     }
 
-    Preconditions.checkState(
-        (staticRuntimeLinkMiddleman == null) == staticRuntimeLinkInputs.isEmpty());
-
     // Dynamic runtime inputs.
-    TransitiveInfoCollection dynamicRuntimeLibDep =
-        selectDep(attributes.getDynamicRuntimesLibs(), toolchainInfo.getDynamicRuntimeLibsLabel());
+    TransitiveInfoCollection dynamicRuntimeLib = attributes.getDynamicRuntimeLib();
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
     List<Artifact> dynamicRuntimeLinkInputs = new ArrayList<>();
     Artifact dynamicRuntimeLinkMiddleman;
-    if (toolchainInfo.supportsEmbeddedRuntimes()) {
+    if (dynamicRuntimeLib != null) {
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact :
-          dynamicRuntimeLibDep.getProvider(FileProvider.class).getFilesToBuild()) {
+          dynamicRuntimeLib.getProvider(FileProvider.class).getFilesToBuild()) {
         if (CppHelper.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
           dynamicRuntimeLinkInputs.add(artifact);
           dynamicRuntimeLinkSymlinksBuilder.add(
@@ -498,9 +556,14 @@ public class CcToolchainProviderHelper {
                   configuration));
         }
       }
-      dynamicRuntimeLinkSymlinks = dynamicRuntimeLinkSymlinksBuilder.build();
+      if (dynamicRuntimeLinkInputs.isEmpty()) {
+        dynamicRuntimeLinkSymlinks = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      } else {
+        dynamicRuntimeLinkSymlinks = dynamicRuntimeLinkSymlinksBuilder.build();
+      }
+
     } else {
-      dynamicRuntimeLinkSymlinks = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      dynamicRuntimeLinkSymlinks = null;
     }
 
     if (!dynamicRuntimeLinkInputs.isEmpty()) {
@@ -521,10 +584,12 @@ public class CcToolchainProviderHelper {
     }
 
     Preconditions.checkState(
-        (dynamicRuntimeLinkMiddleman == null) == dynamicRuntimeLinkSymlinks.isEmpty());
+        (dynamicRuntimeLinkMiddleman == null)
+            == (dynamicRuntimeLinkSymlinks == null || dynamicRuntimeLinkSymlinks.isEmpty()));
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(ruleContext);
+        new CcCompilationContext.Builder(
+            ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     CppModuleMap moduleMap = createCrosstoolModuleMap(attributes);
     if (moduleMap != null) {
       ccCompilationContextBuilder.setCppModuleMap(moduleMap);
@@ -554,25 +619,6 @@ public class CcToolchainProviderHelper {
       coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
     }
 
-    // This tries to convert LLVM profiles to the indexed format if necessary.
-    Artifact profileArtifact = null;
-    if (fdoMode == FdoMode.LLVM_FDO) {
-      profileArtifact =
-          convertLLVMRawProfileToIndexed(attributes, fdoInputFile, toolchainInfo, ruleContext);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
-    } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO) {
-      profileArtifact =
-          ruleContext.getUniqueDirectoryArtifact(
-              "fdo", fdoInputFile.getBasename(), ruleContext.getBinOrGenfilesDirectory());
-      symlinkTo(
-          ruleContext,
-          profileArtifact,
-          fdoInputFile,
-          "Symlinking FDO profile " + fdoInputFile.getBasename());
-    }
-
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
 
     reportInvalidOptions(ruleContext, toolchainInfo);
@@ -581,17 +627,17 @@ public class CcToolchainProviderHelper {
         cppConfiguration,
         toolchainInfo,
         toolchainInfo.getToolsDirectory(),
-        attributes.getCrosstool(),
+        attributes.getAllFiles(),
         attributes.getFullInputsForCrosstool(),
-        attributes.getCompile(),
-        attributes.getCompileWithoutIncludes(),
-        attributes.getStrip(),
-        attributes.getObjcopy(),
-        attributes.getAs(),
-        attributes.getAr(),
+        attributes.getCompilerFiles(),
+        attributes.getCompilerFilesWithoutIncludes(),
+        attributes.getStripFiles(),
+        attributes.getObjcopyFiles(),
+        attributes.getAsFiles(),
+        attributes.getArFiles(),
         attributes.getFullInputsForLink(),
         attributes.getIfsoBuilder(),
-        attributes.getDwp(),
+        attributes.getDwpFiles(),
         attributes.getCoverage(),
         attributes.getLibc(),
         staticRuntimeLinkInputs,
@@ -609,18 +655,10 @@ public class CcToolchainProviderHelper {
             attributes.getAdditionalBuildVariables()),
         getBuiltinIncludes(attributes.getLibc()),
         coverageEnvironment.build(),
-        toolchainInfo.supportsInterfaceSharedObjects()
-            ? attributes.getLinkDynamicLibraryTool()
-            : null,
+        attributes.getLinkDynamicLibraryTool(),
         builtInIncludeDirectories,
         sysroot,
-        fdoMode,
-        new FdoProvider(
-            fdoMode,
-            cppConfiguration.getFdoInstrument(),
-            profileArtifact,
-            prefetchHintsArtifact,
-            protoProfileArtifact),
+        new FdoContext(branchFdoProfile, prefetchHintsArtifact),
         cppConfiguration.useLLVMCoverageMapFormat(),
         configuration.isCodeCoverageEnabled(),
         configuration.isHostConfiguration(),
@@ -664,21 +702,17 @@ public class CcToolchainProviderHelper {
       CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
       throws RuleErrorException {
 
-    if (cppConfiguration.enableCcToolchainConfigInfoFromSkylark()) {
-      // Attempt to obtain CppToolchainInfo from the 'toolchain_config' attribute of cc_toolchain.
-      CcToolchainConfigInfo configInfo = attributes.getCcToolchainConfigInfo();
+    CcToolchainConfigInfo configInfo = attributes.getCcToolchainConfigInfo();
 
-      if (configInfo != null) {
-        try {
-          return CppToolchainInfo.create(
-              ruleContext.getLabel(),
-              configInfo,
-              cppConfiguration.disableLegacyCrosstoolFields(),
-              cppConfiguration.disableCompilationModeFlags(),
-              cppConfiguration.disableLinkingModeFlags());
-        } catch (EvalException e) {
-          throw ruleContext.throwWithRuleError(e.getMessage());
-        }
+    if (configInfo != null) {
+      try {
+        return CppToolchainInfo.create(
+            ruleContext.getLabel(),
+            configInfo,
+            cppConfiguration.disableLegacyCrosstoolFields(),
+            cppConfiguration.disableGenruleCcToolchainDependency());
+      } catch (EvalException e) {
+        throw ruleContext.throwWithRuleError(e.getMessage());
       }
     }
 
@@ -699,13 +733,13 @@ public class CcToolchainProviderHelper {
       toolchain =
           CppToolchainInfo.addLegacyFeatures(
               toolchain, CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
-      CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.fromToolchain(toolchain);
+      CcToolchainConfigInfo ccToolchainConfigInfo =
+          CcToolchainConfigInfo.fromToolchain(ruleContext, toolchain);
       return CppToolchainInfo.create(
           attributes.getCcToolchainLabel(),
           ccToolchainConfigInfo,
           cppConfiguration.disableLegacyCrosstoolFields(),
-          cppConfiguration.disableCompilationModeFlags(),
-          cppConfiguration.disableLinkingModeFlags());
+          cppConfiguration.disableGenruleCcToolchainDependency());
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
     }
@@ -788,8 +822,11 @@ public class CcToolchainProviderHelper {
   private static ImmutableList<Artifact> getBuiltinIncludes(NestedSet<Artifact> libc) {
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
     for (Artifact artifact : libc) {
-      if (artifact.getExecPath().endsWith(BUILTIN_INCLUDE_FILE_SUFFIX)) {
-        result.add(artifact);
+      for (PathFragment suffix : BUILTIN_INCLUDE_FILE_SUFFIXES) {
+        if (artifact.getExecPath().endsWith(suffix)) {
+          result.add(artifact);
+          break;
+        }
       }
     }
 
@@ -809,6 +846,9 @@ public class CcToolchainProviderHelper {
 
   static TransitiveInfoCollection selectDep(
       ImmutableList<? extends TransitiveInfoCollection> deps, Label label) {
+    if (deps.isEmpty()) {
+      return null;
+    }
     for (TransitiveInfoCollection dep : deps) {
       if (dep.getLabel().equals(label)) {
         return dep;

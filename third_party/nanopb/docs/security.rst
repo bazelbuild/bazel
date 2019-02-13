@@ -38,8 +38,11 @@ these will cause "garbage in, garbage out" behaviour. It will not cause
 buffer overflows, information disclosure or other security problems:
 
 1. All data read from *pb_istream_t*.
-2. All fields in message structures, except callbacks, pointers and extensions.
-   (Beginning with nanopb-0.2.4, in earlier versions the field sizes are partially unchecked.)
+2. All fields in message structures, except:
+   
+   - callbacks (*pb_callback_t* structures)
+   - pointer fields (malloc support) and *_count* fields for pointers
+   - extensions (*pb_extension_t* structures)
 
 Invariants
 ==========

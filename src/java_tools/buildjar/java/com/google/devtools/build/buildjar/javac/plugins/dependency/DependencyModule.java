@@ -125,7 +125,8 @@ public final class DependencyModule {
    * <p>We collect precise dependency information to allow Blaze to analyze both strict and unused
    * dependencies, as well as packages contained by the output jar.
    */
-  public void emitDependencyInformation(ImmutableList<Path> classpath, boolean successful)
+  public void emitDependencyInformation(
+      ImmutableList<Path> classpath, boolean successful, boolean requiresFallback)
       throws IOException {
     if (outputDepsProtoFile == null) {
       return;
@@ -133,19 +134,23 @@ public final class DependencyModule {
 
     try (BufferedOutputStream out =
         new BufferedOutputStream(Files.newOutputStream(outputDepsProtoFile))) {
-      buildDependenciesProto(classpath, successful).writeTo(out);
+      buildDependenciesProto(classpath, successful, requiresFallback).writeTo(out);
     } catch (IOException ex) {
       throw new IOException("Cannot write dependencies to " + outputDepsProtoFile, ex);
     }
   }
 
   @VisibleForTesting
-  Dependencies buildDependenciesProto(ImmutableList<Path> classpath, boolean successful) {
+  Dependencies buildDependenciesProto(
+      ImmutableList<Path> classpath, boolean successful, boolean requiresFallback) {
     Dependencies.Builder deps = Dependencies.newBuilder();
     if (targetLabel != null) {
       deps.setRuleLabel(targetLabel);
     }
     deps.setSuccess(successful);
+    if (requiresFallback) {
+      deps.setRequiresReducedClasspathFallback(true);
+    }
 
     deps.addAllContainedPackage(
         packages
@@ -210,8 +215,8 @@ public final class DependencyModule {
     return outputDepsProtoFile;
   }
 
-  @VisibleForTesting
-  Set<Path> getUsedClasspath() {
+  /** Returns the classpath that was actually used during the compilation. */
+  public Set<Path> getUsedClasspath() {
     return usedClasspath;
   }
 

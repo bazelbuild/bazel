@@ -254,9 +254,11 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
+    public Set<SkyKey> setValue(
+        SkyValue value, Version version, DepFingerprintList depFingerprintList)
+        throws InterruptedException {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      Set<SkyKey> result = super.setValue(value, version);
+      Set<SkyKey> result = super.setValue(value, version, depFingerprintList);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
       return result;
     }

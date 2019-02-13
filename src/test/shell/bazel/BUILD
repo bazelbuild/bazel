@@ -7,6 +7,7 @@ filegroup(
         "//src/test/shell/bazel/apple:srcs",
         "//src/test/shell/bazel/remote:srcs",
         "//src/test/shell/bazel/testdata:srcs",
+        "//tools/aquery_differ:srcs",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )
@@ -23,17 +24,29 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
+        ":test-deps-wo-bazel",
+        "//src:bazel",
+        "//src/test/shell:bin/bazel",
+    ],
+    visibility = [
+        "//src/test/shell:__subpackages__",
+        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:__pkg__",
+    ],
+)
+
+filegroup(
+    name = "test-deps-wo-bazel",
+    testonly = 1,
+    srcs = [
         "remote_helpers.sh",
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
-        "//src:bazel",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
-        "//src/test/shell:bin/bazel",
         "//src/test/shell:integration_test_setup.sh",
         "//src/test/shell:testenv.sh",
         "//src/tools/singlejar",
@@ -46,7 +59,6 @@ filegroup(
     ],
     visibility = [
         "//src/test/shell:__subpackages__",
-        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:__pkg__",
     ],
 )
 
@@ -63,22 +75,12 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_enable_disable_tools_defaults_flag_test",
-    size = "large",
-    srcs = ["bazel_enable_disable_tools_defaults_flag_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell:shell_utils.sh",
-    ],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "bazel_windows_example_test",
     size = "large",
     srcs = ["bazel_windows_example_test.sh"],
     data = [
         ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -283,8 +285,8 @@ sh_test(
 
 genquery(
     name = "embedded_tools_deps",
-    expression = "kind(\"cc_(binary|library)\", deps(//src:embedded_tools_srcs))",
-    scope = ["//src:embedded_tools_srcs"],
+    expression = "kind(\"cc_(binary|library)\", deps(//src:embedded_tools_jdk_allmodules_srcs))",
+    scope = ["//src:embedded_tools_jdk_allmodules_srcs"],
 )
 
 sh_test(
@@ -339,7 +341,10 @@ sh_test(
     name = "external_path_test",
     size = "medium",
     srcs = ["external_path_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     shard_count = 6,
     tags = ["no_windows"],
 )
@@ -403,7 +408,10 @@ sh_test(
     name = "skylark_repository_test",
     size = "large",
     srcs = ["skylark_repository_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     shard_count = 6,
     tags = ["no_windows"],
 )
@@ -472,6 +480,20 @@ sh_test(
 )
 
 sh_test(
+    name = "python_version_test",
+    size = "medium",
+    srcs = ["python_version_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        # Disabled on windows and mac; see TODOs in the test suite.
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "workspace_test",
     size = "large",
     srcs = ["workspace_test.sh"],
@@ -503,8 +525,11 @@ sh_test(
         ":jdk_WORKSPACE",
         ":test-deps",
     ],
-    shard_count = 18,
-    tags = ["no_windows"],
+    shard_count = 20,
+    tags = [
+        "block-network",
+        "no_windows",
+    ],
 )
 
 sh_test(
@@ -538,7 +563,6 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils.sh",
-        "@mount_path_toolchain//file",
     ],
     tags = [
         "local",
@@ -599,6 +623,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src:bazel",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["no_windows"],
 )
@@ -617,13 +642,15 @@ sh_test(
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = [
         "$(location //:bazel-distfile)",
-        "$(location //src:embedded_jdk)",
+        "$(location //src:embedded_jdk_allmodules_cached)",
     ],
     data = [
         ":test-deps",
         "//:bazel-distfile",
-        "//src:embedded_jdk",
+        "//src:embedded_jdk_allmodules_cached",
+        "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["block-network"],
 )
 
 sh_test(
@@ -736,4 +763,39 @@ sh_test(
         "//src/tools/workspacelog:parser",
     ],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "jdeps_test",
+    size = "medium",
+    srcs = ["jdeps_test.sh"],
+    data = [
+        ":jdeps_class_blacklist.txt",
+        ":test-deps",
+        "//src:embedded_jdk_allmodules",
+        "//src:jdeps_modules.golden",
+        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "cc_flags_supplier_test",
+    size = "small",
+    srcs = ["cc_flags_supplier_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "generate_xml_test",
+    srcs = ["generate_xml_test.sh"],
+    data = [
+        "//src/test/shell:bashunit",
+        "//tools/test:test_xml_generator",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )

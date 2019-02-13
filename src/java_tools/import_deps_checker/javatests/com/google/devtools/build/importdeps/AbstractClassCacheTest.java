@@ -38,14 +38,12 @@ public abstract class AbstractClassCacheTest {
 
   final Path libraryJar = getPathFromSystemProperty("classcache.test.Library");
   final ImmutableList<String> libraryJarPositives =
-      ImmutableList.<String>builder()
-          .add("Library")
+      ImmutableList.<String>builder().add("Library")
           .addAll(
-              IntStream.range(1, 12)
+              IntStream.range(1, 13)
                   .mapToObj(i -> "Library$Class" + i)
                   .collect(ImmutableList.toImmutableList()))
-          .build()
-          .stream()
+          .build().stream()
           .map(s -> PACKAGE_NAME + s)
           .collect(ImmutableList.toImmutableList());
 

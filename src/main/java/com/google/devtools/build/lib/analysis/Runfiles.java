@@ -24,7 +24,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -554,7 +554,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     private PathFragment getExternalPath(PathFragment path) {
-      return checkForWorkspace(path.relativeTo(Label.EXTERNAL_PACKAGE_NAME));
+      return checkForWorkspace(path.relativeTo(LabelConstants.EXTERNAL_PACKAGE_NAME));
     }
 
     private PathFragment checkForWorkspace(PathFragment path) {
@@ -564,7 +564,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     private static boolean isUnderWorkspace(PathFragment path) {
-      return !path.startsWith(Label.EXTERNAL_PACKAGE_NAME);
+      return !path.startsWith(LabelConstants.EXTERNAL_PACKAGE_NAME);
     }
   }
 
@@ -1115,7 +1115,8 @@ public final class Runfiles implements RunfilesApi {
       }
       // The suffix should be the same within any blaze build, except for the EMPTY runfiles, which
       // may have an empty suffix, but that is covered above.
-      Preconditions.checkArgument(suffix.equals(runfiles.suffix));
+      Preconditions.checkArgument(
+          suffix.equals(runfiles.suffix), "%s != %s", suffix, runfiles.suffix);
       if (includeUnconditionalArtifacts) {
         artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
       }
@@ -1164,10 +1165,16 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public Runfiles merge(RunfilesApi other) {
-    Runfiles.Builder builder = new Runfiles.Builder(suffix, false);
-    builder.merge(this);
-    builder.merge((Runfiles) other);
-    return builder.build();
+    Runfiles o = (Runfiles) other;
+    if (isEmpty()) {
+      // This is not just a memory / performance optimization. The Builder requires a valid suffix,
+      // but the {@code Runfiles.EMPTY} singleton has an invalid one, which must not be used to
+      // construct a Runfiles.Builder.
+      return o;
+    } else if (o.isEmpty()) {
+      return this;
+    }
+    return new Runfiles.Builder(suffix, false).merge(this).merge(o).build();
   }
 
   /**

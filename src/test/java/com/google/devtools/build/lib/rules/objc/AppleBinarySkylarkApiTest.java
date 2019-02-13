@@ -52,7 +52,8 @@ public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
   @Before
   public final void setup() throws Exception  {
     scratch.file("test_skylark/BUILD");
-    String toolsLoc = TestConstants.TOOLS_REPOSITORY + "//tools/objc";
+    String toolsRepo = TestConstants.TOOLS_REPOSITORY;
+    String toolsLoc = toolsRepo + "//tools/objc";
 
     scratch.file(
         "test_skylark/apple_binary_skylark.bzl",
@@ -68,11 +69,9 @@ public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
         "    attrs = {",
         "        '_child_configuration_dummy': attr.label(",
         "            cfg=apple_common.multi_arch_split,",
-        "            default=configuration_field(",
-        "                fragment='cpp', name='cc_toolchain'),),",
+        "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
         "        '_cc_toolchain': attr.label(",
-        "            default=configuration_field(",
-        "                fragment='cpp', name='cc_toolchain'),),",
+        "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
         "        '_googlemac_proto_compiler': attr.label(",
         "            cfg='host',",
         "            default=Label('" + toolsLoc + ":protobuf_compiler_wrapper')),",

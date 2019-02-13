@@ -15,6 +15,7 @@
 package com.google.devtools.build.buildjar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.buildjar.OptionsParser.ReduceClasspathMode;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
@@ -45,7 +46,8 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     // Minimize classpath, but only if we're actually compiling some sources (some invocations of
     // JavaBuilder are only building resource jars).
     ImmutableList<Path> compressedClasspath = build.getClassPath();
-    if (!build.getSourceFiles().isEmpty()) {
+    if (!build.getSourceFiles().isEmpty()
+        && build.reduceClasspathMode() == ReduceClasspathMode.JAVABUILDER_REDUCED) {
       compressedClasspath =
           build.getDependencyModule().computeStrictClasspath(build.getClassPath());
     }
@@ -58,19 +60,39 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     // TODO(b/119712048): check performance impact of additional retries.
     boolean fallback = shouldFallBack(result);
     if (fallback) {
-      result = fallback(build, javacRunner);
+      if (build.reduceClasspathMode() == ReduceClasspathMode.BAZEL_REDUCED) {
+        return BlazeJavacResult.fallback();
+      }
+      if (build.reduceClasspathMode() == ReduceClasspathMode.JAVABUILDER_REDUCED) {
+        result = fallback(build, javacRunner);
+      }
     }
 
     BlazeJavacStatistics.Builder stats =
         result
             .statistics()
             .toBuilder()
-            .transitiveClasspathLength(build.getClassPath().size())
-            .reducedClasspathLength(compressedClasspath.size())
-            .transitiveClasspathFallback(fallback);
+            .minClasspathLength(build.getDependencyModule().getUsedClasspath().size());
     build.getProcessors().stream()
         .map(p -> p.substring(p.lastIndexOf('.') + 1))
         .forEachOrdered(stats::addProcessor);
+
+    switch (build.reduceClasspathMode()) {
+      case BAZEL_REDUCED:
+      case BAZEL_FALLBACK:
+        stats.transitiveClasspathLength(build.fullClasspathLength());
+        stats.reducedClasspathLength(build.reducedClasspathLength());
+        stats.transitiveClasspathFallback(
+            build.reduceClasspathMode() == ReduceClasspathMode.BAZEL_FALLBACK);
+        break;
+      case JAVABUILDER_REDUCED:
+        stats.transitiveClasspathLength(build.getClassPath().size());
+        stats.reducedClasspathLength(compressedClasspath.size());
+        stats.transitiveClasspathFallback(fallback);
+        break;
+      default:
+        throw new AssertionError(build.reduceClasspathMode());
+    }
     return result.withStatistics(stats.build());
   }
 

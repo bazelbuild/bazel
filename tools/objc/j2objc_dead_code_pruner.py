@@ -399,8 +399,12 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
     j2objc_cmd = 'cp %s %s' % (pipes.quote(input_archive),
                                pipes.quote(output_archive))
 
-  subprocess.check_output(
-      j2objc_cmd, stderr=subprocess.STDOUT, shell=True, env=cmd_env)
+  try:
+    subprocess.check_output(
+        j2objc_cmd, stderr=subprocess.STDOUT, shell=True, env=cmd_env)
+  except OSError as e:
+    raise Exception(
+        'executing command failed: %s (%s)' % (j2objc_cmd, e.strerror))
 
   # "Touch" the output file.
   # Prevents a pre-Xcode-8 bug in which passing zero-date archive files to ld

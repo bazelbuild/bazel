@@ -16,25 +16,43 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import javax.annotation.Nullable;
 
 /** Information about the C++ toolchain. */
 @SkylarkModule(name = "CcToolchainInfo", doc = "Information about the C++ compiler being used.")
-public interface CcToolchainProviderApi extends ToolchainInfoApi {
+public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureConfigurationApi>
+    extends ToolchainInfoApi {
 
   @SkylarkCallable(
       name = "use_pic_for_dynamic_libraries",
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_FEATURE_CONFIGURATION_FOR_PIC,
+      doc =
+          "Deprecated (see https://github.com/bazelbuild/bazel/issues/7007)."
+              + ""
+              + "<p>Returns true if this rule's compilations should apply -fPIC, false otherwise. "
+              + "Determines if we should apply -fPIC for this rule's C++ compilations.",
+      structField = true)
+  boolean usePicForDynamicLibrariesUsingLegacyFields();
+
+  @SkylarkCallable(
+      name = "needs_pic_for_dynamic_libraries",
       doc =
           "Returns true if this rule's compilations should apply -fPIC, false otherwise. "
-              + "Determines if we should apply -fPIC for this rule's C++ compilations. This "
-              + "determination is generally made by the global C++ configuration settings "
-              + "<code>needsPic</code> and <code>usePicForBinaries</code>. However, an individual "
-              + "rule may override these settings by applying <code>-fPIC</code> to its "
-              + "<code>nocopts</code> attribute. This allows incompatible rules to opt out of "
-              + "global PIC settings.",
-      structField = true)
-  boolean usePicForDynamicLibraries();
+              + "Determines if we should apply -fPIC for this rule's C++ compilations depending "
+              + "on the C++ toolchain and presence of `--force_pic` Bazel option.",
+      parameters = {
+        @Param(
+            name = "feature_configuration",
+            doc = "Feature configuration to be queried.",
+            positional = false,
+            named = true,
+            type = FeatureConfigurationApi.class)
+      })
+  boolean usePicForDynamicLibraries(FeatureConfigurationT featureConfigurationApi);
 
   @SkylarkCallable(
       name = "built_in_include_directories",
@@ -45,10 +63,12 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
   @SkylarkCallable(
       name = "sysroot",
       structField = true,
+      allowReturnNones = true,
       doc =
           "Returns the sysroot to be used. If the toolchain compiler does not support "
               + "different sysroots, or the sysroot is the same as the default sysroot, then "
               + "this method returns <code>None</code>.")
+  @Nullable
   public String getSysroot();
 
   @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.",

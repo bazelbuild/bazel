@@ -20,11 +20,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -53,10 +54,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
-import com.google.devtools.build.lib.rules.cpp.CcModule.NonCcDepInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -107,17 +107,6 @@ public class CppHelper {
 
   public static TransitiveInfoCollection mallocForTarget(RuleContext ruleContext) {
     return mallocForTarget(ruleContext, "malloc");
-  }
-
-  /**
-   * Returns true if this target should obtain c++ make variables from the toolchain instead of from
-   * the configuration.
-   */
-  public static boolean shouldUseToolchainForMakeVariables(RuleContext ruleContext) {
-    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    return ruleContext
-        .getFragment(PlatformConfiguration.class)
-        .isToolchainTypeEnabled(toolchainType);
   }
 
   /**
@@ -258,7 +247,7 @@ public class CppHelper {
   public static NestedSet<Artifact> getGcovFilesIfNeeded(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return toolchain.getCoverage();
+      return toolchain.getCoverageFiles();
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -284,7 +273,7 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     if (defaultToolchain == null) {
@@ -292,7 +281,7 @@ public class CppHelper {
     }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
-    return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
+    return defaultToolchain.getDynamicRuntimeLinkInputs(ruleContext, featureConfiguration);
   }
 
   /**
@@ -300,7 +289,7 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     if (defaultToolchain == null) {
@@ -308,7 +297,7 @@ public class CppHelper {
     }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
-    return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
+    return defaultToolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration);
   }
 
   /**
@@ -349,10 +338,7 @@ public class CppHelper {
       RuleContext ruleContext, TransitiveInfoCollection dep) {
 
     Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    if (toolchainType != null
-        && ruleContext
-            .getFragment(PlatformConfiguration.class)
-            .isToolchainTypeEnabled(toolchainType)) {
+    if (toolchainType != null && useToolchainResolution(ruleContext)) {
       return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
     }
     return getToolchainFromCrosstoolTop(ruleContext, dep);
@@ -402,11 +388,10 @@ public class CppHelper {
             // Cannot add libraries directly because the nested set has link order.
             NestedSet<Artifact> dynamicLibrariesForRuntime =
                 NestedSetBuilder.<Artifact>stableOrder()
-                    .addTransitive(
+                    .addAll(
                         provider
-                            .getCcLinkingInfo()
-                            .getDynamicModeParamsForExecutable()
-                            .getDynamicLibrariesForRuntime())
+                            .getCcLinkingContext()
+                            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false))
                     .build();
             return new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addTransitiveArtifacts(dynamicLibrariesForRuntime)
@@ -423,11 +408,10 @@ public class CppHelper {
             // Cannot add libraries directly because the nested set has link order.
             NestedSet<Artifact> dynamicLibrariesForRuntime =
                 NestedSetBuilder.<Artifact>stableOrder()
-                    .addTransitive(
+                    .addAll(
                         provider
-                            .getCcLinkingInfo()
-                            .getStaticModeParamsForExecutable()
-                            .getDynamicLibrariesForRuntime())
+                            .getCcLinkingContext()
+                            .getDynamicLibrariesForRuntime(/* linkingStatically= */ true))
                     .build();
             return new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addTransitiveArtifacts(dynamicLibrariesForRuntime)
@@ -482,11 +466,12 @@ public class CppHelper {
   }
 
   public static Artifact getLinuxLinkedArtifact(
-      RuleContext ruleContext,
+      Label label,
+      ActionConstructionContext actionConstructionContext,
       BuildConfiguration config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
-    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
+    PathFragment name = PathFragment.create(label.getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
       name = name.replaceName(
           "lib" + name.getBaseName()
@@ -495,29 +480,24 @@ public class CppHelper {
               + linkType.getDefaultExtension());
     }
 
-    return ruleContext.getPackageRelativeArtifact(
-        name, config.getBinDirectory(ruleContext.getRule().getRepository()));
+    return actionConstructionContext.getPackageRelativeArtifact(
+        name, config.getBinDirectory(label.getPackageIdentifier().getRepository()));
   }
 
   /**
    * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
    * CcCompilationContext}s.
    */
-  public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
-    LinkedHashMap<Artifact, ArrayList<Label>> dupeMap = new LinkedHashMap<>();
-    for (Linkstamp linkstamp : linkParams.getLinkstamps()) {
-      ArrayList<Label> value =
-          dupeMap.computeIfAbsent(linkstamp.getArtifact(), (Artifact k) -> new ArrayList<>());
-      value.add(linkstamp.actionLookupKey().getLabel());
-    }
-    for (Map.Entry<Artifact, ArrayList<Label>> entry : dupeMap.entrySet()) {
-      if (entry.getValue().size() > 1) {
-        listener.ruleWarning(
-            "rule inherits the '"
-                + entry.getKey().toDetailString()
-                + "' linkstamp file from more than one target: "
-                + Joiner.on(",").join(entry.getValue()));
+  public static void checkLinkstampsUnique(
+      RuleErrorConsumer listener, Iterable<Linkstamp> linkstamps) {
+    Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
+    for (Linkstamp pair : linkstamps) {
+      Artifact artifact = pair.getArtifact();
+      if (result.containsKey(artifact)) {
+        listener.ruleWarning("rule inherits the '" + artifact.toDetailString()
+            + "' linkstamp file from more than one cc_library rule");
       }
+      result.put(artifact, pair.getDeclaredIncludeSrcs());
     }
   }
 
@@ -525,30 +505,38 @@ public class CppHelper {
   // CcCommonConfiguredTarget.noCoptsMatches().
 
   /** Returns whether binaries must be compiled with position independent code. */
-  public static boolean usePicForBinaries(RuleContext ruleContext, CcToolchainProvider toolchain) {
-    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
-    if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
+  public static boolean usePicForBinaries(
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    // TODO(b/124030770): Please do not use this feature without contacting the C++ rules team at
+    // bazel-team@google.com. The feature will be removed in a later Bazel release and it might
+    // break you. Contact us so we can find alternatives for your build.
+    if (featureConfiguration.getRequestedFeatures().contains("coptnopic")) {
       return false;
     }
-    return config.forcePic()
-        || (toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT);
+    return toolchain.getCppConfiguration().forcePic()
+        || (toolchain.usePicForDynamicLibraries(featureConfiguration)
+            && toolchain.getCppConfiguration().getCompilationMode() != CompilationMode.OPT);
   }
 
   /**
    * Creates a CppModuleMap object for pure c++ builds. The module map artifact becomes a candidate
    * input to a CppCompileAction.
    */
-  public static CppModuleMap createDefaultCppModuleMap(RuleContext ruleContext, String suffix) {
+  public static CppModuleMap createDefaultCppModuleMap(
+      ActionConstructionContext actionConstructionContext,
+      BuildConfiguration configuration,
+      Label label,
+      String suffix) {
     // Create the module map artifact as a genfile.
     Artifact mapFile =
-        ruleContext.getPackageRelativeArtifact(
-            ruleContext.getLabel().getName()
-                + suffix
-                + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions()),
-            ruleContext
-                .getConfiguration()
-                .getGenfilesDirectory(ruleContext.getRule().getRepository()));
-    return new CppModuleMap(mapFile, ruleContext.getLabel().toString());
+        actionConstructionContext.getPackageRelativeArtifact(
+            PathFragment.create(
+                label.getName()
+                    + suffix
+                    + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions())),
+            configuration.getGenfilesDirectory(label.getPackageIdentifier().getRepository()));
+    return new CppModuleMap(mapFile, label.toString());
   }
 
   /**
@@ -639,13 +627,18 @@ public class CppHelper {
 
   /** Returns the FDO build subtype. */
   public static String getFdoBuildStamp(
-      RuleContext ruleContext, FdoProvider fdoProvider, FeatureConfiguration featureConfiguration) {
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (fdoProvider.getFdoMode() == FdoMode.AUTO_FDO) {
-      return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
-    }
-    if (fdoProvider.getFdoMode() == FdoMode.XBINARY_FDO) {
-      return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
+      CppConfiguration cppConfiguration,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration) {
+    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
+    if (branchFdoProfile != null) {
+
+      if (branchFdoProfile.isAutoFdo()) {
+        return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
+      }
+      if (branchFdoProfile.isAutoXBinaryFdo()) {
+        return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
+      }
     }
     if (cppConfiguration.isFdo()) {
       return "FDO";
@@ -693,7 +686,7 @@ public class CppHelper {
     Action[] stripAction =
         new SpawnAction.Builder()
             .addInput(input)
-            .addTransitiveInputs(toolchain.getStrip())
+            .addTransitiveInputs(toolchain.getStripFiles())
             .addOutput(output)
             .useDefaultShellEnvironment()
             .setExecutable(
@@ -714,24 +707,30 @@ public class CppHelper {
     }
   }
 
-  static Artifact getCompileOutputArtifact(RuleContext ruleContext, String outputName,
+  static Artifact getCompileOutputArtifact(
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      String outputName,
       BuildConfiguration config) {
-    PathFragment objectDir = getObjDirectory(ruleContext.getLabel());
-    return ruleContext.getDerivedArtifact(objectDir.getRelative(outputName),
-        config.getBinDirectory(ruleContext.getRule().getRepository()));
+    PathFragment objectDir = getObjDirectory(label);
+    return actionConstructionContext.getDerivedArtifact(
+        objectDir.getRelative(outputName),
+        config.getBinDirectory(label.getPackageIdentifier().getRepository()));
   }
 
   /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
   public static SpecialArtifact getCompileOutputTreeArtifact(
-      RuleContext ruleContext, Artifact sourceTreeArtifact, String outputName, boolean usePic) {
-    PathFragment objectDir = getObjDirectory(ruleContext.getLabel(), usePic);
-
-    return ruleContext.getTreeArtifact(
-        objectDir.getRelative(outputName), sourceTreeArtifact.getRoot());
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      Artifact sourceTreeArtifact,
+      String outputName,
+      boolean usePic) {
+    return actionConstructionContext.getTreeArtifact(
+        getObjDirectory(label, usePic).getRelative(outputName), sourceTreeArtifact.getRoot());
   }
 
   public static String getArtifactNameForCategory(
-      RuleContext ruleContext,
+      RuleErrorConsumer ruleErrorConsumer,
       CcToolchainProvider toolchain,
       ArtifactCategory category,
       String outputName)
@@ -739,24 +738,25 @@ public class CppHelper {
     try {
       return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
     } catch (EvalException e) {
-      ruleContext.throwWithRuleError(e.getMessage());
+      ruleErrorConsumer.throwWithRuleError(e.getMessage());
       throw new IllegalStateException("Should not be reached");
     }
   }
 
   static String getDotdFileName(
-      RuleContext ruleContext,
+      RuleErrorConsumer ruleErrorConsumer,
       CcToolchainProvider toolchain,
       ArtifactCategory outputCategory,
       String outputName)
       throws RuleErrorException {
-    String baseName = outputCategory == ArtifactCategory.OBJECT_FILE
-        || outputCategory == ArtifactCategory.PROCESSED_HEADER
-        ? outputName
-        : getArtifactNameForCategory(ruleContext, toolchain, outputCategory, outputName);
+    String baseName =
+        outputCategory == ArtifactCategory.OBJECT_FILE
+                || outputCategory == ArtifactCategory.PROCESSED_HEADER
+            ? outputName
+            : getArtifactNameForCategory(ruleErrorConsumer, toolchain, outputCategory, outputName);
 
     return getArtifactNameForCategory(
-        ruleContext, toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+        ruleErrorConsumer, toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
   }
 
   /**
@@ -817,33 +817,41 @@ public class CppHelper {
    * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib
    * ld options.
    */
-  public static boolean useStartEndLib(CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib();
+  public static boolean useStartEndLib(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib(featureConfiguration);
   }
 
   /**
    * Returns the type of archives being used by the build implied by the given config and toolchain.
    */
   public static Link.ArchiveType getArchiveType(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return useStartEndLib(config, toolchain)
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return useStartEndLib(config, toolchain, featureConfiguration)
         ? Link.ArchiveType.START_END_LIB
         : Link.ArchiveType.REGULAR;
   }
 
   /**
    * Returns true if interface shared objects should be used in the build implied by the given
-   * config and toolchain.
+   * cppConfiguration and toolchain.
    */
-  public static boolean useInterfaceSharedObjects(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return toolchain.supportsInterfaceSharedObjects() && config.getUseInterfaceSharedObjects();
+  public static boolean useInterfaceSharedLibraries(
+      CppConfiguration cppConfiguration,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return toolchain.supportsInterfaceSharedLibraries(featureConfiguration)
+        && cppConfiguration.getUseInterfaceSharedLibraries();
   }
 
   public static CcNativeLibraryProvider collectNativeCcLibraries(
-      List<? extends TransitiveInfoCollection> deps, CcLinkingOutputs ccLinkingOutputs) {
-    NestedSetBuilder<LinkerInput> result = NestedSetBuilder.linkOrder();
-    result.addAll(ccLinkingOutputs.getDynamicLibrariesForLinking());
+      List<? extends TransitiveInfoCollection> deps, List<LibraryToLink> libraries) {
+    NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.linkOrder();
+    result.addAll(libraries);
     for (CcNativeLibraryProvider dep :
         AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.class)) {
       result.addTransitive(dep.getTransitiveCcNativeLibraries());
@@ -851,28 +859,49 @@ public class CppHelper {
     return new CcNativeLibraryProvider(result.build());
   }
 
-  public static void checkProtoLibrariesInDeps(RuleContext ruleContext,
-      Iterable<TransitiveInfoCollection> deps) {
+  public static void checkProtoLibrariesInDeps(
+      RuleErrorConsumer ruleErrorConsumer, Iterable<TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
-      if (dep.getProvider(ProtoInfo.class) != null && dep.get(CcInfo.PROVIDER) == null) {
-        ruleContext.attributeError("deps",
+      if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
+        ruleErrorConsumer.attributeError(
+            "deps",
             String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
       }
     }
   }
 
-  /**
-   * TODO(b/77669139): Wrap C++ providers for rules that shouldn't be in deps.
-   *
-   * @param ruleContext
-   */
-  public static void checkAllowedDeps(RuleContext ruleContext) {
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-      if (dep.get(CcInfo.PROVIDER) != null && dep.get(NonCcDepInfo.PROVIDER) != null) {
-        ruleContext.attributeError(
-            "deps",
-            String.format("%s misplaced here as a dependency of a C++ rule", dep.getLabel()));
-      }
+  static boolean useToolchainResolution(RuleContext ruleContext) {
+    CppOptions cppOptions =
+        Preconditions.checkNotNull(
+            ruleContext.getConfiguration().getOptions().get(CppOptions.class));
+
+    if (cppOptions.enableCcToolchainResolution) {
+      return true;
     }
+
+    // TODO(https://github.com/bazelbuild/bazel/issues/7260): Remove this and the flag.
+    PlatformConfiguration platformConfig =
+        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
+    return platformConfig.isToolchainTypeEnabled(getToolchainTypeFromRuleClass(ruleContext));
+  }
+
+  public static ImmutableList<CcCompilationContext> getCompilationContextsFromDeps(
+      List<TransitiveInfoCollection> deps) {
+    return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+        .map(CcInfo::getCcCompilationContext)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  public static ImmutableList<CcLinkingContext> getLinkingContextsFromDeps(
+      ImmutableList<TransitiveInfoCollection> deps) {
+    return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+        .map(CcInfo::getCcLinkingContext)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  public static Artifact getGrepIncludes(RuleContext ruleContext) {
+    return ruleContext.attributes().has("$grep_includes")
+        ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
+        : null;
   }
 }

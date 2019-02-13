@@ -126,7 +126,7 @@ public class JavacTurbine implements AutoCloseable {
       emitClassJar(
           turbineOptions, /* files= */ ImmutableMap.of(), /* transitive= */ ImmutableMap.of());
       dependencyModule.emitDependencyInformation(
-          /*classpath=*/ ImmutableList.of(), /*successful=*/ true);
+          /*classpath=*/ ImmutableList.of(), /*successful=*/ true, /*requiresFallback=*/ false);
       return Result.OK_WITH_REDUCED_CLASSPATH;
     }
 
@@ -170,7 +170,8 @@ public class JavacTurbine implements AutoCloseable {
     if (result.ok()) {
       emitClassJar(
           turbineOptions, compileResult.files(), transitive.collectTransitiveDependencies());
-      dependencyModule.emitDependencyInformation(actualClasspath, compileResult.success());
+      dependencyModule.emitDependencyInformation(
+          actualClasspath, compileResult.success(), /*requiresFallback=*/ false);
     } else {
       for (FormattedDiagnostic diagnostic : compileResult.diagnostics()) {
         out.println(diagnostic.message());

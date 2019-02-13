@@ -130,9 +130,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
-            .build(ruleClassProvider);
+            .build(ruleClassProvider, fileSystem);
     AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory =
-        new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
+        new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             pkgFactory,
@@ -172,8 +172,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         Options.getDefaults(SkylarkSemanticsOptions.class),
-        ruleClassProvider.getDefaultsPackageContent(
-            analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -214,8 +212,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(
         parser.getOptions(TestOptions.class).multiCpus);
 
-    skyframeExecutor.handleDiffs(reporter);
-    skyframeExecutor.setConfigurationFragmentFactories(configurationFragmentFactories);
+    skyframeExecutor.handleDiffsForTesting(reporter);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
         reporter, BuildOptions.of(buildOptionClasses, parser), multiCpu, false);
     return collection;

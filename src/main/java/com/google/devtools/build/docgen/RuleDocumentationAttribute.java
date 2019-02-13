@@ -173,12 +173,12 @@ public class RuleDocumentationAttribute
       return "";
     }
     String prefix = "; default is ";
-    Object value = attribute.getDefaultValueForTesting();
+    Object value = attribute.getDefaultValueUnchecked();
     if (value instanceof Boolean) {
-      return prefix + ((Boolean) value ? "1" : "0");
+      return prefix + ((Boolean) value ? "True" : "False");
     } else if (value instanceof Integer) {
       return prefix + String.valueOf(value);
-    } else if (value instanceof String && !(((String) value).isEmpty())) {
+    } else if (value instanceof String && !((String) value).isEmpty()) {
       return prefix + "\"" + value + "\"";
     } else if (value instanceof TriState) {
       switch((TriState) value) {

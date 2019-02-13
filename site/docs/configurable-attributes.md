@@ -14,13 +14,16 @@ title: Configurable Build Attributes
 * [Short Keys](#short-keys)
 * [Multiple Selects](#multiple-selects)
 * [OR Chaining](#or-chaining)
+  * [selects.with_or](#selects-with-or)
+  * [config_setting Aliasing](#config-setting-aliasing)
 * [Custom Error Messages](#custom-error-messages)
 * [Rules Compatibility](#rules)
 * [Bazel Query and Cquery](#query)
 * [FAQ](#faq)
-  * [Why doesn't select() work in macros](#macros-select)
+  * [Why doesn't select() work in macros?](#macros-select)
   * [Why does select() always return true?](#boolean-select)
   * [Can I read select() like a dict?](#inspectable-select)
+  * [Why doesn't select() work with bind()?](#bind-select)
 
 &nbsp;
 
@@ -74,7 +77,7 @@ command line. Specficially, `deps` becomes:
     <td><code>[":arm_lib"]</code></td>
   </tr>
   <tr>
-    <td><code>bazel build //myapp:mybinary --c dbg --cpu=x86</code></td>
+    <td><code>bazel build //myapp:mybinary -c dbg --cpu=x86</code></td>
     <td><code>[":x86_dev_lib"]</code></td>
   </tr>
   <tr>
@@ -319,9 +322,8 @@ Without platforms, this might look something like
 bazel build //my_app:my_rocks --define color=white --define texture=smooth --define type=metamorphic
 ```
 
-Platforms are still under development. See the [documentation](
-https://docs.bazel.build/versions/master/platforms.html) and
-[roadmap](https://bazel.build/roadmaps/platforms.html) for details.
+Platforms are still under development. See the [documentation](platforms.html)
+and [roadmap](https://bazel.build/roadmaps/platforms.html) for details.
 
 ## Short Keys
 
@@ -506,8 +508,13 @@ This makes it easier to manage the dependency. But it still adds unnecessary
 duplication.
 
 `select()` doesn't support native syntax for `OR`ed conditions. For this, use
-the [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`](
-https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl).
+one of the following:
+
+### <a name="selects-with-or"></a>`selects.with_or`
+
+The [Skylib](https://github.com/bazelbuild/bazel-skylib) utility
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl)
+defines a Starlark macro that emulates `OR` behavior:
 
 ```python
 load("@bazel_skylib//:lib.bzl", "selects")
@@ -525,6 +532,47 @@ sh_binary(
 ```
 
 This automatically expands the `select` to the original syntax above.
+
+### <a name="config-setting-aliasing"></a>`config_setting`Aliasing
+
+If you'd like to `OR` conditions under a proper `config_setting` that any rule
+can reference, you can use a `select`able [alias](be/general.html#alias) that
+matches any of the desired conditions:
+
+```python
+alias(
+    name = "config1_or_2_or_3",
+    actual = select({
+        # When the build matches :config1, this alias *becomes* :config1.
+        # So it too matches by definition. The same applies for :config2
+        # and :config3.
+        ":config1": ":config1",
+        ":config2": ":config2",
+        ":config3": ":config3",
+        # The default condition represents this alias "not matching" (i.e.
+        # none of the conditions that we care about above match). In this
+        # case, bind the alias to any of those conditions. By definition
+        # it won't match.
+        "//conditions:default": ":config2", # Arbitrarily chosen from above.
+    }),
+)
+
+sh_binary(
+    name = "my_target",
+    srcs = ["always_include.sh"],
+    deps = select({
+        ":config1_or_2_or_3": [":standard_lib"],
+        ":config4": [":special_lib"],
+    }),
+)
+```
+
+Unlike `selects.with_or`, different rules can `select` on `:config1_or_2_or_3`
+with different values.
+
+Note that it's an error for multiple conditions to match unless one is a
+"specialization" of the other. See [select()](be/functions.html#select)
+documentation for details.
 
 For `AND` chaining, see [here](#multiple-selects).
 
@@ -698,7 +746,7 @@ Instantiate the rule and macro:
 ```python
 # myproject/BUILD
 
-load("//myproject:defx.bzl", "my_custom_bazel_rule")
+load("//myproject:defs.bzl", "my_custom_bazel_rule")
 load("//myproject:defs.bzl", "my_custom_bazel_macro")
 
 my_custom_bazel_rule(
@@ -795,7 +843,7 @@ def my_boolean_macro(boolval):
   print("TRUE" if boolval else "FALSE")
 
 $ cat myproject/BUILD
-load("//myproject:defx.bzl", "my_boolean_macro")
+load("//myproject:defs.bzl", "my_boolean_macro")
 my_boolean_macro(
     boolval = select({
         "//tools/target_cpu:x86": True,
@@ -871,3 +919,46 @@ def selecty_genrule(name, select_cmd):
         cmd = "echo " + cmd_suffix + "> $@",
     )
 ```
+
+## <a name="bind-select"></a>Why doesn't select() work with bind()?
+
+Because [`bind()`](be/workspace.html#bind) is a WORKSPACE rule, not a BUILD rule.
+
+Workspace rules do not have a specific configuration, and aren't evaluated in
+the same way as BUILD rules. Therefore, a `select()` in a `bind()` can't
+actually evaluate to any specific branch.
+
+Instead, you should use [`alias()`](be/general.html#alias), with a `select()` in
+the `actual` attribute, to perform this type of run-time determination. This
+works correctly, since `alias()` is a BUILD rule, and is evaluated with a
+specific configuration.
+
+You can even have a `bind()` target point to an `alias()`, if needed.
+
+```sh
+$ cat WORKSPACE
+workspace(name = "myproject")
+bind(name = "openssl", actual = "//:ssl")
+http_archive(name = "alternative", ...)
+http_archive(name = "boringssl", ...)
+
+$ cat BUILD
+config_setting(
+    name = "alt_ssl",
+    define_values = {
+        "ssl_library": "alternative",
+    },
+)
+
+alias(
+    name = "ssl",
+    actual = select({
+        "//:alt_ssl": "@alternative//:ssl",
+        "//conditions:default": "@boringssl//:ssl",
+    }),
+)
+```
+
+With this setup, you can pass `--define ssl_library=alternative`, and any target
+that depends on either `//:ssl` or `//external:ssl` will see the alternative
+located at `@alternative//:ssl`.

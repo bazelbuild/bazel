@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -24,9 +25,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,9 +49,20 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
   private void writeDataBindingFiles() throws Exception {
 
     scratch.file(
+        "java/android/library2/BUILD",
+        "android_library(",
+        "    name = 'lib2_with_databinding',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyLib2.java'],",
+        "    resource_files = [],",
+        ")");
+
+    scratch.file(
         "java/android/library/BUILD",
         "android_library(",
-        "    name = 'lib_with_data_binding',",
+        "    name = 'lib_with_databinding',",
+        "    deps = ['//java/android/library2:lib2_with_databinding'],",
         "    enable_data_binding = 1,",
         "    manifest = 'AndroidManifest.xml',",
         "    srcs = ['MyLib.java'],",
@@ -66,7 +79,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         "    enable_data_binding = 1,",
         "    manifest = 'AndroidManifest.xml',",
         "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/library:lib_with_data_binding'],",
+        "    deps = ['//java/android/library:lib_with_databinding'],",
         ")");
 
     scratch.file(
@@ -125,7 +138,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     // output:
     Artifact libResourceInfoOutput =
         getFirstArtifactEndingWith(
-            allArtifacts, "databinding/lib_with_data_binding/layout-info.zip");
+            allArtifacts, "databinding/lib_with_databinding/layout-info.zip");
     assertThat(getGeneratingSpawnActionArgs(libResourceInfoOutput))
         .containsAllOf("--dataBindingInfoOut", libResourceInfoOutput.getExecPathString())
         .inOrder();
@@ -139,19 +152,20 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     // Java compilation includes the data binding annotation processor, the resource processor's
     // output, and the auto-generated DataBindingInfo.java the annotation processor uses to figure
     // out what to do:
-    SpawnAction libCompileAction =
-        (SpawnAction)
+    JavaCompileAction libCompileAction =
+        (JavaCompileAction)
             getGeneratingAction(
-                getFirstArtifactEndingWith(allArtifacts, "lib_with_data_binding.jar"));
+                getFirstArtifactEndingWith(allArtifacts, "lib_with_databinding.jar"));
     assertThat(getProcessorNames(libCompileAction))
         .contains("android.databinding.annotationprocessor.ProcessDataBinding");
     assertThat(prettyArtifactNames(libCompileAction.getInputs()))
         .containsAllOf(
-            "java/android/library/databinding/lib_with_data_binding/layout-info.zip",
-            "java/android/library/databinding/lib_with_data_binding/DataBindingInfo.java");
+            "java/android/library/databinding/lib_with_databinding/layout-info.zip",
+            "java/android/library/databinding/lib_with_databinding/DataBindingInfo.java");
 
-    SpawnAction binCompileAction =
-        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    JavaCompileAction binCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     assertThat(getProcessorNames(binCompileAction))
         .contains("android.databinding.annotationprocessor.ProcessDataBinding");
     assertThat(prettyArtifactNames(binCompileAction.getInputs()))
@@ -171,30 +185,37 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     // The library's compilation doesn't include any of the -setter_store.bin, layoutinfo.bin, etc.
     // files that store a dependency's data binding results (since the library has no deps).
     // We check that they don't appear as compilation inputs.
-    SpawnAction libCompileAction =
-        (SpawnAction)
+    JavaCompileAction libCompileAction =
+        (JavaCompileAction)
             getGeneratingAction(
-                getFirstArtifactEndingWith(allArtifacts, "lib_with_data_binding.jar"));
+                getFirstArtifactEndingWith(allArtifacts, "lib2_with_databinding.jar"));
     assertThat(
             Iterables.filter(
                 libCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin")))
         .isEmpty();
 
     // The binary's compilation includes the library's data binding results.
-    SpawnAction binCompileAction =
-        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    JavaCompileAction binCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     Iterable<Artifact> depMetadataInputs =
         Iterables.filter(
             binCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin"));
-    final String depMetadataBaseDir =
-        Iterables.getFirst(depMetadataInputs, null).getExecPath().getParentDirectory().toString();
+
+    final String appDependentLibArtifacts =
+        Iterables.getFirst(depMetadataInputs, null).getRoot().getExecPathString()
+        + "/java/android/binary/databinding/app/dependent-lib-artifacts/";
     ActionsTestUtil.execPaths(
         Iterables.filter(
             binCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin")));
     assertThat(ActionsTestUtil.execPaths(depMetadataInputs))
         .containsExactly(
-            depMetadataBaseDir + "/android.library-android.library-setter_store.bin",
-            depMetadataBaseDir + "/android.library-android.library-br.bin");
+            appDependentLibArtifacts + "java/android/library/databinding/"
+                + "lib_with_databinding/bin-files/android.library-android.library-br.bin",
+            appDependentLibArtifacts + "java/android/library/databinding/"
+                + "lib_with_databinding/bin-files/android.library-android.library-setter_store.bin",
+            appDependentLibArtifacts + "java/android/library2/databinding/"
+                + "lib2_with_databinding/bin-files/android.library2-android.library2-br.bin");
   }
 
   @Test
@@ -204,8 +225,9 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-    SpawnAction binCompileAction =
-        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    JavaCompileAction binCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     String dataBindingFilesDir =
         targetConfig
             .getBinDirectory(RepositoryName.MAIN)
@@ -221,11 +243,52 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.exportClassListTo=/tmp/exported_classes",
             "-Aandroid.databinding.modulePackage=android.binary",
             "-Aandroid.databinding.minApi=14",
-            "-Aandroid.databinding.printEncodedErrors=0",
-            "-Aandroid.databinding.enableV2=1");
-    assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
+            "-Aandroid.databinding.enableV2=1",
+            // Note that this includes only android.library and not android.library2
+            "-Aandroid.databinding.directDependencyPkgs=[android.library]");
+    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
 
     // Regression test for b/63134122
+    JavaCompileInfo javaCompileInfo =
+        binCompileAction
+            .getExtraActionInfo(actionKeyContext)
+            .getExtension(JavaCompileInfo.javaCompileInfo);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
+  }
+
+  @Test
+  public void dataBindingAnnotationProcessorFlags_v3_4() throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+    writeDataBindingFiles();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+    JavaCompileAction binCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    String dataBindingFilesDir =
+        targetConfig
+            .getBinDirectory(RepositoryName.MAIN)
+            .getExecPath()
+            .getRelative("java/android/binary/databinding/app")
+            .getPathString();
+    String inputDir = dataBindingFilesDir + "/" + DataBinding.DEP_METADATA_INPUT_DIR;
+    String outputDir = dataBindingFilesDir + "/" + DataBinding.METADATA_OUTPUT_DIR;
+    ImmutableList<String> expectedJavacopts =
+        ImmutableList.of(
+            "-Aandroid.databinding.dependencyArtifactsDir=" + inputDir,
+            "-Aandroid.databinding.aarOutDir=" + outputDir,
+            "-Aandroid.databinding.sdkDir=/not/used",
+            "-Aandroid.databinding.artifactType=APPLICATION",
+            "-Aandroid.databinding.exportClassListOutFile=/tmp/exported_classes",
+            "-Aandroid.databinding.modulePackage=android.binary",
+            "-Aandroid.databinding.minApi=14",
+            "-Aandroid.databinding.enableV2=1",
+            // Note that this includes only android.library and not android.library2
+            "-Aandroid.databinding.directDependencyPkgs=[android.library]");
+    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+
     JavaCompileInfo javaCompileInfo =
         binCompileAction
             .getExtraActionInfo(actionKeyContext)
@@ -251,8 +314,9 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     // Compiling the app's Java source includes data binding metadata from the resource-equipped
     // lib, but not the resource-empty one.
-    SpawnAction binCompileAction =
-        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    JavaCompileAction binCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
 
     List<String> appJarInputs = prettyArtifactNames(binCompileAction.getInputs());
 
@@ -287,12 +351,12 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(libArtifacts, "_resources.jar")).isNull();
     assertThat(getFirstArtifactEndingWith(libArtifacts, "layout-info.zip")).isNull();
 
-    SpawnAction libCompileAction =
-        (SpawnAction)
+    JavaCompileAction libCompileAction =
+        (JavaCompileAction)
             getGeneratingAction(
                 getFirstArtifactEndingWith(libArtifacts, "lib_no_resource_files.jar"));
     // The annotation processor is attached to the Java compilation:
-    assertThat(paramFileArgsForAction(libCompileAction))
+    assertThat(getJavacArguments(libCompileAction))
         .containsAllOf(
             "--processors", "android.databinding.annotationprocessor.ProcessDataBinding");
     // The dummy .java file with annotations that trigger the annotation process is present:
@@ -310,7 +374,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     scratch.file(
         "java/android/library/BUILD",
         "android_library(",
-        "    name = 'lib_with_data_binding',",
+        "    name = 'lib_with_databinding',",
         "    enable_data_binding = 1,",
         "    manifest = 'AndroidManifest.xml',",
         "    srcs = ['MyLib.java'],",
@@ -327,7 +391,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         "    enable_data_binding = 0,",
         "    manifest = 'AndroidManifest.xml',",
         "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/library:lib_with_data_binding'],",
+        "    deps = ['//java/android/library:lib_with_databinding'],",
         ")");
 
     scratch.file(
@@ -547,4 +611,458 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "java/a/databinding/a/bin-files/a-a-br.bin",
             "java/b/databinding/b/bin-files/b-b-br.bin");
   }
+
+  @Test
+  public void testMultipleAndroidLibraryDepsWithSameJavaPackageRaisesError() throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    scratch.file(
+        "java/com/lib/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['User.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")",
+        "android_library(",
+        "    name = 'lib2',",
+        "    srcs = ['User2.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res2/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '//java/com/lib',",
+        "        '//java/com/lib:lib2',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    checkError(
+        "//java/com/bin:bin",
+        "Java package com.lib:\n"
+            + "    //java/com/lib:lib\n"
+            + "    //java/com/lib:lib2");
+  }
+
+  @Test
+  public void testMultipleAndroidLibraryDepsWithSameJavaPackageThroughDiamondRaisesError()
+      throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    // The bin target depends on these target indirectly and separately through the libraries
+    // in middleA and middleB.
+    scratch.file(
+        "java/com/bottom/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['User.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")",
+        "android_library(",
+        "    name = 'lib2',",
+        "    srcs = ['User2.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res2/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/middleA/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['UserMiddleA.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [",
+        "        '//java/com/bottom:lib',",
+        "    ],",
+        ")");
+    scratch.file(
+        "java/com/middleB/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['UserMiddleB.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [",
+        "        '//java/com/bottom:lib2',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '//java/com/middleA:lib',",
+        "        '//java/com/middleB:lib',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    checkError(
+        "//java/com/bin:bin",
+        "Java package com.bottom:\n"
+            + "    //java/com/bottom:lib\n"
+            + "    //java/com/bottom:lib2");
+  }
+
+  @Test
+  public void testMultipleAndroidLibraryDepsWithSameJavaPackageThroughCustomPackageAttrRaisesError()
+      throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    // The bin target depends on these target indirectly and separately through the libraries
+    // in middleA and middleB.
+    scratch.file(
+        "libA/BUILD",
+        "android_library(",
+        "    name = 'libA',",
+        "    srcs = ['UserA.java'],",
+        "    custom_package = 'com.foo',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "libB/BUILD",
+        "android_library(",
+        "    name = 'libB',",
+        "    srcs = ['UserB.java'],",
+        "    custom_package = 'com.foo',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '//libA:libA',",
+        "        '//libB:libB',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    checkError(
+        "//java/com/bin:bin",
+        "Java package com.foo:\n"
+            + "    //libA:libA\n"
+            + "    //libB:libB");
+  }
+
+  @Test
+  public void testAndroidBinaryAndroidLibraryWithDatabindingSamePackageRaisesError()
+      throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    // The android_binary and android_library are in the same java package and have
+    // databinding.
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        ':lib',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['User.java'],",
+        "    manifest = 'LibManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    checkError(
+        "//java/com/bin:bin",
+        "Java package com.bin:\n"
+            + "    //java/com/bin:bin\n"
+            + "    //java/com/bin:lib");
+  }
+
+  @Test
+  public void testSameAndroidLibraryMultipleTimesThroughDiamondDoesNotRaiseSameJavaPackageError()
+      throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    // The bin target depends on this target twice: indirectly and separately through the libraries
+    // in middleA and middleB, but this should not be a problem because it's the same library.
+    scratch.file(
+        "java/com/bottom/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['User.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/middleA/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['UserMiddleA.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [",
+        "        '//java/com/bottom:lib',",
+        "    ],",
+        ")");
+    scratch.file(
+        "java/com/middleB/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['UserMiddleB.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [",
+        "        '//java/com/bottom:lib',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '//java/com/middleA:lib',",
+        "        '//java/com/middleB:lib',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    // Should not throw error.
+    getConfiguredTarget("//java/com/bin:bin");
+  }
+
+
+  private void writeDataBindingFilesWithExports() throws Exception {
+
+    scratch.file(
+        "java/android/library1/BUILD",
+        "android_library(",
+        "    name = 'lib1_with_databinding',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyLib1.java'],",
+        ")");
+
+    scratch.file(
+        "java/android/library2/BUILD",
+        "android_library(",
+        "    name = 'lib2_with_databinding',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyLib2.java'],",
+        ")");
+
+    scratch.file(
+        "java/android/library3/BUILD",
+        "android_library(",
+        "    name = 'lib3',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyLib3.java'],",
+        ")");
+
+    scratch.file(
+        "java/android/lib_with_exports/BUILD",
+        "android_library(",
+        "    name = 'lib_with_exports_no_databinding',",
+        "    exports = [",
+        "        '//java/android/library1:lib1_with_databinding',",
+        "        '//java/android/library2:lib2_with_databinding',",
+        "        '//java/android/library3:lib3',",
+        "    ],",
+        "    manifest = 'AndroidManifest.xml',",
+        ")",
+        "",
+        "android_library(",
+        "    name = 'lib_with_exports_and_databinding',",
+        "    exports = [",
+        "        '//java/android/library1:lib1_with_databinding',",
+        "        '//java/android/library2:lib2_with_databinding',",
+        "        '//java/android/library3:lib3',",
+        "    ],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        ")");
+
+    scratch.file(
+        "java/android/binary/BUILD",
+        "android_binary(",
+        "    name = 'app_dep_on_exports_no_databinding',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyApp.java'],",
+        "    deps = ['//java/android/lib_with_exports:lib_with_exports_no_databinding'],",
+        ")",
+        "",
+        "android_binary(",
+        "    name = 'app_dep_on_exports_and_databinding',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyApp.java'],",
+        "    deps = ['//java/android/lib_with_exports:lib_with_exports_and_databinding'],",
+        ")");
+  }
+
+  @Test
+  public void testDependentLibraryJavaPackagesPassedFromLibraryWithExportsNoDatabinding()
+      throws Exception {
+
+    writeDataBindingFilesWithExports();
+
+    ConfiguredTarget ctapp =
+        getConfiguredTarget("//java/android/binary:app_dep_on_exports_no_databinding");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+    JavaCompileAction binCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(allArtifacts, "app_dep_on_exports_no_databinding.jar"));
+
+    ImmutableList<String> expectedJavacopts =
+        ImmutableList.of(
+            "-Aandroid.databinding.directDependencyPkgs=[android.library1,android.library2]");
+    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+  }
+
+  @Test
+  public void testDependentLibraryJavaPackagesPassedFromLibraryWithExportsAndDatabinding()
+      throws Exception {
+
+    writeDataBindingFilesWithExports();
+
+    ConfiguredTarget ctapp =
+        getConfiguredTarget("//java/android/binary:app_dep_on_exports_and_databinding");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+    JavaCompileAction binCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(allArtifacts, "app_dep_on_exports_and_databinding.jar"));
+
+    ImmutableList<String> expectedJavacopts =
+        ImmutableList.of("-Aandroid.databinding.directDependencyPkgs="
+            + "[android.lib_with_exports,android.library1,android.library2]");
+    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+  }
+
+  @Test
+  public void testNoDependentLibraryJavaPackagesIsEmptyBrackets()
+      throws Exception {
+
+    scratch.file(
+        "java/android/binary/BUILD",
+        "android_binary(",
+        "    name = 'app_databinding_no_deps',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyApp.java'],",
+        "    deps = [],",
+        ")");
+
+    ConfiguredTarget ctapp =
+        getConfiguredTarget("//java/android/binary:app_databinding_no_deps");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+    JavaCompileAction binCompileAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(allArtifacts, "app_databinding_no_deps.jar"));
+
+    ImmutableList<String> expectedJavacopts =
+        ImmutableList.of("-Aandroid.databinding.directDependencyPkgs=[]");
+    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+  }
+
 }

@@ -132,7 +132,7 @@ public class SpawnIncludeScanner {
     private final String progressMessage;
 
     GrepIncludesAction(ActionExecutionMetadata actionExecutionMetadata, PathFragment input) {
-      this.actionExecutionMetadata = actionExecutionMetadata;
+      this.actionExecutionMetadata = Preconditions.checkNotNull(actionExecutionMetadata);
       this.progressMessage = "Extracting include lines from " + input.getPathString();
     }
 

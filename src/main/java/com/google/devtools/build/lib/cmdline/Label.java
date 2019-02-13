@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -58,9 +60,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public final class Label
     implements Comparable<Label>, Serializable, SkylarkValue, SkyKey, CommandLineItem {
-  public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
-  public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
-  public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
   /**
    * Package names that aren't made relative to the current repository because they mean special
@@ -70,17 +69,11 @@ public final class Label
       ImmutableSet.of(
           // Used for select
           PathFragment.create("conditions"),
-          // dependencies that are a function of the configuration
-          PathFragment.create("tools/defaults"),
           // Visibility is labels aren't actually targets
           PathFragment.create("visibility"),
           // There is only one //external package
-          Label.EXTERNAL_PACKAGE_NAME);
+          LabelConstants.EXTERNAL_PACKAGE_NAME);
 
-  public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
-      PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
-
-  public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 
@@ -250,7 +243,7 @@ public final class Label
    *
    * <p>It would be cleaner to use the TargetPatternEvaluator for this resolution, but that is not
    * possible, because it is sometimes necessary to resolve a relative label before the package path
-   * is setup; in particular, before the tools/defaults package is created.
+   * is setup (maybe not anymore...)
    *
    * @throws LabelSyntaxException if the resulting label is not valid
    */
@@ -454,17 +447,24 @@ public final class Label
         + name;
   }
 
+  /** Return the name of the repository label refers to without the leading `at` symbol. */
+  @SkylarkCallable(
+      name = "workspace_name",
+      structField = true,
+      doc =
+          "The repository part of this label. For isntance, "
+              + "<pre class=language-python>Label(\"@foo//bar:baz\").workspace_name"
+              + " == \"foo\"</pre>")
+  public String getWorkspaceName() {
+    return packageIdentifier.getRepository().strippedName();
+  }
+
   /**
    * Renders this label in canonical form, except with labels in the main and default repositories
    * conflated.
    */
   public String getDefaultCanonicalForm() {
-    String repository;
-    if (packageIdentifier.getRepository().isMain()) {
-      repository = "";
-    } else {
-      repository = packageIdentifier.getRepository().getName();
-    }
+    String repository = packageIdentifier.getRepository().getDefaultCanonicalForm();
     return repository + "//" + packageIdentifier.getPackageFragment() + ":" + name;
   }
 
@@ -506,33 +506,41 @@ public final class Label
    * @param relName the relative label name; must be non-empty.
    */
   @SkylarkCallable(
-    name = "relative",
-    doc =
-        "Resolves a label that is either absolute (starts with <code>//</code>) or relative to the"
-            + " current package. If this label is in a remote repository, the argument will be "
-            + " resolved relative to that repository. If the argument contains a repository, it"
-            + " will be returned as-is. Reserved labels will also be returned as-is.<br>"
-            + "For example:<br>"
-            + "<pre class=language-python>\n"
-            + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
-            + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
-            + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == "
-            + "Label(\"@repo//wiz:quux\")\n"
-            + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
-            + "Label(\"//visibility:public\")\n"
-            + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
-            + "Label(\"@other//wiz:quux\")\n"
-            + "</pre>",
-    parameters = {
-      @Param(
-        name = "relName",
-        type = String.class,
-        doc = "The label that will be resolved relative to this one."
-      )
-    }
-  )
-  public Label getRelative(String relName) throws LabelSyntaxException {
-    return getRelativeWithRemapping(relName, /* repositoryMapping= */ ImmutableMap.of());
+      name = "relative",
+      doc =
+          "Resolves a label that is either absolute (starts with <code>//</code>) or relative to "
+              + "the current package. If this label is in a remote repository, the argument will "
+              + "be resolved relative to that repository. If the argument contains a repository "
+              + "name, the current label is ignored and the argument is returned as-is, except "
+              + "that the repository name is rewritten if it is in the current repository mapping. "
+              + "Reserved labels will also be returned as-is.<br>"
+              + "For example:<br>"
+              + "<pre class=language-python>\n"
+              + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
+              + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == "
+              + "Label(\"@repo//wiz:quux\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
+              + "Label(\"//visibility:public\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
+              + "Label(\"@other//wiz:quux\")\n"
+              + "</pre>"
+              + "<p>If the repository mapping passed in is <code>{'@other' : '@remapped'}</code>, "
+              + "then the following remapping will take place:<br>"
+              + "<pre class=language-python>\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
+              + "Label(\"@remapped//wiz:quux\")\n"
+              + "</pre>",
+      parameters = {
+        @Param(
+            name = "relName",
+            type = String.class,
+            doc = "The label that will be resolved relative to this one.")
+      },
+      useContext = true)
+  public Label getRelative(String relName, StarlarkContext context) throws LabelSyntaxException {
+    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
+    return getRelativeWithRemapping(relName, bazelStarlarkContext.getRepoMapping());
   }
 
   /**

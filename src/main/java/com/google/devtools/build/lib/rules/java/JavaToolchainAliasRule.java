@@ -14,11 +14,30 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.rules.java.JavaSemantics.JAVA_TOOLCHAIN_LABEL;
+
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
+import java.io.Serializable;
 
 /** Implementation of the {@code java_toolchain_alias} rule. */
-public class JavaToolchainAliasRule extends CommonAliasRule {
+public class JavaToolchainAliasRule extends CommonAliasRule<JavaConfiguration> {
   public JavaToolchainAliasRule() {
-    super("java_toolchain_alias", JavaSemantics::javaToolchainAttribute, JavaConfiguration.class);
+    super(
+        "java_toolchain_alias",
+        JavaToolchainAliasRule::javaToolchainAttribute,
+        JavaConfiguration.class);
+  }
+
+  static LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute(
+      RuleDefinitionEnvironment environment) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        JavaConfiguration.class,
+        environment.getToolsLabel(JAVA_TOOLCHAIN_LABEL),
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
   }
 }

@@ -146,25 +146,25 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
             false)));
   }
 
+  private Set<Label> parseList(FilteringPolicy policy, String... patterns)
+      throws TargetParsingException, InterruptedException {
+    return targetsToLabels(
+        getFailFast(
+            parseTargetPatternList(
+                PathFragment.EMPTY_FRAGMENT,
+                parser,
+                parsingListener,
+                Arrays.asList(patterns),
+                policy,
+                false)));
+  }
+
   private Set<Label> parseListKeepGoingExpectFailure(String... patterns)
       throws TargetParsingException, InterruptedException {
     ResolvedTargets<Target> result =
         parseTargetPatternList(parser, parsingListener, Arrays.asList(patterns), true);
     assertThat(result.hasError()).isTrue();
     return targetsToLabels(result.getTargets());
-  }
-
-  private Set<Label> parseList(
-      FilteringPolicy policy, String... patterns)
-      throws TargetParsingException, InterruptedException {
-    return targetsToLabels(getFailFast(
-        parseTargetPatternList(
-            PathFragment.EMPTY_FRAGMENT,
-            parser,
-            parsingListener,
-            Arrays.asList(patterns),
-            policy,
-            false)));
   }
 
   private Set<Label> parseListRelative(String... patterns)

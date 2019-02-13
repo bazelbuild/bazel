@@ -27,8 +27,10 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Splitter;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMo
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -62,6 +65,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -241,8 +245,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    plugins = [':plugin'],",
         "    srcs = ['ToBeProcessed.java'])");
     ConfiguredTarget target = getConfiguredTarget("//java/test:to_be_processed");
-    SpawnAction javacAction =
-        (SpawnAction) getGeneratingAction(getBinArtifact("libto_be_processed.jar", target));
+    JavaCompileAction javacAction =
+        (JavaCompileAction) getGeneratingAction(getBinArtifact("libto_be_processed.jar", target));
 
     assertThat(getProcessorNames(javacAction)).contains("com.google.process.stuff");
     assertThat(getProcessorNames(javacAction)).hasSize(1);
@@ -273,8 +277,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     useConfiguration("--plugin=//java/test:plugin");
     ConfiguredTarget target = getConfiguredTarget("//java/test:to_be_processed");
-    SpawnAction javacAction =
-        (SpawnAction) getGeneratingAction(getBinArtifact("libto_be_processed.jar", target));
+    JavaCompileAction javacAction =
+        (JavaCompileAction) getGeneratingAction(getBinArtifact("libto_be_processed.jar", target));
 
     assertThat(getProcessorNames(javacAction)).contains("com.google.process.stuff");
     assertThat(getProcessorNames(javacAction)).hasSize(1);
@@ -2812,8 +2816,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Artifact deployJar = getFileConfiguredTarget("//java/foo:a_deploy.jar").getArtifact();
     Action deployAction = getGeneratingAction(deployJar);
-    SpawnAction javacAction =
-        (SpawnAction)
+    JavaCompileAction javacAction =
+        (JavaCompileAction)
             actionsTestUtil()
                 .getActionForArtifactEndingWith(
                     actionsTestUtil().artifactClosureOf(deployAction.getInputs()), "liba.jar");
@@ -2833,7 +2837,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Iterable<String> commandLine =
         getJavacArguments(
-            ((SpawnAction)
+            ((JavaCompileAction)
                 actionsTestUtil()
                     .getActionForArtifactEndingWith(
                         actionsTestUtil()
@@ -2857,7 +2861,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Iterable<String> commandLine =
         getJavacArguments(
-            ((SpawnAction)
+            ((JavaCompileAction)
                 actionsTestUtil()
                     .getActionForArtifactEndingWith(
                         actionsTestUtil()
@@ -4492,4 +4496,205 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "libal_bottom_for_deps-src.jar",
         "libfoo_app-src.jar");
   }
+
+  /** Gets the map of mergee manifests in the order specified on the command line. */
+  private Map<String, String> getBinaryMergeeManifests(ConfiguredTarget target) throws Exception {
+    Artifact processedManifest = target.get(ApkInfo.PROVIDER).getMergedManifest();
+    List<String> processingActionArgs = getGeneratingSpawnActionArgs(processedManifest);
+    assertThat(processingActionArgs).contains("--primaryData");
+    String primaryData =
+        processingActionArgs.get(processingActionArgs.indexOf("--primaryData") + 1);
+    String mergedManifestExecPathString = Splitter.on(":").splitToList(primaryData).get(2);
+    SpawnAction processingAction = getGeneratingSpawnAction(processedManifest);
+    Artifact mergedManifest =
+        Iterables.find(
+            processingAction.getInputs(),
+            (artifact) -> artifact.getExecPath().toString().equals(mergedManifestExecPathString));
+    List<String> mergeArgs = getGeneratingSpawnActionArgs(mergedManifest);
+    assertThat(mergeArgs).contains("--mergeeManifests");
+    Map<String, String> splitData =
+        Splitter.on(",")
+            .withKeyValueSeparator(Splitter.onPattern("(?<!\\\\):"))
+            .split(mergeArgs.get(mergeArgs.indexOf("--mergeeManifests") + 1));
+    ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+    for (Map.Entry<String, String> manifestAndLabel : splitData.entrySet()) {
+      results.put(manifestAndLabel.getKey(), manifestAndLabel.getValue().replace("\\:", ":"));
+    }
+    return results.build();
+  }
+
+  private Artifact getLibraryManifest(ConfiguredTarget target) throws Exception {
+    if (target.get(AndroidManifestInfo.PROVIDER) != null) {
+      return target.get(AndroidManifestInfo.PROVIDER).getManifest();
+    }
+    return null;
+  }
+
+  @Test
+  public void androidManifestMergerOrderAlphabetical_MergeesSortedByExecPath() throws Exception {
+    // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
+    // This is necessary because the transition would change the configuration directory, causing
+    // the manifest paths in the assertion not to match.
+    // TODO(mstaib): Get the library manifests in the same configuration as the binary gets them.
+    useConfiguration(
+        "--fat_apk_cpu=", "--android_cpu=", "--android_manifest_merger_order=alphabetical");
+    scratch.overwriteFile(
+        "java/android/BUILD",
+        "android_library(",
+        "    name = 'core',",
+        "    manifest = 'core/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['core/res/values/strings.xml'],",
+        ")",
+        "android_library(",
+        "    name = 'utility',",
+        "    manifest = 'utility/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['utility/res/values/values.xml'],",
+        "    deps = ['//java/common:common'],",
+        ")");
+    scratch.file(
+        "java/binary/BUILD",
+        "android_binary(",
+        "    name = 'application',",
+        "    srcs = ['App.java'],",
+        "    manifest = 'app/AndroidManifest.xml',",
+        "    deps = [':library'],",
+        ")",
+        "android_library(",
+        "    name = 'library',",
+        "    manifest = 'library/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    deps = ['//java/common:theme', '//java/android:utility'],",
+        ")");
+    scratch.file(
+        "java/common/BUILD",
+        "android_library(",
+        "    name = 'common',",
+        "    manifest = 'common/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['common/res/values/common.xml'],",
+        "    deps = ['//java/android:core'],",
+        ")",
+        "android_library(",
+        "    name = 'theme',",
+        "    manifest = 'theme/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['theme/res/values/values.xml'],",
+        ")");
+    Artifact androidCoreManifest = getLibraryManifest(getConfiguredTarget("//java/android:core"));
+    Artifact androidUtilityManifest =
+        getLibraryManifest(getConfiguredTarget("//java/android:utility"));
+    Artifact binaryLibraryManifest =
+        getLibraryManifest(getConfiguredTarget("//java/binary:library"));
+    Artifact commonManifest = getLibraryManifest(getConfiguredTarget("//java/common:common"));
+    Artifact commonThemeManifest = getLibraryManifest(getConfiguredTarget("//java/common:theme"));
+
+    assertThat(getBinaryMergeeManifests(getConfiguredTarget("//java/binary:application")))
+        .containsExactlyEntriesIn(
+            ImmutableMap.of(
+                androidCoreManifest.getExecPath().toString(), "//java/android:core",
+                androidUtilityManifest.getExecPath().toString(), "//java/android:utility",
+                binaryLibraryManifest.getExecPath().toString(), "//java/binary:library",
+                commonManifest.getExecPath().toString(), "//java/common:common",
+                commonThemeManifest.getExecPath().toString(), "//java/common:theme"))
+        .inOrder();
+  }
+
+  @Test
+  public void androidManifestMergerOrderAlphabeticalByConfiguration_MergeesSortedByPathInBinOrGen()
+      throws Exception {
+    // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
+    // This is necessary because the transition would change the configuration directory, causing
+    // the manifest paths in the assertion not to match.
+    // TODO(mstaib): Get the library manifests in the same configuration as the binary gets them.
+    useConfiguration(
+        "--fat_apk_cpu=",
+        "--android_cpu=",
+        "--android_manifest_merger_order=alphabetical_by_configuration");
+    scratch.overwriteFile(
+        "java/android/BUILD",
+        "android_library(",
+        "    name = 'core',",
+        "    manifest = 'core/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['core/res/values/strings.xml'],",
+        ")",
+        "android_library(",
+        "    name = 'utility',",
+        "    manifest = 'utility/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['utility/res/values/values.xml'],",
+        "    deps = ['//java/common:common'],",
+        "    transitive_configs = ['//flags:a', '//flags:b'],",
+        ")");
+    scratch.file(
+        "java/binary/BUILD",
+        "android_binary(",
+        "    name = 'application',",
+        "    srcs = ['App.java'],",
+        "    manifest = 'app/AndroidManifest.xml',",
+        "    deps = [':library'],",
+        "    feature_flags = {",
+        "        '//flags:a': 'on',",
+        "        '//flags:b': 'on',",
+        "        '//flags:c': 'on',",
+        "    },",
+        "    transitive_configs = ['//flags:a', '//flags:b', '//flags:c'],",
+        ")",
+        "android_library(",
+        "    name = 'library',",
+        "    manifest = 'library/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    deps = ['//java/common:theme', '//java/android:utility'],",
+        "    transitive_configs = ['//flags:a', '//flags:b', '//flags:c'],",
+        ")");
+    scratch.file(
+        "java/common/BUILD",
+        "android_library(",
+        "    name = 'common',",
+        "    manifest = 'common/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['common/res/values/common.xml'],",
+        "    deps = ['//java/android:core'],",
+        "    transitive_configs = ['//flags:a'],",
+        ")",
+        "android_library(",
+        "    name = 'theme',",
+        "    manifest = 'theme/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['theme/res/values/values.xml'],",
+        "    transitive_configs = ['//flags:a', '//flags:b', '//flags:c'],",
+        ")");
+    scratch.file(
+        "flags/BUILD",
+        "config_feature_flag(",
+        "    name = 'a',",
+        "    allowed_values = ['on', 'off'],",
+        "    default_value = 'off',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'b',",
+        "    allowed_values = ['on', 'off'],",
+        "    default_value = 'off',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'c',",
+        "    allowed_values = ['on', 'off'],",
+        "    default_value = 'off',",
+        ")");
+
+    assertThat(getBinaryMergeeManifests(getConfiguredTarget("//java/binary:application")).values())
+        .containsExactly(
+            "//java/android:core",
+            "//java/android:utility",
+            "//java/binary:library",
+            "//java/common:common",
+            "//java/common:theme")
+        .inOrder();
+  }
+
+  // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would
+  // have to enforce incorrect behavior.
+  // TODO(b/117338320): Add a test when dependency order is fixed.
 }

@@ -3,37 +3,29 @@
     <testsuite name='com.google.testing.junit.runner.testbed.XmlOutputExercises' timestamp='' hostname='localhost' tests='7' failures='1' errors='0' time='' package='' id='0'>
         <properties />
         <system-out />
-        <system-err />
-    </testsuite>
+        <system-err /></testsuite>
     <testsuite name='com.google.testing.junit.runner.testbed.XmlOutputExercises$FailureTest' timestamp='' hostname='localhost' tests='1' failures='1' errors='0' time='' package='' id='1'>
       <properties />
       <testcase name='testFail' classname='com.google.testing.junit.runner.testbed.XmlOutputExercises$FailureTest' time=''>
         <failure message='This is an expected error. The test is supposed to fail.' type='java.lang.AssertionError'>java.lang.AssertionError: This is an expected error. The test is supposed to fail.
-
-        </failure>
-      </testcase>
+</failure></testcase>
       <system-out />
-      <system-err />
-    </testsuite>
+      <system-err /></testsuite>
     <testsuite name='com.google.testing.junit.runner.testbed.XmlOutputExercises$OtherTests' timestamp='' hostname='localhost' tests='1' failures='0' errors='0' time='' package='' id='2'>
         <properties />
         <testcase name='testToString' classname='com.google.testing.junit.runner.testbed.XmlOutputExercises$OtherTests' time='' />
         <system-out />
-        <system-err />
-    </testsuite>
+        <system-err /></testsuite>
     <testsuite name='com.google.testing.junit.runner.testbed.XmlOutputExercises$EqualsHashCodeTest' timestamp='' hostname='localhost' tests='2' failures='0' errors='0' time='' package='' id='3'>
         <properties />
         <testcase name='testHashCode' classname='com.google.testing.junit.runner.testbed.XmlOutputExercises$EqualsHashCodeTest' time='' />
         <testcase name='testEquals' classname='com.google.testing.junit.runner.testbed.XmlOutputExercises$EqualsHashCodeTest' time='' />
         <system-out />
-        <system-err />
-    </testsuite>
+        <system-err /></testsuite>
     <testsuite name='com.google.testing.junit.runner.testbed.XmlOutputExercises$ComparabilityTest' timestamp='' hostname='localhost' tests='3' failures='0' errors='0' time='' package='' id='4'>
         <properties />
         <testcase name='compareToEqualInstance' classname='com.google.testing.junit.runner.testbed.XmlOutputExercises$ComparabilityTest' time='' />
         <testcase name='compareToGreaterInstance' classname='com.google.testing.junit.runner.testbed.XmlOutputExercises$ComparabilityTest' time='' />
         <testcase name='compareToLessInstance' classname='com.google.testing.junit.runner.testbed.XmlOutputExercises$ComparabilityTest' time='' />
         <system-out />
-        <system-err />
-    </testsuite>
-</testsuites>
+    <system-err /></testsuite></testsuites>

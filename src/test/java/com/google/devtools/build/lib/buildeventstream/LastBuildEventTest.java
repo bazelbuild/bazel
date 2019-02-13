@@ -18,6 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,7 +32,8 @@ public class LastBuildEventTest {
 
   @Test
   public void testForwardsReferencedLocalFilesCall() {
-    LocalFile localFile = new LocalFile(null, LocalFileType.FAILED_TEST_OUTPUT);
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    LocalFile localFile = new LocalFile(fs.getPath("/some/file"), LocalFileType.FAILED_TEST_OUTPUT);
     LastBuildEvent event = new LastBuildEvent(new BuildEvent() {
       @Override
       public BuildEventId getEventId() {

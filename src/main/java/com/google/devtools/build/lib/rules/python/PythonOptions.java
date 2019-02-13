@@ -16,23 +16,25 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.util.Map;
 
 /**
  * Python-related command-line options.
  *
- * <p>Due to the migration associated with {@code --experimental_better_python_version_mixing} (see
- * #6583), the Python major version mode ({@code PY2} vs {@code PY3}) is a function of three
- * separate flags: this experimental feature-guarding flag, the old version flag {@code
- * --force_python}, and the new version flag {@code --python_version}. See {@link #getPythonVersion}
- * for more details.
+ * <p>Due to the migration of the Python version API (see #6583) and the default Python version (see
+ * (see #6647), the Python major version mode ({@code PY2} vs {@code PY3}) is a function of multiple
+ * flags. See {@link #getPythonVersion} for more details.
  */
 public class PythonOptions extends FragmentOptions {
 
@@ -68,54 +70,95 @@ public class PythonOptions extends FragmentOptions {
   public TriState buildPythonZip;
 
   @Option(
-      name = "experimental_better_python_version_mixing",
+      name = "incompatible_remove_old_python_version_api",
       defaultValue = "false",
-      // TODO(brandjon): Change to OptionDocumentationCategory.SKYLARK_SEMANTICS when this is
-      // sufficiently implemented/documented. Also fill in the ref in the help text below.
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
       help =
-          "If true, enables use of the `--python_version` flag and the `python_version` "
-              + "attribute for `py_binary` and `py_test`, and uses the new PY2/PY3 version "
-              + "semantics. See <TODO: ADD LINK> for more details.")
-  public boolean experimentalBetterPythonVersionMixing;
+          "If true, disables use of the `--force_python` flag and the `default_python_version` "
+              + "attribute for `py_binary` and `py_test`. Use the `--python_version` flag and "
+              + "`python_version` attribute instead, which have exactly the same meaning. This "
+              + "flag also disables `select()`-ing over `--host_force_python`.")
+  public boolean incompatibleRemoveOldPythonVersionApi;
+
+  @Option(
+      name = "incompatible_allow_python_version_transitions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Python rules use the new PY2/PY3 version semantics. For more information, see "
+              + "the documentation for `py_binary`'s `python_version` attribute.")
+  public boolean incompatibleAllowPythonVersionTransitions;
 
   /**
-   * This field should be either null, {@code PY2}, or {@code PY3}. Other {@code PythonVersion}
-   * values do not represent distinct Python versions and are not allowed.
+   * Native rule logic should call {@link #getDefaultPythonVersion} instead of accessing this option
+   * directly.
+   */
+  @Option(
+      name = "incompatible_py3_is_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, `py_binary` and `py_test` targets that do not set their `python_version` (or "
+              + "`default_python_version`) attribute will default to PY3 rather than to PY2. It is "
+              + "an error to set this flag without also enabling "
+              + "`--incompatible_allow_python_version_transitions`.")
+  public boolean incompatiblePy3IsDefault;
+
+  /**
+   * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
+   * PythonVersion} values do not represent distinct Python versions and are not allowed.
    *
-   * <p>Null represents that the value is not set by the user. This is only relevant for deciding
-   * whether or not to ignore the old flag, {@code --force_python}. Rule logic can't tell whether or
-   * not this field is null.
+   * <p>Native rule logic should call {@link #getPythonVersion} / {@link #setPythonVersion} instead
+   * of accessing this option directly. BUILD/.bzl code should {@code select()} on {@code <tools
+   * repo>//tools/python:python_version} rather than on this option directly.
    */
   @Option(
       name = "python_version",
       defaultValue = "null",
       converter = TargetPythonVersionConverter.class,
-      // TODO(brandjon): Change to OptionDocumentationCategory.GENERIC_INPUTS when this is
-      // sufficiently implemented/documented.
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.AFFECTS_OUTPUTS // because of "-py3" output root
+        OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
       },
       help =
-          "The Python major version mode, either `PY2` or `PY3`. Note that this is overridden by "
-              + "`py_binary` and `py_test` targets (whether or not they specify their version "
-              + "explicitly), so there is usually not much reason to supply this flag.")
+          "The Python major version mode, either `PY2` or `PY3`. Note that under the new version "
+              + "semantics (`--incompatible_allow_python_version_transitions`) this is overridden "
+              + "by `py_binary` and `py_test` targets (even if they don't explicitly specify a "
+              + "version) so there is usually not much reason to supply this flag.")
   public PythonVersion pythonVersion;
 
+  private static final OptionDefinition PYTHON_VERSION_DEFINITION =
+      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "python_version");
+
   /**
-   * This field should be either null, {@code PY2}, or {@code PY3}. Other {@code PythonVersion}
-   * values do not represent distinct Python versions and are not allowed.
+   * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
+   * PythonVersion} values do not represent distinct Python versions and are not allowed.
    *
-   * <p>Null represents that the value is not set by the user. When {@code
-   * --experimental_better_python_version_mixing} is false, null means that the default value {@link
-   * PythonVersion#DEFAULT_TARGET_VALUE} should be used, but that it is possible for {@link
-   * PythonVersionTransition} to override this default. When the experimental flag is true, {@code
-   * PythonVersionTransition} can always override the version anyway, and null has the same effect
-   * as setting it to the default.
+   * <p>This flag is not accessible to the user when {@link #incompatibleRemoveOldPythonVersionApi}
+   * is true.
+   *
+   * <p>Native rule logic should call {@link #getPythonVersion} / {@link #setPythonVersion} instead
+   * of accessing this option directly. BUILD/.bzl code should {@code select()} on {@code <tools
+   * repo>//tools/python:python_version} rather than on this option directly.
    */
   @Option(
       name = "force_python",
@@ -123,14 +166,22 @@ public class PythonOptions extends FragmentOptions {
       converter = TargetPythonVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Overrides default_python_version attribute. Can be \"PY2\" or \"PY3\".")
+      help =
+          "Deprecated alias for `--python_version`. Disabled by "
+              + "`--incompatible_remove_old_python_version_api`.")
   public PythonVersion forcePython;
 
+  private static final OptionDefinition FORCE_PYTHON_DEFINITION =
+      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "force_python");
+
   /**
-   * This field should be either null, {@code PY2}, or {@code PY3}. Other {@code PythonVersion}
-   * values do not represent distinct Python versions and are not allowed.
+   * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
+   * PythonVersion} values do not represent distinct Python versions and are not allowed.
    *
-   * <p>Null is treated the same as the default ({@link PythonVersion#DEFAULT_TARGET_VALUE}).
+   * <p>Null means to use the default ({@link #getDefaultPythonVersion}).
+   *
+   * <p>This option is only read by {@link #getHost}. It should not be read by other native code or
+   * by {@code select()}s in user code.
    */
   @Option(
       name = "host_force_python",
@@ -138,65 +189,115 @@ public class PythonOptions extends FragmentOptions {
       converter = TargetPythonVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Overrides default_python_version attribute for the host configuration."
-              + " Can be \"PY2\" or \"PY3\".")
+      help = "Overrides the Python version for the host configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
 
-  public PythonVersion getPythonVersion() {
-    return getPythonVersion(PythonVersion.DEFAULT_TARGET_VALUE);
+  private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
+      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "host_force_python");
+
+  @Option(
+      name = "incompatible_disallow_legacy_py_provider",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, native Python rules will neither produce nor consume the legacy \"py\" "
+              + "provider. Use PyInfo instead. Under this flag, passing the legacy provider to a "
+              + "Python target will be an error.")
+  public boolean incompatibleDisallowLegacyPyProvider;
+
+  @Option(
+      name = "experimental_build_transitive_python_runfiles",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Build the runfiles trees of py_binary targets that appear in the transitive "
+              + "data runfiles of another binary.")
+  public boolean buildTransitiveRunfilesTrees;
+
+  @Override
+  public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
+    // TODO(brandjon): Instead of referencing the python_version target, whose path depends on the
+    // tools repo name, reference a standalone documentation page instead.
+    ImmutableMap.Builder<OptionDefinition, SelectRestriction> restrictions = ImmutableMap.builder();
+    restrictions.put(
+        PYTHON_VERSION_DEFINITION,
+        new SelectRestriction(
+            /*visibleWithinToolsPackage=*/ true,
+            "Use @bazel_tools//python/tools:python_version instead."));
+    if (incompatibleRemoveOldPythonVersionApi) {
+      restrictions.put(
+          FORCE_PYTHON_DEFINITION,
+          new SelectRestriction(
+              /*visibleWithinToolsPackage=*/ true,
+              "Use @bazel_tools//python/tools:python_version instead."));
+      restrictions.put(
+          HOST_FORCE_PYTHON_DEFINITION,
+          new SelectRestriction(
+              /*visibleWithinToolsPackage=*/ false,
+              "Use @bazel_tools//python/tools:python_version instead."));
+    }
+    return restrictions.build();
   }
 
-  public PythonVersion getPythonVersion(PythonVersion defaultVersion) {
-    return (forcePython == null) ? defaultVersion : forcePython;
+  /**
+   * Returns the Python major version ({@code PY2} or {@code PY3}) that targets that do not specify
+   * a version should be built for.
+   */
+  public PythonVersion getDefaultPythonVersion() {
+    return incompatiblePy3IsDefault ? PythonVersion.PY3 : PythonVersion.PY2;
   }
 
   /**
    * Returns the Python major version ({@code PY2} or {@code PY3}) that targets should be built for.
    *
-   * <p>The version is taken from the following in order:
-   *
-   * <ul>
-   *   <li>If {@code --experimental_better_python_version_mixing} is true, then it is the value of
-   *       {@code --python_version} if not null, otherwise {@code --force_python} if not null,
-   *       otherwise {@link PythonVersion#DEFAULT_TARGET_VALUE}.
-   *   <li>If {@code --experimental_better_python_version_mixing} is false, then it is the same
-   *       except {@code --python_version} is ignored.
-   * </ul>
+   * <p>The version is taken as the value of {@code --python_version} if not null, otherwise {@code
+   * --force_python} if not null, otherwise {@link #getDefaultPythonVersion}.
    */
-  // TODO(brandjon): Eliminate the NEW prefix, make public, use this to replace the above
-  // getPythonVersion() overloads.
-  PythonVersion NEWgetPythonVersion() {
-    if (experimentalBetterPythonVersionMixing) {
-      if (pythonVersion != null) {
-        return pythonVersion;
-      }
+  public PythonVersion getPythonVersion() {
+    if (pythonVersion != null) {
+      return pythonVersion;
+    } else if (forcePython != null) {
+      return forcePython;
+    } else {
+      return getDefaultPythonVersion();
     }
-    return (forcePython != null) ? forcePython : PythonVersion.DEFAULT_TARGET_VALUE;
   }
 
   /**
    * Returns whether a Python version transition to {@code version} is allowed and not a no-op.
    *
-   * <p>Under the new semantics ({@link #experimentalBetterPythonVersionMixing} is true), version
-   * transitions are always allowed, so this just returns whether the new version is different from
-   * the existing one.
+   * <p>Under the new semantics ({@link #incompatibleAllowPythonVersionTransitions} is true),
+   * version transitions are always allowed, so this essentially returns whether the new version is
+   * different from the existing one. However, to improve compatibility for unmigrated {@code
+   * select()}s that depend on {@code "force_python"}, if the old API is still enabled then
+   * transitioning is still done whenever {@link #forcePython} is not in agreement with the
+   * requested version, even if {@link #getPythonVersion}'s value would be unaffected.
    *
-   * <p>Under the old semantics ({@link #experimentalBetterPythonVersionMixing} is false), version
-   * transitions are not allowed once the version has already been set ({@link #forcePython} is
-   * non-null). Due to a historical bug, it is also not allowed to transition {@code forcePython} to
-   * the hard-coded default value. Under these constraints, any transition that is allowed is also
-   * not a no-op.
+   * <p>Under the old semantics ({@link #incompatibleAllowPythonVersionTransitions} is false),
+   * version transitions are not allowed once the version has already been set ({@link #forcePython}
+   * or {@link #pythonVersion} is non-null). Due to a historical bug, it is also not allowed to
+   * transition the version to the hard-coded default value. Under these constraints, there is only
+   * one transition possible, from null to the non-default value, and it is never a no-op.
    *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public boolean canTransitionPythonVersion(PythonVersion version) {
-    Preconditions.checkArgument(PythonVersion.TARGET_VALUES.contains(version));
-    if (experimentalBetterPythonVersionMixing) {
-      PythonVersion currentVersion = NEWgetPythonVersion();
-      return !version.equals(currentVersion);
+    Preconditions.checkArgument(version.isTargetValue());
+    if (incompatibleAllowPythonVersionTransitions) {
+      boolean currentVersionNeedsUpdating = !version.equals(getPythonVersion());
+      boolean forcePythonNeedsUpdating =
+          !incompatibleRemoveOldPythonVersionApi && !version.equals(forcePython);
+      return currentVersionNeedsUpdating || forcePythonNeedsUpdating;
     } else {
-      return forcePython == null && !version.equals(PythonVersion.DEFAULT_TARGET_VALUE);
+      boolean currentlyUnset = forcePython == null && pythonVersion == null;
+      boolean transitioningToNonDefault = !version.equals(getDefaultPythonVersion());
+      return currentlyUnset && transitioningToNonDefault;
     }
   }
 
@@ -208,39 +309,35 @@ public class PythonOptions extends FragmentOptions {
    * constructed instance. The mutation does not depend on whether or not {@link
    * #canTransitionPythonVersion} would return true.
    *
-   * <p>If the old semantics are in effect ({@link #experimentalBetterPythonVersionMixing} is
-   * false), after this method is called {@code transitionPythonVersion} will not be able to change
-   * the version ({@code forcePython} will be non-null).
+   * <p>If the old semantics are in effect ({@link #incompatibleAllowPythonVersionTransitions} is
+   * false), after this method is called {@link #canTransitionPythonVersion} will return false.
+   *
+   * <p>To help avoid breaking old-API {@code select()} expressions that check the value of {@code
+   * "force_python"}, both the old and new flags are updated even though {@code --python_version}
+   * takes precedence over {@code --force_python}.
    *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public void setPythonVersion(PythonVersion version) {
-    Preconditions.checkArgument(PythonVersion.TARGET_VALUES.contains(version));
-    if (experimentalBetterPythonVersionMixing) {
-      this.pythonVersion = version;
-    } else {
-      this.forcePython = version;
-    }
+    Preconditions.checkArgument(version.isTargetValue());
+    this.pythonVersion = version;
+    // Update forcePython, but if the flag to remove the old API is enabled, no one will be able
+    // to tell anyway.
+    this.forcePython = version;
   }
 
   @Override
   public FragmentOptions getHost() {
     PythonOptions hostPythonOptions = (PythonOptions) getDefault();
-    hostPythonOptions.experimentalBetterPythonVersionMixing = experimentalBetterPythonVersionMixing;
+    hostPythonOptions.incompatibleRemoveOldPythonVersionApi = incompatibleRemoveOldPythonVersionApi;
+    hostPythonOptions.incompatibleAllowPythonVersionTransitions =
+        incompatibleAllowPythonVersionTransitions;
     PythonVersion hostVersion =
-        (hostForcePython != null) ? hostForcePython : PythonVersion.DEFAULT_TARGET_VALUE;
+        (hostForcePython != null) ? hostForcePython : getDefaultPythonVersion();
     hostPythonOptions.setPythonVersion(hostVersion);
+    hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
     hostPythonOptions.buildPythonZip = buildPythonZip;
+    hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     return hostPythonOptions;
   }
-
-  @Option(
-      name = "experimental_build_transitive_python_runfiles",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Build the runfiles trees of py_binary targets that appear in the transitive "
-              + "data runfiles of another binary.")
-  public boolean buildTransitiveRunfilesTrees;
 }

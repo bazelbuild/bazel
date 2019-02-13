@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;
@@ -312,7 +311,7 @@ public class WindowsFileSystemTest {
     fs.createSymbolicLink(link4, fs.getPath(scratchRoot).getRelative("bar.txt").asFragment());
     // Assert that link1 and link2 are true junctions and have the right contents.
     for (Path p : ImmutableList.of(link1, link2)) {
-      assertThat(WindowsFileOperations.isJunction(p.getPathString())).isTrue();
+      assertThat(WindowsFileSystem.isJunction(new File(p.getPathString()))).isTrue();
       assertThat(p.isSymbolicLink()).isTrue();
       assertThat(
               Iterables.transform(
@@ -327,7 +326,7 @@ public class WindowsFileSystemTest {
     }
     // Assert that link3 and link4 are copies of files.
     for (Path p : ImmutableList.of(link3, link4)) {
-      assertThat(WindowsFileOperations.isJunction(p.getPathString())).isFalse();
+      assertThat(WindowsFileSystem.isJunction(new File(p.getPathString()))).isFalse();
       assertThat(p.isSymbolicLink()).isFalse();
       assertThat(p.isFile()).isTrue();
     }

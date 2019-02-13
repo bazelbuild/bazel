@@ -213,6 +213,7 @@ public class SkylarkRepositoryContext
     try {
       checkInOutputDirectory(p);
       makeDirectories(p.getPath());
+      p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
         stream.write(content.getBytes(StandardCharsets.UTF_8));
       }
@@ -251,6 +252,7 @@ public class SkylarkRepositoryContext
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }
+      p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
         stream.write(tpl.getBytes(StandardCharsets.UTF_8));
       }
@@ -402,6 +404,31 @@ public class SkylarkRepositoryContext
     }
     SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
     return StructProvider.STRUCT.createStruct(dict, null);
+  }
+
+  @Override
+  public void extract(Object archive, Object output, String stripPrefix, Location location)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    SkylarkPath archivePath = getPath("extract()", archive);
+    SkylarkPath outputPath = getPath("extract()", output);
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExtractEvent(
+            archive.toString(),
+            output.toString(),
+            stripPrefix,
+            rule.getLabel().toString(),
+            location);
+    env.getListener().post(w);
+
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setTargetKind(rule.getTargetKind())
+            .setTargetName(rule.getName())
+            .setArchivePath(archivePath.getPath())
+            .setRepositoryPath(outputPath.getPath())
+            .setPrefix(stripPrefix)
+            .build());
   }
 
   @Override

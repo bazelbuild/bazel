@@ -525,23 +525,6 @@ public class JavaTargetAttributes {
     }
   }
 
-  /**
-   * Adds the classpath artifacts needed in a deploy jar for this target to the passed nested set.
-   *
-   * <p>This excludes the artifacts made available by jars in the deployment environment.
-   */
-  public void addRuntimeClassPathForArchiveToNestedSet(NestedSetBuilder<Artifact> builder) {
-    NestedSet<Artifact> runtimeClasspath = getRuntimeClassPath();
-
-    if (getExcludedArtifacts().isEmpty()) {
-      builder.addTransitive(runtimeClasspath);
-    } else {
-      builder.addAll(
-          Iterables.filter(
-              runtimeClasspath, Predicates.not(Predicates.in(getExcludedArtifacts().toSet()))));
-    }
-  }
-
   public NestedSet<Artifact> getCompileTimeClassPath() {
     return compileTimeClassPath;
   }

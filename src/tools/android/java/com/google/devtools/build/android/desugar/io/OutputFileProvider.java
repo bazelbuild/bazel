@@ -25,10 +25,12 @@ public interface OutputFileProvider extends AutoCloseable {
   public static final String DESUGAR_DEPS_FILENAME = "META-INF/desugar_deps";
 
   /**
-   * Copy {@code filename} from {@code inputFileProvider} to this output. If input file provider is
-   * a {@link ZipInputFileProvider} then the metadata of the zip entry are kept.
+   * Copy {@code filename} from {@code inputFileProvider} to this output, possibly with new name. If
+   * input file provider is a {@link ZipInputFileProvider} then the metadata of the zip entry are
+   * kept.
    */
-  void copyFrom(String filename, InputFileProvider inputFileProvider) throws IOException;
+  void copyFrom(String filename, InputFileProvider inputFileProvider, String outputFilename)
+      throws IOException;
 
   /** Write {@code content} in {@code filename} to this output */
   void write(String filename, byte[] content) throws IOException;

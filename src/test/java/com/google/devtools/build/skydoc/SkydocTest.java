@@ -50,15 +50,23 @@ public final class SkydocTest extends SkylarkTestCase {
 
   @Before
   public void setUp() {
-    skydocMain = new SkydocMain(new SkylarkFileAccessor() {
+    skydocMain =
+        new SkydocMain(
+            new SkylarkFileAccessor() {
 
-      @Override
-      public ParserInputSource inputSource(String pathString) throws IOException {
-        Path path = fileSystem.getPath("/" + pathString);
-        byte[] bytes = FileSystemUtils.asByteSource(path).read();
-        return ParserInputSource.create(bytes, path.asFragment());
-      }
-    });
+              @Override
+              public ParserInputSource inputSource(String pathString) throws IOException {
+                Path path = fileSystem.getPath("/" + pathString);
+                byte[] bytes = FileSystemUtils.asByteSource(path).read();
+                return ParserInputSource.create(bytes, path.asFragment());
+              }
+
+              @Override
+              public boolean fileExists(String pathString) {
+                return fileSystem.exists(fileSystem.getPath("/" + pathString));
+              }
+            },
+            ImmutableList.of("/other_root", "."));
   }
 
   @Test
@@ -169,14 +177,12 @@ public final class SkydocTest extends SkylarkTestCase {
         "def rule_impl(ctx):",
         "  return struct()");
 
-    scratch.file(
-        "/deps/foo/docstring.bzl",
-        "doc_string = 'Dep rule'");
+    scratch.file("/other_root/deps/foo/other_root.bzl", "doc_string = 'Dep rule'");
 
     scratch.file(
         "/deps/foo/dep_rule.bzl",
         "load('//lib:rule_impl.bzl', 'rule_impl')",
-        "load(':docstring.bzl', 'doc_string')",
+        "load(':other_root.bzl', 'doc_string')",
         "",
         "_hidden_rule = rule(",
         "    doc = doc_string,",

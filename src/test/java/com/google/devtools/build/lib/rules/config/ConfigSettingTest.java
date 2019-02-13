@@ -25,14 +25,20 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParser;
+import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,38 +49,81 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ConfigSettingTest extends BuildViewTestCase {
 
-  /** Test option which is private. */
-  public static class InternalTestOptions extends FragmentOptions {
-    public InternalTestOptions() {}
+  /** Extra options for this test. */
+  public static class DummyTestOptions extends FragmentOptions {
+    public DummyTestOptions() {}
 
     @Option(
-      name = "internal_option",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "super secret",
-      metadataTags = {OptionMetadataTag.INTERNAL}
-    )
-    public String optwithDefault;
+        name = "internal_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "super secret",
+        metadataTags = {OptionMetadataTag.INTERNAL})
+    public String internalOption;
+
+    @Option(
+        name = "nonselectable_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean nonselectableOption;
+
+    private static final OptionDefinition NONSELECTABLE_OPTION_DEFINITION =
+        OptionsParser.getOptionDefinitionByName(DummyTestOptions.class, "nonselectable_option");
+
+    @Option(
+        name = "nonselectable_whitelisted_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean nonselectableWhitelistedOption;
+
+    private static final OptionDefinition NONSELECTABLE_WHITELISTED_OPTION_DEFINITION =
+        OptionsParser.getOptionDefinitionByName(
+            DummyTestOptions.class, "nonselectable_whitelisted_option");
+
+    @Option(
+        name = "nonselectable_custom_message_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean nonselectableCustomMessageOption;
+
+    private static final OptionDefinition NONSELECTABLE_CUSTOM_MESSAGE_OPTION_DEFINITION =
+        OptionsParser.getOptionDefinitionByName(
+            DummyTestOptions.class, "nonselectable_custom_message_option");
+
+    @Override
+    public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
+      return ImmutableMap.of(
+          NONSELECTABLE_OPTION_DEFINITION,
+          new SelectRestriction(/*visibleWithinToolsPackage=*/ false, /*errorMessage=*/ null),
+          NONSELECTABLE_WHITELISTED_OPTION_DEFINITION,
+          new SelectRestriction(/*visibleWithinToolsPackage=*/ true, /*errorMessage=*/ null),
+          NONSELECTABLE_CUSTOM_MESSAGE_OPTION_DEFINITION,
+          new SelectRestriction(
+              /*visibleWithinToolsPackage=*/ false,
+              /*errorMessage=*/ "For very important reasons."));
+    }
   }
 
   @AutoCodec
-  static class InternalTestOptionsFragment extends BuildConfiguration.Fragment {
-  }
+  static class DummyTestOptionsFragment extends BuildConfiguration.Fragment {}
 
-  private static class InternalTestOptionsLoader implements ConfigurationFragmentFactory {
+  private static class DummyTestOptionsLoader implements ConfigurationFragmentFactory {
     @Override
     public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
-      return new InternalTestOptionsFragment();
+      return new DummyTestOptionsFragment();
     }
 
     @Override
     public Class<? extends BuildConfiguration.Fragment> creates() {
-      return InternalTestOptionsFragment.class;
+      return DummyTestOptionsFragment.class;
     }
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(InternalTestOptions.class);
+      return ImmutableSet.<Class<? extends FragmentOptions>>of(DummyTestOptions.class);
     }
   }
 
@@ -83,8 +132,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new FeatureFlagSetterRule());
-    builder.addConfigurationOptions(InternalTestOptions.class);
-    builder.addConfigurationFragment(new InternalTestOptionsLoader());
+    builder.addConfigurationOptions(DummyTestOptions.class);
+    builder.addConfigurationFragment(new DummyTestOptionsLoader());
     return builder.build();
   }
 
@@ -100,6 +149,37 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   private ConfigMatchingProvider getConfigMatchingProvider(String label) throws Exception {
     return getConfiguredTarget(label).getProvider(ConfigMatchingProvider.class);
+  }
+
+  /** Checks the behavior of {@link ConfigSetting#isUnderToolsPackage}. */
+  @Test
+  public void isUnderToolsPackage() throws Exception {
+    RepositoryName toolsRepo = RepositoryName.create("@tools");
+    // Subpackage of the tools package.
+    assertThat(
+            ConfigSetting.isUnderToolsPackage(
+                Label.parseAbsoluteUnchecked("@tools//tools/subpkg:foo"), toolsRepo))
+        .isTrue();
+    // The tools package itself.
+    assertThat(
+            ConfigSetting.isUnderToolsPackage(
+                Label.parseAbsoluteUnchecked("@tools//tools:foo"), toolsRepo))
+        .isTrue();
+    // The tools repo, but wrong package.
+    assertThat(
+            ConfigSetting.isUnderToolsPackage(
+                Label.parseAbsoluteUnchecked("@tools//nottools:foo"), toolsRepo))
+        .isFalse();
+    // Not even the tools repo.
+    assertThat(
+            ConfigSetting.isUnderToolsPackage(
+                Label.parseAbsoluteUnchecked("@nottools//nottools:foo"), toolsRepo))
+        .isFalse();
+    // A tools package but in the wrong repo.
+    assertThat(
+            ConfigSetting.isUnderToolsPackage(
+                Label.parseAbsoluteUnchecked("@nottools//tools:foo"), toolsRepo))
+        .isFalse();
   }
 
   /**
@@ -187,6 +267,71 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'compilation_mode': 'opt',",
         "        'not_an_option': 'bar',",
         "    })");
+  }
+
+  /** Tests that analysis fails on non-selectable options. */
+  @Test
+  public void nonselectableOption() throws Exception {
+    checkError(
+        "foo",
+        "badoption",
+        "option 'nonselectable_option' cannot be used in a config_setting",
+        "config_setting(",
+        "    name = 'badoption',",
+        "    values = {",
+        "        'nonselectable_option': 'true',",
+        "    },",
+        ")");
+  }
+
+  /**
+   * Tests that whitelisted non-selectable options can't be accessed outside of the tools package.
+   */
+  @Test
+  public void nonselectableWhitelistedOption_OutOfToolsPackage() throws Exception {
+    checkError(
+        "foo",
+        "badoption",
+        String.format(
+            "option 'nonselectable_whitelisted_option' cannot be used in a config_setting (it is "
+                + "whitelisted to %s//tools/... only)",
+            RepositoryName.create(TestConstants.TOOLS_REPOSITORY).getDefaultCanonicalForm()),
+        "config_setting(",
+        "    name = 'badoption',",
+        "    values = {",
+        "        'nonselectable_whitelisted_option': 'true',",
+        "    },",
+        ")");
+  }
+
+  /** Tests that whitelisted non-selectable options can be accessed within the tools package. */
+  @Test
+  public void nonselectableWhitelistedOption_InToolsPackage() throws Exception {
+    scratch.file(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/pkg/BUILD",
+        "config_setting(",
+        "    name = 'foo',",
+        "    values = {",
+        "        'nonselectable_whitelisted_option': 'true',",
+        "    })");
+    String fooLabel = TestConstants.TOOLS_REPOSITORY + "//tools/pkg:foo";
+    assertThat(getConfigMatchingProvider(fooLabel).matches()).isTrue();
+  }
+
+  /** Tests that custom error messages are displayed for non-selectable options. */
+  @Test
+  public void nonselectableCustomMessageOption() throws Exception {
+    checkError(
+        "foo",
+        "badoption",
+        "option 'nonselectable_custom_message_option' cannot be used in a config_setting. "
+            + "For very important reasons.",
+        "config_setting(",
+        "    name = 'badoption',",
+        "    values = {",
+        "        'nonselectable_custom_message_option': 'true',",
+        "    },",
+        ")");
   }
 
   /**
@@ -1283,5 +1428,70 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    ],",
         ");");
   }
-}
 
+  private Set<LicenseType> getLicenses(String label) throws Exception {
+    return getTarget(label).getLicense().getLicenseTypes();
+  }
+
+  /** Tests that default license behavior is unaffected. */
+  @Test
+  public void licensesDefault() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'copt': '-Dfoo',",
+        "    })");
+
+    useConfiguration("--copt", "-Dfoo");
+    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
+  }
+
+  /** Tests that third-party doesn't require a license from config_setting. */
+  @Test
+  public void thirdPartyLicenseRequirement() throws Exception {
+    scratch.file(
+        "third_party/test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'copt': '-Dfoo',",
+        "    })");
+
+    useConfiguration("--copt", "-Dfoo");
+    assertThat(getLicenses("//third_party/test:match")).containsExactly(LicenseType.NONE);
+  }
+
+  /** Tests that package-wide licenses are ignored by config_setting. */
+  @Test
+  public void packageLicensesIgnored() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "licenses(['restricted'])",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'copt': '-Dfoo',",
+        "    })");
+
+    useConfiguration("--copt", "-Dfoo");
+    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
+  }
+
+  /** Tests that rule-specific licenses are still used by config_setting. */
+  @Test
+  public void ruleLicensesUsed() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    licenses = ['restricted'],",
+        "    values = {",
+        "        'copt': '-Dfoo',",
+        "    })");
+
+    useConfiguration("--copt", "-Dfoo");
+    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.RESTRICTED);
+  }
+}

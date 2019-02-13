@@ -27,14 +27,17 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
+import com.google.devtools.build.lib.rules.python.PyStructUtils;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 import com.google.devtools.build.lib.util.FileType;
 
@@ -62,14 +65,20 @@ public final class BazelPyRuleClasses {
           See general comments about <code>deps</code> at
           <a href="${link common-definitions#common-attributes}">
           Attributes common to all build rules</a>.
-          These can be
-          <a href="${link py_binary}"><code>py_binary</code></a> rules,
+          These are generally
           <a href="${link py_library}"><code>py_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(
               builder
                   .copy("deps")
-                  .legacyMandatoryProviders(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME)
+                  .mandatoryProvidersList(
+                      ImmutableList.of(
+                          // Legacy provider.
+                          // TODO(#7010): Remove this legacy set.
+                          ImmutableList.of(
+                              SkylarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
+                          // Modern provider.
+                          ImmutableList.of(PyInfo.PROVIDER.id())))
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.
@@ -86,31 +95,40 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("imports", STRING_LIST).value(ImmutableList.<String>of()))
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(srcs_version) -->
-          The value set here is for documentation purpose, and it will NOT determine which version
-          of python interpreter to use. Starting with 0.5.3 this attribute has been deprecated and
-          no longer has effect.
-          A string specifying the Python major version(s) that the <code>.py</code> source
-          files listed in the <code>srcs</code> of this rule are compatible with.
-          Please reference to <a href="${link py_runtime}"><code>py_runtime</code></a> rules for
-          determining the python version.
-          Valid values are:<br/>
-          <code>"PY2ONLY"</code> -
-            Python 2 code that is <b>not</b> suitable for <code>2to3</code> conversion.<br/>
-          <code>"PY2"</code> -
-            Python 2 code that is expected to work when run through <code>2to3</code>.<br/>
-          <code>"PY2AND3"</code> -
-            Code that is compatible with both Python 2 and 3 without
-            <code>2to3</code> conversion.<br/>
-          <code>"PY3ONLY"</code> -
-            Python 3 code that will not run on Python 2.<br/>
-          <code>"PY3"</code> -
-            A synonym for PY3ONLY.<br/>
-          <br/>
+          This attribute declares the target's <code>srcs</code> to be compatible with either Python
+          2, Python 3, or both. To actually set the Python runtime version, use the
+          <a href="${link py_binary.python_version}"><code>python_version</code></a> attribute of an
+          executable Python rule (<code>py_binary</code> or <code>py_test</code>).
+
+          <p>Allowed values are: <code>"PY2AND3"</code>, <code>"PY2"</code>, and <code>"PY3"</code>.
+          The values <code>"PY2ONLY"</code> and <code>"PY3ONLY"</code> are also allowed for historic
+          reasons, but they are essentially the same as <code>"PY2"</code> and <code>"PY3"</code>
+          and should be avoided.
+
+          <p>Under the old semantics
+          (<code>--incompatible_allow_python_version_transitions=false</code>), it is an error to
+          build any Python target for a version disallowed by its <code>srcs_version</code>
+          attribute. Under the new semantics
+          (<code>--incompatible_allow_python_version_transitions=true</code>), this check is
+          deferred to the executable rule: You can build a <code>srcs_version = "PY3"</code>
+          <code>py_library</code> target for Python 2, but you cannot actually depend on it via
+          <code>deps</code> from a Python 3 <code>py_binary</code>.
+
+          <p>To get diagnostic information about which dependencies introduce version requirements,
+          you can run the <code>find_requirements</code> aspect on your target:
+          <pre>
+          bazel build &lt;your target&gt; \
+              --aspects=@bazel_tools//tools/python:srcs_version.bzl%find_requirements \
+              --output_groups=pyversioninfo
+          </pre>
+          This will build a file with the suffix <code>-pyversioninfo.txt</code> giving information
+          about why your target requires one Python version or another. Note that it works even if
+          the given target failed to build due to a version conflict.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("srcs_version", STRING)
                   .value(PythonVersion.DEFAULT_SRCS_VALUE.toString())
-                  .allowedValues(new AllowedValueSet(PythonVersion.ALL_STRINGS)))
+                  .allowedValues(new AllowedValueSet(PythonVersion.SRCS_STRINGS)))
           // TODO(brandjon): Consider adding to py_interpreter a .mandatoryNativeProviders() of
           // BazelPyRuntimeProvider. (Add a test case to PythonConfigurationTest for violations
           // of this requirement.)
@@ -143,15 +161,6 @@ public final class BazelPyRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(data) -->
-          The list of files needed by this binary at runtime.
-          See general comments about <code>data</code> at
-          <a href="${link common-definitions#common-attributes}">
-          Attributes common to all build rules</a>.
-          Also see the <a href="${link py_library.data}"><code>data</code></a> argument of
-          the <a href="${link py_library}"><code>py_library</code></a> rule for details.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(main) -->
           The name of the source file that is the main entry point of the application.
           This file must also be listed in <code>srcs</code>. If left unspecified,
@@ -160,39 +169,72 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main", LABEL).allowedFileTypes(PYTHON_SOURCE))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(default_python_version) -->
-          A string specifying the default Python major version to use when building this binary and
-          all of its <code>deps</code>.
-          Valid values are <code>"PY2"</code> (default) or <code>"PY3"</code>.
-          Python 3 support is experimental.
+          A deprecated alias for <code>python_version</code>; use that instead. This attribute is
+          disabled under <code>--incompatible_remove_old_python_version_api</code>. For migration
+          purposes, if <code>python_version</code> is given then the value of
+          <code>default_python_version</code> is ignored.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
-              attr("default_python_version", STRING)
-                  .value(PythonVersion.DEFAULT_TARGET_VALUE.toString())
-                  .allowedValues(new AllowedValueSet(PythonVersion.TARGET_STRINGS))
+              attr(PyCommon.DEFAULT_PYTHON_VERSION_ATTRIBUTE, STRING)
+                  .value(PythonVersion._INTERNAL_SENTINEL.toString())
+                  .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET)
                   .nonconfigurable(
-                      "read by PythonUtils.getNewPythonVersion, which doesn't have access"
-                          + " to configuration keys"))
+                      "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
+                          + " to the configuration"))
+          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(python_version) -->
+          Whether to build this target (and its transitive <code>deps</code>) for Python 2 or Python
+          3. Valid values are <code>"PY2"</code> (the default) and <code>"PY3"</code>.
+
+          <p>Under the old semantics
+          (<code>--incompatible_allow_python_version_transitions=false</code>), the Python version
+          generally cannot be changed once set. This means that the <code>--python_version</code>
+          flag overrides this attribute, and other Python binaries in the <code>data</code> deps of
+          this target are forced to use the same version as this target.
+
+          <p>Under the new semantics
+          (<code>--incompatible_allow_python_version_transitions=true</code>), the Python version
+          is always set (possibly by default) to whatever version is specified by this attribute,
+          regardless of the version specified on the command line or by other targets that depend on
+          this one.
+
+          <p>If you want to <code>select()</code> on the current Python version, you can inspect the
+          value of <code>@bazel_tools//tools/python:python_version</code>. See
+          <a href="https://github.com/bazelbuild/bazel/blob/4b74ea9a3f81b7ed30562f1689827b5488884c86/tools/python/BUILD#L33">here</a>
+          for more information.
+
+          <p><b>Bug warning:</b> This attribute sets the version for which Bazel builds your target,
+          but due to <a href="https://github.com/bazelbuild/bazel/issues/4815">#4815</a>, the
+          resulting stub script may still invoke the wrong interpreter version at runtime. See
+          <a href="https://github.com/bazelbuild/bazel/issues/4815#issuecomment-460777113">this
+          workaround</a>, which involves defining a <code>py_runtime</code> target that points to
+          either Python version as needed, and activating this <code>py_runtime</code> by setting
+          <code>--python_top</code>.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr(PyCommon.PYTHON_VERSION_ATTRIBUTE, STRING)
+                  .value(PythonVersion._INTERNAL_SENTINEL.toString())
+                  .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET)
+                  .nonconfigurable(
+                      "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
+                          + " to the configuration"))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(srcs) -->
-          The list of source files that are processed to create the target.
-          This includes all your checked-in code and any
-          generated source files.  The line between <code>srcs</code> and
-          <code>deps</code> is loose. The <code>.py</code> files
-          probably belong in <code>srcs</code> and library targets probably belong
-          in <code>deps</code>, but don't worry about it too much.
+          The list of source (<code>.py</code>) files that are processed to create the target.
+          This includes all your checked-in code and any generated source files. Library targets
+          belong in <code>deps</code> instead, while other binary files needed at runtime belong in
+          <code>data</code>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("srcs", LABEL_LIST)
                   .mandatory()
                   .allowedFileTypes(PYTHON_SOURCE)
-                  .direct_compile_time_input()
-                  .allowedFileTypes(BazelPyRuleClasses.PYTHON_SOURCE))
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(legacy_create_init) -->
           Whether to implicitly create empty __init__.py files in the runfiles tree.
           These are created in every directory containing Python source code or
-          shared libraries, and every parent directory of those directories.
-          Default is true for backward compatibility.  If false, the user is responsible
-          for creating __init__.py files (empty or not) and adding them to `srcs` or `deps`
-          of Python targets as required.
+          shared libraries, and every parent directory of those directories, excluding the repo root
+          directory. The default is true for backward compatibility. If false, the user is
+          responsible for creating (possibly empty) __init__.py files and adding them to the
+          <code>srcs</code> of Python targets as required.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("legacy_create_init", BOOLEAN).value(true))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(stamp) -->
@@ -219,7 +261,7 @@ public final class BazelPyRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$base_py_binary")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(PyBaseRule.class, BazelCppRuleClasses.CcLinkingRule.class)
+          .ancestors(PyBaseRule.class, CcToolchainRequiringRule.class)
           .build();
     }
   }

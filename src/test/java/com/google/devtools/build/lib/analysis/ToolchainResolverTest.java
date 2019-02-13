@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.auto.value.AutoValue;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.ToolchainResolver.UnresolvedToolch
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -36,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidC
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -470,12 +467,7 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     ConfiguredTargetAndData toolchain =
         getConfiguredTargetAndData(
             Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
-    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap =
-        OrderedSetMultimap.create();
-    prerequisiteMap.put(
-        Attribute.attr(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR, LABEL_LIST).build(), toolchain);
-
-    ToolchainContext toolchainContext = unloadedToolchainContext.load(prerequisiteMap);
+    ToolchainContext toolchainContext = unloadedToolchainContext.load(ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext.forToolchainType(testToolchainType)).isNotNull();
     assertThat(toolchainContext.forToolchainType(testToolchainType).hasField("data")).isTrue();
@@ -532,12 +524,7 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     ConfiguredTargetAndData toolchain =
         getConfiguredTargetAndData(
             Label.parseAbsoluteUnchecked("//:variable_toolchain_impl"), targetConfig);
-    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap =
-        OrderedSetMultimap.create();
-    prerequisiteMap.put(
-        Attribute.attr(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR, LABEL_LIST).build(), toolchain);
-
-    ToolchainContext toolchainContext = unloadedToolchainContext.load(prerequisiteMap);
+    ToolchainContext toolchainContext = unloadedToolchainContext.load(ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext.forToolchainType(variableToolchainType)).isNotNull();
     assertThat(toolchainContext.templateVariableProviders()).hasSize(1);

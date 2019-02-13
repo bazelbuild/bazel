@@ -42,7 +42,7 @@ pkg_tar(
 EOF
   bazel build --all_incompatible_changes ... \
     || fail "Expect success, even with all upcoming Skylark changes"
-  grep -q 'Hello World' `bazel info bazel-bin`/data.tar \
+  grep -q 'Hello World' `bazel info bazel-bin --all_incompatible_changes`/data.tar \
     || fail "Output not generated correctly"
 }
 
@@ -67,12 +67,59 @@ pkg_tar(
 EOF
   bazel build --all_incompatible_changes :fancy || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin`/fancy.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes`/fancy.tar
 
   grep equal ../out/foo=bar || fail "file with equal sign not packed correctly"
   grep option ../out/--foo || fail "file with double minus not packed correctly"
   readlink ../out/link_with_colons | grep -- 'some:dangling:link' \
       || fail "symlink not packed"
+}
+
+test_pkg_tar_strip_directory() {
+  # Verify that pkg_tar's strip_prefix permits stripping off the name of
+  # directory output targets.
+  rm -rf main out
+  mkdir main
+  cd main
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+load(":apple.bzl", "create_banana_directory")
+
+create_banana_directory(
+    name = "banana_directory",
+)
+
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "banana_tarball",
+    srcs = [":banana_directory"],
+    strip_prefix = "banana",
+)
+EOF
+  cat > apple.bzl <<'EOF'
+def _create_banana_directory_impl(ctx):
+    out = ctx.actions.declare_directory("banana")
+    ctx.actions.run(
+        executable = "bash",
+        arguments = ["-c", "mkdir -p %s/pear && touch %s/pear/grape" % (out.path, out.path)],
+        outputs = [out],
+    )
+    return [
+        DefaultInfo(
+            files = depset([out]),
+        ),
+    ]
+
+create_banana_directory = rule(
+    implementation = _create_banana_directory_impl,
+)
+EOF
+  bazel build --all_incompatible_changes :banana_tarball || fail "Expected success"
+  mkdir ../out
+  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes`/banana_tarball.tar
+
+  test -f ../out/pear/grape || fail "expected file to be present"
 }
 
 test_http_archive() {

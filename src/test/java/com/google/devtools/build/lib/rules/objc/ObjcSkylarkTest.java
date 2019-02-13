@@ -307,7 +307,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   name='my_target',",
         ")");
 
-    useConfiguration("--cpu=ios_i386", "--xcode_version=7.3");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--xcode_version=7.3");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
 
@@ -496,7 +496,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   name='my_target',",
         ")");
 
-    useConfiguration("--cpu=ios_i386");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
     String platformDevFrameworksDir =

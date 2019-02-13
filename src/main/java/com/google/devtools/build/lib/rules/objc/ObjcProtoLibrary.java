@@ -41,7 +41,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     Iterable<ProtoInfo> protoInfos =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.class);
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER);
 
     Iterable<ObjcProtoProvider> objcProtoProviders =
         ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);

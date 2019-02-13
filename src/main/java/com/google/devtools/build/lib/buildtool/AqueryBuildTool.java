@@ -14,27 +14,84 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.query2.ActionGraphProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.ActionGraphQueryEnvironment;
+import com.google.devtools.build.lib.query2.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.engine.ActionFilterFunction;
 import com.google.devtools.build.lib.query2.engine.FunctionExpression;
-import com.google.devtools.build.lib.query2.engine.InputsFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.output.AqueryOptions;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
+import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.Factory.CommandLineException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.protobuf.TextFormat;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Optional;
+import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** A version of {@link BuildTool} that handles all aquery work. */
 public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTargetValue> {
-  private final ImmutableMap<String, String> actionFilters;
+  private final AqueryActionFilter actionFilters;
 
-  public AqueryBuildTool(CommandEnvironment env, QueryExpression queryExpression) {
+  public AqueryBuildTool(CommandEnvironment env, @Nullable QueryExpression queryExpression)
+      throws AqueryActionFilterException {
     super(env, queryExpression);
-    actionFilters = getActionFilters(queryExpression);
+    actionFilters = buildActionFilters(queryExpression);
+  }
+
+  /** Outputs the current {@link ActionGraphContainer} of Skyframe. */
+  public BlazeCommandResult dumpActionGraphFromSkyframe(BuildRequest request) {
+    try (QueryRuntimeHelper queryRuntimeHelper =
+        env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
+      AqueryOptions aqueryOptions = request.getOptions(AqueryOptions.class);
+
+      ActionGraphContainer actionGraphContainer =
+          ((SequencedSkyframeExecutor) env.getSkyframeExecutor())
+              .getActionGraphContainer(
+                  aqueryOptions.includeCommandline,
+                  actionFilters,
+                  aqueryOptions.includeParamFiles,
+                  aqueryOptions.includeArtifacts);
+      PrintStream printStream =
+          queryRuntimeHelper.getOutputStreamForQueryOutput() == null
+              ? null
+              : new PrintStream(queryRuntimeHelper.getOutputStreamForQueryOutput());
+
+      // Write the data.
+      if (OutputType.BINARY.formatName().equals(aqueryOptions.outputFormat)) {
+        actionGraphContainer.writeTo(printStream);
+      } else if (OutputType.TEXT.formatName().equals(aqueryOptions.outputFormat)) {
+        TextFormat.print(actionGraphContainer, printStream);
+      } else {
+        throw new IllegalStateException(
+            "Unsupported output format "
+                + aqueryOptions.outputFormat
+                + ": --skyframe_state must be used with --output=proto or --output=textproto.");
+      }
+      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    } catch (CommandLineException | CommandLineExpansionException e) {
+      env.getReporter().handle(Event.error("Error while parsing command: " + e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    } catch (IOException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
+    }
   }
 
   @Override
@@ -67,23 +124,75 @@ public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget
   }
 
   /**
-   * Return the action filters in the form { inputs: <string-pattern>, ... }
+   * Return the action filters in the form { inputs: <pattern>, outputs: <pattern>, ... }
    *
    * @param queryExpression The query expression from aquery command
    * @return the action filters
+   * @throws AqueryActionFilterException if an aquery filter function is preceded by any other
+   *     function types
    */
-  private ImmutableMap<String, String> getActionFilters(QueryExpression queryExpression) {
-    ImmutableMap.Builder<String, String> actionFiltersBuilder = ImmutableMap.builder();
+  private AqueryActionFilter buildActionFilters(@Nullable QueryExpression queryExpression)
+      throws AqueryActionFilterException {
+    AqueryActionFilter.Builder actionFiltersBuilder = AqueryActionFilter.builder();
 
-    // TODO(leba): Add other types of function: outputs, mnemonic
-    if (!(queryExpression instanceof FunctionExpression)
-        || !(((FunctionExpression) queryExpression).getFunction() instanceof InputsFunction)) {
+    if (!(queryExpression instanceof FunctionExpression)) {
       return actionFiltersBuilder.build();
     }
 
-    FunctionExpression inputsFunctionExpression = (FunctionExpression) queryExpression;
-    actionFiltersBuilder.put("inputs", inputsFunctionExpression.getArgs().get(0).getWord());
+    Optional<FunctionExpression> functionExpressionOptional =
+        Optional.of((FunctionExpression) queryExpression);
+
+    FunctionExpression nonAqueryFilterFunctionExpression = null;
+
+    // Unwrap the function layers
+    // Validate that aquery filter functions (inputs, outputs, mnemonics) are not preceded
+    // by any other function types
+    while (functionExpressionOptional.isPresent()) {
+      FunctionExpression functionExpression = functionExpressionOptional.get();
+
+      if (functionExpression.getFunction() instanceof ActionFilterFunction) {
+        if (nonAqueryFilterFunctionExpression != null) {
+          throw new AqueryActionFilterException(
+              "aquery filter functions (inputs, outputs, mnemonic) produce actions, and therefore "
+                  + "can't be the input of other function types: "
+                  + nonAqueryFilterFunctionExpression.getFunction().getName());
+        }
+        ActionFilterFunction actionFilterFunction =
+            (ActionFilterFunction) functionExpression.getFunction();
+
+        String patternString = functionExpression.getArgs().get(0).getWord();
+        actionFiltersBuilder.put(actionFilterFunction.getName(), Pattern.compile(patternString));
+      } else {
+        nonAqueryFilterFunctionExpression = functionExpression;
+      }
+
+      functionExpressionOptional = getNextFunctionExpression(functionExpression);
+    }
 
     return actionFiltersBuilder.build();
+  }
+
+  /**
+   * Unwrap input {@code functionExpression} to get the next FunctionExpression in the query
+   *
+   * @param functionExpression the current function expression
+   * @return the Optional of the next FunctionExpression in the query
+   */
+  private Optional<FunctionExpression> getNextFunctionExpression(
+      FunctionExpression functionExpression) {
+    for (Argument arg : functionExpression.getArgs()) {
+      if (arg.getType() == ArgumentType.EXPRESSION
+          && arg.getExpression() instanceof FunctionExpression) {
+        return Optional.of((FunctionExpression) arg.getExpression());
+      }
+    }
+    return Optional.empty();
+  }
+
+  /** Custom exception class for aquery filtering */
+  public static class AqueryActionFilterException extends Exception {
+    AqueryActionFilterException(String message) {
+      super(message);
+    }
   }
 }

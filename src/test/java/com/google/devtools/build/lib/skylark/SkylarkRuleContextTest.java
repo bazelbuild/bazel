@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -492,7 +492,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     TransitiveInfoCollection tic1 = (TransitiveInfoCollection) ((SkylarkList) result).get(0);
     assertThat(JavaInfo.getProvider(JavaSourceJarsProvider.class, tic1)).isNotNull();
     // Check an unimplemented provider too
-    assertThat(tic1.get(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME)).isNull();
+    assertThat(PyProviderUtils.hasLegacyProvider(tic1)).isFalse();
   }
 
   @Test
@@ -2111,46 +2111,48 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   // A list of attributes and methods ctx objects have
-  private final List<String> ctxAttributes = ImmutableList.of(
-      "attr",
-      "split_attr",
-      "executable",
-      "file",
-      "files",
-      "workspace_name",
-      "label",
-      "fragments",
-      "host_fragments",
-      "configuration",
-      "host_configuration",
-      "coverage_instrumented(dep)",
-      "features",
-      "bin_dir",
-      "genfiles_dir",
-      "outputs",
-      "rule",
-      "aspect_ids",
-      "var",
-      "tokenize('foo')",
-      "expand('foo', [], Label('//test:main'))",
-      "new_file('foo.txt')",
-      "new_file(file, 'foo.txt')",
-      "actions.declare_file('foo.txt')",
-      "actions.declare_file('foo.txt', sibling = file)",
-      "actions.declare_directory('foo.txt')",
-      "actions.declare_directory('foo.txt', sibling = file)",
-      "actions.do_nothing(mnemonic = 'foo', inputs = [file])",
-      "actions.expand_template(template = file, output = file, substitutions = {})",
-      "actions.run(executable = file, outputs = [file])",
-      "actions.run_shell(command = 'foo', outputs = [file])",
-      "actions.write(file, 'foo')",
-      "check_placeholders('foo', [])",
-      "action(command = 'foo', outputs = [file])",
-      "file_action(file, 'foo')",
-      "empty_action(mnemonic = 'foo', inputs = [file])",
-      "template_action(template = file, output = file, substitutions = {})",
-      "runfiles()",
-      "resolve_command(command = 'foo')");
+  private final List<String> ctxAttributes =
+      ImmutableList.of(
+          "attr",
+          "split_attr",
+          "executable",
+          "file",
+          "files",
+          "workspace_name",
+          "label",
+          "fragments",
+          "host_fragments",
+          "configuration",
+          "host_configuration",
+          "coverage_instrumented(dep)",
+          "features",
+          "bin_dir",
+          "genfiles_dir",
+          "outputs",
+          "rule",
+          "aspect_ids",
+          "var",
+          "tokenize('foo')",
+          "expand('foo', [], Label('//test:main'))",
+          "new_file('foo.txt')",
+          "new_file(file, 'foo.txt')",
+          "actions.declare_file('foo.txt')",
+          "actions.declare_file('foo.txt', sibling = file)",
+          "actions.declare_directory('foo.txt')",
+          "actions.declare_directory('foo.txt', sibling = file)",
+          "actions.do_nothing(mnemonic = 'foo', inputs = [file])",
+          "actions.expand_template(template = file, output = file, substitutions = {})",
+          "actions.run(executable = file, outputs = [file])",
+          "actions.run_shell(command = 'foo', outputs = [file])",
+          "actions.write(file, 'foo')",
+          "check_placeholders('foo', [])",
+          "action(command = 'foo', outputs = [file])",
+          "file_action(file, 'foo')",
+          "empty_action(mnemonic = 'foo', inputs = [file])",
+          "template_action(template = file, output = file, substitutions = {})",
+          "runfiles()",
+          "resolve_command(command = 'foo')",
+          "resolve_tools()");
 
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {

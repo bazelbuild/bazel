@@ -83,7 +83,7 @@ final class ExecutionServer extends ExecutionImplBase {
 
   // The name of the container image entry in the Platform proto
   // (see third_party/googleapis/devtools/remoteexecution/*/remote_execution.proto and
-  // experimental_remote_platform_override in
+  // remote_default_platform_properties in
   // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
   private static final String DOCKER_IMAGE_PREFIX = "docker://";
@@ -349,14 +349,6 @@ final class ExecutionServer extends ExecutionImplBase {
       throw new ExecutionStatusException(errStatus, resp.build());
     } else if (setResult) {
       cache.setCachedActionResult(actionKey, finalResult);
-    }
-    if (finalResult.getOutputFilesCount()
-            + finalResult.getOutputFileSymlinksCount()
-            + finalResult.getOutputDirectoriesCount()
-            + finalResult.getOutputDirectorySymlinksCount()
-        <= 0) {
-      logger.warning(
-          String.format("Unexpected result of remote execution: no output files: %s", finalResult));
     }
     return finalResult;
   }

@@ -63,6 +63,7 @@ public class ExecutableSymlinkActionTest {
         actionKeyContext,
         null,
         outErr,
+        executor.getEventHandler(),
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
         null,

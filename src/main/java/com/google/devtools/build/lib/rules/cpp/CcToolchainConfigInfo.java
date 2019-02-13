@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CppConfiguration.getLegacyCrosstoolFieldErrorMessage;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -34,7 +37,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainConfigInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -61,14 +63,12 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final String compiler;
   private final String abiVersion;
   private final String abiLibcVersion;
-  private final boolean supportsGoldLinker;
   private final boolean supportsStartEndLib;
-  private final boolean supportsInterfaceSharedObjects;
+  private final boolean supportsInterfaceSharedLibraries;
   private final boolean supportsEmbeddedRuntimes;
   private final String staticRuntimesFilegroup;
   private final String dynamicRuntimesFilegroup;
   private final boolean supportsFission;
-  private final boolean supportsDsym;
   private final boolean needsPic;
   private final ImmutableList<Pair<String, String>> toolPaths;
   private final ImmutableList<String> compilerFlags;
@@ -107,14 +107,12 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      boolean supportsGoldLinker,
       boolean supportsStartEndLib,
-      boolean supportsInterfaceSharedObjects,
+      boolean supportsInterfaceSharedLibraries,
       boolean supportsEmbeddedRuntimes,
       String staticRuntimesFilegroup,
       String dynamicRuntimesFilegroup,
       boolean supportsFission,
-      boolean supportsDsym,
       boolean needsPic,
       ImmutableList<Pair<String, String>> toolPaths,
       ImmutableList<String> compilerFlags,
@@ -151,14 +149,12 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.compiler = compiler;
     this.abiVersion = abiVersion;
     this.abiLibcVersion = abiLibcVersion;
-    this.supportsGoldLinker = supportsGoldLinker;
     this.supportsStartEndLib = supportsStartEndLib;
-    this.supportsInterfaceSharedObjects = supportsInterfaceSharedObjects;
+    this.supportsInterfaceSharedLibraries = supportsInterfaceSharedLibraries;
     this.supportsEmbeddedRuntimes = supportsEmbeddedRuntimes;
     this.staticRuntimesFilegroup = staticRuntimesFilegroup;
     this.dynamicRuntimesFilegroup = dynamicRuntimesFilegroup;
     this.supportsFission = supportsFission;
-    this.supportsDsym = supportsDsym;
     this.needsPic = needsPic;
     this.toolPaths = toolPaths;
     this.compilerFlags = compilerFlags;
@@ -184,8 +180,12 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.proto = proto;
   }
 
-  public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {
-
+  public static CcToolchainConfigInfo fromToolchain(RuleContext ruleContext, CToolchain toolchain)
+      throws EvalException {
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    boolean disableLegacyCrosstoolFields = cppConfiguration.disableLegacyCrosstoolFields();
+    boolean disableExpandIfAllAvailableInFlagSet =
+        cppConfiguration.disableExpandIfAllAvailableInFlagSet();
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (CToolchain.ActionConfig actionConfig : toolchain.getActionConfigList()) {
       actionConfigBuilder.add(new ActionConfig(actionConfig));
@@ -216,6 +216,123 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     ImmutableList.Builder<String> mostlyStaticLinkerFlags = ImmutableList.builder();
     ImmutableList.Builder<String> dynamicLinkerFlags = ImmutableList.builder();
     ImmutableList.Builder<String> mostlyStaticLibrariesLinkerFlags = ImmutableList.builder();
+
+    if (disableLegacyCrosstoolFields) {
+      if (toolchain.getCompilationModeFlagsCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("compilation_mode_flags"));
+      }
+      if (toolchain.getLinkingModeFlagsCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("linking_mode_flags"));
+      }
+      if (toolchain.getArFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("ar_flag"));
+      }
+      if (toolchain.getArThinArchivesFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("ar_thin_archives_flag"));
+      }
+      if (toolchain.getCompilerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("compiler_flag"));
+      }
+      if (toolchain.getCxxFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("cxx_flag"));
+      }
+      if (toolchain.getDebianExtraRequiresCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("debian_extra_requires"));
+      }
+      if (toolchain.hasDefaultPythonTop()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("default_python_top"));
+      }
+      if (toolchain.hasDefaultPythonVersion()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("default_python_version"));
+      }
+      if (toolchain.getDynamicLibraryLinkerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("dynamic_library_linker_flag"));
+      }
+      if (toolchain.getGccPluginCompilerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("gcc_plugin_compiler_flag"));
+      }
+      if (toolchain.getGccPluginHeaderDirectoryCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("gcc_plugin_header_directory"));
+      }
+      if (toolchain.getLdEmbedFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("ld_embed_flag"));
+      }
+      if (toolchain.getLinkerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("linker_flag"));
+      }
+      if (toolchain.getMaoPluginHeaderDirectoryCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("mao_plugin_header_directory"));
+      }
+      if (toolchain.hasNeedsPic()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("needsPic"));
+      }
+      if (toolchain.getObjcopyEmbedFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("objcopy_embed_flag"));
+      }
+      if (toolchain.hasPythonPreloadSwigdeps()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("python_preload_swigdeps"));
+      }
+      if (toolchain.hasStaticRuntimesFilegroup()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("static_runtimes_filegroup"));
+      }
+      if (toolchain.hasDynamicRuntimesFilegroup()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("dynamic_runtimes_filegroup"));
+      }
+      if (toolchain.hasSupportsDsym()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_dsym"));
+      }
+      if (toolchain.hasSupportsEmbeddedRuntimes()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_embedded_runtimes"));
+      }
+      if (toolchain.hasSupportsFission()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_fission"));
+      }
+      if (toolchain.hasSupportsGoldLinker()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_gold_linker"));
+      }
+      if (toolchain.hasSupportsIncrementalLinker()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_incremental_linker"));
+      }
+      if (toolchain.hasSupportsInterfaceSharedObjects()) {
+        ruleContext.ruleError(
+            getLegacyCrosstoolFieldErrorMessage("supports_interface_shared_objects"));
+      }
+      if (toolchain.hasSupportsNormalizingAr()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_normalizing_ar"));
+      }
+      if (toolchain.hasSupportsStartEndLib()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_start_end_lib"));
+      }
+      if (toolchain.hasSupportsThinArchives()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_thin_archives"));
+      }
+      if (toolchain.getTestOnlyLinkerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("test_only_linker_flag"));
+      }
+      if (toolchain.getUnfilteredCxxFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("unfiltered_cxx_flag"));
+      }
+    }
+
+    if (disableExpandIfAllAvailableInFlagSet) {
+      toolchain
+          .getFeatureList()
+          .forEach(
+              (f) -> {
+                if (f.getFlagSetList().stream()
+                    .anyMatch((s) -> s.getExpandIfAllAvailableCount() != 0)) {
+                  ruleContext.ruleError(
+                      String.format(
+                          "Feature '%s' defines a flag_set with expand_if_all_available set. "
+                              + "This is disabled by "
+                              + "--incompatible_disable_expand_if_all_available_in_flag_set, "
+                              + "please migrate your CROSSTOOL (see "
+                              + "https://github.com/bazelbuild/bazel/issues/7008 "
+                              + "for migration instructions).",
+                          f.getName()));
+                }
+              });
+    }
 
     for (CompilationModeFlags flag : toolchain.getCompilationModeFlagsList()) {
       switch (flag.getMode()) {
@@ -292,14 +409,12 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         toolchain.getCompiler(),
         toolchain.getAbiVersion(),
         toolchain.getAbiLibcVersion(),
-        toolchain.getSupportsGoldLinker(),
         toolchain.getSupportsStartEndLib(),
         toolchain.getSupportsInterfaceSharedObjects(),
         toolchain.getSupportsEmbeddedRuntimes(),
         toolchain.getStaticRuntimesFilegroup(),
         toolchain.getDynamicRuntimesFilegroup(),
         toolchain.getSupportsFission(),
-        toolchain.getSupportsDsym(),
         toolchain.getNeedsPic(),
         toolchain.getToolPathList().stream()
             .map(a -> Pair.of(a.getName(), a.getPath()))
@@ -395,20 +510,14 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   // TODO(b/65151735): Remove once this field is migrated to features.
   @Deprecated
-  public boolean supportsGoldLinker() {
-    return supportsGoldLinker;
-  }
-
-  // TODO(b/65151735): Remove once this field is migrated to features.
-  @Deprecated
   public boolean supportsStartEndLib() {
     return supportsStartEndLib;
   }
 
   // TODO(b/65151735): Remove once this field is migrated to features.
   @Deprecated
-  public boolean supportsInterfaceSharedObjects() {
-    return supportsInterfaceSharedObjects;
+  public boolean supportsInterfaceSharedLibraries() {
+    return supportsInterfaceSharedLibraries;
   }
 
   // TODO(b/65151735): Remove once this field is migrated to features.
@@ -433,12 +542,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   @Deprecated
   public boolean supportsFission() {
     return supportsFission;
-  }
-
-  // TODO(b/65151735): Remove once this field is migrated to features.
-  @Deprecated
-  public boolean supportsDsym() {
-    return supportsDsym;
   }
 
   // TODO(b/65151735): Remove once this field is migrated to features.
@@ -620,10 +723,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return hasDynamicLinkingModeFlags;
   }
 
-  @SkylarkCallable(
-      name = "proto",
-      doc = "Returns text proto from the CcToolchainConfigInfo data.",
-      structField = true)
+  @Override
   public String getProto() {
     return proto;
   }
@@ -702,7 +802,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         .setEnabled(feature.isEnabled())
         .addAllFlagSet(
             feature.getFlagSets().stream()
-                .map(flagSet -> flagSetToProto(flagSet))
+                .map(flagSet -> flagSetToProto(flagSet, /* forActionConfig= */ false))
                 .collect(ImmutableList.toImmutableList()))
         .addAllEnvSet(
             feature.getEnvSets().stream()
@@ -717,19 +817,22 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         .build();
   }
 
-  private static CToolchain.FlagSet flagSetToProto(FlagSet flagSet) {
-    return CToolchain.FlagSet.newBuilder()
-        .addAllAction(flagSet.getActions())
-        .addAllFlagGroup(
-            flagSet.getFlagGroups().stream()
-                .map(flagGroup -> flagGroupToProto(flagGroup))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllWithFeature(
-            flagSet.getWithFeatureSets().stream()
-                .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllExpandIfAllAvailable(flagSet.getExpandIfAllAvailable())
-        .build();
+  private static CToolchain.FlagSet flagSetToProto(FlagSet flagSet, boolean forActionConfig) {
+    CToolchain.FlagSet.Builder flagSetBuilder =
+        CToolchain.FlagSet.newBuilder()
+            .addAllFlagGroup(
+                flagSet.getFlagGroups().stream()
+                    .map(flagGroup -> flagGroupToProto(flagGroup))
+                    .collect(ImmutableList.toImmutableList()))
+            .addAllWithFeature(
+                flagSet.getWithFeatureSets().stream()
+                    .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
+                    .collect(ImmutableList.toImmutableList()))
+            .addAllExpandIfAllAvailable(flagSet.getExpandIfAllAvailable());
+    if (!forActionConfig) {
+      flagSetBuilder.addAllAction(flagSet.getActions());
+    }
+    return flagSetBuilder.build();
   }
 
   private static CToolchain.FeatureSet featureSetToProto(ImmutableSet<String> features) {
@@ -758,7 +861,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
                 .collect(ImmutableList.toImmutableList()))
         .addAllFlagSet(
             actionConfig.getFlagSets().stream()
-                .map(flagSet -> flagSetToProto(flagSet))
+                .map(flagSet -> flagSetToProto(flagSet, /* forActionConfig= */ true))
                 .collect(ImmutableList.toImmutableList()))
         .addAllImplies(actionConfig.getImplies())
         .build();

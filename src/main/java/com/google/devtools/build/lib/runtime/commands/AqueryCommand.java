@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.buildtool.AqueryBuildTool;
+import com.google.devtools.build.lib.buildtool.AqueryBuildTool.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.ActionGraphQueryEnvironment;
@@ -34,11 +36,6 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
 
 /** Handles the 'aquery' command on the Blaze command line. */
 @Command(
@@ -73,41 +70,41 @@ public final class AqueryCommand implements BlazeCommand {
             Event.warn(
                 "Note that the aquery command is still experimental "
                     + "and its API will change in the future."));
-    if (options.getResidue().isEmpty()) {
+    AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
+    boolean queryCurrentSkyframeState = aqueryOptions.queryCurrentSkyframeState;
+
+    // When querying for the state of Skyframe, it's possible to omit the query expression.
+    if (options.getResidue().isEmpty() && !queryCurrentSkyframeState) {
       env.getReporter()
           .handle(
               Event.error(
                   "Missing query expression. Use the 'help aquery' command for syntax and help."));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
+
     String query = Joiner.on(' ').join(options.getResidue());
-    HashMap<String, QueryFunction> functions = new HashMap<>();
-    for (QueryFunction queryFunction : ActionGraphQueryEnvironment.FUNCTIONS) {
-      functions.put(queryFunction.getName(), queryFunction);
-    }
+    ImmutableMap<String, QueryFunction> functions = getFunctionsMap(env);
 
-    for (QueryFunction queryFunction : ActionGraphQueryEnvironment.AQUERY_FUNCTIONS) {
-      functions.put(queryFunction.getName(), queryFunction);
-    }
-
-    for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
-      functions.put(queryFunction.getName(), queryFunction);
-    }
+    // Query expression might be null in the case of --skyframe_state.
     QueryExpression expr;
     try {
-      expr = QueryParser.parse(query, functions);
+      expr = query.isEmpty() ? null : QueryParser.parse(query, functions);
     } catch (QueryException e) {
       env.getReporter()
           .handle(Event.error("Error while parsing '" + query + "': " + e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
-    List<String> topLevelTargets = options.getOptions(AqueryOptions.class).universeScope;
-    Set<String> targetPatternSet = new LinkedHashSet<>();
-    if (topLevelTargets.isEmpty()) {
-      expr.collectTargetPatterns(targetPatternSet);
-      topLevelTargets = new ArrayList<>(targetPatternSet);
+    ImmutableList<String> topLevelTargets;
+    try {
+      topLevelTargets =
+          AqueryCommandUtils.getTopLevelTargets(
+              aqueryOptions.universeScope, expr, queryCurrentSkyframeState, query);
+    } catch (QueryException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
+
     BlazeRuntime runtime = env.getRuntime();
 
     BuildRequest request =
@@ -119,8 +116,42 @@ public final class AqueryCommand implements BlazeCommand {
             env.getReporter().getOutErr(),
             env.getCommandId(),
             env.getCommandStartTime());
-    ExitCode exitCode =
-        new AqueryBuildTool(env, expr).processRequest(request, null).getExitCondition();
+
+    AqueryBuildTool aqueryBuildTool;
+
+    try {
+      aqueryBuildTool = new AqueryBuildTool(env, expr);
+    } catch (AqueryActionFilterException e) {
+      env.getReporter().handle(Event.error(e.getMessage() + "\n" + expr));
+      return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
+    }
+
+    if (queryCurrentSkyframeState) {
+      try {
+        return aqueryBuildTool.dumpActionGraphFromSkyframe(request);
+      } catch (IllegalStateException e) {
+        env.getReporter().handle(Event.error(e.getMessage()));
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      }
+    }
+    ExitCode exitCode = aqueryBuildTool.processRequest(request, null).getExitCondition();
     return BlazeCommandResult.exitCode(exitCode);
+  }
+
+  private ImmutableMap<String, QueryFunction> getFunctionsMap(CommandEnvironment env) {
+    ImmutableMap.Builder<String, QueryFunction> functionsBuilder = ImmutableMap.builder();
+
+    for (QueryFunction queryFunction : ActionGraphQueryEnvironment.FUNCTIONS) {
+      functionsBuilder.put(queryFunction.getName(), queryFunction);
+    }
+
+    for (QueryFunction queryFunction : ActionGraphQueryEnvironment.AQUERY_FUNCTIONS) {
+      functionsBuilder.put(queryFunction.getName(), queryFunction);
+    }
+
+    for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
+      functionsBuilder.put(queryFunction.getName(), queryFunction);
+    }
+    return functionsBuilder.build();
   }
 }

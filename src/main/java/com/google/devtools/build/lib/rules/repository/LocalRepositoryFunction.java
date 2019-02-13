@@ -43,8 +43,13 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
-      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData,
+      SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
     PathFragment pathFragment = RepositoryFunction.getTargetPath(rule, directories.getWorkspace());
     RepositoryDirectoryValue.Builder result =

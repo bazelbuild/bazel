@@ -48,6 +48,32 @@ class WindowsFileOperationsTest : public ::testing::Test {
   void TearDown() override { DeleteAllUnder(GetTestTmpDirW()); }
 };
 
+TEST_F(WindowsFileOperationsTest, TestIsAbsoluteWindowsStylePath) {
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L""));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"NUL"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"nul"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:/"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:/"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"c:\\"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo/bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo/bar"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\bar"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"foo"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"foo\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\."));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\."));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\.\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\.\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\..\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\..\\bar"));
+}
+
 TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring target(tmp + L"\\junc_target");
@@ -55,7 +81,8 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
   wstring file1(target + L"\\foo");
   EXPECT_TRUE(blaze_util::CreateDummyFile(file1));
 
-  EXPECT_EQ(IS_JUNCTION_NO, IsJunctionOrDirectorySymlink(target.c_str()));
+  EXPECT_EQ(IS_JUNCTION_NO,
+            IsJunctionOrDirectorySymlink(target.c_str(), nullptr));
   EXPECT_NE(INVALID_FILE_ATTRIBUTES, ::GetFileAttributesW(file1.c_str()));
 
   wstring name(tmp + L"\\junc_name");
@@ -73,13 +100,13 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
 
   // Assert creation of the junctions.
   ASSERT_EQ(IS_JUNCTION_YES,
-            IsJunctionOrDirectorySymlink((name + L"1").c_str()));
+            IsJunctionOrDirectorySymlink((name + L"1").c_str(), nullptr));
   ASSERT_EQ(IS_JUNCTION_YES,
-            IsJunctionOrDirectorySymlink((name + L"2").c_str()));
+            IsJunctionOrDirectorySymlink((name + L"2").c_str(), nullptr));
   ASSERT_EQ(IS_JUNCTION_YES,
-            IsJunctionOrDirectorySymlink((name + L"3").c_str()));
+            IsJunctionOrDirectorySymlink((name + L"3").c_str(), nullptr));
   ASSERT_EQ(IS_JUNCTION_YES,
-            IsJunctionOrDirectorySymlink((name + L"4").c_str()));
+            IsJunctionOrDirectorySymlink((name + L"4").c_str(), nullptr));
 
   // Assert that the file is visible under all junctions.
   ASSERT_NE(INVALID_FILE_ATTRIBUTES,

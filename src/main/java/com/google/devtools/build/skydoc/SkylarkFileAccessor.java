@@ -28,4 +28,7 @@ public interface SkylarkFileAccessor {
    * string.
    */
   ParserInputSource inputSource(String pathString) throws IOException;
+
+  /** Returns true if a file exists at the current path. */
+  boolean fileExists(String pathString);
 }

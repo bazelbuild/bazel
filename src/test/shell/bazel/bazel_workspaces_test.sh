@@ -214,6 +214,40 @@ function test_download_multiple() {
   ensure_contains_exactly 'output: "out_for_list.txt"' 1
 }
 
+function test_download_then_extract() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local file_prefix="${server_dir}/download_then_extract"
+
+  pushd ${TEST_TMPDIR}
+  echo "This is one file" > server_dir/download_then_extract.txt
+  zip -r server_dir/download_then_extract.zip server_dir
+  file_sha256="$(sha256sum server_dir/download_then_extract.zip | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  set_workspace_command "
+  repository_ctx.download(\"http://localhost:${fileserver_port}/download_then_extract.zip\", \"downloaded_file.zip\", \"${file_sha256}\")
+  repository_ctx.extract(\"downloaded_file.zip\", \"out_dir\", \"server_dir/\")"
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 2
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.zip\"" 1
+  ensure_contains_exactly 'output: "downloaded_file.zip"' 1
+  ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
+  ensure_contains_exactly 'extract_event' 1
+  ensure_contains_exactly 'archive: "downloaded_file.zip"' 1
+  ensure_contains_exactly 'output: "out_dir"' 1
+  ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
+}
+
 function test_download_and_extract() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
@@ -277,8 +311,8 @@ function test_symlink() {
   ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'symlink_event' 1
-  ensure_contains_exactly 'from: ".*symlink.txt"' 1
-  ensure_contains_exactly 'to: ".*symlink_out.txt"' 1
+  ensure_contains_exactly 'target: ".*symlink.txt"' 1
+  ensure_contains_exactly 'path: ".*symlink_out.txt"' 1
 }
 
 function test_template() {

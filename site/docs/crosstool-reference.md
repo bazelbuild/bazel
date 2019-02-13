@@ -74,7 +74,7 @@ The toolchain selection logic operates as follows:
 
 1.  User specifies a `cc_toolchain_suite` target in the `BUILD` file and points
     Bazel to the target using the
-    [`--crosstool_top` option](https://docs.bazel.build/versions/master/user-manual.html#flag--crosstool_top).
+    [`--crosstool_top` option](user-manual.html#flag--crosstool_top).
     The `CROSSTOOL` file must reside in the same directory as the
     `BUILD` file containing the `cc_toolchain_suite` target.
 
@@ -116,7 +116,7 @@ Bazel binary. C++ rules support multiple unique actions documented in detail
 
 ## `CROSSTOOL` features
 
-A feature is an entity that requires non-default command-line flags, actions,
+A feature is an entity that requires command-line flags, actions,
 constraints on the execution environment, or dependency alterations. A feature
 can be something as simple as allowing BUILD files to select configurations of
 flags, such as `treat_warnings_as_errors`, or interact with the C++ rules and
@@ -124,16 +124,20 @@ include new compile actions and inputs to the compilation, such as
 `header_modules` or `thin_lto`.
 
 Ideally, a toolchain definition consists of a set of features, where each
-feature consists of multiple flag groups, each defining a list of flags that
-apply to specific Bazel actions.
+feature consists of one or more flag groups, each defining a list of flags
+that apply to specific Bazel actions.
 
 A feature is specified by name, which allows full decoupling of the `CROSSTOOL`
 configuration from Bazel releases. In other words, a Bazel release does not
 affect the behavior of `CROSSTOOL` configurations as long as those
 configurations do not require the use of new features.
 
-A feature is enabled only when both Bazel and the CROSSTOOL configuration
-support it.
+A feature is enabled in one of the following ways:
+
+*  The feature's `enabled` field in the `CROSSTOOL` file is set to `true`.
+*  Bazel or the rule owner explicitly enable it.
+*  The user enables it through the `--feature` Bazel option or `features` rule
+   attribute.
 
 Features can have interdependencies, depend on command line flags, `BUILD` file
 settings, and other variables.
@@ -156,7 +160,10 @@ support and expansion. These are:
    </td>
   </tr>
   <tr>
-   <td><code>requires: ['feature1', 'feature2']</code>
+   <td><pre>requires {
+    feature: 'feature-name-1'
+    feature: 'feature-name-2'
+}</pre>
    </td>
    <td>Feature-level. The feature is supported only if the specified required
        features are enabled. For example, when a feature is only supported in
@@ -168,30 +175,31 @@ support and expansion. These are:
   <tr>
    <td><code>implies: 'feature'</code>
    </td>
-   <td>Feature-level. This feature implies the specified feature. For example, a
+   <td><p>Feature-level. This feature implies the specified feature. For example, a
        module compile implies the need for module maps, which can be implemented
        by a repeated <code>implies</code> string in the feature where each of
        the strings names a specific feature. Enabling a feature also implicitly
-       enables all features implied by it (that is, it functions recursively).
-     <p>
-      Also provides the ability to factor common subsets of functionality out of
-      a set of features, such as the common parts of sanitizers. Implied
-      features cannot be disabled.
+       enables all features implied by it (that is, it functions recursively).</p>
+       <p>Also provides the ability to factor common subsets of functionality out of
+       a set of features, such as the common parts of sanitizers. Implied
+       features cannot be disabled.</p>
    </td>
   </tr>
   <tr>
    <td><code>provides: 'feature'</code>
    </td>
-   <td>Feature-level. Indicates that this feature is one of several mutually
+   <td><p>Feature-level. Indicates that this feature is one of several mutually
        exclusive alternate features. For example, all of the sanitizers could
-       specify <code>provides: "sanitizer"</code>.
-       <p>
-       This improves error handling by listing the alternatives if the user asks
-       for two or more mutually exclusive features at once.
+       specify <code>provides: "sanitizer"</code>.</p>
+       <p>This improves error handling by listing the alternatives if the user asks
+       for two or more mutually exclusive features at once.</p>
    </td>
   </tr>
   <tr>
-   <td><code>with_feature: {feature: 'feature1', not_feature: 'feature2']</code>
+   <td><pre>with_feature {
+    feature: 'feature-name-1'
+    not_feature: 'feature-name-2'
+}</pre>
    </td>
    <td>Flag set-level. A feature can specify multiple flag sets with multiple
      <code>with_feature</code> statements. When <code>with_feature</code> is
@@ -478,69 +486,68 @@ files consumable by Xcode.
 With Bazel, this process can instead be implemented as follows, with
 `unbundle-debuginfo` being a Bazel action:
 
-```
-toolchain {
-    action_config {
-        config_name: "c++-link-executable"
-        action_name: "c++-link-executable"
-        tool {
-          with_feature { feature: "generate-debug-symbols" }
-          tool_path: "toolchain/mac/ld-with-dsym-packaging"
+
+    toolchain {
+        action_config {
+            config_name: "c++-link-executable"
+            action_name: "c++-link-executable"
+            tool {
+              with_feature { feature: "generate-debug-symbols" }
+              tool_path: "toolchain/mac/ld-with-dsym-packaging"
+            }
+            tool {
+              tool_path: "toolchain/mac/ld"
+            }
         }
-        tool {
-          tool_path: "toolchain/mac/ld"
+
+        feature {
+            name: "generate-debug-symbols"
+            flag_set {
+                action: "c-compile"
+                action: "c++-compile"
+                flag_group {
+                    flag: "-g"
+                }
+            }
+            implies: "unbundle-debuginfo"
         }
     }
 
-    feature {
-        name: "generate-debug-symbols"
-        flag_set {
-            action: "c-compile"
-            action: "c++-compile"
-            flag_group {
-                flag: "-g"
-            }
-        }
-        implies: { feature: "unbundle-debuginfo" }
-    }
-}
-```
 
 This same feature can be implemented entirely differently for Linux, which uses
 `fission`, or for Windows, which produces `.pdb` files.  For example, the
 implementation for `fission`-based debug symbol generation might look as
 follows:
 
-```
-toolchain {
-    action_config {
-        name: "c++-compile"
 
-    tool {
-          tool_path: "toolchain/bin/gcc"
+    toolchain {
+        action_config {
+            name: "c++-compile"
+            tool {
+                tool_path: "toolchain/bin/gcc"
+            }
+        }
+
+        feature {
+            name: "generate-debug-symbols"
+            requires { feature: "dbg" }
+            flag_set {
+                action: "c++-compile"
+                flag_group {
+                    flag: "-gsplit-dwarf"
+                }
+            }
+            flag_set {
+                action: "c++-link-executable"
+                flag_group {
+                    flag: "-Wl"
+                    flag: "--gdb-index"
+                }
+            }
+          }
         }
     }
 
-    feature {
-        name: "generate-debug-symbols"
-        requires { feature: "dbg" }
-        flag_set {
-          action: "c++-compile"
-          flag_group {
-              flag: "-gsplit-dwarf"
-          }
-        }
-        flag_set {
-          action: "c++-link-executable"
-          flag_group {
-              flag: "-Wl"
-              flag: "--gdb-index"
-          }
-        }
-      }
-    }
-}
-```
 
 ### Flag groups
 
@@ -549,11 +556,10 @@ You can specify a flag within the `CROSSTOOL` file using pre-defined variables
 within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
 
-```
-  flag_group {
-    flag: "%{output_file_path}
-  }
-```
+    flag_group {
+        flag: "%{output_file_path}"
+    }
+
 
 In this case, the contents of the flag will be replaced by the output file path
 of the action.
@@ -565,65 +571,54 @@ For flags that need to repeat with different values when added to the build
 command, the flag group can iterate variables of type `list`. For example, the
 variable `include_path` of type `list`:
 
-```
-   flag_group {
-    iterate_over: "include_paths"
-    flag: "-I%{include_paths}"
-  }
-```
+    flag_group {
+        iterate_over: "include_paths"
+        flag: "-I%{include_paths}"
+    }
 
 expands to `-I<path>` for each path element in the `include_paths` list. All
 flags (or `flag_group`s) in the body of a flag group declaration are expanded as
 a unit. For example:
 
-```
-   flag_group {
-    iterate_over: "include_paths"
-    flag: "-I"
-    flag: "%{include_paths}"
-  }
-```
+    flag_group {
+        iterate_over: "include_paths"
+        flag: "-I"
+        flag: "%{include_paths}"
+    }
 
 expands to `-I <path>` for each path element in the `include_paths` list.
 
 A variable can repeat multiple times. For example:
 
-```
-   flag_group {
-    iterate_over: "include_paths"
-    flag: "-iprefix=%{include_paths}"
-    flag: "-isystem=%{include_paths}"
-  }
-```
+    flag_group {
+        iterate_over: "include_paths"
+        flag: "-iprefix=%{include_paths}"
+        flag: "-isystem=%{include_paths}"
+    }
 
 expands to:
 
-```
-  -iprefix=<inc0> -isystem=<inc0> -iprefix=<inc1> -isystem=<inc1>
-```
+    -iprefix=<inc0> -isystem=<inc0> -iprefix=<inc1> -isystem=<inc1>
 
 Variables can correspond to structures accessible using dot-notation. For
 example:
 
-```
-   flag_group {
-    flag: "-l%{libraries_to_link.name}"
-  }
-```
+    flag_group {
+        flag: "-l%{libraries_to_link.name}"
+    }
 
 Structures can be nested and may also contain sequences. To prevent name clashes
 and to be explicit, you must specify the full path through the fields. For
 example:
 
-```
-   flag_group {
-    iterate_over: "libraries_to_link"
     flag_group {
-      iterate_over: "libraries_to_link.shared_libraries"
-      flag: "-l%{libraries_to_link.shared_libraries.name}"
+        iterate_over: "libraries_to_link"
+        flag_group {
+            iterate_over: "libraries_to_link.shared_libraries"
+            flag: "-l%{libraries_to_link.shared_libraries.name}"
+        }
     }
-  }
-```
+
 
 ### Conditional expansion
 
@@ -631,25 +626,24 @@ Flag groups support conditional expansion based on the presence of a particular
 variable or its field using the `expand_if_all_available`, `expand_if_none_available`,
 `expand_if_true`, `expand_if_false`, or `expand_if_equal` messages. For example:
 
-```
-   flag_group {
-    iterate_over: "libraries_to_link"
+
     flag_group {
-      iterate_over: "libraries_to_link.shared_libraries"
-      flag_group {
-        expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
-        flag: "--whole_archive"
-      }
-      flag_group {
-        flag: "-l%{libraries_to_link.shared_libraries.name}"
-      }
-      flag_group {
-        expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
-        flag: "--no_whole_archive"
-      }
+        iterate_over: "libraries_to_link"
+        flag_group {
+            iterate_over: "libraries_to_link.shared_libraries"
+            flag_group {
+                expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
+                flag: "--whole_archive"
+            }
+            flag_group {
+                flag: "-l%{libraries_to_link.shared_libraries.name}"
+            }
+            flag_group {
+                expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
+                flag: "--no_whole_archive"
+            }
+        }
     }
-  }
-```
 
 **Note:** The `--whole_archive` and `--no_whole_archive` options are added to
 the build command only when a currently iterated library has an
@@ -664,13 +658,13 @@ information required to successfully configure `CROSSTOOL`.
 
 The following is a reference of `CROSSTOOL` build variables.
 
-**Note:** `[action]` indicates the relevant action type.
+**Note:** The **Action** column indicates the relevant action type, if applicable.
 
 <table>
-  <col width="300">
-  <col width="600">
   <tr>
    <td><strong>Variable</strong>
+   </td>
+   <td><strong>Action</strong>
    </td>
    <td><strong>Description</strong>
    </td>
@@ -678,25 +672,29 @@ The following is a reference of `CROSSTOOL` build variables.
   <tr>
    <td><strong><code>source_file</code></strong>
    </td>
-   <td><code>[compile]</code> Source file to compile.
+   <td>compile</td>
+   <td>Source file to compile.
    </td>
   </tr>
   <tr>
    <td><strong><code>input_file</code></strong>
    </td>
-   <td><code>[strip]</code> Artifact to strip.
+   <td>strip</td>
+   <td>Artifact to strip.
    </td>
   </tr>
   <tr>
    <td><strong><code>output_file</code></strong>
    </td>
-   <td><code>[compile]</code> Compilation output.
+   <td>compile</td>
+   <td>Compilation output.
    </td>
   </tr>
   <tr>
    <td><strong><code>output_assembly_file</code></strong>
    </td>
-   <td><code>[compile]</code> Emitted assembly file. Applies only when the
+   <td>compile</td>
+   <td>Emitted assembly file. Applies only when the
        <code>compile</code> action emits assembly text, typically when using the
        <code>--save_temps</code> flag. The contents are the same as for
        <code>output_file</code>.
@@ -705,7 +703,8 @@ The following is a reference of `CROSSTOOL` build variables.
   <tr>
    <td><strong><code>output_preprocess_file</code></strong>
    </td>
-   <td><code>[compile]</code> Preprocessed output. Applies only to compile
+   <td>compile</td>
+   <td>Preprocessed output. Applies only to compile
        actions that only preprocess the source files, typically when using the
      <code>--save_temps</code> flag. The contents are the same as for
      <code>output_file</code>.
@@ -714,22 +713,25 @@ The following is a reference of `CROSSTOOL` build variables.
   <tr>
    <td><strong><code>includes</code></strong>
    </td>
-   <td><code>[compile]</code> Sequence of files the compiler must
+   <td>compile</td>
+   <td>Sequence of files the compiler must
        unconditionally include in the compiled source.
    </td>
   </tr>
   <tr>
    <td><strong><code>include_paths</code></strong>
    </td>
-   <td><code>[compile]</code> Sequence directories in which the compiler
+   <td>compile</td>
+   <td>Sequence directories in which the compiler
        searches for headers included using <code>#include&lt;foo.h&gt;</code>
        and <code>#include "foo.h"</code>.
    </td>
   </tr>
   <tr>
    <td><strong><code>quote_include_paths</code></strong>
+   <td>compile</td>
    </td>
-   <td><code>[compile]</code> Sequence of <code>-iquote</code> includes -
+   <td>Sequence of <code>-iquote</code> includes -
        directories in which the compiler searches for headers included using
        <code>#include&lt;foo.h&gt;</code>.
    </td>
@@ -737,7 +739,8 @@ The following is a reference of `CROSSTOOL` build variables.
   <tr>
    <td><strong><code>system_include_paths</code></strong>
    </td>
-   <td><code>[compile]</code> Sequence of <code>-isystem</code> includes -
+   <td>compile</td>
+   <td>Sequence of <code>-isystem</code> includes -
        directories in which the compiler searches for headers included using
        <code>#include "foo.h"</code>.
    </td>
@@ -745,55 +748,60 @@ The following is a reference of `CROSSTOOL` build variables.
   <tr>
    <td><strong><code>dependency_file</code></strong>
    </td>
-   <td><code>[compile]</code> The <code>.d</code> dependency file generated by
-       the compiler.
+   <td>compile</td>
+   <td>The <code>.d</code> dependency file generated by the compiler.
    </td>
   </tr>
   <tr>
    <td><strong><code>preprocessor_defines</code></strong>
    </td>
-   <td><code>[compile]</code> Sequence of <code>defines</code>, such as
-       <code>--DDEBUG</code>.
+   <td>compile</td>
+   <td>Sequence of <code>defines</code>, such as <code>--DDEBUG</code>.
    </td>
   </tr>
   <tr>
    <td><strong><code>pic</code></strong>
    </td>
-   <td><code>[compile]</code> Compiles the output as position-independent code.
+   <td>compile</td>
+   <td>Compiles the output as position-independent code.
    </td>
   </tr>
   <tr>
    <td><strong><code>gcov_gcno_file</code></strong>
    </td>
-   <td><code>[compile]</code> The <code>gcov</code> coverage file.
+   <td>compile</td>
+   <td>The <code>gcov</code> coverage file.
    </td>
   </tr>
   <tr>
    <td><strong><code>per_object_debug_info_file</code></strong>
    </td>
-   <td><code>[compile]</code> The per-object debug info (<code>.dwp</code>)
-       file.
+   <td>compile</td>
+   <td>The per-object debug info (<code>.dwp</code>) file.
    </td>
   </tr>
   <tr>
    <td><strong><code>stripotps</code></strong>
    </td>
-   <td><code>[strip]</code> Sequence of <code>stripopts</code>.
+   <td>strip</td>
+   <td>Sequence of <code>stripopts</code>.
    </td>
   </tr>
   <tr>
    <td><strong><code>legacy_compile_flags</code></strong>
    </td>
-    <td><code>[compile]</code> Sequence of flags from legacy
-        <code>CROSSTOOL</code> fields such as <code>compiler_flag</code>,
-        <code>optional_compiler_flag</code>, <code>cxx_flag</code>, and
-        <code>optional_cxx_flag</code>.
+   <td>compile</td>
+   <td>Sequence of flags from legacy
+       <code>CROSSTOOL</code> fields such as <code>compiler_flag</code>,
+       <code>optional_compiler_flag</code>, <code>cxx_flag</code>, and
+       <code>optional_cxx_flag</code>.
    </td>
   </tr>
   <tr>
    <td><strong><code>user_compile_flags</code></strong>
    </td>
-   <td><code>[compile]</code> Sequence of flags from either the
+   <td>compile</td>
+   <td>Sequence of flags from either the
        <code>copt</code> rule attribute or the <code>--copt</code>,
        <code>--cxxopt</code>, and <code>--conlyopt</code> flags.
    </td>
@@ -801,136 +809,152 @@ The following is a reference of `CROSSTOOL` build variables.
   <tr>
    <td><strong><code>unfiltered_compile_flags</code></strong>
    </td>
-   <td><code>[compile]</code> Sequence of flags from the
+   <td>compile</td>
+   <td>Sequence of flags from the
      <code>unfiltered_cxx_flag</code> legacy <code>CROSSTOOL</code> field or the
-       <code>unfiltered _compile_flags</code> feature. These are not filtered by
+       <code>unfiltered_compile_flags</code> feature. These are not filtered by
        the <code>nocopts</code> rule attribute.
    </td>
   </tr>
   <tr>
    <td><strong><code>sysroot</code></strong>
    </td>
+   <td></td>
    <td>The <code>sysroot</code>.
    </td>
   </tr>
   <tr>
    <td><strong><code>runtime_library_search_directories</code></strong>
    </td>
-   <td><code>[link]</code> Entries in the linker runtime search path (usually
+   <td>link</td>
+   <td>Entries in the linker runtime search path (usually
        set with the <code>-rpath</code> flag).
    </td>
   </tr>
   <tr>
    <td><strong><code>library_search_directories</code></strong>
    </td>
-   <td><code>[link]</code> Entries in the linker search path (usually set with
+   <td>link</td>
+   <td>Entries in the linker search path (usually set with
        the <code>-L</code> flag).
    </td>
   </tr>
   <tr>
    <td><strong><code>libraries_to_link</code></strong>
    </td>
-   <td><code>[link]</code> Flags providing files to link as inputs in the linker
-       invocation.
+   <td>link</td>
+   <td>Flags providing files to link as inputs in the linker invocation.
    </td>
   </tr>
   <tr>
    <td><strong><code>def_file_path</code></strong>
    </td>
-   <td><code>[link]</code> Location of def file used on Windows with MSVC.
+   <td>link</td>
+   <td>Location of def file used on Windows with MSVC.
    </td>
   </tr>
   <tr>
    <td><strong><code>linker_param_file</code></strong>
    </td>
-   <td><code>[link]</code> Location of linker param file created by bazel to
+   <td>link</td>
+   <td>Location of linker param file created by bazel to
        overcome command line length limit.
    </td>
   </tr>
   <tr>
    <td><strong><code>output_execpath</code></strong>
    </td>
-   <td><code>[link]</code> execpath of the output of the linker.
+   <td>link</td>
+   <td>Execpath of the output of the linker.
    </td>
   </tr>
   <tr>
    <td><strong><code>generate_interface_library</code></strong>
    </td>
-   <td><code>[link]</code> "yes"|"no" depending on whether interface library
-       should be generated.
+   <td>link</td>
+   <td><code>"yes"</code> or <code>"no"</code> depending on whether interface library should
+       be generated.
    </td>
   </tr>
   <tr>
    <td><strong><code>interface_library_builder_path</code></strong>
    </td>
-   <td><code>[link]</code> Path to the interface library builder tool.
+   <td>link</td>
+   <td>Path to the interface library builder tool.
    </td>
   </tr>
   <tr>
    <td><strong><code>interface_library_input_path</code></strong>
    </td>
-    <td><code>[link]</code> Input for the interface library <code>ifso</code>
-        builder tool.
+   <td>link</td>
+   <td>Input for the interface library <code>ifso</code> builder tool.
    </td>
   </tr>
   <tr>
    <td><strong><code>interface_library_output_path</code></strong>
    </td>
-  <td><code>[link]</code> Path where to generate interface library using the
-      <code>ifso</code> builder tool.
+   <td>link</td>
+   <td>Path where to generate interface library using the <code>ifso</code> builder tool.
    </td>
   </tr>
   <tr>
    <td><strong><code>legacy_link_flags</code></strong>
    </td>
-   <td><code>[link]</code> Linker flags coming from the legacy
-       <code>CROSSTOOL</code>.
+   <td>link</td>
+   <td>Linker flags coming from the legacy <code>CROSSTOOL</code> fields.
    </td>
   </tr>
   <tr>
    <td><strong><code>user_link_flags</code></strong>
    </td>
-   <td><code>[link]</code> Linker flags coming from the <code>--linkopt</code>
+   <td>link</td>
+   <td>Linker flags coming from the <code>--linkopt</code>
        or <code>linkopts</code> attribute.
    </td>
   </tr>
   <tr>
    <td><strong><code>symbol_counts_output</code></strong>
    </td>
-   <td><code>[link]</code> Path to which to write symbol counts.
+   <td>link</td>
+   <td>Path to which to write symbol counts.
    </td>
   </tr>
   <tr>
    <td><strong><code>linkstamp_paths</code></strong>
    </td>
-   <td><code>[link]</code> A build variable giving linkstamp paths.
+   <td>link</td>
+   <td>A build variable giving linkstamp paths.
    </td>
   </tr>
   <tr>
    <td><strong><code>force_pic</code></strong>
    </td>
-   <td><code>[link]</code> Presence of this variable indicates that PIC code
-       should be generated.
+   <td>link</td>
+   <td>Presence of this variable indicates that PIC/PIE code should
+     be generated (Bazel option `--force_pic` was passed).
    </td>
   </tr>
   <tr>
    <td><strong><code>strip_debug_symbols</code></strong>
    </td>
-   <td><code>[link]</code> Presence of this variable indicates that the debug
+   <td>link</td>
+   <td>Presence of this variable indicates that the debug
        symbols should be stripped.
    </td>
   </tr>
   <tr>
    <td><strong><code>is_cc_test</code></strong>
    </td>
-   <td><code>[link]</code> Truthy when current action is a <code>cc_test</code>
+   <td>link</td>
+   <td>Truthy when current action is a <code>cc_test</code>
        linking action, false otherwise.
    </td>
   </tr>
   <tr>
    <td><strong><code>is_using_fission</code></strong>
    </td>
-   <td><code>[link]</code> Presence of this variable indicates that files were
+   <td>link</td>
+   <td>Presence of this variable indicates that files were
        compiled with fission. Debug info is in <code>.dwo</code> files instead
        of <code>.o</code> files and the linker needs to know this.
    </td>
@@ -939,7 +963,7 @@ The following is a reference of `CROSSTOOL` build variables.
 
 
 
-### CROSSTOOL features
+### Well-known features
 
 The following is a reference of `CROSSTOOL` features and their activation
 conditions.
@@ -950,7 +974,7 @@ conditions.
   <tr>
    <td><strong>Feature</strong>
    </td>
-   <td><strong>Activation Condition</strong>
+   <td><strong>Documentation</strong>
    </td>
   </tr>
   <tr>
@@ -966,31 +990,128 @@ conditions.
    </td>
   </tr>
   <tr>
-   <td><strong><code>random_seed</code></strong>
-   </td>
-   <td>Enabled by default.
-   </td>
-  </tr>
-  <tr>
-   <td><strong><code>dependency_file</code></strong>
-   </td>
-   <td>Enabled by default.
-   </td>
-  </tr>
-  <tr>
    <td><strong><code>per_object_debug_info</code></strong>
    </td>
     <td>Enabled if the <code>supports_fission</code> attribute is set in the
-        `CROSSTOOL` file and the current compilation mode is specified in the
+        <code>CROSSTOOL</code> file and the current compilation mode is specified in the
         <code>--fission</code> flag.
    </td>
   </tr>
   <tr>
-   <td><strong><code>pic</code></strong>
+   <td><strong><code>supports_start_end_lib</code></strong>
    </td>
-   <td>Required if the target needs PIC objects for dynamic libraries. Enabled
-       by default - the `pic` variable is present whenever PIC compilation is
-       requested.
+   <td>If enabled (and the option <code>--start_end_lib</code> is set), Bazel
+     will not link against static libraries but instead use the
+     <code>--start-lib/--end-lib</code> linker options to link against objects
+     directly. This speeds up the build since Bazel doesn't have to build
+     static libraries.
    </td>
   </tr>
+  <tr>
+   <td><strong><code>supports_interface_shared_libraries</code></strong>
+   </td>
+   <td>If enabled (and the option <code>--interface_shared_objects</code> is
+     set), Bazel will link targets that have <code>linkstatic</code> set to
+     False (<code>cc_test</code>s by default) against interface shared
+     libraries. This makes incremental relinking faster.
+   </td>
+  </tr>
+  <tr>
+   <td><strong><code>supports_dynamic_linker</code></strong>
+   </td>
+   <td>If enabled, C++ rules will know the toolchain can produce shared
+     libraries.
+   </td>
+  </tr>
+  <tr>
+   <td><strong><code>static_link_cpp_runtimes</code></strong>
+   </td>
+   <td>If enabled, Bazel will link the C++ runtime statically in static linking
+     mode and dynamically in dynamic linking mode. Artifacts
+     specified in the <code>cc_toolchain.static_runtime_lib</code> or
+     <code>cc_toolchain.dynamic_runtime_lib</code> attribute (depending on the
+     linking mode) will be added to the linking actions.
+   </td>
+  </tr>
+  <tr>
+   <td><strong><code>supports_pic</code></strong>
+   </td>
+   <td>If enabled, toolchain will know to use PIC objects for dynamic libraries.
+     The `pic` variable is present whenever PIC compilation is needed. If not enabled
+     by default, and `--force_pic` is passed, Bazel will request `supports_pic` and
+     validate that the feature is enabled. If the feature is missing, or couldn't
+      be enabled, `--force_pic` cannot be used.
+   </td>
+  </tr>
+  <tr>
+    <td>
+      <strong><code>static_linking_mode | dynamic_linking_mode</code></strong>
+    </td>
+    <td>Enabled by default based on linking mode.</td>
+  </tr>
+  <tr>
+     <td><strong><code>no_legacy_features</code></strong>
+     </td>
+     <td>
+       Prevents Bazel from adding legacy features to
+       the CROSSTOOL configuration when present. See the complete list of
+       features below.
+     </td>
+    </tr>
 </table>
+
+#### Legacy features patching logic
+
+<p>
+  Bazel does following changes to the features and their order to stay backwards
+  compatible:
+
+  <ul>
+    <li>Moves <code>legacy_compile_flags</code> feature to the top of the toolchain</li>
+    <li>Moves <code>default_compile_flags</code> feature to the top of the toolchain</li>
+    <li>Adds <code>dependency_file</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>pic</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>per_object_debug_info</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>preprocessor_defines</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>includes</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>include_paths</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fdo_instrument</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fdo_optimize</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fdo_prefetch_hints</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>autofdo</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>build_interface_libraries</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>dynamic_library_linker_tool</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>symbol_counts</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>shared_flag</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>linkstamps</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>output_execpath_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>runtime_library_search_directories</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>library_search_directories</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>archiver_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>libraries_to_link</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>force_pic_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>user_link_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>legacy_link_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>static_libgcc</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fission_support</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>strip_debug_symbols</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>coverage</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>llvm_coverage_map_format</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>gcc_coverage_map_format</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fully_static_link</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>user_compile_flags</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>sysroot</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>unfiltered_compile_flags</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>linker_param_file</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>compiler_input_flags</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>compiler_output_flags</code> (if not present) feature to the bottom of the toolchain</li>
+  </ul>
+</p>
+
+This is a long list of features. The plan is to get rid of them once
+[Crosstool in Starlark](https://github.com/bazelbuild/bazel/issues/5380) is
+done. For the curious reader see the implementation in
+[CppActionConfigs](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/rules/cpp/CppActionConfigs.java?q=cppactionconfigs&ss=bazel),
+and for production toolchains consider adding `no_legacy_features` to make
+the toolchain more standalone.
+

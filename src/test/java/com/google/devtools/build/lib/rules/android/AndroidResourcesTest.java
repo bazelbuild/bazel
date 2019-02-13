@@ -511,6 +511,28 @@ public class AndroidResourcesTest extends ResourceTestBase {
     assertThat(resourceApk.getMainDexProguardConfig()).isNotNull();
   }
 
+  @Test
+  public void test_incompatibleUseAapt2ByDefaultEnabled_targetsAapt2() throws Exception {
+    mockAndroidSdkWithAapt2();
+    useConfiguration("--android_sdk=//sdk:sdk", "--incompatible_use_aapt2_by_default");
+    RuleContext ruleContext =
+        getRuleContext(
+            "android_binary", "aapt_version = 'auto',", "manifest = 'AndroidManifest.xml',");
+    assertThat(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+        .isEqualTo(AndroidAaptVersion.AAPT2);
+  }
+
+  @Test
+  public void test_incompatibleUseAapt2ByDefaultDisabled_targetsAapt() throws Exception {
+    mockAndroidSdkWithAapt2();
+    useConfiguration("--android_sdk=//sdk:sdk", "--noincompatible_use_aapt2_by_default");
+    RuleContext ruleContext =
+        getRuleContext(
+            "android_binary", "aapt_version = 'auto',", "manifest = 'AndroidManifest.xml',");
+    assertThat(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+        .isEqualTo(AndroidAaptVersion.AAPT);
+  }
+
   /**
    * Validates that a parse action was invoked correctly. Returns the {@link ParsedAndroidResources}
    * for further validation.

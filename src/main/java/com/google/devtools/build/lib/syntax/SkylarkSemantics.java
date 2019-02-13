@@ -43,12 +43,16 @@ public abstract class SkylarkSemantics {
         SkylarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(SkylarkSemantics::experimentalBuildSettingApi),
     EXPERIMENTAL_PLATFORM_API(SkylarkSemantics::experimentalPlatformsApi),
+    EXPERIMENTAL_STARLARK_CONFIG_TRANSITION(
+        SkylarkSemantics::experimentalStarlarkConfigTransitions),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         SkylarkSemantics::incompatibleDisableObjcProviderResources),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(SkylarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(
         SkylarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(SkylarkSemantics::incompatibleNoAttrLicense),
+    INCOMPATIBLE_REQUIRE_FEATURE_CONFIGURATION_FOR_PIC(
+        SkylarkSemantics::incompatibleRequireFeatureConfigurationForPic),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -112,19 +116,23 @@ public abstract class SkylarkSemantics {
       AutoValue_SkylarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract boolean checkThirdPartyTargetsHaveLicenses();
+
   public abstract boolean experimentalBuildSettingApi();
 
-  public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
+  public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
 
   public abstract boolean experimentalEnableAndroidMigrationApis();
 
   public abstract boolean experimentalEnableRepoMapping();
 
-  public abstract boolean experimentalRemapMainRepo();
+  public abstract ImmutableList<String> experimentalJavaCommonCreateProviderEnabledPackages();
 
   public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean experimentalStarlarkConfigTransitions();
+
+  public abstract String experimentalTransitionWhitelistLocation();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
@@ -136,13 +144,13 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisableObjcProviderResources();
 
-  public abstract boolean incompatibleDisallowConflictingProviders();
-
   public abstract boolean incompatibleDisallowDataTransition();
 
   public abstract boolean incompatibleDisallowDictPlus();
 
   public abstract boolean incompatibleDisallowFileType();
+
+  public abstract boolean incompatibleDisallowLegacyJavaProvider();
 
   public abstract boolean incompatibleDisallowLegacyJavaInfo();
 
@@ -150,7 +158,7 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
-  public abstract boolean incompatibleDisallowSlashOperator();
+  public abstract boolean incompatibleDisallowStructProviderSyntax();
 
   public abstract boolean incompatibleExpandDirectories();
 
@@ -168,23 +176,19 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleNoTransitiveLoads();
 
-  public abstract boolean incompatiblePackageNameIsAFunction();
-
-  public abstract boolean incompatibleRangeType();
-
-  public abstract boolean incompatibleRemoveNativeGitRepository();
-
-  public abstract boolean incompatibleRemoveNativeHttpArchive();
+  public abstract boolean incompatibleRemapMainRepo();
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
-  public abstract boolean incompatibleStaticNameResolution();
+  public abstract boolean incompatibleRequireFeatureConfigurationForPic();
 
   public abstract boolean incompatibleStricArgumentOrdering();
 
   public abstract boolean incompatibleStringIsNotIterable();
 
   public abstract boolean internalSkylarkFlagTestCanary();
+
+  public abstract boolean incompatibleUseToolchainProvidersInJavaCommon();
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
@@ -201,42 +205,42 @@ public abstract class SkylarkSemantics {
   public static final SkylarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
+          .checkThirdPartyTargetsHaveLicenses(true)
           .experimentalBuildSettingApi(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalEnableRepoMapping(false)
-          .experimentalRemapMainRepo(false)
+          .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(false)
+          .experimentalTransitionWhitelistLocation("")
+          .incompatibleUseToolchainProvidersInJavaCommon(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
           .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
-          .incompatibleDisallowConflictingProviders(true)
-          .incompatibleDisallowDataTransition(false)
+          .incompatibleDisallowDataTransition(true)
           .incompatibleDisallowDictPlus(false)
-          .incompatibleDisallowFileType(false)
+          .incompatibleDisallowFileType(true)
+          .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
-          .incompatibleDisallowSlashOperator(true)
-          .incompatibleExpandDirectories(false)
-          .incompatibleGenerateJavaCommonSourceJar(false)
+          .incompatibleDisallowStructProviderSyntax(false)
+          .incompatibleExpandDirectories(true)
+          .incompatibleGenerateJavaCommonSourceJar(true)
           .incompatibleNewActionsApi(false)
           .incompatibleNoAttrLicense(false)
           .incompatibleNoOutputAttrDefault(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(false)
-          .incompatiblePackageNameIsAFunction(true)
-          .incompatibleRangeType(true)
-          .incompatibleRemoveNativeGitRepository(true)
-          .incompatibleRemoveNativeHttpArchive(true)
+          .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
-          .incompatibleStaticNameResolution(true)
-          .incompatibleStricArgumentOrdering(false)
-          .incompatibleStringIsNotIterable(false)
+          .incompatibleRequireFeatureConfigurationForPic(true)
+          .incompatibleStricArgumentOrdering(true)
+          .incompatibleStringIsNotIterable(true)
           .internalSkylarkFlagTestCanary(false)
           .build();
 
@@ -245,6 +249,8 @@ public abstract class SkylarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder checkThirdPartyTargetsHaveLicenses(boolean value);
+
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
@@ -253,11 +259,13 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder experimentalEnableRepoMapping(boolean value);
 
-    public abstract Builder experimentalRemapMainRepo(boolean value);
+    public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 
     public abstract Builder experimentalPlatformsApi(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
+
+    public abstract Builder experimentalTransitionWhitelistLocation(String value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
@@ -267,9 +275,9 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
 
-    public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
+    public abstract Builder incompatibleRequireFeatureConfigurationForPic(boolean value);
 
-    public abstract Builder incompatibleDisallowConflictingProviders(boolean value);
+    public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 
     public abstract Builder incompatibleDisallowDataTransition(boolean value);
 
@@ -277,13 +285,15 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder incompatibleDisallowFileType(boolean value);
 
+    public abstract Builder incompatibleDisallowLegacyJavaProvider(boolean value);
+
     public abstract Builder incompatibleDisallowLegacyJavaInfo(boolean value);
 
     public abstract Builder incompatibleDisallowLoadLabelsToCrossPackageBoundaries(boolean value);
 
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 
-    public abstract Builder incompatibleDisallowSlashOperator(boolean value);
+    public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
 
     public abstract Builder incompatibleExpandDirectories(boolean value);
 
@@ -301,21 +311,15 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder incompatibleNoTransitiveLoads(boolean value);
 
-    public abstract Builder incompatiblePackageNameIsAFunction(boolean value);
-
-    public abstract Builder incompatibleRangeType(boolean value);
-
-    public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
-
-    public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
+    public abstract Builder incompatibleRemapMainRepo(boolean value);
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
-
-    public abstract Builder incompatibleStaticNameResolution(boolean value);
 
     public abstract Builder incompatibleStricArgumentOrdering(boolean value);
 
     public abstract Builder incompatibleStringIsNotIterable(boolean value);
+
+    public abstract Builder incompatibleUseToolchainProvidersInJavaCommon(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 

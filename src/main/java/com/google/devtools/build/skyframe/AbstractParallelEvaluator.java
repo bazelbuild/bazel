@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.BigIntegerFingerprintUtils;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
@@ -38,11 +40,12 @@ import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDep;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
+import java.math.BigInteger;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -217,7 +220,7 @@ public abstract class AbstractParallelEvaluator {
         // its reverse dep on this node removed. Failing to do either one of these would result in
         // a graph inconsistency, where the child had a reverse dep on this node, but this node
         // had no kind of dependency on the child.
-        Collection<SkyKey> directDepsToCheck = state.getNextDirtyDirectDeps();
+        List<SkyKey> directDepsToCheck = state.getNextDirtyDirectDeps();
 
         if (invalidatedByErrorTransience(directDepsToCheck, state)) {
           // If this dep is the ErrorTransienceValue and the ErrorTransienceValue has been
@@ -316,7 +319,21 @@ public abstract class AbstractParallelEvaluator {
               skyKey, reverseDeps, state.getVersion(), EnqueueParentBehavior.ENQUEUE);
           return DirtyOutcome.ALREADY_PROCESSED;
         case NEEDS_REBUILDING:
-          maybeMarkRebuilding(state);
+          if (state.canPruneDepsByFingerprint()) {
+            Iterable<SkyKey> lastDirectDepsKeys =
+                state.getLastDirectDepsGroupWhenPruningDepsByFingerprint();
+            if (lastDirectDepsKeys != null) {
+              BigInteger groupFingerprint =
+                  composeDepFingerprints(
+                      lastDirectDepsKeys,
+                      evaluatorContext.getBatchValues(
+                          skyKey, Reason.DEP_REQUESTED, lastDirectDepsKeys));
+              if (state.unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(groupFingerprint)) {
+                return maybeHandleDirtyNode(state);
+              }
+            }
+          }
+          state.markRebuilding();
           return DirtyOutcome.NEEDS_EVALUATION;
         case NEEDS_FORCED_REBUILDING:
           state.forceRebuild();
@@ -339,9 +356,9 @@ public abstract class AbstractParallelEvaluator {
             evaluatorContext.getGraphInconsistencyReceiver();
         Set<SkyKey> missingChildren =
             Sets.difference(ImmutableSet.copyOf(knownChildren), oldChildren.keySet());
-        for (SkyKey missingChild : missingChildren) {
+        if (!missingChildren.isEmpty()) {
           inconsistencyReceiver.noteInconsistencyAndMaybeThrow(
-              skyKey, missingChild, Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE);
+              skyKey, missingChildren, Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE);
         }
         Map<SkyKey, ? extends NodeEntry> recreatedEntries =
             graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, missingChildren);
@@ -573,7 +590,9 @@ public abstract class AbstractParallelEvaluator {
               evaluatorContext
                   .getGraphInconsistencyReceiver()
                   .noteInconsistencyAndMaybeThrow(
-                      skyKey, childErrorKey, Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
+                      skyKey,
+                      ImmutableList.of(childErrorKey),
+                      Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
             }
           }
           SkyValue childErrorInfoMaybe =
@@ -706,14 +725,16 @@ public abstract class AbstractParallelEvaluator {
     Map<SkyKey, ? extends NodeEntry> additionalNodesToRestart =
         this.evaluatorContext.getBatchValues(
             key, Reason.INVALIDATION, restart.getAdditionalKeysToRestart());
-    for (Entry<SkyKey, ? extends NodeEntry> restartEntry : additionalNodesToRestart.entrySet()) {
+    if (!additionalNodesToRestart.isEmpty()) {
       evaluatorContext
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(
-              key, restartEntry.getKey(), Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
+              key, additionalNodesToRestart.keySet(), Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
+    }
+    for (NodeEntry restartEntry : additionalNodesToRestart.values()) {
       // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate to
       // a different value than before, even if their versions remain the same.
-      restartEntry.getValue().markDirty(DirtyType.FORCE_REBUILD);
+      restartEntry.markDirty(DirtyType.FORCE_REBUILD);
     }
 
     // TODO(mschaller): rdeps of children have to be handled here. If the graph does not keep edges,
@@ -728,7 +749,7 @@ public abstract class AbstractParallelEvaluator {
   private void restart(SkyKey key, NodeEntry entry) {
     evaluatorContext
         .getGraphInconsistencyReceiver()
-        .noteInconsistencyAndMaybeThrow(key, /*otherKey=*/ null, Inconsistency.RESET_REQUESTED);
+        .noteInconsistencyAndMaybeThrow(key, /*otherKeys=*/ null, Inconsistency.RESET_REQUESTED);
     entry.resetForRestartFromScratch();
   }
 
@@ -806,10 +827,21 @@ public abstract class AbstractParallelEvaluator {
     // removeUndoneNewlyRequestedDeps() just above this loop. However, with intra-evaluation
     // dirtying, a dep may not be done.
     boolean dirtyDepFound = false;
-    for (Map.Entry<SkyKey, ? extends NodeEntry> newDep :
-        graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps).entrySet()) {
-      DependencyState triState = newDep.getValue().checkIfDoneForDirtyReverseDep(skyKey);
-      if (maybeHandleUndoneDepForDoneEntry(entry, triState, skyKey, newDep.getKey())) {
+    Map<SkyKey, ? extends NodeEntry> previouslyRegisteredEntries =
+        graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
+    if (previouslyRegisteredEntries.size() != previouslyRegisteredNewDeps.size()) {
+      throw new IllegalStateException(
+          "Missing entries that were already known about: "
+              + Sets.difference(previouslyRegisteredNewDeps, previouslyRegisteredEntries.keySet())
+              + " for "
+              + skyKey
+              + " with entry "
+              + entry);
+    }
+    for (Map.Entry<SkyKey, ? extends NodeEntry> newDep : previouslyRegisteredEntries.entrySet()) {
+      NodeEntry depEntry = newDep.getValue();
+      DependencyState triState = depEntry.checkIfDoneForDirtyReverseDep(skyKey);
+      if (maybeHandleUndoneDepForDoneEntry(entry, depEntry, triState, skyKey, newDep.getKey())) {
         dirtyDepFound = true;
       }
     }
@@ -818,7 +850,7 @@ public abstract class AbstractParallelEvaluator {
       NodeEntry depEntry =
           Preconditions.checkNotNull(newlyAddedNewDepNodes.get().get(newDep), newDep);
       DependencyState triState = depEntry.addReverseDepAndCheckIfDone(skyKey);
-      if (maybeHandleUndoneDepForDoneEntry(entry, triState, skyKey, newDep)) {
+      if (maybeHandleUndoneDepForDoneEntry(entry, depEntry, triState, skyKey, newDep)) {
         dirtyDepFound = true;
       }
     }
@@ -835,9 +867,9 @@ public abstract class AbstractParallelEvaluator {
    * <p>Otherwise, returns {@code false} and signals this node.
    */
   private boolean maybeHandleUndoneDepForDoneEntry(
-      NodeEntry entry, DependencyState triState, SkyKey skyKey, SkyKey depKey) {
+      NodeEntry entry, NodeEntry depEntry, DependencyState triState, SkyKey skyKey, SkyKey depKey) {
     if (triState == DependencyState.DONE) {
-      entry.signalDep();
+      entry.signalDep(depEntry.getVersion(), depKey);
       return false;
     }
     // The dep may have transitioned from done to dirty between when this node read its value and
@@ -846,13 +878,40 @@ public abstract class AbstractParallelEvaluator {
     evaluatorContext
         .getGraphInconsistencyReceiver()
         .noteInconsistencyAndMaybeThrow(
-            skyKey, depKey, Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
+            skyKey, ImmutableList.of(depKey), Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
     if (triState == DependencyState.NEEDS_SCHEDULING) {
       // Top priority since this depKey was already evaluated before, and we want to finish it off
       // again, reducing the chance that another node may observe this dep to be undone.
       evaluatorContext.getVisitor().enqueueEvaluation(depKey, Integer.MAX_VALUE);
     }
     return true;
+  }
+
+  static BigInteger composeDepFingerprints(
+      Iterable<SkyKey> directDepGroup, Map<SkyKey, ? extends NodeEntry> depEntries)
+      throws InterruptedException {
+    BigInteger groupFingerprint = BigInteger.ZERO;
+    for (SkyKey dep : directDepGroup) {
+      NodeEntry depEntry = depEntries.get(dep);
+      if (!isDoneForBuild(depEntry)) {
+        // Something weird happened: maybe something fell out of graph or was restarted?
+        return null;
+      }
+      SkyValue depValue = depEntry.getValue();
+      if (depValue == null) {
+        return null;
+      }
+      BigInteger depFingerprint = depValue.getValueFingerprint();
+      if (depFingerprint == null) {
+        depFingerprint = depEntry.getVersion().getFingerprint();
+        if (depFingerprint == null) {
+          return null;
+        }
+      }
+      groupFingerprint =
+          BigIntegerFingerprintUtils.composeOrdered(groupFingerprint, depFingerprint);
+    }
+    return groupFingerprint;
   }
 
   /**

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.debug;
 
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExtractEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.FileEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.OsEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.SymlinkEvent;
@@ -107,7 +108,29 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     return new WorkspaceRuleEvent(result.build());
   }
 
-  /** Creates a new WorkspaceRuleEvent for a download and excract event. */
+  /** Creates a new WorkspaceRuleEvent for an extract event. */
+  public static WorkspaceRuleEvent newExtractEvent(
+      String archive, String output, String stripPrefix, String ruleLabel, Location location) {
+    ExtractEvent e =
+        WorkspaceLogProtos.ExtractEvent.newBuilder()
+            .setArchive(archive)
+            .setOutput(output)
+            .setStripPrefix(stripPrefix)
+            .build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setExtractEvent(e);
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a download and extract event. */
   public static WorkspaceRuleEvent newDownloadAndExtractEvent(
       List<URL> urls,
       String output,
@@ -179,7 +202,8 @@ public final class WorkspaceRuleEvent implements ProgressLike {
   /** Creates a new WorkspaceRuleEvent for a symlink event. */
   public static WorkspaceRuleEvent newSymlinkEvent(
       String from, String to, String ruleLabel, Location location) {
-    SymlinkEvent e = WorkspaceLogProtos.SymlinkEvent.newBuilder().setFrom(from).setTo(to).build();
+    SymlinkEvent e =
+        WorkspaceLogProtos.SymlinkEvent.newBuilder().setTarget(from).setPath(to).build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();

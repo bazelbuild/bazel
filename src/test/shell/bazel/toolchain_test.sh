@@ -349,10 +349,11 @@ EOF
 
   bazel build \
     --toolchain_resolution_debug \
+    --incompatible_auto_configure_host_platform \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
-  expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@bazel_tools//platforms:host_platform -> //:test_toolchain_impl_1}'
-  expect_log 'ToolchainResolver: Selected execution platform @bazel_tools//platforms:host_platform, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@local_config_platform//:host -> //:test_toolchain_impl_1}'
+  expect_log 'ToolchainResolver: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
@@ -655,7 +656,7 @@ use_toolchain(
 EOF
 
   bazel build //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //demo:use: no such target '//toolchain:does_not_exist': target 'does_not_exist' not declared in package 'toolchain'"
+  expect_log "Target '//demo:use' depends on toolchain '//toolchain:does_not_exist', which cannot be found: no such target '//toolchain:does_not_exist': target 'does_not_exist' not declared in package 'toolchain'"
 }
 
 
@@ -1068,6 +1069,122 @@ EOF
 
   bazel build //demo:demo &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: value "foo"'
+}
+
+function test_local_config_platform() {
+  bazel query @local_config_platform//... &> $TEST_log || fail "Build failed"
+  expect_log '@local_config_platform//:host'
+}
+
+# Test cycles in registered toolchains, which can only happen when
+# registered_toolchains is called for something that is not actually
+# using the "toolchain" rule.
+function test_registered_toolchain_cycle() {
+
+  # Set up two sets of rules and toolchains, one depending on the other.
+  cat >>lower.bzl <<EOF
+def _lower_toolchain_impl(ctx):
+  message = ctx.attr.message
+  toolchain = platform_common.ToolchainInfo(
+      message=message)
+  return [toolchain]
+
+lower_toolchain = rule(
+    implementation = _lower_toolchain_impl,
+    attrs = {
+        'message': attr.string(),
+    },
+)
+
+def _lower_library_impl(ctx):
+  toolchain = ctx.toolchains['//:lower']
+  print('lower library: %s' % toolchain.message)
+  return []
+
+lower_library = rule(
+    implementation = _lower_library_impl,
+    attrs = {},
+    toolchains = ['//:lower'],
+)
+EOF
+  cat >>upper.bzl <<EOF
+def _upper_toolchain_impl(ctx):
+  tool_message = ctx.toolchains['//:lower'].message
+  message = ctx.attr.message
+  toolchain = platform_common.ToolchainInfo(
+      tool_message=tool_message,
+      message=message)
+  return [toolchain]
+
+upper_toolchain = rule(
+    implementation = _upper_toolchain_impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = ['//:lower'],
+)
+
+def _upper_library_impl(ctx):
+  toolchain = ctx.toolchains['//:upper']
+  print('upper library: %s (%s)' % (toolchain.message, toolchain.tool_message))
+  return []
+
+upper_library = rule(
+    implementation = _upper_library_impl,
+    attrs = {},
+    toolchains = ['//:upper'],
+)
+EOF
+
+  # Define the actual targets using these.
+  cat >>BUILD <<EOF
+load('//:lower.bzl', 'lower_toolchain', 'lower_library')
+load('//:upper.bzl', 'upper_toolchain', 'upper_library')
+
+toolchain_type(name = 'lower')
+toolchain_type(name = 'upper')
+
+lower_library(
+    name = 'lower_lib',
+)
+
+lower_toolchain(
+    name = 'lower_toolchain',
+    message = 'hi from lower',
+)
+toolchain(
+    name = 'lower_toolchain_impl',
+    toolchain_type = '//:lower',
+    toolchain = ':lower_toolchain',
+)
+
+upper_library(
+    name = 'upper_lib',
+)
+
+upper_toolchain(
+    name = 'upper_toolchain',
+    message = 'hi from upper',
+)
+toolchain(
+    name = 'upper_toolchain_impl',
+    toolchain_type = '//:upper',
+    toolchain = ':upper_toolchain',
+)
+EOF
+
+  # Finally, set up the misconfigured WORKSPACE file.
+  cat >>WORKSPACE <<EOF
+register_toolchains(
+    '//:upper_toolchain', # Not a toolchain() target!
+    '//:lower_toolchain_impl',
+    )
+EOF
+
+  # Execute the build and check the error message.
+  bazel build //:upper_lib &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_not_log "java.lang.IllegalStateException"
+  expect_log "Misconfigured toolchains: //:upper_toolchain is declared as a toolchain but has inappropriate dependencies"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

@@ -358,6 +358,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact oneVersionEnforcementArtifact)
       throws InterruptedException, RuleErrorException {
 
+    List<ProguardSpecProvider> proguardDeps = new ArrayList<>();
+    Iterables.addAll(
+        proguardDeps,
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
+        && ruleContext.attributes().has("$jacoco_runtime", BuildType.LABEL)) {
+      proguardDeps.add(
+          ruleContext.getPrerequisite(
+              "$jacoco_runtime", Mode.TARGET, ProguardSpecProvider.PROVIDER));
+    }
     ImmutableList<Artifact> proguardSpecs =
         getProguardSpecs(
             dataContext,
@@ -370,7 +380,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .list()
                 : ImmutableList.<Artifact>of(),
             ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs", Mode.TARGET).list(),
-            ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
+            proguardDeps);
 
     // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
     // which this -printmapping command line flag will override.
@@ -643,7 +653,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return androidCommon.getInstrumentedJar();
   }
 
-  private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {
+  public static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {
     Iterable<AndroidLibraryResourceClassJarProvider> libraryResourceJarProviders =
         AndroidCommon.getTransitivePrerequisites(
             ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);

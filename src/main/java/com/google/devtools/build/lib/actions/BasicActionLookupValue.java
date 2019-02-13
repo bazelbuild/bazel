@@ -19,6 +19,8 @@ import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import java.math.BigInteger;
+import javax.annotation.Nullable;
 
 /**
  * Basic implementation of {@link ActionLookupValue} where the value itself owns and maintains
@@ -29,19 +31,23 @@ public class BasicActionLookupValue extends ActionLookupValue {
   @VisibleForSerialization protected final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
   protected BasicActionLookupValue(ActionAnalysisMetadata action) {
-    this(Actions.GeneratingActions.fromSingleAction(action));
+    this(Actions.GeneratingActions.fromSingleAction(action), /*nonceVersion=*/ null);
   }
 
   protected BasicActionLookupValue(
       ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Artifact, Integer> generatingActionIndex) {
+      ImmutableMap<Artifact, Integer> generatingActionIndex,
+      @Nullable BigInteger nonceVersion) {
+    super(nonceVersion);
     this.actions = actions;
     this.generatingActionIndex = generatingActionIndex;
   }
 
   @VisibleForTesting
-  public BasicActionLookupValue(Actions.GeneratingActions generatingActions) {
-    this(generatingActions.getActions(), generatingActions.getGeneratingActionIndex());
+  public BasicActionLookupValue(
+      Actions.GeneratingActions generatingActions, @Nullable BigInteger nonceVersion) {
+    this(
+        generatingActions.getActions(), generatingActions.getGeneratingActionIndex(), nonceVersion);
   }
 
   @Override

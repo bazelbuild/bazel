@@ -81,7 +81,7 @@ class WorkspaceFactoryTestHelper {
     try {
       byte[] bytes =
           FileSystemUtils.readWithKnownFileSize(workspaceFilePath, workspaceFilePath.getFileSize());
-      factory.parse(
+      factory.parseForTesting(
           ParserInputSource.create(bytes, workspaceFilePath.asFragment()),
           skylarkSemantics,
           eventHandler);

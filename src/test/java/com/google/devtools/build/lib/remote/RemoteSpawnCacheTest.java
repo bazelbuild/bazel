@@ -19,6 +19,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Action;
@@ -51,8 +52,6 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -234,21 +233,13 @@ public class RemoteSpawnCacheTest {
     // All other methods on RemoteActionCache have side effects, so we verify all of them.
     verify(remoteCache).download(actionResult, execRoot, outErr);
     verify(remoteCache, never())
-        .ensureInputsPresent(
-            any(TreeNodeRepository.class),
-            any(Path.class),
-            any(TreeNode.class),
-            any(Action.class),
-            any(Command.class));
-    verify(remoteCache, never())
         .upload(
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
             any(Path.class),
             any(Collection.class),
-            any(FileOutErr.class),
-            any(Boolean.class));
+            any(FileOutErr.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();
@@ -287,8 +278,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     entry.store(result);
     verify(remoteCache)
         .upload(
@@ -297,54 +287,44 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
 
   @Test
   public void noCacheSpawns() throws Exception {
-    // Checks that spawns that have mayBeCached false are not looked up in the remote cache,
-    // and also that their result is not uploaded to the remote cache. The artifacts, however,
-    // are uploaded.
-    SimpleSpawn uncacheableSpawn =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            ImmutableMap.of(ExecutionRequirements.NO_CACHE, ""),
-            /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath("/random/file")),
-            ResourceSet.ZERO);
-    CacheHandle entry = cache.lookup(uncacheableSpawn, simplePolicy);
-    verify(remoteCache, never())
-        .getCachedActionResult(any(ActionKey.class));
-    assertThat(entry.hasResult()).isFalse();
-    SpawnResult result =
-        new SpawnResult.Builder()
-            .setExitCode(0)
-            .setStatus(Status.SUCCESS)
-            .setRunnerName("test")
-            .build();
-    entry.store(result);
-    ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
-    verify(remoteCache)
-        .upload(
-            any(ActionKey.class),
-            any(Action.class),
-            any(Command.class),
-            any(Path.class),
-            eq(outputFiles),
-            eq(outErr),
-            eq(false));
-    assertThat(progressUpdates).containsExactly();
+    // Checks that spawns satisfying Spawns.mayBeCached false are not looked up in the remote cache,
+    // and also that their result and artifacts are not uploaded to the remote cache.
+    for (String requirement :
+        ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {
+      SimpleSpawn uncacheableSpawn =
+          new SimpleSpawn(
+              new FakeOwner("foo", "bar"),
+              /*arguments=*/ ImmutableList.of(),
+              /*environment=*/ ImmutableMap.of(),
+              ImmutableMap.of(requirement, ""),
+              /*inputs=*/ ImmutableList.of(),
+              /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath("/random/file")),
+              ResourceSet.ZERO);
+      CacheHandle entry = cache.lookup(uncacheableSpawn, simplePolicy);
+      verify(remoteCache, never()).getCachedActionResult(any(ActionKey.class));
+      assertThat(entry.hasResult()).isFalse();
+      SpawnResult result =
+          new SpawnResult.Builder()
+              .setExitCode(0)
+              .setStatus(Status.SUCCESS)
+              .setRunnerName("test")
+              .build();
+      entry.store(result);
+      verifyNoMoreInteractions(remoteCache);
+      assertThat(progressUpdates).containsExactly();
+    }
   }
 
   @Test
-  public void noCacheSpawnsNoResultStore() throws Exception {
-    // Only successful action results are uploaded to the remote cache. The artifacts, however,
-    // are uploaded regardless.
+  public void failedActionsAreNotUploaded() throws Exception {
+    // Only successful action results are uploaded to the remote cache.
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     verify(remoteCache).getCachedActionResult(any(ActionKey.class));
     assertThat(entry.hasResult()).isFalse();
@@ -356,15 +336,14 @@ public class RemoteSpawnCacheTest {
             .build();
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
     entry.store(result);
-    verify(remoteCache)
+    verify(remoteCache, never())
         .upload(
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(false));
+            eq(outErr));
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
@@ -389,8 +368,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
 
     entry.store(result);
     verify(remoteCache)
@@ -400,14 +378,11 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
-    assertThat(evt.getMessage()).contains("Error");
-    assertThat(evt.getMessage()).contains("writing");
     assertThat(evt.getMessage()).contains("cache down");
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
@@ -415,7 +390,7 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void printWarningIfDownloadFails() throws Exception {
-    doThrow(new RetryException("reason", 0, io.grpc.Status.UNAVAILABLE.asRuntimeException()))
+    doThrow(new IOException(io.grpc.Status.UNAVAILABLE.asRuntimeException()))
         .when(remoteCache)
         .getCachedActionResult(any(ActionKey.class));
 
@@ -446,8 +421,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     entry.store(result);
     verify(remoteCache)
         .upload(
@@ -456,15 +430,12 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
-    assertThat(evt.getMessage()).contains("Error");
-    assertThat(evt.getMessage()).contains("reading");
-    assertThat(evt.getMessage()).contains("reason");
+    assertThat(evt.getMessage()).contains("UNAVAILABLE");
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
@@ -487,7 +458,7 @@ public class RemoteSpawnCacheTest {
                 return actionResult;
               }
             });
-    doThrow(new RetryException("cache miss", 0, new CacheNotFoundException(digest, digestUtil)))
+    doThrow(new CacheNotFoundException(digest, digestUtil))
         .when(remoteCache)
         .download(actionResult, execRoot, outErr);
 
@@ -518,8 +489,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     entry.store(result);
     verify(remoteCache)
         .upload(
@@ -528,8 +498,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.

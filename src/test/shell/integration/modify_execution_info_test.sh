@@ -58,12 +58,18 @@ fi
 
 #### HELPER FUNCTIONS ##################################################
 
+if ! type try_with_timeout >&/dev/null; then
+  # Bazel's testenv.sh defines try_with_timeout but the Google-internal version
+  # uses a different testenv.sh.
+  function try_with_timeout() { $* ; }
+fi
+
 function set_up() {
     cd ${WORKSPACE_DIR}
 }
 
 function tear_down() {
-    bazel shutdown
+  try_with_timeout bazel shutdown
 }
 
 #### TESTS #############################################################

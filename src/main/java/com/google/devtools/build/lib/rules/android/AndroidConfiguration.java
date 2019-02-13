@@ -77,6 +77,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     }
   }
 
+  /** Converter for {@link ManifestMergerOrder} */
+  public static final class ManifestMergerOrderConverter
+      extends EnumConverter<ManifestMergerOrder> {
+    public ManifestMergerOrderConverter() {
+      super(ManifestMergerOrder.class, "android manifest merger order");
+    }
+  }
+
   /** Converter for {@link AndroidAaptVersion} */
   public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
     public AndroidAaptConverter() {
@@ -171,6 +179,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     }
   }
 
+  /** Orders for merging android manifests. */
+  public enum ManifestMergerOrder {
+    /** Manifests are sorted alphabetically by exec path. */
+    ALPHABETICAL,
+    /** Manifests are sorted alphabetically by configuration-relative path. */
+    ALPHABETICAL_BY_CONFIGURATION,
+    /** Library manifests come before the manifests of their dependencies. */
+    DEPENDENCY;
+  }
+
   /** Types of android manifest mergers. */
   public enum AndroidAaptVersion {
     AAPT,
@@ -240,6 +258,23 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       return null;
     }
 
+    /**
+     * Select the aapt version for resource processing actions, based on the combination of
+     * --android_aapt flag, aapt_version target attribute, and --incompatible_use_aapt2_by_default
+     * flag.
+     *
+     * <p>Order of precedence:
+     * <li>1. --android_aapt flag
+     * <li>2. 'aapt_version' attribute on target
+     * <li>3. --incompatible_use_aapt2_by_default flag
+     *
+     * @param dataContext the Android data context for detecting aapt2 and fetching Android configs
+     * @param errorConsumer the rule context for reporting errors during version selection
+     * @param attributeString if not null, the aapt version specified by the 'aapt_version' target
+     *     attribute
+     * @return the selected version: aapt or aapt2
+     * @throws RuleErrorException error if aapt2 is requested but it's not available in the SDK
+     */
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(
         AndroidDataContext dataContext,
@@ -257,8 +292,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         throw errorConsumer.throwWithRuleError(
             "aapt2 processing requested but not available on the android_sdk");
       }
-      // If version is auto, assume aapt.
-      return version == AndroidAaptVersion.AUTO ? AAPT : version;
+
+      if (version != AndroidAaptVersion.AUTO) {
+        return version;
+      }
+
+      // At this point, the version is still auto. If the user passes
+      // --incompatible_use_aapt2_by_default explicitly or implicitly via
+      // --all_incompatible_changes, use aapt2 by default.
+      //
+      // We use the --incompatible_use_aapt2_by_default flag to signal a breaking change in Bazel.
+      // This is required by the Bazel Incompatible Changes policy.
+      //
+      // TODO(jingwen): We can remove the incompatible change flag only when the depot migration is
+      // complete and the default value of --android_aapt is switched from `auto` to `aapt2`.
+      return dataContext.getAndroidConfig().incompatibleChangeUseAapt2ByDefault() ? AAPT2 : AAPT;
     }
   }
 
@@ -272,22 +320,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         effectTags = OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
         metadataTags = {OptionMetadataTag.INTERNAL})
     public ConfigurationDistinguisher configurationDistinguisher;
-
-    // For deploying incremental installation of native libraries. Do not use on the command line.
-    // The idea is that once this option works, we'll flip the default value in a config file, then
-    // once it is proven that it works, remove it from Bazel and said config file.
-    @Option(
-        name = "android_incremental_native_libs",
-        defaultValue = "false",
-        // mobile-install v1 is going away, and this flag does not apply to v2
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.EXECUTION,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        metadataTags = OptionMetadataTag.EXPERIMENTAL)
-    public boolean incrementalNativeLibs;
 
     @Option(
         name = "android_crosstool_top",
@@ -654,6 +686,24 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public AndroidManifestMerger manifestMerger;
 
     @Option(
+        name = "android_manifest_merger_order",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.ACTION_COMMAND_LINES,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "alphabetical",
+        converter = ManifestMergerOrderConverter.class,
+        help =
+            "Sets the order of manifests passed to the manifest merger for Android binaries. "
+                + "ALPHABETICAL means manifests are sorted by path relative to the execroot. "
+                + "ALPHABETICAL_BY_CONFIGURATION means manifests are sorted by paths relative "
+                + "to the configuration directory within the output directory. "
+                + "DEPENDENCY means manifests are ordered with each library's manifest coming "
+                + "before the manifests of its dependencies.")
+    public ManifestMergerOrder manifestMergerOrder;
+
+    @Option(
       name = "android_aapt",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -714,6 +764,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         metadataTags = OptionMetadataTag.EXPERIMENTAL,
         help = "Use android databinding v2")
     public boolean dataBindingV2;
+
+    @Option(
+        name = "android_databinding_use_v3_4_args",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Use android databinding v2 with 3.4.0 argument")
+    public boolean dataBindingUpdatedArgs;
 
     @Option(
         name = "experimental_android_library_exports_manifest_default",
@@ -794,6 +857,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
             "If enabled, strict usage of the Starlark migration tag is enabled for android rules.")
     public boolean checkForMigrationTag;
 
+    @Option(
+        name = "experimental_filter_r_jars_from_android_test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.CHANGES_INPUTS,
+        },
+        help = "If enabled, R Jars will be filtered from the test apk built by android_test.")
+    public boolean filterRJarsFromAndroidTest;
+
     // TODO(eaftan): enable this by default and delete it
     @Option(
         name = "experimental_one_version_enforcement_use_transitive_jars_for_binary_under_test",
@@ -857,6 +930,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         help = "Tracking flag for when busybox workers are enabled.")
     public boolean persistentBusyboxTools;
 
+    @Option(
+        name = "incompatible_use_aapt2_by_default",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        defaultValue = "false",
+        help =
+            "Switch the Android rules to use aapt2 by default for resource processing. "
+                + "To resolve issues when migrating your app to build with aapt2, see "
+                + "https://developer.android.com/studio/command-line/aapt2#aapt2_changes")
+    public boolean incompatibleUseAapt2ByDefault;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -878,6 +966,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
       host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
+      host.manifestMergerOrder = manifestMergerOrder;
       host.androidAaptVersion = androidAaptVersion;
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
@@ -907,7 +996,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   private final Label sdk;
   private final String cpu;
-  private final boolean useIncrementalNativeLibs;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
@@ -927,6 +1015,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final AndroidManifestMerger manifestMerger;
+  private final ManifestMergerOrder manifestMergerOrder;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
   private final boolean compressJavaResources;
@@ -941,11 +1030,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean dataBindingV2;
+  private final boolean dataBindingUpdatedArgs;
   private final boolean persistentBusyboxTools;
+  private final boolean filterRJarsFromAndroidTest;
+
+  // Incompatible changes
+  private final boolean incompatibleUseAapt2ByDefault;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
-    this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
@@ -968,6 +1061,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.useAndroidResourceShrinking || options.useExperimentalAndroidResourceShrinking;
     this.useAndroidResourceCycleShrinking = options.useAndroidResourceCycleShrinking;
     this.manifestMerger = options.manifestMerger;
+    this.manifestMergerOrder = options.manifestMergerOrder;
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
@@ -984,7 +1078,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.dataBindingV2 = options.dataBindingV2;
+    this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
+    this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
+    this.incompatibleUseAapt2ByDefault = options.incompatibleUseAapt2ByDefault;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1013,11 +1110,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       defaultInToolRepository = true)
   public Label getSdk() {
     return sdk;
-  }
-
-  @Override
-  public boolean useIncrementalNativeLibs() {
-    return useIncrementalNativeLibs;
   }
 
   /** Returns whether to use incremental dexing. */
@@ -1128,8 +1220,22 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return manifestMerger;
   }
 
+  public ManifestMergerOrder getManifestMergerOrder() {
+    return manifestMergerOrder;
+  }
+
   public ApkSigningMethod getApkSigningMethod() {
     return apkSigningMethod;
+  }
+
+  @Override
+  public boolean apkSigningMethodV1() {
+    return apkSigningMethod.signV1();
+  }
+
+  @Override
+  public boolean apkSigningMethodV2() {
+    return apkSigningMethod.signV2();
   }
 
   @Override
@@ -1192,12 +1298,25 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   }
 
   @Override
+  public boolean useDataBindingUpdatedArgs() {
+    return dataBindingUpdatedArgs;
+  }
+
+  @Override
   public boolean persistentBusyboxTools() {
     return persistentBusyboxTools;
+  }
+
+  public boolean incompatibleChangeUseAapt2ByDefault() {
+    return incompatibleUseAapt2ByDefault;
   }
 
   @Override
   public String getOutputDirectoryName() {
     return configurationDistinguisher.suffix;
+  }
+
+  public boolean filterRJarsFromAndroidTest() {
+    return filterRJarsFromAndroidTest;
   }
 }

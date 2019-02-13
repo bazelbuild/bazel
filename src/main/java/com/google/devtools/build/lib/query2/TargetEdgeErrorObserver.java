@@ -51,8 +51,7 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
    */
   @ThreadSafety.ThreadSafe
   @Override
-  public void missingEdge(Target target, Label label, NoSuchThingException e)
-      throws InterruptedException {
+  public void missingEdge(Target target, Label label, NoSuchThingException e) {
     hasErrors = true;
   }
 
@@ -76,8 +75,8 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
 
   @Override
   public void node(Target node) {
-    if (node.getPackage().containsErrors() ||
-        ((node instanceof Rule) && ((Rule) node).containsErrors())) {
+    if (node.getPackage().containsErrors()
+        || ((node instanceof Rule) && ((Rule) node).containsErrors())) {
       this.hasErrors = true;  // Note, this is thread-safe.
     }
   }

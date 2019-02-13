@@ -256,7 +256,7 @@ bootstrap_java_binary = rule(
 java_test = rule(
     java_binary_impl,
     executable = True,
-    attrs = dict(java_binary_attrs_common.items() + [
+    attrs = dict(list(java_binary_attrs_common.items()) + [
         ("main_class", attr.string(default = "org.junit.runner.JUnitCore")),
         # TODO(bazel-team): it would be better if we could offer a
         # test_class attribute, but the "args" attribute is hard

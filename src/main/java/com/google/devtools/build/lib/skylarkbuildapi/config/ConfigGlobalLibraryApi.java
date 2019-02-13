@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -87,14 +88,16 @@ public interface ConfigGlobalLibraryApi {
                     + "a superset of the key set of the dictionary returned by this transition."),
       },
       useLocation = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
-  public ConfigurationTransitionApi transition(
+  ConfigurationTransitionApi transition(
       BaseFunction implementation,
       List<String> inputs,
       List<String> outputs,
       Location location,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(

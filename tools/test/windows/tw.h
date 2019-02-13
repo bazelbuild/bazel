@@ -19,6 +19,7 @@
 #include <windows.h>
 
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -111,8 +112,48 @@ class Tee {
   Tee& operator=(const Tee&) = delete;
 };
 
+// Buffered input stream (based on a HANDLE) with peek-ahead support.
+class IFStream {
+ public:
+  virtual ~IFStream() {}
+
+  // Gets the current byte under the read cursor.
+  // Returns true upon success, returns false if there's no more data to read.
+  virtual bool Get(uint8_t* result) const = 0;
+
+  // Advances the read cursor one byte ahead. May fetch data from the underlying
+  // HANDLE.
+  // Returns true if the cursor could be moved. Returns false if EOF was reached
+  // or if there was an I/O error.
+  virtual bool Advance() = 0;
+
+  // Peeks at the next byte after the read cursor. Returns true if there's at
+  // least one more byte in the stream.
+  bool Peek1(uint8_t* result) const { return PeekN(1, result); }
+
+  // Peeks at the next two bytes after the read cursor. Returns true if there
+  // are at least two more byte in the stream.
+  bool Peek2(uint8_t* result) const { return PeekN(2, result); }
+
+  // Peeks at the next three bytes after the read cursor. Returns true if there
+  // are at least three more byte in the stream.
+  bool Peek3(uint8_t* result) const { return PeekN(3, result); }
+
+ protected:
+  IFStream() {}
+  IFStream(const IFStream&) = delete;
+  IFStream& operator=(const IFStream&) = delete;
+
+  // Peeks ahead N bytes, writing them to 'result'. Returns true if successful.
+  // The result does not include the byte currently under the read cursor.
+  virtual bool PeekN(DWORD n, uint8_t* result) const = 0;
+};
+
 // The main function of the test wrapper.
-int Main(int argc, wchar_t** argv);
+int TestWrapperMain(int argc, wchar_t** argv);
+
+// The main function of the test XML writer.
+int XmlWriterMain(int argc, wchar_t** argv);
 
 // The "testing" namespace contains functions that should only be used by tests.
 namespace testing {
@@ -159,11 +200,11 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
                         bazel::windows::AutoHandle* output2,
                         std::unique_ptr<Tee>* result);
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
-                                std::vector<DWORD>* cdata_end_locations);
+bool TestOnly_CdataEncode(const uint8_t* buffer, const DWORD size,
+                          std::basic_ostream<char>* out_stm);
 
-bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
-                                   const std::wstring& abs_output);
+IFStream* TestOnly_CreateIFStream(bazel::windows::AutoHandle* handle,
+                                  DWORD page_size);
 
 }  // namespace testing
 

@@ -52,7 +52,7 @@ public interface JavaCcLinkParamsProviderApi<CcInfoApiT extends CcInfoApi> {
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
-      documented = true)
+      documented = false)
   public interface Provider<CcInfoApiT extends CcInfoApi> extends ProviderApi {
 
     @SkylarkCallable(

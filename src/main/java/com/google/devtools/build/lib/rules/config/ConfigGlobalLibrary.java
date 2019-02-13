@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.rules.config;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -43,7 +45,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       List<String> inputs,
       List<String> outputs,
       Location location,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException {
     SkylarkSemantics semantics = env.getSemantics();
     if (!semantics.experimentalStarlarkConfigTransitions()) {
@@ -56,7 +59,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     validateBuildSettingKeys(inputs, "input", location);
     validateBuildSettingKeys(outputs, "output", location);
     return StarlarkDefinedConfigTransition.newRegularTransition(
-        implementation, inputs, outputs, semantics, env.getEventHandler());
+        implementation, inputs, outputs, semantics, context);
   }
 
   @Override
@@ -72,15 +75,22 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
   private void validateBuildSettingKeys(
       Iterable<String> optionKeys, String keyErrorDescriptor, Location location)
       throws EvalException {
-    // TODO(juliexxia): Allow real labels, not just command line option placeholders.
 
     HashSet<String> processedOptions = Sets.newHashSet();
 
     for (String optionKey : optionKeys) {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        throw new EvalException(location,
-            String.format("invalid transition %s '%s'. If this is intended as a native option, "
-                + "it must begin with //command_line_option:", keyErrorDescriptor, optionKey));
+        try {
+          Label.parseAbsoluteUnchecked(optionKey);
+        } catch (IllegalArgumentException e) {
+          throw new EvalException(
+              location,
+              String.format(
+                  "invalid transition %s '%s'. If this is intended as a native option, "
+                      + "it must begin with //command_line_option:",
+                  keyErrorDescriptor, optionKey),
+              e);
+        }
       }
       if (!processedOptions.add(optionKey)) {
         throw new EvalException(location,

@@ -1,34 +1,16 @@
 ---
 layout: documentation
-title: Backward Compatibility
+title: Legacy Incompatible Changes List
 ---
 
-# Backward Compatibility
 
-Bazel is still in Beta and new releases may include backward incompatible
-changes. As we make changes and polish the extension mechanism, old features
-may be removed and new features that are not backward compatible may be added.
+# Legacy Incompatible Changes List
 
-Backward incompatible changes are introduced gradually:
+Legacy, partial list of [backward-incompatible changes](../backward-compatibility.md).
 
-1.  The backward incompatible change is introduced behind a flag with its
-    default value set to `false`.
-2.  In a later release, the flag's default value will be set to `true`. You
-    can still use the flag to disable the change.
-3.  Then in a later release, the flag will be removed and you will no longer be
-    able to disable the change.
+Full, authorative list of incompatible changes is [GitHub issues with
+"incompatible-change" label](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Aincompatible-change)
 
-To check if your code will be compatible with future releases you can:
-
-*   Build your code with the flag `--all_incompatible_changes`. This flag
-    enables all backward incompatible changes, and so you can ensure your code
-    is compatible with upcoming changes.
-*   Use boolean flags to enable/disable specific backward incompatible changes.
-
-## Current backward incompatible changes
-
-The following are the backward incompatible changes that are implemented and
-guarded behind flags in the current release:
 
 General Starlark
 
@@ -53,7 +35,6 @@ Starlark Rules
 *   [Expand directories in Args](#expand-directories-in-args)
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
 *   [Disallow `cfg = "data"`](#disallow-cfg--data)
-*   [Disallow conflicting providers](#disallow-conflicting-providers)
 
 Objc
 
@@ -185,24 +166,8 @@ for i in range(len(my_string)):
 ```
 
 *   Flag: `--incompatible_string_is_not_iterable`
-*   Default: `false`
-*   Tracking issue: [#5830](https://github.com/bazelbuild/bazel/issues/5830)
-
-
-### Integer division operator is `//`
-
-Integer division operator is now `//` instead of `/`. This aligns with
-Python 3 and it highlights the fact it is a floor division.
-
-```python
-x = 7 / 2  # deprecated
-
-x = 7 // 2  # x is 3
-```
-
-*   Flag: `--incompatible_disallow_slash_operator`
 *   Default: `true`
-*   Tracking issue: [#5823](https://github.com/bazelbuild/bazel/issues/5823)
+*   Tracking issue: [#5830](https://github.com/bazelbuild/bazel/issues/5830)
 
 
 ### Package name is a function
@@ -229,7 +194,7 @@ needed, you can simply pass a list of strings to restrict the file types the
 rule accepts.
 
 *   Flag: `--incompatible_disallow_filetype`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5831](https://github.com/bazelbuild/bazel/issues/5831)
 
 
@@ -269,16 +234,6 @@ or `add_joined()` instead.
 *   Flag: `--incompatible_disallow_old_style_args_add`
 *   Default: `false`
 *   Tracking issue: [#5822](https://github.com/bazelbuild/bazel/issues/5822)
-
-
-### Python 3 range behavior.
-When set, the result of `range(...)` function is a lazy `range` type instead of
-a `list`. Because of this repetitions using `*` operator are no longer
-supported and `range` slices are also lazy `range` instances.
-
-*   Flag: `--incompatible_range_type`
-*   Default: `true`
-*   Tracking issue: [#5264](https://github.com/bazelbuild/bazel/issues/5264)
 
 
 ### Disable objc provider resources
@@ -709,9 +664,9 @@ config_setting(
 ### Disable depsets in C++ toolchain API in user flags
 
 If true, Bazel will no longer accept depsets in `user_compile_flags` for
-[create\_compile\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_compile_variables),
+[create\_compile\_variables](../skylark/lib/cc_common.html#create_compile_variables),
 and in `user_link_flags` for
-[create\_link\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_link_variables).
+[create\_link\_variables](../skylark/lib/cc_common.html#create_link_variables).
 Use plain lists instead.
 
 *   Flag: `--incompatible_disable_depset_in_cc_user_flags`
@@ -844,7 +799,7 @@ For Starlark rules using C++ Make Variables:
 ```python
 # Before
 def _impl(ctx):
-    strip = ctx.vars["STRIP"]
+    strip = ctx.var["STRIP"]
     ...
 
 my_rule = rule(
@@ -855,7 +810,7 @@ my_rule = rule(
 
 # After
 def _impl(ctx):
-    strip = ctx.vars["STRIP"]
+    strip = ctx.var["STRIP"]
     ...
 
 my_rule = rule(
@@ -941,6 +896,24 @@ List of all legacy fields and their corresponding `cc_toolchain` alternative:
 | `target_gnu_system_name` |  `target_gnu_system_name` |
 | `unfiltered_compiler_options(unused_arg)` |  `unfiltered_compiler_options(unused_arg)` |
 
+If you use legacy Starlark API on `ctx.host_fragment.cpp`, let us know on
+[the tracking bug for C++ migration to platforms](https://github.com/bazelbuild/bazel/issues/6516)
+about your use case. The current plan is that host fragments will be removed.
+To migrate, add an implicit rule attribute in the host configuration:
+
+```python
+"_host_cc_toolchain": attr.label(
+    cfg = "host",
+    default = Label("//tools/cpp:current_cc_toolchain"),
+),
+```
+
+Then in your rules access the provider using:
+
+```python
+host_cc_toolchain = ctx.attr._host_cc_toolchain[cc_common.CcToolchainInfo]
+```
+
 *   Flag: `--incompatible_disable_legacy_cpp_toolchain_skylark_api`
 *   Default: `false`
 *   Introduced in: `0.18.0`
@@ -959,14 +932,14 @@ We have deprecated the `cc_toolchain` Starlark API returning legacy CROSSTOOL fi
 * mostly\_static\_link\_options
 * unfiltered\_compiler\_options
 
-Use the new API from [cc_common](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html)
+Use the new API from [cc_common](../skylark/lib/cc_common.html)
 
 ```python
 # Before:
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
 def _impl(ctx):
-    cc_toolchain = find_cc_toolchain(ctx)
+    cc_toolchain = find_cpp_toolchain(ctx)
     compiler_options = (
         cc_toolchain.compiler_options() +
         cc_toolchain.unfiltered_compiler_options([]) +
@@ -990,7 +963,7 @@ load(
 )
 
 def _impl(ctx):
-    cc_toolchain = find_cc_toolchain(ctx)
+    cc_toolchain = find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
         cc_toolchain = cc_toolchain,
         requested_features = ctx.features,
@@ -1057,20 +1030,9 @@ When `--incompatible_disallow_data_transition=true`, builds using this syntax
 fail with an error.
 
 *   Flag: `--incompatible_disallow_data_transition`
-*   Default: `false`
+*   Default: `true`
 *   Introduced in: `0.16.0`
 *   Tracking issue: [#6153](https://github.com/bazelbuild/bazel/issues/6153)
-
-
-### Disallow conflicting providers
-
-If set to true, disallow rule implementation functions from returning multiple
-instances of the same type of provider. If false, only the last in the list will
-be used.
-
-*   Flag: `incompatible_disallow_conflicting_providers`
-*   Default: `true`
-*   Tracking issue: [#5902](https://github.com/bazelbuild/bazel/issues/5902)
 
 
 ### Load label cannot cross package boundaries

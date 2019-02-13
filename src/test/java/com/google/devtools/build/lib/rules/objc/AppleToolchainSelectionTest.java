@@ -41,12 +41,12 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
     assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())
         .isEqualTo("//tools/osx/crosstool:crosstool");
-    assertThat(cppConfig.getTransformedCpuFromOptions()).isEqualTo("ios_x86_64");
+    assertThat(cppConfig.getTransformedCpuFromOptions()).isEqualTo("darwin_x86_64");
   }
 
   @Test
   public void testToolchainSelectionIosDevice() throws Exception {
-    useConfiguration("--cpu=ios_armv7");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
     createLibraryTargetWriter("//a:lib").write();
     CppConfiguration cppConfig =
         getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
@@ -81,7 +81,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
   @Test
   public void testToolchainSelectionCcDepDevice() throws Exception {
-    useConfiguration("--cpu=ios_armv7");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
     ScratchAttributeWriter
         .fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "b.cc")

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -108,7 +109,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             StampedAndroidManifest.getManifestValues(ruleContext),
-            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext),
+            ruleContext.getExpander().withDataExecLocations().tokenized("nocompress_extensions"));
 
     attributesBuilder.addRuntimeClassPathEntry(resourceApk.getResourceJavaClassJar());
 
@@ -158,13 +160,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     String testClass =
         getAndCheckTestClass(ruleContext, ImmutableList.copyOf(attributesBuilder.getSourceFiles()));
     getAndCheckTestSupport(ruleContext);
-
     if (Whitelist.hasWhitelist(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")
         && !Whitelist.isAvailable(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")) {
       javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
+    }
+    if (ruleContext.hasErrors()) {
+      return null;
     }
 
     JavaCompilationHelper helper =
@@ -271,7 +272,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         mainClass,
         originalMainClass,
         filesToBuildBuilder,
-        javaExecutable);
+        javaExecutable,
+        /* createCoverageMetadataJar= */ true);
 
     Artifact oneVersionOutputArtifact = null;
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
@@ -456,7 +458,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     builder.addTransitiveArtifactsWrappedInStableOrder(javaCommon.getRuntimeClasspath());
 
     // Add the JDK files if it comes from P4 (see java_stub_template.txt).
-    TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
+    TransitiveInfoCollection javabaseTarget =
+        ruleContext.getPrerequisite(JAVA_RUNTIME_ATTRIBUTE_NAME, Mode.TARGET);
 
     if (javabaseTarget != null) {
       builder.addTransitiveArtifacts(
@@ -497,6 +500,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                 + ".java' and package name doesn't include 'java' or 'javatests'. "
                 + "You might want to rename the rule or add a 'test_class' "
                 + "attribute.)");
+        testClass = "";
       }
     }
     return testClass;
@@ -513,7 +517,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
       Map<String, String> manifestValues,
-      AndroidAaptVersion aaptVersion)
+      AndroidAaptVersion aaptVersion,
+      List<String> noCompressExtensions)
       throws InterruptedException {
 
     StampedAndroidManifest stamped =
@@ -534,7 +539,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             resources,
             assets,
             resourceDeps,
-            assetDeps)
+            assetDeps,
+            noCompressExtensions)
         .generateRClass(dataContext, aaptVersion);
   }
 

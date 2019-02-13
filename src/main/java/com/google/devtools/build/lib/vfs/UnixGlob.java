@@ -606,6 +606,11 @@ public final class UnixGlob {
           });
     }
 
+    /** Should only be called by link {@GlobTaskContext}. */
+    private void queueTask(Runnable runnable) {
+      enqueue(runnable);
+    }
+
     protected void enqueue(final Runnable r) {
       totalOps.incrementAndGet();
       pendingOps.incrementAndGet();
@@ -674,6 +679,10 @@ public final class UnixGlob {
       protected void queueGlob(Path base, boolean baseIsDir, int patternIdx) {
         GlobVisitor.this.queueGlob(base, baseIsDir, patternIdx, this);
       }
+
+      protected void queueTask(Runnable runnable) {
+        GlobVisitor.this.queueTask(runnable);
+      }
     }
 
     /**
@@ -735,16 +744,14 @@ public final class UnixGlob {
 
     /**
      * Expressed in Haskell:
+     *
      * <pre>
      *  reallyGlob base []     = { base }
      *  reallyGlob base [x:xs] = union { reallyGlob(f, xs) | f results "base/x" }
      * </pre>
      */
-    private void reallyGlob(
-        Path base,
-        boolean baseIsDir,
-        int idx,
-        GlobTaskContext context) throws IOException {
+    private void reallyGlob(Path base, boolean baseIsDir, int idx, GlobTaskContext context)
+        throws IOException {
       if (baseIsDir && !context.dirPred.apply(base)) {
         return;
       }
@@ -762,12 +769,11 @@ public final class UnixGlob {
         return;
       }
 
-      final String pattern = context.patternParts[idx];
+      String pattern = context.patternParts[idx];
 
       // ** is special: it can match nothing at all.
       // For example, x/** matches x, **/y matches y, and x/**/y matches x/y.
-      final boolean isRecursivePattern = isRecursivePattern(pattern);
-      if (isRecursivePattern) {
+      if (isRecursivePattern(pattern)) {
         context.queueGlob(base, baseIsDir, idx + 1);
       }
 
@@ -780,44 +786,57 @@ public final class UnixGlob {
           return;
         }
 
-        boolean childIsDir = status.isDirectory();
-        context.queueGlob(child, childIsDir, idx + 1);
+        context.queueGlob(child, status.isDirectory(), idx + 1);
         return;
       }
 
-      Collection<Dirent> dents = context.syscalls.readdir(base, Symlinks.FOLLOW);
-
+      Collection<Dirent> dents = context.syscalls.readdir(base, Symlinks.NOFOLLOW);
       for (Dirent dent : dents) {
-        Dirent.Type type = dent.getType();
-        if (type == Dirent.Type.UNKNOWN) {
-          // The file is a dangling symlink, fifo, etc.
+        Dirent.Type childType = dent.getType();
+        if (childType == Dirent.Type.UNKNOWN) {
+          // The file is a special file (fifo, etc.). No need to even match against the pattern.
           continue;
         }
-        boolean childIsDir = (type == Dirent.Type.DIRECTORY);
-        String text = dent.getName();
+        if (matches(pattern, dent.getName(), cache)) {
+          Path child = base.getChild(dent.getName());
 
-        if (isRecursivePattern) {
-          Path child = base.getChild(text);
-          // Recurse without shifting the pattern. The case where we shifting the pattern is
-          // already handled by the special case above.
-          if (childIsDir) {
-            context.queueGlob(child, childIsDir, idx);
-          } else if (idx + 1 == context.patternParts.length) {
-            results.add(child);
-          }
-        } else if (matches(pattern, text, cache)) {
-          Path child = base.getChild(text);
-
-          // Recurse and consume one segment of the pattern.
-          if (childIsDir) {
-            context.queueGlob(child, childIsDir, idx + 1);
+          if (childType == Dirent.Type.SYMLINK) {
+            processSymlink(child, idx, context);
           } else {
-            // Instead of using an async call, just repeat the base case above.
-            if (idx + 1 == context.patternParts.length) {
-              results.add(child);
-            }
+            processFileOrDirectory(child, childType == Dirent.Type.DIRECTORY, idx, context);
           }
         }
+      }
+    }
+
+    /**
+     * Process symlinks asynchronously. If we should used readdir(..., Symlinks.FOLLOW), that would
+     * result in a sequential symlink resolution with many file system implementations. If the
+     * underlying file system is networked and a single directory contains many symlinks, that can
+     * lead to substantial slowness.
+     */
+    private void processSymlink(Path path, int idx, GlobTaskContext context) {
+      context.queueTask(
+          () -> {
+            try {
+              FileStatus status = context.syscalls.statIfFound(path, Symlinks.FOLLOW);
+              if (status != null) {
+                processFileOrDirectory(path, status.isDirectory(), idx, context);
+              }
+            } catch (IOException e) {
+              // Intentionally empty. Just ignore symlinks that cannot be stat'ed to leave
+              // historical behavior of readdir(..., Symlinks.FOLLOW).
+            }
+          });
+    }
+
+    private void processFileOrDirectory(
+        Path path, boolean isDir, int idx, GlobTaskContext context) {
+      boolean isRecursivePattern = isRecursivePattern(context.patternParts[idx]);
+      if (isDir) {
+        context.queueGlob(path, /* baseIsDir= */ true, idx + (isRecursivePattern ? 0 : 1));
+      } else if (idx + 1 == context.patternParts.length) {
+        results.add(path);
       }
     }
   }

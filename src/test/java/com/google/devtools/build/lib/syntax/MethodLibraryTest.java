@@ -110,7 +110,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfExactError(
             "expected value of type 'string' for parameter 'sub', "
-                + "in method call index(int) of 'string'",
+                + "for call to method index(sub, start = 0, end = None) of 'string'",
             "'test'.index(1)");
   }
 
@@ -135,7 +135,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + "\t\t\"test\".index(x)"
                 + LINE_SEPARATOR
                 + "expected value of type 'string' for parameter 'sub', "
-                + "in method call index(int) of 'string'",
+                + "for call to method index(sub, start = 0, end = None) of 'string'",
             "def foo():",
             "  bar(1)",
             "def bar(x):",
@@ -150,7 +150,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
             "expected value of type 'string or tuple of strings' for parameter 'sub', "
-                + "in method call startswith(int) of 'string'",
+                + "for call to method startswith(sub, start = 0, end = None) of 'string'",
             "'test'.startswith(1)")
         .testIfErrorContains(
             "expected value of type 'list(object)' for parameter args in dict(), "
@@ -470,46 +470,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testRange() throws Exception {
-    new BothModesTest("--incompatible_range_type=false")
-        .testStatement("str(range(5))", "[0, 1, 2, 3, 4]")
-        .testStatement("str(range(0))", "[]")
-        .testStatement("str(range(1))", "[0]")
-        .testStatement("str(range(-2))", "[]")
-        .testStatement("str(range(-3, 2))", "[-3, -2, -1, 0, 1]")
-        .testStatement("str(range(3, 2))", "[]")
-        .testStatement("str(range(3, 3))", "[]")
-        .testStatement("str(range(3, 4))", "[3]")
-        .testStatement("str(range(3, 5))", "[3, 4]")
-        .testStatement("str(range(-3, 5, 2))", "[-3, -1, 1, 3]")
-        .testStatement("str(range(-3, 6, 2))", "[-3, -1, 1, 3, 5]")
-        .testStatement("str(range(5, 0, -1))", "[5, 4, 3, 2, 1]")
-        .testStatement("str(range(5, 0, -10))", "[5]")
-        .testStatement("str(range(0, -3, -2))", "[0, -2]")
-        .testStatement("str(range(5)[1:])", "[1, 2, 3, 4]")
-        .testStatement("len(range(5)[1:])", 4)
-        .testStatement("str(range(5)[:2])", "[0, 1]")
-        .testStatement("str(range(10)[1:9:2])", "[1, 3, 5, 7]")
-        .testStatement("str(range(10)[1:10:2])", "[1, 3, 5, 7, 9]")
-        .testStatement("str(range(10)[1:11:2])", "[1, 3, 5, 7, 9]")
-        .testStatement("str(range(0, 10, 2)[::2])", "[0, 4, 8]")
-        .testStatement("str(range(0, 10, 2)[::-2])", "[8, 4, 0]")
-        .testIfErrorContains("step cannot be 0", "range(2, 3, 0)");
-  }
-
-  @Test
-  public void testRangeIsList() throws Exception {
-    // range(), and slices of ranges, may change in the future to return read-only views. But for
-    // now it's just a list and can therefore be ordered, mutated, and concatenated. This test
-    // ensures we don't break backward compatibility until we intend to, even if range() is
-    // optimized to return lazy list-like values.
-    runRangeIsListAssertions("range(3)");
-    runRangeIsListAssertions("range(4)[:3]");
-  }
-
-  @Test
   public void testRangeType() throws Exception {
-    new BothModesTest("--incompatible_range_type=true")
+    new BothModesTest()
         .setUp("a = range(3)")
         .testStatement("len(a)", 3)
         .testStatement("str(a)", "range(0, 3)")
@@ -518,7 +480,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("repr(range(1,2,3))", "range(1, 2, 3)")
         .testStatement("type(a)", "range")
         .testIfErrorContains("unsupported operand type(s) for +: 'range' and 'range'", "a + a")
-        .testIfErrorContains("type 'range' has no method append(int)", "a.append(3)")
+        .testIfErrorContains("type 'range' has no method append()", "a.append(3)")
         .testStatement("str(list(range(5)))", "[0, 1, 2, 3, 4]")
         .testStatement("str(list(range(0)))", "[]")
         .testStatement("str(list(range(1)))", "[0]")
@@ -556,59 +518,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("4 in range(1, 8, 2)", false)
         .testStatement("range(0, 5, 10) == range(0, 5, 11)", true)
         .testStatement("range(0, 5, 2) == [0, 2, 4]", false);
-  }
-
-  /**
-   * Helper function for testRangeIsList that expects a range or range slice expression producing
-   * the range value containing [0, 1, 2].
-   */
-  private void runRangeIsListAssertions(String range3expr) throws Exception {
-    // Check stringifications.
-    new BothModesTest("--incompatible_range_type=false")
-        .setUp("a = " + range3expr)
-        .testStatement("str(a)", "[0, 1, 2]")
-        .testStatement("repr(a)", "[0, 1, 2]")
-        .testStatement("type(a)", "list");
-
-    // Check comparisons.
-    new BothModesTest("--incompatible_range_type=false")
-        .setUp("a = " + range3expr)
-        .setUp("b = range(0, 3, 1)")
-        .setUp("c = range(1, 4)")
-        .setUp("L = [0, 1, 2]")
-        .setUp("T = (0, 1, 2)")
-        .testStatement("a == b", true)
-        .testStatement("a == c", false)
-        .testStatement("a < b", false)
-        .testStatement("a < c", true)
-        .testStatement("a == L", true)
-        .testStatement("a == T", false)
-        .testStatement("a < L", false)
-        .testIfErrorContains("Cannot compare list with tuple", "a < T");
-
-    // Check mutations.
-    new BothModesTest("--incompatible_range_type=false")
-        .setUp("a = " + range3expr)
-        .testStatement("a.append(3); str(a)", "[0, 1, 2, 3]");
-    new SkylarkTest("--incompatible_range_type=false")
-        .testStatement(
-            "def f():\n"
-            + "  a = " + range3expr + "\n"
-            + "  b = a\n"
-            + "  a += [3]\n"
-            + "  return str(b)\n"
-            + "f()\n",
-            "[0, 1, 2, 3]");
-
-    // Check concatenations.
-    new BothModesTest("--incompatible_range_type=false")
-        .setUp("a = " + range3expr)
-        .setUp("b = range(3, 4)")
-        .setUp("L = [3]")
-        .setUp("T = (3,)")
-        .testStatement("str(a + b)", "[0, 1, 2, 3]")
-        .testStatement("str(a + L)", "[0, 1, 2, 3]")
-        .testIfErrorContains("unsupported operand type(s) for +: 'list' and 'tuple", "str(a + T)");
   }
 
   @Test
@@ -794,5 +703,46 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("tuple(depset([1, 2])) == (1, 2)", true)
         // Depends on current implementation of dict
         .testStatement("tuple({1: 'foo', 2: 'bar'}) == (1, 2)", true);
+  }
+
+  // Verifies some legacy functionality that should be deprecated and removed via
+  // an incompatible-change flag: parameters in MethodLibrary functions may be specified by
+  // keyword, or may be None, even in places where it does not quite make sense.
+  @Test
+  public void testLegacyNamed() throws Exception {
+    new SkylarkTest()
+        // Parameters which may be specified by keyword but are not explicitly 'named'.
+        .testStatement("all(elements=[True, True])", Boolean.TRUE)
+        .testStatement("any(elements=[True, False])", Boolean.TRUE)
+        .testEval("sorted(self=[3, 0, 2])", "[0, 2, 3]")
+        .testEval("reversed(sequence=[3, 2, 0])", "[0, 2, 3]")
+        .testEval("tuple(x=[1, 2])", "(1, 2)")
+        .testEval("list(x=(1, 2))", "[1, 2]")
+        .testEval("len(x=(1, 2))", "2")
+        .testEval("str(x=(1, 2))", "'(1, 2)'")
+        .testEval("repr(x=(1, 2))", "'(1, 2)'")
+        .testStatement("bool(x=3)", Boolean.TRUE)
+        .testEval("int(x=3)", "3")
+        .testEval("dict(args=[(1, 2)])", "{1 : 2}")
+        .testStatement("bool(x=3)", Boolean.TRUE)
+        .testEval("enumerate(list=[40, 41])", "[(0, 40), (1, 41)]")
+        .testStatement("hash(value='hello')", "hello".hashCode())
+        .testEval("range(start_or_stop=3, stop_or_none=9, step=2)", "range(3, 9, 2)")
+        .testStatement("hasattr(x=depset(), name='union')", Boolean.TRUE)
+        .testStatement("bool(x=3)", Boolean.TRUE)
+        .testStatement("getattr(x='hello', name='count', default='default')", "default")
+        .testEval(
+            "dir(x={})",
+            "[\"clear\", \"get\", \"items\", \"keys\","
+                + " \"pop\", \"popitem\", \"setdefault\", \"update\", \"values\"]")
+        .testEval("type(x=5)", "'int'")
+        .testEval("str(depset(items=[0,1]))", "'depset([0, 1])'")
+        .testIfErrorContains("hello", "fail(msg='hello', attr='someattr')")
+        // Parameters which may be None but are not explicitly 'noneable'
+        .testStatement("hasattr(x=None, name='union')", Boolean.FALSE)
+        .testEval("getattr(x=None, name='count', default=None)", "None")
+        .testEval("dir(None)", "[]")
+        .testIfErrorContains("None", "fail(msg=None)")
+        .testEval("type(None)", "'NoneType'");
   }
 }

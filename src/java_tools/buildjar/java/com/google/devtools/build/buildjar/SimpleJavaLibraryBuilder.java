@@ -20,6 +20,7 @@ import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationP
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.BlazeJavacMain;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import java.io.ByteArrayOutputStream;
@@ -130,7 +131,10 @@ public class SimpleJavaLibraryBuilder implements Closeable {
         }
       }
     } finally {
-      build.getDependencyModule().emitDependencyInformation(build.getClassPath(), result.isOk());
+      build
+          .getDependencyModule()
+          .emitDependencyInformation(
+              build.getClassPath(), result.isOk(), result.status() == Status.REQUIRES_FALLBACK);
       build.getProcessingModule().emitManifestProto();
     }
     return result;

@@ -152,7 +152,7 @@ does not provide anything, so it returns an empty list.
 ### Invoking the aspect using the command line
 
 The simplest way to apply an aspect is from the command line using the
-[`--aspects`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--aspects)
+[`--aspects`](../command-line-reference.html#flag--aspects)
 argument. Assuming the rule above were defined in a file named `print.bzl` this:
 
 ```bash

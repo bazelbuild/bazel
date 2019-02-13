@@ -96,11 +96,28 @@ public final class QueryCommand implements BlazeCommand {
    */
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    env.getEventBus()
+        .post(
+            new NoBuildEvent(
+                env.getCommandName(),
+                env.getCommandStartTime(),
+                /* separateFinishedEvent= */ true,
+                /* showProgress= */ true,
+                /* id= */ null));
+    BlazeCommandResult result = execInternal(env, options);
+    env.getEventBus()
+        .post(
+            new NoBuildRequestFinishedEvent(
+                result.getExitCode(), env.getRuntime().getClock().currentTimeMillis()));
+    return result;
+  }
+
+  private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 
     try {
-      env.setupPackageCache(options, runtime.getDefaultsPackageContent());
+      env.setupPackageCache(options);
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("query interrupted"));
       return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
@@ -147,14 +164,6 @@ public final class QueryCommand implements BlazeCommand {
     Set<Setting> settings = queryOptions.toSettings();
     boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
 
-    env.getEventBus()
-        .post(
-            new NoBuildEvent(
-                env.getCommandName(),
-                env.getCommandStartTime(),
-                /* separateFinishedEvent= */ true,
-                /* showProgress= */ true,
-                /* id= */ null));
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
       Either<BlazeCommandResult, QueryEvalResult> result;
@@ -187,10 +196,6 @@ public final class QueryCommand implements BlazeCommand {
             }
             ExitCode exitCode =
                 queryEvalResult.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
-            env.getEventBus()
-                .post(
-                    new NoBuildRequestFinishedEvent(
-                        exitCode, runtime.getClock().currentTimeMillis()));
             return BlazeCommandResult.exitCode(exitCode);
           });
     } catch (IOException e) {

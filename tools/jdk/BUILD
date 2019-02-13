@@ -1,12 +1,22 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
+    "default_remote_java_toolchain",
     "java_runtime_files",
     "JDK8_JVM_OPTS",
+    "JDK8_JVM_OPTS_REMOTE_JAVAC",
     "bootclasspath",
 )
+load(
+    "//tools/jdk:java_toolchain_alias.bzl",
+    "java_toolchain_alias",
+    "java_runtime_alias",
+    "java_host_runtime_alias",
+    "legacy_java_toolchain_alias",
+    "legacy_java_runtime_alias",
+)
+
+package(default_visibility = ["//visibility:public"])
 
 # Used to distinguish toolchains used for Java development, ie the JavaToolchainProvider.
 toolchain_type(name = "toolchain_type")
@@ -14,11 +24,42 @@ toolchain_type(name = "toolchain_type")
 # Used to distinguish toolchains used for Java execution, ie the JavaRuntimeInfo.
 toolchain_type(name = "runtime_toolchain_type")
 
+toolchain(
+    name = "dummy_java_toolchain",
+    toolchain = ":dummy_toolchain",
+    toolchain_type = ":toolchain_type",
+)
+
+cc_binary(name = "dummy_binary")
+
+java_toolchain(
+    name = "dummy_toolchain",
+    genclass = [":dummy_binary"],
+    ijar = [":dummy_binary"],
+    javabuilder = [":dummy_binary"],
+    javac = [":dummy_binary"],
+    singlejar = [":dummy_binary"],
+)
+
+toolchain(
+    name = "dummy_java_runtime_toolchain",
+    toolchain = ":dummy_java_runtime",
+    toolchain_type = ":runtime_toolchain_type",
+)
+
+java_runtime(name = "dummy_java_runtime")
+
 java_runtime_alias(name = "current_java_runtime")
 
 java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
+
+# This exists to support the migration to toolchain resolution.
+# TODO(cushon): delete once the migration is complete.
+legacy_java_runtime_alias(name = "legacy_current_java_runtime")
+
+legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
 
 # Used to set --host_javabase or --javabase to a local JDK without having to define
 # a custom java_runtime rule.
@@ -109,9 +150,16 @@ filegroup(
     }),
 )
 
+exports_files(["BUILD.pkg"])
+
 filegroup(
     name = "genclass",
     srcs = ["//tools/jdk:GenClass_deploy.jar"],
+)
+
+filegroup(
+    name = "remote-genclass",
+    srcs = ["@remote_java_tools//:GenClass"],
 )
 
 filegroup(
@@ -120,8 +168,18 @@ filegroup(
 )
 
 filegroup(
+    name = "remote-turbine",
+    srcs = ["@remote_java_tools//:Turbine"],
+)
+
+filegroup(
     name = "turbine_direct",
     srcs = glob(["turbine_direct*"]),
+)
+
+filegroup(
+    name = "remote-turbine_direct",
+    srcs = ["@remote_java_tools//:TurbineDirect"],
 )
 
 filegroup(
@@ -130,8 +188,33 @@ filegroup(
 )
 
 filegroup(
+    name = "remote-javabuilder",
+    srcs = ["@remote_java_tools//:JavaBuilder"],
+)
+
+filegroup(
     name = "vanillajavabuilder",
     srcs = ["//tools/jdk:VanillaJavaBuilder_deploy.jar"],
+)
+
+filegroup(
+    name = "remote-vanillajavabuilder",
+    srcs = ["@remote_java_tools//:VanillaJavaBuilder"],
+)
+
+filegroup(
+    name = "remote-javac_jar",
+    srcs = ["@remote_java_tools//:javac_jar"],
+)
+
+filegroup(
+    name = "remote-jdk_compiler_jar",
+    srcs = ["@remote_java_tools//:jdk_compiler_jar"],
+)
+
+filegroup(
+    name = "remote-java_compiler_jar",
+    srcs = ["@remote_java_tools//:java_compiler_jar"],
 )
 
 BOOTCLASS_JARS = [
@@ -182,7 +265,7 @@ alias(
 
 alias(
     name = "host_jdk",
-    actual = "@embedded_jdk//:jdk",
+    actual = ":remote_jdk",
 )
 
 bootclasspath(
@@ -199,10 +282,23 @@ default_java_toolchain(
     target_version = "8",
 )
 
+default_remote_java_toolchain(
+    name = "remote_toolchain_hostjdk8",
+    jvm_opts = JDK8_JVM_OPTS_REMOTE_JAVAC,
+    source_version = "8",
+    target_version = "8",
+)
+
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
     name = "toolchain",
+    source_version = "8",
+    target_version = "8",
+)
+
+default_remote_java_toolchain(
+    name = "remote_toolchain",
     source_version = "8",
     target_version = "8",
 )
@@ -228,6 +324,13 @@ default_java_toolchain(
     jvm_opts = [],
 )
 
+default_remote_java_toolchain(
+    name = "remote_toolchain_vanilla",
+    forcibly_disable_header_compilation = True,
+    javabuilder = ["@bazel_tools//tools/jdk:remote-vanillajavabuilder"],
+    jvm_opts = [],
+)
+
 RELEASES = (8, 9)
 
 [
@@ -245,9 +348,11 @@ filegroup(
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
+        "java_toolchain_alias.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",
+        "toolchain_utils.bzl",
     ],
 )
 
@@ -284,6 +389,11 @@ alias(
 java_import(
     name = "JacocoCoverage",
     jars = [":JacocoCoverage_deploy.jar"],
+)
+
+java_import(
+    name = "JarJar",
+    jars = [":jarjar_command_deploy.jar"],
 )
 
 test_suite(
@@ -328,6 +438,22 @@ alias(
             "//src/conditions:windows": "@remotejdk10_win//:jdk",
             "//src/conditions:linux_aarch64": "@remotejdk10_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk10_linux//:jdk",
+        },
+        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
+                         " provide one using `--host_javabase.`",
+    ),
+    visibility = ["//visibility:public"],
+)
+
+# A JDK 11 for use as a --host_javabase.
+alias(
+    name = "remote_jdk11",
+    actual = select(
+        {
+            "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
+            "//src/conditions:darwin_x86_64": "@remotejdk11_macos//:jdk",
+            "//src/conditions:windows": "@remotejdk11_win//:jdk",
+            "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",

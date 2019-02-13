@@ -365,6 +365,18 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
     }
 
     @Override
+    public void visitLdcInsn(Object value) {
+      if (value instanceof Type) {
+        checkType((Type) value); // Class literals
+      } else if (value instanceof Handle) {
+        checkHandle((Handle) value);
+      } else {
+        checkState(PRIMITIVE_TYPES.contains(value.getClass()));
+      }
+      super.visitLdcInsn(value);
+    }
+
+    @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
       checkDescriptor(desc);
       super.visitMultiANewArrayInsn(desc, dims);

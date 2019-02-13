@@ -21,16 +21,12 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -148,27 +144,6 @@ public final class BlazeExecutor implements Executor {
       return;
     }
     inExecutionPhase.set(false);
-  }
-
-  public static void shutdownHelperPool(EventHandler reporter, ExecutorService pool,
-      String name) {
-    pool.shutdownNow();
-
-    boolean interrupted = false;
-    while (true) {
-      try {
-        if (!pool.awaitTermination(10, TimeUnit.SECONDS)) {
-          reporter.handle(Event.warn(name + " threadpool shutdown took greater than ten seconds"));
-        }
-        break;
-      } catch (InterruptedException e) {
-        interrupted = true;
-      }
-    }
-
-    if (interrupted) {
-      Thread.currentThread().interrupt();
-    }
   }
 
   @Override

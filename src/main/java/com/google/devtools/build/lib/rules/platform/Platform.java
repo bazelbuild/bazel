@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -43,6 +42,9 @@ public class Platform implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
+    PlatformOptions platformOptions =
+        ruleContext.getConfiguration().getOptions().get(PlatformOptions.class);
+
     PlatformInfo.Builder platformBuilder = PlatformInfo.builder().setLabel(ruleContext.getLabel());
 
     List<PlatformInfo> parentPlatforms =
@@ -58,23 +60,9 @@ public class Platform implements RuleConfiguredTargetFactory {
     PlatformInfo parentPlatform = Iterables.getFirst(parentPlatforms, null);
     platformBuilder.setParent(parentPlatform);
 
-    Boolean isHostPlatform =
-        ruleContext.attributes().get(PlatformRule.HOST_PLATFORM_ATTR, Type.BOOLEAN);
-    Boolean isTargetPlatform =
-        ruleContext.attributes().get(PlatformRule.TARGET_PLATFORM_ATTR, Type.BOOLEAN);
-    if (isHostPlatform && isTargetPlatform) {
-      ruleContext.attributeError(
-          PlatformRule.HOST_PLATFORM_ATTR,
-          "A single platform cannot have both host_platform and target_platform set.");
-      return null;
-    } else if (isHostPlatform) {
-      // Create default constraints based on the current host OS and CPU values.
-      String cpuOption = ruleContext.getConfiguration().getHostCpu();
-      autodetectConstraints(cpuOption, ruleContext, platformBuilder);
-    } else if (isTargetPlatform) {
-      // Create default constraints based on the current OS and CPU values.
-      String cpuOption = ruleContext.getConfiguration().getCpu();
-      autodetectConstraints(cpuOption, ruleContext, platformBuilder);
+    if (!platformOptions.autoConfigureHostPlatform) {
+      // If the flag is set, the constraints are defaulted by @local_config_platform.
+      setDefaultConstraints(platformBuilder, ruleContext);
     }
 
     // Add the declared constraints. Because setting the host_platform or target_platform attribute
@@ -86,12 +74,6 @@ public class Platform implements RuleConfiguredTargetFactory {
 
     String remoteExecutionProperties =
         ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
-    if (Strings.isNullOrEmpty(platformBuilder.getRemoteExecutionProperties()) && isHostPlatform) {
-      // Use the default override.
-      PlatformOptions platformOptions =
-          ruleContext.getConfiguration().getOptions().get(PlatformOptions.class);
-      remoteExecutionProperties = platformOptions.hostPlatformRemotePropertiesOverride;
-    }
     platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
 
     PlatformInfo platformInfo;
@@ -109,6 +91,27 @@ public class Platform implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addNativeDeclaredProvider(platformInfo)
         .build();
+  }
+
+  private void setDefaultConstraints(PlatformInfo.Builder platformBuilder, RuleContext ruleContext)
+      throws RuleErrorException {
+    Boolean isHostPlatform =
+        ruleContext.attributes().get(PlatformRule.HOST_PLATFORM_ATTR, Type.BOOLEAN);
+    Boolean isTargetPlatform =
+        ruleContext.attributes().get(PlatformRule.TARGET_PLATFORM_ATTR, Type.BOOLEAN);
+    if (isHostPlatform && isTargetPlatform) {
+      throw ruleContext.throwWithAttributeError(
+          PlatformRule.HOST_PLATFORM_ATTR,
+          "A single platform cannot have both host_platform and target_platform set.");
+    } else if (isHostPlatform) {
+      // Create default constraints based on the current host OS and CPU values.
+      String cpuOption = ruleContext.getConfiguration().getHostCpu();
+      autodetectConstraints(cpuOption, ruleContext, platformBuilder);
+    } else if (isTargetPlatform) {
+      // Create default constraints based on the current OS and CPU values.
+      String cpuOption = ruleContext.getConfiguration().getCpu();
+      autodetectConstraints(cpuOption, ruleContext, platformBuilder);
+    }
   }
 
   private void autodetectConstraints(

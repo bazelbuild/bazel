@@ -401,6 +401,7 @@ public abstract class AndroidSkylarkData
       String aaptVersionString,
       SkylarkDict<String, String> manifestValues,
       SkylarkList<ConfiguredTarget> deps,
+      SkylarkList<String> noCompressExtensions,
       Location location,
       Environment env)
       throws InterruptedException, EvalException {
@@ -434,7 +435,8 @@ public abstract class AndroidSkylarkData
               AssetDependencies.fromProviders(
                   getProviders(deps, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
               manifestValues,
-              AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString));
+              AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString),
+              noCompressExtensions);
 
       ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
       builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));

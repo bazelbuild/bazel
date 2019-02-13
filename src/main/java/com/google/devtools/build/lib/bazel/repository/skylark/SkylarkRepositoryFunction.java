@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -36,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
@@ -59,8 +62,13 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
 
   @Nullable
   @Override
-  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
-      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData,
+      SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     BaseFunction function = rule.getRuleClassObject().getConfiguredTargetFunction();
     if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
@@ -88,6 +96,14 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
               .setSemantics(skylarkSemantics)
               .setEventHandler(env.getListener())
+              // The fetch phase does not need the tools repository or the fragment map because
+              // it happens before analysis.
+              .setStarlarkContext(
+                  new BazelStarlarkContext(
+                      /* toolsRepository = */ null,
+                      /* fragmentNameToClass = */ null,
+                      rule.getPackage().getRepositoryMapping(),
+                      new SymbolGenerator<>(key)))
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
@@ -131,7 +147,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new RepositoryResolvedEvent(
               rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue);
       if (resolved.isNewInformationReturned()) {
-        env.getListener().handle(Event.info(resolved.getMessage()));
+        env.getListener().handle(Event.debug(resolved.getMessage()));
       }
 
       String ruleClass =
@@ -169,7 +185,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
 
-    if (!outputDirectory.getRelative(Label.WORKSPACE_FILE_NAME).exists()) {
+    if (!outputDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists()) {
       createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 

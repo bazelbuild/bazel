@@ -480,7 +480,9 @@ public class IncrementalLoadingTest {
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
-              loadingMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider),
+              loadingMock
+                  .getPackageFactoryBuilderForTesting(directories)
+                  .build(ruleClassProvider, fs),
               fs,
               directories,
               actionKeyContext,
@@ -512,7 +514,6 @@ public class IncrementalLoadingTest {
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageCacheOptions,
           Options.getDefaults(SkylarkSemanticsOptions.class),
-          "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -603,14 +604,14 @@ public class IncrementalLoadingTest {
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageCacheOptions,
           Options.getDefaults(SkylarkSemanticsOptions.class),
-          "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
-      ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter(new EventBus()));
+      ((SequencedSkyframeExecutor) skyframeExecutor)
+          .handleDiffsForTesting(new Reporter(new EventBus()));
 
       changes.clear();
     }

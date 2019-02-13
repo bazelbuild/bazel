@@ -15,7 +15,7 @@ package com.google.devtools.build.importdeps;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
@@ -36,47 +36,47 @@ public class ImportDepsCheckerTest extends AbstractClassCacheTest {
   @Test
   public void testJdepsProtos() throws IOException {
     testJdepsProto(
-        ImmutableList.of(bootclasspath),
-        ImmutableList.of(libraryJar),
-        ImmutableList.of(clientJar),
+        ImmutableSet.of(bootclasspath),
+        ImmutableSet.of(libraryJar),
+        ImmutableSet.of(clientJar),
         /*expectedCheckResult=*/ false,
-        ImmutableList.of(libraryJar));
+        ImmutableSet.of(libraryJar));
     testJdepsProto(
-        ImmutableList.of(clientJar), // fake non-empty bootclasspath.
-        ImmutableList.of(libraryJar),
-        ImmutableList.of(clientJar),
+        ImmutableSet.of(clientJar), // fake non-empty bootclasspath.
+        ImmutableSet.of(libraryJar),
+        ImmutableSet.of(clientJar),
         false,
-        ImmutableList.of(libraryJar));
+        ImmutableSet.of(libraryJar));
     testJdepsProto(
-        ImmutableList.of(bootclasspath),
-        ImmutableList.of(libraryJar, libraryAnnotationsJar),
-        ImmutableList.of(clientJar),
+        ImmutableSet.of(bootclasspath),
+        ImmutableSet.of(libraryJar, libraryAnnotationsJar),
+        ImmutableSet.of(clientJar),
         false,
-        ImmutableList.of(libraryJar, libraryAnnotationsJar));
+        ImmutableSet.of(libraryJar, libraryAnnotationsJar));
     testJdepsProto(
-        ImmutableList.of(bootclasspath),
-        ImmutableList.of(libraryAnnotationsJar),
-        ImmutableList.of(libraryJar),
+        ImmutableSet.of(bootclasspath),
+        ImmutableSet.of(libraryAnnotationsJar),
+        ImmutableSet.of(libraryJar),
         false,
-        ImmutableList.of());
+        ImmutableSet.of());
     testJdepsProto(
-        ImmutableList.of(bootclasspath),
-        ImmutableList.of(
+        ImmutableSet.of(bootclasspath),
+        ImmutableSet.of(
             libraryJar, libraryAnnotationsJar, libraryExceptionJar, libraryInterfaceJar),
-        ImmutableList.of(clientJar),
+        ImmutableSet.of(clientJar),
         true,
-        ImmutableList.of(
+        ImmutableSet.of(
             libraryJar, libraryAnnotationsJar, libraryExceptionJar, libraryInterfaceJar));
   }
 
   private static final String DUMMY_RULE_LABEL = "empty";
 
   private static void testJdepsProto(
-      ImmutableList<Path> bootclasspath,
-      ImmutableList<Path> regularClasspath,
-      ImmutableList<Path> inputJars,
+      ImmutableSet<Path> bootclasspath,
+      ImmutableSet<Path> regularClasspath,
+      ImmutableSet<Path> inputJars,
       boolean expectedCheckResult,
-      ImmutableList<Path> expectedJdeps)
+      ImmutableSet<Path> expectedJdeps)
       throws IOException {
     try (ImportDepsChecker checker =
         new ImportDepsChecker(
@@ -108,9 +108,9 @@ public class ImportDepsCheckerTest extends AbstractClassCacheTest {
   }
 
   private static Dependencies getJdepsProtoWithMainEntry(
-      ImmutableList<Path> bootclasspath,
-      ImmutableList<Path> regularClasspath,
-      ImmutableList<Path> inputJars)
+      ImmutableSet<Path> bootclasspath,
+      ImmutableSet<Path> regularClasspath,
+      ImmutableSet<Path> inputJars)
       throws IOException {
     ArrayList<String> args = new ArrayList<>();
     bootclasspath.forEach(

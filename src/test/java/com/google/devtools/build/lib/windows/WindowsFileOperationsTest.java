@@ -90,29 +90,29 @@ public class WindowsFileOperationsTest {
 
     testUtil.createJunctions(junctions);
 
-    assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longlinkpath/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longlinkpath/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longlinkpath/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longli~1/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longli~1/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longli~1/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbreviated/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbreviated/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbreviated/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbrev~1/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbrev~1/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbrev~1/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/control/a")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/control/b")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/control/c")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/shrttrgt/file1.txt")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/longtargetpath/file2.txt")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/longta~1/file2.txt")).isFalse();
+    assertThat(WindowsFileOperations.isJunction(root + "\\shrtpath\\a")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\shrtpath\\b")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\shrtpath\\c")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\longlinkpath\\a")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\longlinkpath\\b")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\longlinkpath\\c")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\longli~1\\a")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\longli~1\\b")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\longli~1\\c")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\abbreviated\\a")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\abbreviated\\b")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\abbreviated\\c")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\abbrev~1\\a")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\abbrev~1\\b")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\abbrev~1\\c")).isTrue();
+    assertThat(WindowsFileOperations.isJunction(root + "\\control\\a")).isFalse();
+    assertThat(WindowsFileOperations.isJunction(root + "\\control\\b")).isFalse();
+    assertThat(WindowsFileOperations.isJunction(root + "\\control\\c")).isFalse();
+    assertThat(WindowsFileOperations.isJunction(root + "\\shrttrgt\\file1.txt")).isFalse();
+    assertThat(WindowsFileOperations.isJunction(root + "\\longtargetpath\\file2.txt")).isFalse();
+    assertThat(WindowsFileOperations.isJunction(root + "\\longta~1\\file2.txt")).isFalse();
     try {
-      WindowsFileOperations.isJunction(root + "/non-existent");
+      WindowsFileOperations.isJunction(root + "\\non-existent");
       fail("expected to throw");
     } catch (IOException e) {
       assertThat(e.getMessage()).contains("nativeIsJunction");
@@ -215,8 +215,8 @@ public class WindowsFileOperationsTest {
     assertThat(helloFile.exists()).isTrue();
     assertThat(new File(longPath).exists()).isTrue();
     assertThat(new File(shortPath).exists()).isTrue();
-    assertThat(WindowsFileOperations.getLongPath(longPath)).endsWith("will.exist\\helloworld.txt");
-    assertThat(WindowsFileOperations.getLongPath(shortPath)).endsWith("will.exist\\helloworld.txt");
+    assertThat(WindowsFileOperations.getLongPath(longPath)).endsWith("will.exist/helloworld.txt");
+    assertThat(WindowsFileOperations.getLongPath(shortPath)).endsWith("will.exist/helloworld.txt");
 
     // Delete the file and the directory, assert that long path resolution fails for them.
     assertThat(helloFile.delete()).isTrue();
@@ -243,9 +243,9 @@ public class WindowsFileOperationsTest {
             .toFile();
     assertThat(new File(shortPath).exists()).isTrue();
     assertThat(WindowsFileOperations.getLongPath(shortPath))
-        .endsWith("will.exist_again\\hellowelt.txt");
+        .endsWith("will.exist_again/hellowelt.txt");
     assertThat(WindowsFileOperations.getLongPath(foo + "\\will.exist_again\\hellowelt.txt"))
-        .endsWith("will.exist_again\\hellowelt.txt");
+        .endsWith("will.exist_again/hellowelt.txt");
     try {
       WindowsFileOperations.getLongPath(longPath);
       fail("expected to throw");

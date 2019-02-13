@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
@@ -42,11 +41,5 @@ public class FakeJavaProtoCommon
   public JavaInfoApi<FileApi> getRuntimeToolchainProvider(SkylarkRuleContextApi skylarkRuleContext,
       String protoToolchainAttr) throws EvalException {
     return new FakeJavaInfo();
-  }
-
-  @Override
-  public ImmutableList<String> getJavacOpts(SkylarkRuleContextApi skylarkRuleContext,
-      String javaToolchainAttr) throws EvalException {
-    return ImmutableList.of();
   }
 }

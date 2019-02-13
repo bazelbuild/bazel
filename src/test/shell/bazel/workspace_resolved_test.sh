@@ -316,6 +316,38 @@ EOF
   expect_not_log 'Hello Stable World'
 }
 
+test_http_return_value() {
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+
+  mkdir -p a
+  touch a/WORKSPACE
+  touch a/BUILD
+  touch a/f.txt
+
+  zip a.zip a/*
+  expected_sha256="$(sha256sum "${EXTREPODIR}/a.zip" | head -c 64)"
+  rm -rf a
+
+  # http_archive rule doesn't specify the sha256 attribute
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="a",
+  strip_prefix="a",
+  urls=["file://${EXTREPODIR}/a.zip"],
+)
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+      --experimental_repository_resolved_file=../repo.bzl
+
+  grep ${expected_sha256} ../repo.bzl || fail "didn't return commit"
+}
 
 test_sync_calls_all() {
   EXTREPODIR=`pwd`
@@ -962,15 +994,20 @@ test_non_starlarkrepo() {
 
   mkdir main
   cd main
+  mkdir target_to_be_bound
+  echo More data > target_to_be_bound/data.txt
+  echo 'exports_files(["data.txt"])' > target_to_be_bound/BUILD
   cat > WORKSPACE <<'EOF'
 local_repository(name="thisislocal", path="../local")
 new_local_repository(name="newlocal", path="../newlocal",
                      build_file_content='exports_files(["data.txt"])')
+bind(name="bound", actual="//target_to_be_bound:data.txt")
 EOF
   cat > BUILD <<'EOF'
 genrule(
   name = "it",
-  srcs = ["@thisislocal//:data.txt", "@newlocal//:data.txt"],
+  srcs = ["@thisislocal//:data.txt", "@newlocal//:data.txt",
+          "//external:bound"],
   outs = ["it.txt"],
   cmd = "cat $(SRCS) > $@",
 )
@@ -983,6 +1020,51 @@ EOF
   echo > WORKSPACE # remove workspace, only work from the resolved file
   bazel clean --expunge
   echo; cat resolved.bzl; echo
+  bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
+        //:it || fail "Expected success"
+}
+
+test_hidden_symbols() {
+  # Verify that the resolved file can be used for building, even if it
+  # legitimately contains a private symbol
+  mkdir main
+  cd main
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@foo//:data.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  cat > repo.bzl <<'EOF'
+_THE_DATA="42"
+
+def _data_impl(ctx):
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+  ctx.file("data.txt", ctx.attr.data)
+
+_repo = repository_rule(
+  implementation = _data_impl,
+  attrs = { "data" : attr.string() },
+)
+
+def data_repo(name):
+  _repo(name=name, data=_THE_DATA)
+
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:repo.bzl", "data_repo")
+
+data_repo("foo")
+EOF
+
+  bazel build --experimental_repository_resolved_file=resolved.bzl //:it
+  echo > WORKSPACE # remove workspace, only work from the resolved file
+  bazel clean --expunge
+  echo; cat resolved.bzl; echo
+
   bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
         //:it || fail "Expected success"
 }

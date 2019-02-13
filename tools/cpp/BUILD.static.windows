@@ -16,12 +16,10 @@
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
-    name = "malloc",
-)
+load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 cc_library(
-    name = "stl",
+    name = "malloc",
 )
 
 filegroup(
@@ -46,16 +44,22 @@ cc_toolchain_suite(
 cc_toolchain(
     name = "cc-compiler-x64_windows_msys",
     toolchain_identifier = "msys_x64",
+    toolchain_config = ":msys_x64",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+)
+
+cc_toolchain_config(
+    name = "msys_x64",
+    cpu = "x64_windows",
+    compiler = "msys-gcc",
 )
 
 toolchain(
@@ -76,16 +80,22 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-x64_windows_mingw",
     toolchain_identifier = "msys_x64_mingw",
+    toolchain_config = ":msys_x64_mingw",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "x64_windows",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+)
+
+cc_toolchain_config(
+    name = "msys_x64_mingw",
+    cpu = "x64_windows",
+    compiler = "mingw-gcc",
 )
 
 toolchain(
@@ -106,16 +116,22 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-x64_windows",
     toolchain_identifier = "msvc_x64",
+    toolchain_config = ":msvc_x64",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "x64_windows",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+)
+
+cc_toolchain_config(
+    name = "msvc_x64",
+    cpu = "x64_windows",
+    compiler = "msvc-cl",
 )
 
 toolchain(
@@ -135,16 +151,22 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     toolchain_identifier = "stub_armeabi-v7a",
+    toolchain_config = ":stub_armeabi-v7a",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+)
+
+cc_toolchain_config(
+    name = "stub_armeabi-v7a",
+    cpu = "armeabi-v7a",
+    compiler = "compiler",
 )
 
 toolchain(

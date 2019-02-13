@@ -13,13 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -57,10 +55,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       ruleConfiguredTargetBuilder.add(LicensesProvider.class, attributes.getLicensesProvider());
     }
 
-    PlatformConfiguration platformConfig =
-        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-    if (!platformConfig.isToolchainTypeEnabled(
-        CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+    if (!CppHelper.useToolchainResolution(ruleContext)) {
       // This is not a platforms-backed build, let's provide CcToolchainAttributesProvider
       // and have cc_toolchain_suite select one of its toolchains and create CcToolchainProvider
       // from its attributes.
@@ -81,20 +76,18 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     TemplateVariableInfo templateVariableInfo =
         createMakeVariableProvider(
             ccToolchainProvider,
-            ccToolchainProvider.getSysrootPathFragment(),
             ruleContext.getRule().getLocation());
 
     ruleConfiguredTargetBuilder
         .addNativeDeclaredProvider(ccToolchainProvider)
         .addNativeDeclaredProvider(templateVariableInfo)
-        .setFilesToBuild(ccToolchainProvider.getCrosstool())
-        .addProvider(new MiddlemanProvider(ccToolchainProvider.getCrosstoolMiddleman()));
+        .setFilesToBuild(ccToolchainProvider.getAllFiles())
+        .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));
     return ruleConfiguredTargetBuilder.build();
   }
 
   static TemplateVariableInfo createMakeVariableProvider(
       CcToolchainProvider toolchainProvider,
-      PathFragment sysroot,
       Location location) {
 
     HashMap<String, String> makeVariables =
@@ -105,13 +98,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     toolchainProvider.addGlobalMakeVariables(ccProviderMakeVariables);
     makeVariables.putAll(ccProviderMakeVariables.build());
 
-    // Overwrite the CC_FLAGS variable to include sysroot, if it's available.
-    if (sysroot != null) {
-      String sysrootFlag = "--sysroot=" + sysroot;
-      String ccFlags = makeVariables.get(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME);
-      ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
-      makeVariables.put(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, ccFlags);
-    }
     return new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables), location);
   }
 
@@ -132,5 +118,4 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     // To be overridden in subclass.
     return CcToolchainVariables.EMPTY;
   }
-
 }

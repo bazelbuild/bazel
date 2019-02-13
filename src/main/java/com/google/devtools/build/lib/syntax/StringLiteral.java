@@ -13,6 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Syntax node for a string literal. */
@@ -45,5 +52,35 @@ public final class StringLiteral extends Expression {
   @Override
   public Kind kind() {
     return Kind.STRING_LITERAL;
+  }
+
+  static final class StringLiteralCodec implements ObjectCodec<StringLiteral> {
+    @Override
+    public Class<? extends StringLiteral> getEncodedClass() {
+      return StringLiteral.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, StringLiteral stringLiteral, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      // The String instances referred to by StringLiterals are deduped by Parser, so therefore
+      // memoization is guaranteed to be profitable.
+      context.serializeWithAdHocMemoizationStrategy(
+          stringLiteral.getValue(), MemoizationStrategy.MEMOIZE_AFTER, codedOut);
+      context.serialize(stringLiteral.getLocation(), codedOut);
+    }
+
+    @Override
+    public StringLiteral deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      String value =
+          context.deserializeWithAdHocMemoizationStrategy(
+              codedIn, MemoizationStrategy.MEMOIZE_AFTER);
+      Location location = context.deserialize(codedIn);
+      StringLiteral stringLiteral = new StringLiteral(value);
+      stringLiteral.setLocation(location);
+      return stringLiteral;
+    }
   }
 }

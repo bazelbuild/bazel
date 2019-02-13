@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
@@ -49,16 +50,9 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuntimeRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
-import com.google.devtools.build.lib.bazel.rules.workspace.GitRepositoryRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.HttpFileRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceBrokerInfo;
@@ -83,18 +77,19 @@ import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
+import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
-import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -116,7 +111,7 @@ public class BazelRuleClassProvider {
     @Option(
         name = "incompatible_strict_action_env",
         oldName = "experimental_strict_action_env",
-        defaultValue = "true",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
@@ -207,7 +202,7 @@ public class BazelRuleClassProvider {
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
-              .setRunfilesPrefix(Label.DEFAULT_REPOSITORY_DIRECTORY)
+              .setRunfilesPrefix(LabelConstants.DEFAULT_REPOSITORY_DIRECTORY)
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
               .setActionEnvironmentProvider(SHELL_ACTION_ENV);
 
@@ -236,6 +231,9 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(new ProtoConfiguration.Loader());
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
+
+          ProtoBootstrap bootstrap = new ProtoBootstrap(ProtoInfo.PROVIDER);
+          builder.addSkylarkBootstrap(bootstrap);
         }
 
         @Override
@@ -263,14 +261,8 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute =
-              JavaSemantics.hostJdkAttribute(builder);
-          LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute =
-              JavaSemantics.javaToolchainAttribute(builder);
-          BazelJavaProtoAspect bazelJavaProtoAspect =
-              new BazelJavaProtoAspect(hostJdkAttribute, javaToolchainAttribute);
-          BazelJavaLiteProtoAspect bazelJavaLiteProtoAspect =
-              new BazelJavaLiteProtoAspect(hostJdkAttribute, javaToolchainAttribute);
+          BazelJavaProtoAspect bazelJavaProtoAspect = new BazelJavaProtoAspect(builder);
+          BazelJavaLiteProtoAspect bazelJavaLiteProtoAspect = new BazelJavaLiteProtoAspect(builder);
           builder.addNativeAspectClass(bazelJavaProtoAspect);
           builder.addNativeAspectClass(bazelJavaLiteProtoAspect);
           builder.addRuleDefinition(new BazelJavaProtoLibraryRule(bazelJavaProtoAspect));
@@ -289,10 +281,8 @@ public class BazelRuleClassProvider {
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
-          builder.addConfig(AndroidConfiguration.Options.class, new AndroidConfiguration.Loader());
-          builder.addConfig(
-              AndroidLocalTestConfiguration.Options.class,
-              new AndroidLocalTestConfiguration.Loader());
+          builder.addConfigurationFragment(new AndroidConfiguration.Loader());
+          builder.addConfigurationFragment(new AndroidLocalTestConfiguration.Loader());
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
           DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(toolsRepository);
@@ -348,9 +338,8 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addConfig(PythonOptions.class, new PythonConfigurationLoader());
-          builder.addConfig(
-              BazelPythonConfiguration.Options.class, new BazelPythonConfiguration.Loader());
+          builder.addConfigurationFragment(new PythonConfigurationLoader());
+          builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());
 
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());
@@ -358,6 +347,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyBinaryRule());
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new BazelPyRuntimeRule());
+
+          builder.addSkylarkBootstrap(new PyBootstrap(PyInfo.PROVIDER));
         }
 
         @Override
@@ -371,17 +362,20 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           // TODO(ulfjack): Split this up by conceptual units.
-          builder.addRuleDefinition(new GitRepositoryRule());
-          builder.addRuleDefinition(new HttpArchiveRule());
-          builder.addRuleDefinition(new HttpJarRule());
-          builder.addRuleDefinition(new HttpFileRule());
           builder.addRuleDefinition(new MavenJarRule());
           builder.addRuleDefinition(new MavenServerRule());
-          builder.addRuleDefinition(new NewHttpArchiveRule());
-          builder.addRuleDefinition(new NewGitRepositoryRule());
           builder.addRuleDefinition(new NewLocalRepositoryRule());
           builder.addRuleDefinition(new AndroidSdkRepositoryRule());
           builder.addRuleDefinition(new AndroidNdkRepositoryRule());
+          builder.addRuleDefinition(new LocalConfigPlatformRule());
+
+          try {
+            builder.addWorkspaceFilePrefix(
+                ResourceFileLoader.loadResource(
+                    LocalConfigPlatformRule.class, "local_config_platform.WORKSPACE"));
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
         }
 
         @Override

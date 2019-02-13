@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /**
  * CppSemantics for objc builds.
@@ -87,11 +89,13 @@ public class ObjcCppSemantics implements CppSemantics {
 
   @Override
   public void finalizeCompileActionBuilder(
-      RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
+      BuildConfiguration configuration,
+      FeatureConfiguration featureConfiguration,
+      CppCompileActionBuilder actionBuilder) {
     actionBuilder
         // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
         // including header files, as opposed to just the "compile" filegroup.
-        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getCrosstool())
+        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFiles())
         .setShouldScanIncludes(false)
         .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
         .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
@@ -119,14 +123,12 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public void setupCcCompilationContext(
-      RuleContext ruleContext, CcCompilationContext.Builder ccCompilationContextBuilder) {
+  public List<PathFragment> getQuoteIncludes(RuleContext ruleContext) {
+    ImmutableList.Builder<PathFragment> quoteIncludes = ImmutableList.builder();
     // The genfiles root of each child configuration must be added to the compile action so that
     // generated headers can be resolved.
-    for (PathFragment iquotePath :
-        ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration())) {
-      ccCompilationContextBuilder.addQuoteIncludeDir(iquotePath);
-    }
+    return ImmutableList.copyOf(
+        ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()));
   }
 
   @Override

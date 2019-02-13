@@ -135,7 +135,8 @@ public class RuleFactory {
           eventHandler,
           ast,
           generator.location,
-          attributeContainer);
+          attributeContainer,
+          env == null ? false : env.getSemantics().checkThirdPartyTargetsHaveLicenses());
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }

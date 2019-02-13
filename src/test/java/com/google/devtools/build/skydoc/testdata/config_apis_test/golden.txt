@@ -74,7 +74,7 @@ _build_setting_impl(<a href="#_build_setting_impl-ctx">ctx</a>)
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="_build_setting_impl-ctx>
+    <tr id="_build_setting_impl-ctx">
       <td><code>ctx</code></td>
       <td>
         required.
@@ -92,5 +92,31 @@ exercise_the_api()
 
 
 
+
+
+## transition_func
+
+<pre>
+transition_func(<a href="#transition_func-settings">settings</a>)
+</pre>
+
+A no-op transition function.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="transition_func-settings">
+      <td><code>settings</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 

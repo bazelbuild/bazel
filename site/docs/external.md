@@ -59,8 +59,8 @@ A few basic types of external dependencies can be used:
 If you want to use targets from a second Bazel project, you can
 use
 [`local_repository`](http://docs.bazel.build/be/workspace.html#local_repository),
-[`git_repository`](https://docs.bazel.build/be/workspace.html#git_repository)
-or [`http_archive`](http://docs.bazel.build/be/workspace.html#http_archive)
+[`git_repository`](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/git.bzl)
+or [`http_archive`](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/http.bzl)
 to symlink it from the local filesystem, reference a git repository or download
 it (respectively).
 
@@ -85,11 +85,9 @@ replace `-` (invalid) in the name `coworkers_project`.
 <a name="non-bazel-projects"></a>
 ### Depending on non-Bazel projects
 
-Rules prefixed with `new_` (e.g.,
+Rules prefixed with `new_`, e.g.,
 [`new_local_repository`](http://docs.bazel.build/be/workspace.html#new_local_repository),
-[`new_git_repository`](https://docs.bazel.build/be/workspace.html#new_git_repository)
-and [`new_http_archive`](http://docs.bazel.build/be/workspace.html#new_http_archive)
-) allow you to create targets from projects that do not use Bazel.
+allow you to create targets from projects that do not use Bazel.
 
 For example, suppose you are working on a project, `my-project/`, and you want
 to depend on your coworker's project, `coworkers-project/`. Your coworker's
@@ -147,6 +145,8 @@ shadow dependencies. Consider the following scenario:
 myproject/WORKSPACE
 
 ```python
+workspace(name = "myproject")
+
 local_repository(
     name = "A",
     path = "../A",
@@ -160,6 +160,8 @@ local_repository(
 A/WORKSPACE
 
 ```python
+workspace(name = "A")
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "testrunner",
@@ -171,6 +173,8 @@ http_archive(
 B/WORKSPACE
 
 ```python
+workspace(name = "B")
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "testrunner",
@@ -186,6 +190,8 @@ other since they have the same name. To declare both dependencies,
 update myproject/WORKSPACE:
 
 ```python
+workspace(name = "myproject")
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "testrunner-v1",
@@ -212,9 +218,6 @@ local_repository(
 This mechanism can also be used to join diamonds. For example if `A` and `B`
 had the same dependency but call it by different names, those dependencies can
 be joined in myproject/WORKSPACE.
-
-This behavior is currently gated behind a flag,
-`--experimental_enable_repo_mapping`.
 
 
 <a name="using-proxies"></a>
@@ -264,12 +267,10 @@ directory. To remove all external artifacts, use `bazel clean --expunge`.
 Prefer `http_archive` and `new_http_archive` to `git_repository`, `new_git_repository`, and
 `maven_jar`.
 
-`git_repository` depends on jGit, which has several unpleasant bugs, and `maven_jar` uses Maven's
+`maven_jar` uses Maven's
 internal API, which generally works but is less optimized for Bazel than `http_archive`'s
 downloader logic. Track the following issues filed to remediate these problems:
 
--  [Use `http_archive` as `git_repository`'s
-   backend.](https://github.com/bazelbuild/bazel/issues/2147)
 -  [Improve `maven_jar`'s backend.](https://github.com/bazelbuild/bazel/issues/1752)
 
 Do not use `bind()`.  See "[Consider removing

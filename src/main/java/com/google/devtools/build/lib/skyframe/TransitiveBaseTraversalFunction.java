@@ -54,13 +54,12 @@ import javax.annotation.Nullable;
  * its transitive dependencies.
  *
  * <p>{@code TransitiveBaseTraversalFunction} asks for one to be constructed via {@link
- * #processTarget}, and then asks for it to be updated based on the current target's
- * attributes' dependencies via {@link #processDeps}, and then asks for it to be updated based
- * on the current target' aspects' dependencies via {@link #processDeps}. Finally, it calls
- * {@link #computeSkyValue} with the {#code ProcessedTargets} to get the {@link SkyValue} to
- * return.
+ * #processTarget}, and then asks for it to be updated based on the current target's attributes'
+ * dependencies via {@link #processDeps}, and then asks for it to be updated based on the current
+ * target' aspects' dependencies via {@link #processDeps}. Finally, it calls {@link
+ * #computeSkyValue} with the {#code ProcessedTargets} to get the {@link SkyValue} to return.
  */
-abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements SkyFunction {
+abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements SkyFunction {
   /**
    * Returns a {@link SkyKey} corresponding to the traversal of a target specified by {@code label}
    * and its transitive dependencies.
@@ -77,22 +76,21 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
    */
   abstract SkyKey getKey(Label label);
 
-  abstract TProcessedTargets processTarget(Label label, TargetAndErrorIfAny targetAndErrorIfAny);
+  abstract ProcessedTargetsT processTarget(Label label, TargetAndErrorIfAny targetAndErrorIfAny);
 
   abstract void processDeps(
-      TProcessedTargets processedTargets,
+      ProcessedTargetsT processedTargets,
       EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
       Iterable<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-          depEntries)
-      throws InterruptedException;
+          depEntries);
 
   /**
    * Returns a {@link SkyValue} based on the target and any errors it has, and the values
    * accumulated across it and a traversal of its transitive dependencies.
    */
-  abstract SkyValue computeSkyValue(TargetAndErrorIfAny targetAndErrorIfAny,
-      TProcessedTargets processedTargets);
+  abstract SkyValue computeSkyValue(
+      TargetAndErrorIfAny targetAndErrorIfAny, ProcessedTargetsT processedTargets);
 
   /**
    * Returns a {@link TargetMarkerValue} corresponding to the {@param targetMarkerKey} or {@code
@@ -148,7 +146,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
       return null;
     }
 
-    TProcessedTargets processedTargets = processTarget(label, targetAndErrorIfAny);
+    ProcessedTargetsT processedTargets = processTarget(label, targetAndErrorIfAny);
     processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depMap.entrySet());
     processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, labelAspectEntries);
 

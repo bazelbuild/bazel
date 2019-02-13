@@ -51,7 +51,23 @@ public final class OptionsParser {
   private String outputDepsProtoFile;
   private final Set<String> depsArtifacts = new LinkedHashSet<>();
 
-  private boolean strictClasspathMode;
+  enum ReduceClasspathMode {
+    BAZEL_REDUCED,
+    BAZEL_FALLBACK,
+    JAVABUILDER_REDUCED,
+    NONE
+  }
+
+  /**
+   * The flag --reduce_classpath_mode can be passed to JavaBuilder to request a compilation with
+   * reduced classpath, computed from the compilations direct dependencies plus what was actually
+   * required to build those. If this compilation fails with a specific error code, then a fallback
+   * is done using the full (transitive) classpath.
+   */
+  private ReduceClasspathMode reduceClasspathMode = ReduceClasspathMode.NONE;
+
+  private int fullClasspathLength = -1;
+  private int reducedClasspathLength = -1;
 
   private String sourceGenDir;
   private String generatedSourcesOutputJar;
@@ -70,7 +86,7 @@ public final class OptionsParser {
   private final List<String> processorNames = new ArrayList<>();
 
   private String outputJar;
-  private @Nullable String nativeHeaderOutput;
+  @Nullable private String nativeHeaderOutput;
 
   private String classDir;
   private String tempDir;
@@ -121,7 +137,16 @@ public final class OptionsParser {
           collectFlagArguments(depsArtifacts, argQueue, "--");
           break;
         case "--reduce_classpath":
-          strictClasspathMode = true;
+          reduceClasspathMode = ReduceClasspathMode.JAVABUILDER_REDUCED;
+          break;
+        case "--reduce_classpath_mode":
+          reduceClasspathMode = ReduceClasspathMode.valueOf(getArgument(argQueue, arg));
+          break;
+        case "--full_classpath_length":
+          fullClasspathLength = Integer.parseInt(getArgument(argQueue, arg));
+          break;
+        case "--reduced_classpath_length":
+          reducedClasspathLength = Integer.parseInt(getArgument(argQueue, arg));
           break;
         case "--sourcegendir":
           sourceGenDir = getArgument(argQueue, arg);
@@ -346,8 +371,16 @@ public final class OptionsParser {
     return depsArtifacts;
   }
 
-  public boolean reduceClasspath() {
-    return strictClasspathMode;
+  public ReduceClasspathMode reduceClasspathMode() {
+    return reduceClasspathMode;
+  }
+
+  public int fullClasspathLength() {
+    return fullClasspathLength;
+  }
+
+  public int reducedClasspathLength() {
+    return reducedClasspathLength;
   }
 
   public String getSourceGenDir() {

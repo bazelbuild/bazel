@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileTypeApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -118,8 +119,10 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
+      Object cfg,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException {
     List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
@@ -146,8 +149,13 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public Label label(String labelString, Boolean relativeToCallerRepository, Location loc,
-      Environment env) throws EvalException {
+  public Label label(
+      String labelString,
+      Boolean relativeToCallerRepository,
+      Location loc,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     try {
       return Label.parseAbsolute(
           labelString,

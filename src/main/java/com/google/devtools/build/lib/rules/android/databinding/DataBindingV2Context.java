@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android.databinding;
 
-import static com.google.devtools.build.lib.rules.android.databinding.DataBinding.createProcessorFlag;
-
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -26,8 +28,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidDataBindingProcessorBuilder;
@@ -35,23 +35,32 @@ import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
+import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 class DataBindingV2Context implements DataBindingContext {
 
+  private final ActionConstructionContext actionContext;
+  private final boolean useUpdatedArgs;
   /**
    * Annotation processing creates the following metadata files that describe how data binding is
    * applied. The full file paths include prefixes as implemented in {@link #getMetadataOutputs}.
    */
-  private static final ImmutableList<String> METADATA_OUTPUT_SUFFIXES_V2 =
-      ImmutableList.of("setter_store.bin", "br.bin");
+  private final List<String> metadataOutputSuffixes;
 
-  private final ActionConstructionContext actionContext;
+  private final String setterStoreName;
 
-  DataBindingV2Context(ActionConstructionContext actionContext) {
+  DataBindingV2Context(ActionConstructionContext actionContext, boolean useUpdatedArgs) {
     this.actionContext = actionContext;
+    this.useUpdatedArgs = useUpdatedArgs;
+    this.setterStoreName = useUpdatedArgs ? "setter_store.json" : "setter_store.bin";
+    metadataOutputSuffixes = ImmutableList.of(setterStoreName, "br.bin");
   }
 
   @Override
@@ -63,53 +72,49 @@ class DataBindingV2Context implements DataBindingContext {
   public void supplyJavaCoptsUsing(RuleContext ruleContext, boolean isBinary,
       Consumer<Iterable<String>> consumer) {
 
-    ImmutableList.Builder<String> flags = ImmutableList.builder();
+    DataBindingProcessorArgsBuilder args = new DataBindingProcessorArgsBuilder(useUpdatedArgs);
     String metadataOutputDir = DataBinding.getDataBindingExecPath(ruleContext).getPathString();
 
-    // Directory where the annotation processor looks for deps metadata output. The annotation
-    // processor automatically appends {@link DEP_METADATA_INPUT_DIR} to this path. Individual
-    // files can be anywhere under this directory, recursively.
-    flags.add(createProcessorFlag("bindingBuildFolder", metadataOutputDir));
-
-    // Directory where the annotation processor should write this rule's metadata output. The
-    // annotation processor automatically appends {@link METADATA_OUTPUT_DIR} to this path.
-    flags.add(createProcessorFlag("generationalFileOutDir", metadataOutputDir));
-
-    // Path to the Android SDK installation (if available).
-    flags.add(createProcessorFlag("sdkDir", "/not/used"));
-
-    // Whether the current rule is a library or binary.
-    flags.add(createProcessorFlag("artifactType", isBinary ? "APPLICATION" : "LIBRARY"));
-
+    args.metadataOutputDir(metadataOutputDir);
+    args.sdkDir("/not/used");
+    args.binary(isBinary);
     // Unused.
-    flags.add(createProcessorFlag("exportClassListTo", "/tmp/exported_classes"));
-
-    // The Java package for the current rule.
-    flags.add(createProcessorFlag("modulePackage", AndroidCommon.getJavaPackage(ruleContext)));
+    args.exportClassListTo("/tmp/exported_classes");
+    args.modulePackage(AndroidCommon.getJavaPackage(ruleContext));
+    args.directDependencyPkgs(getJavaPackagesOfDirectDependencies(ruleContext));
 
     // The minimum Android SDK compatible with this rule.
     // TODO(bazel-team): This probably should be based on the actual min-sdk from the manifest,
     // or an appropriate rule attribute.
-    flags.add(createProcessorFlag("minApi", "14"));
-
-    // If enabled, produces cleaner output for Android Studio.
-    flags.add(createProcessorFlag("printEncodedErrors", "0"));
-
-    // V2 flags
-    flags.add(createProcessorFlag("enableV2", "1"));
+    args.minApi("14");
+    args.enableV2();
 
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
-      flags.add(createProcessorFlag("classLogDir", getClassInfoFile(ruleContext)));
-      // The path where data binding's resource processor wrote its output (the data binding XML
-      // expressions). The annotation processor reads this file to translate that XML into Java.
-      flags.add(createProcessorFlag("xmlOutDir", DataBinding.getLayoutInfoFile(ruleContext)));
+      args.classLogDir(getClassInfoFile(ruleContext));
+      args.layoutInfoDir(DataBinding.getLayoutInfoFile(ruleContext));
     } else {
       // send dummy files
-      flags.add(createProcessorFlag("classLogDir", "/tmp/no_resources"));
-      flags.add(createProcessorFlag("xmlOutDir", "/tmp/no_resources"));
+      args.classLogDir("/tmp/no_resources");
+      args.layoutInfoDir("/tmp/no_resources");
+    }
+    consumer.accept(args.build());
+  }
+
+  private static Set<String> getJavaPackagesOfDirectDependencies(RuleContext ruleContext) {
+
+    ImmutableSet.Builder<String> javaPackagesOfDirectDependencies = ImmutableSet.builder();
+    if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
+      Iterable<DataBindingV2Provider> providers = ruleContext.getPrerequisites(
+          "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
+
+      for (DataBindingV2Provider provider : providers) {
+        for (LabelJavaPackagePair labelJavaPackagePair : provider.getLabelAndJavaPackages()) {
+          javaPackagesOfDirectDependencies.add(labelJavaPackagePair.javaPackage());
+        }
+      }
     }
 
-    consumer.accept(flags.build());
+    return javaPackagesOfDirectDependencies.build();
   }
 
   @Override
@@ -123,13 +128,40 @@ class DataBindingV2Context implements DataBindingContext {
             DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.HOST));
 
     ImmutableList<Artifact> annotationProcessorOutputs =
-        DataBinding.getMetadataOutputs(ruleContext, METADATA_OUTPUT_SUFFIXES_V2);
+        DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);
 
     consumer.accept(javaPluginInfoProvider, annotationProcessorOutputs);
   }
 
   @Override
-  public ImmutableList<Artifact> processDeps(RuleContext ruleContext) {
+  public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
+
+    if (isBinary) {
+
+      // Currently, Android Databinding generates a class with a fixed name into the Java package
+      // of an android_library. This means that if an android_binary depends on two
+      // android_library rules with databinding in the same java package, there will be a mysterious
+      // one version violation. This is an explicit check for this case so that the error is not so
+      // mysterious.
+
+      ImmutableMultimap<String, String> javaPackagesToLabel =
+          getJavaPackagesWithDatabindingToLabelMap(ruleContext);
+
+      for (Entry<String, Collection<String>> entry : javaPackagesToLabel.asMap().entrySet()) {
+        if (entry.getValue().size() > 1) {
+          ruleContext.attributeError(
+              "deps",
+              String.format(
+                  "This target depends on multiple android_library targets "
+                      + "with databinding in the same Java package. This is not supported by "
+                      + "databinding and will result in class conflicts. The conflicting "
+                      + "android_library targets are:\n"
+                      + "  Java package %s:\n"
+                      + "    %s",
+                  entry.getKey(), Joiner.on("\n    ").join(entry.getValue())));
+        }
+      }
+    }
 
     ImmutableList.Builder<Artifact> dataBindingJavaInputs = ImmutableList.builder();
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
@@ -182,7 +214,45 @@ class DataBindingV2Context implements DataBindingContext {
     }
     return setterStoreFiles.build();
   }
-  
+
+  /**
+   * Collects all the labels and Java packages of the given rule and every rule that has databinding
+   * in the transitive dependencies of the given rule.
+   *
+   * @return A multimap of Java Package (as a string) to labels which have that Java package.
+   */
+  private static ImmutableMultimap<String, String> getJavaPackagesWithDatabindingToLabelMap(
+      RuleContext context) {
+
+    // Since this method iterates over the labels in deps without first constructing a NestedSet,
+    // multiple android_library rules could (and almost certainly will) be reached from dependencies
+    // at the top-level which would produce false positives, so use a SetMultimap to avoid this.
+    ImmutableMultimap.Builder<String, String> javaPackagesToLabel = ImmutableSetMultimap.builder();
+
+    // Add this top-level rule's label and java package, e.g. for when an android_binary with
+    // databinding depends on an android_library with databinding in the same java package.
+    String label = context.getRule().getLabel().toString();
+    String javaPackage = AndroidCommon.getJavaPackage(context);
+
+    javaPackagesToLabel.put(javaPackage, label);
+
+    if (context.attributes().has("deps", BuildType.LABEL_LIST)) {
+
+      Iterable<DataBindingV2Provider> providers =
+          context.getPrerequisites(
+              "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
+
+      for (DataBindingV2Provider provider : providers) {
+        for (LabelJavaPackagePair labelJavaPackagePair :
+            provider.getTransitiveLabelAndJavaPackages()) {
+          javaPackagesToLabel.put(labelJavaPackagePair.javaPackage(), labelJavaPackagePair.label());
+        }
+      }
+    }
+
+    return javaPackagesToLabel.build();
+  }
+
   @Override
   public ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext) {
     ImmutableList.Builder<Artifact> srcs = ImmutableList.builder();
@@ -215,84 +285,82 @@ class DataBindingV2Context implements DataBindingContext {
         .add("-zipSourceOutput", "true")
         .add("-useAndroidX", "false");
 
-    List<Artifact> dependencyClientInfos = getDirectClassInfo(ruleContext);
-    for (Artifact artifact : dependencyClientInfos) {
+    List<Artifact> dependencyClassInfo = getDirectClassInfo(ruleContext);
+    for (Artifact artifact : dependencyClassInfo) {
       commandLineBuilder.addExecPath("-dependencyClassInfoList", artifact);
     }
 
-    Action[] action = new SpawnAction.Builder()
-        .setExecutable(exec)
-        .setMnemonic("GenerateDataBindingBaseClasses")
-        .addInput(layoutInfo)
-        .addInputs(dependencyClientInfos)
-        .addOutput(classInfoFile)
-        .addOutput(srcOutFile)
-        .addCommandLine(commandLineBuilder.build())
-        .build(ruleContext);
+    Action[] action =
+        new SpawnAction.Builder()
+            .setExecutable(exec)
+            .setMnemonic("GenerateDataBindingBaseClasses")
+            .addInput(layoutInfo)
+            .addInputs(dependencyClassInfo)
+            .addOutput(classInfoFile)
+            .addOutput(srcOutFile)
+            .addCommandLine(commandLineBuilder.build())
+            .build(ruleContext);
     ruleContext.registerAction(action);
 
     return ImmutableList.of(srcOutFile);
   }
 
   private static List<Artifact> getDirectClassInfo(RuleContext context) {
-    ImmutableList.Builder<Artifact> clientInfoFiles = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> classInfoFiles = ImmutableList.builder();
     if (context.attributes().has("deps", BuildType.LABEL_LIST)) {
 
       Iterable<DataBindingV2Provider> providers = context.getPrerequisites(
           "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
 
       for (DataBindingV2Provider provider : providers) {
-        clientInfoFiles.addAll(provider.getClassInfos());
+        classInfoFiles.addAll(provider.getClassInfos());
       }
     }
-    return clientInfoFiles.build();
+    return classInfoFiles.build();
   }
 
   @Override
   public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
 
-    Artifact setterStore = DataBinding.getMetadataOutput(ruleContext, "setter_store.bin");
-    Artifact br = DataBinding.getMetadataOutput(ruleContext, "br.bin");
+    Artifact setterStoreFile =
+        DataBinding.getMetadataOutput(ruleContext, useUpdatedArgs, setterStoreName);
 
-    ImmutableList.Builder<Artifact> setterStores = ImmutableList.builder();
-    if (setterStore != null) {
-      setterStores.add(setterStore);
-    }
-
-    ImmutableList.Builder<Artifact> classInfos = ImmutableList.builder();
+    Artifact classInfoFile;
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
-      Artifact classInfo = getClassInfoFile(ruleContext);
-      classInfos.add(classInfo);
+      classInfoFile = getClassInfoFile(ruleContext);
+    } else {
+      classInfoFile = null;
     }
 
-    // android_binary doesn't have "exports"
+    Artifact brFile = DataBinding.getMetadataOutput(ruleContext, useUpdatedArgs, "br.bin");
+
+    String label = ruleContext.getRule().getLabel().toString();
+    String javaPackage = AndroidCommon.getJavaPackage(ruleContext);
+
+    Iterable<? extends DataBindingV2ProviderApi<Artifact>> providersFromDeps =
+        ruleContext.getPrerequisites(
+            "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
+
+    Iterable<? extends DataBindingV2ProviderApi<Artifact>> providersFromExports;
     if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
-      Iterable<DataBindingV2Provider> exportsProviders =
+      providersFromExports =
           ruleContext.getPrerequisites(
               "exports", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
-      for (DataBindingV2Provider provider : exportsProviders) {
-        setterStores.addAll(provider.getSetterStores());
-        classInfos.addAll(provider.getClassInfos());
-      }
+    } else {
+      providersFromExports = null;
     }
 
-    NestedSetBuilder<Artifact> brFiles = new NestedSetBuilder<>(Order.STABLE_ORDER);
-    if (br != null) {
-      brFiles.add(br);
-    }
+    DataBindingV2Provider provider =
+        DataBindingV2Provider.createProvider(
+            setterStoreFile,
+            classInfoFile,
+            brFile,
+            label,
+            javaPackage,
+            providersFromDeps,
+            providersFromExports);
 
-    Iterable<DataBindingV2Provider> depsProviders = ruleContext.getPrerequisites(
-        "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
-
-    for (DataBindingV2Provider provider : depsProviders) {
-      brFiles.addTransitive(provider.getTransitiveBRFiles());
-    }
-
-    builder.addNativeDeclaredProvider(
-        new DataBindingV2Provider(
-            classInfos.build(),
-            setterStores.build(),
-            brFiles.build()));
+    builder.addNativeDeclaredProvider(provider);
   }
 
   @Override

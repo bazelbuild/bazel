@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.ListComprehension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
+import com.google.devtools.skylark.common.DocstringUtils;
 import java.util.ArrayList;
 import java.util.List;
 

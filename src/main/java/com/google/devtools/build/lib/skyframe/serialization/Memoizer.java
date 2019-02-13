@@ -146,9 +146,9 @@ class Memoizer {
         SerializationContext context,
         T obj,
         ObjectCodec<? super T> codec,
-        CodedOutputStream codedOut)
+        CodedOutputStream codedOut,
+        MemoizationStrategy strategy)
         throws SerializationException, IOException {
-      MemoizationStrategy strategy = codec.getStrategy();
       if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
         codec.serialize(context, obj, codedOut);
       } else {
@@ -235,14 +235,16 @@ class Memoizer {
      * @throws IOException on {@link IOException} during deserialization
      */
     <T> T deserialize(
-        DeserializationContext context, ObjectCodec<? extends T> codec, CodedInputStream codedIn)
+        DeserializationContext context,
+        ObjectCodec<? extends T> codec,
+        MemoizationStrategy strategy,
+        CodedInputStream codedIn)
         throws SerializationException, IOException {
       Preconditions.checkState(
           tagForMemoizedBefore == null,
           "non-null memoized-before tag %s (%s)",
           tagForMemoizedBefore,
           codec);
-      MemoizationStrategy strategy = codec.getStrategy();
       if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
         return codec.deserialize(context, codedIn);
       } else {

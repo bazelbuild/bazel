@@ -19,12 +19,7 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
-PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-
-function is_windows() {
-  # On windows, the shell test is actually running on msys
-  [[ "${PLATFORM}" =~ msys_nt* ]]
-}
+PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
 
 function is_darwin() {
   [[ "${PLATFORM}" =~ darwin ]]
@@ -50,7 +45,7 @@ if ! type rlocation &> /dev/null; then
 fi
 
 # Set some environment variables needed on Windows.
-if is_windows; then
+if [[ $PLATFORM =~ msys ]]; then
   # TODO(philwo) remove this once we have a Bazel release that includes the CL
   # moving the Windows-specific TEST_TMPDIR into TestStrategy.
   TEST_TMPDIR_BASENAME="$(basename "$TEST_TMPDIR")"
@@ -60,12 +55,20 @@ if is_windows; then
 fi
 
 # Make the command "bazel" available for tests.
-PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
-PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
+if [ -z "${BAZEL_SUFFIX:-}" ]; then
+  PATH_TO_BAZEL_BIN=$(rlocation "io_bazel/src/bazel")
+  PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation "io_bazel/src/test/shell/bin/bazel"))"
+else
+  DIR_OF_BAZEL_BIN="$(dirname $(rlocation "io_bazel/src/bazel${BAZEL_SUFFIX}"))"
+  ln -s "${DIR_OF_BAZEL_BIN}/bazel${BAZEL_SUFFIX}" "${DIR_OF_BAZEL_BIN}/bazel"
+  PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation "io_bazel/src/test/shell/bin/bazel${BAZEL_SUFFIX}"))"
+  ln -s "${PATH_TO_BAZEL_WRAPPER}/bazel${BAZEL_SUFFIX}" "${PATH_TO_BAZEL_WRAPPER}/bazel"
+  PATH_TO_BAZEL_BIN="${DIR_OF_BAZEL_BIN}/bazel"
+fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path separator and in C:/msys64/...
-if is_windows; then
+if [[ $PLATFORM =~ msys ]]; then
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
 fi
 [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ] \
@@ -83,7 +86,7 @@ workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 
 # Java
-if is_windows; then
+if [[ $PLATFORM =~ msys ]]; then
   jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
 else
   jdk_dir="${TEST_SRCDIR}/local_jdk"
@@ -283,6 +286,21 @@ common --color=no --curses=no
 
 ${EXTRA_BAZELRC:-}
 EOF
+
+  if [[ -n ${REPOSITORY_CACHE:-} ]]; then
+    echo "testenv.sh: Using repository cache at $REPOSITORY_CACHE."
+    cat >>$TEST_TMPDIR/bazelrc <<EOF
+sync --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+fetch --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+build --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+query --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+EOF
+  fi
+
+  if [[ -n ${INSTALL_BASE:-} ]]; then
+    echo "testenv.sh: Using shared install base at $INSTALL_BASE."
+    echo "startup --install_base=$INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+  fi
 }
 
 function setup_android_sdk_support() {
@@ -364,13 +382,26 @@ function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
-# Write the default WORKSPACE file.
-function write_workspace_file() {
-  cat > WORKSPACE <<EOF
+function setup_skylib_support() {
+  # Get skylib path portably by using rlocation to locate a top-level file in
+  # the repo. Use BUILD because it's in the //:test_deps target (unlike
+  # WORKSPACE).
+  local -r skylib_workspace="$(rlocation bazel_skylib/BUILD)"
+  [[ -n "$skylib_workspace" && -e "$skylib_workspace" ]] || fail "could not find Skylib"
+  local -r skylib_root="$(dirname "$skylib_workspace")"
+  cat >> WORKSPACE << EOF
 new_local_repository(
     name = 'bazel_skylib',
     build_file_content = '',
-    path='$TEST_SRCDIR/io_bazel/external/bazel_skylib')
+    path='$skylib_root',
+)
+EOF
+}
+
+# Write the default WORKSPACE file, wiping out any custom WORKSPACE setup.
+function write_workspace_file() {
+  cat > WORKSPACE << EOF
+workspace(name = '$WORKSPACE_NAME')
 EOF
 }
 
@@ -403,7 +434,7 @@ function setup_clean_workspace() {
   [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] \
     || log_fatal "Failed to create workspace"
 
-  if is_windows; then
+  if [[ $PLATFORM =~ msys ]]; then
     export BAZEL_SH="$(cygpath --windows /bin/bash)"
   fi
 }
@@ -431,7 +462,7 @@ function cleanup_workspace() {
   workspaces=()
 }
 
-function tear_down() {
+function testenv_tear_down() {
   cleanup_workspace
 }
 
@@ -441,7 +472,7 @@ function cleanup() {
     # Try to shutdown Bazel at the end to prevent a "Cannot delete path" error
     # on Windows when the outer Bazel tries to delete $TEST_TMPDIR.
     cd "${WORKSPACE_DIR}"
-    bazel shutdown || true
+    try_with_timeout bazel shutdown || true
   fi
 }
 
@@ -517,10 +548,79 @@ function add_to_bazelrc() {
 
 function create_and_cd_client() {
   setup_clean_workspace
-  echo "workspace(name = '$WORKSPACE_NAME')" >WORKSPACE
   touch .bazelrc
 }
 
 ################### Extra ############################
+
 # Functions that need to be called before each test.
+
 create_and_cd_client
+
+# Optional environment changes.
+
+# Creates a fake Python default runtime that just outputs a marker string
+# indicating which version was used, without executing any Python code.
+function use_fake_python_runtimes_for_testsuite() {
+  # The stub script template automatically appends ".exe" to the Python binary
+  # name if it doesn't already end in ".exe", ".com", or ".bat".
+  if [[ $PLATFORM =~ msys ]]; then
+    PYTHON2_FILENAME="python2.bat"
+    PYTHON3_FILENAME="python3.bat"
+  else
+    PYTHON2_FILENAME="python2.sh"
+    PYTHON3_FILENAME="python3.sh"
+  fi
+
+  add_to_bazelrc "build --python_top=//tools/python:default_runtime"
+
+  mkdir -p tools/python
+
+  cat > tools/python/BUILD << EOF
+package(default_visibility=["//visibility:public"])
+
+sh_binary(
+    name = '2to3',
+    srcs = ['2to3.sh']
+)
+
+config_setting(
+    name = "py3_mode",
+    values = {"force_python": "PY3"},
+)
+
+# TODO(brandjon): Replace dependency on "force_python" with a 2-valued feature
+# flag instead
+py_runtime(
+    name = "default_runtime",
+    files = select({
+        "py3_mode": [":${PYTHON3_FILENAME}"],
+        "//conditions:default": [":${PYTHON2_FILENAME}"],
+    }),
+    interpreter = select({
+        "py3_mode": ":${PYTHON3_FILENAME}",
+        "//conditions:default": ":${PYTHON2_FILENAME}",
+    }),
+)
+EOF
+
+  # Windows .bat has uppercase ECHO and no shebang.
+  if [[ $PLATFORM =~ msys ]]; then
+    cat > tools/python/$PYTHON2_FILENAME << EOF
+@ECHO I am Python 2
+EOF
+    cat > tools/python/$PYTHON3_FILENAME << EOF
+@ECHO I am Python 3
+EOF
+  else
+    cat > tools/python/$PYTHON2_FILENAME << EOF
+#!/bin/sh
+echo 'I am Python 2'
+EOF
+    cat > tools/python/$PYTHON3_FILENAME << EOF
+#!/bin/sh
+echo 'I am Python 3'
+EOF
+    chmod +x tools/python/$PYTHON2_FILENAME tools/python/$PYTHON3_FILENAME
+  fi
+}

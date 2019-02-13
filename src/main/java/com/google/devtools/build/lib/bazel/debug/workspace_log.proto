@@ -50,6 +50,15 @@ message DownloadEvent {
   bool executable = 4;
 }
 
+message ExtractEvent {
+  // Path to the archive file
+  string archive = 1;
+  // Path to the output directory
+  string output = 2;
+  // A directory prefix to strip from extracted files.
+  string strip_prefix = 3;
+}
+
 message DownloadAndExtractEvent {
   // Url(s) to download from
   repeated string url = 1;
@@ -81,9 +90,9 @@ message OsEvent {
 // Information on "symlink" event in repository_ctx.
 message SymlinkEvent {
   // path to which the symlink will point to
-  string from = 1;
+  string target = 1;
   // path of the symlink
-  string to = 2;
+  string path = 2;
 }
 
 // Information on "template" event in repository_ctx.
@@ -120,5 +129,6 @@ message WorkspaceEvent {
     SymlinkEvent symlink_event = 8;
     TemplateEvent template_event = 9;
     WhichEvent which_event = 10;
+    ExtractEvent extract_event = 11;
   }
 }

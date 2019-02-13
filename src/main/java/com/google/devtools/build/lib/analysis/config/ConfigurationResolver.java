@@ -26,9 +26,12 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
@@ -91,18 +94,18 @@ public final class ConfigurationResolver {
    *
    * @param env Skyframe evaluation environment
    * @param ctgValue the label and configuration of the source target
-   * @param originalDeps the transition requests for each dep under this target's attributes
+   * @param originalDeps the transition requests for each dep and each dependency kind
    * @param hostConfiguration the host configuration
    * @param ruleClassProvider provider for determining the right configuration fragments for deps
-   * @return a mapping from each attribute in the source target to the {@link BuildConfiguration}s
-   *     and {@link Label}s for the deps under that attribute. Returns null if not all Skyframe
-   *     dependencies are available.
+   * @return a mapping from each dependency kind in the source target to the {@link
+   *     BuildConfiguration}s and {@link Label}s for the deps under that dependency kind . Returns
+   *     null if not all Skyframe dependencies are available.
    */
   @Nullable
-  public static OrderedSetMultimap<Attribute, Dependency> resolveConfigurations(
+  public static OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurations(
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
-      OrderedSetMultimap<Attribute, Dependency> originalDeps,
+      OrderedSetMultimap<DependencyKind, Dependency> originalDeps,
       BuildConfiguration hostConfiguration,
       RuleClassProvider ruleClassProvider,
       BuildOptions defaultBuildOptions)
@@ -111,7 +114,8 @@ public final class ConfigurationResolver {
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
     // configuration. For cases where Skyframe isn't needed to get the configuration (e.g. when
     // we just re-used the original rule's configuration), we should skip this outright.
-    Multimap<SkyKey, Map.Entry<Attribute, Dependency>> keysToEntries = LinkedListMultimap.create();
+    Multimap<SkyKey, Map.Entry<DependencyKind, Dependency>> keysToEntries =
+        LinkedListMultimap.create();
 
     // Stores the result of applying a transition to the current configuration using a
     // particular subset of fragments. By caching this, we save from redundantly computing the
@@ -141,19 +145,18 @@ public final class ConfigurationResolver {
     // clear need.
     //
     // This map is used heavily by all builds. Inserts and gets should be as fast as possible.
-    Multimap<AttributeAndLabel, Dependency> resolvedDeps = LinkedHashMultimap.create();
+    Multimap<DependencyEdge, Dependency> resolvedDeps = LinkedHashMultimap.create();
 
     // Performance optimization: This method iterates over originalDeps twice. By storing
-    // AttributeAndLabel instances in this list, we avoid having to recreate them the second time
+    // DependencyEdge instances in this list, we avoid having to recreate them the second time
     // (particularly avoid recomputing their hash codes). Profiling shows this shaves 25% off this
     // method's execution time (at the time of this comment).
-    ArrayList<AttributeAndLabel> attributesAndLabels = new ArrayList<>(originalDeps.size());
+    ArrayList<DependencyEdge> attributesAndLabels = new ArrayList<>(originalDeps.size());
 
-    for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
+    for (Map.Entry<DependencyKind, Dependency> depsEntry : originalDeps.entries()) {
       Dependency dep = depsEntry.getValue();
-      AttributeAndLabel attributeAndLabel =
-          new AttributeAndLabel(depsEntry.getKey(), dep.getLabel());
-      attributesAndLabels.add(attributeAndLabel);
+      DependencyEdge dependencyEdge = new DependencyEdge(depsEntry.getKey(), dep.getLabel());
+      attributesAndLabels.add(dependencyEdge);
       // Certain targets (like output files) trivially re-use their input configuration. Likewise,
       // deps with null configurations (e.g. source files), can be trivially computed. So we skip
       // all logic in this method for these cases and just reinsert their original configurations
@@ -177,8 +180,8 @@ public final class ConfigurationResolver {
       // provide needed fragments. This unnecessarily drags performance on the critical path (up
       // to 0.5% of total analysis time as profiled over a simple cc_binary).
       if (ctgValue.getConfiguration().trimConfigurations()) {
-        checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
-            depFragments);
+        checkForMissingFragments(
+            env, ctgValue, dependencyEdge.dependencyKind.getAttribute(), dep, depFragments);
       }
 
       boolean sameFragments = depFragments.equals(ctgFragments.fragmentClasses());
@@ -189,7 +192,7 @@ public final class ConfigurationResolver {
           // The dep uses the same exact configuration.
           putOnlyEntry(
               resolvedDeps,
-              attributeAndLabel,
+              dependencyEdge,
               Dependency.withConfigurationAndAspects(
                   dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
           continue;
@@ -201,7 +204,7 @@ public final class ConfigurationResolver {
           // analysis time.
           putOnlyEntry(
               resolvedDeps,
-              attributeAndLabel,
+              dependencyEdge,
               Dependency.withConfigurationAndAspects(
                   dep.getLabel(), hostConfiguration, dep.getAspects()));
           continue;
@@ -217,13 +220,19 @@ public final class ConfigurationResolver {
         transitionsMap.put(transitionKey, toOptions);
       }
 
+      try {
+        StarlarkTransition.postProcessStarlarkTransitions(env.getListener(), transition);
+      } catch (TransitionException e) {
+        throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
+      }
+
       // If the transition doesn't change the configuration, trivially re-use the original
       // configuration.
       if (sameFragments && toOptions.size() == 1
           && Iterables.getOnlyElement(toOptions).equals(ctgOptions)) {
         putOnlyEntry(
             resolvedDeps,
-            attributeAndLabel,
+            dependencyEdge,
             Dependency.withConfigurationAndAspects(
                 dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
         continue;
@@ -277,12 +286,13 @@ public final class ConfigurationResolver {
           return null;
         }
         BuildConfigurationValue trimmedConfig = (BuildConfigurationValue) valueOrException.get();
-        for (Map.Entry<Attribute, Dependency> info : keysToEntries.get(key)) {
+        for (Map.Entry<DependencyKind, Dependency> info : keysToEntries.get(key)) {
           Dependency originalDep = info.getValue();
-          AttributeAndLabel attr = new AttributeAndLabel(info.getKey(), originalDep.getLabel());
+          DependencyEdge attr = new DependencyEdge(info.getKey(), originalDep.getLabel());
           Dependency resolvedDep = Dependency.withConfigurationAndAspects(originalDep.getLabel(),
               trimmedConfig.getConfiguration(), originalDep.getAspects());
-          if (attr.attribute.hasSplitConfigurationTransition()) {
+          Attribute attribute = attr.dependencyKind.getAttribute();
+          if (attribute != null && attribute.hasSplitConfigurationTransition()) {
             resolvedDeps.put(attr, resolvedDep);
           } else {
             putOnlyEntry(resolvedDeps, attr, resolvedDep);
@@ -322,6 +332,9 @@ public final class ConfigurationResolver {
       } else if (o == null) {
         return false;
       } else {
+        if (!(o instanceof FragmentsAndTransition)) {
+          return false;
+        }
         FragmentsAndTransition other = (FragmentsAndTransition) o;
         return other.transition.equals(transition) && other.fragments.equals(fragments);
       }
@@ -338,23 +351,23 @@ public final class ConfigurationResolver {
    * trimmed dependency.
    */
   @ThreadSafety.Immutable
-  private static final class AttributeAndLabel {
-    final Attribute attribute;
+  private static final class DependencyEdge {
+    final DependencyKind dependencyKind;
     final Label label;
     Integer hashCode;
 
-    AttributeAndLabel(Attribute attribute, Label label) {
-      this.attribute = attribute;
+    DependencyEdge(DependencyKind dependencyKind, Label label) {
+      this.dependencyKind = dependencyKind;
       this.label = label;
     }
 
     @Override
     public boolean equals(Object o) {
-      if (!(o instanceof AttributeAndLabel)) {
+      if (!(o instanceof DependencyEdge)) {
         return false;
       }
-      AttributeAndLabel other = (AttributeAndLabel) o;
-      return Objects.equals(other.attribute, attribute) && other.label.equals(label);
+      DependencyEdge other = (DependencyEdge) o;
+      return Objects.equals(other.dependencyKind, dependencyKind) && other.label.equals(label);
     }
 
     @Override
@@ -362,17 +375,19 @@ public final class ConfigurationResolver {
       if (hashCode == null) {
         // Not every <Attribute, Label> pair gets hashed. So only evaluate for the instances that
         // need it. This can significantly reduce the number of evaluations.
-        hashCode = Objects.hash(this.attribute, this.label);
+        hashCode = Objects.hash(this.dependencyKind, this.label);
       }
       return hashCode;
     }
 
     @Override
     public String toString() {
-      return "AttributeAndLabel{attribute="
-          + attribute.toString()
+      Attribute attribute = dependencyKind.getAttribute();
+
+      return "DependencyEdge{attribute="
+          + (attribute == null ? "(null)" : attribute)
           + ", label="
-          + label.toString()
+          + label
           + "}";
     }
   }
@@ -453,8 +468,11 @@ public final class ConfigurationResolver {
    * Checks the config fragments required by a dep against the fragments in its actual
    * configuration. If any are missing, triggers a descriptive "missing fragments" error.
    */
-  private static void checkForMissingFragments(SkyFunction.Environment env,
-      TargetAndConfiguration ctgValue, String attribute, Dependency dep,
+  private static void checkForMissingFragments(
+      SkyFunction.Environment env,
+      TargetAndConfiguration ctgValue,
+      Attribute attribute,
+      Dependency dep,
       Set<Class<? extends BuildConfiguration.Fragment>> expectedDepFragments)
       throws ConfiguredTargetFunction.DependencyEvaluationException {
     Set<String> ctgFragmentNames = new HashSet<>();
@@ -468,9 +486,13 @@ public final class ConfigurationResolver {
     }
     Set<String> missing = Sets.difference(depFragmentNames, ctgFragmentNames);
     if (!missing.isEmpty()) {
-      String msg = String.format(
-          "%s: dependency %s from attribute \"%s\" is missing required config fragments: %s",
-          ctgValue.getLabel(), dep.getLabel(), attribute, Joiner.on(", ").join(missing));
+      String msg =
+          String.format(
+              "%s: dependency %s from attribute \"%s\" is missing required config fragments: %s",
+              ctgValue.getLabel(),
+              dep.getLabel(),
+              attribute == null ? "(null)" : attribute.getName(),
+              Joiner.on(", ").join(missing));
       env.getListener().handle(Event.error(msg));
       throw new ConfiguredTargetFunction.DependencyEvaluationException(
           new InvalidConfigurationException(msg));
@@ -495,22 +517,22 @@ public final class ConfigurationResolver {
    *
    * @param originalDeps the input deps with the ordering to preserve
    * @param resolvedDeps the unordered output deps
-   * @param attributesAndLabels collection of <attribute, depLabel> pairs guaranteed to match
-   *   the ordering of originalDeps.entries(). This is a performance optimization: see
-   *   {@link #resolveConfigurations#attributesAndLabels} for details.
+   * @param attributesAndLabels collection of <attribute, depLabel> pairs guaranteed to match the
+   *     ordering of originalDeps.entries(). This is a performance optimization: see {@link
+   *     #resolveConfigurations#attributesAndLabels} for details.
    */
-  private static OrderedSetMultimap<Attribute, Dependency> sortResolvedDeps(
-      OrderedSetMultimap<Attribute, Dependency> originalDeps,
-      Multimap<AttributeAndLabel, Dependency> resolvedDeps,
-      ArrayList<AttributeAndLabel> attributesAndLabels) {
-    Iterator<AttributeAndLabel> iterator = attributesAndLabels.iterator();
-    OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
-    for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
-      AttributeAndLabel attrAndLabel = iterator.next();
+  private static OrderedSetMultimap<DependencyKind, Dependency> sortResolvedDeps(
+      OrderedSetMultimap<DependencyKind, Dependency> originalDeps,
+      Multimap<DependencyEdge, Dependency> resolvedDeps,
+      ArrayList<DependencyEdge> attributesAndLabels) {
+    Iterator<DependencyEdge> iterator = attributesAndLabels.iterator();
+    OrderedSetMultimap<DependencyKind, Dependency> result = OrderedSetMultimap.create();
+    for (Map.Entry<DependencyKind, Dependency> depsEntry : originalDeps.entries()) {
+      DependencyEdge edge = iterator.next();
       if (depsEntry.getValue().hasExplicitConfiguration()) {
-        result.put(attrAndLabel.attribute, depsEntry.getValue());
+        result.put(edge.dependencyKind, depsEntry.getValue());
       } else {
-        Collection<Dependency> resolvedDepWithSplit = resolvedDeps.get(attrAndLabel);
+        Collection<Dependency> resolvedDepWithSplit = resolvedDeps.get(edge);
         Verify.verify(!resolvedDepWithSplit.isEmpty());
         if (resolvedDepWithSplit.size() > 1) {
           List<Dependency> sortedSplitList = new ArrayList<>(resolvedDepWithSplit);
@@ -526,16 +548,17 @@ public final class ConfigurationResolver {
   /**
    * This method allows resolution of configurations outside of a skyfunction call.
    *
-   * Unlike {@link #resolveConfigurations}, this doesn't expect the current context to be evaluating
-   * dependencies of a parent target. So this method is also suitable for top-level targets.
+   * <p>Unlike {@link #resolveConfigurations}, this doesn't expect the current context to be
+   * evaluating dependencies of a parent target. So this method is also suitable for top-level
+   * targets.
    *
-   * Resolution consists of two steps:
+   * <p>Resolution consists of two steps:
    *
    * <ol>
    *   <li>Apply the per-target transitions specified in {@code asDeps}. This can be used, e.g., to
    *       apply {@link RuleTransitionFactory}s over global top-level configurations.
-   *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This
-   *       is triggered by {@link BuildConfiguration.Options#trimConfigurations}.
+   *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This is
+   *       triggered by {@link BuildConfiguration.Options#trimConfigurations}.
    * </ol>
    *
    * <p>Preserves the original input order (but merges duplicate nodes that might occur due to
@@ -547,12 +570,13 @@ public final class ConfigurationResolver {
    * to evaluate and no more (e.g. there's no need for Android settings in a C++ configured target).
    *
    * @param defaultContext the original targets and starting configurations before applying rule
-   *   transitions and trimming. When actual configurations can't be evaluated, these values are
-   *   returned as defaults. See TODO below.
+   *     transitions and trimming. When actual configurations can't be evaluated, these values are
+   *     returned as defaults. See TODO below.
    * @param targetsToEvaluate the inputs repackaged as dependencies, including rule-specific
-   *   transitions
+   *     transitions
    * @param eventHandler the error event handler
    * @param skyframeExecutor the executor used for resolving Skyframe keys
+   * @throws TransitionException if there was an issue applying a Starlark-defined transition
    */
   // TODO(bazel-team): error out early for targets that fail - failed configuration evaluations
   //   should never make it through analysis (and especially not seed ConfiguredTargetValues)
@@ -563,7 +587,8 @@ public final class ConfigurationResolver {
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
-      SkyframeExecutor skyframeExecutor) {
+      SkyframeExecutor skyframeExecutor)
+      throws TransitionException {
 
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
     for (TargetAndConfiguration targetAndConfig : defaultContext) {
@@ -602,3 +627,4 @@ public final class ConfigurationResolver {
     return result;
   }
 }
+

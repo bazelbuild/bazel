@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
-import com.google.devtools.build.lib.rules.python.PyTest;
+import com.google.devtools.build.lib.rules.python.PyExecutable;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 
-/**
- * Implementation of the {@code py_test} rule for Bazel.
- */
-public class BazelPyTest extends PyTest {
+/** Bazel-specific implementation of {@code py_test}. */
+public class BazelPyTest extends PyExecutable {
   @Override
   protected PythonSemantics createSemantics() {
     return new BazelPythonSemantics();

@@ -210,7 +210,7 @@ public abstract class GraphTest {
     }
     waitForStart.countDown();
     waitForAddedRdep.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-    entry.setValue(new StringValue("foo1"), startingVersion);
+    entry.setValue(new StringValue("foo1"), startingVersion, null);
     waitForSetValue.countDown();
     wrapper.waitForTasksAndMaybeThrow();
     assertThat(ExecutorUtil.interruptibleShutdown(pool)).isFalse();
@@ -226,7 +226,7 @@ public abstract class GraphTest {
     sameEntry.markDirty(DirtyType.CHANGE);
     startEvaluation(sameEntry);
     sameEntry.markRebuilding();
-    sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion));
+    sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion), null);
     assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo2"));
     if (checkRdeps()) {
       assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
@@ -282,7 +282,7 @@ public abstract class GraphTest {
                       if (startEvaluation(entry).equals(DependencyState.NEEDS_SCHEDULING)) {
                         assertThat(valuesSet.add(key)).isTrue();
                         // Set to done.
-                        entry.setValue(new StringValue("bar" + keyNum), startingVersion);
+                        entry.setValue(new StringValue("bar" + keyNum), startingVersion, null);
                         assertThat(entry.isDone()).isTrue();
                       }
                     } catch (InterruptedException e) {
@@ -332,7 +332,7 @@ public abstract class GraphTest {
     for (int i = 0; i < numKeys; i++) {
       NodeEntry entry = entries.get(key("foo" + i));
       startEvaluation(entry);
-      entry.setValue(new StringValue("bar"), startingVersion);
+      entry.setValue(new StringValue("bar"), startingVersion, null);
     }
 
     assertThat(graph.get(null, Reason.OTHER, key("foo" + 0))).isNotNull();
@@ -348,39 +348,38 @@ public abstract class GraphTest {
     final CountDownLatch getBatchCountDownLatch = new CountDownLatch(5);
     final CountDownLatch getCountDownLatch = new CountDownLatch(5);
 
+    final SkyKey dep = key("dep");
     for (int i = 0; i < numKeys; i++) {
       final int keyNum = i;
       // Transition the nodes from done to dirty and then back to done.
       Runnable r1 =
-          new Runnable() {
-            @Override
-            public void run() {
-              try {
-                makeBatchCountDownLatch.await();
-                getBatchCountDownLatch.await();
-                getCountDownLatch.await();
-              } catch (InterruptedException e) {
-                throw new AssertionError(e);
-              }
-              NodeEntry entry = null;
-              try {
-                entry = graph.get(null, Reason.OTHER, key("foo" + keyNum));
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-              }
-              try {
-                entry.markDirty(DirtyType.CHANGE);
+          () -> {
+            try {
+              makeBatchCountDownLatch.await();
+              getBatchCountDownLatch.await();
+              getCountDownLatch.await();
+            } catch (InterruptedException e) {
+              throw new AssertionError(e);
+            }
+            NodeEntry entry = null;
+            try {
+              entry = graph.get(null, Reason.OTHER, key("foo" + keyNum));
+            } catch (InterruptedException e) {
+              throw new IllegalStateException(e);
+            }
+            try {
+              entry.markDirty(DirtyType.CHANGE);
 
-                // Make some changes, like adding a dep and rdep.
-                entry.addReverseDepAndCheckIfDone(key("rdep"));
-                entry.markRebuilding();
-                addTemporaryDirectDep(entry, key("dep"));
-                entry.signalDep();
+              // Make some changes, like adding a dep and rdep.
+              entry.addReverseDepAndCheckIfDone(key("rdep"));
+              entry.markRebuilding();
+              addTemporaryDirectDep(entry, dep);
+              Version nextVersion = getNextVersion(startingVersion);
+              entry.signalDep(nextVersion, dep);
 
-                entry.setValue(new StringValue("bar" + keyNum), getNextVersion(startingVersion));
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(keyNum + ", " + entry, e);
-              }
+              entry.setValue(new StringValue("bar" + keyNum), nextVersion, null);
+            } catch (InterruptedException e) {
+              throw new IllegalStateException(keyNum + ", " + entry, e);
             }
           };
 
@@ -465,7 +464,7 @@ public abstract class GraphTest {
         }
       }
       for (SkyKey key : entry.getDirectDeps()) {
-        assertThat(key).isEqualTo(key("dep"));
+        assertThat(key).isEqualTo(dep);
       }
     }
   }

@@ -161,6 +161,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // The dynamic mode for linking.
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
+  private final boolean collectCodeCoverage;
 
   static CppConfiguration create(CpuTransformer cpuTransformer, BuildOptions options)
       throws InvalidConfigurationException {
@@ -212,7 +213,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         (cppOptions.stripBinaries == StripMode.ALWAYS
             || (cppOptions.stripBinaries == StripMode.SOMETIMES
                 && compilationMode == CompilationMode.FASTBUILD)),
-        compilationMode);
+        compilationMode,
+        commonOptions.collectCodeCoverage);
   }
 
   private CppConfiguration(
@@ -228,7 +230,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       ImmutableList<String> ltobackendOptions,
       CppOptions cppOptions,
       boolean stripBinaries,
-      CompilationMode compilationMode) {
+      CompilationMode compilationMode,
+      boolean collectCodeCoverage) {
     this.transformedCpuFromOptions = transformedCpuFromOptions;
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
@@ -242,6 +245,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.cppOptions = cppOptions;
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
+    this.collectCodeCoverage = collectCodeCoverage;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -392,8 +396,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.legacyWholeArchive;
   }
 
-  public boolean getSymbolCounts() {
-    return cppOptions.symbolCounts;
+  public boolean removeLegacyWholeArchive() {
+    return cppOptions.removeLegacyWholeArchive;
   }
 
   public boolean getInmemoryDotdFiles() {
@@ -404,7 +408,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.parseHeadersVerifiesModules;
   }
 
-  public boolean getUseInterfaceSharedObjects() {
+  public boolean getUseInterfaceSharedLibraries() {
     return cppOptions.useInterfaceSharedObjects;
   }
 
@@ -521,6 +525,17 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.fdoProfileLabel;
   }
 
+  public Label getXFdoProfileLabel() {
+    if (cppOptions.fdoOptimizeForBuild != null
+        || cppOptions.fdoInstrumentForBuild != null
+        || cppOptions.fdoProfileLabel != null
+        || collectCodeCoverage) {
+      return null;
+    }
+
+    return cppOptions.xfdoProfileLabel;
+  }
+
   public boolean isFdoAbsolutePathEnabled() {
     return cppOptions.enableFdoProfileAbsolutePath;
   }
@@ -533,24 +548,24 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableLegacyCrosstoolFields;
   }
 
-  public boolean disableCompilationModeFlags() {
-    return cppOptions.disableCompilationModeFlags;
+  public boolean disableExpandIfAllAvailableInFlagSet() {
+    return cppOptions.disableExpandIfAllAvailableInFlagSet;
   }
 
-  public boolean disableLinkingModeFlags() {
-    return cppOptions.disableLinkingModeFlags;
-  }
-
-  public boolean enableLinkoptsInUserLinkFlags() {
-    return cppOptions.enableLinkoptsInUserLinkFlags;
-  }
-
-  public boolean disableEmittingStaticLibgcc() {
-    return cppOptions.disableEmittingStaticLibgcc;
+  public static String getLegacyCrosstoolFieldErrorMessage(String field) {
+    Preconditions.checkNotNull(field);
+    return field
+        + " is disabled by --incompatible_disable_legacy_crosstool_fields, please "
+        + "migrate your CROSSTOOL (see https://github.com/bazelbuild/bazel/issues/6861 for "
+        + "migration instructions).";
   }
 
   public boolean disableDepsetInUserFlags() {
     return cppOptions.disableDepsetInUserFlags;
+  }
+
+  public boolean removeCpuCompilerCcToolchainAttributes() {
+    return cppOptions.removeCpuCompilerCcToolchainAttributes;
   }
 
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
@@ -564,14 +579,26 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return PathFragment.create(builtInSysroot);
   }
 
-  boolean enableCcToolchainConfigInfoFromSkylark() {
-    return cppOptions.enableCcToolchainConfigInfoFromSkylark;
-  }
-
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
   public Label getLibcTopLabel() {
     return cppOptions.libcTopLabel;
+  }
+
+  public boolean disableGenruleCcToolchainDependency() {
+    return cppOptions.disableGenruleCcToolchainDependency;
+  }
+
+  public boolean enableLegacyCcProvider() {
+    return !cppOptions.disableLegacyCcProvider;
+  }
+
+  public boolean disableCrosstool() {
+    return cppOptions.disableCrosstool;
+  }
+
+  public boolean dontEnableHostNonhost() {
+    return cppOptions.dontEnableHostNonhost;
   }
 }

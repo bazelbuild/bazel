@@ -411,8 +411,7 @@ ExitCode JavaBinaryLauncher::Launch() {
   vector<wstring> escaped_arguments;
   // Quote the arguments if having spaces
   for (const auto& arg : arguments) {
-    escaped_arguments.push_back(
-        GetEscapedArgument(arg, /*escape_backslash = */ false));
+    escaped_arguments.push_back(WindowsEscapeArg(arg));
   }
 
   ExitCode exit_code = this->LaunchProcess(java_bin, escaped_arguments);

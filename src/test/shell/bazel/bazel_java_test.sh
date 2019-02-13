@@ -1546,8 +1546,7 @@ EOF
   expect_log "The value of use_ijar is True. Make sure the java_toolchain argument is valid."
 }
 
-
-function test_java_test_timeout() {
+function write_java_timeout_test() {
   setup_javatest_support
   mkdir -p javatests/com/google/timeout
   touch javatests/com/google/timeout/{BUILD,TimeoutTests.java}
@@ -1581,8 +1580,27 @@ java_test(
   timeout = "short", # 1 min
 )
 EOF
+}
 
-  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5  >& "$TEST_log" && fail "Unexpected success"
+# Test is flaky: b/123476045, https://github.com/bazelbuild/bazel/issues/7288
+function DISABLED_test_java_test_timeout() {
+  write_java_timeout_test
+  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
+      --noexperimental_split_xml_generation >& "$TEST_log" \
+      && fail "Unexpected success"
+  xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
+  [[ -s $xml_log ]] || fail "$xml_log was not present after test"
+  cat "$xml_log" > "$TEST_log"
+  expect_log "failures='2'"
+  expect_log "<failure message='Test cancelled' type='java.lang.Exception'>java.lang.Exception: Test cancelled"
+  expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
+}
+
+function test_java_test_timeout_split_xml() {
+  write_java_timeout_test
+  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
+      --experimental_split_xml_generation >& "$TEST_log" \
+      && fail "Unexpected success"
   xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
   [[ -s $xml_log ]] || fail "$xml_log was not present after test"
   cat "$xml_log" > "$TEST_log"
@@ -1610,10 +1628,13 @@ java_binary(
     visibility = ['//visibility:public'],
 )
 EOF
-    cat <<'EOF' > check_runfiles.sh
+    # The workspace name is initialized in testenv.sh; use that var rather than
+    # hardcoding it here. The extra sed pass is so we can selectively expand
+    # that one var while keeping the rest of the heredoc literal.
+    cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > check_runfiles.sh << 'EOF'
 #!/bin/sh -eu
 unset JAVA_RUNFILES # Force the wrapper script to recompute it.
-subrunfiles=`$TEST_SRCDIR/__main__/java/com/google/runfiles/EchoRunfiles`
+subrunfiles=`$TEST_SRCDIR/{{WORKSPACE_NAME}}/java/com/google/runfiles/EchoRunfiles`
 if [ $subrunfiles != $TEST_SRCDIR ]; then
   echo $subrunfiles
   echo "DOES NOT MATCH"

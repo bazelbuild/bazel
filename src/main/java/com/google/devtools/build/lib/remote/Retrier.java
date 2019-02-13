@@ -15,15 +15,12 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.AsyncCallable;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import java.io.IOException;
 import java.util.concurrent.Callable;
@@ -65,7 +62,7 @@ public class Retrier {
    * <p>The initial state of a circuit breaker is the {@link State#ACCEPT_CALLS}. Calls are executed
    * and retried in this state. However, if error rates are high a circuit breaker can choose to
    * transition into {@link State#REJECT_CALLS}. In this state any calls are rejected with a {@link
-   * RetryException} immediately. A circuit breaker in state {@link State#REJECT_CALLS} can
+   * CircuitBreakerException} immediately. A circuit breaker in state {@link State#REJECT_CALLS} can
    * periodically return a {@code TRIAL_CALL} state, in which case a call will be executed once and
    * in case of success the circuit breaker may return to state {@code ACCEPT_CALLS}.
    *
@@ -109,51 +106,19 @@ public class Retrier {
     void recordSuccess();
   }
 
+  /** Thrown if the call was stopped by a circuit breaker. */
+  public static class CircuitBreakerException extends IOException {
+    private CircuitBreakerException() {
+      super("Call not executed due to a high failure rate.");
+    }
+  }
+
   /**
    * {@link Sleeper#sleep(long)} is called to pause between synchronous retries ({@link
    * #execute(Callable)}.
    */
   public interface Sleeper {
     void sleep(long millis) throws InterruptedException;
-  }
-
-  /**
-   * Wraps around the actual cause for the retry. Contains information about the number of retry
-   * attempts.
-   */
-  public static class RetryException extends IOException {
-
-    private final int attempts;
-
-    public RetryException(String message, int numRetries, Exception cause) {
-      super(message, cause);
-      this.attempts = numRetries + 1;
-    }
-
-    protected RetryException(String message) {
-      super(message);
-      this.attempts = 0;
-    }
-
-    /**
-     * Returns the number of times a {@link Callable} has been executed before this exception was
-     * thrown.
-     */
-    public int getAttempts() {
-      return attempts;
-    }
-  }
-
-  /** Thrown if the call was stopped by a circuit breaker. */
-  public static class CircuitBreakerException extends RetryException {
-
-    private CircuitBreakerException(String message, int numRetries, Exception cause) {
-      super(message, numRetries, cause);
-    }
-
-    private CircuitBreakerException() {
-      super("Call not executed due to a high failure rate.");
-    }
   }
 
   /** Disables circuit breaking. */
@@ -246,14 +211,14 @@ public class Retrier {
    * <p>{@link InterruptedException} is not retried.
    *
    * @param call the {@link Callable} to execute.
-   * @throws RetryException if the {@code call} didn't succeed within the framework specified by
-   *     {@code backoffSupplier} and {@code shouldRetry}.
+   * @throws Exception if the {@code call} didn't succeed within the framework specified by {@code
+   *     backoffSupplier} and {@code shouldRetry}.
    * @throws CircuitBreakerException in case a call was rejected because the circuit breaker
    *     tripped.
    * @throws InterruptedException if the {@code call} throws an {@link InterruptedException} or the
    *     current thread's interrupted flag is set.
    */
-  public <T> T execute(Callable<T> call) throws RetryException, InterruptedException {
+  public <T> T execute(Callable<T> call) throws Exception {
     final Backoff backoff = newBackoff();
     while (true) {
       final State circuitState;
@@ -268,118 +233,58 @@ public class Retrier {
         T r = call.call();
         circuitBreaker.recordSuccess();
         return r;
-      } catch (InterruptedException e) {
-        circuitBreaker.recordFailure();
-        throw e;
       } catch (Exception e) {
         circuitBreaker.recordFailure();
-        if (e instanceof RetryException) {
-          // Support nested retry calls.
-          e = (Exception) e.getCause();
-        }
+        Throwables.propagateIfInstanceOf(e, InterruptedException.class);
         if (State.TRIAL_CALL.equals(circuitState)) {
-          throw new CircuitBreakerException(
-              "Call failed in circuit breaker half open state.", 0, e);
+          throw e;
         }
-        int attempts = backoff.getRetryAttempts();
         if (!shouldRetry.test(e)) {
-          throw new RetryException("Call failed with not retriable error: " + e, attempts, e);
+          throw e;
         }
         final long delayMillis = backoff.nextDelayMillis();
         if (delayMillis < 0) {
-          throw new RetryException(
-              "Call failed after " + attempts + " retry attempts: " + e, attempts, e);
+          throw e;
         }
         sleeper.sleep(delayMillis);
       }
     }
   }
 
-  /**
-   * Executes an {@link AsyncCallable}, retrying execution in case of failure and returning a {@link
-   * ListenableFuture} pointing to the result/error.
-   */
+  /** Executes an {@link AsyncCallable}, retrying execution in case of failure. */
   public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call) {
-    SettableFuture<T> f = SettableFuture.create();
-    executeAsync(call, f);
-    return f;
+    return executeAsync(call, newBackoff());
   }
 
   /**
-   * Executes an {@link AsyncCallable}, retrying execution in case of failure and uses the provided
-   * {@code promise} to point to the result/error.
+   * Executes an {@link AsyncCallable}, retrying execution in case of failure with the given
+   * backoff.
    */
-  public <T> void executeAsync(AsyncCallable<T> call, SettableFuture<T> promise) {
-    Preconditions.checkNotNull(call);
-    Preconditions.checkNotNull(promise);
-    Backoff backoff = newBackoff();
-    executeAsync(call, promise, backoff);
-  }
-
-  private <T> void executeAsync(AsyncCallable<T> call, SettableFuture<T> outerF, Backoff backoff) {
-    Preconditions.checkState(!outerF.isDone(), "outerF completed already.");
+  private <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call, Backoff backoff) {
     try {
-      Futures.addCallback(
+      return Futures.catchingAsync(
           call.call(),
-          new FutureCallback<T>() {
-            @Override
-            public void onSuccess(T t) {
-              outerF.set(t);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              onExecuteAsyncFailure(t, call, outerF, backoff);
-            }
-          },
+          Exception.class,
+          t -> onExecuteAsyncFailure(t, call, backoff),
           MoreExecutors.directExecutor());
     } catch (Exception e) {
-      onExecuteAsyncFailure(e, call, outerF, backoff);
+      return onExecuteAsyncFailure(e, call, backoff);
     }
   }
 
-  private <T> void onExecuteAsyncFailure(
-      Throwable t, AsyncCallable<T> call, SettableFuture<T> outerF, Backoff backoff) {
+  private <T> ListenableFuture<T> onExecuteAsyncFailure(
+      Exception t, AsyncCallable<T> call, Backoff backoff) {
     long waitMillis = backoff.nextDelayMillis();
-    if (waitMillis >= 0 && t instanceof Exception && isRetriable((Exception) t)) {
+    if (waitMillis >= 0 && isRetriable(t)) {
       try {
-        ListenableScheduledFuture<?> sf =
-            retryService.schedule(
-                () -> {
-                  executeAsync(call, outerF, backoff);
-                },
-                waitMillis,
-                TimeUnit.MILLISECONDS);
-        Futures.addCallback(
-            sf,
-            new FutureCallback<Object>() {
-              @Override
-              public void onSuccess(Object o) {
-                // Submitted successfully. Intentionally left empty.
-              }
-
-              @Override
-              public void onFailure(Throwable t) {
-                Exception e = t instanceof Exception ? (Exception) t : new Exception(t);
-                outerF.setException(
-                    new RetryException(
-                        "Scheduled execution errored.", backoff.getRetryAttempts(), e));
-              }
-            },
-            MoreExecutors.directExecutor());
+        return Futures.scheduleAsync(
+            () -> executeAsync(call, backoff), waitMillis, TimeUnit.MILLISECONDS, retryService);
       } catch (RejectedExecutionException e) {
-        // May be thrown by .schedule(...) if i.e. the executor is shutdown.
-        outerF.setException(
-            new RetryException("Rejected by executor.", backoff.getRetryAttempts(), e));
+        // May be thrown by .scheduleAsync(...) if i.e. the executor is shutdown.
+        return Futures.immediateFailedFuture(new IOException(e));
       }
     } else {
-      Exception e = t instanceof Exception ? (Exception) t : new Exception(t);
-      String message =
-          waitMillis >= 0
-              ? "Status not retriable."
-              : "Exhausted retry attempts (" + backoff.getRetryAttempts() + ")";
-      RetryException error = new RetryException(message, backoff.getRetryAttempts(), e);
-      outerF.setException(error);
+      return Futures.immediateFailedFuture(t);
     }
   }
 

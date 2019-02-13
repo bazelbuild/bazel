@@ -26,20 +26,21 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-    return ImmutableSet.<Class<? extends FragmentOptions>>of(PythonOptions.class);
+    return ImmutableSet.of(PythonOptions.class);
   }
 
   @Override
   public PythonConfiguration create(BuildOptions buildOptions)
       throws InvalidConfigurationException {
     PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
-    boolean ignorePythonVersionAttribute = pythonOptions.forcePython != null;
     PythonVersion pythonVersion = pythonOptions.getPythonVersion();
     return new PythonConfiguration(
         pythonVersion,
-        ignorePythonVersionAttribute,
         pythonOptions.buildPythonZip,
-        pythonOptions.buildTransitiveRunfilesTrees);
+        pythonOptions.buildTransitiveRunfilesTrees,
+        /*oldPyVersionApiAllowed=*/ !pythonOptions.incompatibleRemoveOldPythonVersionApi,
+        /*useNewPyVersionSemantics=*/ pythonOptions.incompatibleAllowPythonVersionTransitions,
+        /*disallowLegacyPyProvider=*/ pythonOptions.incompatibleDisallowLegacyPyProvider);
   }
 
   @Override

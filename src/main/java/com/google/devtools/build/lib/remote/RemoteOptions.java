@@ -77,12 +77,13 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteCache;
 
   @Option(
-    name = "remote_timeout",
-    defaultValue = "60",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The maximum number of seconds to wait for remote execution and cache calls."
-  )
+      name = "remote_timeout",
+      defaultValue = "60",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The maximum number of seconds to wait for remote execution and cache calls. For the "
+              + "REST cache, this is both the connect and the read timeout.")
   public int remoteTimeout;
 
   @Option(
@@ -272,6 +273,49 @@ public final class RemoteOptions extends OptionsBase {
               + "If this option is not enabled, "
               + "cachable actions that output symlinks will fail.")
   public boolean allowSymlinkUpload;
+
+  @Option(
+      name = "remote_result_cache_priority",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The relative priority of remote actions to be stored in remote cache. "
+              + "The semantics of the particular priority values are server-dependent.")
+  public int remoteResultCachePriority;
+
+  @Option(
+      name = "remote_execution_priority",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The relative priority of actions to be executed remotely. "
+              + "The semantics of the particular priority values are server-dependent.")
+  public int remoteExecutionPriority;
+
+  @Option(
+      name = "remote_default_platform_properties",
+      oldName = "host_platform_remote_properties_override",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Set the default platform properties to be set for the remote execution API, "
+              + "if the execution platform does not already set remote_execution_properties. "
+              + "This value will also be used if the host platform is selected as the execution "
+              + "platform for remote execution.")
+  public String remoteDefaultPlatformProperties;
+
+  @Option(
+      name = "remote_verify_downloads",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will compute the hash sum of all remote downloads and "
+              + " discard the remotely cached values if they don't match the expected value.")
+  public boolean remoteVerifyDownloads;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

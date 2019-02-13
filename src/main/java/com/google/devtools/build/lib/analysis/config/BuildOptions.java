@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.trimming.ConfigurationComparer;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
@@ -71,8 +72,14 @@ import javax.annotation.Nullable;
 public final class BuildOptions implements Cloneable, Serializable {
   private static final Comparator<Class<? extends FragmentOptions>>
       lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
-  private static final Comparator<String> skylarkOptionsComparator = Ordering.natural();
+  private static final Comparator<Label> skylarkOptionsComparator = Ordering.natural();
   private static final Logger logger = Logger.getLogger(BuildOptions.class.getName());
+
+  public static Map<Label, Object> labelizeStarlarkOptions(Map<String, Object> starlarkOptions) {
+    return starlarkOptions.entrySet().stream()
+        .collect(
+            Collectors.toMap(e -> Label.parseAbsoluteUnchecked(e.getKey()), Map.Entry::getValue));
+  }
 
   /**
    * Creates a BuildOptions object with all options set to their default values, processed by the
@@ -130,7 +137,9 @@ public final class BuildOptions implements Cloneable, Serializable {
     for (Class<? extends FragmentOptions> optionsClass : optionsList) {
       builder.addFragmentOptions(provider.getOptions(optionsClass));
     }
-    return builder.addStarlarkOptions(provider.getStarlarkOptions()).build();
+    return builder
+        .addStarlarkOptions(labelizeStarlarkOptions(provider.getStarlarkOptions()))
+        .build();
   }
 
   /**
@@ -155,7 +164,7 @@ public final class BuildOptions implements Cloneable, Serializable {
    * Returns a BuildOptions class that only has skylark options.
    */
   @VisibleForTesting
-  public static BuildOptions of(Map<String, Object> skylarkOptions) {
+  public static BuildOptions of(Map<Label, Object> skylarkOptions) {
     return builder().addStarlarkOptions(skylarkOptions).build();
   }
 
@@ -198,7 +207,10 @@ public final class BuildOptions implements Cloneable, Serializable {
     for (FragmentOptions options : fragmentOptionsMap.values()) {
       keyBuilder.append(options.cacheKey());
     }
-    keyBuilder.append(OptionsBase.mapToCacheKey(skylarkOptionsMap));
+    keyBuilder.append(
+        OptionsBase.mapToCacheKey(
+            skylarkOptionsMap.entrySet().stream()
+                .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue))));
     return keyBuilder.toString();
   }
 
@@ -221,7 +233,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     return fragmentOptionsMap.values();
   }
 
-  public ImmutableMap<String, Object> getStarlarkOptions() {
+  public ImmutableMap<Label, Object> getStarlarkOptions() {
     return skylarkOptionsMap;
   }
 
@@ -237,9 +249,7 @@ public final class BuildOptions implements Cloneable, Serializable {
         fragmentOptionsMap.entrySet()) {
       nativeOptionsBuilder.put(entry.getKey(), entry.getValue().clone());
     }
-    return new BuildOptions(
-        nativeOptionsBuilder.build(),
-        ImmutableMap.copyOf(skylarkOptionsMap));
+    return new BuildOptions(nativeOptionsBuilder.build(), ImmutableMap.copyOf(skylarkOptionsMap));
   }
 
   /**
@@ -265,8 +275,8 @@ public final class BuildOptions implements Cloneable, Serializable {
         fingerprint.addString(entry.getKey().getName());
         fingerprint.addString(entry.getValue().cacheKey());
       }
-      for (Map.Entry<String, Object> entry : skylarkOptionsMap.entrySet()) {
-        fingerprint.addString(entry.getKey());
+      for (Map.Entry<Label, Object> entry : skylarkOptionsMap.entrySet()) {
+        fingerprint.addString(entry.getKey().toString());
         fingerprint.addString(entry.getValue().toString());
       }
       byte[] computedFingerprint = fingerprint.digestAndReset();
@@ -302,12 +312,12 @@ public final class BuildOptions implements Cloneable, Serializable {
   /** Maps options class definitions to FragmentOptions objects. */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
   /** Maps skylark options names to skylark options values. */
-  private final ImmutableMap<String, Object> skylarkOptionsMap;
+  private final ImmutableMap<Label, Object> skylarkOptionsMap;
 
   @AutoCodec.VisibleForSerialization
   BuildOptions(
       ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap,
-      ImmutableMap<String, Object> skylarkOptionsMap) {
+      ImmutableMap<Label, Object> skylarkOptionsMap) {
     this.fragmentOptionsMap = fragmentOptionsMap;
     this.skylarkOptionsMap = skylarkOptionsMap;
   }
@@ -331,9 +341,9 @@ public final class BuildOptions implements Cloneable, Serializable {
       builder.addFragmentOptions(extraSecondFragment);
     }
 
-    Map<String, Object> skylarkOptions = new HashMap<>();
-    for (Map.Entry<String, Object> buildSettingAndValue : skylarkOptionsMap.entrySet()) {
-      String buildSetting = buildSettingAndValue.getKey();
+    Map<Label, Object> skylarkOptions = new HashMap<>();
+    for (Map.Entry<Label, Object> buildSettingAndValue : skylarkOptionsMap.entrySet()) {
+      Label buildSetting = buildSettingAndValue.getKey();
       if (optionsDiff.extraFirstStarlarkOptions.contains(buildSetting)) {
         continue;
       } else if (optionsDiff.differingStarlarkOptions.containsKey(buildSetting)) {
@@ -352,8 +362,25 @@ public final class BuildOptions implements Cloneable, Serializable {
     return new Builder();
   }
 
+  /** Creates a builder operating on a clone of this BuildOptions. */
+  public Builder toBuilder() {
+    return builder().merge(clone());
+  }
+
   /** Builder class for BuildOptions. */
   public static class Builder {
+    /**
+     * Merges the given BuildOptions into this builder, overriding any previous instances of
+     * Starlark options or FragmentOptions subclasses found in the new BuildOptions.
+     */
+    public Builder merge(BuildOptions options) {
+      for (FragmentOptions fragment : options.getNativeOptions()) {
+        this.addFragmentOptions(fragment);
+      }
+      this.addStarlarkOptions(options.getStarlarkOptions());
+      return this;
+    }
+
     /**
      * Adds a new FragmentOptions instance to the builder. Overrides previous instances of the exact
      * same subclass of FragmentOptions.
@@ -363,8 +390,23 @@ public final class BuildOptions implements Cloneable, Serializable {
       return this;
     }
 
-    Builder addStarlarkOptions(Map<String, Object> options) {
+    /**
+     * Adds multiple Starlark options to the builder. Overrides previous instances of the same key.
+     */
+    public Builder addStarlarkOptions(Map<Label, Object> options) {
       starlarkOptions.putAll(options);
+      return this;
+    }
+
+    /** Adds a Starlark option to the builder. Overrides previous instances of the same key. */
+    public Builder addStarlarkOption(Label key, Object value) {
+      starlarkOptions.put(key, value);
+      return this;
+    }
+
+    /** Removes the value for the Starlark option with the given key. */
+    public Builder removeStarlarkOption(Label key) {
+      starlarkOptions.remove(key);
       return this;
     }
 
@@ -375,7 +417,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     private final Map<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptions;
-    private final Map<String, Object> starlarkOptions;
+    private final Map<Label, Object> starlarkOptions;
 
     private Builder() {
       fragmentOptions = new HashMap<>();
@@ -415,20 +457,15 @@ public final class BuildOptions implements Cloneable, Serializable {
     // Check and report if either class has been trimmed of an options class that exists in the
     // other.
     ImmutableSet<Class<? extends FragmentOptions>> firstOptionClasses =
-        first
-            .getNativeOptions()
-            .stream()
+        first.getNativeOptions().stream()
             .map(FragmentOptions::getClass)
             .collect(ImmutableSet.toImmutableSet());
     ImmutableSet<Class<? extends FragmentOptions>> secondOptionClasses =
-        second
-            .getNativeOptions()
-            .stream()
+        second.getNativeOptions().stream()
             .map(FragmentOptions::getClass)
             .collect(ImmutableSet.toImmutableSet());
     Sets.difference(firstOptionClasses, secondOptionClasses).forEach(diff::addExtraFirstFragment);
-    Sets.difference(secondOptionClasses, firstOptionClasses)
-        .stream()
+    Sets.difference(secondOptionClasses, firstOptionClasses).stream()
         .map(second::get)
         .forEach(diff::addExtraSecondFragment);
     // For fragments in common, report differences.
@@ -450,10 +487,10 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     // Compare skylark options for the two classes
-    Map<String, Object> skylarkFirst = first.getStarlarkOptions();
-    Map<String, Object> skylarkSecond = second.getStarlarkOptions();
+    Map<Label, Object> skylarkFirst = first.getStarlarkOptions();
+    Map<Label, Object> skylarkSecond = second.getStarlarkOptions();
     diff.setHasStarlarkOptions(!skylarkFirst.isEmpty() || !skylarkSecond.isEmpty());
-    for (String buildSetting : Sets.union(skylarkFirst.keySet(), skylarkSecond.keySet())) {
+    for (Label buildSetting : Sets.union(skylarkFirst.keySet(), skylarkSecond.keySet())) {
       if (skylarkFirst.get(buildSetting) == null) {
         diff.addExtraSecondStarlarkOption(buildSetting, skylarkSecond.get(buildSetting));
       } else if (skylarkSecond.get(buildSetting) == null) {
@@ -479,16 +516,13 @@ public final class BuildOptions implements Cloneable, Serializable {
     LinkedHashMap<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
         new LinkedHashMap<>(diff.differingOptions.keySet().size());
     for (Class<? extends FragmentOptions> clazz :
-        diff.differingOptions
-            .keySet()
-            .stream()
+        diff.differingOptions.keySet().stream()
             .sorted(lexicalFragmentOptionsComparator)
             .collect(Collectors.toList())) {
       Collection<OptionDefinition> fields = diff.differingOptions.get(clazz);
       LinkedHashMap<String, Object> valueMap = new LinkedHashMap<>(fields.size());
       for (OptionDefinition optionDefinition :
-          fields
-              .stream()
+          fields.stream()
               .sorted(Comparator.comparing(o -> o.getField().getName()))
               .collect(Collectors.toList())) {
         Object secondValue;
@@ -539,13 +573,13 @@ public final class BuildOptions implements Cloneable, Serializable {
     private final Set<Class<? extends FragmentOptions>> extraFirstFragments = new HashSet<>();
     private final Set<FragmentOptions> extraSecondFragments = new HashSet<>();
 
-    private final Map<String, Object> skylarkFirst = new LinkedHashMap<>();
+    private final Map<Label, Object> skylarkFirst = new LinkedHashMap<>();
     // TODO(b/112041323): This should also be multimap but we don't diff multiple times with
     // skylark options anywhere yet so add that feature when necessary.
-    private final Map<String, Object> skylarkSecond = new LinkedHashMap<>();
+    private final Map<Label, Object> skylarkSecond = new LinkedHashMap<>();
 
-    private final List<String> extraStarlarkOptionsFirst = new ArrayList<>();
-    private final Map<String, Object> extraStarlarkOptionsSecond = new HashMap<>();
+    private final List<Label> extraStarlarkOptionsFirst = new ArrayList<>();
+    private final Map<Label, Object> extraStarlarkOptionsSecond = new HashMap<>();
 
     private boolean hasStarlarkOptions = false;
 
@@ -585,16 +619,16 @@ public final class BuildOptions implements Cloneable, Serializable {
       extraSecondFragments.add(options);
     }
 
-    private void putStarlarkDiff(String buildSetting, Object firstValue, Object secondValue) {
+    private void putStarlarkDiff(Label buildSetting, Object firstValue, Object secondValue) {
       skylarkFirst.put(buildSetting, firstValue);
       skylarkSecond.put(buildSetting, secondValue);
     }
 
-    private void addExtraFirstStarlarkOption(String buildSetting) {
+    private void addExtraFirstStarlarkOption(Label buildSetting) {
       extraStarlarkOptionsFirst.add(buildSetting);
     }
 
-    private void addExtraSecondStarlarkOption(String buildSetting, Object value) {
+    private void addExtraSecondStarlarkOption(Label buildSetting, Object value) {
       extraStarlarkOptionsSecond.put(buildSetting, value);
     }
 
@@ -603,22 +637,22 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     @VisibleForTesting
-    Map<String, Object> getStarlarkFirstForTesting() {
+    Map<Label, Object> getStarlarkFirstForTesting() {
       return skylarkFirst;
     }
 
     @VisibleForTesting
-    Map<String, Object> getStarlarkSecondForTesting() {
+    Map<Label, Object> getStarlarkSecondForTesting() {
       return skylarkSecond;
     }
 
     @VisibleForTesting
-    List<String> getExtraStarlarkOptionsFirstForTesting() {
+    List<Label> getExtraStarlarkOptionsFirstForTesting() {
       return extraStarlarkOptionsFirst;
     }
 
     @VisibleForTesting
-    Map<String, Object> getExtraStarlarkOptionsSecondForTesting() {
+    Map<Label, Object> getExtraStarlarkOptionsSecondForTesting() {
       return extraStarlarkOptionsSecond;
     }
 
@@ -669,9 +703,9 @@ public final class BuildOptions implements Cloneable, Serializable {
     private final byte[] baseFingerprint;
     private final String checksum;
 
-    private final Map<String, Object> differingStarlarkOptions;
-    private final List<String> extraFirstStarlarkOptions;
-    private final Map<String, Object> extraSecondStarlarkOptions;
+    private final Map<Label, Object> differingStarlarkOptions;
+    private final List<Label> extraFirstStarlarkOptions;
+    private final Map<Label, Object> extraSecondStarlarkOptions;
 
     @VisibleForTesting
     public OptionsDiffForReconstruction(
@@ -680,9 +714,9 @@ public final class BuildOptions implements Cloneable, Serializable {
         ImmutableList<FragmentOptions> extraSecondFragments,
         byte[] baseFingerprint,
         String checksum,
-        Map<String, Object> differingStarlarkOptions,
-        List<String> extraFirstStarlarkOptions,
-        Map<String, Object> extraSecondStarlarkOptions) {
+        Map<Label, Object> differingStarlarkOptions,
+        List<Label> extraFirstStarlarkOptions,
+        Map<Label, Object> extraSecondStarlarkOptions) {
       this.differingOptions = differingOptions;
       this.extraFirstFragmentClasses = extraFirstFragmentClasses;
       this.extraSecondFragments = extraSecondFragments;
@@ -738,6 +772,141 @@ public final class BuildOptions implements Cloneable, Serializable {
           && differingStarlarkOptions.isEmpty()
           && extraFirstStarlarkOptions.isEmpty()
           && extraSecondStarlarkOptions.isEmpty();
+    }
+
+    /**
+     * Compares the fragment sets in the options described by two diffs with the same base.
+     *
+     * @see ConfigurationComparer
+     */
+    public static ConfigurationComparer.Result compareFragments(
+        OptionsDiffForReconstruction left, OptionsDiffForReconstruction right) {
+      Preconditions.checkArgument(
+          Arrays.equals(left.baseFingerprint, right.baseFingerprint),
+          "Can't compare diffs with different bases: %s and %s",
+          left,
+          right);
+      // This code effectively looks up each piece of data (native fragment or Starlark option) in
+      // this table (numbers reference comments in the code below):
+      // ▼left  right▶  (none)           extraSecond      extraFirst      differing
+      // (none)          equal            right only (#4)  left only (#4)  different (#1)
+      // extraSecond     left only (#4)   compare (#3)     (impossible)    (impossible)
+      // extraFirst      right only (#4)  (impossible)     equal           right only (#4)
+      // differing       different (#1)   (impossible)     left only (#4)  compare (#2)
+
+      // Any difference in shared data is grounds to return DIFFERENT, which happens if:
+      // 1a. any starlark option was changed by one diff, but is neither changed nor removed by
+      // the other
+      if (left.hasChangeToStarlarkOptionUnchangedIn(right)
+          || right.hasChangeToStarlarkOptionUnchangedIn(left)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 1b. any native fragment was changed by one diff, but is neither changed nor removed by
+      // the other
+      if (left.hasChangeToNativeFragmentUnchangedIn(right)
+          || right.hasChangeToNativeFragmentUnchangedIn(left)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 2a. any starlark option was changed by both diffs, but to different values
+      if (!commonKeysHaveEqualValues(
+          left.differingStarlarkOptions, right.differingStarlarkOptions)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 2b. any native fragment was changed by both diffs, but to different values
+      if (!commonKeysHaveEqualValues(left.differingOptions, right.differingOptions)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 3a. any starlark option was added by both diffs, but with different values
+      if (!commonKeysHaveEqualValues(
+          left.extraSecondStarlarkOptions, right.extraSecondStarlarkOptions)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 3b. any native fragment was added by both diffs, but with different values
+      if (!commonKeysHaveEqualValues(
+          left.getExtraSecondFragmentsByClass(), right.getExtraSecondFragmentsByClass())) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+
+      // At this point DIFFERENT is definitely not the result, so depending on which side(s) have
+      // extra data, we can decide which of the remaining choices to return. (#4)
+      boolean leftHasExtraData = left.hasExtraNativeFragmentsOrStarlarkOptionsNotIn(right);
+      boolean rightHasExtraData = right.hasExtraNativeFragmentsOrStarlarkOptionsNotIn(left);
+
+      if (leftHasExtraData && rightHasExtraData) {
+        // If both have data that the other does not, all-shared-fragments-are-equal is all
+        // that can be said.
+        return ConfigurationComparer.Result.ALL_SHARED_FRAGMENTS_EQUAL;
+      } else if (leftHasExtraData) {
+        // If only the left instance has extra data, left is a superset of right.
+        return ConfigurationComparer.Result.SUPERSET;
+      } else if (rightHasExtraData) {
+        // If only the right instance has extra data, left is a subset of right.
+        return ConfigurationComparer.Result.SUBSET;
+      } else {
+        // If there is no extra data, the two options described by these diffs are equal.
+        return ConfigurationComparer.Result.EQUAL;
+      }
+    }
+
+    private boolean hasChangeToStarlarkOptionUnchangedIn(OptionsDiffForReconstruction that) {
+      Set<Label> starlarkOptionsChangedOrRemovedInThat =
+          Sets.union(
+              that.differingStarlarkOptions.keySet(),
+              ImmutableSet.copyOf(that.extraFirstStarlarkOptions));
+      return !starlarkOptionsChangedOrRemovedInThat.containsAll(
+          this.differingStarlarkOptions.keySet());
+    }
+
+    private boolean hasChangeToNativeFragmentUnchangedIn(OptionsDiffForReconstruction that) {
+      Set<Class<? extends FragmentOptions>> nativeFragmentsChangedOrRemovedInThat =
+          Sets.union(that.differingOptions.keySet(), that.extraFirstFragmentClasses);
+      return !nativeFragmentsChangedOrRemovedInThat.containsAll(this.differingOptions.keySet());
+    }
+
+    private Map<Class<? extends FragmentOptions>, FragmentOptions>
+        getExtraSecondFragmentsByClass() {
+      ImmutableMap.Builder<Class<? extends FragmentOptions>, FragmentOptions> builder =
+          new ImmutableMap.Builder<>();
+      for (FragmentOptions options : extraSecondFragments) {
+        builder.put(options.getClass(), options);
+      }
+      return builder.build();
+    }
+
+    private static <K> boolean commonKeysHaveEqualValues(Map<K, ?> left, Map<K, ?> right) {
+      Set<K> commonKeys = Sets.intersection(left.keySet(), right.keySet());
+      for (K commonKey : commonKeys) {
+        if (!Objects.equals(left.get(commonKey), right.get(commonKey))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private boolean hasExtraNativeFragmentsOrStarlarkOptionsNotIn(
+        OptionsDiffForReconstruction that) {
+      // extra fragments/options can be...
+      // starlark options added by this diff, but not that one
+      if (!that.extraSecondStarlarkOptions
+          .keySet()
+          .containsAll(this.extraSecondStarlarkOptions.keySet())) {
+        return true;
+      }
+      // native fragments added by this diff, but not that one
+      if (!that.getExtraSecondFragmentsByClass()
+          .keySet()
+          .containsAll(this.getExtraSecondFragmentsByClass().keySet())) {
+        return true;
+      }
+      // starlark options removed by that diff, but not this one
+      if (!this.extraFirstStarlarkOptions.containsAll(that.extraFirstStarlarkOptions)) {
+        return true;
+      }
+      // native fragments removed by that diff, but not this one
+      if (!this.extraFirstFragmentClasses.containsAll(that.extraFirstFragmentClasses)) {
+        return true;
+      }
+      return false;
     }
 
     @Override
@@ -829,9 +998,9 @@ public final class BuildOptions implements Cloneable, Serializable {
           ImmutableList<FragmentOptions> extraSecondFragments = context.deserialize(codedInput);
           byte[] baseFingerprint = codedInput.readByteArray();
           String checksum = context.deserialize(codedInput);
-          Map<String, Object> differingStarlarkOptions = context.deserialize(codedInput);
-          List<String> extraFirstStarlarkOptions = context.deserialize(codedInput);
-          Map<String, Object> extraSecondStarlarkOptions = context.deserialize(codedInput);
+          Map<Label, Object> differingStarlarkOptions = context.deserialize(codedInput);
+          List<Label> extraFirstStarlarkOptions = context.deserialize(codedInput);
+          Map<Label, Object> extraSecondStarlarkOptions = context.deserialize(codedInput);
           diff =
               new OptionsDiffForReconstruction(
                   differingOptions,

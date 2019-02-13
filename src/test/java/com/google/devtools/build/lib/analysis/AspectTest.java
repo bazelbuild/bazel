@@ -437,7 +437,10 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+          ConfiguredTargetAndData ctadBase,
+          RuleContext ruleContext,
+          AspectParameters parameters,
+          String toolsRepository)
           throws InterruptedException, ActionConflictException {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
         return new ConfiguredAspect.Builder(this, parameters, ruleContext)
@@ -507,7 +510,10 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+          ConfiguredTargetAndData ctadBase,
+          RuleContext ruleContext,
+          AspectParameters parameters,
+          String toolsRepository)
           throws InterruptedException, ActionConflictException {
         ruleContext.registerAction(new NullAction(ruleContext.createOutputArtifact()));
         return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();

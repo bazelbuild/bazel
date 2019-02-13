@@ -7,8 +7,8 @@ title: Build Tutorial - Android
 
 In this tutorial, you will learn how to build a simple Android app using Bazel.
 
-Bazel supports building Android apps using the [Android
-rules](https://docs.bazel.build/versions/master/be/android.html).
+Bazel supports building Android apps using the
+[Android rules](../be/android.html).
 
 This tutorial is intended for Windows, macOS and Linux users and does not
 require experience with Bazel or Android app development. You do not need to
@@ -182,7 +182,7 @@ from the `ANDROID_NDK_HOME` environment variable by default. The path can also
 be explicitly specified with a `path` attribute on `android_ndk_repository`.
 
 For more information, read [Using the Android Native Development Kit with
-Bazel](https://docs.bazel.build/versions/master/android-ndk.html).
+Bazel](../android-ndk.html).
 
 `api_level` is the version of the Android API that the SDK and NDK
 target - for example, 23 for Android 6.0 and 25 for Android 7.1. If not
@@ -356,12 +356,6 @@ Enter the following:
 ```bash
 bazel mobile-install //src/main:app
 ```
-
-> **Note**: `mobile-install` may not work if your device is running Android 9
-> (Pie). This issue is being tracked
-> [here](https://github.com/bazelbuild/examples/issues/77).
-> As a workaround, use `adb install bazel-bin/src/main/app.apk` to install the
-> APK on the device.
 
 Next, find and launch the "Bazel Tutorial App", which looks as follows:
 

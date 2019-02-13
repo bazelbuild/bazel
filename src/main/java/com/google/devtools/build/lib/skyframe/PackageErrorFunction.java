@@ -33,10 +33,11 @@ import javax.annotation.Nullable;
 
 /**
  * SkyFunction that throws a {@link BuildFileContainsErrorsException} for {@link Package} that
- * loaded, but was in error. Must only be requested when a SkyFunction wishes to ignore the errors
- * in a {@link Package} in keep_going mode, but to shut down the build in nokeep_going mode. Thus,
- * this SkyFunction should only be requested when the corresponding {@link PackageFunction} has
- * already been successfully called and the resulting Package contains an error.
+ * loaded, but was in error. Must only be requested when a SkyFunction wishes to ignore the Skyframe
+ * error from a {@link PackageValue} in keep_going mode, but to shut down the build in nokeep_going
+ * mode. Thus, this SkyFunction should only be requested when the corresponding {@link
+ * PackageFunction} has already been successfully called and the resulting Package contains an
+ * error.
  *
  * <p>This SkyFunction never returns a value, only throws a {@link BuildFileNotFoundException}, and
  * should never return null, since all of its dependencies should already be present.

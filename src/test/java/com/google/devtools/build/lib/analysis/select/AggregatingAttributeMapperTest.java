@@ -57,7 +57,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
 
   private static Label getDefaultMallocLabel(Rule rule) {
     return Verify.verifyNotNull(
-        (Label) rule.getRuleClassObject().getAttributeByName("malloc").getDefaultValueForTesting());
+        (Label) rule.getRuleClassObject().getAttributeByName("malloc").getDefaultValueUnchecked());
   }
 
   /**

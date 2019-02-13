@@ -36,18 +36,20 @@ import java.util.logging.Level;
  */
 public class CommonCommandOptions extends OptionsBase {
 
-  // To create a new incompatible change, see the javadoc for AllIncompatibleChangesExpansion.
+  /**
+   * To create a new incompatible change, see the javadoc for {@link
+   * AllIncompatibleChangesExpansion}.
+   */
   @Option(
-    name = "all_incompatible_changes",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    expansionFunction = AllIncompatibleChangesExpansion.class,
-    help =
-        "Enables all options of the form --incompatible_*. Use this option to find places where "
-            + "your build may break in the future due to deprecations or other changes."
-  )
+      name = "all_incompatible_changes",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      expansionFunction = AllIncompatibleChangesExpansion.class,
+      help =
+          "Enables all options of the form --incompatible_*. Use this option to find places where "
+              + "your build may break in the future due to deprecations or other changes.")
   public Void allIncompatibleChanges;
 
   @Option(

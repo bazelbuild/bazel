@@ -26,6 +26,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -40,7 +42,6 @@ import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,13 +52,22 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for toolchain features. */
 @RunWith(JUnit4.class)
-public class CcToolchainFeaturesTest extends FoundationTestCase {
+public class CcToolchainFeaturesTest extends BuildViewTestCase {
+
+  private RuleContext ruleContext;
+
+  @Before
+  public void setup() throws Exception {
+    scratch.file("foo/BUILD", "cc_library(name = 'foo')");
+    ruleContext = getRuleContext(getConfiguredTarget("//foo:foo"));
+  }
 
   /**
    * Creates a {@code Variables} configuration from a list of key/value pairs.
@@ -86,19 +96,19 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     return variables.build();
   }
 
-  /**
-   * Creates a CcToolchainFeatures from features described in the given toolchain fragment.
-   */
-  public static CcToolchainFeatures buildFeatures(String... toolchain) throws Exception {
+  /** Creates a CcToolchainFeatures from features described in the given toolchain fragment. */
+  public static CcToolchainFeatures buildFeatures(RuleContext ruleContext, String... toolchain)
+      throws Exception {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        CcToolchainConfigInfo.fromToolchain(ruleContext, toolchainBuilder.buildPartial()),
         PathFragment.create("crosstool/"));
   }
 
   /** Creates a CcToolchainFeatures from given features and action configs. */
   public static CcToolchainFeatures buildFeatures(
+      RuleContext ruleContext,
       ImmutableList<CToolchain.Feature> features,
       ImmutableList<CToolchain.ActionConfig> actionConfigs)
       throws Exception {
@@ -106,16 +116,16 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     toolchainBuilder.addAllFeature(features);
     toolchainBuilder.addAllActionConfig(actionConfigs);
     return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        CcToolchainConfigInfo.fromToolchain(ruleContext, toolchainBuilder.buildPartial()),
         PathFragment.create("crosstool/"));
   }
 
   /** Creates an empty CcToolchainFeatures. */
-  public static CcToolchainFeatures buildEmptyFeatures(String... toolchain) throws Exception {
+  public CcToolchainFeatures buildEmptyFeatures(String... toolchain) throws Exception {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        CcToolchainConfigInfo.fromToolchain(ruleContext, toolchainBuilder.buildPartial()),
         PathFragment.EMPTY_FRAGMENT);
   }
 
@@ -147,11 +157,13 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testFeatureConfigurationCodec() throws Exception {
     FeatureConfiguration emptyConfiguration =
         buildEmptyFeatures("").getFeatureConfiguration(ImmutableSet.of());
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//foo:foo"));
     FeatureConfiguration emptyFeatures =
-        buildFeatures("feature {name: 'a'}", "feature {name: 'b'}")
+        buildFeatures(ruleContext, "feature {name: 'a'}", "feature {name: 'b'}")
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));
     FeatureConfiguration featuresWithFlags =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "   name: 'a'",
                 "   flag_set {",
@@ -173,6 +185,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));
     FeatureConfiguration featureWithEnvSet =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "   name: 'a'",
                 "   env_set {",
@@ -200,15 +213,19 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   @Test
   public void testUnconditionalFeature() throws Exception {
-    assertThat(buildFeatures("").getFeatureConfiguration(ImmutableSet.of("a")).isEnabled("a"))
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//foo:foo"));
+    assertThat(
+            buildFeatures(ruleContext, "")
+                .getFeatureConfiguration(ImmutableSet.of("a"))
+                .isEnabled("a"))
         .isFalse();
     assertThat(
-            buildFeatures("feature { name: 'a' }")
+            buildFeatures(ruleContext, "feature { name: 'a' }")
                 .getFeatureConfiguration(ImmutableSet.of("b"))
                 .isEnabled("a"))
         .isFalse();
     assertThat(
-            buildFeatures("feature { name: 'a' }")
+            buildFeatures(ruleContext, "feature { name: 'a' }")
                 .getFeatureConfiguration(ImmutableSet.of("a"))
                 .isEnabled("a"))
         .isTrue();
@@ -217,7 +234,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   @Test
   public void testUnsupportedAction() throws Exception {
     FeatureConfiguration configuration =
-        buildFeatures("").getFeatureConfiguration(ImmutableSet.of());
+        buildFeatures(ruleContext, "").getFeatureConfiguration(ImmutableSet.of());
     assertThat(configuration.getCommandLine("invalid-action", createVariables())).isEmpty();
   }
 
@@ -225,6 +242,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testFlagOrderEqualsSpecOrder() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  flag_set {",
@@ -257,6 +275,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testEnvVars() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  env_set {",
@@ -332,6 +351,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
       throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  flag_set {",
@@ -898,6 +918,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
     try {
       buildFeatures(
+          ruleContext,
           "feature {",
           "  name: 'a'",
           "  flag_set {",
@@ -916,21 +937,25 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   @Test
   public void testImplies() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' implies: 'b' implies: 'c' }",
-        "feature { name: 'b' }",
-        "feature { name: 'c' implies: 'd' }",
-        "feature { name: 'd' }",
-        "feature { name: 'e' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' implies: 'b' implies: 'c' }",
+            "feature { name: 'b' }",
+            "feature { name: 'c' implies: 'd' }",
+            "feature { name: 'd' }",
+            "feature { name: 'e' }");
     assertThat(getEnabledFeatures(features, "a")).containsExactly("a", "b", "c", "d");
   }
 
   @Test
   public void testRequires() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' requires: { feature: 'b' } }",
-        "feature { name: 'b' requires: { feature: 'c' } }",
-        "feature { name: 'c' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' requires: { feature: 'b' } }",
+            "feature { name: 'b' requires: { feature: 'c' } }",
+            "feature { name: 'c' }");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "b")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "c")).containsExactly("c");
@@ -939,40 +964,52 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   @Test
   public void testDisabledRequirementChain() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' }",
-        "feature { name: 'b' requires: { feature: 'c' } implies: 'a' }",
-        "feature { name: 'c' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' }",
+            "feature { name: 'b' requires: { feature: 'c' } implies: 'a' }",
+            "feature { name: 'c' }");
     assertThat(getEnabledFeatures(features, "b")).isEmpty();
-    features = buildFeatures(
-        "feature { name: 'a' }",
-        "feature { name: 'b' requires: { feature: 'a' } implies: 'c' }",
-        "feature { name: 'c' }",
-        "feature { name: 'd' requires: { feature: 'c' } implies: 'e' }",
-        "feature { name: 'e' }");
+    features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' }",
+            "feature { name: 'b' requires: { feature: 'a' } implies: 'c' }",
+            "feature { name: 'c' }",
+            "feature { name: 'd' requires: { feature: 'c' } implies: 'e' }",
+            "feature { name: 'e' }");
     assertThat(getEnabledFeatures(features, "b", "d")).isEmpty();
   }
 
   @Test
   public void testEnabledRequirementChain() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: '0' implies: 'a' }",
-        "feature { name: 'a' }",
-        "feature { name: 'b' requires: { feature: 'a' } implies: 'c' }",
-        "feature { name: 'c' }",
-        "feature { name: 'd' requires: { feature: 'c' } implies: 'e' }",
-        "feature { name: 'e' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: '0' implies: 'a' }",
+            "feature { name: 'a' }",
+            "feature { name: 'b' requires: { feature: 'a' } implies: 'c' }",
+            "feature { name: 'c' }",
+            "feature { name: 'd' requires: { feature: 'c' } implies: 'e' }",
+            "feature { name: 'e' }");
     assertThat(getEnabledFeatures(features, "0", "b", "d")).containsExactly(
         "0", "a", "b", "c", "d", "e");
   }
 
   @Test
   public void testLogicInRequirements() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' requires: { feature: 'b' feature: 'c' } requires: { feature: 'd' } }",
-        "feature { name: 'b' }",
-        "feature { name: 'c' }",
-        "feature { name: 'd' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature {",
+            "  name: 'a'",
+            "  requires: { feature: 'b' feature: 'c' }",
+            "  requires: { feature: 'd' }",
+            "}",
+            "feature { name: 'b' }",
+            "feature { name: 'c' }",
+            "feature { name: 'd' }");
     assertThat(getEnabledFeatures(features, "a", "b", "c")).containsExactly("a", "b", "c");
     assertThat(getEnabledFeatures(features, "a", "b")).containsExactly("b");
     assertThat(getEnabledFeatures(features, "a", "c")).containsExactly("c");
@@ -981,31 +1018,37 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   @Test
   public void testImpliesImpliesRequires() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' implies: 'b' }",
-        "feature { name: 'b' requires: { feature: 'c' } }",
-        "feature { name: 'c' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' implies: 'b' }",
+            "feature { name: 'b' requires: { feature: 'c' } }",
+            "feature { name: 'c' }");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
   }
 
   @Test
   public void testMultipleImplies() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' implies: 'b' implies: 'c' implies: 'd' }",
-        "feature { name: 'b' }",
-        "feature { name: 'c' requires: { feature: 'e' } }",
-        "feature { name: 'd' }",
-        "feature { name: 'e' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' implies: 'b' implies: 'c' implies: 'd' }",
+            "feature { name: 'b' }",
+            "feature { name: 'c' requires: { feature: 'e' } }",
+            "feature { name: 'd' }",
+            "feature { name: 'e' }");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "e")).containsExactly("a", "b", "c", "d", "e");
   }
 
   @Test
   public void testDisabledFeaturesDoNotEnableImplications() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' implies: 'b' requires: { feature: 'c' } }",
-        "feature { name: 'b' }",
-        "feature { name: 'c' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' implies: 'b' requires: { feature: 'c' } }",
+            "feature { name: 'b' }",
+            "feature { name: 'c' }");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
   }
 
@@ -1013,6 +1056,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testFeatureNameCollision() throws Exception {
     try {
       buildFeatures(
+          ruleContext,
           "feature { name: '<<<collision>>>' }",
           "feature { name: '<<<collision>>>' }");
       fail("Expected EvalException");
@@ -1024,7 +1068,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   @Test
   public void testReferenceToUndefinedFeature() throws Exception {
     try {
-      buildFeatures("feature { name: 'a' implies: '<<<undefined>>>' }");
+      buildFeatures(ruleContext, "feature { name: 'a' implies: '<<<undefined>>>' }");
       fail("Expected EvalException");
     } catch (EvalException e) {
       assertThat(e).hasMessageThat().contains("<<<undefined>>>");
@@ -1033,22 +1077,26 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   @Test
   public void testImpliesWithCycle() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' implies: 'b' }",
-        "feature { name: 'b' implies: 'a' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' implies: 'b' }",
+            "feature { name: 'b' implies: 'a' }");
     assertThat(getEnabledFeatures(features, "a")).containsExactly("a", "b");
     assertThat(getEnabledFeatures(features, "b")).containsExactly("a", "b");
  }
 
   @Test
   public void testMultipleImpliesCycle() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' implies: 'b' implies: 'c' implies: 'd' }",
-        "feature { name: 'b' }",
-        "feature { name: 'c' requires: { feature: 'e' } }",
-        "feature { name: 'd' requires: { feature: 'f' } }",
-        "feature { name: 'e' requires: { feature: 'c' } }",
-        "feature { name: 'f' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' implies: 'b' implies: 'c' implies: 'd' }",
+            "feature { name: 'b' }",
+            "feature { name: 'c' requires: { feature: 'e' } }",
+            "feature { name: 'd' requires: { feature: 'f' } }",
+            "feature { name: 'e' requires: { feature: 'c' } }",
+            "feature { name: 'f' }");
     assertThat(getEnabledFeatures(features, "a", "e")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "e", "f")).containsExactly(
         "a", "b", "c", "d", "e", "f");
@@ -1056,11 +1104,13 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   @Test
   public void testRequiresWithCycle() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' requires: { feature: 'b' } }",
-        "feature { name: 'b' requires: { feature: 'a' } }",
-        "feature { name: 'c' implies: 'a' }",
-        "feature { name: 'd' implies: 'b' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' requires: { feature: 'b' } }",
+            "feature { name: 'b' requires: { feature: 'a' } }",
+            "feature { name: 'c' implies: 'a' }",
+            "feature { name: 'd' implies: 'b' }");
     assertThat(getEnabledFeatures(features, "c")).isEmpty();
     assertThat(getEnabledFeatures(features, "d")).isEmpty();
     assertThat(getEnabledFeatures(features, "c", "d")).containsExactly("a", "b", "c", "d");
@@ -1068,21 +1118,25 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   @Test
   public void testImpliedByOneEnabledAndOneDisabledFeature() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' }",
-        "feature { name: 'b' requires: { feature: 'a' } implies: 'd' }",
-        "feature { name: 'c' implies: 'd' }",
-        "feature { name: 'd' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' }",
+            "feature { name: 'b' requires: { feature: 'a' } implies: 'd' }",
+            "feature { name: 'c' implies: 'd' }",
+            "feature { name: 'd' }");
     assertThat(getEnabledFeatures(features, "b", "c")).containsExactly("c", "d");
   }
 
   @Test
   public void testRequiresOneEnabledAndOneUnsupportedFeature() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature { name: 'a' requires: { feature: 'b' } requires: { feature: 'c' } }",
-        "feature { name: 'b' }",
-        "feature { name: 'c' requires: { feature: 'd' } }",
-        "feature { name: 'd' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature { name: 'a' requires: { feature: 'b' } requires: { feature: 'c' } }",
+            "feature { name: 'b' }",
+            "feature { name: 'c' requires: { feature: 'd' } }",
+            "feature { name: 'd' }");
     assertThat(getEnabledFeatures(features, "a", "b", "c")).containsExactly("a", "b");
   }
 
@@ -1090,6 +1144,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testFlagSetWithMissingVariableIsNotExpanded() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  flag_set {",
@@ -1112,6 +1167,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testOnlyFlagSetsWithAllVariablesPresentAreExpanded() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  flag_set {",
@@ -1140,6 +1196,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testOnlyInnerFlagSetIsIteratedWithSequenceVariable() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  flag_set {",
@@ -1171,6 +1228,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testFlagSetsAreIteratedIndividuallyForSequenceVariables() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  flag_set {",
@@ -1200,18 +1258,20 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
 
   @Test
   public void testConfiguration() throws Exception {
-    CcToolchainFeatures features = buildFeatures(
-        "feature {",
-        "  name: 'a'",
-        "  flag_set {",
-        "    action: 'c++-compile'",
-        "    flag_group {",
-        "      flag: '-f'",
-        "      flag: '%{v}'",
-        "    }",
-        "  }",
-        "}",
-        "feature { name: 'b' implies: 'a' }");
+    CcToolchainFeatures features =
+        buildFeatures(
+            ruleContext,
+            "feature {",
+            "  name: 'a'",
+            "  flag_set {",
+            "    action: 'c++-compile'",
+            "    flag_group {",
+            "      flag: '-f'",
+            "      flag: '%{v}'",
+            "    }",
+            "  }",
+            "}",
+            "feature { name: 'b' implies: 'a' }");
     assertThat(getEnabledFeatures(features, "b")).containsExactly("a", "b");
     assertThat(
             features
@@ -1232,14 +1292,16 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   @Test
   public void testDefaultFeatures() throws Exception {
     CcToolchainFeatures features =
-        buildFeatures("feature { name: 'a' }", "feature { name: 'b' enabled: true }");
+        buildFeatures(ruleContext, "feature { name: 'a' }", "feature { name: 'b' enabled: true }");
     assertThat(features.getDefaultFeaturesAndActionConfigs()).containsExactly("b");
   }
 
   @Test
   public void testDefaultActionConfigs() throws Exception {
     CcToolchainFeatures features =
-        buildFeatures("action_config { config_name: 'a' action_name: 'a'}",
+        buildFeatures(
+            ruleContext,
+            "action_config { config_name: 'a' action_name: 'a'}",
             "action_config { config_name: 'b' action_name: 'b' enabled: true }");
     assertThat(features.getDefaultFeaturesAndActionConfigs()).containsExactly("b");
   }
@@ -1248,6 +1310,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testWithFeature_OneSetOneFeature() throws Exception {
     CcToolchainFeatures features =
         buildFeatures(
+            ruleContext,
             "feature {",
             "  name: 'a'",
             "  flag_set {",
@@ -1275,6 +1338,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testWithFeature_OneSetMultipleFeatures() throws Exception {
     CcToolchainFeatures features =
         buildFeatures(
+            ruleContext,
             "feature {",
             "  name: 'a'",
             "  flag_set {",
@@ -1308,6 +1372,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testWithFeature_MulipleSetsMultipleFeatures() throws Exception {
     CcToolchainFeatures features =
         buildFeatures(
+            ruleContext,
             "feature {",
             "  name: 'a'",
             "  flag_set {",
@@ -1344,6 +1409,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testWithFeature_NotFeature() throws Exception {
     CcToolchainFeatures features =
         buildFeatures(
+            ruleContext,
             "feature {",
             "  name: 'a'",
             "  flag_set {",
@@ -1390,6 +1456,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testActivateActionConfigFromFeature() throws Exception {
     CcToolchainFeatures toolchainFeatures =
         buildFeatures(
+            ruleContext,
             "action_config {",
             "  config_name: 'action-a'",
             "  action_name: 'action-a'",
@@ -1413,6 +1480,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testFeatureCanRequireActionConfig() throws Exception {
     CcToolchainFeatures toolchainFeatures =
         buildFeatures(
+            ruleContext,
             "action_config {",
             "  config_name: 'action-a'",
             "  action_name: 'action-a'",
@@ -1439,6 +1507,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testSimpleActionTool() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
+                ruleContext,
                 "action_config {",
                 "  config_name: 'action-a'",
                 "  action_name: 'action-a'",
@@ -1458,6 +1527,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testActionToolFromFeatureSet() throws Exception {
     CcToolchainFeatures toolchainFeatures =
         buildFeatures(
+            ruleContext,
             "action_config {",
             "  config_name: 'action-a'",
             "  action_name: 'action-a'",
@@ -1538,6 +1608,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testErrorForNoMatchingTool() throws Exception {
     CcToolchainFeatures toolchainFeatures =
         buildFeatures(
+            ruleContext,
             "action_config {",
             "  config_name: 'action-a'",
             "  action_name: 'action-a'",
@@ -1571,6 +1642,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testActivateActionConfigDirectly() throws Exception {
     CcToolchainFeatures toolchainFeatures =
         buildFeatures(
+            ruleContext,
             "action_config {",
             "  config_name: 'action-a'",
             "  action_name: 'action-a'",
@@ -1590,6 +1662,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testActionConfigCanActivateFeature() throws Exception {
     CcToolchainFeatures toolchainFeatures =
         buildFeatures(
+            ruleContext,
             "action_config {",
             "  config_name: 'action-a'",
             "  action_name: 'action-a'",
@@ -1613,6 +1686,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testInvalidActionConfigurationDuplicateActionConfigs() throws Exception {
     try {
       buildFeatures(
+          ruleContext,
           "action_config {",
           "  config_name: 'action-a'",
           "  action_name: 'action-1'",
@@ -1633,6 +1707,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testInvalidActionConfigurationMultipleActionConfigsForAction() throws Exception {
     try {
       buildFeatures(
+          ruleContext,
           "action_config {",
           "  config_name: 'name-a'",
           "  action_name: 'action-a'",
@@ -1651,6 +1726,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testFlagsFromActionConfig() throws Exception {
     FeatureConfiguration featureConfiguration =
         buildFeatures(
+                ruleContext,
                 "action_config {",
                 "  config_name: 'c++-compile'",
                 "  action_name: 'c++-compile'",
@@ -1668,6 +1744,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testErrorForFlagFromActionConfigWithSpecifiedAction() throws Exception {
     try {
       buildFeatures(
+              ruleContext,
               "action_config {",
               "  config_name: 'c++-compile'",
               "  action_name: 'c++-compile'",
@@ -1721,6 +1798,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testProvidesCollision() throws Exception {
     try {
       buildFeatures(
+              ruleContext,
               "feature {",
               " name: 'a'",
               " provides: 'provides_string'",
@@ -1740,6 +1818,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testErrorForNoMatchingArtifactNamePatternCategory() throws Exception {
     try {
       buildFeatures(
+          ruleContext,
           "artifact_name_pattern {",
           "category_name: 'NONEXISTENT_CATEGORY'",
           "prefix: 'foo'",
@@ -1757,6 +1836,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     try {
       CcToolchainFeatures toolchainFeatures =
           buildFeatures(
+              ruleContext,
               "artifact_name_pattern {",
               "category_name: 'static_library'",
               "prefix: 'foo'",
@@ -1777,6 +1857,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
   public void testGetArtifactNameExtensionForCategory() throws Exception {
     CcToolchainFeatures toolchainFeatures =
         buildFeatures(
+            ruleContext,
             "artifact_name_pattern {",
             "  category_name: 'object_file'",
             "  prefix: ''",

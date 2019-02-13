@@ -15,6 +15,7 @@
 package com.google.devtools.skylark.skylint;
 
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.skylark.common.LocationRange;
 
 /** An issue found by the linter. */
 public class Issue {

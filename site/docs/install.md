@@ -21,5 +21,8 @@ See the instructions for installing Bazel on:
 *   [Parabola](https://www.parabola.nu/packages/?q=bazel)
 *   [FreeBSD](https://www.freshports.org/devel/bazel)
 
+## Community-Supported Architectures
+*   [ppc64le](https://oplab9.parqtec.unicamp.br/pub/ppc64el/bazel)
+
 
 For other platforms, you can try to [compile from source](install-compile-source.md).

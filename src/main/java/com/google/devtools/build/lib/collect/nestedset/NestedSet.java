@@ -22,8 +22,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ByteString;
 import java.util.AbstractCollection;
 import java.util.Arrays;
@@ -193,9 +196,13 @@ public final class NestedSet<E> implements Iterable<E> {
   Object getChildren() {
     if (children instanceof ListenableFuture) {
       try {
-        return ((ListenableFuture<Object[]>) children).get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new IllegalStateException(e);
+        return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
+      } catch (InterruptedException e) {
+        System.err.println(
+            "An interrupted exception occurred during nested set deserialization, "
+                + "exiting abruptly.");
+        BugReport.handleCrash(e, ExitCode.INTERRUPTED.getNumericExitCode());
+        throw new IllegalStateException("Server should have shut down.", e);
       }
     } else {
       return children;

@@ -23,7 +23,8 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
-import com.google.devtools.build.lib.skyframe.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -47,15 +48,18 @@ public class WorkspaceFileFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final RuleClassProvider ruleClassProvider;
+  private final SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
   private static final PackageIdentifier rootPackage = PackageIdentifier.createInMainRepo("");
 
   public WorkspaceFileFunction(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
     this.packageFactory = packageFactory;
     this.directories = directories;
     this.ruleClassProvider = ruleClassProvider;
+    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
   }
 
   @Override
@@ -121,11 +125,16 @@ public class WorkspaceFileFunction implements SkyFunction {
       BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
       PackageFunction.SkylarkImportResult importResult =
           PackageFunction.fetchImportsFromBuildFile(
-              repoWorkspace, rootPackage, ast, key.getIndex(), env, null);
+              repoWorkspace,
+              rootPackage,
+              ast,
+              key.getIndex(),
+              env,
+              skylarkImportLookupFunctionForInlining);
       if (importResult == null) {
         return null;
       }
-      parser.execute(ast, importResult.importMap, skylarkSemantics);
+      parser.execute(ast, importResult.importMap, skylarkSemantics, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {

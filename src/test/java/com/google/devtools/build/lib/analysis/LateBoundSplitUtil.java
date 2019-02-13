@@ -14,22 +14,15 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.MockRule;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -48,18 +41,6 @@ public class LateBoundSplitUtil {
     )
     public String fooFlag;
   }
-
-  /** The split. */
-  @AutoCodec @AutoCodec.VisibleForSerialization
-  static final SplitTransition SIMPLE_SPLIT =
-      (SplitTransition)
-          buildOptions -> {
-            BuildOptions split1 = buildOptions.clone();
-            split1.get(TestOptions.class).fooFlag = "one";
-            BuildOptions split2 = buildOptions.clone();
-            split2.get(TestOptions.class).fooFlag = "two";
-            return ImmutableList.of(split1, split2);
-          };
 
   /** The {@link BuildConfiguration.Fragment} that contains the options. */
   @AutoCodec
@@ -86,25 +67,6 @@ public class LateBoundSplitUtil {
     }
   }
 
-  /** A custom rule that applies a late-bound split attribute. */
-  static final RuleDefinition RULE_WITH_LATEBOUND_SPLIT_ATTR =
-      (MockRule)
-          () ->
-              MockRule.define(
-                  "rule_with_latebound_split",
-                  (builder, env) -> {
-                    builder
-                        .add(
-                            attr(":latebound_split_attr", BuildType.LABEL)
-                                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                                .allowedRuleClasses(Attribute.ANY_RULE)
-                                .cfg(SIMPLE_SPLIT)
-                                .value(
-                                    Attribute.LateBoundDefault.fromConstantForTesting(
-                                        Label.parseAbsoluteUnchecked("//foo:latebound_dep"))))
-                        .requiresConfigurationFragments(TestFragment.class);
-                  });
-
   /**
    * A custom rule that requires {@link TestFragment}.
    */
@@ -118,7 +80,6 @@ public class LateBoundSplitUtil {
   static ConfiguredRuleClassProvider getRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addRuleDefinition(RULE_WITH_LATEBOUND_SPLIT_ATTR);
     builder.addRuleDefinition(RULE_WITH_TEST_FRAGMENT);
     builder.addConfigurationFragment(new FragmentLoader());
     builder.addConfigurationOptions(TestOptions.class);

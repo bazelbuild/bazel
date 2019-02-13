@@ -11,6 +11,24 @@ are included, in order to make it easier to find this document.
 
 .. contents ::
 
+Nanopb-0.3.5 (2016-02-13)
+=========================
+
+Add support for platforms without uint8_t
+-----------------------------------------
+**Rationale:** Some platforms cannot access 8-bit sized values directly, and
+do not define *uint8_t*. Nanopb previously didn't support these platforms.
+
+**Changes:** References to *uint8_t* were replaced with several alternatives,
+one of them being a new *pb_byte_t* typedef. This in turn uses *uint_least8_t*
+which means the smallest available type.
+
+**Required actions:** If your platform does not have a standards-compliant
+*stdint.h*, it may lack the definition for *[u]int_least8_t*. This must be
+added manually, example can be found in *extra/pb_syshdr.h*.
+
+**Error indications:** Compiler error: "unknown type name 'uint_least8_t'".
+
 Nanopb-0.3.2 (2015-01-24)
 =========================
 

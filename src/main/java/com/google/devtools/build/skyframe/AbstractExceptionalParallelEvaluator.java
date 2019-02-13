@@ -459,14 +459,13 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
       Preconditions.checkNotNull(parentEntry, "%s %s", errorKey, parent);
-      errorKey = parent;
       SkyFunction factory = evaluatorContext.getSkyFunctions().get(parent.functionName());
       if (parentEntry.isDirty()) {
         switch (parentEntry.getDirtyState()) {
           case CHECK_DEPENDENCIES:
             // If this value's child was bubbled up to, it did not signal this value, and so we must
             // manually make it ready to build.
-            parentEntry.signalDep();
+            parentEntry.signalDep(evaluatorContext.getGraphVersion(), errorKey);
             // Fall through to NEEDS_REBUILDING, since state is now NEEDS_REBUILDING.
           case NEEDS_REBUILDING:
             maybeMarkRebuilding(parentEntry);
@@ -481,6 +480,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
         }
       }
+      errorKey = parent;
       SkyFunctionEnvironment env =
           new SkyFunctionEnvironment(
               parent,
@@ -541,14 +541,15 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   }
 
   private void replay(ValueWithMetadata valueWithMetadata) {
-    // TODO(bazel-team): Verify that message replay is fast and works in failure
-    // modes [skyframe-core]
+    // Replaying actions is done on a small number of nodes, but potentially over a large dependency
+    // graph. Under those conditions, using the regular NestedSet flattening with .toCollection()
+    // is more efficient than using NestedSetVisitor's custom traversal logic.
     evaluatorContext
         .getReplayingNestedSetPostableVisitor()
-        .visit(valueWithMetadata.getTransitivePostables());
+        .visit(valueWithMetadata.getTransitivePostables().toCollection());
     evaluatorContext
         .getReplayingNestedSetEventVisitor()
-        .visit(valueWithMetadata.getTransitiveEvents());
+        .visit(valueWithMetadata.getTransitiveEvents().toCollection());
   }
 
   abstract <T extends SkyValue> EvaluationResult<T> constructResultExceptionally(
@@ -683,7 +684,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
         prevEntry.markRebuilding();
       }
-      prevEntry.setValue(value, version);
+      prevEntry.setValue(
+          value,
+          version,
+          prevEntry.canPruneDepsByFingerprint() ? new DepFingerprintList.Builder(0).build() : null);
       // Now that this key's injected value is set, it is no longer dirty.
       progressReceiver.injected(key);
     }

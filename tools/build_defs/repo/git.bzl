@@ -13,7 +13,7 @@
 # limitations under the License.
 """Rules for cloning external git repositories."""
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "update_attrs", "workspace_and_buildfile")
 
 
 def _if_debug(cond, st, what="Action"):
@@ -128,6 +128,7 @@ def _clone_or_update(ctx):
             fail("Error fetching {}:\n{}\n----\n{}".format(ctx.name, st.stdout, st.stderr))
 
         st = ctx.execute([bash_exe, "-c", """
+    cd {working_dir}
     set -ex
         rm -rf '{directory}' '{dir_link}'
         git -C '{git_cache}' worktree prune
@@ -148,6 +149,7 @@ def _clone_or_update(ctx):
             fail("Error checking out worktree %s:\n%s" % (ctx.name, st.stderr))
     else:
         st = ctx.execute([bash_exe, "-c", """
+    cd {working_dir}
     set -ex
     ( cd {working_dir} &&
         if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
@@ -216,15 +218,8 @@ def _remove_dot_git(ctx):
         "rm -rf '{directory}'".format(directory = ctx.path(".git")),
     ])
 
-def _update_commit(orig, keys, override):
-    # Merge the override information into the dict, resulting by taking the
-    # given keys, as well as the name, from orig (if present there).
-    result = {}
-    for key in keys:
-        if getattr(orig, key) != None:
-            result[key] = getattr(orig, key)
-    result["name"] = orig.name
-    result.update(override)
+def _update_git_attrs(orig, keys, override):
+    result = update_attrs(orig, keys, override)
 
     # if we found the actual commit, remove all other means of specifying it,
     # like tag or branch.
@@ -263,13 +258,13 @@ def _new_git_repository_implementation(ctx):
     workspace_and_buildfile(ctx)
     patch(ctx)
     _remove_dot_git(ctx)
-    return _update_commit(ctx.attr, _new_git_repository_attrs.keys(), update)
+    return _update_git_attrs(ctx.attr, _new_git_repository_attrs.keys(), update)
 
 def _git_repository_implementation(ctx):
     update = _clone_or_update(ctx)
     patch(ctx)
     _remove_dot_git(ctx)
-    return _update_commit(ctx.attr, _common_attrs.keys(), update)
+    return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)
 
 new_git_repository = repository_rule(
     implementation = _new_git_repository_implementation,

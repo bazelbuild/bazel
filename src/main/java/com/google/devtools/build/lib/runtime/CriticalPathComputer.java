@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
+import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -239,45 +240,26 @@ public class CriticalPathComputer {
    *
    * @return The component to be used for updating the time stats.
    */
+  @SuppressWarnings("ReferenceEquality")
   private CriticalPathComponent tryAddComponent(CriticalPathComponent newComponent) {
-    Action newAction = Preconditions.checkNotNull(newComponent.maybeGetAction(), newComponent);
+    Action newAction = newComponent.getAction();
     Artifact primaryOutput = newAction.getPrimaryOutput();
     CriticalPathComponent storedComponent =
         outputArtifactToComponent.putIfAbsent(primaryOutput, newComponent);
-
     if (storedComponent != null) {
-      Action oldAction = storedComponent.maybeGetAction();
-      if (oldAction != null) {
-        if (!Actions.canBeShared(actionKeyContext, newAction, oldAction)) {
-          throw new IllegalStateException(
-              "Duplicate output artifact found for unsharable actions."
-                  + "This can happen if a previous event registered the action.\n"
-                  + "Old action: "
-                  + oldAction
-                  + "\n\nNew action: "
-                  + newAction
-                  + "\n\nArtifact: "
-                  + primaryOutput
-                  + "\n");
-        }
-      } else {
-        String mnemonic = storedComponent.getMnemonic();
-        String prettyPrint = storedComponent.prettyPrintAction();
-        if (!newAction.getMnemonic().equals(mnemonic)
-            || !newAction.prettyPrint().equals(prettyPrint)) {
-          throw new IllegalStateException(
-              "Duplicate output artifact found for unsharable actions."
-                  + "This can happen if a previous event registered the action.\n"
-                  + "Old action mnemonic and prettyPrint: "
-                  + mnemonic
-                  + ", "
-                  + prettyPrint
-                  + "\n\nNew action: "
-                  + newAction
-                  + "\n\nArtifact: "
-                  + primaryOutput
-                  + "\n");
-        }
+      Action oldAction = storedComponent.getAction();
+      // TODO(b/120663721) Replace this fragile reference equality check with something principled.
+      if (oldAction != newAction && !Actions.canBeShared(actionKeyContext, newAction, oldAction)) {
+        throw new IllegalStateException(
+            "Duplicate output artifact found for unsharable actions."
+                + "This can happen if a previous event registered the action.\n"
+                + "Old action: "
+                + oldAction
+                + "\n\nNew action: "
+                + newAction
+                + "\n\nArtifact: "
+                + primaryOutput
+                + "\n");
       }
     } else {
       storedComponent = newComponent;
@@ -292,8 +274,8 @@ public class CriticalPathComputer {
       CriticalPathComponent old = outputArtifactToComponent.putIfAbsent(output, storedComponent);
       // If two actions run concurrently maybe we find a component by primary output but we are
       // the first updating the rest of the outputs.
-      Preconditions.checkState(old == null || old == storedComponent,
-          "Inconsistent state for %s", newAction);
+      Preconditions.checkState(
+          old == null || old == storedComponent, "Inconsistent state for %s", newAction);
     }
     return storedComponent;
   }
@@ -320,9 +302,23 @@ public class CriticalPathComputer {
   @AllowConcurrentEvents
   public void actionComplete(ActionCompletionEvent event) {
     Action action = event.getAction();
-    CriticalPathComponent component = Preconditions.checkNotNull(
-        outputArtifactToComponent.get(action.getPrimaryOutput()));
+    CriticalPathComponent component =
+        Preconditions.checkNotNull(
+            outputArtifactToComponent.get(action.getPrimaryOutput()), action);
     finalizeActionStat(event.getRelativeActionStartTime(), action, component);
+  }
+
+  /**
+   * Record that the failed rewound action is no longer running. The action may or may not start
+   * again later.
+   */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionRewound(ActionRewoundEvent event) {
+    Action action = event.getFailedRewoundAction();
+    CriticalPathComponent component =
+        Preconditions.checkNotNull(outputArtifactToComponent.get(action.getPrimaryOutput()));
+    component.finishActionExecution(event.getRelativeActionStartTime(), clock.nanoTime());
   }
 
   /** Maximum critical path component found during the build. */
@@ -346,9 +342,8 @@ public class CriticalPathComputer {
   private void addArtifactDependency(CriticalPathComponent actionStats, Artifact input) {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
     if (depComponent != null) {
-      Action action = depComponent.maybeGetAction();
-      if (depComponent.isRunning && action != null) {
-        checkCriticalPathInconsistency(input, action, actionStats);
+      if (depComponent.isRunning()) {
+        checkCriticalPathInconsistency(input, depComponent.getAction(), actionStats);
         return;
       }
       actionStats.addDepInfo(depComponent);

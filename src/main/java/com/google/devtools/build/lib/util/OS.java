@@ -35,6 +35,17 @@ public enum OS {
     this.detectionName = detectionName;
   }
 
+  public String getCanonicalName() {
+    return canonicalName;
+  }
+
+  @Override
+  public String toString() {
+    return getCanonicalName();
+  }
+
+  private static final OS HOST_SYSTEM = determineCurrentOs();
+
   /**
    * The current operating system.
    */
@@ -46,17 +57,8 @@ public enum OS {
     return POSIX_COMPATIBLE.contains(getCurrent());
   }
 
-  public String getCanonicalName() {
-    return canonicalName;
-  }
-
   public static String getVersion() {
     return System.getProperty("os.version");
-  }
-
-  @Override
-  public String toString() {
-    return getCanonicalName();
   }
 
   // We inject a the OS name through blaze.os, so we can have
@@ -80,6 +82,4 @@ public enum OS {
 
     return OS.UNKNOWN;
   }
-
-  private static final OS HOST_SYSTEM = determineCurrentOs();
 }

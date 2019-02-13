@@ -34,17 +34,18 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -290,11 +291,9 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
    */
   public static final Key<Artifact> STRINGS = new Key<>(STABLE_ORDER, "strings", Artifact.class);
 
-  /**
-   * Linking information from cc dependencies.
-   */
-  public static final Key<LinkerInputs.LibraryToLink> CC_LIBRARY =
-      new Key<>(LINK_ORDER, "cc_library", LinkerInputs.LibraryToLink.class);
+  /** Linking information from cc dependencies. */
+  public static final Key<LibraryToLink> CC_LIBRARY =
+      new Key<>(LINK_ORDER, "cc_library", LibraryToLink.class);
 
   /**
    * Linking options from dependencies.
@@ -398,7 +397,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       ImmutableList.<Key<?>>of(
           ASSET_CATALOG,
           BUNDLE_FILE,
-          MERGE_ZIP,
+          // TODO(kaipi): Add this back once we have migrated usages of merge_zip from custom rules.
+          // MERGE_ZIP,
           ROOT_MERGE_ZIP,
           STORYBOARD,
           STRINGS,
@@ -747,12 +747,14 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   /** Returns the list of .a files required for linking that arise from cc libraries. */
-  ImmutableList<Artifact> getCcLibraries() {
-    ImmutableList.Builder<Artifact> ccLibraryBuilder = ImmutableList.builder();
-    for (LinkerInputs.LibraryToLink libraryToLink : get(CC_LIBRARY)) {
-      ccLibraryBuilder.add(libraryToLink.getArtifact());
+  List<Artifact> getCcLibraries() {
+    NestedSetBuilder<LibraryToLink> libraryToLinkListBuilder = NestedSetBuilder.linkOrder();
+    for (LibraryToLink libraryToLink : get(CC_LIBRARY)) {
+      libraryToLinkListBuilder.add(libraryToLink);
     }
-    return ccLibraryBuilder.build();
+    CcLinkingContext ccLinkingContext =
+        CcLinkingContext.builder().addLibraries(libraryToLinkListBuilder.build()).build();
+    return ccLinkingContext.getStaticModeParamsForExecutableLibraries();
   }
 
   /**
@@ -769,19 +771,23 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   // TODO(b/65156211): Investigate subtraction generalized to NestedSet.
   @SuppressWarnings("unchecked") // Due to depending on Key types, when the keys map erases type.
   public ObjcProvider subtractSubtrees(
-      Iterable<ObjcProvider> avoidObjcProviders, Iterable<CcLinkingInfo> avoidCcProviders) {
+      Iterable<ObjcProvider> avoidObjcProviders, Iterable<CcLinkingContext> avoidCcProviders) {
     // LIBRARY and CC_LIBRARY need to be special cased for objc-cc interop.
     // A library which is a dependency of a cc_library may be present in all or any of
     // three possible locations (and may be duplicated!):
     // 1. ObjcProvider.LIBRARY
     // 2. ObjcProvider.CC_LIBRARY
-    // 3. CcLinkingInfo->LibraryToLink->getArtifact()
+    // 3. CcLinkingContext->LibraryToLink->getArtifact()
     // TODO(cpeyser): Clean up objc-cc interop.
     HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
-    for (CcLinkingInfo linkProvider : avoidCcProviders) {
-      NestedSet<LibraryToLink> librariesToLink =
-          linkProvider.getStaticModeParamsForExecutable().getLibraries();
-      for (LibraryToLink libraryToLink : librariesToLink.toList()) {
+    for (CcLinkingContext ccLinkingContext : avoidCcProviders) {
+      List<com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink> librariesToLink =
+          LibraryToLink.convertLibraryToLinkListToLibraryToLinkList(
+              ccLinkingContext.getLibraries(),
+              /* staticMode= */ true,
+              /* forDynamicLibrary= */ false);
+      for (com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink libraryToLink :
+          librariesToLink) {
         avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
       }
     }
@@ -833,8 +839,33 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
    */
   private static Predicate<LibraryToLink> ccLibraryNotYetLinked(
       final HashSet<PathFragment> runfilesPaths) {
-    return libraryToLink -> !runfilesPaths.contains(
-        libraryToLink.getArtifact().getRunfilesPath());
+    return libraryToLink -> !checkIfLibraryIsInPaths(libraryToLink, runfilesPaths);
+  }
+
+  private static boolean checkIfLibraryIsInPaths(
+      LibraryToLink libraryToLink, HashSet<PathFragment> runfilesPaths) {
+    ImmutableList.Builder<PathFragment> libraryRunfilesPaths = ImmutableList.builder();
+    if (libraryToLink.getStaticLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getStaticLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getPicStaticLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getPicStaticLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getDynamicLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getDynamicLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getResolvedSymlinkDynamicLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getInterfaceLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getInterfaceLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getResolvedSymlinkInterfaceLibrary() != null) {
+      libraryRunfilesPaths.add(
+          libraryToLink.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
+    }
+
+    return !Collections.disjoint(libraryRunfilesPaths.build(), runfilesPaths);
   }
 
   @SuppressWarnings("unchecked")

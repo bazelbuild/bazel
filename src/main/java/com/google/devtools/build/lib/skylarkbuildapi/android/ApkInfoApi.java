@@ -48,6 +48,22 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   FileT getApk();
 
+  /** Returns the unsigned APK file built in the transitive closure. */
+  @SkylarkCallable(
+      name = "unsigned_apk",
+      doc = "Returns a unsigned APK built from the target.",
+      documented = false,
+      structField = true)
+  FileT getUnsignedApk();
+
+  /** Returns keystore that was used to sign the APK */
+  @SkylarkCallable(
+      name = "keystore",
+      doc = "Returns a keystore that was used to sign the APK.",
+      documented = false,
+      structField = true)
+  FileT getKeystore();
+
   /** Provider for {@link ApkInfoApi}. */
   @SkylarkModule(
       name = "ApkInfoApiProvider",

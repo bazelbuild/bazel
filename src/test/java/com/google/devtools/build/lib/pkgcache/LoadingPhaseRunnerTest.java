@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
@@ -1003,6 +1004,51 @@ public class LoadingPhaseRunnerTest {
         "Bad target pattern '../foo': package name component contains only '.' characters");
   }
 
+  private void runTestPackageLoadingError(boolean keepGoing, String... patterns) throws Exception {
+    tester.addFile("bad/BUILD", "nope");
+    if (keepGoing) {
+      TargetPatternPhaseValue value = tester.loadKeepGoing(patterns);
+      assertThat(value.hasError()).isTrue();
+      tester.assertContainsWarning("Target pattern parsing failed");
+    } else {
+      TargetParsingException exn =
+          assertThrows(TargetParsingException.class, () -> tester.load(patterns));
+      assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
+      assertThat(exn).hasCauseThat().hasMessageThat().contains("Package 'bad' contains errors");
+    }
+    tester.assertContainsError("/workspace/bad/BUILD:1:1: name 'nope' is not defined");
+  }
+
+  @Test
+  public void testPackageLoadingError_KeepGoing_ExplicitTarget() throws Exception {
+    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad:BUILD");
+  }
+
+  @Test
+  public void testPackageLoadingError_NoKeepGoing_ExplicitTarget() throws Exception {
+    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad:BUILD");
+  }
+
+  @Test
+  public void testPackageLoadingError_KeepGoing_TargetsInPackage() throws Exception {
+    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad:all");
+  }
+
+  @Test
+  public void testPackageLoadingError_NoKeepGoing_TargetsInPackage() throws Exception {
+    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad:all");
+  }
+
+  @Test
+  public void testPackageLoadingError_KeepGoing_TargetsBeneathDirectory() throws Exception {
+    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad/...");
+  }
+
+  @Test
+  public void testPackageLoadingError_NoKeepGoing_TargetsBeneathDirectory() throws Exception {
+    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad/...");
+  }
+
   private static class LoadingPhaseTester {
     private final ManualClock clock = new ManualClock();
     private final Path workspace;
@@ -1041,7 +1087,7 @@ public class LoadingPhaseRunnerTest {
 
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =
-          analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider);
+          analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
       PackageCacheOptions options = Options.getDefaults(PackageCacheOptions.class);
       storedErrors = new StoredEventHandler();
       BuildOptions defaultBuildOptions;
@@ -1089,7 +1135,6 @@ public class LoadingPhaseRunnerTest {
           pkgLocator,
           packageCacheOptions,
           Options.getDefaults(SkylarkSemanticsOptions.class),
-          analysisMock.getDefaultsPackageContent(),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(clock));
@@ -1170,8 +1215,6 @@ public class LoadingPhaseRunnerTest {
     }
 
     private void sync() throws InterruptedException {
-      String pkgContents = analysisMock.getDefaultsPackageContent();
-      skyframeExecutor.setupDefaultPackage(pkgContents);
       clock.advanceMillis(1);
       ModifiedFileSet.Builder builder = ModifiedFileSet.builder();
       for (Path path : changes) {

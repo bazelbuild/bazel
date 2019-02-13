@@ -23,7 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -91,12 +91,13 @@ public class WorkspaceASTFunction implements SkyFunction {
       if (ast.containsErrors()) {
         throw new WorkspaceASTFunctionException(
             new BuildFileContainsErrorsException(
-                Label.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse default WORKSPACE file"),
+                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+                "Failed to parse default WORKSPACE file"),
             Transience.PERSISTENT);
       }
       if (newWorkspaceFileContents != null) {
         ast =
-            BuildFileAST.parseBuildFile(
+            BuildFileAST.parseVirtualBuildFile(
                 ParserInputSource.create(
                     newWorkspaceFileContents, resolvedFile.get().asPath().asFragment()),
                 ast.getStatements(),
@@ -114,7 +115,7 @@ public class WorkspaceASTFunction implements SkyFunction {
         if (ast.containsErrors()) {
           throw new WorkspaceASTFunctionException(
               new BuildFileContainsErrorsException(
-                  Label.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse WORKSPACE file"),
+                  LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse WORKSPACE file"),
               Transience.PERSISTENT);
         }
       }
@@ -129,7 +130,8 @@ public class WorkspaceASTFunction implements SkyFunction {
       if (ast.containsErrors()) {
         throw new WorkspaceASTFunctionException(
             new BuildFileContainsErrorsException(
-                Label.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse default WORKSPACE file suffix"),
+                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+                "Failed to parse default WORKSPACE file suffix"),
             Transience.PERSISTENT);
       }
       return new WorkspaceASTValue(splitAST(ast));
@@ -140,7 +142,7 @@ public class WorkspaceASTFunction implements SkyFunction {
 
   private static WorkspaceASTFunctionException resolvedValueError(String message) {
     return new WorkspaceASTFunctionException(
-        new BuildFileContainsErrorsException(Label.EXTERNAL_PACKAGE_IDENTIFIER, message),
+        new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, message),
         Transience.PERSISTENT);
   }
 

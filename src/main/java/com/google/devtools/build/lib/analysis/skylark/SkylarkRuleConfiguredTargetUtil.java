@@ -29,12 +29,10 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.Whitelist;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.analysis.test.CoverageCommon;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
@@ -62,8 +60,6 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,8 +78,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       ImmutableSet.of("files", "runfiles", "data_runfiles", "default_runfiles", "executable");
 
   /**
-   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
-   * Returns null if there were errors during target creation.
+   * Create a Rule Configured Target from the ruleContext and the ruleImplementation. Returns null
+   * if there were errors during target creation.
    */
   @Nullable
   public static ConfiguredTarget buildRule(
@@ -91,7 +87,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       AdvertisedProviderSet advertisedProviders,
       BaseFunction ruleImplementation,
       Location location,
-      SkylarkSemantics skylarkSemantics)
+      SkylarkSemantics skylarkSemantics,
+      String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     SkylarkRuleContext skylarkRuleContext = null;
@@ -102,10 +99,23 @@ public final class SkylarkRuleConfiguredTargetUtil {
               .setCallerLabel(ruleContext.getLabel())
               .setSemantics(skylarkSemantics)
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
+              .setStarlarkContext(
+                  new BazelStarlarkContext(
+                      toolsRepository,
+                      ruleContext.getTarget().getPackage().getRepositoryMapping(),
+                      ruleContext.getSymbolGenerator()))
               .build(); // NB: loading phase functions are not available: this is analysis already,
       // so we do *not* setLoadingPhase().
 
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
+      if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
+        ruleContext.ruleError(
+            "Found reference to a workspace rule in a context where a build"
+                + " rule was expected; probably a reference to a target in that external"
+                + " repository, properly specified as @reponame//path/to/package:target,"
+                + " should have been specified by the requesting rule.");
+        return null;
+      }
       if (ruleClass.hasFunctionTransitionWhitelist()
           && !Whitelist.isAvailable(ruleContext, FunctionSplitTransitionWhitelist.WHITELIST_NAME)) {
           ruleContext.ruleError("Non-whitelisted use of function-base split transition");
@@ -228,23 +238,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
   }
 
+  @SuppressWarnings("unchecked") // Casting SkylarkList to List<String> is checked by cast().
   private static void addInstrumentedFiles(
       StructImpl insStruct, RuleContext ruleContext, RuleConfiguredTargetBuilder builder)
       throws EvalException {
     Location insLoc = insStruct.getCreationLoc();
-    FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
+    List<String> extensions = null;
     if (insStruct.getFieldNames().contains("extensions")) {
-      @SuppressWarnings("unchecked")
-      List<String> exts = cast("extensions", insStruct, SkylarkList.class, String.class, insLoc);
-      if (exts.isEmpty()) {
-        fileTypeSet = FileTypeSet.NO_FILE;
-      } else {
-        FileType[] fileTypes = new FileType[exts.size()];
-        for (int i = 0; i < fileTypes.length; i++) {
-          fileTypes[i] = FileType.of(exts.get(i));
-        }
-        fileTypeSet = FileTypeSet.of(fileTypes);
-      }
+      extensions = cast("extensions", insStruct, SkylarkList.class, String.class, insLoc);
     }
     List<String> dependencyAttributes = Collections.emptyList();
     if (insStruct.getFieldNames().contains("dependency_attributes")) {
@@ -256,17 +257,13 @@ public final class SkylarkRuleConfiguredTargetUtil {
       sourceAttributes =
           cast("source_attributes", insStruct, SkylarkList.class, String.class, insLoc);
     }
-    InstrumentationSpec instrumentationSpec =
-        new InstrumentationSpec(fileTypeSet)
-            .withSourceAttributes(sourceAttributes.toArray(new String[0]))
-            .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
     InstrumentedFilesInfo instrumentedFilesProvider =
-        InstrumentedFilesCollector.collect(
+        CoverageCommon.createInstrumentedFilesInfo(
+            insStruct.getCreationLoc(),
             ruleContext,
-            instrumentationSpec,
-            InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-            /* rootFiles= */ Collections.emptySet(),
-            /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+            sourceAttributes,
+            dependencyAttributes,
+            extensions);
     builder.addNativeDeclaredProvider(instrumentedFilesProvider);
   }
 
@@ -321,6 +318,16 @@ public final class SkylarkRuleConfiguredTargetUtil {
       // Use the creation location of this struct as a better reference in error messages
       loc = info.getCreationLoc();
       if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
+
+        if (context.getSkylarkSemantics().incompatibleDisallowStructProviderSyntax()) {
+          throw new EvalException(
+              loc,
+              "Returning a struct from a rule implementation function is deprecated and will "
+                  + "be removed soon. It may be temporarily re-enabled by setting "
+                  + "--incompatible_disallow_struct_provider_syntax=false . See "
+                  + "https://github.com/bazelbuild/bazel/issues/7347 for details.");
+        }
+
         // Old-style struct, but it may contain declared providers
         StructImpl struct = (StructImpl) target;
         oldStyleProviders = struct;
@@ -336,10 +343,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
                     "The value of 'providers' should be a sequence of declared providers");
             Provider.Key providerKey = declaredProvider.getProvider().getKey();
             if (declaredProviders.put(providerKey, declaredProvider) != null) {
-              if (context.getSkylarkSemantics().incompatibleDisallowConflictingProviders()) {
-                context.getRuleContext()
-                    .ruleError("Multiple conflicting returned providers with key " + providerKey);
-              }
+              context
+                  .getRuleContext()
+                  .ruleError("Multiple conflicting returned providers with key " + providerKey);
             }
           }
         }
@@ -360,10 +366,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
                     + "a sequence of declared providers");
         Provider.Key providerKey = declaredProvider.getProvider().getKey();
         if (declaredProviders.put(providerKey, declaredProvider)  != null) {
-          if (context.getSkylarkSemantics().incompatibleDisallowConflictingProviders()) {
-            context.getRuleContext()
-                .ruleError("Multiple conflicting returned providers with key " + providerKey);
-          }
+          context
+              .getRuleContext()
+              .ruleError("Multiple conflicting returned providers with key " + providerKey);
         }
       }
     }

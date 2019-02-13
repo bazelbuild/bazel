@@ -34,7 +34,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -163,7 +164,6 @@ public final class RuleContext extends TargetContext
   private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
 
   private final Rule rule;
-  private final ActionLookupKey actionLookupKey;
   /**
    * A list of all aspects applied to the target. If this <code>RuleContext</code>
    * is for a rule implementation, <code>aspects</code> is an empty list.
@@ -188,6 +188,7 @@ public final class RuleContext extends TargetContext
   private final ConstraintSemantics constraintSemantics;
 
   private ActionOwner actionOwner;
+  private final SymbolGenerator<ActionLookupValue.ActionLookupKey> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
@@ -198,8 +199,9 @@ public final class RuleContext extends TargetContext
       ListMultimap<String, ConfiguredTargetAndData> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
+      ImmutableList<Class<? extends Fragment>> universalFragments,
       String ruleClassNameForLogging,
+      ActionLookupValue.ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainContext toolchainContext,
       ConstraintSemantics constraintSemantics) {
@@ -210,7 +212,6 @@ public final class RuleContext extends TargetContext
         builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.target.getAssociatedRule();
-    this.actionLookupKey = builder.actionLookupKey;
     this.aspects = builder.aspects;
     this.aspectDescriptors =
         builder
@@ -231,6 +232,7 @@ public final class RuleContext extends TargetContext
     this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
     this.ruleClassNameForLogging = ruleClassNameForLogging;
     this.hostConfiguration = builder.hostConfiguration;
+    this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
     this.constraintSemantics = constraintSemantics;
@@ -286,18 +288,6 @@ public final class RuleContext extends TargetContext
   @Override
   public ArtifactRoot getMiddlemanDirectory() {
     return getConfiguration().getMiddlemanDirectory(rule.getRepository());
-  }
-
-  /**
-   * Key for the configured target.
-   *
-   * <p><b>WARNING:</b> this should never be used.
-   *
-   * <p>Non-null outside of tests.
-   */
-  @Deprecated
-  public ActionLookupKey getActionLookupKey() {
-    return actionLookupKey;
   }
 
   public Rule getRule() {
@@ -421,6 +411,16 @@ public final class RuleContext extends TargetContext
           createActionOwner(rule, aspectDescriptors, getConfiguration(), getExecutionPlatform());
     }
     return actionOwner;
+  }
+
+  /**
+   * An opaque symbol generator to be used when identifying objects by their action owner/index of
+   * creation. Only needed if an object needs to know whether it was created by the same action
+   * owner in the same order as another object. Each symbol must call {@link
+   * SymbolGenerator#generate} separately to obtain a unique object.
+   */
+  public SymbolGenerator<?> getSymbolGenerator() {
+    return actionOwnerSymbolGenerator;
   }
 
   /**
@@ -710,13 +710,7 @@ public final class RuleContext extends TargetContext
     return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root);
   }
 
-  /**
-   * Creates a TreeArtifact under a given root with the given root-relative path.
-   *
-   * <p>Verifies that it is in the root-relative directory corresponding to the package of the rule,
-   * thus ensuring that it doesn't clash with other artifacts generated by other rules using this
-   * method.
-   */
+  @Override
   public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
@@ -751,10 +745,7 @@ public final class RuleContext extends TargetContext
     return getUniqueDirectoryArtifact(uniqueDirectorySuffix, relative, getBinOrGenfilesDirectory());
   }
 
-  /**
-   * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
-   * clashes with artifacts created by other rules.
-   */
+  @Override
   public Artifact getUniqueDirectoryArtifact(
       String uniqueDirectory, PathFragment relative, ArtifactRoot root) {
     return getDerivedArtifact(getUniqueDirectory(uniqueDirectory).getRelative(relative), root);
@@ -1402,10 +1393,7 @@ public final class RuleContext extends TargetContext
     return outs.get(0);
   }
 
-  /**
-   * Returns an artifact with a given file extension. All other path components
-   * are the same as in {@code pathFragment}.
-   */
+  @Override
   public final Artifact getRelatedArtifact(PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
     return getDerivedArtifact(file, getConfiguration().getBinDirectory(rule.getRepository()));
@@ -1455,6 +1443,11 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
+  public RuleErrorConsumer getRuleErrorConsumer() {
+    return this;
+  }
+
+  @Override
   public String toString() {
     return "RuleContext(" + getLabel() + ", " + getConfiguration() + ")";
   }
@@ -1462,7 +1455,6 @@ public final class RuleContext extends TargetContext
   /**
    * Builder class for a RuleContext.
    */
-  @VisibleForTesting
   public static final class Builder implements RuleErrorConsumer  {
     private final AnalysisEnvironment env;
     private final Target target;
@@ -1470,9 +1462,9 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
+    private final ActionLookupValue.ActionLookupKey actionOwnerSymbol;
     private final PrerequisiteValidator prerequisiteValidator;
     private final RuleErrorConsumer reporter;
-    private ActionLookupKey actionLookupKey;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
     private NestedSet<PackageGroupContents> visibility;
@@ -1489,7 +1481,8 @@ public final class RuleContext extends TargetContext
         BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
         PrerequisiteValidator prerequisiteValidator,
-        ConfigurationFragmentPolicy configurationFragmentPolicy) {
+        ConfigurationFragmentPolicy configurationFragmentPolicy,
+        ActionLookupValue.ActionLookupKey actionOwnerSymbol) {
       this.env = Preconditions.checkNotNull(env);
       this.target = Preconditions.checkNotNull(target);
       this.aspects = aspects;
@@ -1497,6 +1490,7 @@ public final class RuleContext extends TargetContext
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
       this.prerequisiteValidator = prerequisiteValidator;
+      this.actionOwnerSymbol = Preconditions.checkNotNull(actionOwnerSymbol);
       if (configuration.allowAnalysisFailures()) {
         reporter = new SuppressingErrorReporter();
       } else {
@@ -1524,6 +1518,7 @@ public final class RuleContext extends TargetContext
           configConditions,
           universalFragments,
           getRuleClassNameForLogging(),
+          actionOwnerSymbol,
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
           toolchainContext,
           constraintSemantics);
@@ -1534,11 +1529,6 @@ public final class RuleContext extends TargetContext
           .getAssociatedRule()
           .getRuleClassObject()
           .checkAttributesNonEmpty(reporter, attributes);
-    }
-
-    public Builder setActionLookupKey(ActionLookupKey actionLookupKey) {
-      this.actionLookupKey = actionLookupKey;
-      return this;
     }
 
     public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {

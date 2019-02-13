@@ -31,6 +31,10 @@ message FlagInfo {
   optional string documentation = 3;
   // List of supported Bazel commands, e.g. ['build', 'test']
   repeated string commands = 4;
+  // Flag name abbreviation, without leading dash.
+  optional string abbreviation = 5;
+  // True if a flag is allowed to occur multiple times in a single arg list.
+  optional bool allows_multiple = 6 [default = false];
 }
 
 message FlagCollection {

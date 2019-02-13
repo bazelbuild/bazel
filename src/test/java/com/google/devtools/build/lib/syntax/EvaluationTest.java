@@ -196,22 +196,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSlashOperatorIsForbidden() throws Exception {
-    newTest("--incompatible_disallow_slash_operator=true")
-        .testIfErrorContains("The `/` operator has been removed.", "5 / 2");
-  }
-
-  @Test
-  public void testDivision() throws Exception {
-    newTest("--incompatible_disallow_slash_operator=false")
-        .testStatement("6 / 2", 3)
-        .testStatement("6 / 4", 1)
-        .testStatement("3 / 6", 0)
-        .testStatement("7 / -2", -4)
-        .testStatement("-7 / 2", -4)
-        .testStatement("-7 / -2", 3)
-        .testStatement("2147483647 / 2", 1073741823)
-        .testIfErrorContains("unsupported operand type(s) for //: 'string' and 'int'", "'str' / 2")
-        .testIfExactError("integer division by zero", "5 / 0");
+    newTest().testIfErrorContains("The `/` operator is not allowed.", "5 / 2");
   }
 
   @Test
@@ -314,18 +299,12 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testNestedListComprehensions() throws Exception {
-    newTest().testExactOrder("li = [[1, 2], [3, 4]]\n" + "[j for i in li for j in i]", 1, 2,
-        3, 4).testExactOrder("input = [['abc'], ['def', 'ghi']]\n"
-        + "['%s %s' % (b, c) for a in input for b in a for c in b]",
-        "abc a",
-        "abc b",
-        "abc c",
-        "def d",
-        "def e",
-        "def f",
-        "ghi g",
-        "ghi h",
-        "ghi i");
+    newTest()
+        .testExactOrder("li = [[1, 2], [3, 4]]\n" + "[j for i in li for j in i]", 1, 2, 3, 4)
+        .testExactOrder(
+            "input = [['abc'], ['def', 'ghi']]\n"
+                + "['%s %s' % (b, c) for a in input for b in a for c in b.elems()]",
+            "abc a", "abc b", "abc c", "def d", "def e", "def f", "ghi g", "ghi h", "ghi i");
   }
 
   @Test
@@ -677,16 +656,19 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
-    newTest().testIfExactError(
-        "expected no more than 0 positional arguments, but got 1, "
-            + "in method call keys(string) of 'dict'", "{'a': 1}.keys('abc')");
+    newTest()
+        .testIfExactError(
+            "expected no more than 0 positional arguments, but got 1, "
+                + "for call to method keys() of 'dict'",
+            "{'a': 1}.keys('abc')");
   }
 
   @Test
   public void testDictKeysTooManyKeyArgs() throws Exception {
-    newTest().testIfExactError(
-        "unexpected keyword 'arg', in method call keys(string arg) of 'dict'",
-        "{'a': 1}.keys(arg='abc')");
+    newTest()
+        .testIfExactError(
+            "unexpected keyword 'arg', for call to method keys() of 'dict'",
+            "{'a': 1}.keys(arg='abc')");
   }
 
   @Test
@@ -697,9 +679,10 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testArgBothPosKey() throws Exception {
-    newTest().testIfErrorContains(
-        "got multiple values for keyword argument 'old', "
-            + "in method call replace(string, string, int, string old) of 'string'",
-        "'banana'.replace('a', 'o', 3, old='a')");
+    newTest()
+        .testIfErrorContains(
+            "got multiple values for keyword argument 'old', for call to method "
+                + "replace(old, new, maxsplit = None) of 'string'",
+            "'banana'.replace('a', 'o', 3, old='a')");
   }
 }

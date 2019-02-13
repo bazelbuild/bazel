@@ -176,7 +176,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       setupRepositoryRoot(repoRoot);
       env.getListener().post(new RepositoryFetching(repositoryName.getName(), false));
       RepositoryDirectoryValue.Builder localRepo =
-          handler.fetch(rule, repoRoot, directories, env, markerData);
+          handler.fetch(rule, repoRoot, directories, env, markerData, skyKey);
       if (localRepo == null) {
         return null;
       } else {
@@ -213,8 +213,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // Fetching enabled, go ahead.
       env.getListener().post(new RepositoryFetching(repositoryName.getName(), false));
       setupRepositoryRoot(repoRoot);
-      RepositoryDirectoryValue.Builder result =
-          handler.fetch(rule, repoRoot, directories, env, markerData);
+      RepositoryDirectoryValue.Builder result = null;
+      try {
+        result = handler.fetch(rule, repoRoot, directories, env, markerData, skyKey);
+      } catch (SkyFunctionException e) {
+        // Upon an exceptional exit, the fetching of that repository is over as well.
+        env.getListener().post(new RepositoryFetching(repositoryName.getName(), true));
+        throw e;
+      }
       if (env.valuesMissing()) {
         env.getListener()
             .post(new RepositoryFetching(repositoryName.getName(), false, "Restarting."));

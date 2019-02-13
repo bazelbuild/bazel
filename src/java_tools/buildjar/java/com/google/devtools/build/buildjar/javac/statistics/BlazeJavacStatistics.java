@@ -19,9 +19,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.MustBeClosed;
-import com.google.protobuf.Any;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Context.Factory;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Set;
@@ -44,14 +42,13 @@ public abstract class BlazeJavacStatistics {
 
   public static void preRegister(Context context) {
     if (contextsInitialized.add(context)) {
-      context.put(
+      context.<Builder>put(
           Builder.class,
-          (Factory<Builder>)
-              c -> {
-                Builder instance = newBuilder();
-                c.put(Builder.class, instance);
-                return instance;
-              });
+          ctx -> {
+            Builder instance = newBuilder();
+            ctx.put(Builder.class, instance);
+            return instance;
+          });
     } else {
       throw new IllegalStateException("Initialize called twice!");
     }
@@ -65,12 +62,13 @@ public abstract class BlazeJavacStatistics {
     return new AutoValue_BlazeJavacStatistics.Builder()
         .transitiveClasspathLength(0)
         .reducedClasspathLength(0)
+        .minClasspathLength(0)
         .transitiveClasspathFallback(false);
   }
 
-  public abstract ImmutableMap<TickKey, Any> protoTicks();
+  public abstract ImmutableMap<AuxiliaryDataSource, byte[]> auxiliaryData();
 
-  @Deprecated // use protoTicks() instead.
+  @Deprecated // use auxiliaryData() instead.
   public abstract ImmutableListMultimap<TickKey, Duration> timingTicks();
 
   public abstract ImmutableListMultimap<String, Duration> errorProneTicks();
@@ -81,12 +79,28 @@ public abstract class BlazeJavacStatistics {
 
   public abstract int reducedClasspathLength();
 
+  public abstract int minClasspathLength();
+
   public abstract boolean transitiveClasspathFallback();
 
   // TODO(glorioso): We really need to think out more about what data to collect/store here.
 
-  /** Known sources of timing information */
+  /**
+   * Known sources of timing information
+   *
+   * @deprecated Instead, use {@link AuxiliaryDataSource}.
+   */
+  @Deprecated
   public enum TickKey {
+    DAGGER,
+  }
+
+  /**
+   * Known sources of additional data to add to the statistics. Each data source can put a single
+   * byte[] of serialized proto data into this statistics object with {@link
+   * Builder#addAuxiliaryData}
+   */
+  public enum AuxiliaryDataSource {
     DAGGER,
   }
 
@@ -102,18 +116,20 @@ public abstract class BlazeJavacStatistics {
   @AutoValue.Builder
   public abstract static class Builder {
 
-    abstract ImmutableMap.Builder<TickKey, Any> protoTicksBuilder();
-
-    @Deprecated // use protoTicksBuilder() instead
+    @Deprecated // use auxiliaryDataBuilder() instead
     abstract ImmutableListMultimap.Builder<TickKey, Duration> timingTicksBuilder();
 
     abstract ImmutableListMultimap.Builder<String, Duration> errorProneTicksBuilder();
+
+    abstract ImmutableMap.Builder<AuxiliaryDataSource, byte[]> auxiliaryDataBuilder();
 
     abstract ImmutableSet.Builder<String> processorsBuilder();
 
     public abstract Builder transitiveClasspathLength(int length);
 
     public abstract Builder reducedClasspathLength(int length);
+
+    public abstract Builder minClasspathLength(int length);
 
     public abstract Builder transitiveClasspathFallback(boolean fallback);
 
@@ -124,14 +140,23 @@ public abstract class BlazeJavacStatistics {
 
     public abstract BlazeJavacStatistics build();
 
-    public Builder addTick(TickKey key, Any elapsed) {
-      protoTicksBuilder().put(key, elapsed);
+    @Deprecated // use addAuxiliaryData(key, byte[]) with a serialized Any proto message.
+    public Builder addTick(TickKey key, Duration elapsed) {
+      timingTicksBuilder().put(key, elapsed);
       return this;
     }
 
-    @Deprecated // use addTick(key, Any) with a custom proto message.
-    public Builder addTick(TickKey key, Duration elapsed) {
-      timingTicksBuilder().put(key, elapsed);
+    /**
+     * Add an auxiliary attachment of data to this statistics object. The data should be a proto
+     * serialization of a google.protobuf.Any protobuf.
+     *
+     * <p>Since this method is called across the boundaries of an annotation processorpath and the
+     * runtime classpath of the compiler, we want to reduce the number of classes mentioned, hence
+     * the byte[] data type. If we find a way to make this more safe, we would prefer to use a
+     * protobuf ByteString instead for its immutability.
+     */
+    public Builder addAuxiliaryData(AuxiliaryDataSource key, byte[] serializedData) {
+      auxiliaryDataBuilder().put(key, serializedData.clone());
       return this;
     }
 

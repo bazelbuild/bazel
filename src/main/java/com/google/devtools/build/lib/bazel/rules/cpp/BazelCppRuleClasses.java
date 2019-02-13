@@ -90,11 +90,8 @@ public class BazelCppRuleClasses {
         "cc_library", "objc_library", "cc_proto_library", "cc_import",
       };
 
-  /**
-   * Common attributes for all rules that create C++ links. This may
-   * include non-cc_* rules (e.g. py_binary).
-   */
-  public static final class CcLinkingRule implements RuleDefinition {
+  /** Common attributes for all rules that need a C++ toolchain. */
+  public static final class CcToolchainRequiringRule implements RuleDefinition {
     @Override
     @SuppressWarnings("unchecked")
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -115,7 +112,7 @@ public class BazelCppRuleClasses {
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
-          .name("$cc_linking_rule")
+          .name("$cc_toolchain_requiring_rule")
           .ancestors(CcIncludeScanningRule.class)
           .type(RuleClassType.ABSTRACT)
           .build();
@@ -154,7 +151,7 @@ public class BazelCppRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$cc_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(CcLinkingRule.class)
+          .ancestors(CcToolchainRequiringRule.class)
           .build();
     }
   }
@@ -252,7 +249,7 @@ public class BazelCppRuleClasses {
             <li>C and C++ source files: <code>.c</code>, <code>.cc</code>, <code>.cpp</code>,
               <code>.cxx</code>, <code>.c++</code>, <code>.C</code></li>
             <li>C and C++ header files: <code>.h</code>, <code>.hh</code>, <code>.hpp</code>,
-              <code>.hxx</code>, <code>.inc</code></li>
+              <code>.hxx</code>, <code>.inc</code>, <code>.inl</code>, <code>.H</code></li>
             <li>Assembler with C preprocessor: <code>.S</code></li>
             <li>Archive: <code>.a</code>, <code>.pic.a</code></li>
             <li>"Always link" library: <code>.lo</code>, <code>.pic.lo</code></li>

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -101,11 +103,22 @@ public abstract class FileArtifactValue implements SkyValue {
    */
   public abstract long getModifiedTime();
 
+  @Nullable
+  @Override
+  public BigInteger getValueFingerprint() {
+    byte[] digest = getDigest();
+    if (digest != null) {
+      return new BigIntegerFingerprint().addDigestedBytes(digest).getFingerprint();
+    }
+    // TODO(janakr): return fingerprint in other cases: symlink, directory.
+    return null;
+  }
+
   /**
    * Index used to resolve remote files.
    *
    * <p>0 indicates that no such information is available which can mean that it's either a local
-   * file or empty.
+   * file, empty, or an omitted output.
    */
   public int getLocationIndex() {
     return 0;
@@ -281,6 +294,14 @@ public abstract class FileArtifactValue implements SkyValue {
     @Override
     public byte[] getDigest() {
       return null;
+    }
+
+    @Override
+    public BigInteger getValueFingerprint() {
+      BigIntegerFingerprint fp = new BigIntegerFingerprint();
+      fp.addString(getClass().getCanonicalName());
+      fp.addLong(mtime);
+      return fp.getFingerprint();
     }
 
     @Override
@@ -617,6 +638,12 @@ public abstract class FileArtifactValue implements SkyValue {
     @Override
     public boolean wasModifiedSinceDigest(Path path) throws IOException {
       return false;
+    }
+
+    @Nullable
+    @Override
+    public BigInteger getValueFingerprint() {
+      return BigInteger.TEN;
     }
 
     @Override

@@ -140,7 +140,7 @@ public final class RepositoryName implements Serializable {
    * was invalid.
    */
   public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
-    if (path.segmentCount() < 2 || !path.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
+    if (path.segmentCount() < 2 || !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       return null;
     }
     try {
@@ -218,12 +218,21 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
+   * Returns the repository name, except that the main repo is conflated with the default repo
+   * ({@code "@"} becomes the empty string).
+   */
+  public String getDefaultCanonicalForm() {
+    return isMain() ? "" : getName();
+  }
+
+  /**
    * Returns the relative path to the repository source. Returns "" for the main repository and
    * external/[repository name] for external repositories.
    */
   public PathFragment getSourceRoot() {
     return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : Label.EXTERNAL_PACKAGE_NAME.getRelative(strippedName());
+        ? PathFragment.EMPTY_FRAGMENT
+        : LabelConstants.EXTERNAL_PACKAGE_NAME.getRelative(strippedName());
   }
 
   /**
@@ -233,7 +242,7 @@ public final class RepositoryName implements Serializable {
   public PathFragment getPathUnderExecRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
-        : Label.EXTERNAL_PATH_PREFIX.getRelative(strippedName());
+        : LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(strippedName());
   }
 
   /**

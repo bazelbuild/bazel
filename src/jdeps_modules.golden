@@ -1,0 +1,14 @@
+java.base
+java.compiler
+java.desktop
+java.instrument
+java.logging
+java.management
+java.naming
+java.security.jgss
+java.sql
+java.xml
+jdk.compiler
+jdk.management
+jdk.sctp
+jdk.unsupported

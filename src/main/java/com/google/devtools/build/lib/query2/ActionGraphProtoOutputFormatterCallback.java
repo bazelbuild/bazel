@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
@@ -51,7 +50,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
 
   private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
-  private final ImmutableMap<String, String> actionFilters;
+  private final AqueryActionFilter actionFilters;
 
   ActionGraphProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -60,11 +59,16 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor,
       OutputType outputType,
-      ImmutableMap<String, String> actionFilters) {
+      AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;
-    this.actionGraphDump = new ActionGraphDump(options.includeCommandline, this.actionFilters);
+    this.actionGraphDump =
+        new ActionGraphDump(
+            options.includeCommandline,
+            options.includeArtifacts,
+            this.actionFilters,
+            options.includeParamFiles);
   }
 
   @Override
@@ -76,6 +80,9 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
+      // Enabling includeParamFiles should enable includeCommandline by default.
+      options.includeCommandline |= options.includeParamFiles;
+
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         actionGraphDump.dumpConfiguredTarget(configuredTargetValue);
         if (options.useAspects) {

@@ -19,16 +19,21 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.BuildEventLogger;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.ExitFunction;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -38,9 +43,11 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.BuildEventTransportFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -61,8 +68,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   private static final Logger logger = Logger.getLogger(BuildEventServiceModule.class.getName());
 
   private OutErr outErr;
-
-  private Set<BuildEventTransport> transports = ImmutableSet.of();
+  private BuildEventStreamer streamer;
+  private boolean keepClient;
 
   /** Whether an error in the Build Event Service upload causes the build to fail. */
   protected boolean errorsShouldFailTheBuild() {
@@ -89,18 +96,19 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   @Override
   public void beforeCommand(CommandEnvironment commandEnvironment) {
+    T besOptions = commandEnvironment.getOptions().getOptions(optionsClass());
+
     // Reset to null in case afterCommand was not called.
     this.outErr = null;
-    if (!whitelistedCommands().contains(commandEnvironment.getCommandName())) {
+    if (!whitelistedCommands(besOptions).contains(commandEnvironment.getCommandName())) {
       return;
     }
 
-    BuildEventStreamer streamer = tryCreateStreamer(commandEnvironment);
+    streamer = tryCreateStreamer(commandEnvironment);
     if (streamer != null) {
       commandEnvironment.getReporter().addHandler(streamer);
       commandEnvironment.getEventBus().register(streamer);
-      long bufferSize =
-          commandEnvironment.getOptions().getOptions(optionsClass()).besOuterrBufferSize;
+      int bufferSize = besOptions.besOuterrBufferSize;
 
       final SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize);
       final SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize);
@@ -108,12 +116,12 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       streamer.registerOutErrProvider(
           new BuildEventStreamer.OutErrProvider() {
             @Override
-            public String getOut() {
+            public Iterable<String> getOut() {
               return out.readAndReset();
             }
 
             @Override
-            public String getErr() {
+            public Iterable<String> getErr() {
               return err.readAndReset();
             }
           });
@@ -129,31 +137,76 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   }
 
   @Override
+  public void blazeShutdownOnCrash() {
+    if (streamer != null) {
+      logger.warning("Attempting to close BES streamer on crash");
+      streamer.close(AbortReason.INTERNAL);
+    }
+  }
+
+  @Override
   public void afterCommand() {
+    if (streamer != null) {
+      if (!streamer.isClosed()) {
+        // This should not occur, but close with an internal error if a {@link BuildEventStreamer}
+        // bug manifests as an unclosed streamer.
+        logger.warning("Attempting to close BES streamer after command");
+        String msg = "BES was not properly closed";
+        LoggingUtil.logToRemote(Level.WARNING, msg, new IllegalStateException(msg));
+        streamer.close(AbortReason.INTERNAL);
+      }
+      this.streamer = null;
+    }
+
+    if (!keepClient) {
+      clearBesClient();
+    }
     this.outErr = null;
-    this.transports = ImmutableSet.of();
   }
 
   /** Returns {@code null} if no stream could be created. */
   @Nullable
   @VisibleForTesting
   BuildEventStreamer tryCreateStreamer(CommandEnvironment env) {
+    BuildEventStreamOptions buildEventStreamOptions =
+        env.getOptions().getOptions(BuildEventStreamOptions.class);
+    this.keepClient = buildEventStreamOptions.keepBackendConnections;
+
+    BuildEventProtocolOptions protocolOptions =
+        checkNotNull(
+            env.getOptions().getOptions(BuildEventProtocolOptions.class),
+            "Could not get BuildEventProtocolOptions.");
+    Supplier<BuildEventArtifactUploader> uploaderSupplier =
+        Suppliers.memoize(
+            () ->
+                env.getRuntime()
+                    .getBuildEventArtifactUploaderFactoryMap()
+                    .select(protocolOptions.buildEventUploadStrategy)
+                    .create(env));
+
+    CountingArtifactGroupNamer namer = new CountingArtifactGroupNamer();
     try {
-      BuildEventTransport besTransport = null;
+      BuildEventTransport besTransport;
       try {
-        besTransport = tryCreateBesTransport(env);
-      } catch (Exception e) {
+        besTransport = tryCreateBesTransport(env, uploaderSupplier, namer);
+      } catch (IOException | OptionsParsingException e) {
         String message = "Failed to create BuildEventTransport: " + e;
         logger.log(Level.WARNING, message, e);
+        ExitCode exitCode =
+            (e instanceof OptionsParsingException)
+                ? ExitCode.COMMAND_LINE_ERROR
+                : ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR;
         reportError(
             env.getReporter(),
             env.getBlazeModuleEnvironment(),
-            new AbruptExitException(message, ExitCode.PUBLISH_ERROR, e));
+            new AbruptExitException(message, exitCode, e));
+        clearBesClient();
         return null;
       }
 
       ImmutableSet<BuildEventTransport> bepTransports =
-          BuildEventTransportFactory.createFromOptions(env, env.getBlazeModuleEnvironment()::exit);
+          BuildEventTransportFactory.createFromOptions(
+              env, env.getBlazeModuleEnvironment()::exit, protocolOptions, uploaderSupplier, namer);
 
       ImmutableSet.Builder<BuildEventTransport> transportsBuilder =
           ImmutableSet.<BuildEventTransport>builder().addAll(bepTransports);
@@ -161,11 +214,10 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
         transportsBuilder.add(besTransport);
       }
 
-      transports = transportsBuilder.build();
+      ImmutableSet<BuildEventTransport> transports = transportsBuilder.build();
       if (!transports.isEmpty()) {
-        BuildEventStreamOptions buildEventStreamOptions =
-            env.getOptions().getOptions(BuildEventStreamOptions.class);
-        return new BuildEventStreamer(transports, env.getReporter(), buildEventStreamOptions);
+        return new BuildEventStreamer(
+            transports, env.getReporter(), buildEventStreamOptions, namer);
       }
     } catch (Exception e) {
       reportError(
@@ -177,7 +229,10 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   }
 
   @Nullable
-  private BuildEventTransport tryCreateBesTransport(CommandEnvironment env)
+  private BuildEventTransport tryCreateBesTransport(
+      CommandEnvironment env,
+      Supplier<BuildEventArtifactUploader> uploaderSupplier,
+      ArtifactGroupNamer namer)
       throws IOException, OptionsParsingException {
     OptionsParsingResult optionsProvider = env.getOptions();
     T besOptions =
@@ -194,6 +249,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
     if (isNullOrEmpty(besOptions.besBackend)) {
       logger.fine("BuildEventServiceTransport is disabled.");
+      clearBesClient();
       return null;
     } else {
       logger.fine(
@@ -219,12 +275,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                         besOptions.besBackend, env.getBuildRequestId(), invocationId)));
       }
 
-      BuildEventServiceClient client = createBesClient(besOptions, authTlsOptions);
-      BuildEventArtifactUploader artifactUploader =
-          env.getRuntime()
-              .getBuildEventArtifactUploaderFactoryMap()
-              .select(protocolOptions.buildEventUploadStrategy)
-              .create(env);
+      BuildEventServiceClient client = getBesClient(besOptions, authTlsOptions);
+      BuildEventArtifactUploader artifactUploader = uploaderSupplier.get();
 
       BuildEventLogger buildEventLogger =
           (BuildEventStreamProtos.BuildEvent bepEvent) -> {
@@ -257,26 +309,22 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                   besProtoUtil,
                   env.getRuntime().getClock(),
                   bazelExitFunction(
-                      env.getReporter(), env.getBlazeModuleEnvironment(), besResultsUrl));
+                      env.getReporter(), env.getBlazeModuleEnvironment(), besResultsUrl),
+                  namer);
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
     }
   }
 
-  @Override
-  public void blazeShutdown() {
-    for (BuildEventTransport transport : transports) {
-      transport.closeNow();
-    }
-  }
-
   protected abstract Class<T> optionsClass();
 
-  protected abstract BuildEventServiceClient createBesClient(
+  protected abstract BuildEventServiceClient getBesClient(
       T besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
-  protected abstract Set<String> whitelistedCommands();
+  protected abstract void clearBesClient();
+
+  protected abstract Set<String> whitelistedCommands(T besOptions);
 
   protected Set<String> keywords(
       T besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
@@ -287,17 +335,19 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   private ExitFunction bazelExitFunction(
       EventHandler commandLineReporter, ModuleEnvironment moduleEnvironment, String besResultsUrl) {
-    return (String message, Exception cause) -> {
-      if (cause == null) {
+    return (String message, Throwable cause, ExitCode exitCode) -> {
+      if (exitCode == ExitCode.SUCCESS) {
+        Preconditions.checkState(cause == null, cause);
         commandLineReporter.handle(Event.info("Build Event Protocol upload finished successfully"));
         if (besResultsUrl != null) {
           commandLineReporter.handle(
               Event.info("Build Event Protocol results available at " + besResultsUrl));
         }
       } else {
+        Preconditions.checkState(cause != null, cause);
         if (errorsShouldFailTheBuild()) {
           commandLineReporter.handle(Event.error(message));
-          moduleEnvironment.exit(new AbruptExitException(ExitCode.PUBLISH_ERROR, cause));
+          moduleEnvironment.exit(new AbruptExitException(exitCode, cause));
         } else {
           commandLineReporter.handle(Event.warn(message));
         }

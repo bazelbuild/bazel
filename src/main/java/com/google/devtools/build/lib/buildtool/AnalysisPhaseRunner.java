@@ -110,9 +110,6 @@ public final class AnalysisPhaseRunner {
     // Exit if there are any pending exceptions from modules.
     env.throwPendingException();
 
-    env.getSkyframeExecutor().setConfigurationFragmentFactories(
-        env.getRuntime().getConfigurationFragmentFactories());
-
     AnalysisResult analysisResult = null;
     if (request.getBuildOptions().performAnalysisPhase) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
@@ -230,7 +227,8 @@ public final class AnalysisPhaseRunner {
                 view.getTargetsConfigured(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
-                view.getActionsConstructed()));
+                view.getActionsConstructed(),
+                env.getSkyframeExecutor().wasAnalysisCacheDiscardedAndResetBit()));
     ImmutableSet<BuildConfigurationValue.Key> configurationKeys =
         Stream.concat(
                 analysisResult

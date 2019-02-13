@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,6 +33,9 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@code proto_library}. */
 @RunWith(JUnit4.class)
 public class BazelProtoLibraryTest extends BuildViewTestCase {
+  private boolean isThisBazel() {
+    return getAnalysisMock().isThisBazel();
+  }
 
   @Before
   public void setUp() throws Exception {
@@ -131,7 +135,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='no_srcs')");
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:alias").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:alias").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/alias-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -142,7 +146,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:foo").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/foo-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -150,7 +154,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:bar").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:bar").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/bar-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -158,7 +162,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:alias_to_no_srcs").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:alias_to_no_srcs").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/alias_to_no_srcs-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -167,7 +171,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:no_srcs").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:no_srcs").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/no_srcs-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -235,6 +239,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDisableProtoSourceRoot() throws Exception {
+    useConfiguration(
+        "--proto_compiler=//proto:compiler", "--incompatible_disable_proto_source_root");
+    scratch.file("x/BUILD", "proto_library(name='x', srcs=['x.proto'], proto_source_root='x')");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:x");
+    assertContainsEvent("this attribute is not supported anymore");
+  }
+
+  @Test
   public void testProtoSourceRootWithoutDeps() throws Exception {
     scratch.file(
         "x/foo/BUILD",
@@ -245,7 +259,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         ")"
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:nodeps");
-    ProtoInfo sourcesProvider = protoTarget.getProvider(ProtoInfo.class);
+    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:nodeps"))
@@ -292,7 +306,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         ")"
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
-    ProtoInfo sourcesProvider = protoTarget.getProvider(ProtoInfo.class);
+    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
@@ -324,7 +338,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         ")"
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
-    ProtoInfo sourcesProvider = protoTarget.getProvider(ProtoInfo.class);
+    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
         .containsExactly("x/foo", "x/bar", ".");
   }
@@ -365,8 +379,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // exported proto source roots should be the source root of the rule and the direct source roots
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
-    assertThat(c.getProvider(ProtoInfo.class).getExportedProtoSourceRoots())
-        .containsExactly("a", "c");
+    assertThat(c.get(ProtoInfo.PROVIDER).getExportedProtoSourceRoots()).containsExactly("a", "c");
   }
 
   @Test
@@ -380,9 +393,306 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:banana");
-    ProtoInfo sourcesProvider = protoTarget.getProvider(ProtoInfo.class);
+    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
 
     assertThat(sourcesProvider.getDirectProtoSourceRoot()).isEqualTo("x/foo");
+  }
+
+  @Test
+  public void testProtoSourceRootWithImportPrefix() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file(
+        "a/BUILD",
+        "proto_library(",
+        "    name = 'a',",
+        "    srcs = ['a.proto'],",
+        "    proto_source_root = 'a',",
+        "    import_prefix = 'foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a");
+    assertContainsEvent("the 'proto_source_root' attribute is incompatible");
+  }
+
+  @Test
+  public void testProtoSourceRootWithStripImportPrefix() throws Exception {
+    scratch.file(
+        "third_party/a/BUILD",
+        "licenses(['unencumbered'])",
+        "proto_library(",
+        "    name = 'a',",
+        "    srcs = ['a.proto'],",
+        "    proto_source_root = 'third_party/a',",
+        "    strip_import_prefix = 'third_party/a')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//third_party/a");
+    assertContainsEvent("the 'proto_source_root' attribute is incompatible");
+  }
+
+  @Test
+  public void testIllegalStripImportPrefix() throws Exception {
+    scratch.file(
+        "third_party/a/BUILD",
+        "licenses(['unencumbered'])",
+        "proto_library(",
+        "    name = 'a',",
+        "    srcs = ['a.proto'],",
+        "    strip_import_prefix = 'foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//third_party/a");
+    assertContainsEvent(
+        ".proto file 'third_party/a/a.proto' is not under the specified strip prefix");
+  }
+
+  @Test
+  public void testIllegalImportPrefix() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file(
+        "a/BUILD",
+        "proto_library(",
+        "    name = 'a',",
+        "    srcs = ['a.proto'],",
+        "    import_prefix = '/foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a");
+    assertContainsEvent("should be a relative path");
+  }
+
+  @Test
+  public void testRelativeStripImportPrefix() throws Exception {
+    scratch.file(
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    strip_import_prefix = 'c')");
+
+    Iterable<String> commandLine =
+        paramFileArgsForAction(getDescriptorWriteAction("//third_party/a/b:d"));
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(commandLine)
+        .contains("-Id.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/d.proto");
+  }
+
+  @Test
+  public void testAbsoluteStripImportPrefix() throws Exception {
+    scratch.file(
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    strip_import_prefix = '/third_party/a')");
+
+    Iterable<String> commandLine =
+        paramFileArgsForAction(getDescriptorWriteAction("//third_party/a/b:d"));
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(commandLine)
+        .contains("-Ib/c/d.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/b/c/d.proto");
+  }
+
+  @Test
+  public void testStripImportPrefixAndImportPrefix() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    import_prefix = 'foo',",
+        "    strip_import_prefix = 'c')");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(commandLine)
+        .contains("-Ifoo/d.proto=" + genfiles + "/a/b/_virtual_imports/d/foo/d.proto");
+  }
+
+  @Test
+  public void testImportPrefixWithoutStripImportPrefix() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    import_prefix = 'foo')");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(commandLine)
+        .contains("-Ifoo/a/b/c/d.proto=" + genfiles + "/a/b/_virtual_imports/d/foo/a/b/c/d.proto");
+  }
+
+  @Test
+  public void testDotInStripImportPrefix() throws Exception {
+    scratch.file(
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    strip_import_prefix = './c')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//third_party/a/b:d");
+    assertContainsEvent("should be normalized");
+  }
+
+  @Test
+  public void testDotDotInStripImportPrefix() throws Exception {
+    scratch.file(
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    strip_import_prefix = '../b/c')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//third_party/a/b:d");
+    assertContainsEvent("should be normalized");
+  }
+
+  @Test
+  public void testDotInImportPrefix() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    import_prefix = './e')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a/b:d");
+    assertContainsEvent("should be normalized");
+  }
+
+  @Test
+  public void testDotDotInImportPrefix() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    import_prefix = '../e')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a/b:d");
+    assertContainsEvent("should be normalized");
+  }
+
+  @Test
+  public void testStripImportPrefixWithStrictProtoDeps() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    useConfiguration("--strict_proto_deps=STRICT");
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto','c/e.proto'],",
+        "    strip_import_prefix = 'c')");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    assertThat(commandLine).containsAllOf("--direct_dependencies", "d.proto:e.proto").inOrder();
+  }
+
+  @Test
+  public void testDepOnStripImportPrefixWithStrictProtoDeps() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    useConfiguration("--strict_proto_deps=STRICT");
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    strip_import_prefix = 'c')");
+    scratch.file(
+        "a/b/e/BUILD",
+        "proto_library(",
+        "    name = 'e',",
+        "    srcs = ['e.proto'],",
+        "    deps = ['//a/b:d'])");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b/e:e"));
+    assertThat(commandLine)
+        .containsAllOf("--direct_dependencies", "d.proto:a/b/e/e.proto")
+        .inOrder();
+  }
+
+  @Test
+  public void testStripImportPrefixAndImportPrefixWithStrictProtoDeps() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    useConfiguration("--strict_proto_deps=STRICT");
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    import_prefix = 'foo',",
+        "    strip_import_prefix = 'c')");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    assertThat(commandLine).containsAllOf("--direct_dependencies", "foo/d.proto").inOrder();
+  }
+
+  @Test
+  public void testStripImportPrefixForExternalRepositories() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
+    invalidatePackages();
+
+    scratch.file("/foo/WORKSPACE");
+    scratch.file(
+        "/foo/x/y/BUILD",
+        "proto_library(",
+        "    name = 'q',",
+        "    srcs = ['z/q.proto'],",
+        "    strip_import_prefix = '/x')");
+
+    scratch.file("a/BUILD", "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x/y:q'])");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:a"));
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(commandLine)
+        .contains("-Iy/z/q.proto=" + genfiles + "/external/foo/x/y/_virtual_imports/q/y/z/q.proto");
   }
 
   private Artifact getDescriptorOutput(String label) throws Exception {

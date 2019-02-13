@@ -472,7 +472,7 @@ class TestWrapperTest(test_base.TestBase):
 
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
-  def _AssertXmlGeneration(self, flag):
+  def _AssertXmlGeneration(self, flag, split_xml=False):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
         ['info', 'bazel-testlogs'])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -483,6 +483,7 @@ class TestWrapperTest(test_base.TestBase):
         '//foo:xml_test',
         '-t-',
         '--test_output=errors',
+        '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
         flag,
     ])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -521,7 +522,7 @@ class TestWrapperTest(test_base.TestBase):
         'stderr_line_2' not in stderr_lines[1]):
       self._FailWithOutput(xml_contents)
 
-  def _AssertXmlGeneratedByTestIsRetained(self, flag):
+  def _AssertXmlGeneratedByTestIsRetained(self, flag, split_xml=False):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
         ['info', 'bazel-testlogs'])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -532,6 +533,7 @@ class TestWrapperTest(test_base.TestBase):
         '//foo:xml2_test',
         '-t-',
         '--test_output=errors',
+        '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
         flag,
     ])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -545,7 +547,7 @@ class TestWrapperTest(test_base.TestBase):
 
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
-    flag = '--noincompatible_windows_native_test_wrapper'
+    flag = '--noexperimental_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
@@ -576,12 +578,14 @@ class TestWrapperTest(test_base.TestBase):
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
-    self._AssertXmlGeneration(flag)
-    self._AssertXmlGeneratedByTestIsRetained(flag)
+    self._AssertXmlGeneration(flag, split_xml=False)
+    self._AssertXmlGeneration(flag, split_xml=True)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
-    flag = '--incompatible_windows_native_test_wrapper'
+    flag = '--experimental_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
@@ -610,8 +614,10 @@ class TestWrapperTest(test_base.TestBase):
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
-    self._AssertXmlGeneration(flag)
-    self._AssertXmlGeneratedByTestIsRetained(flag)
+    self._AssertXmlGeneration(flag, split_xml=False)
+    self._AssertXmlGeneration(flag, split_xml=True)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
 
 
 if __name__ == '__main__':

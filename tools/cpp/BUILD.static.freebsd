@@ -16,12 +16,10 @@
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
-    name = "malloc",
-)
+load("@bazel_tools//tools/cpp:cc_toolchain_config.bzl", "cc_toolchain_config")
 
 cc_library(
-    name = "stl",
+    name = "malloc",
 )
 
 filegroup(
@@ -43,16 +41,22 @@ cc_toolchain_suite(
 cc_toolchain(
     name = "cc-compiler-freebsd",
     toolchain_identifier = "local_freebsd",
+    toolchain_config = ":local_freebsd",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+)
+
+cc_toolchain_config(
+    name = "local_freebsd",
+    cpu = "freebsd",
+    compiler = "compiler",
 )
 
 toolchain(
@@ -72,16 +76,22 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     toolchain_identifier = "stub_armeabi-v7a",
+    toolchain_config = ":stub_armeabi-v7a",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+)
+
+cc_toolchain_config(
+    name = "stub_armeabi-v7a",
+    cpu = "armeabi-v7a",
+    compiler = "compiler",
 )
 
 toolchain(

@@ -23,11 +23,14 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
@@ -86,21 +89,22 @@ public class CppCompileActionBuilder {
    * rule.
    */
   public CppCompileActionBuilder(RuleContext ruleContext, CcToolchainProvider ccToolchain) {
-    this(ruleContext, ccToolchain, ruleContext.getConfiguration());
+    this(
+        ruleContext,
+        ruleContext.attributes().has("$grep_includes")
+            ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
+            : null,
+        ccToolchain,
+        ruleContext.getConfiguration());
   }
 
   /** Creates a builder from a rule and configuration. */
   public CppCompileActionBuilder(
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      Artifact grepIncludes,
       CcToolchainProvider ccToolchain,
       BuildConfiguration configuration) {
-    this(
-        ruleContext.getActionOwner(),
-        configuration,
-        ccToolchain,
-        ruleContext.attributes().has("$grep_includes")
-            ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
-            : null);
+    this(actionConstructionContext.getActionOwner(), configuration, ccToolchain, grepIncludes);
   }
 
   /** Creates a builder from a rule and configuration. */
@@ -228,14 +232,15 @@ public class CppCompileActionBuilder {
    * <p>This method may be called multiple times to create multiple compile actions (usually after
    * calling some setters to modify the generated action).
    */
-  public CppCompileAction buildOrThrowRuleError(RuleContext ruleContext) throws RuleErrorException {
+  public CppCompileAction buildOrThrowRuleError(RuleErrorConsumer ruleErrorConsumer)
+      throws RuleErrorException {
     List<String> errorMessages = new ArrayList<>();
     CppCompileAction result =
         buildAndVerify((String errorMessage) -> errorMessages.add(errorMessage));
 
     if (!errorMessages.isEmpty()) {
       for (String errorMessage : errorMessages) {
-        ruleContext.ruleError(errorMessage);
+        ruleErrorConsumer.ruleError(errorMessage);
       }
 
       throw new RuleErrorException();
@@ -247,8 +252,8 @@ public class CppCompileActionBuilder {
   /**
    * Builds the Action as configured and performs some validations on the action. Throws {@link
    * IllegalStateException} to report errors. Prefer {@link
-   * CppCompileActionBuilder#buildOrThrowRuleError(RuleContext)} over this method whenever possible
-   * (meaning whenever you have access to {@link RuleContext}).
+   * CppCompileActionBuilder#buildOrThrowRuleError(RuleErrorConsumer)} over this method whenever
+   * possible (meaning whenever you have access to {@link RuleContext}).
    *
    * <p>This method may be called multiple times to create multiple compile actions (usually after
    * calling some setters to modify the generated action).
@@ -464,28 +469,37 @@ public class CppCompileActionBuilder {
   }
 
   public CppCompileActionBuilder setOutputs(
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      RuleErrorConsumer ruleErrorConsumer,
+      Label label,
       ArtifactCategory outputCategory,
       String outputName,
       boolean generateDotd)
       throws RuleErrorException {
-    this.outputFile = CppHelper.getCompileOutputArtifact(
-        ruleContext,
-        CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory, outputName),
-        configuration);
+    this.outputFile =
+        CppHelper.getCompileOutputArtifact(
+            actionConstructionContext,
+            label,
+            CppHelper.getArtifactNameForCategory(
+                ruleErrorConsumer, ccToolchain, outputCategory, outputName),
+            configuration);
     if (generateDotd && !useHeaderModules()) {
       String dotdFileName =
-          CppHelper.getDotdFileName(ruleContext, ccToolchain, outputCategory, outputName);
+          CppHelper.getDotdFileName(ruleErrorConsumer, ccToolchain, outputCategory, outputName);
       if (cppConfiguration.getInmemoryDotdFiles()) {
         // Just set the path, no artifact is constructed
-        BuildConfiguration configuration = ruleContext.getConfiguration();
-        dotdFile = new DotdFile(
-            configuration.getBinDirectory(ruleContext.getRule().getRepository()).getExecPath()
-                .getRelative(CppHelper.getObjDirectory(ruleContext.getLabel()))
-                .getRelative(dotdFileName));
+        dotdFile =
+            new DotdFile(
+                configuration
+                    .getBinDirectory(label.getPackageIdentifier().getRepository())
+                    .getExecPath()
+                    .getRelative(CppHelper.getObjDirectory(label))
+                    .getRelative(dotdFileName));
       } else {
-        dotdFile = new DotdFile(CppHelper.getCompileOutputArtifact(ruleContext, dotdFileName,
-            configuration));
+        dotdFile =
+            new DotdFile(
+                CppHelper.getCompileOutputArtifact(
+                    actionConstructionContext, label, dotdFileName, configuration));
       }
     } else {
       dotdFile = null;

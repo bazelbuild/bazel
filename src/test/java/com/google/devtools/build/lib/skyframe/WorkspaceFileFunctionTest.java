@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -114,7 +115,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
         new WorkspaceFileFunction(
             ruleClassProvider,
             pkgFactory,
-            directories);
+            directories,
+            /*skylarkImportLookupFunctionForInlining=*/ null);
     externalSkyFunc = new ExternalPackageFunction();
     astSkyFunc = new WorkspaceASTFunction(ruleClassProvider);
     fakeWorkspaceFileValue = new FakeFileValue();
@@ -160,7 +162,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(FileValue.FILE))))
         .thenReturn(fakeWorkspaceFileValue);
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_FILE))))
+    Mockito.when(
+            env.getValue(Matchers.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
         .then(
             new Answer<SkyValue>() {
               @Override
@@ -257,7 +260,6 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testRepositoryMappingInChunks() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.file("b.bzl", "b = 'b'");
     scratch.file("BUILD", "");
     RootedPath workspace =

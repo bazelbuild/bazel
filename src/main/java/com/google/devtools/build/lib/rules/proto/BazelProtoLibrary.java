@@ -32,6 +32,10 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
     ProtoInfo protoInfo = ProtoCommon.createProtoInfo(ruleContext);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
     ProtoCompileActionBuilder.writeDescriptorSet(ruleContext, protoInfo, Services.ALLOW);
 
     Runfiles dataRunfiles =
@@ -39,11 +43,17 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             .addArtifact(protoInfo.getDirectDescriptorSet())
             .build();
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
-        .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, protoInfo.getDirectDescriptorSet()))
-        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
-        .addProvider(ProtoInfo.class, protoInfo)
-        .addSkylarkTransitiveInfo(ProtoInfo.SKYLARK_NAME, protoInfo)
-        .build();
+    RuleConfiguredTargetBuilder builder =
+        new RuleConfiguredTargetBuilder(ruleContext)
+            .setFilesToBuild(
+                NestedSetBuilder.create(STABLE_ORDER, protoInfo.getDirectDescriptorSet()))
+            .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
+            .addNativeDeclaredProvider(protoInfo);
+
+    if (ruleContext.getFragment(ProtoConfiguration.class).enableLegacyProvider()) {
+      builder.addSkylarkTransitiveInfo(ProtoInfo.LEGACY_SKYLARK_NAME, protoInfo);
+    }
+
+    return builder.build();
   }
 }

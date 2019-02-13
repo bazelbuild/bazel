@@ -406,7 +406,7 @@ public class ResourceLinker {
                         : IS_FLAT_FILE.and(USE_DEFAULT)),
                 workingDirectory)
             // Never compress apks.
-            .add("-0", "apk")
+            .add("-0", ".apk")
             // Add custom no-compress extensions.
             .addRepeated("-0", uncompressedExtensions)
             // Filter by resource configuration type.

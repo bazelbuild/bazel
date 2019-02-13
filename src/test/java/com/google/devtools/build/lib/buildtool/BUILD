@@ -29,10 +29,13 @@ java_test(
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",

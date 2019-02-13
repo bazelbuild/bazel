@@ -16,19 +16,33 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
+import java.io.Serializable;
 
 /** Implementation of the {@code java_runtime_alias} rule. */
-public class JavaHostRuntimeAliasRule extends CommonAliasRule {
+public class JavaHostRuntimeAliasRule extends CommonAliasRule<JavaConfiguration> {
   public JavaHostRuntimeAliasRule() {
-    super("java_host_runtime_alias", JavaSemantics::hostJdkAttribute, JavaConfiguration.class);
+    super(
+        "java_host_runtime_alias",
+        JavaHostRuntimeAliasRule::hostJdkAttribute,
+        JavaConfiguration.class);
   }
 
   @Override
   protected Attribute.Builder<Label> makeAttribute(RuleDefinitionEnvironment environment) {
     Attribute.Builder<Label> builder = super.makeAttribute(environment);
-    return builder.cfg(HostTransition.INSTANCE).mandatoryProviders(JavaRuntimeInfo.PROVIDER.id());
+    return builder.cfg(HostTransition.INSTANCE).mandatoryProviders(ToolchainInfo.PROVIDER.id());
+  }
+
+  static LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute(RuleDefinitionEnvironment env) {
+    return LabelLateBoundDefault.fromHostConfiguration(
+        JavaConfiguration.class,
+        env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 }

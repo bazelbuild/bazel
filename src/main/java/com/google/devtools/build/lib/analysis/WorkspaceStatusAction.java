@@ -20,8 +20,6 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -30,6 +28,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -87,11 +86,19 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
   }
 
   /**
-   * Action context required by the actions that write language-specific workspace status artifacts.
+   * Action context required by the workspace status action as well as language-specific actions
+   * that write workspace status artifacts.
    */
-  public static interface Context extends ActionContext {
+  public interface Context extends ActionContext {
     ImmutableMap<String, Key> getStableKeys();
     ImmutableMap<String, Key> getVolatileKeys();
+
+    // TODO(ulfjack): Maybe move these to a separate ActionContext interface?
+    WorkspaceStatusAction.Options getOptions();
+
+    ImmutableMap<String, String> getClientEnv();
+
+    com.google.devtools.build.lib.shell.Command getCommand();
   }
 
   /**
@@ -149,6 +156,26 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     return ImmutableMap.copyOf(result);
   }
 
+  /** Environment for the {@link Factory} to create the workspace status action. */
+  public interface Environment {
+    Artifact createStableArtifact(String name);
+
+    Artifact createVolatileArtifact(String name);
+  }
+
+  /**
+   * Environment for the {@link Factory} to create the dummy workspace status information. This is a
+   * subset of the information provided by CommandEnvironment. However, we cannot reference the
+   * CommandEnvironment from here due to layering.
+   */
+  public interface DummyEnvironment {
+    Path getWorkspace();
+
+    String getBuildRequestId();
+
+    OptionsProvider getOptions();
+  }
+
   /**
    * Factory for {@link WorkspaceStatusAction}.
    */
@@ -156,18 +183,16 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     /**
      * Creates the workspace status action.
      *
-     * <p>The action will have a supplier inside it allowing it to access data that may change on
-     * every build. Since the action is unconditionally executed on each build, we don't recreate
-     * the action on every build, just re-executing and letting it read the updated data each time.
+     * <p>The action is never re-created, but the same action object is executed on every build. Use
+     * {@link Context} to access any non-hermetic data.
      */
-    WorkspaceStatusAction createWorkspaceStatusAction(
-        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, String workspaceName);
+    WorkspaceStatusAction createWorkspaceStatusAction(Environment env);
 
     /**
      * Creates a dummy workspace status map. Used in cases where the build failed, so that part of
      * the workspace status is nevertheless available.
      */
-    Map<String, String> createDummyWorkspaceStatus();
+    Map<String, String> createDummyWorkspaceStatus(DummyEnvironment env);
   }
 
   protected WorkspaceStatusAction(ActionOwner owner,

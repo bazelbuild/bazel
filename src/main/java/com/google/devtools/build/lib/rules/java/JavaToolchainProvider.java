@@ -13,11 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.StandardSystemProperty.JAVA_SPECIFICATION_VERSION;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -30,21 +35,44 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
 @Immutable
 @AutoCodec
-public class JavaToolchainProvider extends ToolchainInfo {
+public class JavaToolchainProvider extends ToolchainInfo
+    implements JavaToolchainSkylarkApiProviderApi {
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
-    return from(ruleContext, ":java_toolchain");
+    Label toolchainType =
+        ruleContext.attributes().get(JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
+    return from(ruleContext, toolchainType);
   }
 
-  public static JavaToolchainProvider from(RuleContext ruleContext, String attributeName) {
-    TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName, Mode.TARGET);
+  public static JavaToolchainProvider from(RuleContext ruleContext, Label toolchainType) {
+    boolean useToolchainResolutionForJavaRules =
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(PlatformOptions.class)
+            .useToolchainResolutionForJavaRules;
+    if (toolchainType != null && useToolchainResolutionForJavaRules) {
+      ToolchainInfo toolchainInfo =
+          ruleContext.getToolchainContext().forToolchainType(toolchainType);
+      if (toolchainInfo instanceof JavaToolchainProvider) {
+        return (JavaToolchainProvider) toolchainInfo;
+      }
+    }
+
+    TransitiveInfoCollection prerequisite =
+        ruleContext.getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, Mode.TARGET);
     return from(prerequisite, ruleContext);
   }
 
@@ -319,5 +347,51 @@ public class JavaToolchainProvider extends ToolchainInfo {
 
   public JavaSemantics getJavaSemantics() {
     return javaSemantics;
+  }
+
+  /** Returns the input Java language level */
+  // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
+  @Override
+  public String getSourceVersion() {
+    Iterator<String> it = getJavacOptions().iterator();
+    while (it.hasNext()) {
+      if (it.next().equals("-source") && it.hasNext()) {
+        return it.next();
+      }
+    }
+    return JAVA_SPECIFICATION_VERSION.value();
+  }
+
+  /** Returns the target Java language level */
+  // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
+  @Override
+  public String getTargetVersion() {
+    Iterator<String> it = getJavacOptions().iterator();
+    while (it.hasNext()) {
+      if (it.next().equals("-target") && it.hasNext()) {
+        return it.next();
+      }
+    }
+    return JAVA_SPECIFICATION_VERSION.value();
+  }
+
+  @Override
+  public FileApi getJavacJar() {
+    return getJavac();
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkBootclasspath() {
+    return SkylarkNestedSet.of(Artifact.class, getBootclasspath());
+  }
+
+  @Override
+  public SkylarkList<String> getSkylarkJvmOptions() {
+    return SkylarkList.createImmutable(getJvmOptions());
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkTools() {
+    return SkylarkNestedSet.of(Artifact.class, getTools());
   }
 }

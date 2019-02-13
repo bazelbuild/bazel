@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -125,7 +126,7 @@ import javax.annotation.Nullable;
  *
  * <p>The parts specific to the current command are stored in {@link CommandEnvironment}.
  */
-public final class BlazeRuntime {
+public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static final Pattern suppressFromLog =
       Pattern.compile("--client_env=([^=]*(?:auth|pass|cookie)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
@@ -155,11 +156,11 @@ public final class BlazeRuntime {
   private final ProjectFile.Provider projectFileProvider;
   private final QueryRuntimeHelper.Factory queryRuntimeHelperFactory;
   @Nullable private final InvocationPolicy moduleInvocationPolicy;
-  private final String defaultsPackageContent;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final String productName;
   private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
+  private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -184,7 +185,8 @@ public final class BlazeRuntime {
       InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
       String productName,
-      BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap) {
+      BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
+      ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -207,12 +209,12 @@ public final class BlazeRuntime {
     this.queryOutputFormatters = queryOutputFormatters;
     this.eventBusExceptionHandler = eventBusExceptionHandler;
 
-    this.defaultsPackageContent =
-        ruleClassProvider.getDefaultsPackageContent(getModuleInvocationPolicy());
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(getCommandMap()));
     this.productName = productName;
     this.buildEventArtifactUploaderFactoryMap = buildEventArtifactUploaderFactoryMap;
+    this.authHeadersProviderMap =
+        Preconditions.checkNotNull(authHeadersProviderMap, "authHeadersProviderMap");
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -645,22 +647,6 @@ public final class BlazeRuntime {
   }
 
   /**
-   * Returns the defaults package for the default settings. Should only be called by commands that
-   * do <i>not</i> process {@link BuildOptions}, since build options can alter the contents of the
-   * defaults package, which will not be reflected here.
-   */
-  public String getDefaultsPackageContent() {
-    return defaultsPackageContent;
-  }
-
-  /**
-   * Returns the defaults package for the given options taken from an optionsProvider.
-   */
-  public String getDefaultsPackageContent(OptionsProvider optionsProvider) {
-    return ruleClassProvider.getDefaultsPackageContent(optionsProvider);
-  }
-
-  /**
    * Creates a BuildOptions class for the given options taken from an optionsProvider.
    */
   public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
@@ -990,7 +976,8 @@ public final class BlazeRuntime {
                 startupOptions.shutdownOnLowSysMem,
                 startupOptions.idleServerTasks);
       } catch (ReflectiveOperationException | IllegalArgumentException e) {
-        throw new AbruptExitException("gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR);
+        throw new AbruptExitException(
+            "gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR, e);
       }
 
       // Register the signal handler.
@@ -1345,6 +1332,11 @@ public final class BlazeRuntime {
     return buildEventArtifactUploaderFactoryMap;
   }
 
+  /** Returns a map of all registered {@link AuthHeadersProvider}s. */
+  public ImmutableMap<String, AuthHeadersProvider> getAuthHeadersProvidersMap() {
+    return authHeadersProviderMap;
+  }
+
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
    * BlazeDirectories}, and the {@link RuleClassProvider} (except for testing). All other fields
@@ -1401,7 +1393,8 @@ public final class BlazeRuntime {
 
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
-        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper(ruleClassProvider);
+        Package.Builder.Helper candidateHelper =
+            module.getPackageBuilderHelper(ruleClassProvider, fileSystem);
         if (candidateHelper != null) {
           Preconditions.checkState(packageBuilderHelper == null,
               "more than one module defines a package builder helper");
@@ -1464,7 +1457,8 @@ public final class BlazeRuntime {
           serverBuilder.getInvocationPolicy(),
           serverBuilder.getCommands(),
           productName,
-          serverBuilder.getBuildEventArtifactUploaderMap());
+          serverBuilder.getBuildEventArtifactUploaderMap(),
+          serverBuilder.getAuthHeadersProvidersMap());
     }
 
     public Builder setProductName(String productName) {

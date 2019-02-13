@@ -17,14 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * Class used to construct command lines from CROSSTOOL features.
- */
+/** Class used to construct command lines from CROSSTOOL features. */
 @SkylarkModule(
-    name = "feature_configuration",
-    documented = false,
+    name = "FeatureConfiguration",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "Class used to construct command lines from CROSSTOOL features."
-)
-public interface FeatureConfigurationApi {
-}
+    doc = "Class used to construct command lines from CROSSTOOL features.")
+public interface FeatureConfigurationApi {}

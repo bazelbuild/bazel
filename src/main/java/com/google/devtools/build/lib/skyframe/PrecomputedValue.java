@@ -80,20 +80,6 @@ public class PrecomputedValue implements SkyValue {
     return new Injected(precomputed, Suppliers.ofInstance(value));
   }
 
-  public static final Precomputed<Boolean> ENABLE_DEFAULTS_PACKAGE =
-      new Precomputed<>(Key.create("enable_default_pkg"));
-
-  // TODO(dbabkin): better to move this code to PrecomputedValueUtils.
-  // It will gone soon after removing tools/defaults
-  public static boolean isInMemoryToolsDefaults(SkyFunction.Environment env)
-      throws InterruptedException {
-    Boolean enableDefaultsPackage = PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.get(env);
-    return Preconditions.checkNotNull(enableDefaultsPackage);
-  }
-
-  public static final Precomputed<String> DEFAULTS_PACKAGE_CONTENTS =
-      new Precomputed<>(Key.create("default_pkg"));
-
   public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
       new Precomputed<>(Key.create("default_visibility"));
 

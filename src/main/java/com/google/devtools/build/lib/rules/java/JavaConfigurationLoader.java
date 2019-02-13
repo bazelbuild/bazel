@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
@@ -27,7 +28,8 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-    return ImmutableSet.<Class<? extends FragmentOptions>>of(JavaOptions.class);
+    return ImmutableSet.<Class<? extends FragmentOptions>>of(
+        JavaOptions.class, PlatformOptions.class);
   }
 
   @Override

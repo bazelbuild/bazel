@@ -13,14 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
+import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -29,6 +33,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Options affecting the execution phase of a build.
@@ -49,6 +54,62 @@ import java.util.List;
 public class ExecutionOptions extends OptionsBase {
 
   public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
+
+  @Option(
+      name = "spawn_strategy",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify how spawn actions are executed by default. "
+              + "'standalone' means run all of them locally without any kind of sandboxing. "
+              + "'sandboxed' means to run them in a sandboxed environment with limited privileges "
+              + "(details depend on platform support).")
+  public String spawnStrategy;
+
+  @Option(
+      name = "genrule_strategy",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify how to execute genrules. This flag will be phased out. Instead, use "
+              + "--spawn_strategy=<value> to control all actions or --strategy=Genrule=<value> "
+              + "to control genrules only.")
+  public String genruleStrategy;
+
+  @Option(
+      name = "strategy",
+      allowMultiple = true,
+      converter = AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify how to distribute compilation of other spawn actions. "
+              + "Example: 'Javac=local' means to spawn Java compilation locally. "
+              + "'JavaIjar=sandboxed' means to spawn Java Ijar actions in a sandbox. ")
+  public List<Map.Entry<String, String>> strategy;
+
+  @Option(
+      name = "strategy_regexp",
+      allowMultiple = true,
+      converter = RegexFilterAssignmentConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "",
+      help =
+          "Override which spawn strategy should be used to execute spawn actions that have "
+              + "descriptions matching a certain regex_filter. See --per_file_copt for details on"
+              + "regex_filter matching. "
+              + "The first regex_filter that matches the description is used. "
+              + "This option overrides other flags for specifying strategy. "
+              + "Example: --strategy_regexp=//foo.*\\.cc,-//foo/bar=local means to run actions "
+              + "using local strategy if their descriptions match //foo.*.cc but not //foo/bar. "
+              + "Example: --strategy_regexp='Compiling.*/bar=local "
+              + " --strategy_regexp=Compiling=sandboxed will run 'Compiling //foo/bar/baz' with "
+              + "the 'local' strategy, but reversing the order would run it with 'sandboxed'. ")
+  public List<Map.Entry<RegexFilter, String>> strategyByRegexp;
 
   @Option(
       name = "materialize_param_files",
@@ -204,7 +265,7 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "ram_utilization_factor",
-      defaultValue = "67",
+      defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -212,11 +273,12 @@ public class ExecutionOptions extends OptionsBase {
               + "subprocesses. This option affects how many processes Bazel will try to run in "
               + "parallel. If you run several Bazel builds in parallel, using a lower value for "
               + "this option may avoid thrashing and thus improve overall throughput. "
-              + "Using a value higher than the default is NOT recommended. "
+              + "Using a value higher than 67 is NOT recommended. "
               + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
               + "higher or much lower than specified. "
               + "Note also that this option does not affect the amount of memory that the Bazel "
-              + "server itself will use. ")
+              + "server itself will use. "
+              + "Setting this value overrides --local_ram_resources")
   public int ramUtilizationPercentage;
 
   @Option(
@@ -230,9 +292,41 @@ public class ExecutionOptions extends OptionsBase {
               + "and number of CPU cores available for the locally executed build actions. It "
               + "would also assume default I/O capabilities of the local workstation (1.0). This "
               + "options allows to explicitly set all 3 values. Note, that if this option is used, "
-              + "Bazel will ignore --ram_utilization_factor.",
+              + "Bazel will ignore --ram_utilization_factor, --local_cpu_resources, and "
+              + "--local_ram_resources.",
       converter = ResourceSet.ResourceSetConverter.class)
   public ResourceSet availableResources;
+
+  @Option(
+      name = "local_cpu_resources",
+      defaultValue = "HOST_CPUS",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Explicitly set the number of local CPU threads available to Bazel. Takes "
+              + "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float> "
+              + "(eg. HOST_CPUS*.5 to use half the available CPU cores)."
+              + "By default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate "
+              + "number of CPU cores available for the locally executed build actions. "
+              + "Note: This is a no-op if --local_resources is set.",
+      converter = CpuResourceConverter.class)
+  public float localCpuResources;
+
+  @Option(
+      name = "local_ram_resources",
+      defaultValue = "HOST_RAM*.67",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Explicitly set the amount of local host RAM (in MB) available to Bazel. Takes "
+              + "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float> "
+              + "(eg. HOST_RAM*.5 to use half the available RAM)."
+              + "By default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate "
+              + "amount of RAM available for the locally executed build actions and will use 67% "
+              + "of available RAM. "
+              + "Note: This is a no-op if --ram_utilization_factor or --local_resources is set.",
+      converter = RamResourceConverter.class)
+  public float localRamResources;
 
   @Option(
     name = "experimental_local_memory_estimate",
@@ -250,15 +344,18 @@ public class ExecutionOptions extends OptionsBase {
   public boolean localMemoryEstimate;
 
   @Option(
-    name = "local_test_jobs",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "The max number of local test jobs to run concurrently. "
-            + "0 means local resources will limit the number of local test jobs to run "
-            + "concurrently instead. Setting this greater than the value for --jobs is ineffectual."
-  )
+      name = "local_test_jobs",
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The max number of local test jobs to run concurrently. "
+              + "Takes "
+              + ResourceConverter.FLAG_SYNTAX
+              + ". 0 means local resources will limit the number of local test jobs to run "
+              + "concurrently instead. Setting this greater than the value for --jobs "
+              + "is ineffectual.",
+      converter = LocalTestJobsConverter.class)
   public int localTestJobs;
 
   public boolean usingLocalTestJobs() {
@@ -319,14 +416,14 @@ public class ExecutionOptions extends OptionsBase {
   public String executionLogFile;
 
   @Option(
-    name = "experimental_split_xml_generation",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-    effectTags = {OptionEffectTag.EXECUTION},
-    help = "If this flag is set, and a test action does not generate a test.xml file, then "
-        + "Bazel uses a separate action to generate a dummy test.xml file containing the test log. "
-        + "Otherwise, Bazel generates the test.xml as part of the test action."
-  )
+      name = "experimental_split_xml_generation",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set, and a test action does not generate a test.xml file, then "
+              + "Bazel uses a separate action to generate a dummy test.xml file containing the "
+              + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
 
   /** Converter for the --flaky_test_attempts option. */
@@ -387,6 +484,13 @@ public class ExecutionOptions extends OptionsBase {
     }
   }
 
+  /** Converter for --local_test_jobs, which takes {@value FLAG_SYNTAX} */
+  public static class LocalTestJobsConverter extends ResourceConverter {
+    public LocalTestJobsConverter() throws OptionsParsingException {
+      super(/* autoSupplier= */ () -> 0, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
+    }
+  }
+
   /** Converter for --subcommands */
   public static class ShowSubcommandsConverter extends BoolOrEnumConverter<ShowSubcommands> {
     public ShowSubcommandsConverter() {
@@ -395,4 +499,47 @@ public class ExecutionOptions extends OptionsBase {
     }
   }
 
+  /**
+   * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
+   * "HOST_CPUS", optionally followed by [-|*]<float>.
+   */
+  public static class CpuResourceConverter extends ResourceConverter {
+    public CpuResourceConverter() {
+      super(
+          ImmutableMap.of(
+              "HOST_CPUS",
+              () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage())),
+          1,
+          Integer.MAX_VALUE);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float>.";
+    }
+  }
+
+  /**
+   * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
+   * "HOST_RAM", optionally followed by [-|*]<float>.
+   */
+  public static class RamResourceConverter extends ResourceConverter {
+    public RamResourceConverter() {
+      super(
+          ImmutableMap.of(
+              "HOST_RAM",
+              // Some tests seem to set local host RAM to 0, so we adjust host RAM to 1 here
+              // to make sure the default is valid.
+              () ->
+                  Math.max(
+                      1, (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb()))),
+          1,
+          Integer.MAX_VALUE);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float>.";
+    }
+  }
 }

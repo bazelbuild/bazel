@@ -74,7 +74,6 @@ public final class JavaCompilationHelper {
   // TODO(twerth): Remove after java_proto_library.strict_deps migration is done.
   private final boolean javaProtoLibraryStrictDeps;
 
-  private static final String DEFAULT_ATTRIBUTES_SUFFIX = "";
   private static final PathFragment JAVAC = PathFragment.create("_javac");
 
   private JavaCompilationHelper(
@@ -132,7 +131,7 @@ public final class JavaCompilationHelper {
         semantics,
         javacOpts,
         attributes,
-        getJavaToolchainProvider(ruleContext),
+        JavaToolchainProvider.from(ruleContext),
         JavaRuntimeInfo.forHost(ruleContext),
         getInstrumentationJars(ruleContext));
   }
@@ -149,7 +148,7 @@ public final class JavaCompilationHelper {
         semantics,
         javacOpts,
         attributes,
-        getJavaToolchainProvider(ruleContext),
+        JavaToolchainProvider.from(ruleContext),
         JavaRuntimeInfo.forHost(ruleContext),
         getInstrumentationJars(ruleContext),
         additionalJavaBaseInputs,
@@ -375,9 +374,11 @@ public final class JavaCompilationHelper {
 
   private boolean shouldInstrumentJar() {
     // TODO(bazel-team): What about source jars?
+    RuleContext ruleContext = getRuleContext();
     return getConfiguration().isCodeCoverageEnabled()
         && attributes.hasSourceFiles()
-        && InstrumentedFilesCollector.shouldIncludeLocalSources(getRuleContext());
+        && InstrumentedFilesCollector.shouldIncludeLocalSources(
+            ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
   }
 
   private boolean shouldUseHeaderCompilation() {
@@ -450,6 +451,8 @@ public final class JavaCompilationHelper {
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
+    builder.setReduceClasspath(
+        getJavaConfiguration().getReduceJavaClasspath() != JavaClasspathMode.OFF);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());
@@ -676,7 +679,7 @@ public final class JavaCompilationHelper {
         ruleContext,
         ruleContext,
         semantics,
-        attributes.getSourceFiles(),
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
         resourceJars.build(),
         outputJar,
         javaToolchainProvider,
@@ -691,7 +694,11 @@ public final class JavaCompilationHelper {
       resourceJars.add(gensrcJar);
     }
     SingleJarActionBuilder.createSourceJarAction(
-        ruleContext, semantics, attributes.getSourceFiles(), resourceJars.build(), outputJar);
+        ruleContext,
+        semantics,
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
+        resourceJars.build(),
+        outputJar);
   }
 
   /**
@@ -841,30 +848,15 @@ public final class JavaCompilationHelper {
     return ImmutableList.copyOf(translations);
   }
 
-  public static JavaToolchainProvider getJavaToolchainProvider(
-      RuleContext ruleContext, String implicitAttributesSuffix) {
-    return JavaToolchainProvider.from(ruleContext, ":java_toolchain" + implicitAttributesSuffix);
-  }
-
-  public static JavaToolchainProvider getJavaToolchainProvider(RuleContext ruleContext) {
-    return getJavaToolchainProvider(ruleContext, DEFAULT_ATTRIBUTES_SUFFIX);
-  }
-
   /** Returns the instrumentation jar in the given semantics. */
-  public static Iterable<Artifact> getInstrumentationJars(
-      RuleContext ruleContext, String implicitAttributesSuffix) {
+  public static Iterable<Artifact> getInstrumentationJars(RuleContext ruleContext) {
     TransitiveInfoCollection instrumentationTarget =
-        ruleContext.getPrerequisite(
-            "$jacoco_instrumentation" + implicitAttributesSuffix, Mode.HOST);
+        ruleContext.getPrerequisite("$jacoco_instrumentation", Mode.HOST);
     if (instrumentationTarget == null) {
       return ImmutableList.<Artifact>of();
     }
     return FileType.filter(
         instrumentationTarget.getProvider(FileProvider.class).getFilesToBuild(), JavaSemantics.JAR);
-  }
-
-  public static Iterable<Artifact> getInstrumentationJars(RuleContext ruleContext) {
-    return getInstrumentationJars(ruleContext, DEFAULT_ATTRIBUTES_SUFFIX);
   }
 
   /**

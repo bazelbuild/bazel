@@ -658,8 +658,7 @@ public class MethodLibrary {
           if (step == 0) {
             throw new EvalException(loc, "step cannot be 0");
           }
-          RangeList range = RangeList.of(start, stop, step);
-          return env.getSemantics().incompatibleRangeType() ? range : range.toMutableList(env);
+          return RangeList.of(start, stop, step);
         }
       };
 

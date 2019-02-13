@@ -15,18 +15,23 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
 import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamContext;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -38,7 +43,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.JavaSleeper;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.v1.BuildStatus.Result;
@@ -108,8 +115,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         BuildEventProtocolOptions bepOptions,
         BuildEventServiceProtoUtil besProtoUtil,
         Clock clock,
-        ExitFunction exitFunction) {
-
+        ExitFunction exitFunction,
+        ArtifactGroupNamer namer) {
       return new BuildEventServiceTransport(
           besClient,
           localFileUploader,
@@ -120,7 +127,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           publishLifecycleEvents,
           closeTimeout != null ? closeTimeout : Duration.ZERO,
           sleeper != null ? sleeper : new JavaSleeper(),
-          buildEventLogger != null ? buildEventLogger : (e) -> {});
+          buildEventLogger != null ? buildEventLogger : (e) -> {},
+          namer);
     }
   }
 
@@ -134,7 +142,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       boolean publishLifecycleEvents,
       Duration closeTimeout,
       Sleeper sleeper,
-      BuildEventLogger buildEventLogger) {
+      BuildEventLogger buildEventLogger,
+      ArtifactGroupNamer namer) {
     this.besUploader =
         new BuildEventServiceUploader(
             besClient,
@@ -146,7 +155,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             exitFunc,
             sleeper,
             clock,
-            buildEventLogger);
+            buildEventLogger,
+            namer);
   }
 
   @Override
@@ -160,8 +170,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   }
 
   @Override
-  public void closeNow() {
-    besUploader.closeNow(/*causedByTimeout=*/ false);
+  public BuildEventArtifactUploader getUploader() {
+    return besUploader.localFileUploader;
   }
 
   @Override
@@ -170,8 +180,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   }
 
   @Override
-  public void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    besUploader.enqueueEvent(event, namer);
+  public void sendBuildEvent(BuildEvent event) {
+    besUploader.enqueueEvent(event);
   }
 
   /** BuildEventLogger can be used to log build event (stats). */
@@ -186,7 +196,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
    */
   @FunctionalInterface
   public interface ExitFunction {
-    void accept(String message, Exception cause);
+    void accept(String message, Throwable cause, ExitCode code);
   }
 
   /**
@@ -194,13 +204,13 @@ public class BuildEventServiceTransport implements BuildEventTransport {
    * carry error messages.
    */
   @VisibleForTesting
-  public void throwUploaderError() throws Exception {
+  public void throwUploaderError() throws Throwable {
     synchronized (besUploader.lock) {
       checkState(besUploader.closeFuture != null && besUploader.closeFuture.isDone());
       try {
         besUploader.closeFuture.get();
       } catch (ExecutionException e) {
-        throw (Exception) e.getCause();
+        throw e.getCause();
       }
     }
   }
@@ -226,6 +236,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     private final Sleeper sleeper;
     private final Clock clock;
     private final BuildEventLogger buildEventLogger;
+    private final ArtifactGroupNamer namer;
 
     /**
      * The event queue contains two types of events: - Build events, sorted by sequence number, that
@@ -255,14 +266,16 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
     /**
      * The thread that calls the lifecycle RPCs and does the build event upload. It's started lazily
-     * on the first call to {@link #enqueueEvent(BuildEvent, ArtifactGroupNamer)} or {@link
-     * #close()} (which ever comes first).
+     * on the first call to {@link #enqueueEvent(BuildEvent)} or {@link #close()} (which ever comes
+     * first).
      */
     @GuardedBy("lock")
     private Thread uploadThread;
 
     @GuardedBy("lock")
     private boolean interruptCausedByTimeout;
+
+    private StreamContext streamContext;
 
     public BuildEventServiceUploader(
         BuildEventServiceClient besClient,
@@ -274,7 +287,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         ExitFunction exitFunc,
         Sleeper sleeper,
         Clock clock,
-        BuildEventLogger buildEventLogger) {
+        BuildEventLogger buildEventLogger,
+        ArtifactGroupNamer namer) {
       this.besClient = Preconditions.checkNotNull(besClient);
       this.localFileUploader = Preconditions.checkNotNull(localFileUploader);
       this.besProtoUtil = Preconditions.checkNotNull(besProtoUtil);
@@ -285,10 +299,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       this.sleeper = Preconditions.checkNotNull(sleeper);
       this.clock = Preconditions.checkNotNull(clock);
       this.buildEventLogger = Preconditions.checkNotNull(buildEventLogger);
+      this.namer = Preconditions.checkNotNull(namer);
     }
 
     /** Enqueues an event for uploading to a BES backend. */
-    public void enqueueEvent(BuildEvent event, ArtifactGroupNamer namer) {
+    public void enqueueEvent(BuildEvent event) {
       // This needs to happen outside a synchronized block as it may trigger
       // stdout/stderr and lead to a deadlock. See b/109725432
       ListenableFuture<PathConverter> localFileUploadFuture =
@@ -345,14 +360,14 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
 
     /** Stops the upload immediately. Enqueued events that have not been sent yet will be lost. */
-    public void closeNow(boolean causedByTimeout) {
+    void closeOnTimeout() {
       synchronized (lock) {
         if (uploadThread != null) {
           if (uploadThread.isInterrupted()) {
             return;
           }
 
-          interruptCausedByTimeout = causedByTimeout;
+          interruptCausedByTimeout = true;
           uploadThread.interrupt();
         }
       }
@@ -378,7 +393,10 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             publishLifecycleEvent(besProtoUtil.buildFinished(currentTime(), buildStatus));
           }
         }
-        exitFunc.accept("The Build Event Protocol upload finished successfully", null);
+        exitFunc.accept(
+            "The Build Event Protocol upload finished successfully",
+            /*cause=*/ null,
+            ExitCode.SUCCESS);
         synchronized (lock) {
           // Invariant: closeFuture is not null.
           // publishBuildEvents() only terminates successfully after SendLastBuildEventCommand
@@ -390,9 +408,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         try {
           logInfo(e, "Aborting the BES upload due to having received an interrupt");
           synchronized (lock) {
-            if (interruptCausedByTimeout) {
-              exitFunc.accept("The Build Event Protocol upload timed out", e);
-            }
+            Preconditions.checkState(
+                interruptCausedByTimeout, "Unexpected interrupt on BES uploader thread");
+            exitFunc.accept(
+                "The Build Event Protocol upload timed out",
+                e,
+                ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
           }
         } finally {
           // TODO(buchgr): Due to b/113035235 exitFunc needs to be called before the close future
@@ -404,29 +425,31 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           String message =
               "The Build Event Protocol upload failed: " + besClient.userReadableError(e);
           logInfo(e, message);
-          exitFunc.accept(message, e);
+          ExitCode code =
+              shouldRetryStatus(e.getStatus())
+                  ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
+                  : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR;
+          exitFunc.accept(message, e, code);
         } finally {
           failCloseFuture(e);
         }
       } catch (LocalFileUploadException e) {
+        Throwables.throwIfUnchecked(e.getCause());
         try {
           String message =
               "The Build Event Protocol local file upload failed: " + e.getCause().getMessage();
-          logInfo((Exception) e.getCause(), message);
-          exitFunc.accept(message, (Exception) e.getCause());
+          logInfo(e.getCause(), message);
+          exitFunc.accept(
+              message, e.getCause(), ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
         } finally {
-          failCloseFuture((Exception) e.getCause());
+          failCloseFuture(e.getCause());
         }
-      } catch (RuntimeException e) {
+      } catch (Throwable e) {
         failCloseFuture(e);
-        logError(e, "BES upload failed due to a RuntimeException. This is a bug.");
+        logError(e, "BES upload failed due to a RuntimeException / Error. This is a bug.");
         throw e;
       } finally {
-        try {
-          besClient.shutdown();
-        } finally {
-          localFileUploader.shutdown();
-        }
+        localFileUploader.shutdown();
       }
     }
 
@@ -461,12 +484,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 // Invariant: the eventQueue only contains events of type SEND_BUILD_EVENT
                 // or SEND_LAST_EVENT
                 logInfo("Starting publishBuildEvents: eventQueue=%d", eventQueue.size());
-                ListenableFuture<Status> streamFuture =
+                streamContext =
                     besClient.openStream(
                         (ack) ->
                             eventQueue.addLast(new AckReceivedCommand(ack.getSequenceNumber())));
                 addStreamStatusListener(
-                    streamFuture,
+                    streamContext.getStatus(),
                     (status) -> eventQueue.addLast(new StreamCompleteCommand(status)));
               }
               break;
@@ -477,7 +500,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 SendRegularBuildEventCommand buildEvent = (SendRegularBuildEventCommand) event;
                 ackQueue.addLast(buildEvent);
                 PathConverter pathConverter = waitForLocalFileUploads(buildEvent);
-                besClient.sendOverStream(buildEvent.serialize(pathConverter));
+                streamContext.sendOverStream(buildEvent.serialize(pathConverter));
               }
               break;
 
@@ -487,8 +510,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 SendLastBuildEventCommand lastEvent = (SendLastBuildEventCommand) event;
                 ackQueue.addLast(lastEvent);
                 lastEventSent = true;
-                besClient.sendOverStream(lastEvent.serialize());
-                besClient.halfCloseStream();
+                streamContext.sendOverStream(lastEvent.serialize());
+                streamContext.halfCloseStream();
               }
               break;
 
@@ -508,7 +531,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                             "Expected ACK with seqNum=%d but received ACK with seqNum=%d",
                             expected.getSequenceNumber(), actualSeqNum);
                     logInfo(message);
-                    besClient.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
+                    streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
                   }
                 } else {
                   String message =
@@ -516,7 +539,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                           "Received ACK (seqNum=%d) when no ACK was expected",
                           ackEvent.getSequenceNumber());
                   logInfo(message);
-                  besClient.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
+                  streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
                 }
               }
               break;
@@ -525,6 +548,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
               {
                 // Invariant: the eventQueue only contains events of type SEND_BUILD_EVENT
                 // or SEND_LAST_EVENT
+                streamContext = null;
                 StreamCompleteCommand completeEvent = (StreamCompleteCommand) event;
                 Status streamStatus = completeEvent.status();
                 if (streamStatus.isOk()) {
@@ -560,9 +584,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 }
 
                 long sleepMillis = retrySleepMillis(retryAttempt);
-                logInfo(
-                    "Retrying publishLifecycleEvent: status='%s', sleepMillis=%d",
-                    streamStatus, sleepMillis);
+                logInfo("Retrying stream: status='%s', sleepMillis=%d", streamStatus, sleepMillis);
                 sleeper.sleepMillis(sleepMillis);
 
                 // If we made progress, meaning the server ACKed events that we sent, then reset
@@ -579,7 +601,19 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           }
         }
       } catch (InterruptedException | LocalFileUploadException e) {
-        besClient.abortStream(Status.CANCELLED);
+        int limit = 30;
+        logInfo(
+            String.format(
+                "Publish interrupt. Showing up to %d items from queues: ack_queue_size: %d, "
+                    + "ack_queue: %s, event_queue_size: %d, event_queue: %s",
+                limit,
+                ackQueue.size(),
+                Iterables.limit(ackQueue, limit),
+                eventQueue.size(),
+                Iterables.limit(eventQueue, limit)));
+        if (streamContext != null) {
+          streamContext.abortStream(Status.CANCELLED);
+        }
         throw e;
       } finally {
         // Cancel all local file uploads that may still be running
@@ -660,22 +694,29 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       Thread closeTimer =
           new Thread(
               () -> {
-                // Call closeNow() if the future does not complete within closeTimeout
+                // Call closeOnTimeout() if the future does not complete within closeTimeout
                 try {
-                  closeFuture.get(closeTimeout.toMillis(), TimeUnit.MILLISECONDS);
-                } catch (InterruptedException | TimeoutException e) {
-                  closeNow(/*causedByTimeout=*/ true);
+                  getUninterruptibly(closeFuture, closeTimeout.toMillis(), TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                  closeOnTimeout();
                 } catch (ExecutionException e) {
-                  // Intentionally left empty, because this code only cares about
-                  // calling closeNow() if the closeFuture does not complete within
-                  // closeTimeout.
+                  if (e.getCause() instanceof TimeoutException) {
+                    // This is likely due to an internal timeout doing the local file uploading.
+                    closeOnTimeout();
+                  } else {
+                    // This code only cares about calling closeOnTimeout() if the closeFuture does
+                    // not complete within closeTimeout.
+                    String failureMsg = "BES close failure";
+                    logError(e, failureMsg);
+                    LoggingUtil.logToRemote(Level.SEVERE, failureMsg, e);
+                  }
                 }
               },
               "bes-uploader-close-timer");
       closeTimer.start();
     }
 
-    private void failCloseFuture(Exception cause) {
+    private void failCloseFuture(Throwable cause) {
       synchronized (lock) {
         if (closeFuture == null) {
           closeFuture = SettableFuture.create();
@@ -695,7 +736,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             String.format(
                 "Failed to upload local files referenced by build event: %s", e.getMessage()),
             e);
-        throw new LocalFileUploadException((Exception) e.getCause());
+        Throwables.throwIfUnchecked(e.getCause());
+        throw new LocalFileUploadException(e.getCause());
       }
     }
 
@@ -754,11 +796,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       logger.log(Level.INFO, String.format(message, args));
     }
 
-    private static void logInfo(Exception cause, String message, Object... args) {
+    private static void logInfo(Throwable cause, String message, Object... args) {
       logger.log(Level.INFO, String.format(message, args), cause);
     }
 
-    private static void logError(Exception cause, String message, Object... args) {
+    private static void logError(Throwable cause, String message, Object... args) {
       logger.log(Level.SEVERE, String.format(message, args), cause);
     }
 
@@ -830,14 +872,24 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       public Type type() {
         return Type.ACK_RECEIVED;
       }
+
+      @Override
+      public String toString() {
+        return MoreObjects.toStringHelper(this).add("seq_num", getSequenceNumber()).toString();
+      }
     }
 
-    private interface SendBuildEventCommand extends EventLoopCommand {
+    private abstract static class SendBuildEventCommand implements EventLoopCommand {
 
-      long getSequenceNumber();
+      abstract long getSequenceNumber();
+
+      @Override
+      public String toString() {
+        return MoreObjects.toStringHelper(this).add("seq_num", getSequenceNumber()).toString();
+      }
     }
 
-    private final class SendRegularBuildEventCommand implements SendBuildEventCommand {
+    private final class SendRegularBuildEventCommand extends SendBuildEventCommand {
 
       private final BuildEvent event;
       private final ArtifactGroupNamer namer;
@@ -894,10 +946,15 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       public Type type() {
         return Type.SEND_BUILD_EVENT;
       }
+
+      @Override
+      public String toString() {
+        return super.toString() + " - [" + event + "]";
+      }
     }
 
     @Immutable
-    private final class SendLastBuildEventCommand implements SendBuildEventCommand {
+    private final class SendLastBuildEventCommand extends SendBuildEventCommand {
 
       private final long sequenceNumber;
       private final Timestamp creationTime;
@@ -923,8 +980,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
 
     private static class LocalFileUploadException extends Exception {
-
-      public LocalFileUploadException(Exception cause) {
+      LocalFileUploadException(Throwable cause) {
         super(cause);
       }
     }

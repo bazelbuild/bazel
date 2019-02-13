@@ -61,7 +61,7 @@ function test_output_filter_cc() {
   # "test warning filter for C compilation"
   local -r pkg=$FUNCNAME
 
-  if is_windows; then
+  if $is_windows; then
     local -r copts=\"/W3\"
   else
     local -r copts=""

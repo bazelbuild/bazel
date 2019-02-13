@@ -187,6 +187,9 @@ public abstract class SkylarkType implements Serializable {
   /** The TUPLE type, that contains all Tuple-s */
   @AutoCodec public static final Simple TUPLE = Simple.forClass(Tuple.class);
 
+  /** The STRING_PAIR type, that contains Tuple-s of size 2 containing only Strings. */
+  @AutoCodec public static final SkylarkType STRING_PAIR = new StringPairType();
+
   /** The STRING_LIST type, a MutableList of strings */
   @AutoCodec public static final SkylarkType STRING_LIST = Combination.of(LIST, STRING);
 
@@ -195,6 +198,39 @@ public abstract class SkylarkType implements Serializable {
 
   /** The SET type, that contains all SkylarkNestedSet-s, and the generic combinator for them */
   @AutoCodec public static final Simple SET = Simple.forClass(SkylarkNestedSet.class);
+
+  private static class StringPairType extends SkylarkType {
+
+    @Override
+    public boolean contains(Object value) {
+      if (value instanceof Tuple) {
+        Tuple<?> tuple = (Tuple<?>) value;
+        return tuple.size() == 2
+            && tuple.get(0) instanceof String
+            && tuple.get(1) instanceof String;
+      }
+      return false;
+    }
+
+    @Override
+    public Class<?> getType() {
+      return Tuple.class;
+    }
+
+    @Override
+    public String toString() {
+      return "string-pair tuple";
+    }
+
+    @Override
+    protected SkylarkType intersectWith(SkylarkType other) {
+      if (other.equals(this) || other.canBeCastTo(Tuple.class)) {
+        return this;
+      } else {
+        return BOTTOM;
+      }
+    }
+  }
 
   // Common subclasses of SkylarkType
 
@@ -520,6 +556,16 @@ public abstract class SkylarkType implements Serializable {
     public static SkylarkType of(Class<?> t1, Class<?> t2) {
       return of(Simple.forClass(t1), Simple.forClass(t2));
     }
+  }
+
+  public static SkylarkType of(Object object) {
+    SkylarkType type = of(object.getClass());
+    if (type.canBeCastTo(Tuple.class)) {
+      if (STRING_PAIR.contains(object)) {
+        return STRING_PAIR;
+      }
+    }
+    return type;
   }
 
   public static SkylarkType of(Class<?> type) {

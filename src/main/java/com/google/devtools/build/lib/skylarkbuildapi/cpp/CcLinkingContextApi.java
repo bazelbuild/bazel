@@ -22,13 +22,20 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 /** Wrapper for every C++ linking provider. */
 @SkylarkModule(
     name = "LinkingContext",
-    documented = false,
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "")
+    doc =
+        "Immutable store of information needed for C++ linking that is aggregated across "
+            + "dependencies.")
 public interface CcLinkingContextApi {
-  @SkylarkCallable(name = "user_link_flags", documented = false, structField = true)
+  @SkylarkCallable(
+      name = "user_link_flags",
+      doc = "Returns the list of user link flags passed as strings.",
+      structField = true)
   SkylarkList<String> getSkylarkUserLinkFlags();
 
-  @SkylarkCallable(name = "libraries_to_link", documented = false, structField = true)
-  SkylarkList<LibraryToLinkWrapperApi> getSkylarkLibrariesToLink();
+  @SkylarkCallable(
+      name = "libraries_to_link",
+      doc = "Returns the list of <code>LibraryToLink</code>.",
+      structField = true)
+  SkylarkList<LibraryToLinkApi> getSkylarkLibrariesToLink();
 }

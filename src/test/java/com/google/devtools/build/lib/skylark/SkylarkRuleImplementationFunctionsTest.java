@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -135,11 +137,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  outs = [ 'gl.a', 'gl.gcgox', ],",
         "  output_to_bindir = 1,",
         ")",
-        // The two below are used by testResolveCommand
+        // The target below is used by testResolveCommand and testResolveTools
         "sh_binary(name = 'mytool',",
         "  srcs = ['mytool.sh'],",
         "  data = ['file1.dat', 'file2.dat'],",
         ")",
+        // The target below is used by testResolveCommand and testResolveTools
         "genrule(name = 'resolve_me',",
         "  cmd = 'aa',",
         "  tools = [':mytool', 't.exe'],",
@@ -310,8 +313,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"),
-        "expected value of type 'File or string' for parameter 'executable', in method call "
-            + "run(list inputs, list outputs, list arguments, int executable) of 'actions'",
+        "expected value of type 'File or string or FilesToRunProvider' for parameter 'executable', "
+            + "for call to method run(",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -366,8 +369,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "unexpected keyword 'bad_param', in method call run("
-            + "list outputs, string bad_param, File executable) of 'actions'",
+        "unexpected keyword 'bad_param', for call to method run(",
         "f = ruleContext.actions.declare_file('foo.sh')",
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
   }
@@ -539,8 +541,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     checkErrorContains(
         ruleContext,
-        "parameter 'mnemonic' has no default value, "
-        + "in method call do_nothing(list inputs) of 'actions'",
+        "parameter 'mnemonic' has no default value, for call to method "
+            + "do_nothing(mnemonic, inputs = []) of 'actions'",
         "ruleContext.actions.do_nothing(inputs = ruleContext.files.srcs)");
   }
 
@@ -739,6 +741,41 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testResolveTools() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:resolve_me");
+    evalRuleContextCode(
+        ruleContext,
+        "inputs, input_manifests = ruleContext.resolve_tools(tools=ruleContext.attr.tools)",
+        "ruleContext.actions.run(",
+        "    outputs = [ruleContext.actions.declare_file('x.out')],",
+        "    inputs = inputs,",
+        "    input_manifests = input_manifests,",
+        "    executable = 'dummy',",
+        ")");
+    assertArtifactFilenames(
+        ((SkylarkNestedSet) lookup("inputs")).getSet(Artifact.class),
+        "mytool.sh",
+        "mytool",
+        "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
+        "t.exe");
+    @SuppressWarnings("unchecked")
+    CompositeRunfilesSupplier runfilesSupplier =
+        new CompositeRunfilesSupplier((List<RunfilesSupplier>) lookup("input_manifests"));
+    assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
+
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
+        .containsAllOf(
+            "mytool.sh",
+            "mytool",
+            "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
+            "t.exe");
+  }
+
+  @Test
   public void testBadParamTypeErrorMessage() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
@@ -824,7 +861,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadSetGenericType() throws Exception {
     checkErrorContains(
         "expected value of type 'depset of Files or NoneType' for parameter 'transitive_files', "
-            + "in method call runfiles(depset transitive_files) of 'ctx'",
+            + "for call to method runfiles(",
         "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
 
@@ -939,7 +976,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "unexpected keyword 'bad_keyword', in method call runfiles(string bad_keyword) of 'ctx'",
+        "unexpected keyword 'bad_keyword', for call to method runfiles(",
         "ruleContext.runfiles(bad_keyword = '')");
   }
 
@@ -1292,7 +1329,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("unexpected keyword 'foo', in call to DefaultInfo");
+        .contains("unexpected keyword 'foo', for call to function DefaultInfo(");
   }
 
   @Test
@@ -2365,11 +2402,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkError(
         ruleContext,
-        "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"",
+        "Invalid value for parameter \"param_file_arg\": Expected string with a single \"--file=\"",
         "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=')");
     checkError(
         ruleContext,
-        "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"",
+        "Invalid value for parameter \"param_file_arg\": "
+            + "Expected string with a single \"--file=%s%s\"",
         "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=%s%s')");
   }
 
@@ -2615,6 +2653,86 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testConfigurationField_SkylarkSplitTransitionProhibited() throws Exception {
+    scratch.file(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//...',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "test/rule.bzl",
+        "def _foo_impl(ctx):",
+        "  return struct()",
+        "",
+        "def _foo_transition_impl(settings):",
+        "  return {'t1': {}, 't2': {}}",
+        "foo_transition = transition(implementation=_foo_transition_impl, inputs=[], outputs=[])",
+        "",
+        "foo = rule(",
+        "  implementation = _foo_impl,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "    '_attr': attr.label(",
+        "        cfg = foo_transition,",
+        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+
+    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:foo");
+    assertContainsEvent("late-bound attributes must not have a split configuration transition");
+  }
+
+  @Test
+  public void testConfigurationField_NativeSplitTransitionProviderProhibited() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _foo_impl(ctx):",
+        "  return struct()",
+        "",
+        "foo = rule(",
+        "  implementation = _foo_impl,",
+        "  attrs = {",
+        "    '_attr': attr.label(",
+        "        cfg = apple_common.multi_arch_split,",
+        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+
+    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:foo");
+    assertContainsEvent("late-bound attributes must not have a split configuration transition");
+  }
+
+  @Test
+  public void testConfigurationField_NativeSplitTransitionProhibited() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _foo_impl(ctx):",
+        "  return struct()",
+        "",
+        "foo = rule(",
+        "  implementation = _foo_impl,",
+        "  attrs = {",
+        "    '_attr': attr.label(",
+        "        cfg = android_common.multi_cpu_configuration,",
+        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+
+    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:foo");
+    assertContainsEvent("late-bound attributes must not have a split configuration transition");
+  }
+
+  @Test
   public void testConfigurationField_invalidFragment() throws Exception {
     scratch.file("test/main_rule.bzl",
         "def _impl(ctx):",
@@ -2714,6 +2832,61 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             + "the attribute must be private (i.e. start with '_')");
   }
 
+  @Test
+  public void testFilesToRunInActionsRun() throws Exception {
+    scratch.file(
+        "a/a.bzl",
+        "def _impl(ctx):",
+        "    f = ctx.actions.declare_file('output')",
+        "    ctx.actions.run(",
+        "        inputs = [],",
+        "        outputs = [f],",
+        "        executable = ctx.attr._tool[DefaultInfo].files_to_run)",
+        "    return [DefaultInfo(files=depset([f]))]",
+        "r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':a.bzl', 'r')",
+        "r(name='r')",
+        "sh_binary(name='tool', srcs=['tool.sh'], data=['data'])");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    Action action =
+        getGeneratingAction(
+            Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
+        .containsAllOf("tool", "tool.sh", "data");
+  }
+
+  @Test
+  public void testFilesToRunInActionsTools() throws Exception {
+    scratch.file(
+        "a/a.bzl",
+        "def _impl(ctx):",
+        "    f = ctx.actions.declare_file('output')",
+        "    ctx.actions.run(",
+        "        inputs = [],",
+        "        outputs = [f],",
+        "        tools = [ctx.attr._tool[DefaultInfo].files_to_run],",
+        "        executable = 'a/tool')",
+        "    return [DefaultInfo(files=depset([f]))]",
+        "r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':a.bzl', 'r')",
+        "r(name='r')",
+        "sh_binary(name='tool', srcs=['tool.sh'], data=['data'])");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    Action action =
+        getGeneratingAction(
+            Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
+        .containsAllOf("tool", "tool.sh", "data");
+  }
+
   // Verifies that configuration_field can only be used on 'label' attributes.
   @Test
   public void testConfigurationField_invalidAttributeType() throws Exception {
@@ -2736,9 +2909,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
-        .contains("expected value of type 'int or function' for parameter 'default', "
-            + "in method call int(LateBoundDefault default)");
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "expected value of type 'int or function' for parameter 'default', "
+                + "for call to method int(");
   }
 
   @Test

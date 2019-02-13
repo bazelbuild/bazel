@@ -17,7 +17,7 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkBuildApiGlobals;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
 public class FakeBuildApiGlobals implements SkylarkBuildApiGlobals {
 
   @Override
-  public LateBoundDefaultApi configurationField(String fragment, String name, Location loc,
-      Environment env) throws EvalException {
+  public LateBoundDefaultApi configurationField(
+      String fragment, String name, Location loc, StarlarkContext context) throws EvalException {
     return new FakeLateBoundDefaultApi();
   }
 }

@@ -173,8 +173,15 @@ public final class TargetCompleteEvent
           ConfiguredAttributeMapper.of(
               (Rule) targetAndData.getTarget(),
               ((RuleConfiguredTarget) targetAndData.getConfiguredTarget()).getConfigConditions());
-      // Every rule (implicitly) has a "tags" attribute.
-      this.tags = attributes.get("tags", Type.STRING_LIST);
+      // Every build rule (implicitly) has a "tags" attribute. However other rule configured targets
+      // are repository rules (which don't have a tags attribute); morevoer, thanks to the virtual
+      // "external" package, they are user visible as targets and can create a completed event as
+      // well.
+      if (attributes.has("tags", Type.STRING_LIST)) {
+        this.tags = attributes.get("tags", Type.STRING_LIST);
+      } else {
+        this.tags = ImmutableList.of();
+      }
     }
   }
 

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -22,8 +21,8 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
+import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -140,7 +139,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    * Object encapsulating dirty state of the object between when it is marked dirty and
    * re-evaluated.
    */
-  @VisibleForTesting @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
+  @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
 
   private static final int NOT_EVALUATING_SENTINEL = -1;
 
@@ -295,13 +294,21 @@ public class InMemoryNodeEntry implements NodeEntry {
   // although this method itself is synchronized, there are unsynchronized consumers of the version
   // and the value.
   @Override
-  public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
+  public synchronized Set<SkyKey> setValue(
+      SkyValue value, Version version, DepFingerprintList depFingerprintList)
       throws InterruptedException {
     Preconditions.checkState(isReady(), "%s %s", this, value);
+    if (depFingerprintList != null) {
+      logError(
+          new IllegalStateException(
+              String.format(
+                  "Expect no depFingerprintList here: %s %s %s %s",
+                  this, depFingerprintList, value, version)));
+    }
     assertVersionCompatibleWhenSettingValue(version, value);
     this.lastEvaluatedVersion = version;
 
-    if (!isEligibleForChangePruning()) {
+    if (!isEligibleForChangePruningOnUnchangedValue()) {
       this.lastChangedVersion = version;
       this.value = value;
     } else if (isDirty() && getDirtyBuildingState().unchangedFromLastBuild(value)) {
@@ -330,7 +337,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    * <p>Implementations need not check whether the value has changed - this will only be called if
    * the value has not changed.
    */
-  protected boolean isEligibleForChangePruning() {
+  public boolean isEligibleForChangePruningOnUnchangedValue() {
     return true;
   }
 
@@ -484,11 +491,6 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized boolean signalDep() {
-    return signalDep(/*childVersion=*/ IntVersion.of(Long.MAX_VALUE), /*childForDebugging=*/ null);
-  }
-
-  @Override
   public synchronized boolean signalDep(Version childVersion, @Nullable SkyKey childForDebugging) {
     Preconditions.checkState(
         !isDone(), "Value must not be done in signalDep %s child=%s", this, childForDebugging);
@@ -586,7 +588,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   /** @see DirtyBuildingState#getNextDirtyDirectDeps() */
   @Override
-  public synchronized Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public synchronized List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(isReady(), this);
     Preconditions.checkState(isEvaluating(), "Not evaluating during getNextDirty? %s", this);
     return getDirtyBuildingState().getNextDirtyDirectDeps();
@@ -624,8 +626,36 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  public boolean canPruneDepsByFingerprint() {
+    return false;
+  }
+
+  @Nullable
+  @Override
+  public Iterable<SkyKey> getLastDirectDepsGroupWhenPruningDepsByFingerprint()
+      throws InterruptedException {
+    throw new UnsupportedOperationException(this.toString());
+  }
+
+  @Override
+  public boolean unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(
+      BigInteger groupFingerprint) {
+    throw new UnsupportedOperationException(this.toString());
+  }
+
+  /**
+   * If this entry {@link #canPruneDepsByFingerprint} and has that data, returns a list of dep group
+   * fingerprints. Otherwise returns null.
+   */
+  @Nullable
+  public DepFingerprintList getDepFingerprintList() {
+    Preconditions.checkState(isDone(), this);
+    return null;
+  }
+
+  @Override
   public synchronized void markRebuilding() {
-    getDirtyBuildingState().markRebuilding(isEligibleForChangePruning());
+    getDirtyBuildingState().markRebuilding(isEligibleForChangePruningOnUnchangedValue());
   }
 
   @SuppressWarnings("unchecked")
@@ -677,7 +707,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized void addTemporaryDirectDepsGroupToDirtyEntry(Collection<SkyKey> group) {
+  public synchronized void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
     Preconditions.checkState(!isDone(), "add group temp shouldn't be done: %s %s", group, this);
     getTemporaryDirectDeps().appendGroup(group);
   }
@@ -715,18 +745,25 @@ public class InMemoryNodeEntry implements NodeEntry {
     return signaledDeps > NOT_EVALUATING_SENTINEL;
   }
 
-  @Override
-  public synchronized String toString() {
+  protected synchronized MoreObjects.ToStringHelper toStringHelper() {
     return MoreObjects.toStringHelper(this)
         .add("identity", System.identityHashCode(this))
         .add("value", value)
         .add("lastChangedVersion", lastChangedVersion)
         .add("lastEvaluatedVersion", lastEvaluatedVersion)
-        .add("directDeps", isDone() ? GroupedList.create(directDeps) : directDeps)
+        .add(
+            "directDeps",
+            isDone() && keepEdges() != KeepEdgesPolicy.NONE
+                ? GroupedList.create(directDeps)
+                : directDeps)
         .add("signaledDeps", signaledDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this))
-        .add("dirtyBuildingState", dirtyBuildingState)
-        .toString();
+        .add("dirtyBuildingState", dirtyBuildingState);
+  }
+
+  @Override
+  public final synchronized String toString() {
+    return toStringHelper().toString();
   }
 
   protected synchronized InMemoryNodeEntry cloneNodeEntry(InMemoryNodeEntry newEntry) {

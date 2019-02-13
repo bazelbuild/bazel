@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
@@ -55,9 +56,11 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyInfo.FakePyInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -186,10 +189,14 @@ public class SymbolFamilies {
             new FakeJavaProtoCommon(),
             new FakeJavaCcLinkParamsProvider.Provider());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
+    PyBootstrap pyBootstrap = new PyBootstrap(new FakePyInfoProvider());
     RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
-    TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule(),
-        new FakeAnalysisFailureInfoProvider(),
-        new FakeAnalysisTestResultInfoProvider());
+    TestingBootstrap testingBootstrap =
+        new TestingBootstrap(
+            new FakeTestingModule(),
+            new FakeCoverageCommon(),
+            new FakeAnalysisFailureInfoProvider(),
+            new FakeAnalysisTestResultInfoProvider());
 
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
     androidBootstrap.addBindingsToBuilder(envBuilder);
@@ -198,6 +205,7 @@ public class SymbolFamilies {
     configBootstrap.addBindingsToBuilder(envBuilder);
     javaBootstrap.addBindingsToBuilder(envBuilder);
     platformBootstrap.addBindingsToBuilder(envBuilder);
+    pyBootstrap.addBindingsToBuilder(envBuilder);
     repositoryBootstrap.addBindingsToBuilder(envBuilder);
     testingBootstrap.addBindingsToBuilder(envBuilder);
 

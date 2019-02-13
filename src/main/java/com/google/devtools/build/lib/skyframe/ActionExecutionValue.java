@@ -36,12 +36,17 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.math.BigInteger;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -80,6 +85,11 @@ public class ActionExecutionValue implements SkyValue {
   @Nullable private final ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
   @Nullable private final NestedSet<Artifact> discoveredModules;
+
+  /**
+   * Transient because it can be reconstituted on demand, and {@link BigInteger} isn't serializable.
+   */
+  @Nullable private transient BigInteger valueFingerprint;
 
   /**
    * @param artifactData Map from Artifacts to corresponding {@link ArtifactFileMetadata}.
@@ -189,6 +199,44 @@ public class ActionExecutionValue implements SkyValue {
     return discoveredModules;
   }
 
+  @Override
+  public BigInteger getValueFingerprint() {
+    if (valueFingerprint == null) {
+      BigIntegerFingerprint fp = new BigIntegerFingerprint();
+      sortMapByArtifactExecPathAndStream(artifactData)
+          .forEach(
+              (entry) -> {
+                fp.addPath(entry.getKey().getExecPath());
+                fp.addBigIntegerOrdered(entry.getValue().getFingerprint());
+              });
+      sortMapByArtifactExecPathAndStream(treeArtifactData)
+          .forEach(
+              (entry) -> {
+                fp.addPath(entry.getKey().getExecPath());
+                fp.addBigIntegerOrdered(entry.getValue().getValueFingerprint());
+              });
+      sortMapByArtifactExecPathAndStream(additionalOutputData)
+          .forEach(
+              (entry) -> {
+                fp.addPath(entry.getKey().getExecPath());
+                fp.addBigIntegerOrdered(entry.getValue().getValueFingerprint());
+              });
+      if (outputSymlinks != null) {
+        for (FilesetOutputSymlink symlink : outputSymlinks) {
+          fp.addBigIntegerOrdered(symlink.getFingerprint());
+        }
+      }
+      valueFingerprint = fp.getFingerprint();
+    }
+    return valueFingerprint;
+  }
+
+  private static <T> Stream<Entry<Artifact, T>> sortMapByArtifactExecPathAndStream(
+      Map<Artifact, T> inputMap) {
+    return inputMap.entrySet().stream()
+        .sorted(Comparator.comparing(Entry::getKey, Artifact.EXEC_PATH_COMPARATOR));
+  }
+
   /**
    * @param lookupKey A {@link SkyKey} whose argument is an {@code ActionLookupKey}, whose
    *     corresponding {@code ActionLookupValue} contains the action to be executed.
@@ -224,7 +272,8 @@ public class ActionExecutionValue implements SkyValue {
     ActionExecutionValue o = (ActionExecutionValue) obj;
     return artifactData.equals(o.artifactData)
         && treeArtifactData.equals(o.treeArtifactData)
-        && additionalOutputData.equals(o.additionalOutputData);
+        && additionalOutputData.equals(o.additionalOutputData)
+        && (outputSymlinks == null || outputSymlinks.equals(o.outputSymlinks));
   }
 
   @Override

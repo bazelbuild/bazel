@@ -23,10 +23,9 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -83,7 +82,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             + "  tool_path { name: \"strip\" path: \"path-to-strip\" }"
             + "  tool_path { name: \"dwp\" path: \"path-to-dwp\" }"
             + optionalTool
-            + "  supports_gold_linker: true"
             + "  supports_normalizing_ar: true"
             + "  supports_incremental_linker: true"
             + "  supports_fission: true"
@@ -176,9 +174,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.getAbi()).isEqualTo("abi-version");
     assertThat(ccProvider.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
 
-    assertThat(ccProvider.supportsGoldLinker()).isTrue();
-    assertThat(ccProvider.supportsStartEndLib()).isFalse();
-    assertThat(ccProvider.supportsInterfaceSharedObjects()).isFalse();
+    assertThat(ccProvider.supportsStartEndLib(FeatureConfiguration.EMPTY)).isFalse();
+    assertThat(ccProvider.supportsInterfaceSharedLibraries(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProvider.supportsEmbeddedRuntimes()).isFalse();
     assertThat(ccProvider.toolchainNeedsPic()).isFalse();
     assertThat(ccProvider.supportsFission()).isTrue();
@@ -252,10 +249,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  tool_path { name: \"objdump\" path: \"path/to/objdump-A\" }\n"
                 + "  tool_path { name: \"strip\" path: \"path/to/strip-A\" }\n"
                 + "  tool_path { name: \"dwp\" path: \"path/to/dwp\" }\n"
-                + "  supports_gold_linker: true\n"
                 + "  supports_start_end_lib: true\n"
                 + "  supports_normalizing_ar: true\n"
                 + "  supports_embedded_runtimes: true\n"
+                + "  static_runtimes_filegroup: 'static-runtime-1'\n"
+                + "  dynamic_runtimes_filegroup: 'dynamic-runtime-1'\n"
                 + "  needsPic: true\n"
                 + "  compiler_flag: \"compiler-flag-A-1\"\n"
                 + "  compiler_flag: \"compiler-flag-A-2\"\n"
@@ -336,10 +334,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  tool_path { name: \"objdump\" path: \"path/to/objdump-B\" }\n"
                 + "  tool_path { name: \"strip\" path: \"path/to/strip-B\" }\n"
                 + "  tool_path { name: \"dwp\" path: \"path/to/dwp\" }\n"
-                + "  supports_gold_linker: true\n"
                 + "  supports_start_end_lib: true\n"
                 + "  supports_normalizing_ar: true\n"
                 + "  supports_embedded_runtimes: true\n"
+                + "  static_runtimes_filegroup: 'static-runtime-2'\n"
+                + "  dynamic_runtimes_filegroup: 'dynamic-runtime-2'\n"
                 + "  needsPic: true\n"
                 + "  compiler_flag: \"compiler-flag-B-1\"\n"
                 + "  compiler_flag: \"compiler-flag-B-2\"\n"
@@ -455,8 +454,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .isEqualTo(getToolPath("path/to/objdump-A"));
     assertThat(ccProviderA.getToolPathFragment(Tool.STRIP))
         .isEqualTo(getToolPath("path/to/strip-A"));
-    assertThat(ccProviderA.supportsGoldLinker()).isTrue();
-    assertThat(ccProviderA.supportsStartEndLib()).isTrue();
+    assertThat(ccProviderA.supportsStartEndLib(FeatureConfiguration.EMPTY)).isTrue();
     assertThat(ccProviderA.supportsEmbeddedRuntimes()).isTrue();
     assertThat(ccProviderA.toolchainNeedsPic()).isTrue();
 
@@ -556,9 +554,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderC.getAbi()).isEqualTo("abi-version-C");
     assertThat(ccProviderC.getAbiGlibcVersion()).isEqualTo("abi-libc-version-C");
     // Don't bother with testing the list of tools again.
-    assertThat(ccProviderC.supportsGoldLinker()).isFalse();
-    assertThat(ccProviderC.supportsStartEndLib()).isFalse();
-    assertThat(ccProviderC.supportsInterfaceSharedObjects()).isFalse();
+    assertThat(ccProviderC.supportsStartEndLib(FeatureConfiguration.EMPTY)).isFalse();
+    assertThat(ccProviderC.supportsInterfaceSharedLibraries(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProviderC.supportsEmbeddedRuntimes()).isFalse();
     assertThat(ccProviderC.toolchainNeedsPic()).isFalse();
     assertThat(ccProviderC.supportsFission()).isFalse();
@@ -650,58 +647,5 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: false"));
     // The following line throws an IllegalArgumentException if an expected tool path is missing.
     create(loader, "--cpu=banana_cpu");
-  }
-
-  /**
-   * Tests interpretation of static_runtimes_filegroup / dynamic_runtimes_filegroup.
-   */
-  @Test
-  public void testCustomRuntimeLibraryPaths() throws Exception {
-    CppConfigurationLoader loader =
-        loader(
-            "major_version: \"v17\""
-                + "minor_version: \"0\""
-                + "toolchain {" // "default-libs": runtime libraries in default locations.
-                + "  toolchain_identifier: \"default-libs\""
-                + "  host_system_name: \"host-system-name\""
-                + "  target_system_name: \"target-system-name\""
-                + "  target_cpu: \"k8\""
-                + "  target_libc: \"target-libc\""
-                + "  compiler: \"compiler\""
-                + "  abi_version: \"abi-version\""
-                + "  abi_libc_version: \"abi-libc-version\""
-                + "  supports_embedded_runtimes: true"
-                + "}\n"
-                + "toolchain {" // "custom-libs" runtime libraries in toolchain-specified locations.
-                + "  toolchain_identifier: \"custom-libs\""
-                + "  host_system_name: \"host-system-name\""
-                + "  target_system_name: \"target-system-name\""
-                + "  target_cpu: \"piii\""
-                + "  target_libc: \"target-libc\""
-                + "  compiler: \"compiler\""
-                + "  abi_version: \"abi-version\""
-                + "  abi_libc_version: \"abi-libc-version\""
-                + "  supports_embedded_runtimes: true"
-                + "  static_runtimes_filegroup: \"static-group\""
-                + "  dynamic_runtimes_filegroup: \"dynamic-group\""
-                + "}\n");
-
-    PackageIdentifier ctTop = MockCcSupport.getMockCrosstoolsTop();
-    if (ctTop.getRepository().isDefault()) {
-      ctTop = PackageIdentifier.createInMainRepo(ctTop.getPackageFragment());
-    }
-    CppConfiguration defaultLibs = create(loader, "--cpu=k8", "--host_cpu=k8");
-    CcToolchainProvider defaultLibsToolchain = getCcToolchainProvider(defaultLibs);
-    assertThat(defaultLibsToolchain.getStaticRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "static-runtime-libs-k8"));
-    assertThat(defaultLibsToolchain.getDynamicRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "dynamic-runtime-libs-k8"));
-
-    CppConfiguration customLibs = create(loader, "--cpu=piii", "--host_cpu=k8");
-    CcToolchainProvider customLibsToolchain = getCcToolchainProvider(customLibs);
-    assertThat(customLibsToolchain.getStaticRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "static-group"));
-    assertThat(customLibsToolchain.getDynamicRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "dynamic-group"));
   }
 }

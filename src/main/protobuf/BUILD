@@ -54,6 +54,14 @@ proto_library(
     deps = [":build_proto"],
 )
 
+py_proto_library(
+    name = "analysis_py_proto",
+    srcs = ["analysis.proto"],
+    default_runtime = "//third_party/protobuf:protobuf_python",
+    protoc = "//third_party/protobuf:protoc",
+    deps = [":build_pb_py"],
+)
+
 java_proto_library(
     name = "analysis_java_proto",
     deps = [":analysis_proto"],

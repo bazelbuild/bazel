@@ -142,6 +142,9 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
    */
   static class DepsOfPatternPreparer extends TargetPatternResolver<Void> {
 
+    // Because PrepareDepsOfPatternFunction's only goal is to ensure the proper Skyframe nodes and
+    // edges are in the graph, we don't need to worry about
+    // EnvironmentBackedRecursivePackageProvider#encounteredPackageErrors.
     private final EnvironmentBackedRecursivePackageProvider packageProvider;
     private final Environment env;
     private final ImmutableList<Root> pkgRoots;

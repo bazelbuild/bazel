@@ -239,7 +239,7 @@ final class ProtoAttributes {
   private NestedSet<Artifact> getProtoDepsSources() {
     NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.stableOrder();
     Iterable<ProtoInfo> providers =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.class);
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER);
     for (ProtoInfo provider : providers) {
       artifacts.addTransitive(provider.getTransitiveProtoSources());
     }

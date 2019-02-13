@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Interface for a module with useful functions for creating apple-related rule implementations. */
@@ -375,11 +376,30 @@ public interface AppleCommonApi<
             named = true,
             positional = false,
             doc = "The Starlark rule context."),
+        @Param(
+            name = "extra_linkopts",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Extra linkopts to be passed to the linker action."),
+        @Param(
+            name = "extra_link_inputs",
+            type = SkylarkList.class,
+            generic1 = FileApi.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Extra files to pass to the linker action."),
       },
       useEnvironment = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   public StructApi linkMultiArchBinary(
-      SkylarkRuleContextApi skylarkRuleContext, Environment environment)
+      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkList<String> extraLinkopts,
+      SkylarkList<? extends FileApi> extraLinkInputs,
+      Environment environment)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

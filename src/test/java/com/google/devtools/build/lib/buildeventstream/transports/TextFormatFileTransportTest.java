@@ -79,20 +79,24 @@ public class TextFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     TextFormatFileTransport transport =
         new TextFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+            output.getAbsolutePath(),
+            defaultOpts,
+            new LocalFilesArtifactUploader(),
+            (e) -> {},
+            artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =
         BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(progress);
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent completed =
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setCompleted(TargetComplete.newBuilder().setSuccess(true))
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(completed);
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
 
     transport.close().get();
     String contents =

@@ -12,20 +12,6 @@ java_binary(
 )
 
 filegroup(
-    name = "turbine_direct",
-    # TODO(cushon): consolidate with select in //third_party:turbine_direct.
-    srcs = select({
-        "//src/conditions:darwin": ["//third_party:turbine_direct"],
-        "//src/conditions:darwin_x86_64": ["//third_party:turbine_direct"],
-        "//src/conditions:linux_x86_64": ["//third_party:turbine_direct"],
-        "//conditions:default": ["turbine_direct_binary_deploy.jar"],
-    }),
-    visibility = [
-        "//:__subpackages__",
-    ],
-)
-
-filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + [
         "BUILD",

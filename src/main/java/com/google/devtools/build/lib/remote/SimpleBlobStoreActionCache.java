@@ -21,24 +21,19 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
-import build.bazel.remote.execution.v2.SymlinkNode;
+import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.ByteArrayInputStream;
@@ -49,6 +44,7 @@ import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /**
  * A RemoteActionCache implementation that uses a simple blob store for files and action output.
@@ -72,21 +68,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     this.storedBlobs = new ConcurrentHashMap<>();
   }
 
-  @Override
-  public void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-          throws IOException, InterruptedException {
-    repository.computeMerkleDigests(root);
-    uploadBlob(action.toByteArray());
-    uploadBlob(command.toByteArray());
-    for (Directory directory : repository.treeToDirectories(root)) {
-      uploadBlob(directory.toByteArray());
-    }
-    for (TreeNode leaf : repository.leaves(root)) {
-      uploadFileContents(leaf.getActionInput(), execRoot, repository.getInputFileCache());
-    }
-  }
-
   public void downloadTree(Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();
@@ -99,28 +80,12 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     for (DirectoryNode child : directory.getDirectoriesList()) {
       downloadTree(child.getDigest(), rootLocation.getRelative(child.getName()));
     }
-    for (SymlinkNode symlink : directory.getSymlinksList()) {
-      PathFragment targetPath = PathFragment.create(symlink.getTarget());
-      rootLocation.getRelative(symlink.getName()).createSymbolicLink(targetPath);
-    }
   }
 
   private Digest uploadFileContents(Path file) throws IOException, InterruptedException {
     Digest digest = digestUtil.compute(file);
     try (InputStream in = file.getInputStream()) {
       return uploadStream(digest, in);
-    }
-  }
-
-  private Digest uploadFileContents(
-      ActionInput input, Path execRoot, MetadataProvider inputCache)
-          throws IOException, InterruptedException {
-    if (input instanceof VirtualActionInput) {
-      byte[] blob = ((VirtualActionInput) input).getBytes().toByteArray();
-      return uploadBlob(blob, digestUtil.compute(blob));
-    }
-    try (InputStream in = execRoot.getRelative(input.getExecPathString()).getInputStream()) {
-      return uploadStream(DigestUtil.getFromInputCache(input, inputCache), in);
     }
   }
 
@@ -131,11 +96,10 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       Command command,
       Path execRoot,
       Collection<Path> files,
-      FileOutErr outErr,
-      boolean uploadAction)
+      FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
-    upload(result, actionKey, action, command, execRoot, files, uploadAction);
+    upload(result, actionKey, action, command, execRoot, files, /* uploadAction= */ true);
     if (outErr.getErrorPath().exists()) {
       Digest stderr = uploadFileContents(outErr.getErrorPath());
       result.setStderrDigest(stderr);
@@ -144,9 +108,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       Digest stdout = uploadFileContents(outErr.getOutputPath());
       result.setStdoutDigest(stdout);
     }
-    if (uploadAction) {
-      blobStore.putActionResult(actionKey.getDigest().getHash(), result.build().toByteArray());
-    }
+    blobStore.putActionResult(actionKey.getDigest().getHash(), result.build().toByteArray());
   }
 
   public void upload(
@@ -262,13 +224,19 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   @Override
   protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
     SettableFuture<Void> outerF = SettableFuture.create();
+    @Nullable
+    HashingOutputStream hashOut =
+        options.remoteVerifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
     Futures.addCallback(
-        blobStore.get(digest.getHash(), out),
+        blobStore.get(digest.getHash(), hashOut != null ? hashOut : out),
         new FutureCallback<Boolean>() {
           @Override
           public void onSuccess(Boolean found) {
             if (found) {
               try {
+                if (hashOut != null) {
+                  verifyContents(digest, hashOut);
+                }
                 out.flush();
                 outerF.set(null);
               } catch (IOException e) {

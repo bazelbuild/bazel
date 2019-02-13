@@ -54,4 +54,7 @@ public class Library {
 
   /** A library class for testing. */
   public static class Class11 implements InterfaceBar, InterfaceFoo {}
+
+  /** A library class for testing. */
+  public static class Class12 {}
 }

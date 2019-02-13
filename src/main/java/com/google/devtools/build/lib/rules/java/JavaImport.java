@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -78,7 +78,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     JavaCompilationArtifacts javaArtifacts = collectJavaArtifacts(jars, interfaceJars);
     common.setJavaCompilationArtifacts(javaArtifacts);
 
-    NestedSet<LinkerInput> transitiveJavaNativeLibraries =
+    NestedSet<LibraryToLink> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
     boolean neverLink = JavaCommon.isNeverLink(ruleContext);
     JavaCompilationArgsProvider javaCompilationArgs =
@@ -218,7 +218,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
           useIjar
               ? JavaCompilationHelper.createIjarAction(
                   ruleContext,
-                  JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+                  JavaToolchainProvider.from(ruleContext),
                   jar,
                   ruleContext.getLabel(),
                   /* injectingRuleKind */ null,

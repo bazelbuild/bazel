@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -44,6 +45,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
@@ -177,10 +180,11 @@ public class BazelJavaSemantics implements JavaSemantics {
       }
       mainClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
       if (mainClass == null) {
-        ruleContext.ruleError("cannot determine main class for launching "
-                  + "(found neither a source file '" + ruleContext.getTarget().getName()
-                  + ".java', nor a main_class attribute, and package name "
-                  + "doesn't include 'java' or 'javatests')");
+        ruleContext.ruleError(
+            String.format(
+                "main_class was not provided and cannot be inferred: source path doesn't include"
+                    + " a known root (%s)",
+                Joiner.on(", ").join(JavaUtil.KNOWN_SOURCE_ROOTS)));
       }
     }
   }
@@ -263,8 +267,15 @@ public class BazelJavaSemantics implements JavaSemantics {
       String javaStartClass,
       String javaExecutable) {
     return createStubAction(
-        ruleContext, javaCommon, jvmFlags, executable, javaStartClass, "",
-        NestedSetBuilder.<Artifact>stableOrder(), javaExecutable);
+        ruleContext,
+        javaCommon,
+        jvmFlags,
+        executable,
+        javaStartClass,
+        "",
+        NestedSetBuilder.<Artifact>stableOrder(),
+        javaExecutable,
+        /* createCoverageMetadataJar= */ true);
   }
 
   @Override
@@ -276,7 +287,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       String javaStartClass,
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
-      String javaExecutable) {
+      String javaExecutable,
+      boolean createCoverageMetadataJar) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
 
     Preconditions.checkNotNull(jvmFlags);
@@ -339,21 +351,30 @@ public class BazelJavaSemantics implements JavaSemantics {
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
         && ruleContext.getConfiguration().isExperimentalJavaCoverage()) {
-      Artifact runtimeClassPathArtifact = ruleContext.getUniqueDirectoryArtifact(
-          "coverage_runtime_classpath",
-          "runtime-classpath.txt",
-          ruleContext.getBinOrGenfilesDirectory());
-      ruleContext.registerAction(new LazyWritePathsFileAction(
-          ruleContext.getActionOwner(),
-          runtimeClassPathArtifact,
-          javaCommon.getRuntimeClasspath(),
-          true));
-      filesBuilder.add(runtimeClassPathArtifact);
-      arguments.add(Substitution.of(
-          JavaSemantics.JACOCO_METADATA_PLACEHOLDER,
-          "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/" + workspacePrefix + "/"
-              + runtimeClassPathArtifact.getRootRelativePathString()
-      ));
+      if (createCoverageMetadataJar) {
+        Artifact runtimeClassPathArtifact =
+            ruleContext.getUniqueDirectoryArtifact(
+                "coverage_runtime_classpath",
+                "runtime-classpath.txt",
+                ruleContext.getBinOrGenfilesDirectory());
+        ruleContext.registerAction(
+            new LazyWritePathsFileAction(
+                ruleContext.getActionOwner(),
+                runtimeClassPathArtifact,
+                javaCommon.getRuntimeClasspath(),
+                true));
+        filesBuilder.add(runtimeClassPathArtifact);
+        arguments.add(
+            Substitution.of(
+                JavaSemantics.JACOCO_METADATA_PLACEHOLDER,
+                "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/"
+                    + workspacePrefix
+                    + "/"
+                    + runtimeClassPathArtifact.getRootRelativePathString()));
+      } else {
+        // Remove the placeholder in the stub otherwise bazel coverage fails.
+        arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
+      }
       arguments.add(Substitution.of(
           JavaSemantics.JACOCO_MAIN_CLASS_PLACEHOLDER,
           "export JACOCO_MAIN_CLASS=" + coverageStartClass));
@@ -759,10 +780,12 @@ public class BazelJavaSemantics implements JavaSemantics {
       JavaCommon common,
       DeployArchiveBuilder deployArchiveBuilder,
       DeployArchiveBuilder unstrippedDeployArchiveBuilder,
-      Runfiles.Builder runfilesBuilder,
+      Builder runfilesBuilder,
       List<String> jvmFlags,
       JavaTargetAttributes.Builder attributesBuilder,
-      boolean shouldStrip) {
+      boolean shouldStrip,
+      CcToolchainProvider ccToolchain,
+      FeatureConfiguration featureConfiguration) {
     Artifact launcher = JavaHelper.launcherArtifactForTarget(this, ruleContext);
     return new Pair<>(launcher, launcher);
   }

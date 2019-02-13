@@ -44,51 +44,68 @@ to make your files easy to process, both by humans and tools.
 ## Style
 
 
-*   When in doubt, follow the [Python style
-    guide](https://www.python.org/dev/peps/pep-0008/). In particular, use 4
-    spaces for indentation (we previously recommended 2, but we now follow the
-    Python convention).
+### Python style
 
-*   Document files and functions using [docstrings](skylint.md#docstrings). Use
-    a docstring at the top of each `.bzl` file, and a docstring for each public
-    function.
+When in doubt, follow the
+[Python style guide](https://www.python.org/dev/peps/pep-0008/). In particular,
+use 4 spaces for indentation (we previously recommended 2, but we now follow the
+Python convention).
 
-*   Rules and aspects, along with their attributes, as well as providers and
-    their fields, should be documented using the `doc` argument.
+### Docstring
+
+Document files and functions using [docstrings](skylint.md#docstrings). Use a
+docstring at the top of each `.bzl` file, and a docstring for each public
+function.
+
+### Document rules and aspects
+
+Rules and aspects, along with their attributes, as well as providers and their
+fields, should be documented using the `doc` argument.
+
+### Naming convention
 
 *   Variables and function names use lowercase with words separated by
-    underscores (`[a-z][a-z0-9_]*`), e.g. `cc_library`. Top-level private values
-    start with one underscore. Bazel enforces that private values cannot be used
-    from other files. Local variables should not use the underscore prefix.
+    underscores (`[a-z][a-z0-9_]*`), e.g. `cc_library`.
+*   Top-level private values start with one underscore. Bazel enforces that
+    private values cannot be used from other files. Local variables should not
+    use the underscore prefix.
 
-*   As in BUILD files, there is no strict line length limit as labels can be
-    long. When possible, try to use at most 79 characters per line.
+### Line length
 
-*   In keyword arguments, spaces around the equal sign are optional, but be
-    consistent within any given call. In general, we follow the BUILD file
-    convention when calling macros and native rules, and the Python convention
-    for other functions, e.g.
+As in BUILD files, there is no strict line length limit as labels can be long.
+When possible, try to use at most 79 characters per line.
 
-    ```python
-    def fct(name, srcs):
-        filtered_srcs = my_filter(source = srcs)
-        native.cc_library(
-            name = name,
-            srcs = filtered_srcs,
-            testonly = True,
-        )
-    ```
+### Keyword arguments
 
-*   Prefer values `True` and `False` instead of `0` and `1` for boolean values
-    (e.g. when using a boolean attribute in a rule).
+In keyword arguments, spaces around the equal sign are optional, but be
+consistent within any given call. In general, we follow the BUILD file
+convention when calling macros and native rules, and the Python convention for
+other functions, e.g.
 
-*   Do not use the `print()` function in production code; it is only intended
-    for debugging, and will spam all direct and indirect users of your `.bzl`
-    file. The only exception is that you may submit code that uses `print()` if
-    it is disabled by default and can only be enabled by editing the source --
-    for example, if all uses of `print()` are guarded by `if DEBUG:` where
-    `DEBUG` is hardcoded to false. Be mindful of whether these statements are
-    useful enough to justify their impact on readability.
+```python
+def fct(name, srcs):
+    filtered_srcs = my_filter(source = srcs)
+    native.cc_library(
+        name = name,
+        srcs = filtered_srcs,
+        testonly = True,
+    )
+```
+
+### Boolean values
+
+Prefer values `True` and `False` (rather than of `1` and `0`) for boolean values
+(e.g. when using a boolean attribute in a rule).
+
+### Use print only for debugging
+
+Do not use the `print()` function in production code; it is only intended for
+debugging, and will spam all direct and indirect users of your `.bzl` file. The
+only exception is that you may submit code that uses `print()` if it is disabled
+by default and can only be enabled by editing the source -- for example, if all
+uses of `print()` are guarded by `if DEBUG:` where `DEBUG` is hardcoded to
+`False`. Be mindful of whether these statements are useful enough to justify
+their impact on readability.
 
 
 ## Macros

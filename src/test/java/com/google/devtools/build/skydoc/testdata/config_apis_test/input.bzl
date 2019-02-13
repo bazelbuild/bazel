@@ -3,6 +3,12 @@ def exercise_the_api():
 
 exercise_the_api()
 
+def transition_func(settings):
+    """A no-op transition function."""
+    return settings
+
+my_transition = transition(implementation = transition_func, inputs = [], outputs = [])
+
 def _build_setting_impl(ctx):
     return []
 

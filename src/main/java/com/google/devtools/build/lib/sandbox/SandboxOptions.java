@@ -90,8 +90,11 @@ public class SandboxOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Let the sandbox print debug information on execution. This might help developers of "
-              + "Bazel or Starlark rules with debugging failures due to missing input files, etc.")
+          "Enables debugging features for the sandboxing feature. This includes two things: first, "
+              + "the sandbox root contents are left untouched after a build (and if sandboxfs is "
+              + "in use, the file system is left mounted); and second, prints extra debugging "
+              + "information on execution. This can help developers of Bazel or Starlark rules "
+              + "with debugging failures due to missing input files, etc.")
   public boolean sandboxDebug;
 
   @Option(

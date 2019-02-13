@@ -27,17 +27,19 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
@@ -49,7 +51,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
-import java.io.Serializable;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -100,34 +101,21 @@ public interface JavaSemantics {
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
   public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
-  static LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute(
-      RuleDefinitionEnvironment environment) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        JavaConfiguration.class,
-        environment.getToolsLabel(JAVA_TOOLCHAIN_LABEL),
-        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
-            (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
+  static Label javaToolchainAttribute(RuleDefinitionEnvironment environment) {
+    return environment.getToolsLabel("//tools/jdk:current_java_toolchain");
   }
 
   /** Name of the output group used for source jars. */
   String SOURCE_JARS_OUTPUT_GROUP = OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
   /** Implementation for the :jvm attribute. */
-  static LabelLateBoundDefault<JavaConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        JavaConfiguration.class,
-        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
-        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
-            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
+  static Label jvmAttribute(RuleDefinitionEnvironment env) {
+    return env.getToolsLabel("//tools/jdk:current_java_runtime");
   }
 
   /** Implementation for the :host_jdk attribute. */
-  static LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute(RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromHostConfiguration(
-        JavaConfiguration.class,
-        env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
-        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
-            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
+  static Label hostJdkAttribute(RuleDefinitionEnvironment env) {
+    return env.getToolsLabel("//tools/jdk:current_host_java_runtime");
   }
 
   /**
@@ -300,7 +288,8 @@ public interface JavaSemantics {
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
-      String javaExecutable);
+      String javaExecutable)
+      throws InterruptedException;
 
   /**
    * Same as {@link #createStubAction(RuleContext, JavaCommon, List, Artifact, String, String)}.
@@ -309,6 +298,8 @@ public interface JavaSemantics {
    * JacocoCoverageRunner} will use it to retrieve the name of the jars considered for collecting
    * coverage. {@code JacocoCoverageRunner} will *not* collect coverage implicitly for all the
    * runtime jars, only for those that pack a file ending in "-paths-for-coverage.txt".
+   *
+   * @param createCoverageMetadataJar is false for Java rules and true otherwise (e.g. android)
    */
   public Artifact createStubAction(
       RuleContext ruleContext,
@@ -318,7 +309,9 @@ public interface JavaSemantics {
       String javaStartClass,
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
-      String javaExecutable);
+      String javaExecutable,
+      boolean createCoverageMetadataJar)
+      throws InterruptedException;
 
   /**
    * Returns true if {@code createStubAction} considers {@code javaExecutable} as a substitution.
@@ -419,6 +412,8 @@ public interface JavaSemantics {
    * @param jvmFlags the list of flags to pass to the JVM when running the Java binary (mutable).
    * @param attributesBuilder the builder to construct the list of attributes of this target
    *     (mutable).
+   * @param ccToolchain to be used to build the launcher
+   * @param featureConfiguration to be used to configure the cc toolchain
    * @return the launcher and unstripped launcher as an artifact pair. If shouldStrip is false, then
    *     they will be the same.
    * @throws InterruptedException
@@ -428,10 +423,12 @@ public interface JavaSemantics {
       final JavaCommon common,
       DeployArchiveBuilder deployArchiveBuilder,
       DeployArchiveBuilder unstrippedDeployArchiveBuilder,
-      Runfiles.Builder runfilesBuilder,
+      Builder runfilesBuilder,
       List<String> jvmFlags,
       JavaTargetAttributes.Builder attributesBuilder,
-      boolean shouldStrip)
+      boolean shouldStrip,
+      CcToolchainProvider ccToolchain,
+      FeatureConfiguration featureConfiguration)
       throws InterruptedException, RuleErrorException;
 
   /**

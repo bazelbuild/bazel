@@ -29,6 +29,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -114,7 +115,7 @@ public class Artifact
         SkyKey {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
-  @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
+  @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
   public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
       (a, b) -> {
         if (a == b) {
@@ -122,9 +123,24 @@ public class Artifact
         } else if (a == null) {
           return -1;
         } else if (b == null) {
-          return -1;
+          return 1;
         } else {
           return a.execPath.compareTo(b.execPath);
+        }
+      };
+
+  /** Compares artifact according to their root relative paths. Sorts null values first. */
+  @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
+  public static final Comparator<Artifact> ROOT_RELATIVE_PATH_COMPARATOR =
+      (a, b) -> {
+        if (a == b) {
+          return 0;
+        } else if (a == null) {
+          return -1;
+        } else if (b == null) {
+          return 1;
+        } else {
+          return a.rootRelativePath.compareTo(b.rootRelativePath);
         }
       };
 
@@ -662,9 +678,9 @@ public class Artifact
    */
   public final PathFragment getRunfilesPath() {
     PathFragment relativePath = rootRelativePath;
-    if (relativePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
+    if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
-      relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
+      relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       relativePath = PathFragment.create("..").getRelative(relativePath);
     }
     return relativePath;

@@ -39,10 +39,41 @@ public class AqueryOptions extends CommonQueryOptions {
   public boolean includeCommandline;
 
   @Option(
+      name = "include_artifacts",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Includes names of the action inputs and outputs in the output " + "(potentially large).")
+  public boolean includeArtifacts;
+
+  @Option(
       name = "include_aspects",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Whether to include aspect generated actions in the output.")
   public boolean useAspects;
+
+  @Option(
+      name = "include_param_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Include the content of the param files used in the command (potentially large). "
+              + "Note: Enabling this flag will automatically enable the "
+              + "--include_commandline flag.")
+  public boolean includeParamFiles;
+
+  @Option(
+      name = "skyframe_state",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Without performing extra analysis, dump the current Action Graph from Skyframe. "
+              + "Note: Specifying a target with --skyframe_state is currently not supported. "
+              + "This flag is only available with --output=proto or --output=textproto.")
+  public boolean queryCurrentSkyframeState;
 }

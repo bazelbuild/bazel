@@ -28,6 +28,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -72,10 +72,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     ((SettableFuture<byte[]>) EMPTY_BYTES).set(new byte[0]);
   }
 
-  public static boolean causedByCacheMiss(IOException t) {
-    return t.getCause() instanceof CacheNotFoundException;
-  }
-
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
   private final Retrier retrier;
@@ -85,25 +81,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     this.digestUtil = digestUtil;
     this.retrier = retrier;
   }
-
-  /**
-   * Ensures that the tree structure of the inputs, the input files themselves, and the command are
-   * available in the remote cache, such that the tree can be reassembled and executed on another
-   * machine given the root digest.
-   *
-   * <p>The cache may check whether files or parts of the tree structure are already present, and do
-   * not need to be uploaded again.
-   *
-   * <p>Note that this method is only required for remote execution, not for caching itself.
-   * However, remote execution uses a cache to store input files, and that may be a separate
-   * end-point from the executor itself, so the functionality lives here. A pure remote caching
-   * implementation that does not support remote execution may choose not to implement this
-   * function, and throw {@link UnsupportedOperationException} instead. If so, it should be clearly
-   * documented that it cannot be used for remote execution.
-   */
-  public abstract void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-      throws IOException, InterruptedException;
 
   /**
    * Attempts to look up the given action in the remote cache and return its result, if present.
@@ -116,11 +93,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       throws IOException, InterruptedException;
 
   /**
-   * Upload the result of a locally executed action to the cache by uploading any necessary files,
-   * stdin / stdout, as well as adding an entry for the given action key to the cache if
-   * uploadAction is true.
+   * Upload the result of a locally executed action to the remote cache.
    *
-   * @throws IOException if the remote cache is unavailable.
+   * @throws IOException if there was an error uploading to the remote cache
+   * @throws ExecException if uploading any of the action outputs is not supported
    */
   abstract void upload(
       DigestUtil.ActionKey actionKey,
@@ -128,8 +104,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       Command command,
       Path execRoot,
       Collection<Path> files,
-      FileOutErr outErr,
-      boolean uploadAction)
+      FileOutErr outErr)
       throws ExecException, IOException, InterruptedException;
 
   /**
@@ -265,7 +240,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           execRoot.getRelative(file.getPath()).delete();
         }
         for (OutputDirectory directory : result.getOutputDirectoriesList()) {
-          FileSystemUtils.deleteTree(execRoot.getRelative(directory.getPath()));
+          // Only delete the directories below the output directories because the output
+          // directories will not be re-created
+          FileSystemUtils.deleteTreesBelow(execRoot.getRelative(directory.getPath()));
         }
         if (outErr != null) {
           outErr.getOutputPath().delete();
@@ -424,12 +401,13 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
           @Override
           public void onFailure(Throwable t) {
-            outerF.setException(t);
             try {
               out.close();
             } catch (IOException e) {
               // Intentionally left empty. The download already failed, so we can ignore
               // the error on close().
+            } finally {
+              outerF.setException(t);
             }
           }
         },
@@ -695,6 +673,19 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
                   + "uploaded to a remote cache. "
                   + "Change the file type or use --remote_allow_symlink_upload.",
               what.relativeTo(execRoot), kind));
+    }
+  }
+
+  protected void verifyContents(Digest expected, HashingOutputStream actual) throws IOException {
+    String expectedHash = expected.getHash();
+    String actualHash = DigestUtil.hashCodeToString(actual.hash());
+    if (!expectedHash.equals(actualHash)) {
+      String msg =
+          String.format(
+              "Download an output failed, because the expected hash"
+                  + "'%s' did not match the received hash '%s'.",
+              expectedHash, actualHash);
+      throw new IOException(msg);
     }
   }
 

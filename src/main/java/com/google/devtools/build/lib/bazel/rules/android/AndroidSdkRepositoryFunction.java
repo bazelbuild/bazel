@@ -85,7 +85,8 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       final Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData)
+      Map<String, String> markerData,
+      SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     Map<String, String> environ =
         declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);

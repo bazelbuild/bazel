@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
  * A message used to update in-flight action status. An action's status may change low down in the
  * execution stack (for instance, from running remotely to running locally), so this message can be
  * used to notify any interested parties.
  */
-public class ActionStatusMessage {
+public class ActionStatusMessage implements ExtendedEventHandler.ProgressLike {
   private final ActionExecutionMetadata action;
   private final String message;
   private final String strategy;

@@ -15,33 +15,51 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
-import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 /**
  * A builder for {@link BuildConfigurationValue} instances.
  */
 public class BuildConfigurationFunction implements SkyFunction {
+  /** Cache with weak values can't have null values. */
+  private static final Fragment NULL_MARKER = new Fragment() {};
 
   private final BlazeDirectories directories;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final BuildOptions defaultBuildOptions;
+  private final LoadingCache<FragmentKey, Fragment> fragmentCache =
+      CacheBuilder.newBuilder()
+          .weakValues()
+          .build(
+              new CacheLoader<FragmentKey, Fragment>() {
+                @Override
+                public Fragment load(FragmentKey key) throws InvalidConfigurationException {
+                  return makeFragment(key);
+                }
+              });
 
   public BuildConfigurationFunction(
       BlazeDirectories directories,
@@ -64,7 +82,7 @@ public class BuildConfigurationFunction implements SkyFunction {
     BuildConfigurationValue.Key key = (BuildConfigurationValue.Key) skyKey.argument();
     Set<Fragment> fragments;
     try {
-      fragments = getConfigurationFragments(key, env);
+      fragments = getConfigurationFragments(key);
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
     }
@@ -93,33 +111,63 @@ public class BuildConfigurationFunction implements SkyFunction {
     return new BuildConfigurationValue(config);
   }
 
-  private Set<Fragment> getConfigurationFragments(BuildConfigurationValue.Key key, Environment env)
-      throws InvalidConfigurationException, InterruptedException {
-
-    // Get SkyKeys for the fragments we need to load.
-    Set<SkyKey> fragmentKeys = new LinkedHashSet<>();
+  private Set<Fragment> getConfigurationFragments(BuildConfigurationValue.Key key)
+      throws InvalidConfigurationException {
     BuildOptions options = defaultBuildOptions.applyDiff(key.getOptionsDiff());
-    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : key.getFragments()) {
-      fragmentKeys.add(ConfigurationFragmentValue.key(options, fragmentClass, ruleClassProvider));
-    }
-
-    // Load them as Skyframe deps.
-    Map<SkyKey, ValueOrException<InvalidConfigurationException>> fragmentDeps =
-        env.getValuesOrThrow(fragmentKeys, InvalidConfigurationException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    // Collect and return the results.
-    ImmutableSet.Builder<Fragment> fragments = ImmutableSet.builder();
-    for (ValueOrException<InvalidConfigurationException> value : fragmentDeps.values()) {
-      BuildConfiguration.Fragment fragment =
-          ((ConfigurationFragmentValue) value.get()).getFragment();
-      if (fragment != null) {
+    ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses = key.getFragments();
+    ImmutableSet.Builder<Fragment> fragments =
+        ImmutableSet.builderWithExpectedSize(fragmentClasses.size());
+    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : fragmentClasses) {
+      BuildOptions trimmedOptions =
+          options.trim(
+              BuildConfiguration.getOptionsClasses(
+                  ImmutableList.of(fragmentClass), ruleClassProvider));
+      Fragment fragment;
+      FragmentKey fragmentKey = FragmentKey.create(trimmedOptions, fragmentClass);
+      try {
+        fragment = fragmentCache.get(fragmentKey);
+      } catch (ExecutionException e) {
+        Throwables.propagateIfPossible(e.getCause(), InvalidConfigurationException.class);
+        throw new IllegalStateException(e);
+      }
+      if (fragment != NULL_MARKER) {
         fragments.add(fragment);
+      } else {
+        // NULL_MARKER is never GC'ed, so this entry will stay in cache forever unless we delete it
+        // ourselves. Since it's a cheap computation we don't care about recomputing it.
+        fragmentCache.invalidate(fragmentKey);
       }
     }
     return fragments.build();
+  }
+
+  @AutoValue
+  abstract static class FragmentKey {
+    abstract BuildOptions getBuildOptions();
+
+    abstract Class<? extends BuildConfiguration.Fragment> getFragmentClass();
+
+    private static FragmentKey create(
+        BuildOptions buildOptions, Class<? extends BuildConfiguration.Fragment> fragmentClass) {
+      return new AutoValue_BuildConfigurationFunction_FragmentKey(buildOptions, fragmentClass);
+    }
+  }
+
+  private Fragment makeFragment(FragmentKey fragmentKey) throws InvalidConfigurationException {
+    BuildOptions buildOptions = fragmentKey.getBuildOptions();
+    ConfigurationFragmentFactory factory = getFactory(fragmentKey.getFragmentClass());
+    Fragment fragment = factory.create(buildOptions);
+    return fragment != null ? fragment : NULL_MARKER;
+  }
+
+  private ConfigurationFragmentFactory getFactory(Class<? extends Fragment> fragmentType) {
+    for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
+      if (factory.creates().equals(fragmentType)) {
+        return factory;
+      }
+    }
+    throw new IllegalStateException(
+        "There is no factory for fragment: " + fragmentType.getSimpleName());
   }
 
   @Override

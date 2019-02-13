@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePre
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -315,6 +316,11 @@ public final class Attribute implements Comparable<Attribute> {
     public SplitTransition apply(AttributeMap attributeMap) {
       return splitTransition;
     }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("<transition object>");
+    }
   }
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
@@ -323,7 +329,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     private final Set<Object> allowedValues;
 
-    public <T> AllowedValueSet(T... values) {
+    public AllowedValueSet(Object... values) {
       this(Arrays.asList(values));
     }
 
@@ -442,6 +448,7 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
       if (valueSource == AttributeValueSource.LATE_BOUND) {
         Preconditions.checkState(isLateBound(name));
+        Preconditions.checkState(splitTransitionProvider == null);
       }
       // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
       // remove all allowedFileTypes() calls without parameters.
@@ -1706,10 +1713,8 @@ public final class Attribute implements Comparable<Attribute> {
       return (LateBoundDefault<Void, ValueT>) AlwaysNullLateBoundDefault.INSTANCE;
     }
 
-    protected LateBoundDefault(
-        boolean useHostConfiguration,
-        Class<FragmentT> fragmentClass,
-        ValueT defaultValue) {
+    LateBoundDefault(
+        boolean useHostConfiguration, Class<FragmentT> fragmentClass, ValueT defaultValue) {
       this.useHostConfiguration = useHostConfiguration;
       this.defaultValue = defaultValue;
       this.fragmentClass = fragmentClass;
@@ -1780,7 +1785,7 @@ public final class Attribute implements Comparable<Attribute> {
   public static class LabelLateBoundDefault<FragmentT>
       extends SimpleLateBoundDefault<FragmentT, Label> {
     @AutoCodec.VisibleForSerialization
-    LabelLateBoundDefault(
+    protected LabelLateBoundDefault(
         boolean useHostConfiguration,
         Class<FragmentT> fragmentClass,
         Label defaultValue,
@@ -2004,19 +2009,6 @@ public final class Attribute implements Comparable<Attribute> {
           "a late bound default value using the host configuration must use the host transition");
     }
 
-    if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
-      Preconditions.checkArgument(
-          BuildType.isLabelType(type),
-          "_whitelist_function_transition attribute must be a label");
-      Preconditions.checkArgument(
-          defaultValue != null,
-          "_whitelist_function_transition attribute must have a default value");
-      Preconditions.checkArgument(
-          ((Label) defaultValue).equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL),
-          "_whitelist_function_transition attribute does not have the expected value "
-          + FunctionSplitTransitionWhitelist.WHITELIST_LABEL);
-    }
-
     this.name = name;
     this.type = type;
     this.propertyFlags = propertyFlags;
@@ -2162,6 +2154,11 @@ public final class Attribute implements Comparable<Attribute> {
   public SplitTransition getSplitTransition(AttributeMap attributeMapper) {
     Preconditions.checkState(hasSplitConfigurationTransition());
     return splitTransitionProvider.apply(attributeMapper);
+  }
+
+  @VisibleForTesting
+  public SplitTransitionProvider getSplitTransitionProviderForTesting() {
+    return splitTransitionProvider;
   }
 
   /**
@@ -2341,7 +2338,7 @@ public final class Attribute implements Comparable<Attribute> {
    * or a late-bound default.
    */
   @VisibleForTesting
-  public Object getDefaultValueForTesting() {
+  public Object getDefaultValueUnchecked() {
     return defaultValue;
   }
 

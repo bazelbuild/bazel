@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -81,5 +82,30 @@ public class ComposingTransition implements ConfigurationTransition {
     return other instanceof ComposingTransition
         && ((ComposingTransition) other).transition1.equals(this.transition1)
         && ((ComposingTransition) other).transition2.equals(this.transition2);
+  }
+
+  /**
+   * Recursively decompose a composing transition into all the {@link ConfigurationTransition}
+   * instances that it holds.
+   *
+   * @param root {@link ComposingTransition} to decompose
+   */
+  public static ImmutableList<ConfigurationTransition> decomposeTransition(
+      ConfigurationTransition root) {
+    ArrayList<ConfigurationTransition> toBeInspected = new ArrayList<>();
+    ImmutableList.Builder<ConfigurationTransition> transitions = new ImmutableList.Builder<>();
+    toBeInspected.add(root);
+    ConfigurationTransition current;
+    while (!toBeInspected.isEmpty()) {
+      current = toBeInspected.remove(0);
+      if (current instanceof ComposingTransition) {
+        ComposingTransition composingCurrent = (ComposingTransition) current;
+        toBeInspected.addAll(
+            ImmutableList.of(composingCurrent.transition1, composingCurrent.transition2));
+      } else {
+        transitions.add(current);
+      }
+    }
+    return transitions.build();
   }
 }

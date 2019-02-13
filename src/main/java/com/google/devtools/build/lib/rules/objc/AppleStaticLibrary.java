@@ -154,7 +154,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               .subtractSubtrees(
                   cpuToObjcAvoidDepsMap.get(childCpu),
                   cpuToCcAvoidDepsMap.get(childCpu).stream()
-                      .map(CcInfo::getCcLinkingInfo)
+                      .map(CcInfo::getCcLinkingContext)
                       .collect(ImmutableList.toImmutableList()));
 
       librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
@@ -174,7 +174,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               objcProvider,
               intermediateArtifacts.strippedSingleArchitectureLibrary(),
               childToolchain,
-              childToolchain.getFdoProvider())
+              childToolchain.getFdoContext())
           .validateAttributes();
       ruleContext.assertNoErrors();
 

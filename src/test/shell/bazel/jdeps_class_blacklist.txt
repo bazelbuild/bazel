@@ -1,0 +1,11 @@
+# This is a blacklist of class files that trigger a NPE in jdeps.
+./com/android/sdklib/internal/build/SignedJarBuilder.class
+./lombok/ast/app/Main$3.class
+./lombok/ast/javac/JcTreePrinter.class
+./lombok/javac/java6/CommentCollectingParser.class
+./lombok/javac/java6/CommentCollectingParserFactory.class
+./lombok/javac/java6/CommentCollectingScanner.class
+./lombok/javac/java6/CommentCollectingScannerFactory$1.class
+./lombok/javac/java6/CommentCollectingScannerFactory.class
+./lombok/javac/java7/CommentCollectingParser.class
+./lombok/javac/java7/CommentCollectingScanner.class

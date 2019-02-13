@@ -43,13 +43,32 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 #### SETUP #############################################################
 
-export MSYS_NO_PATHCONV=1
-export MSYS2_ARG_CONV_EXCL="*"
+# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `tr` converts all upper case letters to lower case.
+# `case` matches the result if the `uname | tr` expression to string prefixes
+# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
+# starting with "msys", and "*" matches everything (it's the default case).
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*)
+  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  # Disable MSYS path conversion that converts path-looking command arguments to
+  # Windows paths (even if they arguments are not in fact paths).
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
 
 function set_up() {
   mkdir -p pkg
   touch remote_file
-  if is_windows; then
+  if $is_windows; then
     # Windows needs "file:///c:/foo/bar".
     FILE_URL="file:///$(cygpath -m "$PWD")/remote_file"
   else

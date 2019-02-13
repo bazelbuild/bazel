@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -70,8 +71,9 @@ abstract class ArtifactFunctionTestCase {
   protected SkyFunction delegateActionExecutionFunction;
 
   @Before
-  public void baseSetUp() throws Exception  {
-    setupRoot(new CustomInMemoryFs());
+  public void baseSetUp() throws Exception {
+    CustomInMemoryFs fs = new CustomInMemoryFs();
+    setupRoot(fs);
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -112,13 +114,14 @@ abstract class ArtifactFunctionTestCase {
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
                 .put(
-                    SkyFunctions.WORKSPACE_FILE,
+                    WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
                         TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
                             .builder(directories)
-                            .build(TestRuleClassProvider.getRuleClassProvider()),
-                        directories))
+                            .build(TestRuleClassProvider.getRuleClassProvider(), fs),
+                        directories,
+                        /*skylarkImportLookupFunctionForInlining=*/ null))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,

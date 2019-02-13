@@ -34,6 +34,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "@bazel_tools//tools/java/runfiles",
     ] + select({
         "//external:has_androidsdk": ["//external:android/dx_jar_import"],
         "//conditions:default": [],
@@ -54,9 +55,9 @@ java_test(
         ":tests",
     ],
     jvm_flags = [
-        "-Dtestmaindexlist=$(location :test_main_dex_list.txt)",
-        "-Dtestinputjar=$(location :tests)",
-        "-Dtestinputjar2=$(location :testdata)",
+        "-Dtestmaindexlist=io_bazel/$(location :test_main_dex_list.txt)",
+        "-Dtestinputjar=io_bazel/$(location :tests)",
+        "-Dtestinputjar2=io_bazel/$(location :testdata)",
     ],
     runtime_deps = [
         ":tests",

@@ -14,13 +14,7 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
-import java.util.List;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * A label(pattern, argument) filter expression, which computes the set of resulting actions of
@@ -37,43 +31,16 @@ import java.util.regex.PatternSyntaxException;
  * '*'                         Error: invalid regex
  * </pre>
  */
-public class InputsFunction implements QueryFunction {
+public class InputsFunction extends ActionFilterFunction {
+  public static final String INPUTS = "inputs";
 
   @Override
   public String getName() {
-    return "inputs";
-  }
-
-  @Override
-  public int getMandatoryArguments() {
-    return 2;
+    return INPUTS;
   }
 
   @Override
   public Iterable<ArgumentType> getArgumentTypes() {
     return ImmutableList.of(ArgumentType.WORD, ArgumentType.EXPRESSION);
-  }
-
-  @Override
-  public <T> QueryTaskFuture<Void> eval(
-      QueryEnvironment<T> env,
-      QueryExpressionContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      Callback<T> callback) {
-    String inputsPattern = args.get(0).getWord();
-    try {
-      Pattern.compile(inputsPattern);
-    } catch (PatternSyntaxException e) {
-      return env.immediateFailedFuture(
-          new QueryException(
-              expression,
-              String.format(
-                  "Illegal '%s' pattern regexp '%s': %s",
-                  getName(), inputsPattern, e.getMessage())));
-    }
-
-    // Do nothing, pass the expression along
-    return env.eval(args.get(1).getExpression(), context, callback);
   }
 }

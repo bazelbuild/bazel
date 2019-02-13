@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -34,14 +33,16 @@ class CachedSkylarkImportLookupValueAndDeps {
     this.deps = deps;
   }
 
-  void traverse(DepGroupConsumer depGroupConsumer) throws InterruptedException {
-    deps.traverse(depGroupConsumer, new HashSet<>());
+  void traverse(
+      DepGroupConsumer depGroupConsumer,
+      Set<CachedSkylarkImportLookupFunctionDeps> visitedGlobalDeps)
+      throws InterruptedException {
+    deps.traverse(depGroupConsumer, visitedGlobalDeps);
   }
 
   SkylarkImportLookupValue getValue() {
     return value;
   }
-
   static CachedSkylarkImportLookupValueAndDeps.Builder newBuilder() {
     return new CachedSkylarkImportLookupValueAndDeps.Builder();
   }
@@ -88,7 +89,7 @@ class CachedSkylarkImportLookupValueAndDeps {
     }
   }
 
-  private static class CachedSkylarkImportLookupFunctionDeps {
+  static class CachedSkylarkImportLookupFunctionDeps {
     private final ImmutableList<Iterable<SkyKey>> directDeps;
     private final ImmutableList<CachedSkylarkImportLookupFunctionDeps> transitiveDeps;
 
@@ -142,6 +143,11 @@ class CachedSkylarkImportLookupValueAndDeps {
       }
     }
 
+    // Reference equality is fine here as most often, the deps objects for any given import
+    // label will be the same. It is technically possible for the same key to have two copies
+    // of associated cached deps but this just means we may visit the same deps more than once. We
+    // don't run the risk of chasing a cycle because these are detected prior to having any
+    // cached values.
     private void traverse(
         DepGroupConsumer depGroupConsumer, Set<CachedSkylarkImportLookupFunctionDeps> visitedDeps)
         throws InterruptedException {

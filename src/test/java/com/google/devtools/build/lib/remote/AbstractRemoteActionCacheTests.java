@@ -38,7 +38,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -611,6 +610,31 @@ public class AbstractRemoteActionCacheTests {
   }
 
   @Test
+  public void downloadFailureMaintainsDirectories() throws Exception {
+    DefaultRemoteActionCache cache = newTestCache();
+    Tree tree = Tree.newBuilder().setRoot(Directory.newBuilder()).build();
+    Digest treeDigest = cache.addContents(tree.toByteArray());
+    Digest outputFileDigest =
+        cache.addException("outputdir/outputfile", new IOException("download failed"));
+    Digest otherFileDigest = cache.addContents("otherfile");
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.addOutputDirectoriesBuilder().setPath("outputdir").setTreeDigest(treeDigest);
+    result.addOutputFiles(
+        OutputFile.newBuilder().setPath("outputdir/outputfile").setDigest(outputFileDigest));
+    result.addOutputFiles(OutputFile.newBuilder().setPath("otherfile").setDigest(otherFileDigest));
+    try {
+      cache.download(result.build(), execRoot, null);
+      fail("Expected exception");
+    } catch (IOException expected) {
+      assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
+      assertThat(execRoot.getRelative("outputdir").exists()).isTrue();
+      assertThat(execRoot.getRelative("outputdir/outputfile").exists()).isFalse();
+      assertThat(execRoot.getRelative("otherfile").exists()).isFalse();
+    }
+  }
+
+  @Test
   public void onErrorWaitForRemainingDownloadsToComplete() throws Exception {
     // If one or more downloads of output files / directories fail then the code should
     // wait for all downloads to have been completed before it tries to clean up partially
@@ -694,13 +718,6 @@ public class AbstractRemoteActionCacheTests {
       return Utils.getFromFuture(f);
     }
 
-    @Override
-    public void ensureInputsPresent(
-        TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-        throws IOException, InterruptedException {
-      throw new UnsupportedOperationException();
-    }
-
     @Nullable
     @Override
     ActionResult getCachedActionResult(ActionKey actionKey)
@@ -715,8 +732,7 @@ public class AbstractRemoteActionCacheTests {
         Command command,
         Path execRoot,
         Collection<Path> files,
-        FileOutErr outErr,
-        boolean uploadAction)
+        FileOutErr outErr)
         throws ExecException, IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }

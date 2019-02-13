@@ -133,13 +133,13 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testGlobalDefinedBelow() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true");
+    env = newEnvironmentWithSkylarkOptions();
     parse("def bar(): return x", "x = 5\n");
   }
 
   @Test
   public void testLocalVariableDefinedBelow() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true");
+    env = newEnvironmentWithSkylarkOptions();
     parse(
         "def bar():",
         "    for i in range(5):",

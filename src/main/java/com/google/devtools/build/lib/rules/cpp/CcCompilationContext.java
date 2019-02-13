@@ -23,8 +23,10 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -53,7 +55,10 @@ import javax.annotation.Nullable;
 // TODO(b/77669139): Rename to CcCompilationContext.
 public final class CcCompilationContext implements CcCompilationContextApi {
   /** An empty {@code CcCompilationContext}. */
-  public static final CcCompilationContext EMPTY = new Builder(null).build();
+  public static final CcCompilationContext EMPTY =
+      new Builder(
+              /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
+          .build();
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
@@ -138,13 +143,35 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkDeclaredIncludeDirs() {
+  public SkylarkNestedSet getSkylarkSystemIncludeDirs() {
     return SkylarkNestedSet.of(
         String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getSystemIncludeDirs().stream()
-                .map(PathFragment::getPathString)
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkIncludeDirs() {
+    return SkylarkNestedSet.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getIncludeDirs().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkQuoteIncludeDirs() {
+    return SkylarkNestedSet.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getQuoteIncludeDirs().stream()
+                .map(PathFragment::getSafePathString)
                 .collect(ImmutableList.toImmutableList())));
   }
 
@@ -395,7 +422,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   public static CcCompilationContext merge(Collection<CcCompilationContext> ccCompilationContexts) {
     CcCompilationContext.Builder builder =
-        new CcCompilationContext.Builder(/* ruleContext= */ null);
+        new CcCompilationContext.Builder(
+            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
     builder.mergeDependentCcCompilationContexts(ccCompilationContexts);
     return builder.build();
   }
@@ -457,11 +485,19 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         NestedSetBuilder.stableOrder();
 
     /** The rule that owns the context */
-    private final RuleContext ruleContext;
+    private final ActionConstructionContext actionConstructionContext;
+
+    private final BuildConfiguration configuration;
+    private final Label label;
 
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
-    public Builder(RuleContext ruleContext) {
-      this.ruleContext = ruleContext;
+    public Builder(
+        ActionConstructionContext actionConstructionContext,
+        BuildConfiguration configuration,
+        Label label) {
+      this.actionConstructionContext = actionConstructionContext;
+      this.configuration = configuration;
+      this.label = label;
     }
 
     /**
@@ -543,6 +579,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    /** See {@link #addIncludeDir(PathFragment)} */
+    public Builder addIncludeDirs(Iterable<PathFragment> includeDirs) {
+      Iterables.addAll(this.includeDirs, includeDirs);
+      return this;
+    }
+
     /**
      * Add a single include directory to be added with "-iquote". It can be
      * either relative to the exec root (see {@link
@@ -554,10 +596,16 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    /** See {@link #addQuoteIncludeDir(PathFragment)} */
+    public Builder addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
+      Iterables.addAll(this.quoteIncludeDirs, quoteIncludeDirs);
+      return this;
+    }
+
     /**
-     * Add a single include directory to be added with "-isystem". It can be either relative to the
-     * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot})
-     * or absolute. Before it is stored, the include directory is normalized.
+     * Add include directories to be added with "-isystem". It can be either relative to the exec
+     * root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
+     * absolute. Before it is stored, the include directory is normalized.
      */
     public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
       Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
@@ -683,8 +731,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     /** Builds the {@link CcCompilationContext}. */
     public CcCompilationContext build() {
       return build(
-          ruleContext == null ? null : ruleContext.getActionOwner(),
-          ruleContext == null ? null : ruleContext.getAnalysisEnvironment().getMiddlemanFactory());
+          actionConstructionContext == null ? null : actionConstructionContext.getActionOwner(),
+          actionConstructionContext == null
+              ? null
+              : actionConstructionContext.getAnalysisEnvironment().getMiddlemanFactory());
     }
 
     @VisibleForTesting // productionVisibility = Visibility.PRIVATE
@@ -748,13 +798,13 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       // Such middleman will be ignored by the dependency checker yet will still
       // represent an edge in the action dependency graph - forcing proper execution
       // order and error propagation.
-      String name =
-          cppModuleMap != null ? cppModuleMap.getName() : ruleContext.getLabel().toString();
+      String name = cppModuleMap != null ? cppModuleMap.getName() : label.toString();
       return middlemanFactory.createErrorPropagatingMiddleman(
-          owner, name, purpose,
+          owner,
+          name,
+          purpose,
           ImmutableList.copyOf(compilationPrerequisites),
-          ruleContext.getConfiguration().getMiddlemanDirectory(
-              ruleContext.getRule().getRepository()));
+          configuration.getMiddlemanDirectory(label.getPackageIdentifier().getRepository()));
     }
   }
 

@@ -59,7 +59,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider;
+import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -144,7 +144,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .propagateAlongAttribute("exports")
         .propagateAlongAttribute("runtime_deps")
         .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .requireProviders(ProtoInfo.class)
+        .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
         .requiresConfigurationFragments(
             AppleConfiguration.class,
             CppConfiguration.class,
@@ -222,7 +222,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+      ConfiguredTargetAndData ctadBase,
+      RuleContext ruleContext,
+      AspectParameters parameters,
+      String toolsRepository)
       throws InterruptedException, ActionConflictException {
     ConfiguredTarget base = ctadBase.getConfiguredTarget();
     if (isProtoRule(base)) {
@@ -257,7 +260,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       try {
         CcToolchainProvider ccToolchain =
             CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain");
-        FdoProvider fdoProvider = ccToolchain.getFdoProvider();
+        FdoContext fdoContext = ccToolchain.getFdoContext();
         CompilationSupport compilationSupport =
             new CompilationSupport.Builder()
                 .setRuleContext(ruleContext)
@@ -273,12 +276,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 EXTRA_COMPILE_ARGS,
                 ImmutableList.<PathFragment>of(),
                 ccToolchain,
-                fdoProvider)
+                fdoContext)
             .registerFullyLinkAction(
                 common.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB),
                 ccToolchain,
-                fdoProvider);
+                fdoContext);
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -353,7 +356,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private ConfiguredAspect proto(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException, ActionConflictException {
-    ProtoInfo protoInfo = base.getProvider(ProtoInfo.class);
+    ProtoInfo protoInfo = base.get(ProtoInfo.PROVIDER);
     ImmutableList<Artifact> protoSources = protoInfo.getDirectProtoSources();
 
     ProtoLangToolchainProvider protoToolchain =
@@ -618,7 +621,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     String genfilesPath = getProtoOutputRoot(ruleContext).getPathString();
 
-    ProtoInfo protoInfo = base.getProvider(ProtoInfo.class);
+    ProtoInfo protoInfo = base.get(ProtoInfo.PROVIDER);
 
     ImmutableList.Builder<ProtoCompileActionBuilder.ToolchainInvocation> invocations =
         ImmutableList.builder();
@@ -754,7 +757,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {
-    return base.getProvider(ProtoInfo.class) != null;
+    return base.get(ProtoInfo.PROVIDER) != null;
   }
 
   private static Iterable<Artifact> getOutputObjcFiles(

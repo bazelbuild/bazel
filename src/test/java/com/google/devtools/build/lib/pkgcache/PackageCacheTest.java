@@ -104,7 +104,7 @@ public class PackageCacheTest extends FoundationTestCase {
     }
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            packageFactoryBuilder.build(ruleClassProvider),
+            packageFactoryBuilder.build(ruleClassProvider, fileSystem),
             fileSystem,
             directories,
             actionKeyContext,
@@ -144,7 +144,6 @@ public class PackageCacheTest extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         skylarkSemanticsOptions,
-        analysisMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));

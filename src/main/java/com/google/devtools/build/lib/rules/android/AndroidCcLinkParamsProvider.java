@@ -32,7 +32,7 @@ public final class AndroidCcLinkParamsProvider extends NativeInfo
 
   public AndroidCcLinkParamsProvider(CcInfo ccInfo) {
     super(PROVIDER);
-    this.ccInfo = CcInfo.builder().setCcLinkingInfo(ccInfo.getCcLinkingInfo()).build();
+    this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
   }
 
   @Override

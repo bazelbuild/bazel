@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -49,6 +50,8 @@ import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
 class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final SkyValue NULL_MARKER = new SkyValue() {};
   private static final boolean PREFETCH_OLD_DEPS =
       Boolean.parseBoolean(
@@ -166,7 +169,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.bubbleErrorInfo = null;
     this.hermeticity = skyKey.functionName().getHermeticity();
     this.previouslyRequestedDepsValues =
-        batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ true, skyKey);
+        batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ true);
     Preconditions.checkState(
         !this.previouslyRequestedDepsValues.containsKey(ErrorTransienceValue.KEY),
         "%s cannot have a dep on ErrorTransienceValue during building",
@@ -188,7 +191,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.hermeticity = skyKey.functionName().getHermeticity();
     try {
       this.previouslyRequestedDepsValues =
-          batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ false, skyKey);
+          batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ false);
     } catch (UndonePreviouslyRequestedDep undonePreviouslyRequestedDep) {
       throw new IllegalStateException(
           "batchPrefetch can't throw UndonePreviouslyRequestedDep unless assertDone is true",
@@ -201,42 +204,36 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   }
 
   private Map<SkyKey, SkyValue> batchPrefetch(
-      SkyKey requestor,
-      GroupedList<SkyKey> depKeys,
-      Set<SkyKey> oldDeps,
-      boolean assertDone,
-      SkyKey keyForDebugging)
+      SkyKey requestor, GroupedList<SkyKey> depKeys, Set<SkyKey> oldDeps, boolean assertDone)
       throws InterruptedException, UndonePreviouslyRequestedDep {
-    Set<SkyKey> depKeysAsSet = null;
+    QueryableGraph.PrefetchDepsRequest request = null;
     if (PREFETCH_OLD_DEPS) {
-      if (!oldDeps.isEmpty()) {
-        // Create a set here so that filtering the old deps below is fast. Once we create this set,
-        // we may as well use it for the call to evaluatorContext#getBatchValues since we've
-        // precomputed the size.
-        depKeysAsSet = depKeys.toSet();
-        evaluatorContext.getGraph().prefetchDeps(requestor, oldDeps, depKeysAsSet);
-      }
+      request = new QueryableGraph.PrefetchDepsRequest(requestor, oldDeps, depKeys);
+      evaluatorContext.getGraph().prefetchDeps(request);
     }
     Map<SkyKey, ? extends NodeEntry> batchMap =
         evaluatorContext.getBatchValues(
             requestor,
             Reason.PREFETCH,
-            depKeysAsSet == null ? depKeys.getAllElementsAsIterable() : depKeysAsSet);
+            (request != null && request.excludedKeys != null)
+                ? request.excludedKeys
+                : depKeys.getAllElementsAsIterable());
     if (batchMap.size() != depKeys.numElements()) {
       NodeEntry inFlightEntry = null;
       try {
         inFlightEntry = evaluatorContext.getGraph().get(null, Reason.OTHER, requestor);
       } catch (InterruptedException e) {
+        logger.atWarning().withCause(e).log(
+            "Interrupted while getting parent entry for %s for crash", requestor);
         // We're crashing, don't mask it.
         Thread.currentThread().interrupt();
       }
-      throw new IllegalStateException(
-          "Missing keys for "
-              + keyForDebugging
-              + ": "
-              + Sets.difference(depKeys.toSet(), batchMap.keySet())
-              + "\n\n"
-              + inFlightEntry);
+      Set<SkyKey> difference = Sets.difference(depKeys.toSet(), batchMap.keySet());
+      logger.atSevere().log("Missing keys for %s: %s\n\n%s", requestor, difference, inFlightEntry);
+      evaluatorContext
+          .getGraphInconsistencyReceiver()
+          .noteInconsistencyAndMaybeThrow(
+              requestor, difference, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
     }
     ImmutableMap.Builder<SkyKey, SkyValue> depValuesBuilder =
         ImmutableMap.builderWithExpectedSize(batchMap.size());
@@ -250,7 +247,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         evaluatorContext
             .getGraphInconsistencyReceiver()
             .noteInconsistencyAndMaybeThrow(
-                skyKey, entry.getKey(), Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
+                skyKey,
+                ImmutableList.of(entry.getKey()),
+                Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
         throw new UndonePreviouslyRequestedDep(entry.getKey());
       }
       depValuesBuilder.put(entry.getKey(), !depDone ? NULL_MARKER : valueMaybeWithMetadata);
@@ -339,7 +338,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       Preconditions.checkState(
           triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
       state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
-      state.signalDep();
+      state.signalDep(evaluatorContext.getGraphVersion(), ErrorTransienceValue.KEY);
       maxChildVersion = evaluatorContext.getGraphVersion();
     }
 
@@ -357,28 +356,37 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *   <li>{@link #evaluatorContext}'s graph accessing methods
    * </ol>
    *
+   * <p>All {@code keys} not previously requested will be added to a new group in {@link
+   * #newlyRequestedDeps}. The new group will mirror the order of {@code keys}, minus duplicates.
+   *
    * <p>Any key whose {@link NodeEntry}--or absence thereof--had to be read from the graph will also
    * be entered into {@link #newlyRequestedDepsValues} with its value or a {@link #NULL_MARKER}.
    */
   private Map<SkyKey, SkyValue> getValuesFromErrorOrDepsOrGraph(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     // Uses a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
-    // and ImmutableMap.Builder does not tolerate duplicates.  The map will be thrown away
-    // shortly in any case.
+    // and ImmutableMap.Builder does not tolerate duplicates.
     Map<SkyKey, SkyValue> result = new HashMap<>();
-    ArrayList<SkyKey> missingKeys = new ArrayList<>();
+    Set<SkyKey> missingKeys = new HashSet<>();
+    newlyRequestedDeps.startGroup();
     for (SkyKey key : keys) {
       Preconditions.checkState(
           !key.equals(ErrorTransienceValue.KEY),
           "Error transience key cannot be in requested deps of %s",
           skyKey);
       SkyValue value = maybeGetValueFromErrorOrDeps(key);
+      boolean duplicate;
       if (value == null) {
-        missingKeys.add(key);
+        duplicate = !missingKeys.add(key);
       } else {
-        result.put(key, value);
+        duplicate = result.put(key, value) != null;
+      }
+      if (!duplicate && !previouslyRequestedDepsValues.containsKey(key)) {
+        newlyRequestedDeps.add(key);
       }
     }
+    newlyRequestedDeps.endGroup();
+
     if (missingKeys.isEmpty()) {
       return result;
     }
@@ -510,7 +518,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     checkActive();
-    newlyRequestedDeps.startGroup();
     Map<SkyKey, SkyValue> values = getValuesFromErrorOrDepsOrGraph(depKeys);
     for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
       SkyKey depKey = depEntry.getKey();
@@ -526,8 +533,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
               skyKey,
               evaluatorContext.getGraph().get(skyKey, Reason.OTHER, depKey),
               evaluatorContext.getGraph().get(null, Reason.OTHER, skyKey));
-        } else {
-          newlyRequestedDeps.add(depKey);
         }
         continue;
       }
@@ -552,12 +557,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           }
         }
       }
-
-      if (!previouslyRequestedDepsValues.containsKey(depKey)) {
-        newlyRequestedDeps.add(depKey);
-      }
     }
-    newlyRequestedDeps.endGroup();
 
     return Maps.transformValues(
         values,
@@ -718,7 +718,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
               value, errorInfo, eventsAndPostables.first, eventsAndPostables.second);
     }
     GroupedList<SkyKey> temporaryDirectDeps = primaryEntry.getTemporaryDirectDeps();
-    if (!oldDeps.isEmpty()) {
+    if (evaluatorContext.getGraph().storesReverseDeps() && !oldDeps.isEmpty()) {
       // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
       Set<SkyKey> depsToRemove = Sets.difference(oldDeps, temporaryDirectDeps.toSet());
       Collection<? extends NodeEntry> oldDepEntries =
@@ -727,6 +727,22 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         oldDepEntry.removeReverseDep(skyKey);
       }
     }
+    DepFingerprintList depFingerprintList = null;
+    if (primaryEntry.canPruneDepsByFingerprint()) {
+      DepFingerprintList.Builder depFingerprintListBuilder =
+          new DepFingerprintList.Builder(temporaryDirectDeps.listSize());
+      // TODO(janakr): in the common case, all these nodes may be locally cached. Do multi-level
+      // checking a la #getDepValuesForDoneNodeFromErrorOrDepsOrGraph to save graph lookups?
+      Map<SkyKey, ? extends NodeEntry> allDeps =
+          evaluatorContext.getBatchValues(
+              skyKey, Reason.DEP_REQUESTED, temporaryDirectDeps.getAllElementsAsIterable());
+      for (Collection<SkyKey> depGroup : temporaryDirectDeps) {
+        depFingerprintListBuilder.add(
+            AbstractParallelEvaluator.composeDepFingerprints(depGroup, allDeps));
+      }
+      depFingerprintList = depFingerprintListBuilder.build();
+    }
+
     Version evaluationVersion = maxChildVersion;
     if (bubbleErrorInfo != null) {
       // Cycles can lead to a state where the versions of done children don't accurately reflect the
@@ -749,7 +765,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     Version previousVersion = primaryEntry.getVersion();
     // If this entry is dirty, setValue may not actually change it, if it determines that
     // the data being written now is the same as the data already present in the entry.
-    Set<SkyKey> reverseDeps = primaryEntry.setValue(valueWithMetadata, evaluationVersion);
+    Set<SkyKey> reverseDeps =
+        primaryEntry.setValue(valueWithMetadata, evaluationVersion, depFingerprintList);
     // Note that if this update didn't actually change the entry, this version may not be
     // evaluationVersion.
     Version currentVersion = primaryEntry.getVersion();

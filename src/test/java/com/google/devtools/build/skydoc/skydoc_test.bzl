@@ -20,10 +20,17 @@
 #    the golden file if changes are made to skydoc.
 """Convenience macro for skydoc tests."""
 
-load("@bazel_skylib//:skylark_library.bzl", "bzl_library")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@skydoc//stardoc:stardoc.bzl", "stardoc")
 
-def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_symbols = []):
+def skydoc_test(
+        name,
+        input_file,
+        golden_file,
+        skydoc,
+        deps = [],
+        whitelisted_symbols = [],
+        semantic_flags = []):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
     The test target is named "{name}_e2e_test".
@@ -40,6 +47,12 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_sy
       whitelisted_symbols: A list of strings representing top-level symbols in the input file
           to generate documentation for. If empty, documentation for all top-level symbols
           will be generated.
+      semantic_flags: A list of canonical flags to affect Starlark semantics for the Starlark interpretter
+          during documentation generation. This should only be used to maintain compatibility with
+          non-default semantic flags required to use the given Starlark symbols. For example, if
+          <code>//foo:bar.bzl</code> does not build except when a user would specify
+          <code>--incompatible_foo_semantic=false</code>, then this attribute should contain
+          "--incompatible_foo_semantic=false"
     """
     actual_generated_doc = "%s_output.txt" % name
 
@@ -73,4 +86,5 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_sy
         symbol_names = whitelisted_symbols,
         deps = ["%s_lib" % name],
         stardoc = skydoc,
+        semantic_flags = semantic_flags,
     )

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
@@ -59,6 +60,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       Object attrs,
       Boolean local,
       SkylarkList<String> environ,
+      String doc,
       FuncallExpression ast,
       com.google.devtools.build.lib.syntax.Environment funcallEnv)
       throws EvalException {
@@ -144,10 +146,24 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
         PackageContext context = PackageFactory.getContext(env, ast.getLocation());
+        Package.Builder packageBuilder = context.getBuilder();
+
         @SuppressWarnings("unchecked")
         Map<String, Object> attributeValues = (Map<String, Object>) args[0];
+        String externalRepoName = (String) attributeValues.get("name");
+
+        WorkspaceFactoryHelper.addMainRepoEntry(
+            packageBuilder, externalRepoName, env.getSemantics());
+
+        WorkspaceFactoryHelper.addRepoMappings(
+            packageBuilder, attributeValues, externalRepoName, ast.getLocation());
+
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            context.getBuilder(), ruleClass, null, attributeValues, ast);
+            context.getBuilder(),
+            ruleClass,
+            null,
+            WorkspaceFactoryHelper.getFinalKwargs(attributeValues),
+            ast);
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }

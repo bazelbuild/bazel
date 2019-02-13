@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,7 +50,6 @@ import com.google.devtools.common.options.EnumConverter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -258,7 +256,7 @@ public abstract class TestStrategy implements TestActionContext {
   protected void postTestResult(ActionExecutionContext actionExecutionContext, TestResult result)
       throws IOException {
     result.getTestAction().saveCacheStatus(actionExecutionContext, result.getData());
-    actionExecutionContext.getEventBus().post(result);
+    actionExecutionContext.getEventHandler().post(result);
   }
 
   /**
@@ -425,26 +423,6 @@ public abstract class TestStrategy implements TestActionContext {
 
     actionExecutionContext.getEventHandler()
         .handle(Event.progress(testAction.getProgressMessage()));
-  }
-
-  /** In rare cases, we might write something to stderr. Append it to the real test.log. */
-  protected static void appendStderr(Path stdOut, Path stdErr) throws IOException {
-    FileStatus stat = stdErr.statNullable();
-    if (stat != null) {
-      try {
-        if (stat.getSize() > 0) {
-          if (stdOut.exists()) {
-            stdOut.setWritable(true);
-          }
-          try (OutputStream out = stdOut.getOutputStream(true);
-              InputStream in = stdErr.getInputStream()) {
-            ByteStreams.copy(in, out);
-          }
-        }
-      } finally {
-        stdErr.delete();
-      }
-    }
   }
 
   /** Implements the --test_output=streamed option. */

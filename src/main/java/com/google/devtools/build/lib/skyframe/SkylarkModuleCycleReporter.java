@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -41,7 +42,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE_LOOKUP);
 
   private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
-      SkyFunctions.isSkyFunction(SkyFunctions.WORKSPACE_FILE);
+      SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
 
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);

@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is a quick and dirty rule to make Bazel compile itself.  It
-# only supports Java.
+# This is a quick and dirty rule to make Bazel compile itself. Do not use.
 
 proto_filetype = [".proto"]
 
 def cc_grpc_library(name, src):
     basename = src[:-len(".proto")]
     protoc_label = str(Label("//third_party/protobuf:protoc"))
+    protoc_lib_label = str(Label("//third_party/protobuf:protoc_lib"))
     cpp_plugin_label = str(Label("//third_party/grpc:cpp_plugin"))
     native.genrule(
         name = name + "_codegen",
@@ -39,6 +39,9 @@ def cc_grpc_library(name, src):
         name = name,
         srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
         hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],
-        deps = [str(Label("//third_party/grpc:grpc++_unsecure"))],
+        deps = [
+            str(Label("//third_party/grpc:grpc++_unsecure")),
+            protoc_lib_label,
+        ],
         includes = ["."],
     )

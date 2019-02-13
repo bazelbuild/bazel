@@ -46,4 +46,4 @@ To run Bazel with remote execution, you can use one of the following:
 
 Remote execution of Bazel builds imposes a set of mandatory configuration
 constraints on the build. For more information, see
-[Adapting Bazel Rules for Remote Execution](https://docs.bazel.build/versions/master/remote-execution-rules.html).
+[Adapting Bazel Rules for Remote Execution](remote-execution-rules.html).

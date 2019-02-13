@@ -63,8 +63,9 @@ class MakeRpmTest(unittest.TestCase):
   # Python 2 alias
   if not hasattr(unittest.TestCase, 'assertCountEqual'):
 
-    def assertCountEqual(self, *args):
-      return self.assertItemsEqual(*args)
+    def assertCountEqual(self, a, b):
+      # pylint: disable=g-deprecated-assert
+      return self.assertItemsEqual(a, b)
 
   def testFindOutputFile(self):
     log = """
@@ -103,14 +104,14 @@ class MakeRpmTest(unittest.TestCase):
       WriteFile(dummy, 'dummy rpmbuild')
       os.chmod(dummy, 0o777)
       with PrependPath([outer]):
-        path = make_rpm.FindRpmbuild()
+        path = make_rpm.FindRpmbuild('')
         self.assertEqual(dummy, path)
 
   def testFindRpmbuild_missing(self):
     with make_rpm.Tempdir() as outer:
       with ReplacePath([outer]):
-        with self.assertRaises(make_rpm.NoRpmbuildFound) as context:
-          make_rpm.FindRpmbuild()
+        with self.assertRaises(make_rpm.NoRpmbuildFoundError) as context:
+          make_rpm.FindRpmbuild('')
         self.assertIsNotNone(context)
 
   def testSetupWorkdir(self):
@@ -121,7 +122,7 @@ class MakeRpmTest(unittest.TestCase):
 
       with PrependPath([outer]):
         # Create the builder and exercise it.
-        builder = make_rpm.RpmBuilder('test', '1.0', '0', 'x86', False)
+        builder = make_rpm.RpmBuilder('test', '1.0', '0', 'x86', False, None)
 
         # Create spec_file, test files.
         WriteFile('test.spec', 'Name: test', 'Version: 0.1',

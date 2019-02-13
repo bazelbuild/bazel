@@ -7,14 +7,6 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-filegroup(
-    name = "embedded_tools",
-    srcs = [
-        "JacocoCoverage_jarjar_deploy.jar",
-    ],
-    tags = ["manual"],
-)
-
 # Bazel custom Jacoco runner used to provide proper initialization and lcov
 # report generation when using offline Jacoco instrumentation.
 # This target should not be used as a dependency (except when writing tests for
@@ -60,7 +52,7 @@ genrule(
     outs = ["JacocoCoverage_jarjar_deploy.jar"],
     cmd = "\n".join([
         "JARJAR=\"$$(mktemp -t bazel.XXXXXXXX)\"",
-        "\"$(JAVA)\" -jar \"$(location //third_party/jarjar:jarjar_bin_deploy.jar)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$${JARJAR}\"",
+        "\"$(JAVA)\" -jar \"$(location //third_party/jarjar:jarjar_command_deploy.jar)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$${JARJAR}\"",
         "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
         "rm -fr \"$${JARJAR}\"",
     ]),
@@ -68,7 +60,7 @@ genrule(
     toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = [
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        "//third_party/jarjar:jarjar_bin_deploy.jar",
+        "//third_party/jarjar:jarjar_command_deploy.jar",
         "@bazel_tools//tools/jdk:current_host_java_runtime",
     ],
 )

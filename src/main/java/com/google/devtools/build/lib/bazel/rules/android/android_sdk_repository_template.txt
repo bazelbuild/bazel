@@ -19,6 +19,11 @@ alias(
 )
 
 alias(
+    name = "emulator",
+    actual = "emulator/emulator",
+)
+
+alias(
     name = "emulator_arm",
     actual = "emulator/emulator64-arm",
 )

@@ -29,9 +29,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
@@ -45,8 +47,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class CcToolchainProvider extends ToolchainInfo
-    implements CcToolchainProviderApi, HasCcToolchainLabel {
-  public static final String SKYLARK_NAME = "CcToolchainInfo";
+    implements CcToolchainProviderApi<FeatureConfiguration>, HasCcToolchainLabel {
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
@@ -55,18 +56,18 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* cppConfiguration= */ null,
           /* toolchainInfo= */ null,
           /* crosstoolTopPathFragment= */ null,
-          /* crosstool= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* crosstoolMiddleman= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* compile= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* compileWithoutIncludes= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* strip= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* objCopy= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* as= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* ar= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* link= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* allFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* allFilesMiddleman= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* compilerFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* compilerFilesWithoutIncludes= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* stripFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* objcopyFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* asFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* arFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* linkerFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* interfaceSoBuilder= */ null,
-          /* dwp= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* coverage= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* dwpFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* coverageFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* libcLink= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* staticRuntimeLinkInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* staticRuntimeLinkMiddleman= */ null,
@@ -82,8 +83,7 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* linkDynamicLibraryTool= */ null,
           /* builtInIncludeDirectories= */ ImmutableList.of(),
           /* sysroot= */ null,
-          FdoMode.OFF,
-          /* fdoProvider= */ null,
+          /* fdoContext= */ null,
           /* useLLVMCoverageMapFormat= */ false,
           /* codeCoverageEnabled= */ false,
           /* isHostConfiguration= */ false,
@@ -92,22 +92,22 @@ public final class CcToolchainProvider extends ToolchainInfo
   @Nullable private final CppConfiguration cppConfiguration;
   private final CppToolchainInfo toolchainInfo;
   private final PathFragment crosstoolTopPathFragment;
-  private final NestedSet<Artifact> crosstool;
-  private final NestedSet<Artifact> crosstoolMiddleman;
-  private final NestedSet<Artifact> compile;
-  private final NestedSet<Artifact> compileWithoutIncludes;
-  private final NestedSet<Artifact> strip;
-  private final NestedSet<Artifact> objCopy;
-  private final NestedSet<Artifact> as;
-  private final NestedSet<Artifact> ar;
-  private final NestedSet<Artifact> link;
+  private final NestedSet<Artifact> allFiles;
+  private final NestedSet<Artifact> allFilesMiddleman;
+  private final NestedSet<Artifact> compilerFiles;
+  private final NestedSet<Artifact> compilerFilesWithoutIncludes;
+  private final NestedSet<Artifact> stripFiles;
+  private final NestedSet<Artifact> objcopyFiles;
+  private final NestedSet<Artifact> asFiles;
+  private final NestedSet<Artifact> arFiles;
+  private final NestedSet<Artifact> linkerFiles;
   private final Artifact interfaceSoBuilder;
-  private final NestedSet<Artifact> dwp;
-  private final NestedSet<Artifact> coverage;
+  private final NestedSet<Artifact> dwpFiles;
+  private final NestedSet<Artifact> coverageFiles;
   private final NestedSet<Artifact> libcLink;
-  private final NestedSet<Artifact> staticRuntimeLinkInputs;
+  @Nullable private final NestedSet<Artifact> staticRuntimeLinkInputs;
   @Nullable private final Artifact staticRuntimeLinkMiddleman;
-  private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
+  @Nullable private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
   @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
   private final CcInfo ccInfo;
@@ -119,18 +119,17 @@ public final class CcToolchainProvider extends ToolchainInfo
   @Nullable private final Artifact linkDynamicLibraryTool;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
-  private final FdoMode fdoMode;
   private final boolean useLLVMCoverageMapFormat;
   private final boolean codeCoverageEnabled;
   private final boolean isHostConfiguration;
   private final boolean forcePic;
   private final boolean shouldStripBinaries;
   /**
-   * WARNING: We don't like {@link FdoProvider}. Its {@link FdoProvider#fdoProfilePath} is pure
-   * path and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it,
-   * don't take inspiration from it.
+   * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
+   * and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it, don't
+   * take inspiration from it.
    */
-  private final FdoProvider fdoProvider;
+  private final FdoContext fdoContext;
 
   private final LicensesProvider licensesProvider;
 
@@ -139,18 +138,18 @@ public final class CcToolchainProvider extends ToolchainInfo
       @Nullable CppConfiguration cppConfiguration,
       CppToolchainInfo toolchainInfo,
       PathFragment crosstoolTopPathFragment,
-      NestedSet<Artifact> crosstool,
-      NestedSet<Artifact> crosstoolMiddleman,
-      NestedSet<Artifact> compile,
-      NestedSet<Artifact> compileWithoutIncludes,
-      NestedSet<Artifact> strip,
-      NestedSet<Artifact> objCopy,
-      NestedSet<Artifact> as,
-      NestedSet<Artifact> ar,
-      NestedSet<Artifact> link,
+      NestedSet<Artifact> allFiles,
+      NestedSet<Artifact> allFilesMiddleman,
+      NestedSet<Artifact> compilerFiles,
+      NestedSet<Artifact> compilerFilesWithoutIncludes,
+      NestedSet<Artifact> stripFiles,
+      NestedSet<Artifact> objcopyFiles,
+      NestedSet<Artifact> asFiles,
+      NestedSet<Artifact> arFiles,
+      NestedSet<Artifact> linkerFiles,
       Artifact interfaceSoBuilder,
-      NestedSet<Artifact> dwp,
-      NestedSet<Artifact> coverage,
+      NestedSet<Artifact> dwpFiles,
+      NestedSet<Artifact> coverageFiles,
       NestedSet<Artifact> libcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
       @Nullable Artifact staticRuntimeLinkMiddleman,
@@ -166,8 +165,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       Artifact linkDynamicLibraryTool,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
-      FdoMode fdoMode,
-      FdoProvider fdoProvider,
+      FdoContext fdoContext,
       boolean useLLVMCoverageMapFormat,
       boolean codeCoverageEnabled,
       boolean isHostConfiguration,
@@ -176,28 +174,28 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.cppConfiguration = cppConfiguration;
     this.toolchainInfo = toolchainInfo;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
-    this.crosstool = Preconditions.checkNotNull(crosstool);
-    this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
-    this.compile = Preconditions.checkNotNull(compile);
-    this.compileWithoutIncludes = Preconditions.checkNotNull(compileWithoutIncludes);
-    this.strip = Preconditions.checkNotNull(strip);
-    this.objCopy = Preconditions.checkNotNull(objCopy);
-    this.as = Preconditions.checkNotNull(as);
-    this.ar = Preconditions.checkNotNull(ar);
-    this.link = Preconditions.checkNotNull(link);
+    this.allFiles = Preconditions.checkNotNull(allFiles);
+    this.allFilesMiddleman = Preconditions.checkNotNull(allFilesMiddleman);
+    this.compilerFiles = Preconditions.checkNotNull(compilerFiles);
+    this.compilerFilesWithoutIncludes = Preconditions.checkNotNull(compilerFilesWithoutIncludes);
+    this.stripFiles = Preconditions.checkNotNull(stripFiles);
+    this.objcopyFiles = Preconditions.checkNotNull(objcopyFiles);
+    this.asFiles = Preconditions.checkNotNull(asFiles);
+    this.arFiles = Preconditions.checkNotNull(arFiles);
+    this.linkerFiles = Preconditions.checkNotNull(linkerFiles);
     this.interfaceSoBuilder = interfaceSoBuilder;
-    this.dwp = Preconditions.checkNotNull(dwp);
-    this.coverage = Preconditions.checkNotNull(coverage);
+    this.dwpFiles = Preconditions.checkNotNull(dwpFiles);
+    this.coverageFiles = Preconditions.checkNotNull(coverageFiles);
     this.libcLink = Preconditions.checkNotNull(libcLink);
-    this.staticRuntimeLinkInputs = Preconditions.checkNotNull(staticRuntimeLinkInputs);
+    this.staticRuntimeLinkInputs = staticRuntimeLinkInputs;
     this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
-    this.dynamicRuntimeLinkInputs = Preconditions.checkNotNull(dynamicRuntimeLinkInputs);
+    this.dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputs;
     this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
     this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
     this.ccInfo =
         CcInfo.builder()
             .setCcCompilationContext(Preconditions.checkNotNull(ccCompilationContext))
-            .setCcLinkingInfo(CcLinkingInfo.EMPTY)
+            .setCcLinkingContext(CcLinkingContext.EMPTY)
             .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
@@ -207,8 +205,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
-    this.fdoMode = fdoMode;
-    this.fdoProvider = fdoProvider;
+    this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
     this.useLLVMCoverageMapFormat = useLLVMCoverageMapFormat;
     this.codeCoverageEnabled = codeCoverageEnabled;
     this.isHostConfiguration = isHostConfiguration;
@@ -286,8 +283,25 @@ public final class CcToolchainProvider extends ToolchainInfo
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
   @Override
-  public boolean usePicForDynamicLibraries() {
-    return forcePic || toolchainNeedsPic();
+  public boolean usePicForDynamicLibraries(FeatureConfiguration featureConfiguration) {
+    return forcePic
+        || toolchainNeedsPic()
+        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
+  }
+
+  /**
+   * Deprecated since it uses legacy crosstool fields.
+   *
+   * <p>See {link {@link #usePicForDynamicLibraries(FeatureConfiguration)} for docs}
+   *
+   * @return
+   */
+  @Deprecated
+  @Override
+  public boolean usePicForDynamicLibrariesUsingLegacyFields() {
+    return forcePic
+        || toolchainNeedsPic()
+        || FeatureConfiguration.EMPTY.isEnabled(CppRuleClasses.SUPPORTS_PIC);
   }
 
   /**
@@ -297,6 +311,15 @@ public final class CcToolchainProvider extends ToolchainInfo
   public boolean useFission() {
     return Preconditions.checkNotNull(cppConfiguration).fissionIsActiveForCurrentCompilationMode()
         && supportsFission();
+  }
+
+  /**
+   * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the
+   * build implied by the given configuration, toolchain and feature configuration.
+   */
+  public boolean shouldCreatePerObjectDebugInfo(FeatureConfiguration featureConfiguration) {
+    return cppConfiguration.fissionIsActiveForCurrentCompilationMode()
+        && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
   }
 
   /** Whether the toolchains supports header parsing. */
@@ -316,14 +339,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     // self-contained by building the module instead.
     return !cppConfiguration.getParseHeadersVerifiesModules()
         && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
-  }
-
-  /**
-   * Returns true if Fission and PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL
-   * for the build implied by the given configuration, toolchain and feature configuration.
-   */
-  public boolean shouldCreatePerObjectDebugInfo(FeatureConfiguration featureConfiguration) {
-    return useFission() && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
   }
 
   @Override
@@ -356,85 +371,71 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getToolchainIdentifier();
   }
 
-  /**
-   * Returns all the files in Crosstool. Is not a middleman.
-   */
-  public NestedSet<Artifact> getCrosstool() {
-    return crosstool;
+  /** Returns all the files in Crosstool. Is not a middleman. */
+  public NestedSet<Artifact> getAllFiles() {
+    return allFiles;
   }
 
-  /**
-   * Returns a middleman for all the files in Crosstool.
-   */
-  public NestedSet<Artifact> getCrosstoolMiddleman() {
-    return crosstoolMiddleman;
+  /** Returns a middleman for all the files in Crosstool. */
+  public NestedSet<Artifact> getAllFilesMiddleman() {
+    return allFilesMiddleman;
   }
 
-  /**
-   * Returns the files necessary for compilation.
-   */
-  public NestedSet<Artifact> getCompile() {
-    return compile;
+  /** Returns the files necessary for compilation. */
+  public NestedSet<Artifact> getCompilerFiles() {
+    return compilerFiles;
   }
 
   /**
    * Returns the files necessary for compilation excluding headers, assuming that included files
    * will be discovered by input discovery. If the toolchain does not provide this fileset, falls
-   * back to {@link #getCompile()}.
+   * back to {@link #getCompilerFiles()}.
    */
-  public NestedSet<Artifact> getCompileWithoutIncludes() {
-    if (compileWithoutIncludes.isEmpty()) {
-      return getCompile();
+  public NestedSet<Artifact> getCompilerFilesWithoutIncludes() {
+    if (compilerFilesWithoutIncludes.isEmpty()) {
+      return getCompilerFiles();
     }
-    return compileWithoutIncludes;
+    return compilerFilesWithoutIncludes;
+  }
+
+  /** Returns the files necessary for a 'strip' invocation. */
+  public NestedSet<Artifact> getStripFiles() {
+    return stripFiles;
+  }
+
+  /** Returns the files necessary for an 'objcopy' invocation. */
+  public NestedSet<Artifact> getObjcopyFiles() {
+    return objcopyFiles;
   }
 
   /**
-   * Returns the files necessary for a 'strip' invocation.
+   * Returns the files necessary for an 'as' invocation. May be empty if the CROSSTOOL file does not
+   * define as_files.
    */
-  public NestedSet<Artifact> getStrip() {
-    return strip;
+  public NestedSet<Artifact> getAsFiles() {
+    return asFiles;
   }
 
   /**
-   * Returns the files necessary for an 'objcopy' invocation.
+   * Returns the files necessary for an 'ar' invocation. May be empty if the CROSSTOOL file does not
+   * define ar_files.
    */
-  public NestedSet<Artifact> getObjcopy() {
-    return objCopy;
+  public NestedSet<Artifact> getArFiles() {
+    return arFiles;
   }
 
-  /**
-   * Returns the files necessary for an 'as' invocation.  May be empty if the CROSSTOOL
-   * file does not define as_files.
-   */
-  public NestedSet<Artifact> getAs() {
-    return as;
+  /** Returns the files necessary for linking, including the files needed for libc. */
+  public NestedSet<Artifact> getLinkerFiles() {
+    return linkerFiles;
   }
 
-  /**
-   * Returns the files necessary for an 'ar' invocation.  May be empty if the CROSSTOOL
-   * file does not define ar_files.
-   */
-  public NestedSet<Artifact> getAr() {
-    return ar;
+  public NestedSet<Artifact> getDwpFiles() {
+    return dwpFiles;
   }
 
-  /**
-   * Returns the files necessary for linking, including the files needed for libc.
-   */
-  public NestedSet<Artifact> getLink() {
-    return link;
-  }
-
-  public NestedSet<Artifact> getDwp() {
-    return dwp;
-  }
-
-  /**
-   * Returns the files necessary for capturing code coverage.
-   */
-  public NestedSet<Artifact> getCoverage() {
-    return coverage;
+  /** Returns the files necessary for capturing code coverage. */
+  public NestedSet<Artifact> getCoverageFiles() {
+    return coverageFiles;
   }
 
   public NestedSet<Artifact> getLibcLink() {
@@ -451,8 +452,15 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /** Returns the static runtime libraries. */
-  public NestedSet<Artifact> getStaticRuntimeLinkInputs(FeatureConfiguration featureConfiguration) {
+  public NestedSet<Artifact> getStaticRuntimeLinkInputs(
+      RuleErrorConsumer ruleErrorConsumer, FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
+      if (staticRuntimeLinkInputs == null) {
+        throw ruleErrorConsumer.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide static_runtime_lib attribute.");
+      }
       return staticRuntimeLinkInputs;
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -461,8 +469,15 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns an aggregating middleman that represents the static runtime libraries. */
   @Nullable
-  public Artifact getStaticRuntimeLinkMiddleman(FeatureConfiguration featureConfiguration) {
+  public Artifact getStaticRuntimeLinkMiddleman(
+      RuleErrorConsumer ruleErrorConsumer, FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
+      if (staticRuntimeLinkInputs == null) {
+        throw ruleErrorConsumer.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide static_runtime_lib attribute.");
+      }
       return staticRuntimeLinkMiddleman;
     } else {
       return null;
@@ -471,8 +486,14 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns the dynamic runtime libraries. */
   public NestedSet<Artifact> getDynamicRuntimeLinkInputs(
-      FeatureConfiguration featureConfiguration) {
+      RuleErrorConsumer ruleContext, FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
+      if (dynamicRuntimeLinkInputs == null) {
+        throw ruleContext.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide dynamic_runtime_lib attribute.");
+      }
       return dynamicRuntimeLinkInputs;
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -481,8 +502,15 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns an aggregating middleman that represents the dynamic runtime libraries. */
   @Nullable
-  public Artifact getDynamicRuntimeLinkMiddleman(FeatureConfiguration featureConfiguration) {
+  public Artifact getDynamicRuntimeLinkMiddleman(
+      RuleErrorConsumer ruleContext, FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
+      if (dynamicRuntimeLinkInputs == null) {
+        throw ruleContext.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide dynamic_runtime_lib attribute.");
+      }
       return dynamicRuntimeLinkMiddleman;
     } else {
       return null;
@@ -560,18 +588,10 @@ public final class CcToolchainProvider extends ToolchainInfo
     return cppConfiguration == null ? null : cppConfiguration.getCompilationMode();
   }
 
-  /**
-   * Returns whether the toolchain supports the gold linker.
-   */
-  public boolean supportsGoldLinker() {
-    return toolchainInfo.supportsGoldLinker();
-  }
-
-  /**
-   * Returns whether the toolchain supports dynamic linking.
-   */
-  public boolean supportsDynamicLinker() {
-    return toolchainInfo.supportsDynamicLinker();
+  /** Returns whether the toolchain supports dynamic linking. */
+  public boolean supportsDynamicLinker(FeatureConfiguration featureConfiguration) {
+    return toolchainInfo.supportsDynamicLinker()
+        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER);
   }
 
   /**
@@ -591,17 +611,15 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /** Returns whether the toolchain supports the --start-lib/--end-lib options. */
-  public boolean supportsStartEndLib() {
-    return toolchainInfo.supportsStartEndLib();
+  public boolean supportsStartEndLib(FeatureConfiguration featureConfiguration) {
+    return toolchainInfo.supportsStartEndLib()
+        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);
   }
 
-  /**
-   * Returns whether this toolchain supports interface shared objects.
-   *
-   * <p>Should be true if this toolchain generates ELF objects.
-   */
-  public boolean supportsInterfaceSharedObjects() {
-    return toolchainInfo.supportsInterfaceSharedObjects();
+  /** Returns whether this toolchain supports interface shared libraries. */
+  public boolean supportsInterfaceSharedLibraries(FeatureConfiguration featureConfiguration) {
+    return toolchainInfo.supportsInterfaceSharedLibraries()
+        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
   }
 
   @Nullable
@@ -623,7 +641,8 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
-   * Returns the environment variables that need to be added to tests that collect code coverage.
+   * Returns the environment variables that need to be added to tests that collect code
+   * coverageFiles.
    */
   public NestedSet<Pair<String, String>> getCoverageEnvironment() {
     return coverageEnvironment;
@@ -645,6 +664,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   @Override
+  @Nullable
   public String getSysroot() {
     return sysroot != null ? sysroot.getPathString() : null;
   }
@@ -730,8 +750,19 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getAdditionalMakeVariables();
   }
 
-  public FdoProvider getFdoProvider() {
-    return fdoProvider;
+  /**
+   * Returns the legacy value of the CC_FLAGS Make variable.
+   *
+   * @deprecated Use the CC_FLAGS from feature configuration instead.
+   */
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  @Deprecated
+  public String getLegacyCcFlagsMakeVariable() {
+    return toolchainInfo.getLegacyCcFlagsMakeVariable();
+  }
+
+  public FdoContext getFdoContext() {
+    return fdoContext;
   }
 
   /**
@@ -895,10 +926,6 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   public final boolean isLLVMCompiler() {
     return toolchainInfo.isLLVMCompiler();
-  }
-
-  public FdoMode getFdoMode() {
-    return fdoMode;
   }
 
   public ImmutableList<String> getLegacyCxxOptions() {

@@ -31,6 +31,7 @@ Indirectly missing class java.lang.Object. Referenced by:
     com.google.devtools.build.importdeps.testdata.Library (in testdata:testdata_lib_Library)
     com.google.devtools.build.importdeps.testdata.Library$Class1 (in testdata:testdata_lib_Library)
     com.google.devtools.build.importdeps.testdata.Library$Class11 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class12 (in testdata:testdata_lib_Library)
     com.google.devtools.build.importdeps.testdata.Library$Class2 (in testdata:testdata_lib_Library)
     com.google.devtools.build.importdeps.testdata.Library$Class3 (in testdata:testdata_lib_Library)
     com.google.devtools.build.importdeps.testdata.Library$Class4 (in testdata:testdata_lib_Library)
@@ -67,5 +68,5 @@ The class hierarchies of the classes with missing members:
     com.google.devtools.build.importdeps.testdata.Client$EnumTest (in testdata:testdata_client)
 ===Total===
 missing=20
-incomplete=29
+incomplete=30
 missing_members=2

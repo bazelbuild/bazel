@@ -1,3 +1,229 @@
+## Release 0.22.0 (2019-01-28)
+
+```
+Baseline: deb028e3fb30b4e2953df16f35ab1f55a08ea8fa
+
+Cherry picks:
+
+   + a3a5975dca3ad04c19dc7d063fcf490a8cd612fd:
+     Fix a race condition in remote cache
+   + b8d0e1b05c225a4b943ce498194d069d18093d9a:
+     Use a new GitHub token and KMS key for the release process.
+   + 3759e3895503aa2bbd6943c5b568b8c050b9448f:
+     remote: fix unexpected IO error (not a directory)
+   + 4473bb1a9ec4282aa8497b86580d68e82415df4a:
+     Fix a race condition in Bazel's Windows process management.
+   + 9137fb940886aa516f32ca8a36feccedb545c99b:
+     undo flag flip of --incompatible_strict_action_env
+   + 12ab12e80ad1c9a3510aa4bbfdf3fddafc0bca00:
+     Revert "Enabling Bazel to generate input symlinks as defined by
+     RE AP?
+   + 6345c747d8cb1819e70c853becadbf8a989decf1:
+     Automated rollback of commit
+     30536baa4a410d8c0a7adab5cd58cd8a2ac7e46c.
+```
+
+
+
+The Bazel team is happy to announce a new release of Bazel,
+[Bazel 0.22.0](https://github.com/bazelbuild/bazel/releases/tag/0.22.0).
+
+Baseline: deb028e3fb30b4e2953df16f35ab1f55a08ea8fa
+
+### Breaking changes
+
+- [`--incompatible_string_is_not_iterable`](https://github.com/bazelbuild/bazel/issues/5830)
+
+### Upcoming changes
+
+This release is a [migration window for the following changes](https://github.com/bazelbuild/bazel/labels/migration-0.22).
+
+- [`--incompatible_disallow_data_transition`](https://github.com/bazelbuild/bazel/issues/6153)
+- [`--incompatible_dont_emit_static_libgcc`](https://github.com/bazelbuild/bazel/issues/6825)
+- [`--incompatible_linkopts_in_user_link_flags`](https://github.com/bazelbuild/bazel/issues/6826)
+- [`--incompatible_disable_legacy_crosstool_fields`](https://github.com/bazelbuild/bazel/issues/6861)
+- [`--incompatible_use_aapt2_by_default`](https://github.com/bazelbuild/bazel/issues/6907)
+- [`--incompatible_disable_runtimes_filegroups`](https://github.com/bazelbuild/bazel/issues/6942)
+- [`--incompatible_disable_legacy_cc_provider`](https://github.com/bazelbuild/bazel/issues/7036)
+- [`--incompatible_require_feature_configuration_for_pic`](https://github.com/bazelbuild/bazel/issues/7007)
+- [`--incompatible_disable_expand_if_all_available_in_flag_set`](https://github.com/bazelbuild/bazel/issues/7008)
+- [`--incompatible_disable_legacy_proto_provider`](https://github.com/bazelbuild/bazel/issues/7152)
+- [`--incompatible_disable_proto_source_root`](https://github.com/bazelbuild/bazel/issues/7153)
+
+### General Changes
+
+- https://docs.bazel.build now supports versioned
+  documentation. Use the selector at the top of the navigation bar
+  to switch between documentation for different Bazel releases.
+
+- set `projectId` in all `PublishBuildToolEventStreamRequest`
+
+### Android
+
+- mobile-install now works with aapt2. Try it out with `bazel
+  mobile-install --android_aapt=aapt2 //my:target`
+
+- Fixed issues with mobile-install v1 when deploying to Android 9 Pie
+  devices. https://github.com/bazelbuild/bazel/issues/6814
+
+- Fixed issue where error messages from Android manifest merging
+  actions were not fully propagated.
+
+- New incompatible change flag `--incompatible_use_aapt2_by_default`
+  for defaulting to aapt2 in Android builds has been added. To build with
+  aapt2 today, pass the flag
+  `--incompatible_use_aapt2_by_default=true` or
+  `--android_aapt=aapt2`, or set the `aapt_version`  to `aapt2` on
+  your `android_binary` or `android_local_test` target.
+
+- Fixed mobile-install v1 error when installing an app with native
+  libraries onto an Android 9 (Pie) device. See
+  https://github.com/bazelbuild/examples/issues/77
+
+- Fixed a mobile-install bug where `arm64-v8a` libraries were not
+  deployed correctly on `arm64` devices. This was done by enabling
+  incremental native lib deployment by default. A previously
+  undocumented `--android_incremental_native_libs` flag is removed,
+  and is now the regular behavior. See
+  https://github.com/bazelbuild/bazel/issues/2239
+
+### Apple
+
+- The `objc_bundle` rule has been removed. Please migrate to rules_apple's
+  [apple_bundle_import](https://github.com/bazelbuild/rules_apple/bl
+  ob/master/doc/rules-resources.md#apple_bundle_import).
+
+- The `apple_stub_binary` rule has been deleted.
+
+- The `--xbinary_fdo` option that passes xbinary profiles has been added.
+
+### C++
+
+- `cc_toolchain.(static|dynamic)_runtime_libs` attributes are now optional
+
+### Packaging
+
+- `build_tar.py` in `tools/build_defs/pkg` now supports a JSON manifest
+  that can be used to add paths that have symbols that can't be
+  specified via the command line
+
+### Query
+
+- Filtering of inputs, outputs, and mnemonic filtering have been added to
+  aquery.
+
+- The aquery and cquery query2 tests have been open-sourced.
+
+- The Bazel query how-to recommends ":*" instead of ":all", because "all" might
+  be the name of a target.
+
+### Testing
+
+- The `--runs_per_test` has been placed in the TESTING documentation category.
+
+- A a clarifying message has been added to test case summary output when all
+  test cases pass but the target fails.
+
+### Contributors
+
+This release contains contributions from many people at Google, as well as
+Benjamin Peterson, Dave Lee, George Gensure, Gert van Dijk, Gustavo Storti
+Salibi, Keith Smiley, Loo Rong Jie, Lukasz Tekieli, Mikhail Mazurskiy, Thi,
+Travis Cline, Vladimir Chebotarev, and Yannic.
+
+## Release 0.21.0 (2018-12-19)
+
+```
+Baseline: cb9b2afbba3f8d3a1db8bf68e65d06f1b36902f5
+
+Cherry picks:
+
+   + 12b96466ee0d6ab83f7d4cd24be110bb5021281d:
+     Windows, test wrapper: rename the associated flag
+   + 7fc967c4d6435de2bb4e34aac00ca2e499f55fca:
+     Use a fixed thread pool in ByteStreamBuildEventArtifactUploader
+   + 798b9a989aa793655d29504edb5fb85f3143db84:
+     Add --build_event_upload_max_threads option
+   + dbe05df23ccf4c919379e0294e0701fd3f66739c:
+     Update the version of  skylib bundled in the distfile
+```
+
+Incompatible changes:
+
+  - The --experimental_stl command line option is removed.
+  - aquery defaults to human readable output format.
+
+New features:
+
+  - repository_ctx.download and repository_ctx.download_and_extract
+    now return a struct.
+  - Android Databinding v2 can be enabled with
+    --experimental_android_databinding_v2.
+
+Important changes:
+
+  - The deprecated and unmaintained Docker rules in
+    tools/build_defs/docker were removed. Please use
+    https://github.com/bazelbuild/rules_docker instead.
+  - The new --upload_query_output_using_bep query/cquery/aquery flag
+    causes query outputs to be uploaded via BEP.
+  - New incompatible flag --incompatible_strict_argument_ordering
+  - --strict_android_deps and --strict_java_deps were renamed to
+    --experimental_strict_java_deps
+  - config_settings that select on "compiler" value instead of values
+    = {"compiler" : "x"} should use flag_values =
+    {"@bazel_tools//tools/cpp:compiler": "x"}.
+  - The new --upload_query_output_using_bep query/cquery/aquery flag
+    causes query outputs to be uploaded via BEP.
+  - Turn on --incompatible_disable_sysroot_from_configuration
+  - We revamped our Android with Bazel tutorial! Check it out
+    [here](https://docs.bazel.build/versions/master/tutorial/android-a
+    pp.html).
+  - --incompatible_disallow_slash_operator is now on by default
+  - Enable --experimental_check_desugar_deps by default.  This flag
+    rules out several types of invalid Android builds at compile-time.
+  - The --max_config_changes_to_show option lists the names of
+    options which
+    have changed and thus caused the analysis cache to be dropped.
+  - The --experimental_strict_action_env option has been renamed to
+    --incompatible_strict_action_env and is now on by default. This
+    means Bazel will no longer use the client's PATH and
+    LD_LIBRARY_PATH environmental variables in the default action
+    environment. If the old behavior is desired, pass
+    --action_env=PATH and --action_env=LD_LIBRARY_PATH.
+    --noincompatible_strict_action_env will also temporarily restore
+    the old behavior. However, as --action_env is a more general and
+    explicit way to pass client environmental variables into actions,
+    --noincompatible_strict_action_env will eventually be deprecated
+    and removed. See #6648 for more details.
+  - XCRUNWRAPPER_LABEL has been removed. If you used this value
+    before, please use @bazel_tools//tools/objc:xcrunwrapper instead.
+  - --incompatible_static_name_resolution is no unable by default
+  - We will phase out --genrule_strategy in favor of
+    --strategy=Genrule=<value> (for genrules) or
+    --spawn_strategy=<value> (for all actions).
+  - --incompatible_package_name_is_a_function is now enabled by
+    default
+  - Dynamic execution is now available with
+    --experimental_spawn_strategy. Dynamic execution allows a build
+    action to run locally and remotely simultaneously, and Bazel
+    picks the fastest action. This provides the best of both worlds:
+    faster clean builds than pure local builds, and faster
+    incremental builds than pure remote builds.
+  - --incompatible_package_name_is_a_function is now enabled by
+    default
+  - New incompatible flag --incompatible_merge_genfiles_directory
+  - grpc log now logs updateActionResult
+  - CppConfiguration doesn't do package loading anymore. That means:
+    * it's no longer needed to have C++ toolchain available when
+    building non-C++ projects
+    * bazel will not analyze C++ toolchain when not needed -> speedup
+    ~2s on bazel startup when C++ rules using hermetic toolchain are
+    not loaded
+  - --incompatible_package_name_is_a_fu...
+
+This release contains contributions from many people at Google, as well as andy g scott ?, Attila Ol?h, Benjamin Peterson, Clint Harrison, Dave Lee, Ed Schouten, Greg Estren, Gregor Jasny, Jamie Snape, Jerry Marino, Loo Rong Jie, Or Shachar, Sevki Hasirci, William Chargin.
+
 ## Release 0.20.0 (2018-11-30)
 
 ```

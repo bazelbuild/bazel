@@ -57,6 +57,22 @@ else
   declare -r EXE_EXT=""
 fi
 
+#### TESTS #############################################################
+
+# Tests in this file cannot invoke a real Python 3 runtime. This is because this
+# file is shared by both Bazel's public test suite and Google's internal tests,
+# and the internal tests do not have a Python 3 environment.
+#
+#   - If you only need a real Python 2 environment and do not use Python 3 at
+#     all, you can place your test in this file.
+#
+#   - If you need to check Bazel's behavior concerning the *selection* of a
+#     Python 2 or 3 runtime, but do not actually need the runtime itself, then
+#     you may put your test in python_stub_test.sh (in this directory) instead.
+#
+#   - Otherwise, put your test in //src/test/shell/bazel. That suite can invoke
+#     actual Python 2 and 3 interpreters.
+
 function test_python_binary_empty_files_in_runfiles_are_regular_files() {
   mkdir -p test/mypackage
   cat > test/BUILD <<'EOF'
@@ -101,9 +117,9 @@ EOF
 }
 
 function test_building_transitive_py_binary_runfiles_trees() {
-    touch main.py script.sh
-    chmod u+x script.sh
-    cat > BUILD <<'EOF'
+  touch main.py script.sh
+  chmod u+x script.sh
+  cat > BUILD <<'EOF'
 py_binary(
     name = 'py-tool',
     srcs = ['main.py'],
@@ -116,11 +132,11 @@ sh_binary(
     data = [':py-tool'],
 )
 EOF
-    bazel build --experimental_build_transitive_python_runfiles :sh-tool
-    [ -d "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree not built"
-    bazel clean
-    bazel build --noexperimental_build_transitive_python_runfiles :sh-tool
-    [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
+  bazel build --experimental_build_transitive_python_runfiles :sh-tool
+  [ -d "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree not built"
+  bazel clean
+  bazel build --noexperimental_build_transitive_python_runfiles :sh-tool
+  [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
 }
 
 run_suite "Tests for the Python rules"

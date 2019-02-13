@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -24,8 +23,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -43,18 +44,19 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /** Output callback for aquery, prints human readable output. */
 public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
-  private final ImmutableMap<String, String> actionFilters;
+  private final AqueryActionFilter actionFilters;
+  private Map<String, String> paramFileNameToContentMap;
 
   ActionGraphTextOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -62,7 +64,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor,
-      ImmutableMap<String, String> actionFilters) {
+      AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.actionFilters = actionFilters;
   }
@@ -76,6 +78,9 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
   public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
+      // Enabling includeParamFiles should enable includeCommandline by default.
+      options.includeCommandline |= options.includeParamFiles;
+
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         List<ActionAnalysisMetadata> actions = configuredTargetValue.getActions();
         for (ActionAnalysisMetadata action : actions) {
@@ -98,19 +103,17 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
       throws IOException, CommandLineExpansionException {
-    Iterable<Artifact> inputs = action.getInputs();
+    if (options.includeParamFiles && action instanceof ParameterFileWriteAction) {
+      ParameterFileWriteAction parameterFileWriteAction = (ParameterFileWriteAction) action;
 
-    // TODO(leba): define const for "inputs" and allow multiple inputs pattern
-    if (actionFilters.containsKey("inputs")) {
-      Pattern inputsPattern = Pattern.compile(actionFilters.get("inputs"));
-      Boolean containsFile =
-          Streams.stream(inputs)
-              .map(a -> inputsPattern.matcher(a.getExecPathString()).matches())
-              .reduce(false, Boolean::logicalOr);
+      String fileContent = String.join(" \\\n    ", parameterFileWriteAction.getArguments());
+      String paramFileName = action.getPrimaryOutput().getExecPathString();
 
-      if (!containsFile) {
-        return;
-      }
+      getParamFileNameToContentMap().put(paramFileName, fileContent);
+    }
+
+    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+      return;
     }
 
     ActionOwner actionOwner = action.getOwner();
@@ -126,14 +129,20 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
       BuildEvent configuration = actionOwner.getConfiguration();
       BuildEventStreamProtos.Configuration configProto =
           configuration.asStreamProto(/*context=*/ null).getConfiguration();
+
       stringBuilder
-          .append("  Owner: ")
-          .append(actionOwner.getLabel().toString())
+          .append("  Target: ")
+          .append(actionOwner.getLabel())
           .append('\n')
           .append("  Configuration: ")
           .append(configProto.getMnemonic())
           .append('\n');
-      ImmutableList<AspectDescriptor> aspectDescriptors = actionOwner.getAspectDescriptors();
+
+      // In the case of aspect-on-aspect, AspectDescriptors are listed in
+      // topological order of the dependency graph.
+      // e.g. [A -> B] would imply that aspect A is applied on top of aspect B.
+      ImmutableList<AspectDescriptor> aspectDescriptors =
+          actionOwner.getAspectDescriptors().reverse();
       if (!aspectDescriptors.isEmpty()) {
         stringBuilder
             .append("  AspectDescriptors: [")
@@ -161,8 +170,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
                               .append(')');
                           return aspectDescription.toString();
                         })
-                    .sorted()
-                    .collect(Collectors.joining(",\n")))
+                    .collect(Collectors.joining("\n    -> ")))
             .append("]\n");
       }
     }
@@ -175,10 +183,11 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
           .append('\n');
     }
 
+    if (options.includeArtifacts) {
     stringBuilder
         .append("  Inputs: [")
         .append(
-            Streams.stream(inputs)
+            Streams.stream(action.getInputs())
                 .map(input -> input.getExecPathString())
                 .sorted()
                 .collect(Collectors.joining(", ")))
@@ -186,10 +195,15 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
         .append("  Outputs: [")
         .append(
             Streams.stream(action.getOutputs())
-                .map(input -> input.getExecPathString())
+                .map(
+                    output ->
+                        output.isTreeArtifact()
+                            ? output.getExecPathString() + " (TreeArtifact)"
+                            : output.getExecPathString())
                 .sorted()
                 .collect(Collectors.joining(", ")))
         .append("]\n");
+    }
 
     if (action instanceof SpawnAction) {
       SpawnAction spawnAction = (SpawnAction) action;
@@ -209,18 +223,33 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
                     .collect(Collectors.joining(", ")))
             .append("]\n");
       }
+    }
+    if (options.includeCommandline && action instanceof CommandAction) {
+      stringBuilder
+          .append("  Command Line: ")
+          .append(
+              CommandFailureUtils.describeCommand(
+                  CommandDescriptionForm.COMPLETE,
+                  /* prettyPrintArgs= */ true,
+                  ((CommandAction) action).getArguments(),
+                  /* environment= */ null,
+                  /* cwd= */ null))
+          .append("\n");
+    }
 
-      if (options.includeCommandline) {
-        stringBuilder
-            .append("  Command Line: ")
-            .append(
-                CommandFailureUtils.describeCommand(
-                    CommandDescriptionForm.COMPLETE,
-                    /* prettyPrintArgs= */ true,
-                    spawnAction.getArguments(),
-                    /* environment= */ null,
-                    /* cwd= */ null))
-            .append("\n");
+    if (options.includeParamFiles) {
+      // Assumption: if an Action takes a param file as an input, it will be used
+      // to provide params to the command.
+      for (Artifact input : action.getInputs()) {
+        String inputFileName = input.getExecPathString();
+        if (getParamFileNameToContentMap().containsKey(inputFileName)) {
+          stringBuilder
+              .append("  Params File Content (")
+              .append(inputFileName)
+              .append("):\n    ")
+              .append(getParamFileNameToContentMap().get(inputFileName))
+              .append("\n");
+        }
       }
     }
 
@@ -247,5 +276,13 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
     stringBuilder.append('\n');
 
     printStream.write(stringBuilder.toString().getBytes(UTF_8));
+  }
+
+  /** Lazy initialization of paramFileNameToContentMap. */
+  private Map<String, String> getParamFileNameToContentMap() {
+    if (paramFileNameToContentMap == null) {
+      paramFileNameToContentMap = new HashMap<>();
+    }
+    return paramFileNameToContentMap;
   }
 }

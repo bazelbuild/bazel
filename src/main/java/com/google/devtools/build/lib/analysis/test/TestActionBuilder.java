@@ -169,19 +169,6 @@ public final class TestActionBuilder {
       }
     },
 
-    EXPERIMENTAL_HEURISTIC {
-      @Override public int getNumberOfShards(boolean isLocal, int shardCountFromAttr,
-          boolean testShardingCompliant, TestSize testSize) {
-        if (shardCountFromAttr >= 0) {
-          return shardCountFromAttr;
-        }
-        if (isLocal || !testShardingCompliant) {
-          return 0;
-        }
-        return testSize.getDefaultShards();
-      }
-    },
-
     DISABLED {
       @Override public int getNumberOfShards(boolean isLocal, int shardCountFromAttr,
           boolean testShardingCompliant, TestSize testSize) {
@@ -241,9 +228,11 @@ public final class TestActionBuilder {
             : ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
 
     inputsBuilder.add(testActionExecutable);
-    Artifact testXmlGeneratorScript =
-        ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
-    inputsBuilder.add(testXmlGeneratorScript);
+    Artifact testXmlGeneratorExecutable =
+        isUsingTestWrapperInsteadOfTestSetupScript
+            ? ruleContext.getHostPrerequisiteArtifact("$xml_writer")
+            : ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
+    inputsBuilder.add(testXmlGeneratorExecutable);
 
     Artifact collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
@@ -378,7 +367,7 @@ public final class TestActionBuilder {
                 inputs,
                 testActionExecutable,
                 isUsingTestWrapperInsteadOfTestSetupScript,
-                testXmlGeneratorScript,
+                testXmlGeneratorExecutable,
                 collectCoverageScript,
                 testLog,
                 cacheStatus,

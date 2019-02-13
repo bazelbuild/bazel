@@ -557,6 +557,12 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
     # If we couldn't fetch the device manifest or if this is a non-incremental
     # install, wipe the slate clean
     adb.Delete(targetpath.join(app_dir, "native"))
+
+    # From Android 28 onwards, `adb push` creates directories with insufficient
+    # permissions, resulting in errors when pushing files. `adb shell mkdir`
+    # works correctly however, so we create the directory here.
+    # See https://github.com/bazelbuild/examples/issues/77 for more information.
+    adb.Mkdir(targetpath.join(app_dir, "native"))
   else:
     # Otherwise, parse the manifest. Note that this branch is also taken if the
     # manifest is empty.

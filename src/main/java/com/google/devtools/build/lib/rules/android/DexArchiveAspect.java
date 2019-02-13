@@ -137,9 +137,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requireSkylarkProviders(forKey(ToolchainInfo.PROVIDER.getKey()))
             // For android_sdk rules, where we just want to get at aidl runtime deps.
             .requireSkylarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))
+            .requireSkylarkProviders(forKey(ProtoInfo.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
-                    ImmutableSet.<Class<?>>of(ProtoInfo.class),
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
                     ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))
@@ -160,6 +160,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                             Label.parseAbsoluteUnchecked(
                                 toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
             .requiresConfigurationFragments(AndroidConfiguration.class)
+            .requireAspectsWithProviders(
+                ImmutableList.of(ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))))
             .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
@@ -177,7 +179,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters params)
+      ConfiguredTargetAndData ctadBase,
+      RuleContext ruleContext,
+      AspectParameters params,
+      String toolsRepository)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
     Function<Artifact, Artifact> desugaredJars =
@@ -287,6 +292,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
               .stream()
               .map(OutputJar::getClassJar)
               .collect(toImmutableList());
+        } else {
+          JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+          if (javaInfo != null) {
+            return javaInfo.getDirectRuntimeJars();
+          }
         }
       }
     } else {

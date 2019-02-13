@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
@@ -188,7 +189,7 @@ public class BuildOptionsTest {
 
   @Test
   public void optionsDiff_sameStarlarkOptions() throws Exception {
-    String flagName = "//foo/flag";
+    Label flagName = Label.parseAbsoluteUnchecked("//foo/flag");
     String flagValue = "value";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
@@ -198,7 +199,7 @@ public class BuildOptionsTest {
 
   @Test
   public void optionsDiff_differentStarlarkOptions() throws Exception {
-    String flagName = "//bar/flag";
+    Label flagName = Label.parseAbsoluteUnchecked("//bar/flag");
     String flagValueOne = "valueOne";
     String flagValueTwo = "valueTwo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
@@ -216,8 +217,8 @@ public class BuildOptionsTest {
 
   @Test
   public void optionsDiff_extraStarlarkOptions() throws Exception {
-    String flagNameOne = "//extra/flag/one";
-    String flagNameTwo = "//extra/flag/two";
+    Label flagNameOne = Label.parseAbsoluteUnchecked("//extra/flag/one");
+    Label flagNameTwo = Label.parseAbsoluteUnchecked("//extra/flag/two");
     String flagValue = "foo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));
@@ -232,7 +233,7 @@ public class BuildOptionsTest {
 
   @Test
   public void applyDiff_sameStarlarkOptions() throws Exception {
-    String flagName = "//foo/flag";
+    Label flagName = Label.parseAbsoluteUnchecked("//foo/flag");
     String flagValue = "value";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
@@ -249,7 +250,7 @@ public class BuildOptionsTest {
 
   @Test
   public void applyDiff_differentStarlarkOptions() throws Exception {
-    String flagName = "//bar/flag";
+    Label flagName = Label.parseAbsoluteUnchecked("//bar/flag");
     String flagValueOne = "valueOne";
     String flagValueTwo = "valueTwo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
@@ -263,8 +264,8 @@ public class BuildOptionsTest {
 
   @Test
   public void applyDiff_extraStarlarkOptions() throws Exception {
-    String flagNameOne = "//extra/flag/one";
-    String flagNameTwo = "//extra/flag/two";
+    Label flagNameOne = Label.parseAbsoluteUnchecked("//extra/flag/one");
+    Label flagNameTwo = Label.parseAbsoluteUnchecked("//extra/flag/two");
     String flagValue = "foo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));

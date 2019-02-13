@@ -30,7 +30,7 @@ These rules are improved versions of the native http rules and will eventually
 replace the native rules.
 """
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "update_attrs", "workspace_and_buildfile")
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -45,7 +45,7 @@ def _http_archive_impl(ctx):
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
 
-    ctx.download_and_extract(
+    download_info = ctx.download_and_extract(
         all_urls,
         "",
         ctx.attr.sha256,
@@ -54,6 +54,8 @@ def _http_archive_impl(ctx):
     )
     patch(ctx)
     workspace_and_buildfile(ctx)
+
+    return update_attrs(ctx.attr, _http_archive_attrs.keys(), {"sha256": download_info.sha256})
 
 _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -79,7 +81,7 @@ def _http_file_impl(ctx):
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
-    ctx.download(
+    download_info = ctx.download(
         ctx.attr.urls,
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
@@ -87,6 +89,8 @@ def _http_file_impl(ctx):
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
+
+    return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
 
 _HTTP_JAR_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -112,9 +116,10 @@ def _http_jar_impl(ctx):
         all_urls = ctx.attr.urls
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
-    ctx.download(all_urls, "jar/downloaded.jar", ctx.attr.sha256)
+    download_info = ctx.download(all_urls, "jar/downloaded.jar", ctx.attr.sha256)
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
+    return update_attrs(ctx.attr, _http_jar_attrs.keys(), {"sha256": download_info.sha256})
 
 _http_archive_attrs = {
     "url": attr.string(),
@@ -251,14 +256,16 @@ Args:
   patch_cmds: sequence of commands to be applied after patches are applied.
 """
 
+_http_file_attrs = {
+    "executable": attr.bool(),
+    "downloaded_file_path": attr.string(default = "downloaded"),
+    "sha256": attr.string(),
+    "urls": attr.string_list(mandatory = True),
+}
+
 http_file = repository_rule(
     implementation = _http_file_impl,
-    attrs = {
-        "executable": attr.bool(),
-        "downloaded_file_path": attr.string(default = "downloaded"),
-        "sha256": attr.string(),
-        "urls": attr.string_list(mandatory = True),
-    },
+    attrs = _http_file_attrs,
 )
 """Downloads a file from a URL and makes it available to be used as a file
 group.
@@ -295,13 +302,15 @@ Args:
     Authentication is not supported.
 """
 
+_http_jar_attrs = {
+    "sha256": attr.string(),
+    "url": attr.string(),
+    "urls": attr.string_list(),
+}
+
 http_jar = repository_rule(
     implementation = _http_jar_impl,
-    attrs = {
-        "sha256": attr.string(),
-        "url": attr.string(),
-        "urls": attr.string_list(),
-    },
+    attrs = _http_jar_attrs,
 )
 """Downloads a jar from a URL and makes it available as java_import
 

@@ -308,7 +308,7 @@ public abstract class BlazeModule {
    * runtime is allowed.
    */
   public Package.Builder.Helper getPackageBuilderHelper(
-      ConfiguredRuleClassProvider ruleClassProvider) {
+      ConfiguredRuleClassProvider ruleClassProvider, FileSystem fs) {
     return null;
   }
 
@@ -341,7 +341,10 @@ public abstract class BlazeModule {
     /**
      * Gets a file from the depot based on its label and returns the {@link Path} where it can be
      * found.
+     *
+     * <p>Returns null when the package designated by the label does not exist.
      */
+    @Nullable
     Path getFileFromWorkspace(Label label);
 
     /**

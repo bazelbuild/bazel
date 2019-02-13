@@ -15,7 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import java.util.Collection;
+import java.math.BigInteger;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -54,8 +55,10 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
-    return getDelegate().setValue(value, version);
+  public Set<SkyKey> setValue(
+      SkyValue value, Version version, DepFingerprintList depFingerprintList)
+      throws InterruptedException {
+    return getDelegate().setValue(value, version, depFingerprintList);
   }
 
   @Override
@@ -68,11 +71,6 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   public DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep)
       throws InterruptedException {
     return getDelegate().checkIfDoneForDirtyReverseDep(reverseDep);
-  }
-
-  @Override
-  public boolean signalDep() {
-    return getDelegate().signalDep();
   }
 
   @Override
@@ -101,7 +99,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getNextDirtyDirectDeps();
   }
 
@@ -113,6 +111,24 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   @Override
   public Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getAllRemainingDirtyDirectDeps();
+  }
+
+  @Override
+  public boolean canPruneDepsByFingerprint() {
+    return getDelegate().canPruneDepsByFingerprint();
+  }
+
+  @Nullable
+  @Override
+  public Iterable<SkyKey> getLastDirectDepsGroupWhenPruningDepsByFingerprint()
+      throws InterruptedException {
+    return getDelegate().getLastDirectDepsGroupWhenPruningDepsByFingerprint();
+  }
+
+  @Override
+  public boolean unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(
+      BigInteger groupFingerprint) {
+    return getDelegate().unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(groupFingerprint);
   }
 
   @Override
@@ -197,7 +213,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void addTemporaryDirectDepsGroupToDirtyEntry(Collection<SkyKey> group) {
+  public void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
     getDelegate().addTemporaryDirectDepsGroupToDirtyEntry(group);
   }
 }

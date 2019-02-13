@@ -20,6 +20,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:command-utils",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:out-err",
         "//src/main/java/com/google/devtools/build/lib:process_util",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:util",

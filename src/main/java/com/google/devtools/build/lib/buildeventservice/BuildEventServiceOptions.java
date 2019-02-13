@@ -95,16 +95,15 @@ public class BuildEventServiceOptions extends OptionsBase {
   public List<String> besKeywords;
 
   @Option(
-    name = "bes_outerr_buffer_size",
-    defaultValue = "10240",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Specifies the maximal size of stdout or stderr to be buffered in BEP, before it is "
-            + "reported as a progress event. Individual writes are still reported in a single "
-            + "event, even if larger than the specified value."
-  )
-  public long besOuterrBufferSize;
+      name = "bes_outerr_buffer_size",
+      defaultValue = "10240",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Specifies the maximal size of stdout or stderr to be buffered in BEP, before it is "
+              + "reported as a progress event. Individual writes are still reported in a single "
+              + "event, even if larger than the specified value.")
+  public int besOuterrBufferSize;
 
   @Option(
       name = "bes_results_url",
