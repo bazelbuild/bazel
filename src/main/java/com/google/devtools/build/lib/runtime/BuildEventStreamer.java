@@ -42,12 +42,10 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
@@ -73,11 +71,9 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -88,8 +84,6 @@ import java.util.function.BiConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Listens for {@link BuildEvent}s and streams them to the provided {@link BuildEventTransport}s.
@@ -112,7 +106,7 @@ public class BuildEventStreamer implements EventHandler {
   private List<Pair<String, String>> bufferedStdoutStderrPairs = new ArrayList<>();
   private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
   private int progressCount;
-  private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
+  private final CountingArtifactGroupNamer artifactGroupNamer;
   private OutErrProvider outErrProvider;
   private volatile AbortReason abortReason = AbortReason.UNKNOWN;
   // Will be set to true if the build was invoked through "bazel test" or "bazel coverage".
@@ -147,46 +141,12 @@ public class BuildEventStreamer implements EventHandler {
     Iterable<String> getErr();
   }
 
-  @ThreadSafe
-  private static class CountingArtifactGroupNamer implements ArtifactGroupNamer {
-    @GuardedBy("this")
-    private final Map<Object, Long> reportedArtifactNames = new HashMap<>();
-
-    @GuardedBy("this")
-    private long nextArtifactName;
-
-    @Override
-    public NamedSetOfFilesId apply(Object id) {
-      Long name;
-      synchronized (this) {
-        name = reportedArtifactNames.get(id);
-      }
-      if (name == null) {
-        return null;
-      }
-      return NamedSetOfFilesId.newBuilder().setId(name.toString()).build();
-    }
-
-    /**
-     * If the {@link NestedSetView} has no name already, return a new name for it. Return null
-     * otherwise.
-     */
-    synchronized String maybeName(NestedSetView<Artifact> view) {
-      if (reportedArtifactNames.containsKey(view.identifier())) {
-        return null;
-      }
-      Long name = nextArtifactName;
-      nextArtifactName++;
-      reportedArtifactNames.put(view.identifier(), name);
-      return name.toString();
-    }
-  }
-
   /** Creates a new build event streamer. */
   public BuildEventStreamer(
       Collection<BuildEventTransport> transports,
       @Nullable Reporter reporter,
-      BuildEventStreamOptions options) {
+      BuildEventStreamOptions options,
+      CountingArtifactGroupNamer artifactGroupNamer) {
     checkArgument(transports.size() > 0);
     checkNotNull(options);
     this.transports = transports;
@@ -194,12 +154,15 @@ public class BuildEventStreamer implements EventHandler {
     this.options = options;
     this.announcedEvents = null;
     this.progressCount = 0;
+    this.artifactGroupNamer = artifactGroupNamer;
   }
 
   /** Creates a new build event streamer with default options. */
   public BuildEventStreamer(
-      Collection<BuildEventTransport> transports, @Nullable Reporter reporter) {
-    this(transports, reporter, new BuildEventStreamOptions());
+      Collection<BuildEventTransport> transports,
+      @Nullable Reporter reporter,
+      CountingArtifactGroupNamer namer) {
+    this(transports, reporter, new BuildEventStreamOptions(), namer);
   }
 
   public void registerOutErrProvider(OutErrProvider outErrProvider) {
@@ -297,16 +260,16 @@ public class BuildEventStreamer implements EventHandler {
     for (BuildEventTransport transport : transports) {
       if (linkEvents != null) {
         for (BuildEvent linkEvent : linkEvents) {
-          transport.sendBuildEvent(linkEvent, artifactGroupNamer);
+          transport.sendBuildEvent(linkEvent);
         }
       }
-      transport.sendBuildEvent(mainEvent, artifactGroupNamer);
+      transport.sendBuildEvent(mainEvent);
     }
 
     if (flushEvents != null) {
       for (BuildEvent flushEvent : flushEvents) {
         for (BuildEventTransport transport : transports) {
-          transport.sendBuildEvent(flushEvent, artifactGroupNamer);
+          transport.sendBuildEvent(flushEvent);
         }
       }
     }
@@ -604,7 +567,7 @@ public class BuildEventStreamer implements EventHandler {
     if (updateEvents != null) {
       for (BuildEvent updateEvent : updateEvents) {
         for (BuildEventTransport transport : transports) {
-          transport.sendBuildEvent(updateEvent, artifactGroupNamer);
+          transport.sendBuildEvent(updateEvent);
         }
       }
     }

@@ -69,15 +69,18 @@ abstract class FileTransport implements BuildEventTransport {
   private final BuildEventProtocolOptions options;
   private final BuildEventArtifactUploader uploader;
   @VisibleForTesting final SequentialWriter writer;
+  private final ArtifactGroupNamer namer;
 
   FileTransport(
       String path,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      Consumer<AbruptExitException> exitFunc) {
+      Consumer<AbruptExitException> exitFunc,
+      ArtifactGroupNamer namer) {
     this.uploader = uploader;
     this.options = options;
     this.writer = new SequentialWriter(path, this::serializeEvent, exitFunc, uploader);
+    this.namer = namer;
   }
 
   @ThreadSafe
@@ -200,7 +203,7 @@ abstract class FileTransport implements BuildEventTransport {
   }
 
   @Override
-  public void sendBuildEvent(BuildEvent event, ArtifactGroupNamer namer) {
+  public void sendBuildEvent(BuildEvent event) {
     if (writer.closeFuture.isDone()) {
       return;
     }
