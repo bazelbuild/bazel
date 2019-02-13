@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -410,11 +411,33 @@ public class SkylarkRepositoryContext
   public void extract(Object archive, Object output, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     SkylarkPath archivePath = getPath("extract()", archive);
+
+    if(!archivePath.exists()) {
+      throw new RepositoryFunctionException(new EvalException(
+          Location.fromFile(archivePath.getPath()),
+          String.format("Archive path '%s' does not exist.", archivePath.toString())),
+          Transience.TRANSIENT);
+    }
+
     SkylarkPath outputPath = getPath("extract()", output);
+    checkInOutputDirectory(outputPath);
+    SkylarkPath archiveInTargetDirectory = archivePath.getDirname();
+    Preconditions.checkNotNull(archiveInTargetDirectory);
+
+    boolean outputLocationIsDifferent = !outputPath.equals(archivePath.getDirname());
+    if (outputLocationIsDifferent) {
+      createDirectory(outputPath.getPath());
+      archiveInTargetDirectory = outputPath.getChild(archivePath.getBasename());
+      try {
+        FileSystemUtils.copyFile(archivePath.getPath(), archiveInTargetDirectory.getPath());
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    }
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExtractEvent(
-            archive.toString(),
+            archiveInTargetDirectory.toString(),
             output.toString(),
             stripPrefix,
             rule.getLabel().toString(),
@@ -425,10 +448,18 @@ public class SkylarkRepositoryContext
         DecompressorDescriptor.builder()
             .setTargetKind(rule.getTargetKind())
             .setTargetName(rule.getName())
-            .setArchivePath(archivePath.getPath())
+            .setArchivePath(archiveInTargetDirectory.getPath())
             .setRepositoryPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .build());
+
+    if (outputLocationIsDifferent) {
+      try {
+        archiveInTargetDirectory.getPath().delete();
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    }
   }
 
   @Override
