@@ -1230,12 +1230,17 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(flags).containsNoneOf("-fastbuild", "-opt");
   }
 
-  private List<String> getHostAndTargetFlags(boolean useHost) throws Exception {
+  private List<String> getHostAndTargetFlags(boolean useHost, boolean isDisabledByFlag)
+      throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, MockCcSupport.HOST_AND_NONHOST_CONFIGURATION);
     scratch.overwriteFile("mode/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
-    useConfiguration("--cpu=k8");
+    useConfiguration(
+        "--cpu=k8",
+        isDisabledByFlag
+            ? "--incompatible_dont_enable_host_nonhost_crosstool_features"
+            : "--noincompatible_dont_enable_host_nonhost_crosstool_features");
     ConfiguredTarget target;
     String objectPath;
     if (useHost) {
@@ -1255,12 +1260,25 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testHostAndNonHostFeatures() throws Exception {
     List<String> flags;
 
-    flags = getHostAndTargetFlags(true);
+    flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ false);
     assertThat(flags).contains("-host");
     assertThat(flags).doesNotContain("-nonhost");
 
-    flags = getHostAndTargetFlags(false);
+    flags = getHostAndTargetFlags(/* useHost= */ false, /* isDisabledByFlag= */ false);
     assertThat(flags).contains("-nonhost");
+    assertThat(flags).doesNotContain("-host");
+  }
+
+  @Test
+  public void testHostAndNonHostFeaturesDisabledByTheFlag() throws Exception {
+    List<String> flags;
+
+    flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ true);
+    assertThat(flags).doesNotContain("-host");
+    assertThat(flags).doesNotContain("-nonhost");
+
+    flags = getHostAndTargetFlags(/* useHost= */ false, /* isDisabledByFlag= */ true);
+    assertThat(flags).doesNotContain("-nonhost");
     assertThat(flags).doesNotContain("-host");
   }
 

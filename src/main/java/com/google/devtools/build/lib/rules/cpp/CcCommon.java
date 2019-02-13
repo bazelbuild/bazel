@@ -872,10 +872,12 @@ public final class CcCommon {
             .addAll(requestedFeatures)
             .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
 
-    if (toolchain.isHostConfiguration()) {
-      allFeatures.add("host");
-    } else {
-      allFeatures.add("nonhost");
+    if (!cppConfiguration.dontEnableHostNonhost()) {
+      if (toolchain.isHostConfiguration()) {
+        allFeatures.add("host");
+      } else {
+        allFeatures.add("nonhost");
+      }
     }
 
     if (toolchain.useFission() && !cppConfiguration.disableLegacyCrosstoolFields()) {
