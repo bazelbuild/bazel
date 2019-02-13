@@ -34,6 +34,9 @@ public class CppActionConfigs {
     MAC
   }
 
+  /** A string constant for the macOS target libc value. */
+  public static final String MACOS_TARGET_LIBC = "macosx";
+
   // Note: these features won't be added to the crosstools that defines no_legacy_features feature
   // (e.g. ndk, apple, enclave crosstools). Those need to be modified separately.
   public static ImmutableList<CToolchain.Feature> getLegacyFeatures(
