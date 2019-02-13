@@ -35,27 +35,52 @@ def _hash(ctx, value):
 
 def _setup_cache(ctx, git_cache):
     # Set-up git_cache git repository.
+    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     st = ctx.execute([bash_exe, "-c", """set -ex
-  mkdir -p '{git_cache}'
-  git -C '{git_cache}' init --bare || :
+  mkdir -p {git_cache}
+  git -C {git_cache} init --bare || :
   """.format(git_cache=git_cache)], environment = ctx.os.environ)
     _if_debug(cond=ctx.attr.verbose, st=st, what='Init')
     if st.return_code:
         fail("Error ... {}:\n{}\n---\n{}".format(ctx.name, st.stdout, st.stderr))
 
-    # 'remote add x' must be done only if x does not exist
-    st = ctx.execute([bash_exe, "-c", """set -ex
-  git -C '{git_cache}' remote add '{remote_name}' '{remote}' || \
-                      git -C '{git_cache}' remote set-url '{remote_name}' '{remote}'
-  git -C '{git_cache}' fetch {shallow} '{remote_name}' {ref} || \
-                      git -C '{git_cache}' fetch '{remote_name}' {ref} || \
-                      git -C '{git_cache}' {shallow} fetch '{remote_name}'
+def _get_repository_from_cache(ctx, directory, ref, shallow, git_cache):
+    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+    st = ctx.execute([bash_exe, "-c", """
+  cd {working_dir}
+  set -ex
+      rm -rf '{directory}' '{dir_link}'
+      git -C {git_cache} worktree prune
+      git -C {git_cache} worktree add '{directory}' {ref}
+      #git -C '{directory}' reset --hard {ref}
+      #git -C '{directory}' clean -ffdx
   """.format(
-       git_cache=git_cache,
-       remote_name=remote_name,
-       remote=ctx.attr.remote,
-       ref=ref,
-       shallow=shallow)], environment = ctx.os.environ)
+        working_dir = ctx.path(".").dirname,
+        dir_link = ctx.path("."),
+        directory = directory,
+        ref = ref,
+        shallow = shallow,
+        git_cache = git_cache,
+    )], environment = ctx.os.environ)
+    _if_debug(cond=ctx.attr.verbose, st=st, what='Checkout')
+
+    return st.return_code
+
+def _populate_cache(ctx, git_cache, remote_name, ref, shallow):
+    # 'remote add x' must be done only if x does not exist
+    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+    st = ctx.execute([bash_exe, "-c", """set -ex
+  git -C {git_cache} remote add '{remote_name}' '{remote}' || \
+                      git -C {git_cache} remote set-url '{remote_name}' '{remote}'
+  git -C {git_cache} fetch {shallow} '{remote_name}' {ref} || \
+                      git -C {git_cache} fetch '{remote_name}' {ref} || \
+                      git -C {git_cache} {shallow} fetch '{remote_name}'
+  """.format(
+      git_cache=git_cache,
+      remote_name=remote_name,
+      remote=ctx.attr.remote,
+      ref=ref,
+      shallow=shallow)], environment = ctx.os.environ)
     _if_debug(cond=ctx.attr.verbose, st=st, what='Fetching')
 
     if st.return_code:
@@ -96,57 +121,19 @@ def _clone_or_update(ctx):
                   ctx.attr.strip_prefix if ctx.attr.strip_prefix else "None",
               ))
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-    git_cache = '/tmp/bazel_cache/git_cache'
+    git_cache = '/tmp/bazel_cache/git_cachee'
     git_cache = ctx.os.environ.get("BAZEL_GIT_REPOSITORY_CACHE")
 
     if git_cache:
-        # Set-up git_cache git repository.
-        st = ctx.execute([bash_exe, "-c", """set -ex
-    mkdir -p '{git_cache}'
-    git -C '{git_cache}' init --bare || :
-    """.format(git_cache=git_cache)], environment = ctx.os.environ)
-        _if_debug(cond=ctx.attr.verbose, st=st, what='Init')
-        if st.return_code:
-            fail("Error ... {}:\n{}\n---\n{}".format(ctx.name, st.stdout, st.stderr))
+        _setup_cache(ctx, git_cache)
+        return_code = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
 
-        # 'remote add x' must be done only if x does not exist
-        st = ctx.execute([bash_exe, "-c", """set -ex
-    git -C '{git_cache}' remote add '{remote_name}' '{remote}' || \
-                        git -C '{git_cache}' remote set-url '{remote_name}' '{remote}'
-    git -C '{git_cache}' fetch {shallow} '{remote_name}' {ref} || \
-                        git -C '{git_cache}' fetch '{remote_name}' {ref} || \
-                        git -C '{git_cache}' {shallow} fetch '{remote_name}'
-    """.format(
-        git_cache=git_cache,
-        remote_name=remote_name,
-        remote=ctx.attr.remote,
-        ref=ref,
-        shallow=shallow)], environment = ctx.os.environ)
-        _if_debug(cond=ctx.attr.verbose, st=st, what='Fetching')
+        if return_code:
+            _populate_cache(ctx, git_cache, remote_name, ref, shallow)
+            return_code = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
 
-        if st.return_code:
-            fail("Error fetching {}:\n{}\n----\n{}".format(ctx.name, st.stdout, st.stderr))
-
-        st = ctx.execute([bash_exe, "-c", """
-    cd {working_dir}
-    set -ex
-        rm -rf '{directory}' '{dir_link}'
-        git -C '{git_cache}' worktree prune
-        git -C '{git_cache}' worktree add '{directory}' {ref} || :
-        #git -C '{directory}' reset --hard {ref}
-        #git -C '{directory}' clean -ffdx
-    """.format(
-            working_dir = ctx.path(".").dirname,
-            dir_link = ctx.path("."),
-            directory = directory,
-            ref = ref,
-            shallow = shallow,
-            git_cache = git_cache,
-        )], environment = ctx.os.environ)
-
-        _if_debug(cond=ctx.attr.verbose, st=st, what='Checkout')
-        if st.return_code:
-            fail("Error checking out worktree %s:\n%s" % (ctx.name, st.stderr))
+            if return_code:
+                fail("Error checking out worktree %s:\n%s" % (ctx.name, st.stderr))
     else:
         st = ctx.execute([bash_exe, "-c", """
     cd {working_dir}
@@ -187,8 +174,9 @@ set -ex
   """.format(
             directory = ctx.path("."),
         )], environment = ctx.os.environ)
-    if st.return_code:
-        fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
+
+        if st.return_code:
+            fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
 
     ctx.report_progress("Recording actual commit")
 
