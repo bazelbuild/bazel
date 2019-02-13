@@ -893,7 +893,10 @@ public class CcModule
         }
       }
 
-      CppPlatform platform = targetLibc.equals("macos") ? CppPlatform.MAC : CppPlatform.LINUX;
+      CppPlatform platform =
+          targetLibc.equals(CppActionConfigs.MACOS_TARGET_LIBC)
+              ? CppPlatform.MAC
+              : CppPlatform.LINUX;
       for (CToolchain.Feature feature :
           CppActionConfigs.getLegacyFeatures(
               platform,
