@@ -170,8 +170,10 @@ void AssertSubprocessReceivesArgsAsIntended(
   // terminator that is exactly 2^15 (= 0x8000).
   static constexpr size_t kMaxCmdline = 0x8000;
   wchar_t cmdline[kMaxCmdline];
+
   // Copy printarg.exe's escaped path into the 'cmdline', and append a space.
   // We will append arguments to this command line in the for-loop below.
+  wprintarg = WindowsEscapeArg(wprintarg);
   wcsncpy(cmdline, wprintarg.c_str(), wprintarg.size());
   wchar_t *pcmdline = cmdline + wprintarg.size();
   *pcmdline++ = L' ';
