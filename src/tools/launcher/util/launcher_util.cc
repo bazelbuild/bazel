@@ -170,6 +170,15 @@ std::wstring BashEscapeArg(const std::wstring& arg) {
   return GetEscapedArgument(arg, /* escape_backslash */ true);
 }
 
+// Escape arguments for CreateProcessW.
+//
+// This algorithm is based on information found in
+// http://daviddeley.com/autohotkey/parameters/parameters.htm
+//
+// The following source specifies a similar algorithm:
+// https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/everyone-quotes-command-line-arguments-the-wrong-way/
+// unfortunately I found this algorithm only after creating the one below, but
+// fortunately they seem to do the same.
 std::wstring WindowsEscapeArg2(const std::wstring& s) {
   if (s.empty()) {
     return L"\"\"";
