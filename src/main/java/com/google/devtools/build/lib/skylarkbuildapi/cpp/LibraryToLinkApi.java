@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     name = "LibraryToLink",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "A library the user can link against.")
-public interface LibraryToLinkWrapperApi<FileT extends FileApi> {
+public interface LibraryToLinkApi<FileT extends FileApi> {
   @SkylarkCallable(
       name = "static_library",
       allowReturnNones = true,

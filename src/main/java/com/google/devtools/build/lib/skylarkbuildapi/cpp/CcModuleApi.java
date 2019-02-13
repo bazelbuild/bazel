@@ -40,7 +40,7 @@ public interface CcModuleApi<
     FeatureConfigurationT extends FeatureConfigurationApi,
     CompilationContextT extends CcCompilationContextApi,
     LinkingContextT extends CcLinkingContextApi,
-    LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
+    LibraryToLinkT extends LibraryToLinkApi,
     CcToolchainVariablesT extends CcToolchainVariablesApi,
     SkylarkRuleContextT extends SkylarkRuleContextApi,
     CcToolchainConfigInfoT extends CcToolchainConfigInfoApi> {
@@ -550,7 +550,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "False"),
       })
-  LibraryToLinkWrapperT createLibraryLinkerInput(
+  LibraryToLinkT createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,

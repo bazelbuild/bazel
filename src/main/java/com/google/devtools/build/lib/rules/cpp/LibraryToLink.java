@@ -29,10 +29,9 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.SolibLibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkWrapperApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -51,23 +50,20 @@ import javax.annotation.Nullable;
  * dynamic params for executable and dynamic params for dynamic library.
  */
 @AutoValue
-public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Artifact> {
+public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
-  public static List<LibraryToLink> convertLibraryToLinkWrapperListToLibraryToLinkList(
-      NestedSet<LibraryToLinkWrapper> libraryToLinkWrappers,
-      boolean staticMode,
-      boolean forDynamicLibrary) {
-    ImmutableList.Builder<LibraryToLink> librariesToLink = ImmutableList.builder();
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
-      LibraryToLink staticLibraryToLink =
-          libraryToLinkWrapper.getStaticLibrary() == null
+  public static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLibraryToLinkList(
+      NestedSet<LibraryToLink> librariesToLink, boolean staticMode, boolean forDynamicLibrary) {
+    ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
+        ImmutableList.builder();
+    for (LibraryToLink libraryToLink : librariesToLink) {
+      LinkerInputs.LibraryToLink staticLibraryToLink =
+          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
+      LinkerInputs.LibraryToLink picStaticLibraryToLink =
+          libraryToLink.getPicStaticLibrary() == null
               ? null
-              : libraryToLinkWrapper.getStaticLibraryToLink();
-      LibraryToLink picStaticLibraryToLink =
-          libraryToLinkWrapper.getPicStaticLibrary() == null
-              ? null
-              : libraryToLinkWrapper.getPicStaticLibraryToLink();
-      LibraryToLink libraryToLinkToUse = null;
+              : libraryToLink.getPicStaticLibraryToLink();
+      LinkerInputs.LibraryToLink libraryToLinkToUse = null;
       if (staticMode) {
         if (forDynamicLibrary) {
           if (picStaticLibraryToLink != null) {
@@ -83,17 +79,17 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
           }
         }
         if (libraryToLinkToUse == null) {
-          if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-            libraryToLinkToUse = libraryToLinkWrapper.getInterfaceLibraryToLink();
-          } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-            libraryToLinkToUse = libraryToLinkWrapper.getDynamicLibraryToLink();
+          if (libraryToLink.getInterfaceLibrary() != null) {
+            libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
+          } else if (libraryToLink.getDynamicLibrary() != null) {
+            libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
           }
         }
       } else {
-        if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-          libraryToLinkToUse = libraryToLinkWrapper.getInterfaceLibraryToLink();
-        } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-          libraryToLinkToUse = libraryToLinkWrapper.getDynamicLibraryToLink();
+        if (libraryToLink.getInterfaceLibrary() != null) {
+          libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
+        } else if (libraryToLink.getDynamicLibrary() != null) {
+          libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
         }
         if (libraryToLinkToUse == null) {
           if (forDynamicLibrary) {
@@ -112,9 +108,9 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
         }
       }
       Preconditions.checkNotNull(libraryToLinkToUse);
-      librariesToLink.add(libraryToLinkToUse);
+      librariesToLinkBuilder.add(libraryToLinkToUse);
     }
-    return librariesToLink.build();
+    return librariesToLinkBuilder.build();
   }
 
   public Artifact getDynamicLibraryForRuntimeOrNull(boolean linkingStatically) {
@@ -242,14 +238,14 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
       }
     }
 
-    private final NestedSet<LibraryToLinkWrapper> libraries;
+    private final NestedSet<LibraryToLink> libraries;
     private final NestedSet<LinkOptions> userLinkFlags;
     private final NestedSet<Linkstamp> linkstamps;
     private final NestedSet<Artifact> nonCodeInputs;
     private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
     public CcLinkingContext(
-        NestedSet<LibraryToLinkWrapper> libraries,
+        NestedSet<LibraryToLink> libraries,
         NestedSet<LinkOptions> userLinkFlags,
         NestedSet<Linkstamp> linkstamps,
         NestedSet<Artifact> nonCodeInputs,
@@ -281,15 +277,15 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
 
     public List<Artifact> getStaticModeParamsForExecutableLibraries() {
       ImmutableList.Builder<Artifact> libraryListBuilder = ImmutableList.builder();
-      for (LibraryToLinkWrapper libraryToLinkWrapper : getLibraries()) {
-        if (libraryToLinkWrapper.getStaticLibrary() != null) {
-          libraryListBuilder.add(libraryToLinkWrapper.getStaticLibrary());
-        } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-          libraryListBuilder.add(libraryToLinkWrapper.getPicStaticLibrary());
-        } else if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-          libraryListBuilder.add(libraryToLinkWrapper.getInterfaceLibrary());
+      for (LibraryToLink libraryToLink : getLibraries()) {
+        if (libraryToLink.getStaticLibrary() != null) {
+          libraryListBuilder.add(libraryToLink.getStaticLibrary());
+        } else if (libraryToLink.getPicStaticLibrary() != null) {
+          libraryListBuilder.add(libraryToLink.getPicStaticLibrary());
+        } else if (libraryToLink.getInterfaceLibrary() != null) {
+          libraryListBuilder.add(libraryToLink.getInterfaceLibrary());
         } else {
-          libraryListBuilder.add(libraryToLinkWrapper.getDynamicLibrary());
+          libraryListBuilder.add(libraryToLink.getDynamicLibrary());
         }
       }
       return libraryListBuilder.build();
@@ -297,7 +293,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
 
     public List<Artifact> getStaticModeParamsForDynamicLibraryLibraries() {
       ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
-      for (LibraryToLinkWrapper library : getLibraries()) {
+      for (LibraryToLink library : getLibraries()) {
         if (library.getPicStaticLibrary() != null) {
           artifactListBuilder.add(library.getPicStaticLibrary());
         } else if (library.getStaticLibrary() != null) {
@@ -313,7 +309,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
 
     public List<Artifact> getDynamicModeParamsForExecutableLibraries() {
       ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
-      for (LibraryToLinkWrapper library : getLibraries()) {
+      for (LibraryToLink library : getLibraries()) {
         if (library.getInterfaceLibrary() != null) {
           artifactListBuilder.add(library.getInterfaceLibrary());
         } else if (library.getDynamicLibrary() != null) {
@@ -329,7 +325,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
 
     public List<Artifact> getDynamicModeParamsForDynamicLibraryLibraries() {
       ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
-      for (LibraryToLinkWrapper library : getLibraries()) {
+      for (LibraryToLink library : getLibraries()) {
         if (library.getInterfaceLibrary() != null) {
           artifactListBuilder.add(library.getInterfaceLibrary());
         } else if (library.getDynamicLibrary() != null) {
@@ -344,10 +340,10 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     }
 
     public List<Artifact> getDynamicLibrariesForRuntime(boolean linkingStatically) {
-      return LibraryToLinkWrapper.getDynamicLibrariesForRuntime(linkingStatically, libraries);
+      return LibraryToLink.getDynamicLibrariesForRuntime(linkingStatically, libraries);
     }
 
-    public NestedSet<LibraryToLinkWrapper> getLibraries() {
+    public NestedSet<LibraryToLink> getLibraries() {
       return libraries;
     }
 
@@ -357,7 +353,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     }
 
     @Override
-    public SkylarkList<LibraryToLinkWrapperApi> getSkylarkLibrariesToLink() {
+    public SkylarkList<LibraryToLinkApi> getSkylarkLibrariesToLink() {
       return SkylarkList.createImmutable(libraries.toList());
     }
 
@@ -390,13 +386,13 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
 
     /** Builder for {@link CcLinkingContext}. */
     public static class Builder {
-      private final NestedSetBuilder<LibraryToLinkWrapper> libraries = NestedSetBuilder.linkOrder();
+      private final NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
       private final NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
       private final NestedSetBuilder<Linkstamp> linkstamps = NestedSetBuilder.compileOrder();
       private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.linkOrder();
       private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
 
-      public Builder addLibraries(NestedSet<LibraryToLinkWrapper> libraries) {
+      public Builder addLibraries(NestedSet<LibraryToLink> libraries) {
         this.libraries.addTransitive(libraries);
         return this;
       }
@@ -467,10 +463,10 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     }
   }
 
-  private LibraryToLink picStaticLibraryToLink;
-  private LibraryToLink staticLibraryToLink;
-  private LibraryToLink dynamicLibraryToLink;
-  private LibraryToLink interfaceLibraryToLink;
+  private LinkerInputs.LibraryToLink picStaticLibraryToLink;
+  private LinkerInputs.LibraryToLink staticLibraryToLink;
+  private LinkerInputs.LibraryToLink dynamicLibraryToLink;
+  private LinkerInputs.LibraryToLink interfaceLibraryToLink;
 
   public abstract String getLibraryIdentifier();
 
@@ -524,17 +520,15 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
   abstract boolean getMustKeepDebug();
 
   public static Builder builder() {
-    return new AutoValue_LibraryToLinkWrapper.Builder()
-        .setMustKeepDebug(false)
-        .setAlwayslink(false);
+    return new AutoValue_LibraryToLink.Builder().setMustKeepDebug(false).setAlwayslink(false);
   }
 
   @Nullable
   @SuppressWarnings("ReferenceEquality")
   static String setDynamicArtifactsAndReturnIdentifier(
-      LibraryToLinkWrapper.Builder libraryToLinkWrapperBuilder,
-      LibraryToLink dynamicModeParamsForExecutableEntry,
-      LibraryToLink dynamicModeParamsForDynamicLibraryEntry,
+      LibraryToLink.Builder libraryToLinkBuilder,
+      LinkerInputs.LibraryToLink dynamicModeParamsForExecutableEntry,
+      LinkerInputs.LibraryToLink dynamicModeParamsForDynamicLibraryEntry,
       ListIterator<Artifact> runtimeLibraryIterator) {
     Preconditions.checkNotNull(runtimeLibraryIterator);
     Artifact artifact = dynamicModeParamsForExecutableEntry.getArtifact();
@@ -579,29 +573,29 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
         if (ArtifactCategory.INTERFACE_LIBRARY
             .getAllowedExtensions()
             .contains("." + artifact.getExtension())) {
-          libraryToLinkWrapperBuilder.setInterfaceLibrary(artifact);
-          libraryToLinkWrapperBuilder.setResolvedSymlinkInterfaceLibrary(
+          libraryToLinkBuilder.setInterfaceLibrary(artifact);
+          libraryToLinkBuilder.setResolvedSymlinkInterfaceLibrary(
               dynamicModeParamsForExecutableEntry.getOriginalLibraryArtifact());
           if (runtimeArtifact != null) {
-            libraryToLinkWrapperBuilder.setDynamicLibrary(runtimeArtifact);
+            libraryToLinkBuilder.setDynamicLibrary(runtimeArtifact);
           }
         } else {
           Preconditions.checkState(runtimeArtifact == null || artifact == runtimeArtifact);
-          libraryToLinkWrapperBuilder.setDynamicLibrary(artifact);
-          libraryToLinkWrapperBuilder.setResolvedSymlinkDynamicLibrary(
+          libraryToLinkBuilder.setDynamicLibrary(artifact);
+          libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(
               dynamicModeParamsForExecutableEntry.getOriginalLibraryArtifact());
         }
       } else {
-        libraryToLinkWrapperBuilder.setDynamicLibrary(artifact);
+        libraryToLinkBuilder.setDynamicLibrary(artifact);
         Preconditions.checkState(runtimeArtifact == null || artifact == runtimeArtifact);
       }
     } else if (dynamicModeParamsForExecutableEntry.getArtifactCategory()
         == ArtifactCategory.INTERFACE_LIBRARY) {
       Preconditions.checkState(
           !(dynamicModeParamsForExecutableEntry instanceof SolibLibraryToLink));
-      libraryToLinkWrapperBuilder.setInterfaceLibrary(artifact);
+      libraryToLinkBuilder.setInterfaceLibrary(artifact);
       if (runtimeArtifact != null) {
-        libraryToLinkWrapperBuilder.setDynamicLibrary(runtimeArtifact);
+        libraryToLinkBuilder.setDynamicLibrary(runtimeArtifact);
       }
     }
     return libraryIdentifier;
@@ -623,7 +617,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     return currentWithoutExtension;
   }
 
-  LibraryToLink getStaticLibraryToLink() {
+  LinkerInputs.LibraryToLink getStaticLibraryToLink() {
     Preconditions.checkNotNull(getStaticLibrary(), this);
     if (staticLibraryToLink != null) {
       return staticLibraryToLink;
@@ -642,7 +636,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     return staticLibraryToLink;
   }
 
-  LibraryToLink getPicStaticLibraryToLink() {
+  LinkerInputs.LibraryToLink getPicStaticLibraryToLink() {
     Preconditions.checkNotNull(getPicStaticLibrary(), this);
     if (picStaticLibraryToLink != null) {
       return picStaticLibraryToLink;
@@ -661,7 +655,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     return picStaticLibraryToLink;
   }
 
-  LibraryToLink getDynamicLibraryToLink() {
+  LinkerInputs.LibraryToLink getDynamicLibraryToLink() {
     Preconditions.checkNotNull(getDynamicLibrary(), this);
     if (dynamicLibraryToLink != null) {
       return dynamicLibraryToLink;
@@ -684,7 +678,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     return dynamicLibraryToLink;
   }
 
-  LibraryToLink getInterfaceLibraryToLink() {
+  LinkerInputs.LibraryToLink getInterfaceLibraryToLink() {
     Preconditions.checkNotNull(getInterfaceLibrary());
     if (interfaceLibraryToLink != null) {
       return interfaceLibraryToLink;
@@ -708,10 +702,10 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
   }
 
   public static List<Artifact> getDynamicLibrariesForRuntime(
-      boolean linkingStatically, Iterable<LibraryToLinkWrapper> libraries) {
+      boolean linkingStatically, Iterable<LibraryToLink> libraries) {
     ImmutableList.Builder<Artifact> dynamicLibrariesForRuntimeBuilder = ImmutableList.builder();
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraries) {
-      Artifact artifact = libraryToLinkWrapper.getDynamicLibraryForRuntimeOrNull(linkingStatically);
+    for (LibraryToLink libraryToLink : libraries) {
+      Artifact artifact = libraryToLink.getDynamicLibraryForRuntimeOrNull(linkingStatically);
       if (artifact != null) {
         dynamicLibrariesForRuntimeBuilder.add(artifact);
       }
@@ -719,20 +713,19 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     return dynamicLibrariesForRuntimeBuilder.build();
   }
 
-  public static List<Artifact> getDynamicLibrariesForLinking(
-      Iterable<LibraryToLinkWrapper> libraries) {
+  public static List<Artifact> getDynamicLibrariesForLinking(Iterable<LibraryToLink> libraries) {
     ImmutableList.Builder<Artifact> dynamicLibrariesForLinkingBuilder = ImmutableList.builder();
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraries) {
-      if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-        dynamicLibrariesForLinkingBuilder.add(libraryToLinkWrapper.getInterfaceLibrary());
-      } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-        dynamicLibrariesForLinkingBuilder.add(libraryToLinkWrapper.getDynamicLibrary());
+    for (LibraryToLink libraryToLink : libraries) {
+      if (libraryToLink.getInterfaceLibrary() != null) {
+        dynamicLibrariesForLinkingBuilder.add(libraryToLink.getInterfaceLibrary());
+      } else if (libraryToLink.getDynamicLibrary() != null) {
+        dynamicLibrariesForLinkingBuilder.add(libraryToLink.getDynamicLibrary());
       }
     }
     return dynamicLibrariesForLinkingBuilder.build();
   }
 
-  /** Builder for LibraryToLinkWrapper. */
+  /** Builder for LibraryToLink. */
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -769,7 +762,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     public abstract Builder setMustKeepDebug(boolean mustKeepDebug);
 
     // Methods just for validation, not to be called externally.
-    abstract LibraryToLinkWrapper autoBuild();
+    abstract LibraryToLink autoBuild();
 
     abstract String getLibraryIdentifier();
 
@@ -797,7 +790,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
 
     abstract Artifact getResolvedSymlinkInterfaceLibrary();
 
-    public LibraryToLinkWrapper build() {
+    public LibraryToLink build() {
       Preconditions.checkNotNull(getLibraryIdentifier());
       Preconditions.checkState(
           (getObjectFiles() == null

@@ -207,7 +207,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getFilesToBuild(hello)).containsExactly(archive, implSharedObject,
         implInterfaceSharedObject);
     assertThat(
-            LibraryToLinkWrapper.getDynamicLibrariesForLinking(
+            LibraryToLink.getDynamicLibrariesForLinking(
                 hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
         .containsExactly(implInterfaceSharedObjectLink);
     assertThat(
@@ -273,7 +273,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.so", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive, sharedObject, implSharedObject);
     assertThat(
-            LibraryToLinkWrapper.getDynamicLibrariesForLinking(
+            LibraryToLink.getDynamicLibrariesForLinking(
                 hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
         .containsExactly(sharedObjectLink);
     assertThat(
@@ -1378,7 +1378,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
-    LibraryToLinkWrapper library =
+    LibraryToLink library =
         Iterables.getOnlyElement(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries());
     Artifact libraryToUse = library.getPicStaticLibrary();
     if (libraryToUse == null) {
@@ -1395,7 +1395,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['libfoo.so'])");
 
-    LibraryToLinkWrapper library =
+    LibraryToLink library =
         Iterables.getOnlyElement(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries());
     assertThat(library.getStaticLibrary()).isNull();
     assertThat(artifactsToStrings(ImmutableList.of(library.getResolvedSymlinkDynamicLibrary())))

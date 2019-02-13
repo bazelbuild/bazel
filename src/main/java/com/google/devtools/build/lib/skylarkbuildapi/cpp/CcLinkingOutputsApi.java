@@ -27,5 +27,5 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     doc = "Helper class containing CC compilation outputs.")
 public interface CcLinkingOutputsApi<FileT extends FileApi> {
   @SkylarkCallable(name = "library_to_link", structField = true, documented = false)
-  LibraryToLinkWrapperApi<FileT> getLibraryToLink();
+  LibraryToLinkApi<FileT> getLibraryToLink();
 }

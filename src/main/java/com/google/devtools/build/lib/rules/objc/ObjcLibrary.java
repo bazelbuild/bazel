@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -126,11 +126,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
   private CcLinkingContext buildCcLinkingContext(
       ObjcCommon common, SymbolGenerator<?> symbolGenerator) {
-    ImmutableSet.Builder<LibraryToLinkWrapper> libraries = new ImmutableSet.Builder<>();
+    ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
     ObjcProvider objcProvider = common.getObjcProvider();
     for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
       libraries.add(
-          LibraryToLinkWrapper.builder()
+          LibraryToLink.builder()
               .setStaticLibrary(library)
               .setLibraryIdentifier(
                   FileSystemUtils.removeExtension(library.getRootRelativePathString()))
@@ -141,9 +141,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingContext.Builder ccLinkingContext =
         CcLinkingContext.builder()
             .addLibraries(
-                NestedSetBuilder.<LibraryToLinkWrapper>linkOrder()
-                    .addAll(libraries.build())
-                    .build());
+                NestedSetBuilder.<LibraryToLink>linkOrder().addAll(libraries.build()).build());
 
     NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
     for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK)) {

@@ -70,8 +70,8 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.FileType;
@@ -455,7 +455,7 @@ public final class ObjcCommon {
             .addAll(LINKOPT, nonFrameworkLinkOpts.build())
             .addTransitiveAndPropagate(
                 CC_LIBRARY,
-                NestedSetBuilder.<LibraryToLinkWrapper>linkOrder()
+                NestedSetBuilder.<LibraryToLink>linkOrder()
                     .addTransitive(linkProvider.getLibraries())
                     .build());
       }

@@ -55,8 +55,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -849,8 +849,8 @@ public class CppHelper {
   }
 
   public static CcNativeLibraryProvider collectNativeCcLibraries(
-      List<? extends TransitiveInfoCollection> deps, List<LibraryToLinkWrapper> libraries) {
-    NestedSetBuilder<LibraryToLinkWrapper> result = NestedSetBuilder.linkOrder();
+      List<? extends TransitiveInfoCollection> deps, List<LibraryToLink> libraries) {
+    NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.linkOrder();
     result.addAll(libraries);
     for (CcNativeLibraryProvider dep :
         AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.class)) {

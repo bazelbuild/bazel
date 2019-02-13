@@ -35,9 +35,8 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -293,8 +292,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public static final Key<Artifact> STRINGS = new Key<>(STABLE_ORDER, "strings", Artifact.class);
 
   /** Linking information from cc dependencies. */
-  public static final Key<LibraryToLinkWrapper> CC_LIBRARY =
-      new Key<>(LINK_ORDER, "cc_library", LibraryToLinkWrapper.class);
+  public static final Key<LibraryToLink> CC_LIBRARY =
+      new Key<>(LINK_ORDER, "cc_library", LibraryToLink.class);
 
   /**
    * Linking options from dependencies.
@@ -749,9 +748,9 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
 
   /** Returns the list of .a files required for linking that arise from cc libraries. */
   List<Artifact> getCcLibraries() {
-    NestedSetBuilder<LibraryToLinkWrapper> libraryToLinkListBuilder = NestedSetBuilder.linkOrder();
-    for (LibraryToLinkWrapper libraryToLinkWrapper : get(CC_LIBRARY)) {
-      libraryToLinkListBuilder.add(libraryToLinkWrapper);
+    NestedSetBuilder<LibraryToLink> libraryToLinkListBuilder = NestedSetBuilder.linkOrder();
+    for (LibraryToLink libraryToLink : get(CC_LIBRARY)) {
+      libraryToLinkListBuilder.add(libraryToLink);
     }
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder().addLibraries(libraryToLinkListBuilder.build()).build();
@@ -782,12 +781,13 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     // TODO(cpeyser): Clean up objc-cc interop.
     HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
     for (CcLinkingContext ccLinkingContext : avoidCcProviders) {
-      List<LibraryToLink> librariesToLink =
-          LibraryToLinkWrapper.convertLibraryToLinkWrapperListToLibraryToLinkList(
+      List<com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink> librariesToLink =
+          LibraryToLink.convertLibraryToLinkListToLibraryToLinkList(
               ccLinkingContext.getLibraries(),
               /* staticMode= */ true,
               /* forDynamicLibrary= */ false);
-      for (LibraryToLink libraryToLink : librariesToLink) {
+      for (com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink libraryToLink :
+          librariesToLink) {
         avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
       }
     }
@@ -831,39 +831,38 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   /**
-   * Returns a predicate which returns true for a given {@link LibraryToLinkWrapper} if the
-   * library's runfiles path is not contained in the given set.
+   * Returns a predicate which returns true for a given {@link LibraryToLink} if the library's
+   * runfiles path is not contained in the given set.
    *
    * @param runfilesPaths if a given library has runfiles path present in this set, the predicate
    *     will return false
    */
-  private static Predicate<LibraryToLinkWrapper> ccLibraryNotYetLinked(
+  private static Predicate<LibraryToLink> ccLibraryNotYetLinked(
       final HashSet<PathFragment> runfilesPaths) {
     return libraryToLink -> !checkIfLibraryIsInPaths(libraryToLink, runfilesPaths);
   }
 
   private static boolean checkIfLibraryIsInPaths(
-      LibraryToLinkWrapper libraryToLinkWrapper, HashSet<PathFragment> runfilesPaths) {
+      LibraryToLink libraryToLink, HashSet<PathFragment> runfilesPaths) {
     ImmutableList.Builder<PathFragment> libraryRunfilesPaths = ImmutableList.builder();
-    if (libraryToLinkWrapper.getStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLinkWrapper.getStaticLibrary().getRunfilesPath());
+    if (libraryToLink.getStaticLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getStaticLibrary().getRunfilesPath());
     }
-    if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLinkWrapper.getPicStaticLibrary().getRunfilesPath());
+    if (libraryToLink.getPicStaticLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getPicStaticLibrary().getRunfilesPath());
     }
-    if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLinkWrapper.getDynamicLibrary().getRunfilesPath());
+    if (libraryToLink.getDynamicLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getDynamicLibrary().getRunfilesPath());
     }
-    if (libraryToLinkWrapper.getResolvedSymlinkDynamicLibrary() != null) {
+    if (libraryToLink.getResolvedSymlinkDynamicLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getInterfaceLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getInterfaceLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getResolvedSymlinkInterfaceLibrary() != null) {
       libraryRunfilesPaths.add(
-          libraryToLinkWrapper.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
-    }
-    if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLinkWrapper.getInterfaceLibrary().getRunfilesPath());
-    }
-    if (libraryToLinkWrapper.getResolvedSymlinkInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(
-          libraryToLinkWrapper.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
+          libraryToLink.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
     }
 
     return !Collections.disjoint(libraryRunfilesPaths.build(), runfilesPaths);

@@ -1219,8 +1219,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLinkWrapper> librariesToLink =
-        (SkylarkList<LibraryToLinkWrapper>) info.getValue("libraries_to_link", SkylarkList.class);
+    SkylarkList<LibraryToLink> librariesToLink =
+        (SkylarkList<LibraryToLink>) info.getValue("libraries_to_link", SkylarkList.class);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getStaticLibrary() != null)
@@ -1399,8 +1399,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLinkWrapper> libraries =
-        (SkylarkList<LibraryToLinkWrapper>) target.get("libraries");
+    SkylarkList<LibraryToLink> libraries = (SkylarkList<LibraryToLink>) target.get("libraries");
     assertThat(
             libraries.stream()
                 .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
@@ -1427,8 +1426,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLinkWrapper> libraries =
-        (SkylarkList<LibraryToLinkWrapper>) target.get("libraries");
+    SkylarkList<LibraryToLink> libraries = (SkylarkList<LibraryToLink>) target.get("libraries");
     assertThat(
             libraries.stream()
                 .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())

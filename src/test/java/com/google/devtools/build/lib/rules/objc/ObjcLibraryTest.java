@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1477,9 +1477,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     Iterable<Artifact> linkerInputArtifacts =
         Iterables.transform(
             objcProvider.get(CC_LIBRARY),
-            new Function<LibraryToLinkWrapper, Artifact>() {
+            new Function<LibraryToLink, Artifact>() {
               @Override
-              public Artifact apply(LibraryToLinkWrapper library) {
+              public Artifact apply(LibraryToLink library) {
                 return library.getStaticLibrary();
               }
             });

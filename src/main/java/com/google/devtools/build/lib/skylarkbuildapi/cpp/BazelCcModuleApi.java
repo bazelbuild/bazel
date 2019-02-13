@@ -41,7 +41,7 @@ public interface BazelCcModuleApi<
         CcCompilationOutputsT extends CcCompilationOutputsApi,
         LinkingInfoT extends LinkingInfoApi,
         LinkingContextT extends CcLinkingContextApi,
-        LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
+        LibraryToLinkT extends LibraryToLinkApi,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi>
     extends CcModuleApi<
@@ -49,7 +49,7 @@ public interface BazelCcModuleApi<
         FeatureConfigurationT,
         CcCompilationContextT,
         LinkingContextT,
-        LibraryToLinkWrapperT,
+        LibraryToLinkT,
         CcToolchainVariablesT,
         SkylarkRuleContextT,
         CcToolchainConfigInfoT> {

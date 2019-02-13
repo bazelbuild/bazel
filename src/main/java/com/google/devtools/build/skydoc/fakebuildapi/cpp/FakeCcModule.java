@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkWrapperApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -50,7 +50,7 @@ public class FakeCcModule
         CcCompilationOutputsApi,
         LinkingInfoApi,
         CcLinkingContextApi,
-        LibraryToLinkWrapperApi,
+        LibraryToLinkApi,
         CcToolchainVariablesApi,
         CcToolchainConfigInfoApi> {
 
@@ -119,7 +119,7 @@ public class FakeCcModule
   }
 
   @Override
-  public LibraryToLinkWrapperApi createLibraryLinkerInput(
+  public LibraryToLinkApi createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
