@@ -15,15 +15,17 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
-import java.nio.charset.Charset;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,14 +38,14 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 @TestSpec(localOnly = true, supportedOs = OS.WINDOWS)
 public class WindowsSubprocessTest {
-  private static final Charset UTF8 = Charset.forName("UTF-8");
   private String mockSubprocess;
   private String mockBinary;
   private Subprocess process;
+  private Runfiles runfiles;
 
   @Before
   public void loadJni() throws Exception {
-    Runfiles runfiles = Runfiles.create();
+    runfiles = Runfiles.create();
     mockSubprocess =
         runfiles.rlocation(
             "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
@@ -73,7 +75,7 @@ public class WindowsSubprocessTest {
 
     byte[] buf = new byte[11];
     process.getInputStream().read(buf);
-    assertThat(new String(buf, UTF8).trim()).isEqualTo(System.getenv("SYSTEMROOT").trim());
+    assertThat(new String(buf, UTF_8).trim()).isEqualTo(System.getenv("SYSTEMROOT").trim());
   }
 
   @Test
@@ -88,7 +90,7 @@ public class WindowsSubprocessTest {
 
     byte[] buf = new byte[3];
     process.getInputStream().read(buf);
-    assertThat(new String(buf, UTF8).trim()).isEqualTo(System.getenv("SYSTEMDRIVE").trim());
+    assertThat(new String(buf, UTF_8).trim()).isEqualTo(System.getenv("SYSTEMDRIVE").trim());
   }
 
   @Test
@@ -105,7 +107,7 @@ public class WindowsSubprocessTest {
 
     byte[] buf = new byte[16];
     process.getInputStream().read(buf);
-    assertThat(new String(buf, UTF8).trim()).isEqualTo("C:\\MySystemRoot");
+    assertThat(new String(buf, UTF_8).trim()).isEqualTo("C:\\MySystemRoot");
   }
 
   @Test
@@ -122,6 +124,64 @@ public class WindowsSubprocessTest {
 
     byte[] buf = new byte[3];
     process.getInputStream().read(buf);
-    assertThat(new String(buf, UTF8).trim()).isEqualTo("X:");
+    assertThat(new String(buf, UTF_8).trim()).isEqualTo("X:");
+  }
+
+  /**
+   * An argument and its command-line-escaped counterpart.
+   *
+   * <p>Such escaping ensures that Bazel correctly forwards arguments to subprocesses.
+   */
+  private static final class ArgPair {
+    public final String original;
+    public final String escaped;
+
+    public ArgPair(String original, String escaped) {
+      this.original = original;
+      this.escaped = escaped;
+    }
+  };
+
+  /** Asserts that a subprocess correctly receives command line arguments. */
+  private void assertSubprocessReceivesArgsAsIntended(ArgPair... args) throws Exception {
+    // Look up the path of the printarg.exe utility.
+    String printArgExe =
+        runfiles.rlocation("io_bazel/src/test/java/com/google/devtools/build/lib/printarg.exe");
+    assertThat(printArgExe).isNotEmpty();
+
+    for (ArgPair arg : args) {
+      // Assert that the command-line encoding logic works as intended.
+      assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of(arg.original)))
+          .isEqualTo(arg.escaped);
+
+      // Create a separate subprocess just for this argument.
+      SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
+      subprocessBuilder.setWorkingDirectory(new File("."));
+      subprocessBuilder.setSubprocessFactory(WindowsSubprocessFactory.INSTANCE);
+      subprocessBuilder.setArgv(printArgExe, arg.original);
+      process = subprocessBuilder.start();
+      process.waitFor();
+      assertThat(process.exitValue()).isEqualTo(0);
+
+      // The subprocess printed its argv[1] in parentheses, e.g. (foo).
+      // Assert that it printed exactly the *original* argument in parentheses.
+      byte[] buf = new byte[1000];
+      process.getInputStream().read(buf);
+      String actual = new String(buf, UTF_8).trim();
+      assertThat(actual).isEqualTo("(" + arg.original + ")");
+    }
+  }
+
+  @Test
+  public void testSubprocessReceivesArgsAsIntended() throws Exception {
+    assertSubprocessReceivesArgsAsIntended(
+        new ArgPair("", "\"\""),
+        new ArgPair(" ", "\" \""),
+        new ArgPair("foo", "foo"),
+        new ArgPair("foo\\bar", "foo\\bar"),
+        new ArgPair("foo bar", "\"foo bar\""));
+    // TODO(laszlocsomor): the escaping logic in WindowsProcesses.quoteCommandLine is wrong, because
+    // it fails to properly escape things like a single backslash followed by a quote, e.g. a\"b
+    // Fix the escaping logic and add more test here.
   }
 }
