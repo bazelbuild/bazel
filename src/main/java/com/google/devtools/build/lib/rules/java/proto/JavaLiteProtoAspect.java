@@ -74,9 +74,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
   @Nullable private final String jacocoLabel;
   private final String defaultProtoToolchainLabel;
   private final Label hostJdkAttribute;
-  private final Label javaRuntimeToolchainType;
   private final Label javaToolchainAttribute;
-  private final Label javaToolchainType;
 
   public JavaLiteProtoAspect(
       JavaSemantics javaSemantics,
@@ -87,9 +85,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     this.jacocoLabel = jacocoLabel;
     this.defaultProtoToolchainLabel = defaultProtoToolchainLabel;
     this.hostJdkAttribute = JavaSemantics.hostJdkAttribute(env);
-    this.javaRuntimeToolchainType = JavaRuleClasses.javaRuntimeTypeAttribute(env);
     this.javaToolchainAttribute = JavaSemantics.javaToolchainAttribute(env);
-    this.javaToolchainType = JavaRuleClasses.javaToolchainTypeAttribute(env);
   }
 
   @Override
@@ -104,8 +100,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
     JavaProtoAspectCommon aspectCommon =
-        JavaProtoAspectCommon.getLiteInstance(
-            ruleContext, javaSemantics, javaToolchainType, javaRuntimeToolchainType);
+        JavaProtoAspectCommon.getLiteInstance(ruleContext, javaSemantics);
     Impl impl = new Impl(ruleContext, protoInfo, aspectCommon);
     impl.addProviders(aspect);
 
@@ -138,8 +133,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                 attr(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, LABEL)
                     .useOutputLicenses()
                     .value(javaToolchainAttribute)
-                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
-            .addRequiredToolchains(javaRuntimeToolchainType, javaToolchainType);
+                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()));
 
     Attribute.Builder<Label> jacocoAttr =
         attr("$jacoco_instrumentation", LABEL).cfg(HostTransition.INSTANCE);

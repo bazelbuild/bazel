@@ -14,20 +14,16 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.HOST_JAVA_RUNTIME_ATTRIBUTE_NAME;
 import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
-import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -71,38 +67,8 @@ public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi
     return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.TARGET);
   }
 
-  public static JavaRuntimeInfo forHost(RuleContext ruleContext, Label toolchainType) {
-    return from(
-        ruleContext,
-        HOST_JAVA_RUNTIME_ATTRIBUTE_NAME,
-        RuleConfiguredTarget.Mode.HOST,
-        toolchainType);
-  }
-
   @Nullable
-  private static JavaRuntimeInfo from(
-      RuleContext ruleContext, String attributeName, RuleConfiguredTarget.Mode mode) {
-    Label toolchainType =
-        ruleContext.attributes().get(JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
-    return from(ruleContext, attributeName, mode, toolchainType);
-  }
-
-  private static JavaRuntimeInfo from(
-      RuleContext ruleContext, String attributeName, Mode mode, Label toolchainType) {
-    boolean useToolchainResolutionForJavaRules =
-        ruleContext
-            .getConfiguration()
-            .getOptions()
-            .get(PlatformOptions.class)
-            .useToolchainResolutionForJavaRules;
-    if (toolchainType != null && useToolchainResolutionForJavaRules) {
-      ToolchainInfo toolchainInfo =
-          ruleContext.getToolchainContext().forToolchainType(toolchainType);
-      if (toolchainInfo instanceof JavaRuntimeInfo) {
-        return (JavaRuntimeInfo) toolchainInfo;
-      }
-    }
-
+  private static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName, Mode mode) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return null;
     }

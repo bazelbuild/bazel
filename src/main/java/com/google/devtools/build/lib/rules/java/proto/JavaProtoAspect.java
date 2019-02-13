@@ -64,9 +64,7 @@ import javax.annotation.Nullable;
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
   private final Label hostJdkAttribute;
-  private final Label javaRuntimeToolchainType;
   private final Label javaToolchainAttribute;
-  private final Label javaToolchainType;
 
   private static LabelLateBoundDefault<?> getSpeedProtoToolchainLabel(String defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
@@ -93,9 +91,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     this.defaultSpeedProtoToolchainLabel =
         Preconditions.checkNotNull(defaultSpeedProtoToolchainLabel);
     this.hostJdkAttribute = JavaSemantics.hostJdkAttribute(env);
-    this.javaRuntimeToolchainType = JavaRuleClasses.javaRuntimeTypeAttribute(env);
     this.javaToolchainAttribute = JavaSemantics.javaToolchainAttribute(env);
-    this.javaToolchainType = JavaRuleClasses.javaToolchainTypeAttribute(env);
   }
 
   @Override
@@ -114,8 +110,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
     JavaProtoAspectCommon aspectCommon =
-        JavaProtoAspectCommon.getSpeedInstance(
-            ruleContext, javaSemantics, rpcSupport, javaToolchainType, javaRuntimeToolchainType);
+        JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
     Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport);
     impl.addProviders(aspect);
     return aspect.build();
@@ -147,8 +142,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 attr(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, LABEL)
                     .useOutputLicenses()
                     .value(javaToolchainAttribute)
-                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
-            .addRequiredToolchains(javaRuntimeToolchainType, javaToolchainType);
+                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()));
 
     rpcSupport.mutateAspectDefinition(result, aspectParameters);
 
