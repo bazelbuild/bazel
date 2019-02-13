@@ -102,10 +102,11 @@ TEST_F(LaunchUtilTest, BashEscapeArgTest) {
 // The method performs the second assertion by running "printarg.exe" (a
 // data-dependency of this test) once for each argument.
 void AssertSubprocessReceivesArgsAsIntended(
+    std::wstring (*escape_func)(const std::wstring& s),
     const std::vector<std::pair<wstring, wstring> >& args) {
   // Assert that the WindowsEscapeArg produces what we expect.
   for (const auto& i : args) {
-    ASSERT_EQ(WindowsEscapeArg(i.first), i.second);
+    ASSERT_EQ(escape_func(i.first), i.second);
   }
 
   // Create a Runfiles object.
@@ -172,7 +173,7 @@ void AssertSubprocessReceivesArgsAsIntended(
 
   // Copy printarg.exe's escaped path into the 'cmdline', and append a space.
   // We will append arguments to this command line in the for-loop below.
-  wprintarg = WindowsEscapeArg(wprintarg);
+  wprintarg = escape_func(wprintarg);
   wcsncpy(cmdline, wprintarg.c_str(), wprintarg.size());
   wchar_t* pcmdline = cmdline + wprintarg.size();
   *pcmdline++ = L' ';
@@ -180,7 +181,7 @@ void AssertSubprocessReceivesArgsAsIntended(
   // Run a subprocess for each of the arguments and assert that the argument
   // arrived to the subprocess as intended.
   for (const auto& i : args) {
-    // We already asserted for every element that WindowsEscapeArg(i.first)
+    // We already asserted for every element that escape_func(i.first)
     // produces the same output as i.second, so just use i.second instead of
     // converting i.first again.
     wcsncpy(pcmdline, i.second.c_str(), i.second.size());
@@ -252,20 +253,74 @@ void AssertSubprocessReceivesArgsAsIntended(
 
 TEST_F(LaunchUtilTest, WindowsEscapeArgTest) {
   // List of arguments with their expected WindowsEscapeArg-encoded version.
-  AssertSubprocessReceivesArgsAsIntended({
-      // Each pair is:
-      // - first: argument to pass (and expected output from subprocess)
-      // - second: expected WindowsEscapeArg-encoded string
-      {L"foo", L"foo"},
-      {L"", L"\"\""},
-      {L" ", L"\" \""},
-      {L"foo\\bar", L"foo\\bar"},
-      {L"C:\\foo\\bar\\", L"C:\\foo\\bar\\"},
-      // TODO(laszlocsomor): fix WindowsEscapeArg to use correct escaping
-      // semantics (not Bash semantics) and add more tests. The example below is
-      // escaped incorrectly.
-      // {L"C:\\foo bar\\", L"\"C:\\foo bar\\\""},
-  });
+  AssertSubprocessReceivesArgsAsIntended(
+      WindowsEscapeArg,
+      {
+          // Each pair is:
+          // - first: argument to pass (and expected output from subprocess)
+          // - second: expected WindowsEscapeArg-encoded string
+          {L"foo", L"foo"},
+          {L"", L"\"\""},
+          {L" ", L"\" \""},
+          {L"foo\\bar", L"foo\\bar"},
+          {L"C:\\foo\\bar\\", L"C:\\foo\\bar\\"},
+          // TODO(laszlocsomor): fix WindowsEscapeArg to use correct escaping
+          // semantics (not Bash semantics) and add more tests. The example
+          // below is
+          // escaped incorrectly.
+          // {L"C:\\foo bar\\", L"\"C:\\foo bar\\\""},
+      });
+}
+
+TEST_F(LaunchUtilTest, WindowsEscapeArg2Test) {
+  AssertSubprocessReceivesArgsAsIntended(
+      WindowsEscapeArg2,
+      {
+          {L"", L"\"\""},
+          {L" ", L"\" \""},
+          {L"\"", L"\"\\\"\""},
+          {L"\"\\", L"\"\\\"\\\\\""},
+          {L"\\", L"\\"},
+          {L"\\\"", L"\"\\\\\\\"\""},
+          {L"with space", L"\"with space\""},
+          {L"with^caret", L"with^caret"},
+          {L"space ^caret", L"\"space ^caret\""},
+          {L"caret^ space", L"\"caret^ space\""},
+          {L"with\"quote", L"\"with\\\"quote\""},
+          {L"with\\backslash", L"with\\backslash"},
+          {L"one\\ backslash and \\space", L"\"one\\ backslash and \\space\""},
+          {L"two\\\\backslashes", L"two\\\\backslashes"},
+          {L"two\\\\ backslashes \\\\and space",
+           L"\"two\\\\ backslashes \\\\and space\""},
+          {L"one\\\"x", L"\"one\\\\\\\"x\""},
+          {L"two\\\\\"x", L"\"two\\\\\\\\\\\"x\""},
+          {L"a \\ b", L"\"a \\ b\""},
+          {L"a \\\" b", L"\"a \\\\\\\" b\""},
+          {L"A", L"A"},
+          {L"\"a\"", L"\"\\\"a\\\"\""},
+          {L"B C", L"\"B C\""},
+          {L"\"b c\"", L"\"\\\"b c\\\"\""},
+          {L"D\"E", L"\"D\\\"E\""},
+          {L"\"d\"e\"", L"\"\\\"d\\\"e\\\"\""},
+          {L"C:\\F G", L"\"C:\\F G\""},
+          {L"\"C:\\f g\"", L"\"\\\"C:\\f g\\\"\""},
+          {L"C:\\H\"I", L"\"C:\\H\\\"I\""},
+          {L"\"C:\\h\"i\"", L"\"\\\"C:\\h\\\"i\\\"\""},
+          {L"C:\\J\\\"K", L"\"C:\\J\\\\\\\"K\""},
+          {L"\"C:\\j\\\"k\"", L"\"\\\"C:\\j\\\\\\\"k\\\"\""},
+          {L"C:\\L M ", L"\"C:\\L M \""},
+          {L"\"C:\\l m \"", L"\"\\\"C:\\l m \\\"\""},
+          {L"C:\\N O\\", L"\"C:\\N O\\\\\""},
+          {L"\"C:\\n o\\\"", L"\"\\\"C:\\n o\\\\\\\"\""},
+          {L"C:\\P Q\\ ", L"\"C:\\P Q\\ \""},
+          {L"\"C:\\p q\\ \"", L"\"\\\"C:\\p q\\ \\\"\""},
+          {L"C:\\R\\S\\", L"C:\\R\\S\\"},
+          {L"C:\\R x\\S\\", L"\"C:\\R x\\S\\\\\""},
+          {L"\"C:\\r\\s\\\"", L"\"\\\"C:\\r\\s\\\\\\\"\""},
+          {L"\"C:\\r x\\s\\\"", L"\"\\\"C:\\r x\\s\\\\\\\"\""},
+          {L"C:\\T U\\W\\", L"\"C:\\T U\\W\\\\\""},
+          {L"\"C:\\t u\\w\\\"", L"\"\\\"C:\\t u\\w\\\\\\\"\""},
+      });
 }
 
 TEST_F(LaunchUtilTest, DoesFilePathExistTest) {
