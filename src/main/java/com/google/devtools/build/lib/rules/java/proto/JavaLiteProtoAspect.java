@@ -137,8 +137,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .add(
                 attr(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, LABEL)
                     .useOutputLicenses()
-                    .allowedRuleClasses("java_toolchain")
-                    .value(javaToolchainAttribute))
+                    .value(javaToolchainAttribute)
+                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
             .addRequiredToolchains(javaRuntimeToolchainType, javaToolchainType);
 
     Attribute.Builder<Label> jacocoAttr =

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -140,12 +141,13 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .add(
                 attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
                     .cfg(HostTransition.INSTANCE)
-                    .value(hostJdkAttribute))
+                    .value(hostJdkAttribute)
+                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
             .add(
                 attr(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, LABEL)
                     .useOutputLicenses()
-                    .allowedRuleClasses("java_toolchain")
-                    .value(javaToolchainAttribute))
+                    .value(javaToolchainAttribute)
+                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
             .addRequiredToolchains(javaRuntimeToolchainType, javaToolchainType);
 
     rpcSupport.mutateAspectDefinition(result, aspectParameters);

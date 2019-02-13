@@ -7,6 +7,14 @@ load(
     "JDK8_JVM_OPTS_REMOTE_JAVAC",
     "bootclasspath",
 )
+load(
+    "//tools/jdk:java_toolchain_alias.bzl",
+    "java_toolchain_alias",
+    "java_runtime_alias",
+    "java_host_runtime_alias",
+    "legacy_java_toolchain_alias",
+    "legacy_java_runtime_alias",
+)
 
 package(default_visibility = ["//visibility:public"])
 
@@ -46,6 +54,12 @@ java_runtime_alias(name = "current_java_runtime")
 java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
+
+# This exists to support the migration to toolchain resolution.
+# TODO(cushon): delete once the migration is complete.
+legacy_java_runtime_alias(name = "legacy_current_java_runtime")
+
+legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
 
 # Used to set --host_javabase or --javabase to a local JDK without having to define
 # a custom java_runtime rule.
@@ -334,6 +348,7 @@ filegroup(
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
+        "java_toolchain_alias.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",
