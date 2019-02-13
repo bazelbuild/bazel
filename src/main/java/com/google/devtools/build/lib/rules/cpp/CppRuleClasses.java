@@ -412,6 +412,9 @@ public class CppRuleClasses {
    */
   public static final String SUPPORTS_DYNAMIC_LINKER = "supports_dynamic_linker";
 
+  /** A feature marking that the target needs to link its deps in --whole-archive block. */
+  public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
+
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     @Override
