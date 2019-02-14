@@ -48,6 +48,7 @@ public final class BuilderRunner {
   private final ExecutorService executorService;
   private long timeoutMillis;
   private boolean useDefaultRc = true;
+  private int errorCode = 0;
 
   /**
    * Creates the BuilderRunner
@@ -90,6 +91,18 @@ public final class BuilderRunner {
     env.put(name, value);
     return this;
   }
+
+  /**
+   * Sets the expected error code.
+   *
+   * @param errorCode the value of the error code
+   * @return this BuildRunner instance
+   */
+  public BuilderRunner withErrorCode(int errorCode) {
+    this.errorCode = errorCode;
+    return this;
+  }
+
 
   /**
    * Sets timeout value for the Bazel process invocation. If not called, default value is used,
@@ -210,6 +223,8 @@ public final class BuilderRunner {
         list.add(bazelRc.toAbsolutePath().toString());
       }
     }
+    // todo debug
+    // list.add("--host_jvm_debug");
     list.add(command);
     Collections.addAll(list, args);
 
@@ -223,6 +238,7 @@ public final class BuilderRunner {
             // bazel writes info messages to error stream, so
             // we need to allow the error output stream be not empty
             .setExpectedEmptyError(false)
+            .setExpectedExitCode(errorCode)
             .build();
     return new ProcessRunner(parameters, executorService).runSynchronously();
   }

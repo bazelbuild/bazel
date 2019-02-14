@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -76,8 +77,10 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -110,6 +113,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -516,6 +520,20 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     logger.info(
         "About to scan skyframe graph checking for filesystem nodes of types "
             + Iterables.toString(fileTypesToCheck));
+
+    PathPackageLocator packageLocator = this.pkgLocator.get();
+
+    Set<RootedPath> rootsToInvalidate = Sets.newHashSet();
+    rootsToInvalidate.addAll(packageLocator.getWellKnownRootedPaths(LabelConstants.WORKSPACE_FILE_NAME));
+    rootsToInvalidate.addAll(packageLocator.getWellKnownRootedPaths(BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE));
+
+    Set<SkyKey> keys = Sets.newHashSet();
+    for (RootedPath path : rootsToInvalidate) {
+      keys.add(FileStateValue.key(path));
+      keys.add(FileValue.key(path));
+    }
+    // todo or do the diff gathering
+    recordingDiffer.invalidate(keys);
 
     EvaluationResult<SkyValue> blacklistedFilesResult = buildDriver
         .evaluate(ImmutableSet.of(BlacklistedPackagePrefixesValue.key()), evaluationContext);

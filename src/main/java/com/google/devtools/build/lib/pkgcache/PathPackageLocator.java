@@ -28,11 +28,14 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -250,6 +253,30 @@ public class PathPackageLocator implements Serializable {
     // TODO(bazel-team): correctness in the presence of changes to the location of the WORKSPACE
     // file.
     return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, cache);
+  }
+
+  public Collection<RootedPath> getWellKnownRootedPaths(PathFragment suffix) {
+    AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
+    // TODO(bazel-team): correctness in the presence of changes to the location of the WORKSPACE
+    // file.
+    return getRootedPaths(suffix, cache);
+  }
+
+  private Collection<RootedPath> getRootedPaths(PathFragment suffix,
+      AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
+    Collection<RootedPath> result = new HashSet<>();
+    for (Root pathEntry : pathEntries) {
+      Path buildFile = pathEntry.getRelative(suffix);
+      try {
+        FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);
+        if (stat != null && stat.isFile()) {
+          result.add(RootedPath.toRootedPath(pathEntry, suffix));
+        }
+      } catch (IOException ignored) {
+        // Treat IOException as a missing file.
+      }
+    }
+    return result;
   }
 
   private Path getFilePath(PathFragment suffix,
