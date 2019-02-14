@@ -28,11 +28,30 @@ java_test(
     ],
 )
 
+java_test(
+    name = "RefreshRootsBlackBoxTest",
+    timeout = "moderate",
+    srcs = ["refreshRoots/RefreshRootsBlackBoxTest.java"],
+    resources = [
+        "refreshRoots/.bazelignore",
+        "refreshRoots/BUILD.test",
+        "refreshRoots/WORKSPACE.test",
+        "refreshRoots/package.json",
+        "refreshRoots/test_rule.bzl",
+        "refreshRoots/use_node_modules.bzl",
+    ],
+    tags = ["black_box_test"],
+    deps = [
+        ":common_deps",
+    ],
+)
+
 test_suite(
     name = "black_box_tests",
     tags = ["black_box_test"],
     tests = [
         "PythonBlackBoxTest",
+        "RefreshRootsBlackBoxTest",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework:framework_tests",
         "//src/test/java/com/google/devtools/build/lib/blackbox/junit:TimeoutTestWatcherTest",
     ],
@@ -41,7 +60,9 @@ test_suite(
 test_suite(
     name = "blackbox_windows_tests",
     tests = [
-        ":black_box_tests",
+        "PythonBlackBoxTest",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/framework:framework_tests",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/junit:TimeoutTestWatcherTest",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
