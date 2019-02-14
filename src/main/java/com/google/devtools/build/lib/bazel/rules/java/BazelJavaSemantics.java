@@ -440,7 +440,11 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "classpath",
                 ";",
                 Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
-            .addJoinedValues("jvm_flags", " ", jvmFlags)
+            // TODO(laszlocsomor): Change the Launcher to accept multiple jvm_flags entries. As of
+            // 2019-02-13 the Launcher accepts just one jvm_flags entry, which contains all the
+            // flags, joined by TAB characters. The Launcher splits up the string to get the
+            // individual jvm_flags. This approach breaks with flags that contain a TAB character.
+            .addJoinedValues("jvm_flags", "\t", jvmFlags)
             .build();
 
     LauncherFileWriteAction.createAndRegister(ruleContext, javaLauncher, launchInfo);
