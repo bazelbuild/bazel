@@ -121,7 +121,7 @@ filegroup(
         "generate-xml.sh",
         "collect_coverage.sh",
         "collect_cc_coverage.sh",
-    ] + glob(["LcovMerger/**"]) + select({
+    ] + select({
         "@bazel_tools//src/conditions:windows": [
             "tw",
             "xml",
