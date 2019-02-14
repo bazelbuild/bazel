@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -134,7 +135,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(externalFilesHelper));
+        new DirectoryListingStateFunction(
+            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
     skyFunctions.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
     skyFunctions.put(
