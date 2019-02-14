@@ -134,4 +134,56 @@ public class ShellUtilsTest {
     assertTokenizeFails("-Dfoo='bar", "unterminated quotation");
     assertTokenizeFails("-Dfoo=\"b'ar", "unterminated quotation");
   }
+
+  private void assertWindowsEscapeArg(String arg, String expected) {
+    assertThat(ShellUtils.windowsEscapeArg(arg)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testEscapeCreateProcessArg() {
+    assertWindowsEscapeArg("", "\"\"");
+    assertWindowsEscapeArg(" ", "\" \"");
+    assertWindowsEscapeArg("\"", "\"\\\"\"");
+    assertWindowsEscapeArg("\"\\", "\"\\\"\\\\\"");
+    assertWindowsEscapeArg("\\", "\\");
+    assertWindowsEscapeArg("\\\"", "\"\\\\\\\"\"");
+    assertWindowsEscapeArg("with space", "\"with space\"");
+    assertWindowsEscapeArg("with^caret", "with^caret");
+    assertWindowsEscapeArg("space ^caret", "\"space ^caret\"");
+    assertWindowsEscapeArg("caret^ space", "\"caret^ space\"");
+    assertWindowsEscapeArg("with\"quote", "\"with\\\"quote\"");
+    assertWindowsEscapeArg("with\\backslash", "with\\backslash");
+    assertWindowsEscapeArg("one\\ backslash and \\space", "\"one\\ backslash and \\space\"");
+    assertWindowsEscapeArg("two\\\\backslashes", "two\\\\backslashes");
+    assertWindowsEscapeArg(
+        "two\\\\ backslashes \\\\and space", "\"two\\\\ backslashes \\\\and space\"");
+    assertWindowsEscapeArg("one\\\"x", "\"one\\\\\\\"x\"");
+    assertWindowsEscapeArg("two\\\\\"x", "\"two\\\\\\\\\\\"x\"");
+    assertWindowsEscapeArg("a \\ b", "\"a \\ b\"");
+    assertWindowsEscapeArg("a \\\" b", "\"a \\\\\\\" b\"");
+    assertWindowsEscapeArg("A", "A");
+    assertWindowsEscapeArg("\"a\"", "\"\\\"a\\\"\"");
+    assertWindowsEscapeArg("B C", "\"B C\"");
+    assertWindowsEscapeArg("\"b c\"", "\"\\\"b c\\\"\"");
+    assertWindowsEscapeArg("D\"E", "\"D\\\"E\"");
+    assertWindowsEscapeArg("\"d\"e\"", "\"\\\"d\\\"e\\\"\"");
+    assertWindowsEscapeArg("C:\\F G", "\"C:\\F G\"");
+    assertWindowsEscapeArg("\"C:\\f g\"", "\"\\\"C:\\f g\\\"\"");
+    assertWindowsEscapeArg("C:\\H\"I", "\"C:\\H\\\"I\"");
+    assertWindowsEscapeArg("\"C:\\h\"i\"", "\"\\\"C:\\h\\\"i\\\"\"");
+    assertWindowsEscapeArg("C:\\J\\\"K", "\"C:\\J\\\\\\\"K\"");
+    assertWindowsEscapeArg("\"C:\\j\\\"k\"", "\"\\\"C:\\j\\\\\\\"k\\\"\"");
+    assertWindowsEscapeArg("C:\\L M ", "\"C:\\L M \"");
+    assertWindowsEscapeArg("\"C:\\l m \"", "\"\\\"C:\\l m \\\"\"");
+    assertWindowsEscapeArg("C:\\N O\\", "\"C:\\N O\\\\\"");
+    assertWindowsEscapeArg("\"C:\\n o\\\"", "\"\\\"C:\\n o\\\\\\\"\"");
+    assertWindowsEscapeArg("C:\\P Q\\ ", "\"C:\\P Q\\ \"");
+    assertWindowsEscapeArg("\"C:\\p q\\ \"", "\"\\\"C:\\p q\\ \\\"\"");
+    assertWindowsEscapeArg("C:\\R\\S\\", "C:\\R\\S\\");
+    assertWindowsEscapeArg("C:\\R x\\S\\", "\"C:\\R x\\S\\\\\"");
+    assertWindowsEscapeArg("\"C:\\r\\s\\\"", "\"\\\"C:\\r\\s\\\\\\\"\"");
+    assertWindowsEscapeArg("\"C:\\r x\\s\\\"", "\"\\\"C:\\r x\\s\\\\\\\"\"");
+    assertWindowsEscapeArg("C:\\T U\\W\\", "\"C:\\T U\\W\\\\\"");
+    assertWindowsEscapeArg("\"C:\\t u\\w\\\"", "\"\\\"C:\\t u\\w\\\\\\\"\"");
+  }
 }

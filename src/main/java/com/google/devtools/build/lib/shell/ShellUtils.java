@@ -142,4 +142,94 @@ public abstract class ShellUtils {
     }
   }
 
+  /**
+   * Escape command line arguments for {@code CreateProcessW} on Windows.
+   *
+   * <p>This method implements the same algorithm as the native xx_binary launcher does (see
+   * https://github.com/bazelbuild/bazel/pull/7411).
+   *
+   * <p>A similar algorithm with lots of background information is described here:
+   * https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/
+   */
+  public static String windowsEscapeArg(String s) {
+    if (s.isEmpty()) {
+      return "\"\"";
+    } else {
+      boolean needsEscape = false;
+      for (int i = 0; i < s.length(); ++i) {
+        char c = s.charAt(i);
+        if (c == ' ' || c == '"') {
+          needsEscape = true;
+          break;
+        }
+      }
+      if (!needsEscape) {
+        return s;
+      }
+    }
+
+    StringBuilder result = new StringBuilder();
+    result.append('"');
+    int start = 0;
+    for (int i = 0; i < s.length(); ++i) {
+      char c = s.charAt(i);
+      if (c == '"' || c == '\\') {
+        // Copy the segment since the last special character.
+        if (start >= 0) {
+          result.append(s, start, i);
+          start = -1;
+        }
+
+        // Handle the current special character.
+        if (c == '"') {
+          // This is a quote character. Escape it with a single backslash.
+          result.append("\\\"");
+        } else {
+          // This is a backslash (or the first one in a run of backslashes).
+          // Whether we escape it depends on whether the run ends with a quote.
+          int runLen = 1;
+          int j = i + 1;
+          while (j < s.length() && s.charAt(j) == '\\') {
+            runLen++;
+            j++;
+          }
+          if (j == s.length()) {
+            // The run of backslashes goes to the end.
+            // We have to escape every backslash with another backslash.
+            for (int k = 0; k < runLen * 2; ++k) {
+              result.append('\\');
+            }
+            break;
+          } else if (j < s.length() && s.charAt(j) == '"') {
+            // The run of backslashes is terminated by a quote.
+            // We have to escape every backslash with another backslash, and
+            // escape the quote with one backslash.
+            for (int k = 0; k < runLen * 2; ++k) {
+              result.append('\\');
+            }
+            result.append("\\\"");
+            i += runLen; // 'i' is also increased in the loop iteration step
+          } else {
+            // No quote found. Each backslash counts for itself, they must not be
+            // escaped.
+            for (int k = 0; k < runLen; ++k) {
+              result.append('\\');
+            }
+            i += runLen - 1; // 'i' is also increased in the loop iteration step
+          }
+        }
+      } else {
+        // This is not a special character. Start the segment if necessary.
+        if (start < 0) {
+          start = i;
+        }
+      }
+    }
+    // Save final segment after the last special character.
+    if (start != -1) {
+      result.append(s, start, s.length());
+    }
+    result.append('"');
+    return result.toString();
+  }
 }
