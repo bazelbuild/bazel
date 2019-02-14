@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.mock;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
@@ -46,8 +49,12 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /** Subclass of {@link AnalysisMock} using Bazel-specific semantics. */
@@ -92,8 +99,19 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/protobuf/WORKSPACE");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    Runfiles runfiles = Runfiles.create();
+    for (String filename :
+        Arrays.asList("tools/jdk/toolchain_utils.bzl", "tools/jdk/java_toolchain_alias.bzl")) {
+      java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
+      if (!Files.exists(path)) {
+        continue; // the io_bazel workspace root only exists for Bazel
+      }
+      config.create(
+          "/bazel_tools_workspace/" + filename, MoreFiles.asCharSource(path, UTF_8).read());
+    }
     config.create(
         "/bazel_tools_workspace/tools/jdk/BUILD",
+        "load(':java_toolchain_alias.bzl', 'java_host_runtime_alias')",
         "package(default_visibility=['//visibility:public'])",
         "java_toolchain(",
         "  name = 'toolchain',",
@@ -368,3 +386,4 @@ public final class BazelAnalysisMock extends AnalysisMock {
     repositoryHandlers.put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction());
   }
 }
+

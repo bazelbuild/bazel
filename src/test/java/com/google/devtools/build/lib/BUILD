@@ -629,6 +629,9 @@ java_library(
         ],
         exclude = ["analysis/util/DefaultBuildOptionsForTesting.java"],
     ),
+    data = [
+        "//tools/jdk:srcs",
+    ],
     resources = [
         "analysis/mock/MOCK_CROSSTOOL",
     ],
@@ -692,6 +695,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 
