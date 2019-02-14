@@ -118,7 +118,7 @@ done
 if [[ ${#updated_tools[@]} -gt 0 ]]; then
   bazel_version=$(bazel version | grep "Build label" | cut -d " " -f 3)
   git_head=$(git rev-parse HEAD)
-  cat >>third_party/java/java_tools/README.md <<EOL
+  cat >third_party/java/java_tools/README.md <<EOL
 
 The following tools were built with bazel $bazel_version at commit $git_head
 by running:
