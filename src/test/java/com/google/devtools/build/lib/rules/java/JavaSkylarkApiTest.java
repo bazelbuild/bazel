@@ -1899,7 +1899,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
             configuredTarget.get(
                 new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     Label javaToolchainLabel = ((Label) info.getValue("java_toolchain_label"));
-    assertThat(javaToolchainLabel.toString()).endsWith("jdk:toolchain");
+    assertThat(javaToolchainLabel.toString()).endsWith("jdk:remote_toolchain");
   }
 
   @Test
