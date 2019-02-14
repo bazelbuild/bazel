@@ -368,13 +368,7 @@ public class ExecutionTool {
 
       // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
       // a catastrophic failure. Posting these is consistent with other behavior.
-      env.getEventBus()
-          .post(
-              new ExecutionFinishedEvent(
-                  ImmutableMap.of(),
-                  0L,
-                  skyframeExecutor.getOutputDirtyFilesAndClear(),
-                  skyframeExecutor.getModifiedFilesDuringPreviousBuildAndClear()));
+      env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
 
       env.getEventBus()
           .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
