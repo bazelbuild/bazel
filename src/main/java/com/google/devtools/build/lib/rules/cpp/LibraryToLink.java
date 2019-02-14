@@ -170,8 +170,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
         }
         BugReport.sendBugReport(
             new IllegalStateException(
-                "Unexpected inequality with equal symbols: " + this + ", " + that),
-            ImmutableList.of());
+                "Unexpected inequality with equal symbols: " + this + ", " + that));
         return false;
       }
 

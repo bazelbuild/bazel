@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.runtime;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -316,8 +315,7 @@ class ExperimentalStateTracker {
           new IllegalStateException(
               "Should not complete an action before starting it, and action did not discover "
                   + "inputs, so should not have published a status before execution: "
-                  + action),
-          ImmutableList.of());
+                  + action));
     }
 
     if (action.getOwner() != null) {
