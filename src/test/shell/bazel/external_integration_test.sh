@@ -901,7 +901,7 @@ http_archive(
 )
 EOF
   bazel build @repo//... &> $TEST_log && fail "Expected to fail"
-  expect_log "Invalid SHA256 checksum"
+  expect_log "[Ii]nvalid SHA256 checksum"
   shutdown_server
 }
 
@@ -1706,6 +1706,39 @@ EOF
       || fail "exepected succes"
   expect_log "foo.*First action"
   expect_log "foo.*Second action"
+}
+
+function test_progress_reporting() {
+  # Isse 7353 requested that even in the case of a syntactically invalid
+  # checksum, the file still should be fetched and its checksum computed.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  touch ext.tar
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name = "ext",
+  urls = ["file://${WRKDIR}/ext.tar"],
+  sha256 = "badargument",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:in.txt"],
+  outs = ["out.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+
+  expect_log '@ext.*badargument'
+  expect_log 'SHA256 (.*/ext.tar) = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 }
 
 run_suite "external tests"
