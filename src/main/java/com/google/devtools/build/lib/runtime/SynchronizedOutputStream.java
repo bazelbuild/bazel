@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -67,9 +66,7 @@ public class SynchronizedOutputStream extends OutputStream {
     String content = new String(buf, 0, (int) count, UTF_8);
     buf = new byte[64];
     count = 0;
-    return content.isEmpty()
-        ? ImmutableList.of()
-        : Splitter.fixedLength(maxBufferedLength).split(content);
+    return content.isEmpty() ? ImmutableList.of() : ImmutableList.of(content);
   }
 
   @Override
