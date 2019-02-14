@@ -199,9 +199,6 @@ public abstract class AbstractParallelEvaluator {
     }
 
     private DirtyOutcome maybeHandleDirtyNode(NodeEntry state) throws InterruptedException {
-      if (!state.isDirty()) {
-        return DirtyOutcome.NEEDS_EVALUATION;
-      }
       while (state.getDirtyState().equals(DirtyState.CHECK_DEPENDENCIES)) {
         // Evaluating a dirty node for the first time, and checking its children to see if any
         // of them have changed. Note that there must be dirty children for this to happen.

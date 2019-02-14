@@ -210,6 +210,7 @@ public abstract class GraphTest {
     }
     waitForStart.countDown();
     waitForAddedRdep.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    entry.markRebuilding();
     entry.setValue(new StringValue("foo1"), startingVersion, null);
     waitForSetValue.countDown();
     wrapper.waitForTasksAndMaybeThrow();
@@ -280,6 +281,7 @@ public abstract class GraphTest {
                     // NEEDS_SCHEDULING at most once.
                     try {
                       if (startEvaluation(entry).equals(DependencyState.NEEDS_SCHEDULING)) {
+                        entry.markRebuilding();
                         assertThat(valuesSet.add(key)).isTrue();
                         // Set to done.
                         entry.setValue(new StringValue("bar" + keyNum), startingVersion, null);
@@ -332,6 +334,7 @@ public abstract class GraphTest {
     for (int i = 0; i < numKeys; i++) {
       NodeEntry entry = entries.get(key("foo" + i));
       startEvaluation(entry);
+      entry.markRebuilding();
       entry.setValue(new StringValue("bar"), startingVersion, null);
     }
 
