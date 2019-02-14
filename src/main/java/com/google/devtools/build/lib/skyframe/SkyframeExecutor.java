@@ -601,7 +601,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected SkyFunction newDirectoryListingStateFunction() {
-    return new DirectoryListingStateFunction(externalFilesHelper);
+    return new DirectoryListingStateFunction(externalFilesHelper, syscalls);
   }
 
   protected SkyFunction newGlobFunction() {
@@ -2118,6 +2118,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       lastAnalysisDiscarded = false;
     }
     invalidateFilesUnderPathForTestingImpl(eventHandler, modifiedFileSet, pathEntry);
+  }
+
+  @VisibleForTesting
+  public final void turnOffSyscallCacheForTesting() {
+    syscalls.set(UnixGlob.DEFAULT_SYSCALLS);
   }
 
   protected abstract void invalidateFilesUnderPathForTestingImpl(
