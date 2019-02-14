@@ -123,21 +123,24 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
           this.message =
               "Rule '"
                   + rule.getName()
-                  + "' dropped arguments "
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " dropping arguments "
                   + Printer.getPrinter().repr(diff.getSecond());
         } else if (diff.getSecond().isEmpty()) {
           this.message =
               "Rule '"
                   + rule.getName()
-                  + "' modified arguments "
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " modifying arguments "
                   + Printer.getPrinter().repr(diff.getFirst());
         } else {
           this.message =
               "Rule '"
                   + rule.getName()
-                  + "' modified arguments "
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " modifying arguments "
                   + Printer.getPrinter().repr(diff.getFirst())
-                  + " and dropped "
+                  + " and dropping "
                   + Printer.getPrinter().repr(diff.getSecond());
         }
       }
