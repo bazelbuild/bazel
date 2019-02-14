@@ -153,8 +153,7 @@ public class ActionRewindStrategy {
                 String.format(
                     "lost input twice for the same action. lostInput: %s, lostInput digest: %s, "
                         + "failedAction: %s",
-                    lostInputsByDigest.get(digest), digest, failedAction)),
-            ImmutableList.of());
+                    lostInputsByDigest.get(digest), digest, failedAction)));
         throw new ActionExecutionException(
             lostInputsException, failedAction, /*catastrophe=*/ false);
       }
