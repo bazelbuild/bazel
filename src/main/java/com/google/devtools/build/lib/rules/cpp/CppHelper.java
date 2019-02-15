@@ -80,6 +80,8 @@ public class CppHelper {
 
   static final PathFragment OBJS = PathFragment.create("_objs");
   static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
+  static final PathFragment DOTD_FILES = PathFragment.create("_dotd");
+  static final PathFragment PIC_DOTD_FILES = PathFragment.create("_pic_dotd");
 
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
   public static final FileTypeSet SHARED_LIBRARY_FILETYPES = FileTypeSet.of(
@@ -365,6 +367,15 @@ public class CppHelper {
       return AnalysisUtils.getUniqueDirectory(ruleLabel, PIC_OBJS);
     } else {
       return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS);
+    }
+  }
+
+  /** Returns the directory where object files are created. */
+  private static PathFragment getDotdDirectory(Label ruleLabel, boolean usePic) {
+    if (usePic) {
+      return AnalysisUtils.getUniqueDirectory(ruleLabel, PIC_DOTD_FILES);
+    } else {
+      return AnalysisUtils.getUniqueDirectory(ruleLabel, DOTD_FILES);
     }
   }
 
@@ -727,6 +738,17 @@ public class CppHelper {
       boolean usePic) {
     return actionConstructionContext.getTreeArtifact(
         getObjDirectory(label, usePic).getRelative(outputName), sourceTreeArtifact.getRoot());
+  }
+
+  /** Returns the corresponding dotd files TreeArtifact given the source TreeArtifact. */
+  public static SpecialArtifact getDotdOutputTreeArtifact(
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      Artifact sourceTreeArtifact,
+      String outputName,
+      boolean usePic) {
+    return actionConstructionContext.getTreeArtifact(
+        getDotdDirectory(label, usePic).getRelative(outputName), sourceTreeArtifact.getRoot());
   }
 
   public static String getArtifactNameForCategory(

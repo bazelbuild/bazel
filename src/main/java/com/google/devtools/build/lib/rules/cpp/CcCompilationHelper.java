@@ -1342,7 +1342,10 @@ public final class CcCompilationHelper {
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(
             actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    // TODO(rduan): Dotd file output is not supported yet.
+    SpecialArtifact dotdFiles =
+        CppHelper.getDotdOutputTreeArtifact(
+            actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    // Dotd file output is specified in the execution phase.
     builder.setOutputs(outputFiles, /* dotdFile= */ null);
     builder.setVariables(
         setupCompileBuildVariables(
@@ -1361,6 +1364,7 @@ public final class CcCompilationHelper {
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
+            dotdFiles,
             builder,
             ccToolchain,
             outputCategories,

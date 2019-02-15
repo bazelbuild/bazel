@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategor
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.sun.org.apache.xalan.internal.xsltc.cmdline.Compile;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,6 +43,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   private final CppCompileActionBuilder cppCompileActionBuilder;
   private final SpecialArtifact sourceTreeArtifact;
   private final SpecialArtifact outputTreeArtifact;
+  private final SpecialArtifact dotdTreeArtifact;
   private final CcToolchainProvider toolchain;
   private final Iterable<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
@@ -53,6 +55,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
    *
    * @param sourceTreeArtifact the TreeArtifact that contains source files to compile.
    * @param outputTreeArtifact the TreeArtifact that contains compilation outputs.
+   * @param dotdTreeArtifact the TreeArtifact that contains dotd files.
    * @param cppCompileActionBuilder An almost completely configured {@link CppCompileActionBuilder}
    *     without the input and output files set. It is used as a template to instantiate expanded
    *     {CppCompileAction}s.
@@ -64,6 +67,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   CppCompileActionTemplate(
       SpecialArtifact sourceTreeArtifact,
       SpecialArtifact outputTreeArtifact,
+      SpecialArtifact dotdTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       Iterable<ArtifactCategory> categories,
@@ -71,6 +75,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     this.cppCompileActionBuilder = cppCompileActionBuilder;
     this.sourceTreeArtifact = sourceTreeArtifact;
     this.outputTreeArtifact = outputTreeArtifact;
+    this.dotdTreeArtifact = dotdTreeArtifact;
     this.toolchain = toolchain;
     this.categories = categories;
     this.actionOwner = actionOwner;
@@ -121,8 +126,11 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
         TreeFileArtifact outputTreeFileArtifact =
             ActionInputHelper.treeFileArtifact(
                 outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
+        TreeFileArtifact dotdFileArtifact =
+            ActionInputHelper.treeFileArtifact(
+                dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
         expandedActions.add(
-            createAction(inputTreeFileArtifact, outputTreeFileArtifact, privateHeaders));
+            createAction(inputTreeFileArtifact, outputTreeFileArtifact, dotdFileArtifact, privateHeaders));
       } catch (EvalException e) {
         throw new ActionTemplateExpansionException(e);
       }
@@ -138,21 +146,24 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   private CppCompileAction createAction(
       Artifact sourceTreeFileArtifact,
       Artifact outputTreeFileArtifact,
+      Artifact dotdFileArtifact,
       ImmutableList<Artifact> privateHeaders)
       throws ActionTemplateExpansionException {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
     builder.setAdditionalPrunableHeaders(privateHeaders);
     builder.setSourceFile(sourceTreeFileArtifact);
-    builder.setOutputs(outputTreeFileArtifact, null);
+    builder.setOutputs(outputTreeFileArtifact, dotdFileArtifact);
 
     CcToolchainVariables.Builder buildVariables =
         new CcToolchainVariables.Builder(cppCompileActionBuilder.getVariables());
     buildVariables.overrideStringVariable(
-        "source_file", sourceTreeFileArtifact.getExecPathString());
+        CompileBuildVariables.SOURCE_FILE.getVariableName(), sourceTreeFileArtifact.getExecPathString());
     buildVariables.overrideStringVariable(
-        "output_file", outputTreeFileArtifact.getExecPathString());
+        CompileBuildVariables.OUTPUT_FILE.getVariableName(), outputTreeFileArtifact.getExecPathString());
     buildVariables.overrideStringVariable(
-        "output_object_file", outputTreeFileArtifact.getExecPathString());
+        CompileBuildVariables.OUTPUT_OBJECT_FILE.getVariableName(), outputTreeFileArtifact.getExecPathString());
+    buildVariables.overrideStringVariable(
+        CompileBuildVariables.DEPENDENCY_FILE.getVariableName(), dotdFileArtifact.getExecPathString());
 
     builder.setVariables(buildVariables.build());
 
@@ -236,7 +247,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
 
   @Override
   public ImmutableSet<Artifact> getOutputs() {
-    return ImmutableSet.of(outputTreeArtifact);
+    return ImmutableSet.of(outputTreeArtifact, dotdTreeArtifact);
   }
 
   @Override
