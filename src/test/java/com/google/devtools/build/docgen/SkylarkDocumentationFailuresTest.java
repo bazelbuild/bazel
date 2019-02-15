@@ -16,6 +16,7 @@ package com.google.devtools.build.docgen;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.Map;
-import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -97,9 +97,6 @@ public class SkylarkDocumentationFailuresTest extends SkylarkTestCase {
   }
 
   private Map<String, SkylarkModuleDoc> collect(Class<?> classObject) {
-    Map<String, SkylarkModuleDoc> modules = new TreeMap<>();
-    SkylarkDocumentationCollector.collectJavaObjects(
-        classObject.getAnnotation(SkylarkModule.class), classObject, modules);
-    return modules;
+    return SkylarkDocumentationCollector.collectModules(ImmutableList.of(classObject));
   }
 }
