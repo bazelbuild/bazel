@@ -45,13 +45,13 @@ public class FileStateFunction implements SkyFunction {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
 
     try {
-      externalFilesHelper.maybeHandleExternalFile(rootedPath, env);
-      if (env.valuesMissing()) {
-        return null;
-      }
+      // externalFilesHelper.maybeHandleExternalFile(rootedPath, env);
+      // if (env.valuesMissing()) {
+      //   return null;
+      // }
       return FileStateValue.create(rootedPath, tsgm.get());
-    } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
-      return FileStateValue.NONEXISTENT_FILE_STATE_NODE;
+    // } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
+    //   return FileStateValue.NONEXISTENT_FILE_STATE_NODE;
     } catch (IOException e) {
       throw new FileStateFunctionException(e);
     }

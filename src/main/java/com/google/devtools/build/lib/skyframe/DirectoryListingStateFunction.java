@@ -51,16 +51,16 @@ public class DirectoryListingStateFunction implements SkyFunction {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
 
     try {
-      externalFilesHelper.maybeHandleExternalFile(dirRootedPath, env);
-      if (env.valuesMissing()) {
-        return null;
-      }
+      // externalFilesHelper.maybeHandleExternalFile(dirRootedPath, env);
+      // if (env.valuesMissing()) {
+      //   return null;
+      // }
       return DirectoryListingStateValue.create(
           syscallCache.get().readdir(dirRootedPath.asPath(), Symlinks.NOFOLLOW));
-    } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
-      // DirectoryListingStateValue.key assumes the path exists. This exception here is therefore
-      // indicative of a programming bug.
-      throw new IllegalStateException(dirRootedPath.toString(), e);
+    // } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
+    //   // DirectoryListingStateValue.key assumes the path exists. This exception here is therefore
+    //   // indicative of a programming bug.
+    //   throw new IllegalStateException(dirRootedPath.toString(), e);
     } catch (IOException e) {
       throw new DirectoryListingStateFunctionException(e);
     }
