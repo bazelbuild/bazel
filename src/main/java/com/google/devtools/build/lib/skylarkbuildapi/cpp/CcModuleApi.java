@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 /** Utilites related to C++ support. */
 @SkylarkModule(
     name = "cc_common",
-    doc = "Utilities for C++ compilation, linking, and command line " + "generation.")
+    doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
     CcToolchainProviderT extends CcToolchainProviderApi,
     FeatureConfigurationT extends FeatureConfigurationApi,

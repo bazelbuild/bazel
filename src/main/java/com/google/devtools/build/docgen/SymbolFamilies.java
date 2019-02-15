@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootst
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
@@ -73,6 +74,9 @@ import java.util.Map;
  * builtin types.
  */
 public class SymbolFamilies {
+  // Common prefix of packages that may contain Skylark modules.
+  private static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
+
   private final ImmutableList<RuleDocumentation> nativeRules;
   private final ImmutableMap<String, SkylarkModuleDoc> types;
 
@@ -125,7 +129,8 @@ public class SymbolFamilies {
    * in BZL and BUILD files.
    */
   private Map<String, SkylarkModuleDoc> collectTypes() throws ClassPathException {
-    return SkylarkDocumentationCollector.collectModules();
+    return SkylarkDocumentationCollector.collectModules(
+        Classpath.findClasses(MODULES_PACKAGE_PREFIX));
   }
 
   /*
