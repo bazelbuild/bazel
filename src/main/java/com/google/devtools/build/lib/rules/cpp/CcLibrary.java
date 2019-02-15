@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationIn
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.SolibLibraryToLink;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -326,52 +325,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       ccLinkingOutputs = linkingHelper.link(ccCompilationOutputs);
     }
 
-    /*
-     * Add the libraries from srcs, if any. For static/mostly static
-     * linking we setup the dynamic libraries if there are no static libraries
-     * to choose from. Path to the libraries will be mangled to avoid using
-     * absolute path names on the -rpath, but library filenames will be
-     * preserved (since some libraries might have SONAME tag) - symlink will
-     * be created to the parent directory instead.
-     *
-     * For compatibility with existing BUILD files, any ".a" or ".lo" files listed in
-     * srcs are assumed to be position-independent code, or at least suitable for
-     * inclusion in shared libraries, unless they end with ".nopic.a" or ".nopic.lo".
-     *
-     * Note that some target platforms do not require shared library code to be PIC.
-     */
-    ImmutableList<LinkerInputs.LibraryToLink> precompiledStaticLibraries =
-        ImmutableList.<LinkerInputs.LibraryToLink>builder()
-            .addAll(
-                LinkerInputs.opaqueLibrariesToLink(
-                    ArtifactCategory.STATIC_LIBRARY, precompiledFiles.getStaticLibraries()))
-            .addAll(
-                LinkerInputs.opaqueLibrariesToLink(
-                    ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
-                    precompiledFiles.getAlwayslinkStaticLibraries()))
-            .build();
-
-    ImmutableList<LinkerInputs.LibraryToLink> precompiledPicStaticLibraries =
-        ImmutableList.<LinkerInputs.LibraryToLink>builder()
-            .addAll(
-                LinkerInputs.opaqueLibrariesToLink(
-                    ArtifactCategory.STATIC_LIBRARY, precompiledFiles.getPicStaticLibraries()))
-            .addAll(
-                LinkerInputs.opaqueLibrariesToLink(
-                    ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
-                    precompiledFiles.getPicAlwayslinkLibraries()))
-            .build();
-
-    List<LinkerInputs.LibraryToLink> dynamicLibraries =
-        ImmutableList.copyOf(
-            Iterables.transform(
-                precompiledFiles.getSharedLibraries(),
-                library ->
-                    LinkerInputs.solibLibraryToLink(
-                        common.getDynamicLibrarySymlink(library, true),
-                        library,
-                        CcLinkingOutputs.libraryIdentifierOf(library))));
-
     ImmutableSortedMap.Builder<String, NestedSet<Artifact>> outputGroups =
         ImmutableSortedMap.naturalOrder();
     if (!ccLinkingOutputs.isEmpty()) {
@@ -385,10 +338,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
     List<LibraryToLink> precompiledLibraries =
         convertPrecompiledLibrariesToLibraryToLink(
-            ruleContext.getFragment(CppConfiguration.class).forcePic(),
-            precompiledStaticLibraries,
-            precompiledPicStaticLibraries,
-            dynamicLibraries);
+            common, ruleContext.getFragment(CppConfiguration.class).forcePic(), precompiledFiles);
 
     if (!ccCompilationOutputs.isEmpty()) {
       checkIfLinkOutputsCollidingWithPrecompiledFiles(
@@ -708,93 +658,111 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     return ccCompilationOutputsIsEmpty && !ccLinkingOutputsIsEmpty;
   }
 
+  private static Map<String, Artifact> buildMapIdentifierToArtifact(Iterable<Artifact> artifacts) {
+    ImmutableMap.Builder<String, Artifact> libraries = ImmutableMap.builder();
+    for (Artifact artifact : artifacts) {
+      libraries.put(CcLinkingOutputs.libraryIdentifierOf(artifact), artifact);
+    }
+    return libraries.build();
+  }
+
+  /*
+   * Add the libraries from srcs, if any. For static/mostly static
+   * linking we setup the dynamic libraries if there are no static libraries
+   * to choose from. Path to the libraries will be mangled to avoid using
+   * absolute path names on the -rpath, but library filenames will be
+   * preserved (since some libraries might have SONAME tag) - symlink will
+   * be created to the parent directory instead.
+   *
+   * For compatibility with existing BUILD files, any ".a" or ".lo" files listed in
+   * srcs are assumed to be position-independent code, or at least suitable for
+   * inclusion in shared libraries, unless they end with ".nopic.a" or ".nopic.lo".
+   *
+   * Note that some target platforms do not require shared library code to be PIC.
+   */
   private static List<LibraryToLink> convertPrecompiledLibrariesToLibraryToLink(
-      boolean forcePic,
-      List<LinkerInputs.LibraryToLink> staticLibraries,
-      List<LinkerInputs.LibraryToLink> picStaticLibraries,
-      List<LinkerInputs.LibraryToLink> dynamicLibrariesForRuntime) {
+      CcCommon common, boolean forcePic, PrecompiledFiles precompiledFiles) {
     ImmutableList.Builder<LibraryToLink> librariesToLink = ImmutableList.builder();
 
+    Map<String, Artifact> staticLibraries =
+        buildMapIdentifierToArtifact(precompiledFiles.getStaticLibraries());
+    Map<String, Artifact> picStaticLibraries =
+        buildMapIdentifierToArtifact(precompiledFiles.getPicStaticLibraries());
+    Map<String, Artifact> alwayslinkStaticLibraries =
+        buildMapIdentifierToArtifact(precompiledFiles.getAlwayslinkStaticLibraries());
+    Map<String, Artifact> alwayslinkPicStaticLibraries =
+        buildMapIdentifierToArtifact(precompiledFiles.getPicAlwayslinkLibraries());
+    Map<String, Artifact> dynamicLibraries =
+        buildMapIdentifierToArtifact(precompiledFiles.getSharedLibraries());
+
     Set<String> identifiersUsed = new HashSet<>();
-    // Here we hae an O(n^2) algorithm, the size of the inputs is never big though, we only work
-    // here with the local libraries, none of the libraries of the transitive closure.
-    for (LinkerInputs.LibraryToLink staticLibrary : staticLibraries) {
+    for (Map.Entry<String, Artifact> staticLibraryEntry :
+        Iterables.concat(staticLibraries.entrySet(), alwayslinkStaticLibraries.entrySet())) {
       LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
-      String identifier = staticLibrary.getLibraryIdentifier();
+      String identifier = staticLibraryEntry.getKey();
       libraryToLinkBuilder.setLibraryIdentifier(identifier);
-      List<LinkerInputs.LibraryToLink> sameIdentifierPicStaticLibraries =
-          picStaticLibraries.stream()
-              .filter(x -> x.getLibraryIdentifier().equals(identifier))
-              .collect(ImmutableList.toImmutableList());
-      boolean hadPic = false;
-      if (!sameIdentifierPicStaticLibraries.isEmpty()) {
-        hadPic = true;
-        libraryToLinkBuilder.setPicStaticLibrary(
-            sameIdentifierPicStaticLibraries.get(0).getArtifact());
-      }
-      if (!forcePic || !hadPic) {
-        libraryToLinkBuilder.setStaticLibrary(staticLibrary.getArtifact());
-      }
-      List<LinkerInputs.LibraryToLink> sameIdentifierDynamicLibraries =
-          dynamicLibrariesForRuntime.stream()
-              .filter(x -> x.getLibraryIdentifier().equals(identifier))
-              .collect(ImmutableList.toImmutableList());
-      if (!sameIdentifierDynamicLibraries.isEmpty()) {
-        LinkerInputs.LibraryToLink dynamicLibrary = sameIdentifierDynamicLibraries.get(0);
-        libraryToLinkBuilder.setDynamicLibrary(dynamicLibrary.getArtifact());
-        if (dynamicLibrary instanceof SolibLibraryToLink) {
-          libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(
-              dynamicLibrary.getOriginalLibraryArtifact());
+      boolean hasPic = picStaticLibraries.containsKey(identifier);
+      boolean hasAlwaysPic = alwayslinkPicStaticLibraries.containsKey(identifier);
+      if (hasPic || hasAlwaysPic) {
+        Artifact picStaticLibrary = null;
+        if (hasPic) {
+          picStaticLibrary = picStaticLibraries.get(identifier);
+        } else {
+          picStaticLibrary = alwayslinkPicStaticLibraries.get(identifier);
         }
+        libraryToLinkBuilder.setPicStaticLibrary(picStaticLibrary);
       }
-      libraryToLinkBuilder.setAlwayslink(
-          staticLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
+      if (!forcePic || !(hasPic || hasAlwaysPic)) {
+        libraryToLinkBuilder.setStaticLibrary(staticLibraryEntry.getValue());
+      }
+      if (dynamicLibraries.containsKey(identifier)) {
+        Artifact library = dynamicLibraries.get(identifier);
+        Artifact symlink = common.getDynamicLibrarySymlink(library, true);
+        libraryToLinkBuilder.setDynamicLibrary(symlink);
+        libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(library);
+      }
+      libraryToLinkBuilder.setAlwayslink(alwayslinkStaticLibraries.containsKey(identifier));
       identifiersUsed.add(identifier);
       librariesToLink.add(libraryToLinkBuilder.build());
     }
 
-    for (LinkerInputs.LibraryToLink picStaticLibrary : picStaticLibraries) {
-      String identifier = picStaticLibrary.getLibraryIdentifier();
+    for (Map.Entry<String, Artifact> picStaticLibraryEntry :
+        Iterables.concat(picStaticLibraries.entrySet(), alwayslinkPicStaticLibraries.entrySet())) {
+      String identifier = picStaticLibraryEntry.getKey();
       if (identifiersUsed.contains(identifier)) {
         continue;
       }
       LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
-      libraryToLinkBuilder.setPicStaticLibrary(picStaticLibrary.getArtifact());
       libraryToLinkBuilder.setLibraryIdentifier(identifier);
-      List<LinkerInputs.LibraryToLink> sameIdentifierDynamicLibraries =
-          dynamicLibrariesForRuntime.stream()
-              .filter(x -> x.getLibraryIdentifier().equals(identifier))
-              .collect(ImmutableList.toImmutableList());
-      if (!sameIdentifierDynamicLibraries.isEmpty()) {
-        LinkerInputs.LibraryToLink dynamicLibrary = sameIdentifierDynamicLibraries.get(0);
-        libraryToLinkBuilder.setDynamicLibrary(dynamicLibrary.getArtifact());
-        if (dynamicLibrary instanceof SolibLibraryToLink) {
-          libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(
-              dynamicLibrary.getOriginalLibraryArtifact());
-        }
+      libraryToLinkBuilder.setPicStaticLibrary(picStaticLibraryEntry.getValue());
+      if (dynamicLibraries.containsKey(identifier)) {
+        Artifact library = dynamicLibraries.get(identifier);
+        Artifact symlink = common.getDynamicLibrarySymlink(library, true);
+        libraryToLinkBuilder.setDynamicLibrary(symlink);
+        libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(library);
       }
-      libraryToLinkBuilder.setAlwayslink(
-          picStaticLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
+      libraryToLinkBuilder.setAlwayslink(alwayslinkPicStaticLibraries.containsKey(identifier));
       identifiersUsed.add(identifier);
       librariesToLink.add(libraryToLinkBuilder.build());
     }
 
-    for (LinkerInputs.LibraryToLink dynamicLibrary : dynamicLibrariesForRuntime) {
-      String identifier = dynamicLibrary.getLibraryIdentifier();
+    for (Map.Entry<String, Artifact> dynamicLibraryEntry : dynamicLibraries.entrySet()) {
+      String identifier = dynamicLibraryEntry.getKey();
       if (identifiersUsed.contains(identifier)) {
         continue;
       }
       LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
-      libraryToLinkBuilder.setDynamicLibrary(dynamicLibrary.getArtifact());
       libraryToLinkBuilder.setLibraryIdentifier(identifier);
-      if (dynamicLibrary instanceof SolibLibraryToLink) {
-        libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(
-            dynamicLibrary.getOriginalLibraryArtifact());
-      }
+      Artifact library = dynamicLibraryEntry.getValue();
+      Artifact symlink = common.getDynamicLibrarySymlink(library, true);
+      libraryToLinkBuilder.setDynamicLibrary(symlink);
+      libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(library);
       librariesToLink.add(libraryToLinkBuilder.build());
     }
     return librariesToLink.build();
   }
+
+
 
   private static void checkIfLinkOutputsCollidingWithPrecompiledFiles(
       RuleContext ruleContext,

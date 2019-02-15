@@ -781,14 +781,9 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     // TODO(cpeyser): Clean up objc-cc interop.
     HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
     for (CcLinkingContext ccLinkingContext : avoidCcProviders) {
-      List<com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink> librariesToLink =
-          LibraryToLink.convertLibraryToLinkListToLibraryToLinkList(
-              ccLinkingContext.getLibraries(),
-              /* staticMode= */ true,
-              /* forDynamicLibrary= */ false);
-      for (com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink libraryToLink :
-          librariesToLink) {
-        avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
+      List<Artifact> libraries = ccLinkingContext.getStaticModeParamsForExecutableLibraries();
+      for (Artifact library : libraries) {
+        avoidLibrariesSet.add(library.getRunfilesPath());
       }
     }
     for (ObjcProvider avoidProvider : avoidObjcProviders) {
