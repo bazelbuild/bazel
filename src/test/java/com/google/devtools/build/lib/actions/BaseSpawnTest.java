@@ -58,10 +58,12 @@ public class BaseSpawnTest {
   @Test
   public void testGetEnvironmentDoesntAddRunfilesWhenMultipleManifestsSupplied() {
     Map<String, String> baseEnviron = ImmutableMap.of("HELLO", "world");
-    BaseSpawn underTest = minimalBaseSpawn(baseEnviron,
-        new CompositeRunfilesSupplier(
-            new RunfilesSupplierImpl(PathFragment.create("rfdir1"), Runfiles.EMPTY),
-            new RunfilesSupplierImpl(PathFragment.create("rfdir2"), Runfiles.EMPTY)));
+    BaseSpawn underTest =
+        minimalBaseSpawn(
+            baseEnviron,
+            CompositeRunfilesSupplier.of(
+                new RunfilesSupplierImpl(PathFragment.create("rfdir1"), Runfiles.EMPTY),
+                new RunfilesSupplierImpl(PathFragment.create("rfdir2"), Runfiles.EMPTY)));
 
     assertThat(underTest.getEnvironment()).isEqualTo(baseEnviron);
   }
