@@ -34,12 +34,10 @@ def find_java_toolchain(ctx, target):
       A JavaToolchainInfo.
     """
 
-    _ignore = [ctx]
+    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
+        return ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]
 
-    # TODO(b/122482627): implement toolcahin resolution for Java
-    # see https://github.com/bazelbuild/bazel/issues/6521
-
-    return target
+    return target[java_common.JavaToolchainInfo]
 
 def find_java_runtime_toolchain(ctx, target):
     """
@@ -56,9 +54,7 @@ def find_java_runtime_toolchain(ctx, target):
       A JavaRuntimeInfo.
     """
 
-    _ignore = [ctx]
+    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
+        return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
 
-    # TODO(b/122482627): implement toolcahin resolution for Java
-    # see https://github.com/bazelbuild/bazel/issues/6521
-
-    return target
+    return target[java_common.JavaRuntimeInfo]
