@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.buildeventservice;
 
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
@@ -24,7 +26,6 @@ import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -41,7 +42,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     private boolean publishLifecycleEvents;
     private Duration closeTimeout;
     private Sleeper sleeper;
-    private BuildEventLogger buildEventLogger;
+    private EventBus eventBus;
 
     /** Whether to publish lifecycle events. */
     public Builder publishLifecycleEvents(boolean publishLifecycleEvents) {
@@ -55,14 +56,14 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       return this;
     }
 
-    public Builder buildEventLogger(BuildEventLogger buildEventLogger) {
-      this.buildEventLogger = buildEventLogger;
-      return this;
-    }
-
     @VisibleForTesting
     public Builder sleeper(Sleeper sleeper) {
       this.sleeper = sleeper;
+      return this;
+    }
+
+    public Builder setEventBus(EventBus eventBus) {
+      this.eventBus = eventBus;
       return this;
     }
 
@@ -74,6 +75,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         Clock clock,
         ExitFunction exitFunction,
         ArtifactGroupNamer namer) {
+      Preconditions.checkNotNull(eventBus);
       return new BuildEventServiceTransport(
           besClient,
           localFileUploader,
@@ -84,8 +86,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           publishLifecycleEvents,
           closeTimeout != null ? closeTimeout : Duration.ZERO,
           sleeper != null ? sleeper : new JavaSleeper(),
-          buildEventLogger != null ? buildEventLogger : (e) -> {},
-          namer);
+          namer,
+          eventBus);
     }
   }
 
@@ -99,8 +101,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       boolean publishLifecycleEvents,
       Duration closeTimeout,
       Sleeper sleeper,
-      BuildEventLogger buildEventLogger,
-      ArtifactGroupNamer namer) {
+      ArtifactGroupNamer namer,
+      EventBus eventBus) {
     this.besUploader =
         new BuildEventServiceUploader(
             besClient,
@@ -112,8 +114,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             exitFunc,
             sleeper,
             clock,
-            buildEventLogger,
-            namer);
+            namer,
+            eventBus);
   }
 
   @Override
@@ -144,12 +146,6 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   @VisibleForTesting
   public BuildEventServiceUploader getBesUploader() {
     return besUploader;
-  }
-
-  /** BuildEventLogger can be used to log build event (stats). */
-  @FunctionalInterface
-  public interface BuildEventLogger {
-    void log(BuildEventStreamProtos.BuildEvent buildEvent);
   }
 
   /**

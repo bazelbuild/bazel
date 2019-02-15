@@ -23,12 +23,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.BuildEventLogger;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.ExitFunction;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.AckReceivedCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.EventLoopCommand;
@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -105,8 +106,8 @@ public final class BuildEventServiceUploader implements Runnable {
   private final ExitFunction exitFunc;
   private final Sleeper sleeper;
   private final Clock clock;
-  private final BuildEventLogger buildEventLogger;
   private final ArtifactGroupNamer namer;
+  private final EventBus eventBus;
 
   /**
    * The event queue contains two types of events: - Build events, sorted by sequence number, that
@@ -157,8 +158,8 @@ public final class BuildEventServiceUploader implements Runnable {
       ExitFunction exitFunc,
       Sleeper sleeper,
       Clock clock,
-      BuildEventLogger buildEventLogger,
-      ArtifactGroupNamer namer) {
+      ArtifactGroupNamer namer,
+      EventBus eventBus) {
     this.besClient = Preconditions.checkNotNull(besClient);
     this.localFileUploader = Preconditions.checkNotNull(localFileUploader);
     this.besProtoUtil = Preconditions.checkNotNull(besProtoUtil);
@@ -168,8 +169,8 @@ public final class BuildEventServiceUploader implements Runnable {
     this.exitFunc = Preconditions.checkNotNull(exitFunc);
     this.sleeper = Preconditions.checkNotNull(sleeper);
     this.clock = Preconditions.checkNotNull(clock);
-    this.buildEventLogger = Preconditions.checkNotNull(buildEventLogger);
     this.namer = namer;
+    this.eventBus = eventBus;
   }
 
   BuildEventArtifactUploader getLocalFileUploader() {
@@ -351,7 +352,16 @@ public final class BuildEventServiceUploader implements Runnable {
         };
     BuildEventStreamProtos.BuildEvent serializedBepEvent =
         buildEvent.getEvent().asStreamProto(ctx);
-    buildEventLogger.log(serializedBepEvent);
+
+    // TODO(lpino): Remove this logging once we can make every single event smaller than 1MB
+    // as protobuf recommends.
+    if (serializedBepEvent.getSerializedSize()
+        > LargeBuildEventSerializedEvent.SIZE_OF_LARGE_BUILD_EVENTS_IN_BYTES) {
+      eventBus.post(
+          new LargeBuildEventSerializedEvent(
+              serializedBepEvent.getId().toString(), serializedBepEvent.getSerializedSize()));
+    }
+
     return serializedBepEvent;
   }
 
