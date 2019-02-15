@@ -208,8 +208,8 @@ http_archive(
 http_archive(
     name = "remote_java_tools",
     build_file = "@bazel_tools//tools/jdk:BUILD.pkg",
-    sha256 = "df33ddb3054f0ee70389368bd1dc2efe72eeb1f489dbcdf948f3f3b3058646b7",
+    sha256 = "f1f280546ee4da3446d10a60fde585f5283534b0cc01c0284c93740f15d1932d",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.1.tar.gz",
+        "https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.3.tar.gz",
     ],
 )
