@@ -392,4 +392,26 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertContainsEvent(
         "transition inputs [//test:cute-animal-fact] do not correspond to valid settings");
     }
+
+  @Test
+  public void testOneParamTransitionFunctionApiFails() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings):",
+        "  return {'//command_line_option:test_arg': ['post-transition']}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(implementation = _impl, cfg = my_transition)");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("too many (2) positional arguments in call to _impl(settings)");
+  }
 }

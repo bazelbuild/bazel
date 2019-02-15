@@ -190,17 +190,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       try {
         result = evalFunction(impl, ImmutableList.of(previousSettings, attributeMapper));
       } catch (EvalException e) {
-        // TODO(b/121134880): Still support the one-param syntax since we have users using that.
-        // Deprecate when this API will stop changing.
-        if (e.getMessage().contains("too many (2) positional arguments in call to")) {
-          try {
-            result = evalFunction(impl, ImmutableList.of(previousSettings));
-          } catch (EvalException e2) {
-            throw new EvalException(impl.getLocation(), e2.getMessage());
-          }
-        } else {
-          throw new EvalException(impl.getLocation(), e.getMessage());
-        }
+        throw new EvalException(impl.getLocation(), e.getMessage());
       }
 
       if (!(result instanceof SkylarkDict<?, ?>)) {
