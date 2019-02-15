@@ -311,7 +311,7 @@ public abstract class FileValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(realRootedPath, realFileStateValue, linkTarget, Boolean.TRUE);
+      return Objects.hash(realRootedPath, realFileStateValue, linkTarget);
     }
 
     @Override
