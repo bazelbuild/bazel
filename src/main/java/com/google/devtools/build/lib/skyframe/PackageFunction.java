@@ -905,9 +905,6 @@ public class PackageFunction implements SkyFunction {
           env.getValuesOrThrow(globKeys, IOException.class, BuildFileNotFoundException.class);
 
       // For each missing glob, evaluate it asychronously via the delegate.
-      //
-      // TODO(bazel-team): Consider not delegating missing globs during glob prefetching - a
-      // single skyframe restart after the prefetch step is probably tolerable.
       Collection<SkyKey> missingKeys = getMissingKeys(globKeys, globValueMap);
       List<String> includesToDelegate = new ArrayList<>(missingKeys.size());
       List<String> excludesToDelegate = new ArrayList<>(missingKeys.size());
