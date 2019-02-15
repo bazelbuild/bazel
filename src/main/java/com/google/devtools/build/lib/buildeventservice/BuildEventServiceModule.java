@@ -106,9 +106,10 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       commandEnvironment.getReporter().addHandler(streamer);
       commandEnvironment.getEventBus().register(streamer);
       int bufferSize = besOptions.besOuterrBufferSize;
+      int chunkSize = besOptions.besOuterrChunkSize;
 
-      final SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize);
-      final SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize);
+      final SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize, chunkSize);
+      final SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize, chunkSize);
       this.outErr = OutErr.create(out, err);
       streamer.registerOutErrProvider(
           new BuildEventStreamer.OutErrProvider() {
