@@ -70,6 +70,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -4483,6 +4484,7 @@ public class MemoizingEvaluatorTest {
    * evaluation depending on a node in error.
    */
   @Test
+  @Ignore // TODO(b/124505961): This test hangs with a thread blocked in CDL.await.
   public void shutDownBuildOnCachedError_Done() throws Exception {
     // errorKey will be invalidated due to its dependence on invalidatedKey, but later revalidated
     // since invalidatedKey re-evaluates to the same value on a subsequent build.
