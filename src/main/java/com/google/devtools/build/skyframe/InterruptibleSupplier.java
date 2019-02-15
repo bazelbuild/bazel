@@ -13,31 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Preconditions;
 import javax.annotation.Nullable;
 
 /** Supplier that may throw {@link InterruptedException} when value is retrieved. */
 public interface InterruptibleSupplier<T> {
   T get() throws InterruptedException;
 
-  class Instance<T> implements InterruptibleSupplier<T> {
-    private final T instance;
-
-    public Instance(T instance) {
-      this.instance = instance;
-    }
-
-    @Override
-    public T get() {
-      return instance;
-    }
-  }
-
-  class Memoize<T> implements InterruptibleSupplier<T> {
-    private final InterruptibleSupplier<T> delegate;
-    private @Nullable T value = null;
+  /** Memoizes the result of {@code delegate} after the first call to {@link #get}. */
+  final class Memoize<T> implements InterruptibleSupplier<T> {
+    private InterruptibleSupplier<T> delegate;
+    @Nullable private volatile T value = null;
 
     private Memoize(InterruptibleSupplier<T> delegate) {
-      this.delegate = delegate;
+      this.delegate = Preconditions.checkNotNull(delegate);
     }
 
     public static <S> InterruptibleSupplier<S> of(InterruptibleSupplier<S> delegate) {
@@ -55,6 +44,7 @@ public interface InterruptibleSupplier<T> {
       synchronized (this) {
         if (value == null) {
           value = delegate.get();
+          delegate = null; // Free up for GC.
         }
       }
       return value;

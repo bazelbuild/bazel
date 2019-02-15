@@ -333,8 +333,8 @@ public final class TargetPatternValue implements SkyValue {
         Iterable<PathFragment> blacklistedPackagePrefixes) throws InterruptedException {
       ImmutableSet.Builder<PathFragment> excludedPathsBuilder = ImmutableSet.builder();
       excludedPathsBuilder.addAll(getExcludedSubdirectories());
-      excludedPathsBuilder.addAll(getAllBlacklistedSubdirectoriesToExclude(
-          new InterruptibleSupplier.Instance<>(blacklistedPackagePrefixes)));
+      excludedPathsBuilder.addAll(
+          getAllBlacklistedSubdirectoriesToExclude(() -> blacklistedPackagePrefixes));
       return excludedPathsBuilder.build();
     }
 
