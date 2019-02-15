@@ -135,8 +135,6 @@ function gcov_coverage() {
         # -i              Output gcov file in an intermediate text format.
         #                 The output is a single .gcov file per .gcda file.
         #                 No source code is required.
-        # -b              Write branch frequencies to the output file, and
-        #                 write branch summary info to the standard output.
         # -o directory    The directory containing the .gcno and
         #                 .gcda data files.
         # "${gcda"}       The input file name. gcov is looking for data files
@@ -146,7 +144,10 @@ function gcov_coverage() {
         # they correspond to. One .gcov file is produced for each source
         # (or header) file containing code which was compiled to produce the
         # .gcda files.
-        "${GCOV}" -i -b -o "$(dirname ${gcda})" "${gcda}" &> "$gcov_log"
+        # Don't generate branch coverage (-b) because of a gcov issue that
+        # segfaults when both -i and -b are used (see
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
+        "${GCOV}" -i -o "$(dirname ${gcda})" "${gcda}" &> "$gcov_log"
 
         # Go through all the files that were created by the gcov command above
         # and append their content to the output .gcov file.
