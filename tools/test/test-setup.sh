@@ -248,6 +248,8 @@ fi
 exitCode=0
 signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
 for signal in $signals; do
+  # SIGCHLD is expected when a subprocess dies
+  [ "${signal}" = "SIGCHLD" ] && continue
   trap "write_xml_output_file ${signal}" ${signal}
 done
 start=$(date +%s)
