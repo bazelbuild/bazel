@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.python;
+package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -24,56 +24,48 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-/**
- * Implementation for the {@code py_runtime} rule.
- */
-public final class BazelPyRuntime implements RuleConfiguredTargetFactory {
+/** Implementation for the {@code py_runtime} rule. */
+public final class PyRuntime implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
+  public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
     NestedSet<Artifact> files =
         PrerequisiteArtifacts.nestedSet(ruleContext, "files", Mode.TARGET);
-    Artifact interpreter =
-        ruleContext.getPrerequisiteArtifact("interpreter", Mode.TARGET);
-    String interpreterPath =
-        ruleContext.attributes().get("interpreter_path", Type.STRING);
+    Artifact interpreter = ruleContext.getPrerequisiteArtifact("interpreter", Mode.TARGET);
+    PathFragment interpreterPath =
+        PathFragment.create(ruleContext.attributes().get("interpreter_path", Type.STRING));
 
-    NestedSet<Artifact> all = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(files)
-        .build();
-
-    if (interpreter != null && !interpreterPath.isEmpty()) {
-      ruleContext.ruleError("interpreter and interpreter_path cannot be set at the same time.");
+    // Determine whether we're pointing to an in-build target (hermetic) or absolute system path
+    // (non-hermetic).
+    if ((interpreter == null) == interpreterPath.isEmpty()) {
+      ruleContext.ruleError(
+          "exactly one of the 'interpreter' or 'interpreter_path' attributes must be specified");
     }
-
-    if (interpreter == null && interpreterPath.isEmpty()) {
-      ruleContext.ruleError("interpreter and interpreter_path cannot be empty at the same time.");
+    boolean hermetic = interpreter != null;
+    // Validate attributes.
+    if (!hermetic && !files.isEmpty()) {
+      ruleContext.ruleError("if 'interpreter_path' is given then 'files' must be empty");
     }
-
-    if (!interpreterPath.isEmpty() && !PathFragment.create(interpreterPath).isAbsolute()) {
+    if (!hermetic && !interpreterPath.isAbsolute()) {
       ruleContext.attributeError("interpreter_path", "must be an absolute path.");
-    }
-
-    if (!interpreterPath.isEmpty() && !files.isEmpty()) {
-      ruleContext.ruleError("interpreter with an absolute path requires files to be empty.");
     }
 
     if (ruleContext.hasErrors()) {
       return null;
     }
 
-    BazelPyRuntimeProvider provider = BazelPyRuntimeProvider
-        .create(files, interpreter, interpreterPath);
+    PyRuntimeProvider provider =
+        hermetic
+            ? PyRuntimeProvider.create(files, interpreter, /*interpreterPath=*/ null)
+            : PyRuntimeProvider.create(/*files=*/ null, /*interpreter=*/ null, interpreterPath);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
+        .setFilesToBuild(files)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .setFilesToBuild(all)
-        .addProvider(BazelPyRuntimeProvider.class, provider)
+        .addProvider(PyRuntimeProvider.class, provider)
         .build();
   }
 

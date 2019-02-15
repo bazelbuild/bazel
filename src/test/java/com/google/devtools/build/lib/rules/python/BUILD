@@ -12,11 +12,11 @@ filegroup(
 test_suite(
     name = "PythonTests",
     tests = [
-        ":BazelPythonConfigurationTest",
         ":PyBinaryConfiguredTargetTest",
         ":PyInfoTest",
         ":PyLibraryConfiguredTargetTest",
         ":PyProviderUtilsTest",
+        ":PyRuntimeTest",
         ":PyStructUtilsTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
@@ -39,20 +39,6 @@ java_library(
 )
 
 java_test(
-    name = "BazelPythonConfigurationTest",
-    srcs = ["BazelPythonConfigurationTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "PythonConfigurationTest",
     srcs = ["PythonConfigurationTest.java"],
     deps = [
@@ -62,6 +48,19 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PyRuntimeTest",
+    srcs = ["PyRuntimeTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],

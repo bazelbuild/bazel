@@ -1141,6 +1141,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

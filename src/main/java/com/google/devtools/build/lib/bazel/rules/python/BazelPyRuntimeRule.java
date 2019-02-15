@@ -24,10 +24,11 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.python.PyRuntime;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/** Rule definition for {@code python_runtime} */
+/** Rule definition for {@code py_runtime} */
 public final class BazelPyRuntimeRule implements RuleDefinition {
 
   @Override
@@ -38,24 +39,19 @@ public final class BazelPyRuntimeRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(files) -->
         The set of files comprising this Python runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("files", LABEL_LIST)
-            .allowedFileTypes(FileTypeSet.ANY_FILE)
-            .mandatory())
+        .add(attr("files", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
 
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(interpreter) -->
         The Python interpreter used in this runtime. Binary rules will be executed using this
         binary.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("interpreter", LABEL)
-            .allowedFileTypes(FileTypeSet.ANY_FILE)
-            .singleArtifact())
+        .add(attr("interpreter", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).singleArtifact())
 
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(interpreter_path) -->
         The absolute path of a Python interpreter. This attribute and interpreter attribute cannot
         be set at the same time.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("interpreter_path", STRING))
-
         .add(attr("output_licenses", LICENSE))
         .build();
   }
@@ -65,7 +61,7 @@ public final class BazelPyRuntimeRule implements RuleDefinition {
     return Metadata.builder()
         .name("py_runtime")
         .ancestors(BaseRuleClasses.BaseRule.class)
-        .factoryClass(BazelPyRuntime.class)
+        .factoryClass(PyRuntime.class)
         .build();
   }
 }
