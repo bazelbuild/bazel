@@ -193,7 +193,7 @@ public class ResourceProcessorBusyBox {
     public Tool tool;
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     // It's cheaper and cleaner to detect for a single flag to start worker mode without having to
     // initialize Options/OptionsParser here. This keeps the processRequest interface minimal and
     // minimizes moving option state between these methods.
@@ -204,7 +204,7 @@ public class ResourceProcessorBusyBox {
     }
   }
 
-  private static int runPersistentWorker() {
+  private static int runPersistentWorker() throws Exception {
     while (true) {
       try {
         WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
@@ -228,7 +228,7 @@ public class ResourceProcessorBusyBox {
     return 0;
   }
 
-  private static int processRequest(List<String> args) {
+  private static int processRequest(List<String> args) throws Exception {
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.setAllowResidue(true);
     optionsParser.enableParamsFileSupport(
@@ -245,10 +245,10 @@ public class ResourceProcessorBusyBox {
         | Aapt2Exception
         | InvalidJavaIdentifier e) {
       logSuppressed(e);
-      return 1;
+      throw e;
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Error during processing", e);
-      return 1;
+      throw e;
     }
     return 0;
   }
