@@ -72,7 +72,7 @@ public abstract class FileValue implements SkyValue {
   }
 
   /**
-   * Returns true if this value corresponds to a file or symlink to an existing special file. If so,
+   * Returns true if this value corresponds to a special file or symlink to a special file. If so,
    * its parent directory is guaranteed to exist.
    */
   public boolean isSpecialFile() {
