@@ -624,7 +624,6 @@ public class CcModule
             .addCcCompilationContexts(
                 ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
-            .addQuoteIncludeDirs(cppSemantics.getQuoteIncludes(ruleContext))
             .setPurpose(convertFromNoneable(purpose, null));
 
     SkylarkNestedSet additionalCompilationInputs =
