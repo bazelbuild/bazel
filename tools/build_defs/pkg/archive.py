@@ -20,7 +20,10 @@ import os
 import subprocess
 import tarfile
 
-# Use a deterministic mtime that doesn't confuse other programs.
+# Use a deterministic mtime that doesn't confuse other programs such as Python
+# distutils and GNU tar (ex: "implausibly old time stamp" warnings).
+#
+# See https://github.com/bazelbuild/bazel/issues/1299
 MTIME = 946684800  # 2000-01-01 00:00:00.000 UTC
 
 class SimpleArFile(object):
