@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.runtime;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -40,6 +42,8 @@ public class SynchronizedOutputStream extends OutputStream {
   // {@link write(byte[] buffer, int offset, int count)} method.
   private final int maxBufferedLength;
 
+  private final int maxChunkSize;
+
   private byte[] buf;
   private long count;
   private boolean discardAll;
@@ -47,11 +51,13 @@ public class SynchronizedOutputStream extends OutputStream {
   // The event streamer that is supposed to flush stdout/stderr.
   private BuildEventStreamer streamer;
 
-  public SynchronizedOutputStream(int maxBufferedLength) {
+  public SynchronizedOutputStream(int maxBufferedLength, int maxChunkSize) {
+    Preconditions.checkArgument(maxChunkSize > 0);
     buf = new byte[64];
     count = 0;
     discardAll = false;
     this.maxBufferedLength = maxBufferedLength;
+    this.maxChunkSize = Math.max(maxChunkSize, maxBufferedLength);
   }
 
   public void registerStreamer(BuildEventStreamer streamer) {
@@ -66,7 +72,9 @@ public class SynchronizedOutputStream extends OutputStream {
     String content = new String(buf, 0, (int) count, UTF_8);
     buf = new byte[64];
     count = 0;
-    return content.isEmpty() ? ImmutableList.of() : ImmutableList.of(content);
+    return content.isEmpty()
+        ? ImmutableList.of()
+        : Splitter.fixedLength(maxChunkSize).split(content);
   }
 
   @Override
