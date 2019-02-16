@@ -534,7 +534,8 @@ public final class BuildOptions implements Cloneable, Serializable {
           // changes, add a test verifying this error catching works properly.
           throw new IllegalStateException(
               "OptionsDiffForReconstruction can only handle a single first BuildOptions and a "
-                  + "single second BuildOptions and has encountered multiple second BuildOptions");
+                  + "single second BuildOptions and has encountered multiple second BuildOptions",
+              e);
         }
         valueMap.put(optionDefinition.getField().getName(), secondValue);
       }
