@@ -213,3 +213,5 @@ http_archive(
         "https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.3.tar.gz",
     ],
 )
+
+register_toolchains('@bazel_tools//tools/jdk:all')
