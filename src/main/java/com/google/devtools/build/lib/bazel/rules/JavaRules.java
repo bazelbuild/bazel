@@ -97,10 +97,6 @@ public class JavaRules implements RuleSet {
     try {
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
-      builder.addWorkspaceFileSuffix(
-          "register_toolchains('@bazel_tools//tools/jdk:dummy_java_toolchain')\n");
-      builder.addWorkspaceFileSuffix(
-          "register_toolchains('@bazel_tools//tools/jdk:dummy_java_runtime_toolchain')\n");
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
