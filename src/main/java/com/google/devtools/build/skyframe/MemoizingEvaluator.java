@@ -88,10 +88,10 @@ public interface MemoizingEvaluator {
 
   /**
    * Returns the node entries in the graph. Should only be called between evaluations. The returned
-   * map is mutable, but do not mutate it unless you know what you are doing! Naively deleting an
-   * entry will break graph invariants and cause a crash.
+   * iterable is mutable, but do not mutate it unless you know what you are doing! Naively deleting
+   * an entry will break graph invariants and cause a crash.
    */
-  Map<SkyKey, ? extends NodeEntry> getGraphMap();
+  Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> getGraphEntries();
 
   /**
    * Informs the evaluator that a sequence of evaluations at the same version has finished.

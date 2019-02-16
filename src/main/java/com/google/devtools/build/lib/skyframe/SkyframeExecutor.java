@@ -936,7 +936,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", logger)) {
       lastAnalysisDiscarded = true;
       Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
-          memoizingEvaluator.getGraphMap().entrySet().iterator();
+          memoizingEvaluator.getGraphEntries().iterator();
       while (it.hasNext()) {
         Map.Entry<SkyKey, ? extends NodeEntry> keyAndEntry = it.next();
         NodeEntry entry = keyAndEntry.getValue();
