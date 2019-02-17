@@ -36,14 +36,14 @@ public interface AuthHeadersProvider {
    * <p>For auth tokens with a TTL attached an implementation is expected to transparently refresh
    * the tokens and to always return headers with sufficient TTL left to complete the request.
    */
-  Map<String, List<String>> getRequestHeaders(URI uri) throws IOException;
+  Map<String, List<String>> getRequestHeaders(AuthHeaderRequest request) throws IOException;
 
   /**
    * Refreshes the authentication credentials i.e. if an access token expired.
    *
    * <p>This method should be called by clients if a request fails due to expired authentication
    * credentials. Clients may then retry the request by retrieving new headers via {@link
-   * #getRequestHeaders(URI)}.
+   * #getRequestHeaders(AuthHeaderRequest)}.
    */
   void refresh() throws IOException;
 
