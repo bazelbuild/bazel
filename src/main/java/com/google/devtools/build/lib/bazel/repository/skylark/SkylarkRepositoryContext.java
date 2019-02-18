@@ -362,7 +362,7 @@ public class SkylarkRepositoryContext
     return null;
   }
 
-  private void warnAboutSha256Error(List<URL> urls, String sha256, Location location) {
+  private void warnAboutSha256Error(List<URL> urls, String sha256) {
     // Inform the user immediately, even though the file will still be downloaded.
     // This cannot be done by a regular error event, as all regular events are recorded
     // and only shown once the execution of the repository rule is finished.
@@ -371,13 +371,7 @@ public class SkylarkRepositoryContext
     if (urls.size() > 0) {
       url = urls.get(0).toString();
     }
-    reportProgress(
-        "Will fail after download of "
-            + url
-            + ". Invalid SHA256 '"
-            + sha256
-            + "' specified at "
-            + location);
+    reportProgress("Will fail after download of " + url + ". Invalid SHA256 '" + sha256 + "'");
   }
 
   @Override
@@ -387,7 +381,7 @@ public class SkylarkRepositoryContext
     List<URL> urls = getUrls(url);
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
-      warnAboutSha256Error(urls, sha256, location);
+      warnAboutSha256Error(urls, sha256);
       sha256 = "";
     }
     SkylarkPath outputPath = getPath("download()", output);
@@ -494,7 +488,7 @@ public class SkylarkRepositoryContext
     List<URL> urls = getUrls(url);
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
-      warnAboutSha256Error(urls, sha256, location);
+      warnAboutSha256Error(urls, sha256);
       sha256 = "";
     }
 
@@ -583,7 +577,8 @@ public class SkylarkRepositoryContext
                   + rule.getName()
                   + ": Syntactically invalid SHA256 checksum: '"
                   + sha256
-                  + "'"),
+                  + "' at "
+                  + rule.getLocation()),
           Transience.PERSISTENT);
     }
     return null;
