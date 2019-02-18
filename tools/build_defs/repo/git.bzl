@@ -46,7 +46,7 @@ def _setup_cache(ctx, git_cache):
 
 def _get_repository_from_cache(ctx, directory, ref, shallow, git_cache):
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-    st = ctx.execute([bash_exe, "-c", """
+    exec_result = ctx.execute([bash_exe, "-c", """
   cd {working_dir}
   set -ex
       rm -rf '{directory}' '{dir_link}'
@@ -62,9 +62,9 @@ def _get_repository_from_cache(ctx, directory, ref, shallow, git_cache):
         shallow = shallow,
         git_cache = git_cache,
     )], environment = ctx.os.environ)
-    _if_debug(cond=ctx.attr.verbose, st=st, what='Checkout')
+    _if_debug(cond=ctx.attr.verbose, st=exec_result, what='Checkout')
 
-    return st.return_code
+    return exec_result
 
 def _populate_cache(ctx, git_cache, remote_name, ref, shallow):
     # 'remote add x' must be done only if x does not exist
@@ -125,13 +125,13 @@ def _clone_or_update(ctx):
 
     if git_cache:
         _setup_cache(ctx, git_cache)
-        return_code = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
+        st = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
 
-        if return_code:
+        if st.return_code:
             _populate_cache(ctx, git_cache, remote_name, ref, shallow)
-            return_code = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
+            st = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
 
-            if return_code:
+            if st.return_code:
                 fail("Error checking out worktree %s:\n%s" % (ctx.name, st.stderr))
     else:
         st = ctx.execute([bash_exe, "-c", """
