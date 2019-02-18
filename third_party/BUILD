@@ -616,6 +616,7 @@ pkg_tar(
     extension = "tar.gz",
     # Permissions -rwxr-xr-x
     mode = "755",
+    package_dir = "java_tools",
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
