@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlan;
-import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionExecutionState;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -78,7 +78,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
@@ -149,8 +148,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     //
     // Additionally, if an action restarted (in the Skyframe sense) after it executed because it
     // discovered new inputs during execution, we should detect that and short-circuit.
-    Pair<ActionLookupData, FutureTask<ActionExecutionValue>> previousExecution =
-        skyframeActionExecutor.probeActionExecution(action);
+    ActionExecutionState previousExecution = skyframeActionExecutor.probeActionExecution(action);
 
     // If this action was previously completed this build, then this evaluation must be happening
     // because of rewinding. Prevent any ProgressLike events from being published a second time for
@@ -549,21 +547,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Environment env,
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData,
-      @Nullable Pair<ActionLookupData, FutureTask<ActionExecutionValue>> previousAction,
+      @Nullable ActionExecutionState previousAction,
       Object skyframeDepsResult,
       long actionStartTime)
       throws ActionExecutionException, InterruptedException {
-    // If this is a shared action and the other action is the one that executed, we must use that
-    // other action's value, provided here, since it is populated with metadata for the outputs.
     if (previousAction != null) {
-      return skyframeActionExecutor.executeAction(
-          env.getListener(),
-          action,
-          /* metadataHandler= */ null,
-          /* actionStartTime= */ -1,
-          /* actionExecutionContext= */ null,
-          actionLookupData,
-          previousAction);
+      // If this is a shared action and the other action is the one that executed, we must use that
+      // other action's value, provided here, since it is populated with metadata for the outputs.
+      return previousAction.getResultOrDependOnFuture(env, actionLookupData, action);
     }
     // The metadataHandler may be recreated if we discover inputs.
     ArtifactPathResolver pathResolver = ArtifactPathResolver.createPathResolver(
@@ -703,13 +694,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (!state.hasExecutedAction()) {
         state.value =
             skyframeActionExecutor.executeAction(
-                env.getListener(),
+                env,
                 action,
                 metadataHandler,
                 actionStartTime,
                 actionExecutionContext,
-                actionLookupData,
-                /*previousAction=*/ null);
+                actionLookupData);
       }
     } catch (IOException e) {
       throw new ActionExecutionException(
