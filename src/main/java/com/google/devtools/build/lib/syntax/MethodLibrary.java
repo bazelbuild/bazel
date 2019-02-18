@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -37,6 +38,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
@@ -281,20 +283,28 @@ public class MethodLibrary {
   private static final BuiltinFunction len =
       new BuiltinFunction("len") {
         public Integer invoke(Object x, Location loc, Environment env) throws EvalException {
-          if (env.getSemantics().incompatibleDepsetIsNotIterable()
-              && x instanceof SkylarkNestedSet) {
-            throw new EvalException(
-                loc,
-                EvalUtils.getDataTypeName(x)
-                    + " is not iterable. You may use `len(<depset>.to_list())` instead. Use "
-                    + "--incompatible_depset_is_not_iterable=false to temporarily disable this "
-                    + "check.");
-          }
-          int l = EvalUtils.size(x);
-          if (l == -1) {
+          if (x instanceof String) {
+            return ((String) x).length();
+          } else if (x instanceof Map) {
+            return ((Map<?, ?>) x).size();
+          } else if (x instanceof SkylarkList) {
+            return ((SkylarkList<?>) x).size();
+          } else if (x instanceof SkylarkNestedSet) {
+            if (env.getSemantics().incompatibleDepsetIsNotIterable()) {
+              throw new EvalException(
+                  loc,
+                  EvalUtils.getDataTypeName(x)
+                      + " is not iterable. You may use `len(<depset>.to_list())` instead. Use "
+                      + "--incompatible_depset_is_not_iterable=false to temporarily disable this "
+                      + "check.");
+            }
+            return ((SkylarkNestedSet) x).toCollection().size();
+          } else if (x instanceof Iterable) {
+            // Iterables.size() checks if x is a Collection so it's efficient in that sense.
+            return Iterables.size((Iterable<?>) x);
+          } else {
             throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");
           }
-          return l;
         }
       };
 
