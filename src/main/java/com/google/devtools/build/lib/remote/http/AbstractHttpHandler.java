@@ -79,7 +79,7 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     if (authHeadersProvider == null) {
       return;
     }
-    final AuthHeaderRequest headerRequest = new NettyAuthHeaderRequest(uri, request);
+    final AuthHeaderRequest headerRequest = new NettyAuthHeaderRequest(request);
     Map<String, List<String>> authHeaders = authHeadersProvider.getRequestHeaders(headerRequest);
     if (authHeaders == null || authHeaders.isEmpty()) {
       return;

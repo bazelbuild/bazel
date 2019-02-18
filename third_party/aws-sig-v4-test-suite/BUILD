@@ -9,5 +9,5 @@ filegroup(
 filegroup(
     name = "testdata",
     srcs = glob(["**/*"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/authentication/aws:__pkg__"],
 )

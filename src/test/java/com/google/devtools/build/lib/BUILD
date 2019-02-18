@@ -41,6 +41,8 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
+        "//src/test/java/com/google/devtools/build/lib/authentication:srcs",
+        "//src/test/java/com/google/devtools/build/lib/authentication/aws:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream:srcs",
