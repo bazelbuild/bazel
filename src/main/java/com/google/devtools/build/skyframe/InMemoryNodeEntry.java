@@ -244,6 +244,12 @@ public class InMemoryNodeEntry implements NodeEntry {
     dirtyBuildingState = null;
   }
 
+  @Override
+  public synchronized void addExternalDep() {
+    Preconditions.checkNotNull(dirtyBuildingState, this);
+    dirtyBuildingState.addExternalDep();
+  }
+
   protected final synchronized Set<SkyKey> setStateFinishedAndReturnReverseDepsToSignal() {
     Set<SkyKey> reverseDepsToSignal =
         ReverseDepsUtility.consolidateDataAndReturnNewElements(this, getOpToStoreBare());

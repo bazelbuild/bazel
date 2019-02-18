@@ -97,6 +97,22 @@ public class InMemoryNodeEntryTest {
   }
 
   @Test
+  public void signalExternalDep() throws InterruptedException {
+    NodeEntry entry = new InMemoryNodeEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+    entry.addExternalDep();
+    assertThat(entry.isReady()).isFalse();
+    assertThat(entry.signalDep(ZERO_VERSION, null)).isTrue();
+    assertThat(entry.isReady()).isTrue();
+    entry.addExternalDep();
+    assertThat(entry.isReady()).isFalse();
+    assertThat(entry.signalDep(ZERO_VERSION, null)).isTrue();
+    assertThat(entry.isReady()).isTrue();
+    assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly();
+  }
+
+  @Test
   public void reverseDeps() throws InterruptedException {
     NodeEntry entry = new InMemoryNodeEntry();
     SkyKey mother = key("mother");

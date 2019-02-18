@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Event;
@@ -620,10 +621,11 @@ public abstract class AbstractParallelEvaluator {
         // direct deps. uniqueNewDeps will be the set of unique keys contained in newDirectDeps.
         Set<SkyKey> uniqueNewDeps = state.addTemporaryDirectDeps(newDirectDeps);
 
+        List<ListenableFuture<?>> externalDeps = env.externalDeps;
         // If there were no newly requested dependencies, at least one of them was in error or there
         // is a bug in the SkyFunction implementation. The environment has collected its errors, so
         // we just order it to be built.
-        if (uniqueNewDeps.isEmpty()) {
+        if (uniqueNewDeps.isEmpty() && externalDeps == null) {
           // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
           Preconditions.checkState(
               !env.getChildErrorInfos().isEmpty(),
@@ -643,6 +645,13 @@ public abstract class AbstractParallelEvaluator {
           return;
         }
 
+        // If there are external deps, we register that fact on the NodeEntry before we enqueue
+        // child nodes in order to prevent the current node from being re-enqueued between here and
+        // the call to registerExternalDeps below.
+        if (externalDeps != null) {
+          state.addExternalDep();
+        }
+
         // We want to split apart the dependencies that existed for this node the last time we did
         // an evaluation and those that were introduced in this evaluation. To be clear, the prefix
         // "newDeps" refers to newly discovered this time around after a SkyFunction#compute call
@@ -660,6 +669,10 @@ public abstract class AbstractParallelEvaluator {
         handleKnownChildrenForDirtyNode(
             newDepsThatWereInTheLastEvaluation, state, childEvaluationPriority);
 
+        // Due to multi-threading, this can potentially cause the current node to be re-enqueued if
+        // all 'new' children of this node are already done. Therefore, there should not be any
+        // code after this loop, as it would potentially race with the re-evaluation in another
+        // thread.
         for (Map.Entry<SkyKey, ? extends NodeEntry> e :
             newDepsThatWerentInTheLastEvaluationNodes.get().entrySet()) {
           SkyKey newDirectDep = e.getKey();
@@ -672,7 +685,15 @@ public abstract class AbstractParallelEvaluator {
               /*depAlreadyExists=*/ false,
               childEvaluationPriority);
         }
-        // It is critical that there is no code below this point in the try block.
+        if (externalDeps != null) {
+          // This can cause the current node to be re-enqueued if all futures are already done.
+          // This is an exception to the rule above that there must not be code below the for
+          // loop. It is safe because we call state.addExternalDep above, which prevents
+          // re-enqueueing of the current node in the above loop if externalDeps != null.
+          evaluatorContext.getVisitor().registerExternalDeps(skyKey, state, externalDeps);
+        }
+        // Do not put any code here! Any code here can race with a re-evaluation of this same node
+        // in another thread.
       } catch (InterruptedException ie) {
         // InterruptedException cannot be thrown by Runnable.run, so we must wrap it.
         // Interrupts can be caught by both the Evaluator and the AbstractQueueVisitor.

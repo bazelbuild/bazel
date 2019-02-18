@@ -428,6 +428,10 @@ public interface NodeEntry extends ThinNodeEntry {
   @ThreadSafe
   void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group);
 
+  default void addExternalDep() {
+    throw new UnsupportedOperationException();
+  }
+
   /**
    * Returns true if the node is ready to be evaluated, i.e., it has been signaled exactly as many
    * times as it has temporary dependencies. This may only be called while the node is being
