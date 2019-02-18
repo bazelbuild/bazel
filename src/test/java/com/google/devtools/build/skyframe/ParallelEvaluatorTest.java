@@ -30,6 +30,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -52,6 +56,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -155,6 +161,272 @@ public class ParallelEvaluatorTest {
     assertThat(value.getValue()).isEqualTo("ab");
     assertThat(storedEventHandler.getEvents()).isEmpty();
     assertThat(storedEventHandler.getPosts()).isEmpty();
+  }
+
+  @Test
+  public void externalDep() throws Exception {
+    externalDep(1, 0);
+    externalDep(2, 0);
+    externalDep(1, 1);
+    externalDep(1, 2);
+    externalDep(2, 1);
+    externalDep(2, 2);
+  }
+
+  private void externalDep(int firstPassCount, int secondPassCount) throws Exception {
+    final SkyKey parentKey = GraphTester.toSkyKey("parentKey");
+    final CountDownLatch firstPassLatch = new CountDownLatch(1);
+    final CountDownLatch secondPassLatch = new CountDownLatch(1);
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            new SkyFunction() {
+              // Skyframe doesn't have native support for continuations, so we use fields here. A
+              // simple continuation API in Skyframe could be Environment providing a
+              // setContinuation(SkyContinuation) method, where SkyContinuation provides a compute
+              // method similar to SkyFunction. When restarting the node, Skyframe would then call
+              // the continuation rather than the original SkyFunction. If we do that, we should
+              // consider only allowing calls to dependOnFuture in combination with setContinuation.
+              private List<SettableFuture<SkyValue>> firstPass;
+              private List<SettableFuture<SkyValue>> secondPass;
+
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                if (firstPass == null) {
+                  firstPass = new ArrayList<>();
+                  for (int i = 0; i < firstPassCount; i++) {
+                    SettableFuture<SkyValue> future = SettableFuture.create();
+                    firstPass.add(future);
+                    env.dependOnFuture(future);
+                  }
+                  assertThat(env.valuesMissing()).isTrue();
+                  Thread helper =
+                      new Thread(
+                          () -> {
+                            try {
+                              firstPassLatch.await();
+                              // Thread.sleep(5);
+                              for (int i = 0; i < firstPassCount; i++) {
+                                firstPass.get(i).set(new StringValue("value1"));
+                              }
+                            } catch (InterruptedException e) {
+                              throw new RuntimeException(e);
+                            }
+                          });
+                  helper.start();
+                  return null;
+                } else if (secondPass == null && secondPassCount > 0) {
+                  for (int i = 0; i < firstPassCount; i++) {
+                    assertThat(firstPass.get(i).isDone()).isTrue();
+                  }
+                  secondPass = new ArrayList<>();
+                  for (int i = 0; i < secondPassCount; i++) {
+                    SettableFuture<SkyValue> future = SettableFuture.create();
+                    secondPass.add(future);
+                    env.dependOnFuture(future);
+                  }
+                  assertThat(env.valuesMissing()).isTrue();
+                  Thread helper =
+                      new Thread(
+                          () -> {
+                            try {
+                              secondPassLatch.await();
+                              for (int i = 0; i < secondPassCount; i++) {
+                                secondPass.get(i).set(new StringValue("value2"));
+                              }
+                            } catch (InterruptedException e) {
+                              throw new RuntimeException(e);
+                            }
+                          });
+                  helper.start();
+                  return null;
+                }
+                for (int i = 0; i < secondPassCount; i++) {
+                  assertThat(secondPass.get(i).isDone()).isTrue();
+                }
+                return new StringValue("done!");
+              }
+
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    graph =
+        NotifyingHelper.makeNotifyingTransformer(
+                new Listener() {
+                  private boolean firstPassDone;
+
+                  @Override
+                  public void accept(SkyKey key, EventType type, Order order, Object context) {
+                    // NodeEntry.addExternalDep is called as part of bookkeeping at the end of
+                    // AbstractParallelEvaluator.Evaluate#run.
+                    if (key == parentKey && type == EventType.ADD_EXTERNAL_DEP) {
+                      if (!firstPassDone) {
+                        firstPassLatch.countDown();
+                        firstPassDone = true;
+                      } else {
+                        secondPassLatch.countDown();
+                      }
+                    }
+                  }
+                })
+            .transform(new InMemoryGraphImpl());
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ false, ImmutableList.of(parentKey));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(parentKey)).isEqualTo(new StringValue("done!"));
+  }
+
+  @Test
+  public void enqueueDoneFuture() throws Exception {
+    final SkyKey parentKey = GraphTester.toSkyKey("parentKey");
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                SettableFuture<SkyValue> future = SettableFuture.create();
+                future.set(new StringValue("good"));
+                env.dependOnFuture(future);
+                assertThat(env.valuesMissing()).isFalse();
+                try {
+                  return future.get();
+                } catch (ExecutionException e) {
+                  throw new RuntimeException(e);
+                }
+              }
+
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    graph = new InMemoryGraphImpl();
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ false, ImmutableList.of(parentKey));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(parentKey)).isEqualTo(new StringValue("good"));
+  }
+
+  @Test
+  public void enqueueBadFuture() throws Exception {
+    final SkyKey parentKey = GraphTester.toSkyKey("parentKey");
+    final CountDownLatch doneLatch = new CountDownLatch(1);
+    final ListeningExecutorService executor =
+        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            new SkyFunction() {
+              private ListenableFuture<SkyValue> future;
+
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                if (future == null) {
+                  future =
+                      executor.submit(
+                          () -> {
+                            doneLatch.await();
+                            throw new UnsupportedOperationException();
+                          });
+                  env.dependOnFuture(future);
+                  assertThat(env.valuesMissing()).isTrue();
+                  return null;
+                }
+                assertThat(future.isDone()).isTrue();
+                try {
+                  future.get();
+                  fail();
+                } catch (ExecutionException expected) {
+                  assertThat(expected.getCause()).isInstanceOf(UnsupportedOperationException.class);
+                }
+                return new StringValue("Caught!");
+              }
+
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    graph =
+        NotifyingHelper.makeNotifyingTransformer(
+                new Listener() {
+                  @Override
+                  public void accept(SkyKey key, EventType type, Order order, Object context) {
+                    // NodeEntry.addExternalDep is called as part of bookkeeping at the end of
+                    // AbstractParallelEvaluator.Evaluate#run.
+                    if (key == parentKey && type == EventType.ADD_EXTERNAL_DEP) {
+                      doneLatch.countDown();
+                    }
+                  }
+                })
+            .transform(new InMemoryGraphImpl());
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ false, ImmutableList.of(parentKey));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(parentKey)).isEqualTo(new StringValue("Caught!"));
+  }
+
+  @Test
+  public void dependsOnKeyAndFuture() throws Exception {
+    final SkyKey parentKey = GraphTester.toSkyKey("parentKey");
+    final SkyKey childKey = GraphTester.toSkyKey("childKey");
+    final CountDownLatch doneLatch = new CountDownLatch(1);
+    tester.getOrCreate(childKey).setConstantValue(new StringValue("child"));
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            new SkyFunction() {
+              private SettableFuture<SkyValue> future;
+
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                SkyValue child = env.getValue(childKey);
+                if (future == null) {
+                  assertThat(child).isNull();
+                  future = SettableFuture.create();
+                  env.dependOnFuture(future);
+                  assertThat(env.valuesMissing()).isTrue();
+                  new Thread(
+                          () -> {
+                            try {
+                              doneLatch.await();
+                            } catch (InterruptedException e) {
+                              throw new RuntimeException(e);
+                            }
+                            future.set(new StringValue("future"));
+                          })
+                      .start();
+                  return null;
+                }
+                assertThat(child).isEqualTo(new StringValue("child"));
+                assertThat(future.isDone()).isTrue();
+                try {
+                  assertThat(future.get()).isEqualTo(new StringValue("future"));
+                } catch (ExecutionException e) {
+                  throw new RuntimeException(e);
+                }
+                return new StringValue("All done!");
+              }
+
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    graph =
+        NotifyingHelper.makeNotifyingTransformer(
+                new Listener() {
+                  @Override
+                  public void accept(SkyKey key, EventType type, Order order, Object context) {
+                    if (key == childKey && type == EventType.SET_VALUE) {
+                      doneLatch.countDown();
+                    }
+                  }
+                })
+            .transform(new InMemoryGraphImpl());
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ false, ImmutableList.of(parentKey));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(parentKey)).isEqualTo(new StringValue("All done!"));
   }
 
   /**

@@ -74,6 +74,20 @@ public abstract class DirtyBuildingState {
   private int signaledDeps = NOT_EVALUATING_SENTINEL;
 
   /**
+   * The number of external dependencies (in contrast to the number of internal dependencies which
+   * are tracked in NodeEntry. We never keep information about external dependencies across Skyframe
+   * calls.
+   */
+  // We do not strictly require a counter here; all external deps from one SkyFunction evaluation
+  // pass are registered as a single logical dependency, and the SkyFunction is only re-evaluated if
+  // all of them complete. Therefore, we only need a single bit to track this fact. If the mere
+  // existence of this field turns out to be a significant memory burden, we could change the
+  // implementation by moving to a single-bit approach, and then store that bit as part of the
+  // dirtyState field, e.g., by adding a REBUILDING_WAITING_FOR_EXTERNAL_DEPS enum value, as this
+  // can only happen during evaluation.
+  private int externalDeps;
+
+  /**
    * The dependencies requested (with group markers) last time the node was built (and below, the
    * value last time the node was built). They will be compared to dependencies requested on this
    * build to check whether this node has changed in {@link NodeEntry#setValue}. If they are null,
@@ -133,7 +147,7 @@ public abstract class DirtyBuildingState {
   }
 
   final void forceRebuild(int numTemporaryDirectDeps) {
-    Preconditions.checkState(numTemporaryDirectDeps == signaledDeps, this);
+    Preconditions.checkState(numTemporaryDirectDeps + externalDeps == signaledDeps, this);
     Preconditions.checkState(
         (dirtyState == DirtyState.CHECK_DEPENDENCIES
                 && getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex)
@@ -165,6 +179,11 @@ public abstract class DirtyBuildingState {
   final void signalDep() {
     Preconditions.checkState(isEvaluating());
     signaledDeps++;
+  }
+
+  final void addExternalDep() {
+    Preconditions.checkState(isEvaluating());
+    externalDeps++;
   }
 
   /**
@@ -293,14 +312,20 @@ public abstract class DirtyBuildingState {
 
   /** Returns whether all known children of this node have signaled that they are done. */
   boolean isReady(int numDirectDeps) {
-    Preconditions.checkState(signaledDeps <= numDirectDeps, "%s %s", numDirectDeps, this);
-    return signaledDeps == numDirectDeps;
+    Preconditions.checkState(
+        signaledDeps <= numDirectDeps + externalDeps,
+        "%s %s %s",
+        numDirectDeps,
+        externalDeps,
+        this);
+    return signaledDeps == numDirectDeps + externalDeps;
   }
 
   protected MoreObjects.ToStringHelper getStringHelper() {
     return MoreObjects.toStringHelper(this)
         .add("dirtyState", dirtyState)
         .add("signaledDeps", signaledDeps)
+        .add("externalDeps", externalDeps)
         .add("dirtyDirectDepIndex", dirtyDirectDepIndex);
   }
 
