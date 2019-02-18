@@ -12,11 +12,9 @@ import java.util.Optional;
  */
 class NettyAuthHeaderRequest implements AuthHeaderRequest {
 
-  private final URI uri;
   private final HttpRequest request;
 
-  NettyAuthHeaderRequest(final URI uri, final HttpRequest request) {
-    this.uri = uri;
+  NettyAuthHeaderRequest(final HttpRequest request) {
     this.request = request;
   }
 
@@ -27,7 +25,7 @@ class NettyAuthHeaderRequest implements AuthHeaderRequest {
 
   @Override
   public URI uri() {
-    return this.uri;
+    return URI.create(this.request.uri());
   }
 
   public Optional<String> method() {

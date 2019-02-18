@@ -18,6 +18,7 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.runtime.AuthHeaderRequest;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.ChannelPromise;
@@ -75,6 +76,7 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     if (credentials == null || !credentials.hasRequestMetadata()) {
       return;
     }
+    final AuthHeaderRequest headerRequest = new NettyAuthHeaderRequest(request);
     Map<String, List<String>> authHeaders = credentials.getRequestMetadata(uri);
     if (authHeaders == null || authHeaders.isEmpty()) {
       return;

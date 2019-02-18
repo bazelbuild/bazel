@@ -39,6 +39,7 @@ public final class Bazel {
       ImmutableList.of(
           BazelStartupOptionsModule.class,
           com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
+          com.google.devtools.build.lib.authentication.aws.AwsAuthModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
