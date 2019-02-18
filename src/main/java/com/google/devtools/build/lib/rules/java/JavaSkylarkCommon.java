@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -137,7 +137,7 @@ public class JavaSkylarkCommon
       Object targetLabel,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .buildIjar(
@@ -156,7 +156,7 @@ public class JavaSkylarkCommon
       Label targetLabel,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .stampJar(actions, jar, targetLabel, javaToolchain, semantics, location);
@@ -171,7 +171,7 @@ public class JavaSkylarkCommon
       Object javaToolchain,
       Object hostJavabase,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .packSourceFiles(
@@ -194,9 +194,9 @@ public class JavaSkylarkCommon
       Object javaToolchainAttr,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics skylarkSemantics)
+      StarlarkSemantics starlarkSemantics)
       throws EvalException {
-    if (skylarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()) {
+    if (starlarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()) {
       // TODO(b/122738702): remove support for passing toolchains as configured targets
       if (javaToolchain == Runtime.NONE
           || skylarkRuleContext != Runtime.NONE
@@ -221,7 +221,7 @@ public class JavaSkylarkCommon
                   .getValue((String) javaToolchainAttr);
       JavaToolchainProvider toolchain =
           JavaInfoBuildHelper.getInstance()
-              .getJavaToolchainProvider(skylarkSemantics, location, javaToolchainConfigTarget);
+              .getJavaToolchainProvider(starlarkSemantics, location, javaToolchainConfigTarget);
       // This can also be called from Skylark rules that may or may not have an appropriate
       // javacopts attribute.
       RuleContext ruleContext = ((SkylarkRuleContext) skylarkRuleContext).getRuleContext();
@@ -279,7 +279,7 @@ public class JavaSkylarkCommon
    * --experimental_java_common_create_provider_enabled_packages} flag.
    */
   private static void checkCallPathInWhitelistedPackages(
-      SkylarkSemantics semantics, Location location, String callPath) throws EvalException {
+      StarlarkSemantics semantics, Location location, String callPath) throws EvalException {
     List<String> whitelistedPackagesList =
         semantics.experimentalJavaCommonCreateProviderEnabledPackages();
     if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {

@@ -21,7 +21,7 @@ import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.Map;
 import org.junit.Before;
@@ -48,7 +48,7 @@ public class SkylarkDocumentationFailuresTest extends SkylarkTestCase {
   }
 
   @Override
-  protected EvaluationTestCase createEvaluationTestCase(SkylarkSemantics semantics) {
+  protected EvaluationTestCase createEvaluationTestCase(StarlarkSemantics semantics) {
     return new EvaluationTestCase();
   }
 

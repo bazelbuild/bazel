@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
@@ -32,20 +32,20 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for the flow of flags from {@link SkylarkSemanticsOptions} to {@link SkylarkSemantics}, and
- * to and from {@code SkylarkSemantics}' serialized representation.
+ * Tests for the flow of flags from {@link SkylarkSemanticsOptions} to {@link StarlarkSemantics},
+ * and to and from {@code StarlarkSemantics}' serialized representation.
  *
  * <p>When adding a new option, it is trivial to make a transposition error or a copy/paste error.
  * These tests guard against such errors. The following possible bugs are considered:
  *
  * <ul>
- *   <li>If a new option is added to {@code SkylarkSemantics} but not to {@code
+ *   <li>If a new option is added to {@code StarlarkSemantics} but not to {@code
  *       SkylarkSemanticsOptions}, or vice versa, then the programmer will either be unable to
  *       implement its behavior, or unable to test it from the command line and add user
  *       documentation. We hope that the programmer notices this on their own.
  *   <li>If {@link SkylarkSemanticsOptions#toSkylarkSemantics} is not updated to set all fields of
- *       {@code SkylarkSemantics}, then it will fail immediately because all fields of {@link
- *       SkylarkSemantics.Builder} are mandatory.
+ *       {@code StarlarkSemantics}, then it will fail immediately because all fields of {@link
+ *       StarlarkSemantics.Builder} are mandatory.
  *   <li>To catch a copy/paste error where the wrong field's data is threaded through {@code
  *       toSkylarkSemantics()} or {@code deserialize(...)}, we repeatedly generate matching random
  *       instances of the input and expected output objects.
@@ -62,34 +62,34 @@ public class SkylarkSemanticsConsistencyTest {
 
   /**
    * Checks that a randomly generated {@link SkylarkSemanticsOptions} object can be converted to a
-   * {@link SkylarkSemantics} object with the same field values.
+   * {@link StarlarkSemantics} object with the same field values.
    */
   @Test
   public void optionsToSemantics() throws Exception {
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       long seed = i;
       SkylarkSemanticsOptions options = buildRandomOptions(new Random(seed));
-      SkylarkSemantics semantics = buildRandomSemantics(new Random(seed));
-      SkylarkSemantics semanticsFromOptions = options.toSkylarkSemantics();
+      StarlarkSemantics semantics = buildRandomSemantics(new Random(seed));
+      StarlarkSemantics semanticsFromOptions = options.toSkylarkSemantics();
       assertThat(semanticsFromOptions).isEqualTo(semantics);
     }
   }
 
   /**
-   * Checks that a randomly generated {@link SkylarkSemantics} object can be serialized and
+   * Checks that a randomly generated {@link StarlarkSemantics} object can be serialized and
    * deserialized to an equivalent object.
    */
   @Test
   public void serializationRoundTrip() throws Exception {
     DynamicCodec codec = new DynamicCodec(buildRandomSemantics(new Random(2)).getClass());
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
-      SkylarkSemantics semantics = buildRandomSemantics(new Random(i));
-      SkylarkSemantics deserialized =
-          (SkylarkSemantics)
-          TestUtils.fromBytes(
-              new DeserializationContext(ImmutableMap.of()),
-              codec,
-              TestUtils.toBytes(new SerializationContext(ImmutableMap.of()), codec, semantics));
+      StarlarkSemantics semantics = buildRandomSemantics(new Random(i));
+      StarlarkSemantics deserialized =
+          (StarlarkSemantics)
+              TestUtils.fromBytes(
+                  new DeserializationContext(ImmutableMap.of()),
+                  codec,
+                  TestUtils.toBytes(new SerializationContext(ImmutableMap.of()), codec, semantics));
       assertThat(deserialized).isEqualTo(semantics);
     }
   }
@@ -97,16 +97,16 @@ public class SkylarkSemanticsConsistencyTest {
   @Test
   public void checkDefaultsMatch() {
     SkylarkSemanticsOptions defaultOptions = Options.getDefaults(SkylarkSemanticsOptions.class);
-    SkylarkSemantics defaultSemantics = SkylarkSemantics.DEFAULT_SEMANTICS;
-    SkylarkSemantics semanticsFromOptions = defaultOptions.toSkylarkSemantics();
+    StarlarkSemantics defaultSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+    StarlarkSemantics semanticsFromOptions = defaultOptions.toSkylarkSemantics();
     assertThat(semanticsFromOptions).isEqualTo(defaultSemantics);
   }
 
   @Test
   public void canGetBuilderFromInstance() {
-    SkylarkSemantics original = SkylarkSemantics.DEFAULT_SEMANTICS;
+    StarlarkSemantics original = StarlarkSemantics.DEFAULT_SEMANTICS;
     assertThat(original.internalSkylarkFlagTestCanary()).isFalse();
-    SkylarkSemantics modified = original.toBuilder().internalSkylarkFlagTestCanary(true).build();
+    StarlarkSemantics modified = original.toBuilder().internalSkylarkFlagTestCanary(true).build();
     assertThat(modified.internalSkylarkFlagTestCanary()).isTrue();
   }
 
@@ -164,11 +164,11 @@ public class SkylarkSemanticsConsistencyTest {
   }
 
   /**
-   * Constructs a {@link SkylarkSemantics} object with random fields. Must access {@code rand} using
-   * the same sequence of operations (for the same fields) as {@link #buildRandomOptions}.
+   * Constructs a {@link StarlarkSemantics} object with random fields. Must access {@code rand}
+   * using the same sequence of operations (for the same fields) as {@link #buildRandomOptions}.
    */
-  private static SkylarkSemantics buildRandomSemantics(Random rand) {
-    return SkylarkSemantics.builder()
+  private static StarlarkSemantics buildRandomSemantics(Random rand) {
+    return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
         .checkThirdPartyTargetsHaveLicenses(rand.nextBoolean())
         .experimentalBuildSettingApi(rand.nextBoolean())

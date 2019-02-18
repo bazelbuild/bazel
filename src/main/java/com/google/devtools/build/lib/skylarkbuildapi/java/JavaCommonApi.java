@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import javax.annotation.Nullable;
 
 /** Utilities for Java compilation support in Skylark. */
@@ -392,7 +392,7 @@ public interface JavaCommonApi<
       Object targetLabel,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -445,7 +445,7 @@ public interface JavaCommonApi<
       Label targetLabel,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -515,7 +515,7 @@ public interface JavaCommonApi<
       Object javaToolchain,
       Object hostJavabase,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -561,7 +561,7 @@ public interface JavaCommonApi<
       Object javaToolchainAttr,
       Object javaToolchain,
       Location loc,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(

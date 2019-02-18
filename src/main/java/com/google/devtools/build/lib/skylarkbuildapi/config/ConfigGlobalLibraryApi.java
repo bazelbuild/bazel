@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.List;
 
 /**
@@ -125,6 +125,6 @@ public interface ConfigGlobalLibraryApi {
       useLocation = true,
       useSkylarkSemantics = true)
   public ConfigurationTransitionApi analysisTestTransition(
-      SkylarkDict<String, String> changedSettings, Location location, SkylarkSemantics semantics)
+      SkylarkDict<String, String> changedSettings, Location location, StarlarkSemantics semantics)
       throws EvalException;
 }

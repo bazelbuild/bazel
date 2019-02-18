@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Root;
 
 /**
@@ -50,8 +50,8 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
 
   @Override
   public void onLoadingComplete(
-      Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeNanos) {
-    sanityCheckBazelPackageLoader(pkg, ruleClassProvider, skylarkSemantics);
+      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
+    sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }
 
   private static final Function<Target, Label> TARGET_TO_LABEL =
@@ -65,14 +65,14 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
   private void sanityCheckBazelPackageLoader(
       Package pkg,
       ConfiguredRuleClassProvider ruleClassProvider,
-      SkylarkSemantics skylarkSemantics) {
+      StarlarkSemantics starlarkSemantics) {
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
     PackageLoader packageLoader =
         BazelPackageLoader.builder(
-            Root.fromPath(directories.getWorkspace()),
-            directories.getInstallBase(),
-            directories.getOutputBase())
-            .setSkylarkSemantics(skylarkSemantics)
+                Root.fromPath(directories.getWorkspace()),
+                directories.getInstallBase(),
+                directories.getOutputBase())
+            .setSkylarkSemantics(starlarkSemantics)
             .setRuleClassProvider(ruleClassProvider)
             .build();
     Package newlyLoadedPkg;

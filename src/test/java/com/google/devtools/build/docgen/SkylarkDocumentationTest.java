@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.util.Classpath;
 import java.util.ArrayList;
@@ -65,7 +65,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   @Override
-  protected EvaluationTestCase createEvaluationTestCase(SkylarkSemantics semantics) {
+  protected EvaluationTestCase createEvaluationTestCase(StarlarkSemantics semantics) {
     return new EvaluationTestCase();
   }
 

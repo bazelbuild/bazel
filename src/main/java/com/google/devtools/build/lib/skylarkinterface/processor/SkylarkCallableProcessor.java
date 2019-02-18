@@ -18,7 +18,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -84,7 +84,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
   private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
   private static final String SKYLARK_SEMANTICS =
-      "com.google.devtools.build.lib.syntax.SkylarkSemantics";
+      "com.google.devtools.build.lib.syntax.StarlarkSemantics";
   private static final String STARLARK_CONTEXT =
       "com.google.devtools.build.lib.skylarkinterface.StarlarkContext";
 

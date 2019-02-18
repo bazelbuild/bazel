@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.List;
 
 /**
@@ -42,7 +42,7 @@ public class FakeConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
   @Override
   public ConfigurationTransitionApi analysisTestTransition(
-      SkylarkDict<String, String> changedSettings, Location location, SkylarkSemantics semantics) {
+      SkylarkDict<String, String> changedSettings, Location location, StarlarkSemantics semantics) {
     return new FakeConfigurationTransition();
   }
 }

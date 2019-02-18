@@ -20,7 +20,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
 public class ObjcProviderTest {
 
   private static ObjcProvider.Builder objcProviderBuilder() {
-    return new ObjcProvider.Builder(SkylarkSemantics.DEFAULT_SEMANTICS);
+    return new ObjcProvider.Builder(StarlarkSemantics.DEFAULT_SEMANTICS);
   }
 
   @Test

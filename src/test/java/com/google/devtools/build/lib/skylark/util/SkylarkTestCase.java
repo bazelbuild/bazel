@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -52,7 +52,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
 
   @Before
   public final void setUpEvaluator() throws Exception {
-    ev = createEvaluationTestCase(SkylarkSemantics.DEFAULT_SEMANTICS);
+    ev = createEvaluationTestCase(StarlarkSemantics.DEFAULT_SEMANTICS);
     ev.initialize();
   }
 
@@ -65,7 +65,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     return GlobalFrame.createForBuiltins(envBuilder.build());
   }
 
-  protected EvaluationTestCase createEvaluationTestCase(SkylarkSemantics semantics) {
+  protected EvaluationTestCase createEvaluationTestCase(StarlarkSemantics semantics) {
     return new EvaluationTestCase() {
       @Override
       public Environment newEnvironment() throws Exception {
@@ -155,7 +155,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     return eval("def impl(ctx): return None\n" + Joiner.on("\n").join(lines));
   }
 
-  protected Object evalRuleClassCode(SkylarkSemantics semantics, String... lines) throws Exception {
+  protected Object evalRuleClassCode(StarlarkSemantics semantics, String... lines)
+      throws Exception {
     ev = createEvaluationTestCase(semantics);
     ev.initialize();
     return eval("def impl(ctx): return None\n" + Joiner.on("\n").join(lines));

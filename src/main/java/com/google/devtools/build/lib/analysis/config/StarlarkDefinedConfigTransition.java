@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -106,7 +106,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       BaseFunction impl,
       List<String> inputs,
       List<String> outputs,
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       StarlarkContext context) {
     return new RegularTransition(impl, inputs, outputs, semantics, context);
   }
@@ -162,14 +162,14 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
   private static class RegularTransition extends StarlarkDefinedConfigTransition {
     private final BaseFunction impl;
-    private final SkylarkSemantics semantics;
+    private final StarlarkSemantics semantics;
     private final StarlarkContext starlarkContext;
 
     public RegularTransition(
         BaseFunction impl,
         List<String> inputs,
         List<String> outputs,
-        SkylarkSemantics semantics,
+        StarlarkSemantics semantics,
         StarlarkContext context) {
       super(inputs, outputs, impl.getLocation());
       this.impl = impl;

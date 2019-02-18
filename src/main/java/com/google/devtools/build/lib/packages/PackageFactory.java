@@ -57,10 +57,10 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -1240,7 +1240,7 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       Globber globber)
       throws InterruptedException {
     StoredEventHandler localReporterForParsing = new StoredEventHandler();
@@ -1264,7 +1264,7 @@ public final class PackageFactory {
         imports,
         skylarkFileDependencies,
         defaultVisibility,
-        skylarkSemantics,
+        starlarkSemantics,
         globber);
   }
 
@@ -1291,7 +1291,7 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       Globber globber)
       throws InterruptedException {
     try {
@@ -1306,7 +1306,7 @@ public final class PackageFactory {
           astParseResult.allEvents,
           astParseResult.allPosts,
           defaultVisibility,
-          skylarkSemantics,
+          starlarkSemantics,
           imports,
           skylarkFileDependencies,
           repositoryMapping);
@@ -1351,7 +1351,7 @@ public final class PackageFactory {
         buildFile,
         locator,
         eventHandler,
-        SkylarkSemantics.DEFAULT_SEMANTICS);
+        StarlarkSemantics.DEFAULT_SEMANTICS);
   }
 
   /**
@@ -1365,7 +1365,7 @@ public final class PackageFactory {
       RootedPath buildFile,
       CachingPackageLocator locator,
       ExtendedEventHandler eventHandler,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws NoSuchPackageException, InterruptedException {
     String error =
         LabelValidator.validatePackageName(packageId.getPackageFragment().getPathString());
@@ -1578,12 +1578,12 @@ public final class PackageFactory {
   }
 
   /**
-   * Called by a caller of {@link #createPackageFromAst} after this caller has fully
-   * loaded the package.
+   * Called by a caller of {@link #createPackageFromAst} after this caller has fully loaded the
+   * package.
    */
   public void afterDoneLoadingPackage(
-      Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeNanos) {
-    packageBuilderHelper.onLoadingComplete(pkg, skylarkSemantics, loadTimeNanos);
+      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
+    packageBuilderHelper.onLoadingComplete(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**
@@ -1611,7 +1611,7 @@ public final class PackageFactory {
       Iterable<Event> pastEvents,
       Iterable<Postable> pastPosts,
       RuleVisibility defaultVisibility,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
@@ -1629,7 +1629,7 @@ public final class PackageFactory {
       Environment pkgEnv =
           Environment.builder(mutability)
               .setGlobals(BazelLibrary.GLOBALS)
-              .setSemantics(skylarkSemantics)
+              .setSemantics(starlarkSemantics)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
               .setStarlarkContext(starlarkContext)

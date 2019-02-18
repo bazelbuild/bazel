@@ -61,9 +61,9 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
@@ -777,7 +777,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private Environment createSkylarkRuleClassEnvironment(
       Mutability mutability,
       GlobalFrame globals,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap,
@@ -792,7 +792,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     Environment env =
         Environment.builder(mutability)
             .setGlobals(globals)
-            .setSemantics(skylarkSemantics)
+            .setSemantics(starlarkSemantics)
             .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)
             .setStarlarkContext(context)
@@ -806,7 +806,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public Environment createSkylarkRuleClassEnvironment(
       Label extensionLabel,
       Mutability mutability,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap,
@@ -814,7 +814,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return createSkylarkRuleClassEnvironment(
         mutability,
         globals.withLabel(extensionLabel),
-        skylarkSemantics,
+        starlarkSemantics,
         eventHandler,
         astFileContentHashCode,
         importMap,
