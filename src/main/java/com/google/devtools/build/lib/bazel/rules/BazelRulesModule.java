@@ -41,6 +41,19 @@ public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
     @Option(
+        name = "incompatible_disable_expand_if_all_available_in_flag_set",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableExpandIfAllAvailableInFlagSet;
+
+    @Option(
         name = "incompatible_dont_emit_static_libgcc",
         oldName = "experimental_dont_emit_static_libgcc",
         defaultValue = "true",

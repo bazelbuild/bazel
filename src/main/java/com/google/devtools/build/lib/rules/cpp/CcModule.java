@@ -1295,8 +1295,7 @@ public class CcModule
       withFeatureSetBuilder.add(withFeatureSetFromSkylark(withFeatureSetStruct));
     }
 
-    return new FlagSet(
-        actions, ImmutableSet.of(), withFeatureSetBuilder.build(), flagGroupsBuilder.build());
+    return new FlagSet(actions, withFeatureSetBuilder.build(), flagGroupsBuilder.build());
   }
 
   /**
