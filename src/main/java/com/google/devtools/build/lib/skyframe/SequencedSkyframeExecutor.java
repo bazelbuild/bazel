@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -296,7 +296,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExtendedEventHandler eventHandler,
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator packageLocator,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -312,7 +312,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         eventHandler,
         packageCacheOptions,
         packageLocator,
-        skylarkSemanticsOptions,
+        starlarkSemanticsOptions,
         commandId,
         clientEnv,
         tsgm,

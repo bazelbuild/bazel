@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -135,7 +135,7 @@ public class AbstractCommandTest {
     result.add(BlazeCommandEventHandler.Options.class);
     result.add(CommonCommandOptions.class);
     result.add(ClientOptions.class);
-    result.add(SkylarkSemanticsOptions.class);
+    result.add(StarlarkSemanticsOptions.class);
     return result;
   }
 }

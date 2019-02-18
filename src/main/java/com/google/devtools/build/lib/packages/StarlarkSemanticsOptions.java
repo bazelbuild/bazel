@@ -25,11 +25,11 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * Contains options that affect Skylark's semantics.
+ * Contains options that affect Starlark's semantics.
  *
  * <p>These are injected into Skyframe (as an instance of {@link StarlarkSemantics}) when a new
  * build invocation occurs. Changing these options between builds will therefore trigger a
- * reevaluation of everything that depends on the Skylark interpreter &mdash; in particular,
+ * reevaluation of everything that depends on the Starlark interpreter &mdash; in particular,
  * evaluation of all BUILD and .bzl files.
  *
  * <p><em>To add a new option, update the following:</em>
@@ -56,7 +56,7 @@ import java.util.List;
  * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
  * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
-public class SkylarkSemanticsOptions extends OptionsBase implements Serializable {
+public class StarlarkSemanticsOptions extends OptionsBase implements Serializable {
 
   // <== Add new options here in alphabetic order ==>
 
@@ -112,7 +112,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
               + "is enabled by default.")
   public boolean experimentalEnableRepoMapping;
 
-  // This flag is declared in SkylarkSemanticsOptions instead of JavaOptions because there is no
+  // This flag is declared in StarlarkSemanticsOptions instead of JavaOptions because there is no
   // way to retrieve the java configuration from the Java implementation of
   // java_common.create_provider.
   @Option(

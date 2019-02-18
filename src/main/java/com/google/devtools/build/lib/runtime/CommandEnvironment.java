@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -575,7 +575,7 @@ public final class CommandEnvironment {
             reporter,
             options.getOptions(PackageCacheOptions.class),
             packageLocator,
-            options.getOptions(SkylarkSemanticsOptions.class),
+            options.getOptions(StarlarkSemanticsOptions.class),
             getCommandId(),
             clientEnv,
             timestampGranularityMonitor,
@@ -583,13 +583,13 @@ public final class CommandEnvironment {
   }
 
   public void syncPackageLoading(
-      PackageCacheOptions packageCacheOptions, SkylarkSemanticsOptions skylarkSemanticsOptions)
+      PackageCacheOptions packageCacheOptions, StarlarkSemanticsOptions starlarkSemanticsOptions)
       throws AbruptExitException {
     getSkyframeExecutor()
         .syncPackageLoading(
             packageCacheOptions,
             packageLocator,
-            skylarkSemanticsOptions,
+            starlarkSemanticsOptions,
             getCommandId(),
             clientEnv,
             timestampGranularityMonitor);

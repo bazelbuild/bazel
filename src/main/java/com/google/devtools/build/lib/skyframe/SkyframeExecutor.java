@@ -110,7 +110,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -1296,7 +1296,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void preparePackageLoading(
       PathPackageLocator pkgLocator,
       PackageCacheOptions packageCacheOptions,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm) {
@@ -1309,7 +1309,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.clientEnv.set(clientEnv);
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
-    setSkylarkSemantics(skylarkSemanticsOptions.toSkylarkSemantics());
+    setSkylarkSemantics(starlarkSemanticsOptions.toSkylarkSemantics());
     setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
@@ -2398,7 +2398,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -2408,7 +2408,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,
-        skylarkSemanticsOptions,
+        starlarkSemanticsOptions,
         commandId,
         clientEnv,
         tsgm);
@@ -2421,7 +2421,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm)
@@ -2430,7 +2430,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       preparePackageLoading(
           pathPackageLocator,
           packageCacheOptions,
-          skylarkSemanticsOptions,
+          starlarkSemanticsOptions,
           commandId,
           clientEnv,
           tsgm);

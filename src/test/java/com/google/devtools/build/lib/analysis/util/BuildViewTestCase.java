@@ -123,7 +123,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -202,7 +202,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
-  private SkylarkSemanticsOptions skylarkSemanticsOptions;
+  private StarlarkSemanticsOptions starlarkSemanticsOptions;
   protected PackageFactory pkgFactory;
 
   protected MockToolsConfig mockToolsConfig;
@@ -243,7 +243,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     initializeMockClient();
 
     packageCacheOptions = parsePackageCacheOptions();
-    skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
+    starlarkSemanticsOptions = parseSkylarkSemanticsOptions();
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
@@ -297,7 +297,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
-        skylarkSemanticsOptions,
+        starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -334,7 +334,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected StarlarkSemantics getSkylarkSemantics() {
-    return skylarkSemanticsOptions.toSkylarkSemantics();
+    return starlarkSemanticsOptions.toSkylarkSemantics();
   }
 
   protected ResourceSet getStartingResources() {
@@ -414,7 +414,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
-        skylarkSemanticsOptions,
+        starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -439,7 +439,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected void setSkylarkSemanticsOptions(String... options) throws Exception {
-    skylarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+    starlarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
     setUpSkyframe();
   }
 
@@ -450,11 +450,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageCacheOptions.class);
   }
 
-  private static SkylarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+  private static StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
       throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
     parser.parse(options);
-    return parser.getOptions(SkylarkSemanticsOptions.class);
+    return parser.getOptions(StarlarkSemanticsOptions.class);
   }
 
   /** Used by skyframe-only tests. */
