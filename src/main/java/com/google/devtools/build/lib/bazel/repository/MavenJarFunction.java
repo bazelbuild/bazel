@@ -108,7 +108,7 @@ public class MavenJarFunction extends RepositoryFunction {
       throws RepositoryFunctionException, InterruptedException {
 
     // Deprecation in favor of the Starlark rule
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
     }

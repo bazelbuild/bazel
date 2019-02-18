@@ -103,7 +103,7 @@ public class ASTFileLookupFunction implements SkyFunction {
     if (!fileValue.isFile()) {
       return ASTFileLookupValue.forBadFile(fileLabel);
     }
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
     }

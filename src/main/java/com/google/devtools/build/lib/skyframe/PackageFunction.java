@@ -287,7 +287,7 @@ public class PackageFunction implements SkyFunction {
    */
   private SkyValue getExternalPackage(Environment env, Root packageLookupPath)
       throws PackageFunctionException, InterruptedException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
     }
@@ -402,7 +402,7 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
     }
