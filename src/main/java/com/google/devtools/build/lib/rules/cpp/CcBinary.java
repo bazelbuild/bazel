@@ -332,6 +332,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             .addCcCompilationContexts(CppHelper.getCompilationContextsFromDeps(deps))
             .addCcCompilationContexts(
                 ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
+            .addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
             .setFake(fake);

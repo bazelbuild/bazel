@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /**
  * Null-object like {@link CppSemantics} implementation. Only to be used in tests that don't depend
@@ -40,6 +43,11 @@ public final class MockCppSemantics implements CppSemantics {
       BuildConfiguration configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder) {}
+
+  @Override
+  public List<PathFragment> getQuoteIncludes(RuleContext ruleContext) {
+    return ImmutableList.of();
+  }
 
   @Override
   public NestedSet<Artifact> getAdditionalPrunableIncludes() {
