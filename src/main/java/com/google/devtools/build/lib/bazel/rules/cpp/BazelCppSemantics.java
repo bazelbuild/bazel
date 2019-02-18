@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -27,6 +28,8 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingM
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.NoProcessing;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /** C++ compilation semantics. */
 public class BazelCppSemantics implements AspectLegalCppSemantics {
@@ -48,6 +51,11 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
         // including header files, as opposed to just the "compile" filegroup.
         .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFiles())
         .setShouldScanIncludes(false);
+  }
+
+  @Override
+  public List<PathFragment> getQuoteIncludes(RuleContext ruleContext) {
+    return ImmutableList.of();
   }
 
   @Override

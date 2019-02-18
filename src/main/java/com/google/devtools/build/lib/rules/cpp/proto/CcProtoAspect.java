@@ -308,7 +308,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   toolchain.getFdoContext())
               .addCcCompilationContexts(CppHelper.getCompilationContextsFromDeps(deps))
               .addCcCompilationContexts(
-                  ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)));
+                  ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
+              .addQuoteIncludeDirs(cppSemantics.getQuoteIncludes(ruleContext));
       // Don't instrument the generated C++ files even when --collect_code_coverage is set.
       helper.setCodeCoverageEnabled(false);
       return helper;

@@ -343,8 +343,7 @@ public class CompilationSupport {
             .setPropagateModuleMapToCompileAction(false)
             .addVariableExtension(extension)
             .setPurpose(purpose)
-            .addQuoteIncludeDirs(
-                ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()))
+            .addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
 
     if (pchHdr != null) {
@@ -455,8 +454,7 @@ public class CompilationSupport {
             nonObjcArcCompilationInfo.getCcCompilationContext()));
     ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
-    ccCompilationContextBuilder.addQuoteIncludeDirs(
-        ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()));
+    ccCompilationContextBuilder.addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext));
 
     CcCompilationOutputs precompiledFilesObjects =
         new CcCompilationOutputs.Builder()
