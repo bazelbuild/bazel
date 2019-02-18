@@ -548,10 +548,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableLegacyCrosstoolFields;
   }
 
-  public boolean disableExpandIfAllAvailableInFlagSet() {
-    return cppOptions.disableExpandIfAllAvailableInFlagSet;
-  }
-
   public static String getLegacyCrosstoolFieldErrorMessage(String field) {
     Preconditions.checkNotNull(field);
     return field

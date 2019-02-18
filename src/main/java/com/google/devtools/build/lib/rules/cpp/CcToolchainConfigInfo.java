@@ -184,8 +184,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       throws EvalException {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean disableLegacyCrosstoolFields = cppConfiguration.disableLegacyCrosstoolFields();
-    boolean disableExpandIfAllAvailableInFlagSet =
-        cppConfiguration.disableExpandIfAllAvailableInFlagSet();
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (CToolchain.ActionConfig actionConfig : toolchain.getActionConfigList()) {
       actionConfigBuilder.add(new ActionConfig(actionConfig));
@@ -312,26 +310,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       if (toolchain.getUnfilteredCxxFlagCount() != 0) {
         ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("unfiltered_cxx_flag"));
       }
-    }
-
-    if (disableExpandIfAllAvailableInFlagSet) {
-      toolchain
-          .getFeatureList()
-          .forEach(
-              (f) -> {
-                if (f.getFlagSetList().stream()
-                    .anyMatch((s) -> s.getExpandIfAllAvailableCount() != 0)) {
-                  ruleContext.ruleError(
-                      String.format(
-                          "Feature '%s' defines a flag_set with expand_if_all_available set. "
-                              + "This is disabled by "
-                              + "--incompatible_disable_expand_if_all_available_in_flag_set, "
-                              + "please migrate your CROSSTOOL (see "
-                              + "https://github.com/bazelbuild/bazel/issues/7008 "
-                              + "for migration instructions).",
-                          f.getName()));
-                }
-              });
     }
 
     for (CompilationModeFlags flag : toolchain.getCompilationModeFlagsList()) {
@@ -827,8 +805,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
             .addAllWithFeature(
                 flagSet.getWithFeatureSets().stream()
                     .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
-                    .collect(ImmutableList.toImmutableList()))
-            .addAllExpandIfAllAvailable(flagSet.getExpandIfAllAvailable());
+                    .collect(ImmutableList.toImmutableList()));
     if (!forActionConfig) {
       flagSetBuilder.addAllAction(flagSet.getActions());
     }

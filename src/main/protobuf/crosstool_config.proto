@@ -16,10 +16,10 @@
 
 syntax = "proto2";
 
+package com.google.devtools.build.lib.view.config.crosstool;
+
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.view.config.crosstool";
-
-package com.google.devtools.build.lib.view.config.crosstool;
 
 // A description of a toolchain, which includes all the tools generally expected
 // to be available for building C/C++ targets, based on the GNU C compiler.
@@ -148,17 +148,7 @@ message CToolchain {
     // unconditionally for every action specified.
     repeated WithFeatureSet with_feature = 3;
 
-    // Deprecated (https://github.com/bazelbuild/bazel/issues/7008) - use
-    // expand_if_all_available in flag_group
-    //
-    // A list of build variables that this feature set needs, but which are
-    // allowed to not be set. If any of the build variables listed is not
-    // set, the feature set will not be expanded.
-    //
-    // NOTE: Consider alternatives before using this; usually tools should
-    // consistently create the same set of files, even if empty; use this
-    // only for backwards compatibility with already existing behavior in tools
-    // that are currently not worth changing.
+    // Legacy field, ignored by Bazel.
     repeated string expand_if_all_available = 4;
   }
 
