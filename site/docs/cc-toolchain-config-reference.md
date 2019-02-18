@@ -1,33 +1,33 @@
 ---
 layout: documentation
-title: Understanding CROSSTOOL
+title: C++ toolchain configuration
 ---
 
-# Understanding CROSSTOOL
+# C++ toolchain configuration
 
 * ToC
 {:toc}
 
 
-To get hands-on with `CROSSTOOL`, see the
-[Configuring `CROSSTOOL`](tutorial/crosstool.html) tutorial.
-
 ## Overview
 
-`CROSSTOOL` is a text file containing a
-[protocol buffer](https://developers.google.com/protocol-buffers/docs/overview)
-that provides the necessary level of granularity for configuring the behavior of
-Bazel's C++ rules. By default, Bazel automatically configures `CROSSTOOL` for
-your build, but you have the option to configure it manually. You reference the
-`CROSSTOOL` file in your `BUILD` file(s) using a `cc_toolchain` target and check
-it into source control alongside your project. You can share a single
-`CROSSTOOL` file across multiple projects or create separate per-project files.
+[`CcToolchainConfigInfo`](skylark/lib/CcToolchainConfigInfo.html) is a provider that provides the necessary level of
+granularity for configuring the behavior of Bazel's C++ rules. By default,
+Bazel automatically configures `CcToolchainConfigInfo` for your build, but you
+have the option to configure it manually. For that, you need a Starlark rule
+that provides the `CcToolchainConfigInfo` and you need to point the
+[`toolchain_config`](be/c-cpp.html#cc_toolchain.toolchain_config) attribute of the `cc_toolchain` to your rule.
+You can create the `CcToolchainConfigInfo` by calling
+[`cc_common.create_cc_toolchain_config_info()`](skylark/lib/cc_common.html#create_cc_toolchain_config_info).
+You can find Starlark constructors for all structs you'll need in the process in
+[`@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl`](https://source.bazel.build/bazel/+/1d205e14e4c069e9199ab71b127c6a6e26a9443b:tools/cpp/cc_toolchain_config_lib.bzl).
+
 
 When a C++ target enters the analysis phase, Bazel selects the appropriate
-`cc_toolchain` target based on the BUILD file, then reads the corresponding
-toolchain definition from the `CROSSTOOL` file.  The `cc_toolchain` target
-passes information from the `CROSSTOOL` proto to the C++ target through a
-`CcToolchainProvider`.
+`cc_toolchain` target based on the BUILD file, and obtains the
+`CcToolchainConfigInfo` provider from the target specified in the
+`cc_toolchain.toolchain_config` attribute.  The `cc_toolchain` target
+passes this information to the C++ target through a `CcToolchainProvider`.
 
 For example, a compile or link action, instantiated by a rule such as
 `cc_binary` or `cc_library`, needs the following information:
@@ -39,34 +39,11 @@ For example, a compile or link action, instantiated by a rule such as
 *   Artifacts needed in the sandbox in which the action executes
 
 All of the above information except the artifacts required in the sandbox is
-specified in the `CROSSTOOL` proto.
+specified in the Starlark target that the `cc_toolchain` points to.
 
 The artifacts to be shipped to the sandbox are declared in the `cc_toolchain`
 target. For example, with the `cc_toolchain.linker_files` attribute you can
 specify the linker binary and toolchain libraries to ship into the sandbox.
-
-## `CROSSTOOL` proto structure
-
-The `CROSSTOOL` proto has the following structure:
-
-*   Map from `--cpu` to toolchain (to be used when `--compiler` is not specified
-    or when `cc_toolchain_suite.toolchains` omits the `cpu` entry)
-
-*   Toolchain for a particular `--cpu` and `--compiler` combination (1)
-    *   Static toolchain:
-        *   `compiler_flags`
-        *   `linker_flags`
-        *   `compilation_mode_flags`
-        *   `linking_mode_flags`
-    *   Dynamic toolchain:
-        *   `features`
-
-*   Toolchain for a particular  `--cpu` and `--compiler` combination (2)
-
-*   Toolchain for a particular  `--cpu` and `--compiler` combination (3)
-
-*   ...
-
 
 ## Toolchain selection
 
@@ -75,14 +52,12 @@ The toolchain selection logic operates as follows:
 1.  User specifies a `cc_toolchain_suite` target in the `BUILD` file and points
     Bazel to the target using the
     [`--crosstool_top` option](user-manual.html#flag--crosstool_top).
-    The `CROSSTOOL` file must reside in the same directory as the
-    `BUILD` file containing the `cc_toolchain_suite` target.
 
-2.  The `cc_toolchain_suite` target and the `CROSSTOOL`
-    file reference multiple toolchains. The values of the `--cpu` and
-    `--compiler `flags determine which of those toolchains is selected,
-    either based only on the `--cpu` flag value, or based on a joint
-    `--cpu | --compiler` value. The selection process is as follows:
+2.  The `cc_toolchain_suite` target references multiple toolchains. The
+    values of the `--cpu` and `--compiler` flags determine which of those
+    toolchains is selected, either based only on the `--cpu` flag value, or
+    based on a joint `--cpu | --compiler` value. The selection process is as
+    follows:
 
   * If the `--compiler` option is specified, Bazel selects the
         corresponding entry from the `cc_toolchain_suite.toolchains`
@@ -93,28 +68,18 @@ The toolchain selection logic operates as follows:
     the corresponding entry from the `cc_toolchain_suite.toolchains`
     attribute with just `--cpu`.
 
-    However, if Bazel does not find a corresponding entry and the
-    `--incompatible_disable_cc_toolchain_label_from_crosstool_proto`
-    option is disabled, Bazel iterates through `default_toolchains`
-    in the `CROSSTOOL` file until it finds an entry where the
-    `default_toolchain.cpu` value matches the specified `--cpu`
-    option value. Bazel then reads the `toolchain_identifier`
-    value to identify the corresponding toolchain, and selects the appropriate
-    entry in the `cc_toolchain_suite.toolchains` attribute using
-    `toolchain.target_cpu | toolchain.compiler`.
-
   * If no flags are specified, Bazel inspects the host system and selects a
     `--cpu` value based on its findings. See the
     [inspection mechanism code](https://source.bazel.build/bazel/+/1b73bc37e184e71651eb631223dcce321ba16211:src/main/java/com/google/devtools/build/lib/analysis/config/AutoCpuConverter.java).
 
 Once a toolchain has been selected, corresponding `feature` and `action_config`
-messages in the `CROSSTOOL` file govern the configuration of the build (that is,
-items described earlier in this document). These messages allow the
+objects in the Starlark rule govern the configuration of the build (that is,
+items described later in this document). These messages allow the
 implementation of fully fledged C++ features in Bazel without modifying the
 Bazel binary. C++ rules support multiple unique actions documented in detail
 [in the Bazel source code](https://source.bazel.build/bazel/+/4f547a7ea86df80e4c76145ffdbb0c8b75ba3afa:tools/build_defs/cc/action_names.bzl).
 
-## `CROSSTOOL` features
+## Features
 
 A feature is an entity that requires command-line flags, actions,
 constraints on the execution environment, or dependency alterations. A feature
@@ -123,18 +88,18 @@ flags, such as `treat_warnings_as_errors`, or interact with the C++ rules and
 include new compile actions and inputs to the compilation, such as
 `header_modules` or `thin_lto`.
 
-Ideally, a toolchain definition consists of a set of features, where each
+Ideally, `CcToolchainConfigInfo` contains a list of features, where each
 feature consists of one or more flag groups, each defining a list of flags
 that apply to specific Bazel actions.
 
-A feature is specified by name, which allows full decoupling of the `CROSSTOOL`
-configuration from Bazel releases. In other words, a Bazel release does not
-affect the behavior of `CROSSTOOL` configurations as long as those
+A feature is specified by name, which allows full decoupling of the Starlark
+rule configuration from Bazel releases. In other words, a Bazel release does not
+affect the behavior of `CcToolchainConfigInfo` configurations as long as those
 configurations do not require the use of new features.
 
 A feature is enabled in one of the following ways:
 
-*  The feature's `enabled` field in the `CROSSTOOL` file is set to `true`.
+*  The feature's `enabled` field is set to `true`.
 *  Bazel or the rule owner explicitly enable it.
 *  The user enables it through the `--feature` Bazel option or `features` rule
    attribute.
@@ -147,7 +112,7 @@ settings, and other variables.
 Dependencies are typically managed directly with Bazel, which simply enforces
 the requirements and manages conflicts intrinsic to the nature of the features
 defined in the build. The toolchain specification allows for more granular
-constraints for use directly within the `CROSSTOOL` file that govern feature
+constraints for use directly within the Starlark rule that govern feature
 support and expansion. These are:
 
 <table>
@@ -160,77 +125,82 @@ support and expansion. These are:
    </td>
   </tr>
   <tr>
-   <td><pre>requires {
-    feature: 'feature-name-1'
-    feature: 'feature-name-2'
-}</pre>
+   <td><pre>requires = [
+   feature_set (features = [
+       'feature-name-1',
+       'feature-name-2'
+   ]),
+]</pre>
    </td>
    <td>Feature-level. The feature is supported only if the specified required
        features are enabled. For example, when a feature is only supported in
-       certain build modes (features <code>opt</code>, <code>dbg</code>, or
-       <code>fastbuild</code>). Multiple `requires` statements are
-       satisfied all at once if any one of them is satisfied.
+       certain build modes (<code>opt</code>, <code>dbg</code>, or
+       <code>fastbuild</code>). If `requires` contains multiple `feature_set`s
+       the feature is supported if any of the `feature_set`s is satisfied
+       (when all specified features are enabled).
    </td>
   </tr>
   <tr>
-   <td><code>implies: 'feature'</code>
+   <td><code>implies = ['feature']</code>
    </td>
-   <td><p>Feature-level. This feature implies the specified feature. For example, a
-       module compile implies the need for module maps, which can be implemented
-       by a repeated <code>implies</code> string in the feature where each of
-       the strings names a specific feature. Enabling a feature also implicitly
-       enables all features implied by it (that is, it functions recursively).</p>
+   <td><p>Feature-level. This feature implies the specified feature(s).
+       Enabling a feature also implicitly enables all features implied by it
+       (that is, it functions recursively).</p>
        <p>Also provides the ability to factor common subsets of functionality out of
        a set of features, such as the common parts of sanitizers. Implied
        features cannot be disabled.</p>
    </td>
   </tr>
   <tr>
-   <td><code>provides: 'feature'</code>
+   <td><code>provides = ['feature']</code>
    </td>
    <td><p>Feature-level. Indicates that this feature is one of several mutually
        exclusive alternate features. For example, all of the sanitizers could
-       specify <code>provides: "sanitizer"</code>.</p>
+       specify <code>provides = ["sanitizer"]</code>.</p>
        <p>This improves error handling by listing the alternatives if the user asks
        for two or more mutually exclusive features at once.</p>
    </td>
   </tr>
   <tr>
-   <td><pre>with_feature {
-    feature: 'feature-name-1'
-    not_feature: 'feature-name-2'
-}</pre>
+   <td><pre>with_features = [
+  with_feature_set(
+    features = ['feature-1'],
+    not_features = ['feature-2'],
+  ),
+]</pre>
    </td>
-   <td>Flag set-level. A feature can specify multiple flag sets with multiple
-     <code>with_feature</code> statements. When <code>with_feature</code> is
-     specified, the flag set will only expand to the build command if all of the
-     feature in the specified <code>feature:</code> set are enabled, and all the
-     features specified in <code>not_feature:</code> set are disabled.
+   <td>Flag set-level. A feature can specify multiple flag sets with multiple.
+     When <code>with_features</code> is specified, the flag set will only expand
+     to the build command if there is at least one <code>with_feature_set</code>
+     for which all of the features in the specified <code>features</code> set
+     are enabled, and all the features specified in <code>not_features</code>
+     set are disabled.
+     If <code>with_features</code> is not specified, the flag set will be
+     applied unconditionally for every action specified.
    </td>
   </tr>
 </table>
 
-## `CROSSTOOL` actions
+## Actions
 
-`CROSSTOOL` actions provide the flexibility to modify the circumstances under
+Actions provide the flexibility to modify the circumstances under
 which an action executes without assuming how the action will be run. An
 `action_config` specifies the tool binary that an action invokes, while a
 `feature` specifies the configuration (flags) that determine how that tool
 behaves when the action is invoked.
 
-[Features](#crosstool-features) reference `CROSSTOOL` actions to signal which
-Bazel actions they affect since `CROSSTOOL` actions can modify the Bazel action
-graph. The `CROSSTOOL` file includes actions that have flags and tools
+[Features](#features) reference actions to signal which Bazel actions
+they affect since actions can modify the Bazel action graph. The
+`CcToolchainConfigInfo` provider contains actions that have flags and tools
 associated with them, such as `c++-compile`. Flags are assigned to each action
 by associating them with a feature.
 
-Each `CROSSTOOL` action name represents a single type of action performed by
-Bazel, such as compiling or linking. There is, however, a many-to-one
-relationship between `CROSSTOOL` actions and Bazel action types, where a Bazel
-action type refers to a Java class that implements an action (such as
-`CppCompileAction`). In particular, the "assembler actions" and "compiler
-actions" in the table below are `CppCompileAction`, while the link actions are
-`CppLinkAction`.
+Each action name represents a single type of action performed by Bazel, such as
+compiling or linking. There is, however, a many-to-one relationship between
+actions and Bazel action types, where a Bazel action type refers to a Java class
+that implements an action (such as `CppCompileAction`). In particular, the
+"assembler actions" and "compiler actions" in the table below are
+`CppCompileAction`, while the link actions are `CppLinkAction`.
 
 ### Assembler actions
 
@@ -374,12 +344,12 @@ and encode some semantics into the name.
   </tr>
 </table>
 
-## `CROSSTOOL` `action_config`
+## Action config
 
-A `CROSSTOOL` `action_config` is a proto message that describes a Bazel action
+A `action_config` is a Starlark struct that describes a Bazel action
 by specifying the tool (binary) to invoke during the action and sets of flags,
-defined by features, that apply constraints to the action's execution. A
-`CROSSTOOL` action takes the following attributes:
+defined by features, that apply constraints to the action's execution. The
+`action_config()` constructor has the following parameters:
 
 <table>
   <col width="300">
@@ -393,34 +363,36 @@ defined by features, that apply constraints to the action's execution. A
   <tr>
    <td><code>action_name</code>
    </td>
-    <td>The Bazel action to which this <code>CROSSTOOL</code> action corresponds.
+    <td>The Bazel action to which this action corresponds.
         Bazel uses this attribute to discover per-action tool and execution
         requirements.
    </td>
   </tr>
   <tr>
-   <td><code>tool</code>
+   <td><code>tools</code>
    </td>
-   <td>The executable to invoke. This can depend on a feature. A default must be
-       provided.
-   </td>
-  </tr>
-  <tr>
-   <td><code>flag_set</code>
-   </td>
-   <td>A set of flags that applies to a group of actions. Same as for a feature.
+   <td>The executable to invoke. The tool applied to the action will be the
+       first tool in the list with a feature set that matches the feature
+       configuration. Default value must be provided.
    </td>
   </tr>
   <tr>
-   <td><code>env_set</code>
+   <td><code>flag_sets</code>
    </td>
-   <td>A set of environment constraints that applies to a group of actions. Same
-       as for a feature.
+   <td>A list of flags that applies to a group of actions. Same as for a
+       feature.
+   </td>
+  </tr>
+  <tr>
+   <td><code>env_sets</code>
+   </td>
+   <td>A list of environment constraints that applies to a group of actions.
+       Same as for a feature.
    </td>
   </tr>
 </table>
 
-A `CROSSTOOL` `action_config` can require and imply other features and
+An `action_config` can require and imply other features and
 <code>action_config</code>s as dictated by the
 [feature relationships](#feature-relationships) described earlier. This behavior
 is similar to that of a feature.
@@ -431,15 +403,15 @@ environment variables and we want to avoid unnecessary `action_config`+`feature`
 pairs. Typically, sharing a single feature across multiple `action_config`s is
 preferred.
 
-You can not define more than one `CROSSTOOL` `action_config` with the same
-`action_name` within the same toolchain. This prevents ambiguity in tool paths
+You can not define more than one `action_config` with the same `action_name`
+within the same toolchain. This prevents ambiguity in tool paths
 and enforces the intention behind `action_config` - that an action's properties
 are clearly described in a single place in the toolchain.
 
-### `tool` messages
+### `tool`
 
-A `CROSSTOOL` `action_config` can specify a set of tools via `tool` messages.
-A `tool` message consists of the following fields:
+An`action_config` can specify a set of tools via its `tools` parameter.
+The `tool()` constructor takes in the following parameters:
 
 
 <table>
@@ -454,29 +426,29 @@ A `tool` message consists of the following fields:
   <tr>
    <td><code>tool_path</code>
    </td>
-   <td>Path to the tool in question (relative to the <code>CROSSTOOL</code>
-       file).
+   <td>Path to the tool in question (relative to the current location).
    </td>
   </tr>
   <tr>
-   <td><code>with_feature</code>
+   <td><code>with_features</code>
    </td>
-   <td>A set of features that must be enabled for this tool to apply.
+   <td>A a list of feature sets out of which at least one must be satisfied
+       for this tool to apply.
    </td>
   </tr>
 </table>
 
-For a given `CROSSTOOL` `action_config`, only a single `tool` message applies
+For a given `action_config`, only a single `tool` applies
 its tool path and execution requirements to the Bazel action. A tool is selected
-by sequentially parsing `tool` messages on an `action_config` until a tool with
-a `with_feature` set matching the feature configuration is found
+by iterating through the `tools` attribute on an `action_config` until a tool
+with a `with_feature` set matching the feature configuration is found
 (see [Feature relationships](#feature-relationships) earlier in this document
 for more information). We recommend that you end your tool lists with a default
 tool that corresponds to an empty feature configuration.
 
 ### Example usage
 
-Features and `CROSSTOOL` actions can be used together to implement Bazel actions
+Features and actions can be used together to implement Bazel actions
 with diverse cross-platform semantics. For example, debug symbol generation on
 macOS requires generating symbols in the compile action, then invoking a
 specialized tool during the link action to create  compressed dsym archive, and
@@ -486,32 +458,43 @@ files consumable by Xcode.
 With Bazel, this process can instead be implemented as follows, with
 `unbundle-debuginfo` being a Bazel action:
 
+    load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
-    toolchain {
-        action_config {
-            config_name: "c++-link-executable"
-            action_name: "c++-link-executable"
-            tool {
-              with_feature { feature: "generate-debug-symbols" }
-              tool_path: "toolchain/mac/ld-with-dsym-packaging"
-            }
-            tool {
-              tool_path: "toolchain/mac/ld"
-            }
-        }
+    action_configs = [
+        action_config (
+            config_name = "ACTION_NAMES.cpp_link_executable",
+            action_name = "ACTION_NAMES.cpp_link_executable",
+            tools = [
+                tool(
+                    with_features = [
+                        with_feature(features=["generate-debug-symbols"]),
+                    ],
+                    tool_path = "toolchain/mac/ld-with-dsym-packaging",
+                ),
+                tool (tool_path = "toolchain/mac/ld"),
+            ],
+        ),
+    ]
 
-        feature {
-            name: "generate-debug-symbols"
-            flag_set {
-                action: "c-compile"
-                action: "c++-compile"
-                flag_group {
-                    flag: "-g"
-                }
-            }
-            implies: "unbundle-debuginfo"
-        }
-    }
+    features = [
+        feature(
+            name = "generate-debug-symbols",
+            flag_sets = [
+                flag_set (
+                    actions = [
+                        "ACTION_NAMES.c_compile",
+                        "ACTION_NAMES.cpp_compile"
+                    ],
+                    flag_groups = [
+                        flag_group(
+                            flags = ["-g"],
+                        ),
+                    ],
+                )
+            ],
+            implies = ["unbundle-debuginfo"],
+       ),
+    ]
 
 
 This same feature can be implemented entirely differently for Linux, which uses
@@ -519,82 +502,89 @@ This same feature can be implemented entirely differently for Linux, which uses
 implementation for `fission`-based debug symbol generation might look as
 follows:
 
+    load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
-    toolchain {
-        action_config {
-            name: "c++-compile"
-            tool {
-                tool_path: "toolchain/bin/gcc"
-            }
-        }
+    action_configs = [
+        action_config (
+            name = "ACTION_NAMES.cpp_compile",
+            tools = [
+                tool(
+                    tool_path = "toolchain/bin/gcc",
+                ),
+            ],
+        ),
+    ]
 
-        feature {
-            name: "generate-debug-symbols"
-            requires { feature: "dbg" }
-            flag_set {
-                action: "c++-compile"
-                flag_group {
-                    flag: "-gsplit-dwarf"
-                }
-            }
-            flag_set {
-                action: "c++-link-executable"
-                flag_group {
-                    flag: "-Wl"
-                    flag: "--gdb-index"
-                }
-            }
-          }
-        }
-    }
+    features = [
+        feature (
+            name = "generate-debug-symbols",
+            requires = [with_feature_set(features = ["dbg"])],
+            flag_sets = [
+                flag_set(
+                    actions = ["ACTION_NAMES.cpp_compile"],
+                    flag_groups = [
+                        flag_group(
+                            flags = ["-gsplit-dwarf"],
+                        ),
+                    ],
+                ),
+                flag_set(
+                    actions = ["ACTION_NAMES.cpp_link_executable"],
+                    flag_groups = [
+                        flag_group(
+                            flags = ["-Wl", "--gdb-index"],
+                        ),
+                    ],
+                ),
+          ],
+        ),
+    ]
 
 
 ### Flag groups
 
-`CROSSTOOL` allows you to bundle flags into groups that serve a specific purpose.
-You can specify a flag within the `CROSSTOOL` file using pre-defined variables
+`CcToolchainConfigInfo` allows you to bundle flags into groups that serve a
+specific purpose. You can specify a flag within using pre-defined variables
 within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
 
-    flag_group {
-        flag: "%{output_file_path}"
-    }
+    flag_group (
+        flags = ["%{output_file_path}"],
+    )
 
 
 In this case, the contents of the flag will be replaced by the output file path
 of the action.
 
 Flag groups are expanded to the build command in the order in which they appear
-in the `CROSSTOOL` file, top-to-bottom, left-to-right.
+in the list, top-to-bottom, left-to-right.
 
 For flags that need to repeat with different values when added to the build
 command, the flag group can iterate variables of type `list`. For example, the
 variable `include_path` of type `list`:
 
-    flag_group {
-        iterate_over: "include_paths"
-        flag: "-I%{include_paths}"
-    }
+    flag_group (
+        iterate_over = "include_paths",
+        flags = ["-I%{include_paths}"],
+    )
 
 expands to `-I<path>` for each path element in the `include_paths` list. All
 flags (or `flag_group`s) in the body of a flag group declaration are expanded as
 a unit. For example:
 
-    flag_group {
-        iterate_over: "include_paths"
-        flag: "-I"
-        flag: "%{include_paths}"
-    }
+    flag_group (
+        iterate_over = "include_paths",
+        flags = ["-I", "%{include_paths}"],
+    )
 
 expands to `-I <path>` for each path element in the `include_paths` list.
 
 A variable can repeat multiple times. For example:
 
-    flag_group {
-        iterate_over: "include_paths"
-        flag: "-iprefix=%{include_paths}"
-        flag: "-isystem=%{include_paths}"
-    }
+    flag_group (
+        iterate_over = "include_paths",
+        flags = ["-iprefix=%{include_paths}", "-isystem=%{include_paths}"],
+    )
 
 expands to:
 
@@ -603,60 +593,66 @@ expands to:
 Variables can correspond to structures accessible using dot-notation. For
 example:
 
-    flag_group {
-        flag: "-l%{libraries_to_link.name}"
-    }
+    flag_group (
+        flags = ["-l%{libraries_to_link.name}"],
+    )
 
 Structures can be nested and may also contain sequences. To prevent name clashes
 and to be explicit, you must specify the full path through the fields. For
 example:
 
-    flag_group {
-        iterate_over: "libraries_to_link"
-        flag_group {
-            iterate_over: "libraries_to_link.shared_libraries"
-            flag: "-l%{libraries_to_link.shared_libraries.name}"
-        }
-    }
+    flag_group (
+        iterate_over = "libraries_to_link",
+        flag_groups = [
+            flag_group (
+                iterate_over = "libraries_to_link.shared_libraries",
+                flags = ["-l%{libraries_to_link.shared_libraries.name}"],
+            ),
+        ],
+    )
 
 
 ### Conditional expansion
 
 Flag groups support conditional expansion based on the presence of a particular
-variable or its field using the `expand_if_all_available`, `expand_if_none_available`,
-`expand_if_true`, `expand_if_false`, or `expand_if_equal` messages. For example:
+variable or its field using the `expand_if_available`, `expand_if_not_available`,
+`expand_if_true`, `expand_if_false`, or `expand_if_equal` attributes. For example:
 
 
-    flag_group {
-        iterate_over: "libraries_to_link"
-        flag_group {
-            iterate_over: "libraries_to_link.shared_libraries"
-            flag_group {
-                expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
-                flag: "--whole_archive"
-            }
-            flag_group {
-                flag: "-l%{libraries_to_link.shared_libraries.name}"
-            }
-            flag_group {
-                expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
-                flag: "--no_whole_archive"
-            }
-        }
-    }
+    flag_group (
+        iterate_over = "libraries_to_link",
+        flag_groups = [
+            flag_group (
+                iterate_over = "libraries_to_link.shared_libraries",
+                flag_groups = [
+                    flag_group (
+                        expand_if_available = "libraries_to_link.shared_libraries.is_whole_archive",
+                        flags = ["--whole_archive"],
+                    ),
+                    flag_group (
+                        flags = ["-l%{libraries_to_link.shared_libraries.name}"],
+                    ),
+                    flag_group (
+                        expand_if_available = "libraries_to_link.shared_libraries.is_whole_archive",
+                        flags = ["--no_whole_archive"],
+                    ),
+                ],
+            ),
+        ],
+    )
 
 **Note:** The `--whole_archive` and `--no_whole_archive` options are added to
 the build command only when a currently iterated library has an
 `is_whole_archive` field.
 
-## `CROSSTOOL` reference
+## `CcToolchainConfigInfo` reference
 
 This section provides a reference of build variables, features, and other
-information required to successfully configure `CROSSTOOL`.
+information required to successfully configure C++ rules.
 
-### `CROSSTOOL` build variables
+### `CcToolchainConfigInfo` build variables
 
-The following is a reference of `CROSSTOOL` build variables.
+The following is a reference of `CcToolchainConfigInfo` build variables.
 
 **Note:** The **Action** column indicates the relevant action type, if applicable.
 
@@ -730,7 +726,6 @@ The following is a reference of `CROSSTOOL` build variables.
   <tr>
    <td><strong><code>quote_include_paths</code></strong>
    <td>compile</td>
-   </td>
    <td>Sequence of <code>-iquote</code> includes -
        directories in which the compiler searches for headers included using
        <code>#include&lt;foo.h&gt;</code>.
@@ -965,7 +960,7 @@ The following is a reference of `CROSSTOOL` build variables.
 
 ### Well-known features
 
-The following is a reference of `CROSSTOOL` features and their activation
+The following is a reference of features and their activation
 conditions.
 
 <table>
@@ -992,8 +987,8 @@ conditions.
   <tr>
    <td><strong><code>per_object_debug_info</code></strong>
    </td>
-    <td>Enabled if the <code>supports_fission</code> attribute is set in the
-        <code>CROSSTOOL</code> file and the current compilation mode is specified in the
+    <td>Enabled if the <code>supports_fission</code> feature is specified and
+        enabled and the current compilation mode is specified in the
         <code>--fission</code> flag.
    </td>
   </tr>
@@ -1054,7 +1049,7 @@ conditions.
      </td>
      <td>
        Prevents Bazel from adding legacy features to
-       the CROSSTOOL configuration when present. See the complete list of
+       the C++ configuration when present. See the complete list of
        features below.
      </td>
     </tr>
