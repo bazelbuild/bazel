@@ -5,7 +5,7 @@ java_binary(
     name = "Skylint",
     srcs = [],
     main_class = "com.google.devtools.skylark.skylint.Skylint",
-    visibility = ["//src/test/skylark/skylint:__pkg__"],
+    visibility = ["//src/test/starlark/skylint:__pkg__"],
     runtime_deps = [
         ":skylint_lib",
     ],

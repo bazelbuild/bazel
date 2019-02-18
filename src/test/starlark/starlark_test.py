@@ -21,11 +21,11 @@ import sys
 import tempfile
 import unittest
 
-from src.test.skylark import testenv
+from src.test.starlark import testenv
 
 
-class SkylarkTest(unittest.TestCase):
-  """Tests for Skylark.
+class StarlarkTest(unittest.TestCase):
+  """Tests for Starlark.
 
   In a test file, chunks are separated by "---". Each chunk is evaluated
   separately. Use "###" to specify the expected error. If there is no "###",
@@ -54,9 +54,9 @@ class SkylarkTest(unittest.TestCase):
     yield code, expected_errors
 
   def evaluate(self, f):
-    """Execute Skylark file, return stderr."""
+    """Execute Starlark file, return stderr."""
     proc = subprocess.Popen(
-        [testenv.SKYLARK_BINARY_PATH, f], stderr=subprocess.PIPE)
+        [testenv.STARLARK_BINARY_PATH, f], stderr=subprocess.PIPE)
     _, stderr = proc.communicate()
     return stderr
 
@@ -88,7 +88,7 @@ def assert_(cond, msg="assertion failed"):
   def testFile(self):
     t = test_file
     print("===", t, "===")
-    f = os.path.join(testenv.SKYLARK_TESTDATA_PATH, t)
+    f = os.path.join(testenv.STARLARK_TESTDATA_PATH, t)
     for chunk, expected in self.chunks(f):
       with tempfile.NamedTemporaryFile(
           mode="wb", suffix=".sky", delete=False) as tmp:

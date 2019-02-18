@@ -18,7 +18,7 @@ import subprocess
 import tempfile
 import unittest
 
-from src.test.skylark.skylint import testenv
+from src.test.starlark.skylint import testenv
 
 
 class SkylintTest(unittest.TestCase):

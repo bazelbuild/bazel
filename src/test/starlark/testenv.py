@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Test constants for src/test/skylark."""
+"""Test constants for src/test/starlark."""
 
-SKYLARK_BINARY_PATH = "src/main/java/com/google/devtools/skylark/Skylark"
-SKYLARK_TESTDATA_PATH = "src/test/skylark/"
+STARLARK_BINARY_PATH = "src/main/java/com/google/devtools/starlark/Starlark"
+STARLARK_TESTDATA_PATH = "src/test/starlark/"
