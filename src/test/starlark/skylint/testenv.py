@@ -14,4 +14,4 @@
 """Test constants for src/test/skylark/skylint."""
 
 SKYLINT_BINARY_PATH = "src/tools/skylark/java/com/google/devtools/skylark/skylint/Skylint"
-SKYLINT_TESTDATA_PATH = "src/test/skylark/skylint/testdata/"
+SKYLINT_TESTDATA_PATH = "src/test/starlark/skylint/testdata/"

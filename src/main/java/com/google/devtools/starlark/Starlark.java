@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.skylark;
+package com.google.devtools.starlark;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -30,11 +30,11 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 /**
- * Skylark is a standalone skylark intepreter. The environment doesn't
+ * Starlark is a standalone starlark intepreter. The environment doesn't
  * contain Bazel-specific functions and variables. Load statements are
  * forbidden for the moment.
  */
-class Skylark {
+class Starlark {
   private static final String START_PROMPT = ">> ";
   private static final String CONTINUATION_PROMPT = ".. ";
 
@@ -84,7 +84,7 @@ class Skylark {
     }
   }
 
-  /** Provide a REPL evaluating Skylark code. */
+  /** Provide a REPL evaluating Starlark code. */
   public void readEvalPrintLoop() {
     String input;
     while ((input = prompt()) != null) {
@@ -99,7 +99,7 @@ class Skylark {
     }
   }
 
-  /** Execute a Skylark file. */
+  /** Execute a Starlark file. */
   public int execute(String path) {
     String content;
     try {
@@ -118,9 +118,9 @@ class Skylark {
   public static void main(String[] args) {
     int ret = 0;
     if (args.length == 0) {
-      new Skylark().readEvalPrintLoop();
+      new Starlark().readEvalPrintLoop();
     } else if (args.length == 1) {
-      ret = new Skylark().execute(args[0]);
+      ret = new Starlark().execute(args[0]);
     } else {
       System.err.println("too many arguments");
       ret = 1;

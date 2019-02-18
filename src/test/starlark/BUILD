@@ -8,22 +8,22 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//src/test/skylark/skylint:srcs"],
+    srcs = glob(["**"]) + ["//src/test/starlark/skylint:srcs"],
 )
 
 [
     py_test(
-        name = "skylark_test_" + test_file.replace(".", "_"),
+        name = "starlark_test_" + test_file.replace(".", "_"),
         srcs = [
-            "skylark_test.py",
+            "starlark_test.py",
             "testenv.py",
         ],
         args = [test_file],
         data = [
-            "//src/main/java/com/google/devtools/skylark:Skylark",
+            "//src/main/java/com/google/devtools/starlark:Starlark",
             test_file,
         ],
-        main = "skylark_test.py",
+        main = "starlark_test.py",
     )
     for test_file in glob(["testdata/*"])
 ]
