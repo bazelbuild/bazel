@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategor
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.sun.org.apache.xalan.internal.xsltc.cmdline.Compile;
 import java.util.ArrayList;
 import java.util.List;
 
