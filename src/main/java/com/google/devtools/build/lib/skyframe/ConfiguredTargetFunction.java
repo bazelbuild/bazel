@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
@@ -233,6 +234,21 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // null).
     if (!target.isConfigurable()) {
       configuration = null;
+    }
+
+    if (target.isConfigurable() && configuredTargetKey.getConfigurationKey() == null) {
+      // We somehow ended up in a target that requires a non-null configuration as a dependency of
+      // one that requires a null configuration. This is always an error, but we need to analyze
+      // the dependencies of the latter target to realize that. Short-circuit the evaluation to
+      // avoid doing useless work and running code with a null configuration that's not prepared for
+      // it.
+      return new NonRuleConfiguredTargetValue(
+          new EmptyConfiguredTarget(target.getLabel(), null),
+          GeneratingActions.EMPTY,
+          transitivePackagesForPackageRootResolution == null
+              ? null
+              : transitivePackagesForPackageRootResolution.build(),
+          nonceVersion.get());
     }
 
     // This line is only needed for accurate error messaging. Say this target has a circular
