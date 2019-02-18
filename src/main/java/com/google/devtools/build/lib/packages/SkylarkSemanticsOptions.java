@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -27,33 +27,31 @@ import java.util.List;
 /**
  * Contains options that affect Skylark's semantics.
  *
- * <p>These are injected into Skyframe (as an instance of {@link SkylarkSemantics}) when a new build
- * invocation occurs. Changing these options between builds will therefore trigger a reevaluation of
- * everything that depends on the Skylark interpreter &mdash; in particular, evaluation of all BUILD
- * and .bzl files.
+ * <p>These are injected into Skyframe (as an instance of {@link StarlarkSemantics}) when a new
+ * build invocation occurs. Changing these options between builds will therefore trigger a
+ * reevaluation of everything that depends on the Skylark interpreter &mdash; in particular,
+ * evaluation of all BUILD and .bzl files.
  *
  * <p><em>To add a new option, update the following:</em>
+ *
  * <ul>
  *   <li>Add a new abstract method (which is interpreted by {@code AutoValue} as a field) to {@link
- *       SkylarkSemantics} and {@link SkylarkSemantics.Builder}. Set its default value in {@link
- *       SkylarkSemantics#DEFAULT_SEMANTICS}.
- *
+ *       StarlarkSemantics} and {@link StarlarkSemantics.Builder}. Set its default value in {@link
+ *       StarlarkSemantics#DEFAULT_SEMANTICS}.
  *   <li>Add a new {@code @Option}-annotated field to this class. The field name and default value
- *       should be the same as in {@link SkylarkSemantics}, and the option name in the annotation
+ *       should be the same as in {@link StarlarkSemantics}, and the option name in the annotation
  *       should be that name written in snake_case. Add a line to set the new field in {@link
  *       #toSkylarkSemantics}.
- *
  *   <li>Add a line to set the new field in both {@link
  *       SkylarkSemanticsConsistencyTest#buildRandomOptions} and {@link
  *       SkylarkSemanticsConsistencyTest#buildRandomSemantics}.
- *
  *   <li>Update manual documentation in site/docs/skylark/backward-compatibility.md. Also remember
  *       to update this when flipping a flag's default value.
- *
- *   <li>Boolean semantic flags can toggle Skylark methods on or off. To do this, add a new entry
- *       to {@link SkylarkSemantics#FlagIdentifier}. Then, specify the identifier in
- *       {@code SkylarkCallable.enableOnlyWithFlag} or {@code SkylarkCallable.disableWithFlag}.
+ *   <li>Boolean semantic flags can toggle Skylark methods on or off. To do this, add a new entry to
+ *       {@link StarlarkSemantics#FlagIdentifier}. Then, specify the identifier in {@code
+ *       SkylarkCallable.enableOnlyWithFlag} or {@code SkylarkCallable.disableWithFlag}.
  * </ul>
+ *
  * For both readability and correctness, the relative order of the options in all of these locations
  * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
  * are marked with the comment "<== Add new options here in alphabetic order ==>".
@@ -541,9 +539,9 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
               + " target.")
   public boolean incompatibleUseToolchainProvidersInJavaCommon;
 
-  /** Constructs a {@link SkylarkSemantics} object corresponding to this set of option values. */
-  public SkylarkSemantics toSkylarkSemantics() {
-    return SkylarkSemantics.builder()
+  /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
+  public StarlarkSemantics toSkylarkSemantics() {
+    return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
         .checkThirdPartyTargetsHaveLicenses(checkThirdPartyTargetsHaveLicenses)
         .experimentalBuildSettingApi(experimentalBuildSettingApi)

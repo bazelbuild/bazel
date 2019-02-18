@@ -57,8 +57,8 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -87,17 +87,17 @@ public final class SkylarkRuleConfiguredTargetUtil {
       AdvertisedProviderSet advertisedProviders,
       BaseFunction ruleImplementation,
       Location location,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("configured target")) {
-      skylarkRuleContext = new SkylarkRuleContext(ruleContext, null, skylarkSemantics);
+      skylarkRuleContext = new SkylarkRuleContext(ruleContext, null, starlarkSemantics);
       Environment env =
           Environment.builder(mutability)
               .setCallerLabel(ruleContext.getLabel())
-              .setSemantics(skylarkSemantics)
+              .setSemantics(starlarkSemantics)
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
               .setStarlarkContext(
                   new BazelStarlarkContext(

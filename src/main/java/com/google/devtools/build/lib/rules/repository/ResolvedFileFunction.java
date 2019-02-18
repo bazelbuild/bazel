@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -46,8 +46,8 @@ public class ResolvedFileFunction implements SkyFunction {
       throws InterruptedException, SkyFunctionException {
 
     ResolvedFileKey key = (ResolvedFileKey) skyKey;
-    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
-    if (skylarkSemantics == null) {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
       return null;
     }
     FileValue fileValue = (FileValue) env.getValue(FileValue.key(key.getPath()));
@@ -76,7 +76,7 @@ public class ResolvedFileFunction implements SkyFunction {
         try (Mutability mutability = Mutability.create("resolved file %s", key.getPath())) {
           resolvedEnvironment =
               com.google.devtools.build.lib.syntax.Environment.builder(mutability)
-                  .setSemantics(skylarkSemantics)
+                  .setSemantics(starlarkSemantics)
                   .setGlobals(BazelLibrary.GLOBALS)
                   .build();
           if (!ast.exec(resolvedEnvironment, env.getListener())) {

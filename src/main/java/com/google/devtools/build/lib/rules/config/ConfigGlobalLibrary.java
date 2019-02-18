@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +48,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    SkylarkSemantics semantics = env.getSemantics();
+    StarlarkSemantics semantics = env.getSemantics();
     if (!semantics.experimentalStarlarkConfigTransitions()) {
       throw new EvalException(
           location,
@@ -64,7 +64,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
   @Override
   public ConfigurationTransitionApi analysisTestTransition(
-      SkylarkDict<String, String> changedSettings, Location location, SkylarkSemantics semantics)
+      SkylarkDict<String, String> changedSettings, Location location, StarlarkSemantics semantics)
       throws EvalException {
     Map<String, Object> changedSettingsMap =
         changedSettings.getContents(String.class, Object.class, "changed_settings dict");

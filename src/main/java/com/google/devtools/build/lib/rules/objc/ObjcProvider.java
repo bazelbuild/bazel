@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.HashMap;
@@ -346,7 +346,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     HAS_WATCH2_EXTENSION,
   }
 
-  private final SkylarkSemantics semantics;
+  private final StarlarkSemantics semantics;
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 
   // Items which should not be propagated to dependents.
@@ -664,7 +664,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public static final BuiltinProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
@@ -930,13 +930,13 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
    * several transitive dependencies.
    */
   public static final class Builder {
-    private final SkylarkSemantics skylarkSemantics;
+    private final StarlarkSemantics starlarkSemantics;
     private final Map<Key<?>, NestedSetBuilder<?>> items = new HashMap<>();
     private final Map<Key<?>, NestedSetBuilder<?>> nonPropagatedItems = new HashMap<>();
     private final Map<Key<?>, NestedSetBuilder<?>> strictDependencyItems = new HashMap<>();
 
-    public Builder(SkylarkSemantics semantics) {
-      this.skylarkSemantics = semantics;
+    public Builder(StarlarkSemantics semantics) {
+      this.starlarkSemantics = semantics;
     }
 
     private static void maybeAddEmptyBuilder(Map<Key<?>, NestedSetBuilder<?>> set, Key<?> key) {
@@ -1136,8 +1136,10 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
         strictDependencyBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
 
-      return new ObjcProvider(skylarkSemantics,
-          propagatedBuilder.build(), nonPropagatedBuilder.build(),
+      return new ObjcProvider(
+          starlarkSemantics,
+          propagatedBuilder.build(),
+          nonPropagatedBuilder.build(),
           strictDependencyBuilder.build());
     }
   }

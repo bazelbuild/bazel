@@ -22,45 +22,44 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * Options that affect Skylark semantics.
+ * Options that affect Starlark semantics.
  *
  * <p>For descriptions of what these options do, see {@link SkylarkSemanticsOptions}.
  */
 // TODO(brandjon): User error messages that reference options should maybe be substituted with the
-// option name outside of the core Skylark interpreter?
+// option name outside of the core Starlark interpreter?
 // TODO(brandjon): Eventually these should be documented in full here, and SkylarkSemanticsOptions
 // should refer to this class for documentation. But this doesn't play nice with the options
 // parser's annotation mechanism.
 @AutoValue
-public abstract class SkylarkSemantics {
+public abstract class StarlarkSemantics {
 
   /**
-   * Enum where each element represents a skylark semantics flag. The name of each value should
-   * be the exact name of the flag transformed to upper case (for error representation).
+   * Enum where each element represents a starlark semantics flag. The name of each value should be
+   * the exact name of the flag transformed to upper case (for error representation).
    */
   public enum FlagIdentifier {
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
-        SkylarkSemantics::experimentalEnableAndroidMigrationApis),
-    EXPERIMENTAL_BUILD_SETTING_API(SkylarkSemantics::experimentalBuildSettingApi),
-    EXPERIMENTAL_PLATFORM_API(SkylarkSemantics::experimentalPlatformsApi),
+        StarlarkSemantics::experimentalEnableAndroidMigrationApis),
+    EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
+    EXPERIMENTAL_PLATFORM_API(StarlarkSemantics::experimentalPlatformsApi),
     EXPERIMENTAL_STARLARK_CONFIG_TRANSITION(
-        SkylarkSemantics::experimentalStarlarkConfigTransitions),
+        StarlarkSemantics::experimentalStarlarkConfigTransitions),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
-        SkylarkSemantics::incompatibleDisableObjcProviderResources),
-    INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(SkylarkSemantics::incompatibleNoOutputAttrDefault),
-    INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(
-        SkylarkSemantics::incompatibleNoTargetOutputGroup),
-    INCOMPATIBLE_NO_ATTR_LICENSE(SkylarkSemantics::incompatibleNoAttrLicense),
+        StarlarkSemantics::incompatibleDisableObjcProviderResources),
+    INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
+    INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
+    INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
     INCOMPATIBLE_REQUIRE_FEATURE_CONFIGURATION_FOR_PIC(
-        SkylarkSemantics::incompatibleRequireFeatureConfigurationForPic),
+        StarlarkSemantics::incompatibleRequireFeatureConfigurationForPic),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
     // a private field, and we can ensure no callers treat this field as mutable.
     @SuppressWarnings("ImmutableEnumChecker")
-    private final Function<SkylarkSemantics, Boolean> semanticsFunction;
+    private final Function<StarlarkSemantics, Boolean> semanticsFunction;
 
-    FlagIdentifier(Function<SkylarkSemantics, Boolean> semanticsFunction) {
+    FlagIdentifier(Function<StarlarkSemantics, Boolean> semanticsFunction) {
       this.semanticsFunction = semanticsFunction;
     }
 
@@ -112,8 +111,8 @@ public abstract class SkylarkSemantics {
    * <p>AutoValue implementation classes are usually package-private. We expose it here for the
    * benefit of code that relies on reflection.
    */
-  public static final Class<? extends SkylarkSemantics> IMPL_CLASS =
-      AutoValue_SkylarkSemantics.class;
+  public static final Class<? extends StarlarkSemantics> IMPL_CLASS =
+      AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
   public abstract boolean checkThirdPartyTargetsHaveLicenses();
@@ -194,7 +193,7 @@ public abstract class SkylarkSemantics {
   public abstract Builder toBuilder();
 
   public static Builder builder() {
-    return new AutoValue_SkylarkSemantics.Builder();
+    return new AutoValue_StarlarkSemantics.Builder();
   }
 
   /** Returns a {@link Builder} initialized with default values for all options. */
@@ -202,7 +201,7 @@ public abstract class SkylarkSemantics {
     return DEFAULT_SEMANTICS.toBuilder();
   }
 
-  public static final SkylarkSemantics DEFAULT_SEMANTICS =
+  public static final StarlarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
           .checkThirdPartyTargetsHaveLicenses(true)
@@ -244,7 +243,7 @@ public abstract class SkylarkSemantics {
           .internalSkylarkFlagTestCanary(false)
           .build();
 
-  /** Builder for {@link SkylarkSemantics}. All fields are mandatory. */
+  /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -323,6 +322,6 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 
-    public abstract SkylarkSemantics build();
+    public abstract StarlarkSemantics build();
   }
 }

@@ -138,7 +138,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -1041,8 +1041,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  protected void setSkylarkSemantics(SkylarkSemantics skylarkSemantics) {
-    PrecomputedValue.SKYLARK_SEMANTICS.set(injectable(), skylarkSemantics);
+  protected void setSkylarkSemantics(StarlarkSemantics starlarkSemantics) {
+    PrecomputedValue.SKYLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
   public void injectExtraPrecomputedValues(

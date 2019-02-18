@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -97,7 +97,7 @@ final class JavaInfoBuildHelper {
       Object javaToolchain,
       Object hostJavabase,
       @Nullable Artifact jdeps,
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       Location location)
       throws EvalException {
     final Artifact sourceJar;
@@ -257,7 +257,7 @@ final class JavaInfoBuildHelper {
       SkylarkList<Artifact> sourceJars,
       Object javaToolchain,
       Object hostJavabase,
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       Location location)
       throws EvalException {
     // No sources to pack, return None
@@ -334,7 +334,7 @@ final class JavaInfoBuildHelper {
       NestedSet<Artifact> transitiveCompileTimeJars,
       NestedSet<Artifact> transitiveRuntimeJars,
       NestedSet<Artifact> sourceJars,
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       Location location)
       throws EvalException {
 
@@ -536,7 +536,7 @@ final class JavaInfoBuildHelper {
       Artifact inputJar,
       @Nullable Label targetLabel,
       Object javaToolchain,
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       Location location)
       throws EvalException {
     String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
@@ -566,7 +566,7 @@ final class JavaInfoBuildHelper {
       Artifact inputJar,
       Label targetLabel,
       Object javaToolchain,
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       Location location)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
@@ -594,14 +594,14 @@ final class JavaInfoBuildHelper {
   }
 
   private static boolean isValidJavaToolchain(
-      SkylarkSemantics skylarkSemantics, Object javaToolchain) {
-    return (!skylarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()
+      StarlarkSemantics starlarkSemantics, Object javaToolchain) {
+    return (!starlarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()
             && javaToolchain instanceof ConfiguredTarget)
         || javaToolchain instanceof JavaToolchainProvider;
   }
 
   JavaToolchainProvider getJavaToolchainProvider(
-      SkylarkSemantics semantics, Location location, Object javaToolchain) throws EvalException {
+      StarlarkSemantics semantics, Location location, Object javaToolchain) throws EvalException {
     if (javaToolchain instanceof ConfiguredTarget) {
       if (semantics.incompatibleUseToolchainProvidersInJavaCommon()) {
         // TODO(b/122738702): remove support for passing toolchains as configured targets
@@ -625,20 +625,21 @@ final class JavaInfoBuildHelper {
     throw new EvalException(null, javaToolchain + " is not a JavaToolchainProvider.");
   }
 
-  private static boolean isValidJavaRuntime(SkylarkSemantics skylarkSemantics, Object javaRuntime) {
-    return (!skylarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()
+  private static boolean isValidJavaRuntime(
+      StarlarkSemantics starlarkSemantics, Object javaRuntime) {
+    return (!starlarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()
             && javaRuntime instanceof ConfiguredTarget)
         || javaRuntime instanceof JavaRuntimeInfo;
   }
 
   private JavaRuntimeInfo getJavaRuntimeProvider(
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       Location location,
       Object javabase,
       RuleContext ruleContext)
       throws EvalException {
     if (javabase instanceof TransitiveInfoCollection) {
-      if (skylarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()) {
+      if (starlarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()) {
         // TODO(b/122738702): remove support for passing toolchains as configured targets
         throw new EvalException(
             location,

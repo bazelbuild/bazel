@@ -61,7 +61,7 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -287,8 +287,8 @@ public class PackageFunction implements SkyFunction {
    */
   private SkyValue getExternalPackage(Environment env, Root packageLookupPath)
       throws PackageFunctionException, InterruptedException {
-    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
-    if (skylarkSemantics == null) {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
       return null;
     }
     RootedPath workspacePath =
@@ -325,9 +325,9 @@ public class PackageFunction implements SkyFunction {
     if (packageFactory != null) {
       packageFactory.afterDoneLoadingPackage(
           pkg,
-          skylarkSemantics,
+          starlarkSemantics,
           // This is a lie.
-          /*loadTimeNanos=*/0L);
+          /*loadTimeNanos=*/ 0L);
     }
     return new PackageValue(pkg);
   }
@@ -402,8 +402,8 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
-    if (skylarkSemantics == null) {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
       return null;
     }
 
@@ -440,7 +440,7 @@ public class PackageFunction implements SkyFunction {
             buildFileRootedPath,
             buildFileValue,
             defaultVisibility,
-            skylarkSemantics,
+            starlarkSemantics,
             preludeStatements,
             packageLookupValue.getRoot(),
             env);
@@ -501,7 +501,7 @@ public class PackageFunction implements SkyFunction {
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.invalidate(packageId);
 
-    packageFactory.afterDoneLoadingPackage(pkg, skylarkSemantics, packageCacheEntry.loadTimeNanos);
+    packageFactory.afterDoneLoadingPackage(pkg, starlarkSemantics, packageCacheEntry.loadTimeNanos);
     return new PackageValue(pkg);
   }
 
@@ -1115,7 +1115,7 @@ public class PackageFunction implements SkyFunction {
       RootedPath buildFilePath,
       @Nullable FileValue buildFileValue,
       RuleVisibility defaultVisibility,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       List<Statement> preludeStatements,
       Root packageRoot,
       Environment env)
@@ -1198,7 +1198,7 @@ public class PackageFunction implements SkyFunction {
                 importResult.importMap,
                 importResult.fileDependencies,
                 defaultVisibility,
-                skylarkSemantics,
+                starlarkSemantics,
                 globberWithSkyframeGlobDeps);
         long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
         packageCacheEntry = new LoadedPackageCacheEntry(

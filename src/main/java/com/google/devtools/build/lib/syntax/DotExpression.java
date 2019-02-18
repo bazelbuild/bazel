@@ -54,7 +54,7 @@ public final class DotExpression extends Expression {
 
   /** Throws the correct error message if the result is null depending on the objValue. */
   public static Object checkResult(
-      Object objValue, Object result, String name, Location loc, SkylarkSemantics semantics)
+      Object objValue, Object result, String name, Location loc, StarlarkSemantics semantics)
       throws EvalException {
     if (result != null) {
       return result;
@@ -63,7 +63,7 @@ public final class DotExpression extends Expression {
   }
 
   static EvalException getMissingFieldException(
-      Object objValue, String name, Location loc, SkylarkSemantics semantics, String accessName) {
+      Object objValue, String name, Location loc, StarlarkSemantics semantics, String accessName) {
     String suffix = "";
     EvalException toSuppress = null;
     if (objValue instanceof ClassObject) {
@@ -101,7 +101,7 @@ public final class DotExpression extends Expression {
   }
 
   /** Returns whether the given object has a method with the given name. */
-  static boolean hasMethod(SkylarkSemantics semantics, Object obj, String name) {
+  static boolean hasMethod(StarlarkSemantics semantics, Object obj, String name) {
     Class<?> cls = obj instanceof Class ? (Class<?>) obj : obj.getClass();
     if (Runtime.getBuiltinRegistry().getFunctionNames(cls).contains(name)) {
       return true;

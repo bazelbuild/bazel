@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -188,7 +188,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
               public SkyValue answer(InvocationOnMock invocation) throws Throwable {
                 SkyKey key = (SkyKey) invocation.getArguments()[0];
                 if (key.equals(PrecomputedValue.SKYLARK_SEMANTICS.getKeyForTesting())) {
-                  return new PrecomputedValue(SkylarkSemantics.DEFAULT_SEMANTICS);
+                  return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
                 } else if (key.equals(
                     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
                         .getKeyForTesting())) {

@@ -91,7 +91,7 @@ public final class MethodDescriptor {
 
   /** @return Skylark method descriptor for provided Java method and signature annotation. */
   public static MethodDescriptor of(
-      Method method, SkylarkCallable annotation, SkylarkSemantics semantics) {
+      Method method, SkylarkCallable annotation, StarlarkSemantics semantics) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);

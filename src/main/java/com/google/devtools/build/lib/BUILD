@@ -410,7 +410,7 @@ java_library(
 java_library(
     name = "skylark_semantics",
     srcs = [
-        "syntax/SkylarkSemantics.java",
+        "syntax/StarlarkSemantics.java",
     ],
     deps = [
         "//third_party:auto_value",
@@ -456,7 +456,7 @@ java_library(
 
 java_library(
     name = "skylark-semantics",
-    srcs = ["syntax/SkylarkSemantics.java"],
+    srcs = ["syntax/StarlarkSemantics.java"],
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
@@ -469,7 +469,7 @@ java_library(
         [
             "syntax/**/*.java",
         ],
-        exclude = ["syntax/SkylarkSemantics.java"],
+        exclude = ["syntax/StarlarkSemantics.java"],
     ),
     deps = [
         ":events",
