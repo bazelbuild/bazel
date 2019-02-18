@@ -107,7 +107,7 @@ def _proto_gen_impl(ctx):
         inputs += [plugin]
 
     if args:
-        ctx.action(
+        ctx.actions.run(
             inputs = inputs,
             outputs = ctx.outputs.outs,
             arguments = args + import_flags + [s.path for s in srcs],
@@ -272,7 +272,7 @@ def internal_gen_well_known_protos_java(srcs):
       srcs: the well known protos
     """
     root = Label("%s//protobuf_java" % native.repository_name()).workspace_root
-    pkg = PACKAGE_NAME + "/" if PACKAGE_NAME else ""
+    pkg = native.package_name() + "/" if native.package_name() else ""
     if root == "":
         include = " -I%ssrc " % pkg
     else:
