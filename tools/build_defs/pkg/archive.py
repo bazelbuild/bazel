@@ -20,6 +20,10 @@ import os
 import subprocess
 import tarfile
 
+# Use a deterministic mtime that doesn't confuse other programs.
+# See: https://github.com/bazelbuild/bazel/issues/1299
+MTIME = 946684800  # 2000-01-01 00:00:00.000 UTC
+
 
 class SimpleArFile(object):
   """A simple AR file reader.
@@ -118,7 +122,7 @@ class TarFileWriter(object):
       # The Tarfile class doesn't allow us to specify gzip's mtime attribute.
       # Instead, we manually re-implement gzopen from tarfile.py and set mtime.
       self.fileobj = gzip.GzipFile(
-          filename=name, mode='w', compresslevel=9, mtime=0)
+          filename=name, mode='w', compresslevel=9, mtime=MTIME)
     self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj)
     self.members = set([])
     self.directories = set([])
@@ -136,7 +140,7 @@ class TarFileWriter(object):
               gid=0,
               uname='',
               gname='',
-              mtime=0,
+              mtime=MTIME,
               mode=None,
               depth=100):
     """Recursively add a directory.
@@ -219,7 +223,7 @@ class TarFileWriter(object):
                gid=0,
                uname='',
                gname='',
-               mtime=0,
+               mtime=MTIME,
                mode=None):
     """Add a file to the current tar.
 
@@ -350,7 +354,7 @@ class TarFileWriter(object):
       intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
       if name_filter is None or name_filter(tarinfo.name):
-        tarinfo.mtime = 0
+        tarinfo.mtime = MTIME
         if rootuid is not None and tarinfo.uid == rootuid:
           tarinfo.uid = 0
           tarinfo.uname = 'root'
