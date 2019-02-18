@@ -160,7 +160,7 @@ public class FakeCppCompileAction extends CppCompileAction {
               .setDependencies(
                   processDepset(actionExecutionContext, execRoot, reply).getDependencies())
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-              .setAllowedDerivedinputs(getAllowedDerivedInputs());
+              .setAllowedDerivedinputs(getAllowedDerivedInputs(actionExecutionContext.getArtifactExpander()));
 
       if (needsIncludeValidation) {
         discoveryBuilder.shouldValidateInclusions();

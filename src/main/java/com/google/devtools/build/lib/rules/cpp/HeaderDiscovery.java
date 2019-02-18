@@ -170,10 +170,6 @@ public class HeaderDiscovery {
         continue;
       }
 
-      if (inTreeArtifact(execPathFragment)) {
-        continue;
-      }
-
       // Abort if we see files that we can't resolve, likely caused by
       // undeclared includes or illegal include constructs.
       problems.add(execPathFragment.getPathString());
@@ -182,17 +178,6 @@ public class HeaderDiscovery {
       problems.assertProblemFree(action, sourceFile);
     }
     return inputs.build();
-  }
-
-  private boolean inTreeArtifact(PathFragment execPathFragment) {
-    PathFragment dir = execPathFragment.getParentDirectory();
-    Boolean allowed = allowedDirs.get(dir);
-    if (allowed != null) {
-      return allowed;
-    }
-    allowed = treeArtifactPaths.stream().anyMatch(p -> dir.startsWith(p));
-    allowedDirs.put(execPathFragment, allowed);
-    return allowed;
   }
 
   /** A Builder for HeaderDiscovery */

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -101,7 +102,7 @@ public class CppCompileAction extends AbstractAction
   private final Iterable<Artifact> inputsForInvalidation;
 
   /**
-   * The set of input files that in addition to {@link CcCompilationContext#declaredIncludeSrcs}
+   * The set of input files that in addition to {@link CcCompilationContext#getDeclaredIncludeSrcs}
    * need to be added to the set of input artifacts of the action if we don't use input discovery.
    * They may be pruned after execution. See {@link #findUsedHeaders} for more details.
    */
@@ -988,12 +989,17 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public Iterable<Artifact> getAllowedDerivedInputs() {
+    return getAllowedDerivedInputs(/* expander= */ null);
+  }
+
+
+  protected Iterable<Artifact> getAllowedDerivedInputs(@Nullable ArtifactExpander expander) {
     HashSet<Artifact> result = new HashSet<>();
-    addNonSources(result, mandatoryInputs);
-    addNonSources(result, additionalPrunableHeaders);
-    addNonSources(result, inputsForInvalidation);
-    addNonSources(result, getDeclaredIncludeSrcs());
-    addNonSources(result, ccCompilationContext.getTransitiveModules(usePic));
+    addNonSources(result, expander, mandatoryInputs);
+    addNonSources(result, expander, additionalPrunableHeaders);
+    addNonSources(result, expander, inputsForInvalidation);
+    addNonSources(result, expander, getDeclaredIncludeSrcs());
+    addNonSources(result, expander, ccCompilationContext.getTransitiveModules(usePic));
     Artifact artifact = getSourceFile();
     if (!artifact.isSourceArtifact()) {
       result.add(artifact);
@@ -1019,10 +1025,18 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
-  private static void addNonSources(HashSet<Artifact> result, Iterable<Artifact> artifacts) {
+  private static void addNonSources(HashSet<Artifact> result,
+      ArtifactExpander expander,
+      Iterable<Artifact> artifacts) {
     for (Artifact a : artifacts) {
-      if (!a.isSourceArtifact()) {
-        result.add(a);
+      if (expander == null) {
+        if (!a.isSourceArtifact()) {
+          result.add(a);
+        }
+      } else {
+        if (a.isMiddlemanArtifact() || a.isTreeArtifact()) {
+          expander.expand(a, result);
+        }
       }
     }
   }
@@ -1202,6 +1216,7 @@ public class CppCompileAction extends AbstractAction
           discoverInputsFromShowIncludesFilters(
               execRoot,
               scanningContext.getArtifactResolver(),
+              actionExecutionContext.getArtifactExpander(),
               showIncludesFilterForStdout,
               showIncludesFilterForStderr);
     } else {
@@ -1236,6 +1251,7 @@ public class CppCompileAction extends AbstractAction
   public NestedSet<Artifact> discoverInputsFromShowIncludesFilters(
       Path execRoot,
       ArtifactResolver artifactResolver,
+      ArtifactExpander expander,
       ShowIncludesFilter showIncludesFilterForStdout,
       ShowIncludesFilter showIncludesFilterForStderr)
       throws ActionExecutionException {
@@ -1251,7 +1267,7 @@ public class CppCompileAction extends AbstractAction
             .setSourceFile(getSourceFile())
             .setDependencies(dependencies.build())
             .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-            .setAllowedDerivedinputs(getAllowedDerivedInputs());
+            .setAllowedDerivedinputs(getAllowedDerivedInputs(expander));
 
     if (needsIncludeValidation) {
       discoveryBuilder.shouldValidateInclusions();
@@ -1277,7 +1293,7 @@ public class CppCompileAction extends AbstractAction
             .setDependencies(
                 processDepset(actionExecutionContext, execRoot, reply).getDependencies())
             .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-            .setAllowedDerivedinputs(getAllowedDerivedInputs());
+            .setAllowedDerivedinputs(getAllowedDerivedInputs(actionExecutionContext.getArtifactExpander()));
 
     if (needsIncludeValidation) {
       discoveryBuilder.shouldValidateInclusions();
