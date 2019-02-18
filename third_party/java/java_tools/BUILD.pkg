@@ -4,66 +4,66 @@ licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "ExperimentalRunner",
-    srcs = ["ExperimentalRunner_deploy.jar"],
+    srcs = ["java_tools/ExperimentalRunner_deploy.jar"],
 )
 
 filegroup(
     name = "GenClass",
-    srcs = ["GenClass_deploy.jar"],
+    srcs = ["java_tools/GenClass_deploy.jar"],
 )
 
 filegroup(
     name = "JacocoCoverage",
-    srcs = ["JacocoCoverage_jarjar_deploy.jar"],
+    srcs = ["java_tools/JacocoCoverage_jarjar_deploy.jar"],
 )
 
 filegroup(
     name = "JavaBuilder",
-    srcs = ["JavaBuilder_deploy.jar"],
+    srcs = ["java_tools/JavaBuilder_deploy.jar"],
 )
 
 filegroup(
     name = "Runner",
-    srcs = ["Runner_deploy.jar"],
+    srcs = ["java_tools/Runner_deploy.jar"],
 )
 
 filegroup(
     name = "VanillaJavaBuilder",
-    srcs = ["VanillaJavaBuilder_deploy.jar"],
+    srcs = ["java_tools/VanillaJavaBuilder_deploy.jar"],
 )
 
 filegroup(
     name = "SingleJar",
-    srcs = ["bazel-singlejar_deploy.jar"],
+    srcs = ["java_tools/bazel-singlejar_deploy.jar"],
 )
 
 filegroup(
     name = "JarJar",
-    srcs = ["jarjar_command_deploy.jar"],
+    srcs = ["java_tools/jarjar_command_deploy.jar"],
 )
 
 filegroup(
     name = "Turbine",
-    srcs = ["turbine_deploy.jar"],
+    srcs = ["java_tools/turbine_deploy.jar"],
 )
 
 filegroup(
     name = "TurbineDirect",
-    srcs = ["turbine_direct_binary_deploy.jar"],
+    srcs = ["java_tools/turbine_direct_binary_deploy.jar"],
 )
 
 filegroup(
     name = "javac_jar",
-    srcs = ["javac-9+181-r4173-1.jar"],
+    srcs = ["java_tools/javac-9+181-r4173-1.jar"],
 )
 
 filegroup(
     name = "jdk_compiler_jar",
-    srcs = ["jdk_compiler.jar"],
+    srcs = ["java_tools/jdk_compiler.jar"],
 )
 
 filegroup(
     name = "java_compiler_jar",
-    srcs = ["java_compiler.jar"],
+    srcs = ["java_tools/java_compiler.jar"],
 )
 
