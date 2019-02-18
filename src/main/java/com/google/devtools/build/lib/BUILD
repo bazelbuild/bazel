@@ -421,7 +421,7 @@ java_library(
 java_library(
     name = "skylark_semantics_options",
     srcs = [
-        "packages/SkylarkSemanticsOptions.java",
+        "packages/StarlarkSemanticsOptions.java",
     ],
     deps = [
         ":skylark_semantics",

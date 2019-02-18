@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidAssetsInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataInfoApi;
@@ -158,9 +158,9 @@ public class SkydocMain {
   public static void main(String[] args)
       throws IOException, InterruptedException, LabelSyntaxException {
     OptionsParser parser =
-        OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class, SkydocOptions.class);
+        OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class, SkydocOptions.class);
     parser.parseAndExitUponError(args);
-    SkylarkSemanticsOptions semanticsOptions = parser.getOptions(SkylarkSemanticsOptions.class);
+    StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
 
     String targetFileLabelString;

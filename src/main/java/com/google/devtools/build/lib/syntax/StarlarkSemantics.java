@@ -24,11 +24,11 @@ import java.util.function.Function;
 /**
  * Options that affect Starlark semantics.
  *
- * <p>For descriptions of what these options do, see {@link SkylarkSemanticsOptions}.
+ * <p>For descriptions of what these options do, see {@link StarlarkSemanticsOptions}.
  */
 // TODO(brandjon): User error messages that reference options should maybe be substituted with the
 // option name outside of the core Starlark interpreter?
-// TODO(brandjon): Eventually these should be documented in full here, and SkylarkSemanticsOptions
+// TODO(brandjon): Eventually these should be documented in full here, and StarlarkSemanticsOptions
 // should refer to this class for documentation. But this doesn't play nice with the options
 // parser's annotation mechanism.
 @AutoValue

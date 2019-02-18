@@ -32,7 +32,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for the flow of flags from {@link SkylarkSemanticsOptions} to {@link StarlarkSemantics},
+ * Tests for the flow of flags from {@link StarlarkSemanticsOptions} to {@link StarlarkSemantics},
  * and to and from {@code StarlarkSemantics}' serialized representation.
  *
  * <p>When adding a new option, it is trivial to make a transposition error or a copy/paste error.
@@ -40,10 +40,10 @@ import org.junit.runners.JUnit4;
  *
  * <ul>
  *   <li>If a new option is added to {@code StarlarkSemantics} but not to {@code
- *       SkylarkSemanticsOptions}, or vice versa, then the programmer will either be unable to
+ *       StarlarkSemanticsOptions}, or vice versa, then the programmer will either be unable to
  *       implement its behavior, or unable to test it from the command line and add user
  *       documentation. We hope that the programmer notices this on their own.
- *   <li>If {@link SkylarkSemanticsOptions#toSkylarkSemantics} is not updated to set all fields of
+ *   <li>If {@link StarlarkSemanticsOptions#toSkylarkSemantics} is not updated to set all fields of
  *       {@code StarlarkSemantics}, then it will fail immediately because all fields of {@link
  *       StarlarkSemantics.Builder} are mandatory.
  *   <li>To catch a copy/paste error where the wrong field's data is threaded through {@code
@@ -61,14 +61,14 @@ public class SkylarkSemanticsConsistencyTest {
   private static final int NUM_RANDOM_TRIALS = 10;
 
   /**
-   * Checks that a randomly generated {@link SkylarkSemanticsOptions} object can be converted to a
+   * Checks that a randomly generated {@link StarlarkSemanticsOptions} object can be converted to a
    * {@link StarlarkSemantics} object with the same field values.
    */
   @Test
   public void optionsToSemantics() throws Exception {
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       long seed = i;
-      SkylarkSemanticsOptions options = buildRandomOptions(new Random(seed));
+      StarlarkSemanticsOptions options = buildRandomOptions(new Random(seed));
       StarlarkSemantics semantics = buildRandomSemantics(new Random(seed));
       StarlarkSemantics semanticsFromOptions = options.toSkylarkSemantics();
       assertThat(semanticsFromOptions).isEqualTo(semantics);
@@ -96,7 +96,7 @@ public class SkylarkSemanticsConsistencyTest {
 
   @Test
   public void checkDefaultsMatch() {
-    SkylarkSemanticsOptions defaultOptions = Options.getDefaults(SkylarkSemanticsOptions.class);
+    StarlarkSemanticsOptions defaultOptions = Options.getDefaults(StarlarkSemanticsOptions.class);
     StarlarkSemantics defaultSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
     StarlarkSemantics semanticsFromOptions = defaultOptions.toSkylarkSemantics();
     assertThat(semanticsFromOptions).isEqualTo(defaultSemantics);
@@ -111,11 +111,11 @@ public class SkylarkSemanticsConsistencyTest {
   }
 
   /**
-   * Constructs a {@link SkylarkSemanticsOptions} object with random fields. Must access {@code
+   * Constructs a {@link StarlarkSemanticsOptions} object with random fields. Must access {@code
    * rand} using the same sequence of operations (for the same fields) as {@link
    * #buildRandomSemantics}.
    */
-  private static SkylarkSemanticsOptions buildRandomOptions(Random rand) throws Exception {
+  private static StarlarkSemanticsOptions buildRandomOptions(Random rand) throws Exception {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
         "--check_third_party_targets_have_licenses=" + rand.nextBoolean(),
@@ -212,11 +212,11 @@ public class SkylarkSemanticsConsistencyTest {
         .build();
   }
 
-  private static SkylarkSemanticsOptions parseOptions(String... args) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+  private static StarlarkSemanticsOptions parseOptions(String... args) throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
     parser.setAllowResidue(false);
     parser.parse(Arrays.asList(args));
-    return parser.getOptions(SkylarkSemanticsOptions.class);
+    return parser.getOptions(StarlarkSemanticsOptions.class);
   }
 }
 

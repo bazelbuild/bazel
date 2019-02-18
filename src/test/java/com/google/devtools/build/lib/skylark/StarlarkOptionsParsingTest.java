@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -55,7 +55,7 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
   private static final List<Class<? extends OptionsBase>> requiredOptionsClasses =
       ImmutableList.of(
           PackageCacheOptions.class,
-          SkylarkSemanticsOptions.class,
+          StarlarkSemanticsOptions.class,
           KeepGoingOption.class,
           LoadingOptions.class,
           ClientOptions.class,
@@ -77,7 +77,7 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
       builds = true,
       options = {
         PackageCacheOptions.class,
-        SkylarkSemanticsOptions.class,
+        StarlarkSemanticsOptions.class,
         KeepGoingOption.class,
         LoadingOptions.class,
         ClientOptions.class,
