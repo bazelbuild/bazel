@@ -396,10 +396,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.legacyWholeArchive;
   }
 
-  public boolean removeLegacyWholeArchive() {
-    return cppOptions.removeLegacyWholeArchive;
-  }
-
   public boolean getInmemoryDotdFiles() {
     return cppOptions.inmemoryDotdFiles;
   }

@@ -230,15 +230,13 @@ public abstract class NativeDepsHelper {
       sharedLibrary = nativeDeps;
     }
     FdoContext fdoContext = toolchain.getFdoContext();
-    ImmutableSet.Builder<String> requestedFeatures =
-        ImmutableSet.<String>builder().addAll(ruleContext.getFeatures()).add(STATIC_LINKING_MODE);
-    if (!ruleContext.getDisabledFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
-      requestedFeatures.add(CppRuleClasses.LEGACY_WHOLE_ARCHIVE);
-    }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
-            /* requestedFeatures= */ requestedFeatures.build(),
+            /* requestedFeatures= */ ImmutableSet.<String>builder()
+                .addAll(ruleContext.getFeatures())
+                .add(STATIC_LINKING_MODE)
+                .build(),
             /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
             toolchain);
     CppLinkActionBuilder builder =
