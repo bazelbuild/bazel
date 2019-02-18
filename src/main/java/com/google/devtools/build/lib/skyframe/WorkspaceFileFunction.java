@@ -73,7 +73,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     if (workspaceASTValue == null) {
       return null;
     }
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
     }

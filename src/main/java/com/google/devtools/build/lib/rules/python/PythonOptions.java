@@ -72,7 +72,7 @@ public class PythonOptions extends FragmentOptions {
   @Option(
       name = "incompatible_remove_old_python_version_api",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -88,7 +88,7 @@ public class PythonOptions extends FragmentOptions {
   @Option(
       name = "incompatible_allow_python_version_transitions",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -198,7 +198,7 @@ public class PythonOptions extends FragmentOptions {
   @Option(
       name = "incompatible_disallow_legacy_py_provider",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,

@@ -288,7 +288,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     }
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable, pkgLocator);
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, ConstantRuleVisibility.PRIVATE);
-    PrecomputedValue.SKYLARK_SEMANTICS.set(injectable, starlarkSemantics);
+    PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 

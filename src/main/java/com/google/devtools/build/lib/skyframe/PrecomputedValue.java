@@ -83,7 +83,7 @@ public class PrecomputedValue implements SkyValue {
   public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
       new Precomputed<>(Key.create("default_visibility"));
 
-  public static final Precomputed<StarlarkSemantics> SKYLARK_SEMANTICS =
+  public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
       new Precomputed<>(Key.create("skylark_semantics"));
 
   static final Precomputed<UUID> BUILD_ID =

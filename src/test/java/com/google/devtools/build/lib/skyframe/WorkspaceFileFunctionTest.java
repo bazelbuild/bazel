@@ -187,7 +187,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
               @Override
               public SkyValue answer(InvocationOnMock invocation) throws Throwable {
                 SkyKey key = (SkyKey) invocation.getArguments()[0];
-                if (key.equals(PrecomputedValue.SKYLARK_SEMANTICS.getKeyForTesting())) {
+                if (key.equals(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting())) {
                   return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
                 } else if (key.equals(
                     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE

@@ -46,7 +46,7 @@ public class ResolvedFileFunction implements SkyFunction {
       throws InterruptedException, SkyFunctionException {
 
     ResolvedFileKey key = (ResolvedFileKey) skyKey;
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
     }

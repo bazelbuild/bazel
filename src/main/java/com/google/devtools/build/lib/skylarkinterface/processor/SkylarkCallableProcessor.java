@@ -83,7 +83,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
   private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
   private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
-  private static final String SKYLARK_SEMANTICS =
+  private static final String STARLARK_SEMANTICS =
       "com.google.devtools.build.lib.syntax.StarlarkSemantics";
   private static final String STARLARK_CONTEXT =
       "com.google.devtools.build.lib.skylarkinterface.StarlarkContext";
@@ -440,14 +440,14 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       currentIndex++;
     }
     if (annotation.useSkylarkSemantics()) {
-      if (!SKYLARK_SEMANTICS.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
+      if (!STARLARK_SEMANTICS.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format(
                 "Expected parameter index %d to be the %s type, matching useSkylarkSemantics, "
                     + "but was %s",
                 currentIndex,
-                SKYLARK_SEMANTICS,
+                STARLARK_SEMANTICS,
                 methodSignatureParams.get(currentIndex).asType().toString()));
       }
       currentIndex++;

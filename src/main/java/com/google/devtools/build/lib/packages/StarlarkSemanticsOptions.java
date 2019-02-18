@@ -65,7 +65,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "check_third_party_targets_have_licenses",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       help = "If true, all rules and files under //third_party must declare licenses([])")
   public boolean checkThirdPartyTargetsHaveLicenses;
@@ -95,7 +95,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "experimental_enable_android_migration_apis",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       help = "If set to true, enables the APIs required to support the Android Starlark migration.")
   public boolean experimentalEnableAndroidMigrationApis;
@@ -128,11 +128,12 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "experimental_platforms_api",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If set to true, enables a number of platform-related Starlark APIs useful for "
-          + "debugging.")
+      help =
+          "If set to true, enables a number of platform-related Starlark APIs useful for "
+              + "debugging.")
   public boolean experimentalPlatformsApi;
 
   // TODO(cparsons): Resolve and finalize the transition() API. The transition implementation
@@ -140,7 +141,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "experimental_starlark_config_transitions",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
@@ -161,55 +162,52 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public String experimentalTransitionWhitelistLocation;
 
   @Option(
-    name = "incompatible_bzl_disallow_load_after_statement",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, all `load` must be called at the top of .bzl files, before any other "
-            + "statement."
-  )
+      name = "incompatible_bzl_disallow_load_after_statement",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, all `load` must be called at the top of .bzl files, before any other "
+              + "statement.")
   public boolean incompatibleBzlDisallowLoadAfterStatement;
 
   @Option(
-    name = "incompatible_depset_union",
-    defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      name = "incompatible_depset_union",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, depset union using `+`, `|` or `.union` are forbidden. "
-            + "Use the `depset` constructor instead."
-  )
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, depset union using `+`, `|` or `.union` are forbidden. "
+              + "Use the `depset` constructor instead.")
   public boolean incompatibleDepsetUnion;
 
   @Option(
-    name = "incompatible_depset_is_not_iterable",
-    defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      name = "incompatible_depset_is_not_iterable",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, depset type is not iterable. For loops and functions expecting an "
-            + "iterable will reject depset objects. Use the `.to_list` method to explicitly "
-            + "convert to a list."
-  )
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, depset type is not iterable. For loops and functions expecting an "
+              + "iterable will reject depset objects. Use the `.to_list` method to explicitly "
+              + "convert to a list.")
   public boolean incompatibleDepsetIsNotIterable;
 
   @Option(
       name = "incompatible_disable_deprecated_attr_params",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -235,22 +233,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean requireFeatureConfigurationForPic;
 
   @Option(
-    name = "incompatible_disable_objc_provider_resources",
-    defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      name = "incompatible_disable_objc_provider_resources",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, disallow use of deprecated resource fields on the Objc provider."
-  )
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, disallow use of deprecated resource fields on the Objc provider.")
   public boolean incompatibleDisableObjcProviderResources;
 
   @Option(
       name = "incompatible_disallow_data_transition",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -262,20 +259,19 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_disallow_dict_plus",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, the `+` becomes disabled for dicts."
-  )
+      help = "If set to true, the `+` becomes disabled for dicts.")
   public boolean incompatibleDisallowDictPlus;
 
   @Option(
       name = "incompatible_disallow_filetype",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -287,7 +283,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_disallow_legacy_java_provider",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -299,33 +295,31 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_disallow_legacy_javainfo",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, old-style JavaInfo provider construction is disallowed."
-  )
+      help = "If set to true, old-style JavaInfo provider construction is disallowed.")
   public boolean incompatibleDisallowLegacyJavaInfo;
 
   @Option(
       name = "incompatible_disallow_load_labels_to_cross_package_boundaries",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, the label argument to 'load' cannot cross a package boundary."
-  )
+      help = "If set to true, the label argument to 'load' cannot cross a package boundary.")
   public boolean incompatibleDisallowLoadLabelsToCrossPackageBoundaries;
 
   @Option(
       name = "incompatible_disallow_struct_provider_syntax",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -339,7 +333,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_generate_javacommon_source_jar",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -353,14 +347,13 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       name = "incompatible_disallow_old_style_args_add",
       defaultValue = "false",
       category = "incompatible changes",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, vectorized calls to Args#add are disallowed."
-  )
+      help = "If set to true, vectorized calls to Args#add are disallowed.")
   public boolean incompatibleDisallowOldStyleArgsAdd;
 
   @Option(
@@ -381,7 +374,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_new_actions_api",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -389,14 +382,13 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       },
       help =
           "If set to true, the API to create actions is only available on `ctx.actions`, "
-              + "not on `ctx`."
-  )
+              + "not on `ctx`.")
   public boolean incompatibleNewActionsApi;
 
   @Option(
       name = "incompatible_no_attr_license",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -408,20 +400,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_no_output_attr_default",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, disables the `default` parameter of the `attr.output` and "
-          + "`attr.output_list` attribute definition functions.")
+      help =
+          "If set to true, disables the `default` parameter of the `attr.output` and "
+              + "`attr.output_list` attribute definition functions.")
   public boolean incompatibleNoOutputAttrDefault;
 
   @Option(
       name = "incompatible_no_support_tools_in_action_inputs",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -437,11 +430,11 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_no_target_output_group",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help = "If set to true, disables the output_group field of the 'Target' Starlark type.")
   public boolean incompatibleNoTargetOutputGroup;
@@ -449,7 +442,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_no_transitive_loads",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -463,7 +456,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_remap_main_repo",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -476,7 +469,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_remove_native_maven_jar",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -490,7 +483,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_strict_argument_ordering",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -504,7 +497,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_string_is_not_iterable",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -527,7 +520,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   @Option(
       name = "incompatible_use_toolchain_providers_in_java_common",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
