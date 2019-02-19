@@ -181,6 +181,7 @@ public class PlatformOptions extends FragmentOptions {
     host.toolchainResolutionDebug = this.toolchainResolutionDebug;
     host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
     host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
+    host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     return host;
   }
 }
