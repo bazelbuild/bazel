@@ -828,7 +828,8 @@ public final class Runfiles implements RunfilesApi {
      */
     public Builder addArtifact(Artifact artifact) {
       Preconditions.checkNotNull(artifact);
-      Preconditions.checkArgument(!artifact.isMiddlemanArtifact());
+      Preconditions.checkArgument(
+          !artifact.isMiddlemanArtifact(), "unexpected middleman artifact: %s", artifact);
       artifactsBuilder.add(artifact);
       return this;
     }
