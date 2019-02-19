@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.Iterables;
 import java.util.List;
 
 /**
@@ -24,4 +25,14 @@ public interface SpawnActionContext extends ActionContext {
   /** Executes the given spawn and returns metadata about the execution. */
   List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
+
+  /**
+   * Executes the given spawn, possibly asynchronously, and returns a FutureSpawn to represent the
+   * execution, which can be listened to / registered with Skyframe.
+   */
+  default FutureSpawn execMaybeAsync(Spawn spawn, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    SpawnResult result = Iterables.getOnlyElement(exec(spawn, actionExecutionContext));
+    return FutureSpawn.immediate(result);
+  }
 }

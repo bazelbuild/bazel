@@ -552,8 +552,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       long actionStartTime)
       throws ActionExecutionException, InterruptedException {
     if (previousAction != null) {
-      // If this is a shared action and the other action is the one that executed, we must use that
-      // other action's value, provided here, since it is populated with metadata for the outputs.
+      // There are two cases where we can already have an executing action for a specific output:
+      // 1. Another instance of a shared action won the race and got executed first.
+      // 2. The action was already started earlier, and this SkyFunction got restarted since
+      //    there's progress to be made.
+      // In either case, we must use this continuation to continue. Note that in the first case,
+      // we don't have any input metadata available, so we couldn't re-execute the action even if we
+      // wanted to.
       return previousAction.getResultOrDependOnFuture(env, actionLookupData, action);
     }
     // The metadataHandler may be recreated if we discover inputs.
@@ -700,6 +705,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
                 actionStartTime,
                 actionExecutionContext,
                 actionLookupData);
+        // If an action is executed asynchronously, we may not have a result. In that case we return
+        // null here and expect the function to be restarted.
+        if (env.valuesMissing()) {
+          return null;
+        }
       }
     } catch (IOException e) {
       throw new ActionExecutionException(
