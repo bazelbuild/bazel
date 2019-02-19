@@ -202,20 +202,21 @@ def _get_no_canonical_prefixes_opt(repository_ctx, cc):
     # If the compiler sometimes rewrites paths in the .d files without symlinks
     # (ie when they're shorter), it confuses Bazel's logic for verifying all
     # #included header files are listed as inputs to the action.
+    # We also rely on symlinks not being resolved for remote builds.
 
-    # The '-fno-canonical-system-headers' should be enough, but clang does not
-    # support it, so we also try '-no-canonical-prefixes' if first option does
-    # not work.
+    # The '-no-canonical-prefixes' flag is enough in most cases.
+    # In case this flag is not supported (older gcc versions), we try to add
+    # '-fno-canonical-system-headers' instead.
     opt = _add_compiler_option_if_supported(
         repository_ctx,
         cc,
-        "-fno-canonical-system-headers",
+        "-no-canonical-prefixes",
     )
     if len(opt) == 0:
         return _add_compiler_option_if_supported(
             repository_ctx,
             cc,
-            "-no-canonical-prefixes",
+            "-fno-canonical-system-headers",
         )
     return opt
 
