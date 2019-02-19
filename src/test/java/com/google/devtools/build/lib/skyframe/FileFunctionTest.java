@@ -1385,6 +1385,35 @@ public class FileFunctionTest {
     assertThat(result.get(fooKey).exists()).isTrue();
   }
 
+  @Test
+  public void testMultipleLevelsOfDirectorySymlinks_Clean() throws Exception {
+    symlink("a/b/c", "../c");
+    Path abcd = path("a/b/c/d");
+    symlink("a/c/d", "../d");
+    assertThat(valueForPath(abcd).isSymlink()).isTrue();
+  }
+
+  @Test
+  public void testMultipleLevelsOfDirectorySymlinks_Incremental() throws Exception {
+    SequentialBuildDriver driver = makeDriver();
+
+    symlink("a/b/c", "../c");
+    Path acd = directory("a/c/d");
+    Path abcd = path("a/b/c/d");
+
+    FileValue abcdFileValue = valueForPathHelper(pkgRoot, abcd, driver);
+    assertThat(abcdFileValue.isDirectory()).isTrue();
+    assertThat(abcdFileValue.isSymlink()).isFalse();
+
+    acd.delete();
+    symlink("a/c/d", "../d");
+    differencer.invalidate(ImmutableList.of(fileStateSkyKey("a/c/d")));
+
+    abcdFileValue = valueForPathHelper(pkgRoot, abcd, driver);
+
+    assertThat(abcdFileValue.isSymlink()).isTrue();
+  }
+
   private void checkRealPath(String pathString) throws Exception {
     Path realPath = pkgRoot.getRelative(pathString).resolveSymbolicLinks();
     assertRealPath(pathString, pkgRoot.relativize(realPath).toString());

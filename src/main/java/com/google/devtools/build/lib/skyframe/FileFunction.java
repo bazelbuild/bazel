@@ -117,17 +117,6 @@ public class FileFunction implements SkyFunction {
     RootedPath realRootedPath = rootedPathFromAncestors;
     FileStateValue realFileStateValue = fileStateValueFromAncestors;
 
-    FileStateValue fileStateValue;
-    if (rootedPath.equals(realRootedPath)) {
-      fileStateValue = Preconditions.checkNotNull(realFileStateValue, rootedPath);
-    } else {
-      // TODO(b/123922036): Yep, this is useless & wasted work.
-      fileStateValue = (FileStateValue) env.getValue(FileStateValue.key(rootedPath));
-      if (fileStateValue == null) {
-        return null;
-      }
-    }
-
     while (realFileStateValue.getType().isSymlink()) {
       PartialResolutionResult getSymlinkTargetRootedPathResult =
           getSymlinkTargetRootedPath(
@@ -147,7 +136,7 @@ public class FileFunction implements SkyFunction {
         ImmutableList.copyOf(logicalChain),
         rootedPath,
         // TODO(b/123922036): This is a bug. Should be 'fileStateValueFromAncestors'.
-        fileStateValue,
+        fileStateValueFromAncestors,
         realRootedPath,
         realFileStateValue);
   }
