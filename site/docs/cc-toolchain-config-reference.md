@@ -11,6 +11,27 @@ title: C++ toolchain configuration
 
 ## Overview
 
+To invoke the compiler with the right options, Bazel needs some knowledge about
+the compiler internals, such as include directories and important flags.
+In other words, Bazel needs a simplified model of the compiler to understand its
+workings.
+
+Bazel needs to know the following:
+
+* Whether the compiler supports thinLTO, modules, dynamic linking, or PIC
+  (position independent code).
+* Paths to the required tools such as gcc, ld, ar, objcopy, and so on.
+* The built-in system include directories. Bazel needs these to validate that
+  all headers that were included in the source file were properly declared in
+  the build file.
+* The default sysroot.
+* Which flags to use for compilation, linking, archiving.
+* Which flags to use for the supported compilation modes (opt, dbg, fastbuild).
+* Make variables specifically required by the compiler.
+
+If the compiler has support for multiple architectures, Bazel needs to configure
+them separately.
+
 [`CcToolchainConfigInfo`](skylark/lib/CcToolchainConfigInfo.html) is a provider that provides the necessary level of
 granularity for configuring the behavior of Bazel's C++ rules. By default,
 Bazel automatically configures `CcToolchainConfigInfo` for your build, but you
