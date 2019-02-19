@@ -410,7 +410,6 @@ struct DirectoryStatus {
 int CheckDirectoryStatus(const wstring& path) {
   static const wstring kDot(L".");
   static const wstring kDotDot(L"..");
-  bool found_valid_file = false;
   bool found_pending_delete_file = false;
   WIN32_FIND_DATAW metadata;
   HANDLE handle = ::FindFirstFileW((path + L"\\*").c_str(), &metadata);
@@ -428,11 +427,10 @@ int CheckDirectoryStatus(const wstring& path) {
         FILE_FLAG_BACKUP_SEMANTICS,
         NULL);
       if (hFile != INVALID_HANDLE_VALUE) {
-        // If there is a valid file under the directory, we should stop
-        // and return kDirectoryNotEmpty.
+        // If there is a valid file under the directory, the directory is truely not empty.
+        // We should just return kDirectoryNotEmpty.
         CloseHandle(hFile);
-        found_valid_file = true;
-        break;
+        return DirectoryStatus::kDirectoryNotEmpty;
       } else {
         DWORD error_code = GetLastError();
         // If the file or directory is in deleting process,
@@ -440,11 +438,10 @@ int CheckDirectoryStatus(const wstring& path) {
         // If it's already deleted at the time we check,
         // CreateFileW returns ERROR_FILE_NOT_FOUND.
         // If CreateFileW fails with other reason, we consider there is a
-        // valid file that we cannot open, thus set found_valid_file to true.
+        // valid file that we cannot open, thus return kDirectoryNotEmpty
         if (error_code != ERROR_ACCESS_DENIED &&
             error_code != ERROR_FILE_NOT_FOUND) {
-          found_valid_file = true;
-          break;
+          return DirectoryStatus::kDirectoryNotEmpty;
         } else if (error_code == ERROR_ACCESS_DENIED) {
           found_pending_delete_file = true;
         }
@@ -452,20 +449,10 @@ int CheckDirectoryStatus(const wstring& path) {
     }
   } while (::FindNextFileW(handle, &metadata));
   ::FindClose(handle);
-  if (found_valid_file) {
-    // The directory is truely not empty.
-    return DirectoryStatus::kDirectoryNotEmpty;
-  } else {
-    // If we find pending delete files, wait for the system to clean them up
-    // and try to delete the directory again.
-    // If we didn't find any pending delete files, it means at the time we check,
-    // the deleted files are gone, the directory is now empty, we can then try to
-    // delete again without waiting.
-    if (found_pending_delete_file) {
-      return DirectoryStatus::kPendingDeleteChildExists;
-    }
-    return DirectoryStatus::kDirectoryEmpty;
+  if (found_pending_delete_file) {
+    return DirectoryStatus::kPendingDeleteChildExists;
   }
+  return DirectoryStatus::kDirectoryEmpty;
 }
 
 int DeletePath(const wstring& path, wstring* error) {
@@ -557,6 +544,11 @@ int DeletePath(const wstring& path, wstring* error) {
             }
             return DeletePathResult::kError;
           } else if (status == DirectoryStatus::kPendingDeleteChildExists) {
+            // If we find pending delete files, wait for the system to clean them up
+            // and try to delete the directory again.
+            // If we didn't find any pending delete files, it means at the time we check,
+            // the deleted files are gone, the directory is now empty, we can then try to
+            // delete again without waiting.
             Sleep(5L);
           }
           continue;
