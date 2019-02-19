@@ -188,6 +188,7 @@ public interface JavaSemantics {
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
   String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
   String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
+  String JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER = "%set_java_coverage_new_implementation%";
 
   /** Substitution for exporting the jars needed for jacoco coverage. */
   class ComputedJacocoSubstitution extends ComputedSubstitution {

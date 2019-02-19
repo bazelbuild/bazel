@@ -383,6 +383,10 @@ public class BazelJavaSemantics implements JavaSemantics {
           "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspacePrefix)
       );
       arguments.add(
+          Substitution.of(
+              JavaSemantics.JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER,
+              "export JAVA_COVERAGE_NEW_IMPLEMENTATION=YES"));
+      arguments.add(
           Substitution.of("%java_start_class%", ShellEscaper.escapeString(javaStartClass)));
     } else {
       arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER,
@@ -390,6 +394,10 @@ public class BazelJavaSemantics implements JavaSemantics {
               ? "export JACOCO_METADATA_JAR=" + path : ""));
       arguments.add(Substitution.of(JavaSemantics.JACOCO_MAIN_CLASS_PLACEHOLDER, ""));
       arguments.add(Substitution.of(JavaSemantics.JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER, ""));
+      arguments.add(
+          Substitution.of(
+              JavaSemantics.JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER,
+              "export JAVA_COVERAGE_NEW_IMPLEMENTATION=NO"));
     }
 
     arguments.add(Substitution.of("%java_start_class%",
