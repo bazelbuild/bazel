@@ -211,6 +211,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     if (protobufMetadataBuffer.size() > 0) {
       try (OutputStream outputStream = Files.newOutputStream(output)) {
         protobufMetadataBuffer.writeTo(outputStream);
+        outputStream.close();
       }
     } else if (Files.exists(output)) {
       // Delete stalled meta file.

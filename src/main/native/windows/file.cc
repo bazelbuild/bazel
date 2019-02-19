@@ -410,7 +410,7 @@ struct DirectoryStatus {
 int CheckDirectoryStatus(const wstring& path) {
   static const wstring kDot(L".");
   static const wstring kDotDot(L"..");
-  bool found_pending_delete_file = false;
+  bool found_pending_delete_child = false;
   WIN32_FIND_DATAW metadata;
   HANDLE handle = ::FindFirstFileW((path + L"\\*").c_str(), &metadata);
   if (handle == INVALID_HANDLE_VALUE) {
@@ -443,13 +443,13 @@ int CheckDirectoryStatus(const wstring& path) {
             error_code != ERROR_FILE_NOT_FOUND) {
           return DirectoryStatus::kDirectoryNotEmpty;
         } else if (error_code == ERROR_ACCESS_DENIED) {
-          found_pending_delete_file = true;
+          found_pending_delete_child = true;
         }
       }
     }
   } while (::FindNextFileW(handle, &metadata));
   ::FindClose(handle);
-  if (found_pending_delete_file) {
+  if (found_pending_delete_child) {
     return DirectoryStatus::kPendingDeleteChildExists;
   }
   return DirectoryStatus::kDirectoryEmpty;
