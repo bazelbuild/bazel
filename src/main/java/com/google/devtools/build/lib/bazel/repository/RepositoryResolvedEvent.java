@@ -132,14 +132,14 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
                   + rule.getName()
                   + "' indicated that a canonical reproducible form can be obtained by"
                   + " modifying arguments "
-                  + Printer.getPrinter().repr(diff.getFirst());
+                  + representModifications(diff.getFirst());
         } else {
           this.message =
               "Rule '"
                   + rule.getName()
                   + "' indicated that a canonical reproducible form can be obtained by"
                   + " modifying arguments "
-                  + Printer.getPrinter().repr(diff.getFirst())
+                  + representModifications(diff.getFirst())
                   + " and dropping "
                   + Printer.getPrinter().repr(diff.getSecond());
         }
@@ -215,5 +215,21 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       }
     }
     return Pair.of(valuesChanged.build(), keysDropped.build());
+  }
+
+  static String representModifications(Map<String, Object> changes) {
+    StringBuilder representation = new StringBuilder();
+    boolean isFirst = true;
+    for (Map.Entry<String, Object> entry : changes.entrySet()) {
+      if (!isFirst) {
+        representation.append(", ");
+      }
+      representation
+          .append(entry.getKey())
+          .append(" = ")
+          .append(Printer.getPrinter().repr(entry.getValue()));
+      isFirst = false;
+    }
+    return representation.toString();
   }
 }
