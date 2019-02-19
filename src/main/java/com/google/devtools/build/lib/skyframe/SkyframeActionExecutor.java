@@ -810,7 +810,8 @@ public final class SkyframeActionExecutor {
         SkyFunction.Environment env, ActionLookupData actionLookupData, Action action)
         throws ActionExecutionException, InterruptedException {
       if (actionLookupData.equals(this.actionLookupData)) {
-        // This execution originally created this object, so we use it to run the state machine.
+        // This continuation is owned by the Skyframe node executed by the current thread, so we use
+        // it to run the state machine.
         return runStateMachine(env);
       }
       // This is a shared action, and the executed action is owned by another Skyframe node. We do
