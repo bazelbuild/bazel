@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -42,6 +43,13 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
       throws ExecException, InterruptedException {
     return resolve(spawn, actionExecutionContext.getEventHandler())
         .exec(spawn, actionExecutionContext);
+  }
+
+  @Override
+  public FutureSpawn execMaybeAsync(Spawn spawn, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    return resolve(spawn, actionExecutionContext.getEventHandler())
+        .execMaybeAsync(spawn, actionExecutionContext);
   }
 
   /**
