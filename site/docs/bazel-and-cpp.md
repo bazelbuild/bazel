@@ -24,7 +24,7 @@ The following resources will help you work with Bazel on C++ projects:
 *  [C++ common use cases](cpp-use-cases.html)
 *  [C/C++ rules](be/c-cpp.html)
 *  [C++ toolchain configuration](cc-toolchain-config-reference.html)
-*  [Configuring CROSSTOOL](tutorial/crosstool.html)
+*  [Tutorial: Configuring C++ toolchains](tutorial/cc-toolchain-config.html)
 
 ## Best practices
 
