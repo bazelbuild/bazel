@@ -94,6 +94,11 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
       return exists;
     }
 
+    @Override
+    public ImmutableList<RootedPath> logicalChainDuringResolution() {
+      throw new UnsupportedOperationException();
+    }
+
     void setExists(boolean exists) {
       this.exists = exists;
     }
