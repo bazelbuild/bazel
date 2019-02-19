@@ -828,24 +828,24 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private Package getPackage(PackageIdentifier packageIdentifier)
       throws InterruptedException, QueryException, NoSuchPackageException {
     SkyKey packageKey = PackageValue.key(packageIdentifier);
-      PackageValue packageValue = (PackageValue) graph.getValue(packageKey);
-      if (packageValue != null) {
-        Package pkg = packageValue.getPackage();
-        if (pkg.containsErrors()) {
+    PackageValue packageValue = (PackageValue) graph.getValue(packageKey);
+    if (packageValue != null) {
+      Package pkg = packageValue.getPackage();
+      if (pkg.containsErrors()) {
         throw new BuildFileContainsErrorsException(packageIdentifier);
-        }
-      return pkg;
-      } else {
-      NoSuchPackageException exception = (NoSuchPackageException) graph.getException(packageKey);
-        if (exception != null) {
-          throw exception;
-        }
-        if (graph.isCycle(packageKey)) {
-        throw new NoSuchPackageException(packageIdentifier, "Package depends on a cycle");
-        } else {
-          throw new QueryException(packageKey + " does not exist in graph");
-        }
       }
+      return pkg;
+    } else {
+      NoSuchPackageException exception = (NoSuchPackageException) graph.getException(packageKey);
+      if (exception != null) {
+        throw exception;
+      }
+      if (graph.isCycle(packageKey)) {
+        throw new NoSuchPackageException(packageIdentifier, "Package depends on a cycle");
+      } else {
+        throw new QueryException(packageKey + " does not exist in graph");
+      }
+    }
   }
 
   @ThreadSafe
