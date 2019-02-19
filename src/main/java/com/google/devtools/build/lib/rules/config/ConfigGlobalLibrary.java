@@ -49,15 +49,10 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       StarlarkContext context)
       throws EvalException {
     StarlarkSemantics semantics = env.getSemantics();
-    if (!semantics.experimentalStarlarkConfigTransitions()) {
-      throw new EvalException(
-          location,
-          "transition() is experimental and disabled by default. "
-              + "This API is in development and subject to change at any time. Use "
-              + "--experimental_starlark_config_transitions to use this experimental API.");
-    }
-    validateBuildSettingKeys(inputs, "input", location);
-    validateBuildSettingKeys(outputs, "output", location);
+    validateBuildSettingKeys(
+        inputs, "input", location, semantics.experimentalStarlarkConfigTransitions());
+    validateBuildSettingKeys(
+        outputs, "output", location, semantics.experimentalStarlarkConfigTransitions());
     return StarlarkDefinedConfigTransition.newRegularTransition(
         implementation, inputs, outputs, semantics, context);
   }
@@ -68,18 +63,29 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       throws EvalException {
     Map<String, Object> changedSettingsMap =
         changedSettings.getContents(String.class, Object.class, "changed_settings dict");
-    validateBuildSettingKeys(changedSettingsMap.keySet(), "output", location);
+    validateBuildSettingKeys(changedSettingsMap.keySet(), "output", location, true);
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(changedSettingsMap, location);
   }
 
   private void validateBuildSettingKeys(
-      Iterable<String> optionKeys, String keyErrorDescriptor, Location location)
+      Iterable<String> optionKeys,
+      String keyErrorDescriptor,
+      Location location,
+      boolean starlarkTransitionsEnabled)
       throws EvalException {
 
     HashSet<String> processedOptions = Sets.newHashSet();
 
     for (String optionKey : optionKeys) {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        if (!starlarkTransitionsEnabled) {
+          throw new EvalException(
+              location,
+              "transitions on Starlark-defined build settings is experimental and "
+                  + "disabled by default. This API is in development and subject to change at any"
+                  + "time. Use --experimental_starlark_config_transitions to use this experimental "
+                  + "API.");
+        }
         try {
           Label.parseAbsoluteUnchecked(optionKey);
         } catch (IllegalArgumentException e) {
@@ -90,6 +96,16 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
                       + "it must begin with //command_line_option:",
                   keyErrorDescriptor, optionKey),
               e);
+        }
+      } else {
+        String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
+        if (optionName.startsWith("experimental_") || optionName.startsWith("incompatible_")) {
+          throw new EvalException(
+              location,
+              String.format(
+                  "Invalid transition %s '%s'. Cannot transition on --experimental_* or "
+                      + "--incompatible_* options",
+                  keyErrorDescriptor, optionKey));
         }
       }
       if (!processedOptions.add(optionKey)) {
