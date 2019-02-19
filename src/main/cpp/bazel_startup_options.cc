@@ -28,8 +28,10 @@ BazelStartupOptions::BazelStartupOptions(
       use_system_rc(true),
       use_workspace_rc(true),
       use_home_rc(true),
-      use_master_bazelrc_(true) {
+      use_master_bazelrc_(true),
+      incompatible_windows_style_arg_escaping(false) {
   RegisterNullaryStartupFlag("home_rc");
+  RegisterNullaryStartupFlag("incompatible_windows_style_arg_escaping");
   RegisterNullaryStartupFlag("master_bazelrc");
   RegisterNullaryStartupFlag("system_rc");
   RegisterNullaryStartupFlag("workspace_rc");
@@ -104,6 +106,14 @@ blaze_exit_code::ExitCode BazelStartupOptions::ProcessArgExtra(
     }
     use_master_bazelrc_ = false;
     option_sources["blazerc"] = rcfile;
+  } else if (GetNullaryOption(arg,
+                              "--incompatible_windows_style_arg_escaping")) {
+    incompatible_windows_style_arg_escaping = true;
+    option_sources["incompatible_windows_style_arg_escaping"] = rcfile;
+  } else if (GetNullaryOption(arg,
+                              "--noincompatible_windows_style_arg_escaping")) {
+    incompatible_windows_style_arg_escaping = false;
+    option_sources["incompatible_windows_style_arg_escaping"] = rcfile;
   } else {
     *is_processed = false;
     return blaze_exit_code::SUCCESS;
@@ -134,6 +144,15 @@ void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
       BAZEL_LOG(WARNING) << "Explicit value of --workspace_rc is "
                             "ignored, since --ignore_all_rc_files is on.";
     }
+  }
+}
+
+void BazelStartupOptions::AddExtraOptions(
+    std::vector<std::string> *result) const {
+  if (incompatible_windows_style_arg_escaping) {
+    result->push_back("--incompatible_windows_style_arg_escaping");
+  } else {
+    result->push_back("--noincompatible_windows_style_arg_escaping");
   }
 }
 

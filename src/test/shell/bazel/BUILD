@@ -799,3 +799,10 @@ sh_test(
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_test(
+    name = "windows_arg_esc_test",
+    srcs = ["windows_arg_esc_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
