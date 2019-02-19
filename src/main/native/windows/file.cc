@@ -419,7 +419,7 @@ int CheckDirectoryStatus(const wstring& path) {
   }
   do {
     if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
-      std::wstring child = winpath + L"\\" + metadata.cFileName;
+      std::wstring child = path + L"\\" + metadata.cFileName;
       HANDLE hFile = CreateFileW(child.c_str(),
         GENERIC_READ,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
