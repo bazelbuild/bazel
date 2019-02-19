@@ -55,6 +55,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.BlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
@@ -151,12 +153,16 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
 
-    ByteString result =
-        executeQuery(
-            ruleContext,
-            queryOptions,
-            ruleContext.attributes().get("scope", BuildType.LABEL_LIST),
-            query);
+    ByteString result;
+    try (SilentCloseable c =
+        Profiler.instance().profile("GenQuery.executeQuery/" + ruleContext.getLabel())) {
+      result =
+          executeQuery(
+              ruleContext,
+              queryOptions,
+              ruleContext.attributes().get("scope", BuildType.LABEL_LIST),
+              query);
+    }
     if (result == null || ruleContext.hasErrors()) {
       return null;
     }
