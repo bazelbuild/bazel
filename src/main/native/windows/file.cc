@@ -411,11 +411,12 @@ struct DirectoryStatus {
 int CheckDirectoryStatus(const wstring& path) {
   static const wstring kDot(L".");
   static const wstring kDotDot(L"..");
+  bool found_valid_file = false;
   bool found_child_marked_for_deletion = false;
   WIN32_FIND_DATAW metadata;
   HANDLE handle = ::FindFirstFileW((path + L"\\*").c_str(), &metadata);
   if (handle == INVALID_HANDLE_VALUE) {
-    return DirectoryStatus::kDoesNotExist;;
+    return DirectoryStatus::kDoesNotExist;
   }
   do {
     if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
@@ -431,7 +432,8 @@ int CheckDirectoryStatus(const wstring& path) {
         // If there is a valid file under the directory, the directory is truely not empty.
         // We should just return kDirectoryNotEmpty.
         CloseHandle(hFile);
-        return DirectoryStatus::kDirectoryNotEmpty;
+        found_valid_file = true;
+        break;
       } else {
         DWORD error_code = GetLastError();
         // If the file or directory is in deleting process,
@@ -442,7 +444,8 @@ int CheckDirectoryStatus(const wstring& path) {
         // valid file that we cannot open, thus return kDirectoryNotEmpty
         if (error_code != ERROR_ACCESS_DENIED &&
             error_code != ERROR_FILE_NOT_FOUND) {
-          return DirectoryStatus::kDirectoryNotEmpty;
+          found_valid_file = true;
+          break;
         } else if (error_code == ERROR_ACCESS_DENIED) {
           found_child_marked_for_deletion = true;
         }
@@ -450,6 +453,9 @@ int CheckDirectoryStatus(const wstring& path) {
     }
   } while (::FindNextFileW(handle, &metadata));
   ::FindClose(handle);
+  if (found_valid_file) {
+    return DirectoryStatus::kDirectoryNotEmpty;
+  }
   if (found_child_marked_for_deletion) {
     return DirectoryStatus::kChildMarkedForDeletionExists;
   }
