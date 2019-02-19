@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
-import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -57,6 +55,7 @@ import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeClasspathProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -457,15 +456,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     // with the same root relative path
     builder.addTransitiveArtifactsWrappedInStableOrder(javaCommon.getRuntimeClasspath());
 
-    // Add the JDK files if it comes from P4 (see java_stub_template.txt).
-    TransitiveInfoCollection javabaseTarget =
-        ruleContext.getPrerequisite(JAVA_RUNTIME_ATTRIBUTE_NAME, Mode.TARGET);
-
-    if (javabaseTarget != null) {
-      builder.addTransitiveArtifacts(
-          javabaseTarget.getProvider(FileProvider.class).getFilesToBuild());
-    }
-
+    // Add the JDK files from P4 (see java_stub_template.txt).
+    builder.addTransitiveArtifacts(JavaRuntimeInfo.from(ruleContext).javaBaseInputs());
     builder.addArtifact(manifest);
     builder.addArtifact(resourcesClassJar);
     builder.addArtifact(resourcesZip);
