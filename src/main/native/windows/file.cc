@@ -398,19 +398,20 @@ struct DirectoryStatus {
     kDoesNotExist = 0,
     kDirectoryEmpty = 1,
     kDirectoryNotEmpty = 2,
-    kPendingDeleteChildExists = 3,
+    kChildMarkedForDeletionExists = 3,
   };
 };
 
-// Check the status of a directory, the possible results are
+// Check whether the directory and its child elements truly exist, or are marked for deletion.
+// The result could be:
 // 1. The give path doesn't exist
 // 2. The directory is empty
 // 3. The directory contains valid files or dirs, so not empty
-// 4. The directory contains only files or dirs in pending delete status.
+// 4. The directory contains only files or dirs marked for deletion.
 int CheckDirectoryStatus(const wstring& path) {
   static const wstring kDot(L".");
   static const wstring kDotDot(L"..");
-  bool found_pending_delete_child = false;
+  bool found_child_marked_for_deletion = false;
   WIN32_FIND_DATAW metadata;
   HANDLE handle = ::FindFirstFileW((path + L"\\*").c_str(), &metadata);
   if (handle == INVALID_HANDLE_VALUE) {
@@ -443,14 +444,14 @@ int CheckDirectoryStatus(const wstring& path) {
             error_code != ERROR_FILE_NOT_FOUND) {
           return DirectoryStatus::kDirectoryNotEmpty;
         } else if (error_code == ERROR_ACCESS_DENIED) {
-          found_pending_delete_child = true;
+          found_child_marked_for_deletion = true;
         }
       }
     }
   } while (::FindNextFileW(handle, &metadata));
   ::FindClose(handle);
-  if (found_pending_delete_child) {
-    return DirectoryStatus::kPendingDeleteChildExists;
+  if (found_child_marked_for_deletion) {
+    return DirectoryStatus::kChildMarkedForDeletionExists;
   }
   return DirectoryStatus::kDirectoryEmpty;
 }
@@ -517,6 +518,7 @@ int DeletePath(const wstring& path, wstring* error) {
       // can hold the handle for a long time. So try at most 20 times,
       // which means a process time of 100-120ms.
       // Inspired by https://github.com/Alexpux/Cygwin/commit/28fa2a72f810670a0562ea061461552840f5eb70
+      // Useful link: https://stackoverflow.com/questions/31606978
       int count = 20;
       while (count > 0 && !RemoveDirectoryW(wpath)) {
         // Failed to delete the directory.
@@ -530,28 +532,31 @@ int DeletePath(const wstring& path, wstring* error) {
           // a directory.
           return DeletePathResult::kDoesNotExist;
         } else if (err == ERROR_DIR_NOT_EMPTY) {
-          // We got ERROR_DIR_NOT_EMPTY error, but maybe the child files and dirs are already in deleting process,
-          // let's check the status of this directory to see if we should retry the delete operation.
-          int status = CheckDirectoryStatus(winpath);
-          if (status == DirectoryStatus::kDirectoryNotEmpty) {
-            return DeletePathResult::kDirectoryNotEmpty;
-          } else if (status == DirectoryStatus::kDoesNotExist) {
-            // This case should never happen, because ERROR_DIR_NOT_EMPTY means the directory exists.
-            // But if it does happen, return an error message.
-            if (error) {
-              *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                        L"RemoveDirectoryW", path, GetLastError());
-            }
-            return DeletePathResult::kError;
-          } else if (status == DirectoryStatus::kPendingDeleteChildExists) {
-            // If we find pending delete files, wait for the system to clean them up
-            // and try to delete the directory again.
-            // If we didn't find any pending delete files, it means at the time we check,
-            // the deleted files are gone, the directory is now empty, we can then try to
-            // delete again without waiting.
-            Sleep(5L);
+          // We got ERROR_DIR_NOT_EMPTY error, but maybe the child files and dirs are already marked for deletion,
+          // let's check the status of the child elements to see if we should retry the delete operation.
+          switch (CheckDirectoryStatus(winpath)) {
+            case DirectoryStatus::kDirectoryNotEmpty:
+              // The directory is truely not empty.
+              return DeletePathResult::kDirectoryNotEmpty;
+            case DirectoryStatus::kDirectoryEmpty:
+              // If we didn't find any pending delete child files or dirs, it means at the time we check,
+              // the child elements marked for deletion are gone, the directory is now empty, we can then try to
+              // delete the directory again without waiting.
+              continue;
+            case DirectoryStatus::kChildMarkedForDeletionExists:
+              // If the directory only contains child elements marked for deletion,
+              // wait the system for 5 ms to clean them up and try to delete the directory again.
+              Sleep(5L);
+              continue;
+            case DirectoryStatus::kDoesNotExist:
+              // This case should never happen, because ERROR_DIR_NOT_EMPTY means the directory exists.
+              // But if it does happen, return an error message.
+              if (error) {
+                *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                          L"RemoveDirectoryW", path, GetLastError());
+              }
+              return DeletePathResult::kError;
           }
-          continue;
         }
 
         // Some unknown error occurred.
