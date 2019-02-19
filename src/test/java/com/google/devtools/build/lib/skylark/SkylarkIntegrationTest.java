@@ -1154,31 +1154,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTransitionGuardedByExperimentalFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=false");
-
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "  return []",
-        "def transition_func(settings):",
-        "  return settings",
-        "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/BUILD",
-        "load('//test:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'r')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:r");
-    assertContainsEvent("transition() is experimental and disabled by default");
-  }
-
-  @Test
   public void testNoOutputListAttrDefault() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=true");
 
@@ -2152,7 +2127,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestTransitionOnAnalysisTest() throws Exception {
-    useConfiguration("--experimental_strict_java_deps=OFF");
+    useConfiguration("--copt=yeehaw");
 
     scratch.file(
         "test/extension.bzl",
@@ -2160,21 +2135,21 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "MyDep = provider()",
         "",
         "def outer_rule_impl(ctx):",
-        "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps),",
+        "  return [MyInfo(copts = ctx.fragments.cpp.copts),",
         "          MyDep(info = ctx.attr.dep[0][MyInfo]),",
         "          AnalysisTestResultInfo(success = True, message = 'message contents')]",
         "def inner_rule_impl(ctx):",
-        "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps)]",
+        "  return [MyInfo(copts = ctx.fragments.cpp.copts)]",
         "",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:copt' : ['cowabunga'] }",
         ")",
         "inner_rule = rule(implementation = inner_rule_impl,",
-        "                  fragments = ['java'])",
+        "                  fragments = ['cpp'])",
         "outer_rule_test = rule(",
         "  implementation = outer_rule_impl,",
-        "  fragments = ['java'],",
+        "  fragments = ['cpp'],",
         "  analysis_test = True,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
@@ -2197,8 +2172,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     StructImpl outerDepInfo = (StructImpl) outerTarget.get(myDepKey);
     StructImpl innerInfo = (StructImpl) outerDepInfo.getValue("info");
 
-    assertThat(outerInfo.getValue("strict_java_deps")).isEqualTo("off");
-    assertThat(innerInfo.getValue("strict_java_deps")).isEqualTo("warn");
+    assertThat((SkylarkList) outerInfo.getValue("copts")).containsExactly("yeehaw");
+    assertThat((SkylarkList) innerInfo.getValue("copts")).containsExactly("cowabunga");
   }
 
   @Test
@@ -2209,7 +2184,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  return []",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:test_arg' : ['yeehaw'] }",
         ")",
         "",
         "custom_rule = rule(",
@@ -2347,7 +2322,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:test_arg' : ['yeehaw'] }",
         ")",
         "",
         "inner_rule_test = rule(",
@@ -2410,7 +2385,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:test_arg' : ['yeehaw'] }",
         ")",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",
@@ -2506,7 +2481,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:test_arg' : ['yeehaw'] }",
         ")",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",

@@ -160,12 +160,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     }
   }
 
-  private static class RegularTransition extends StarlarkDefinedConfigTransition {
+  /** A transition with a user-defined implementation function. */
+  public static class RegularTransition extends StarlarkDefinedConfigTransition {
     private final BaseFunction impl;
     private final StarlarkSemantics semantics;
     private final StarlarkContext starlarkContext;
 
-    public RegularTransition(
+    RegularTransition(
         BaseFunction impl,
         List<String> inputs,
         List<String> outputs,

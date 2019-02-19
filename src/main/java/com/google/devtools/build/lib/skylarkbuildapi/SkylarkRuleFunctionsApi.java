@@ -337,8 +337,6 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_STARLARK_CONFIG_TRANSITION,
-            valueWhenDisabled = "None",
             doc =
                 "If set, points to the configuration transition the rule will "
                     + "apply to its own configuration before analysis.")
