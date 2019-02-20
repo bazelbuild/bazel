@@ -218,7 +218,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
           .incompatibleDisallowDataTransition(true)
-          .incompatibleDisallowDictPlus(false)
+          .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowFileType(true)
           .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowLegacyJavaInfo(false)

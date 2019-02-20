@@ -71,7 +71,7 @@ where the left-hand side is a dictionary. This is done to improve compatibility
 with Python. A possible workaround is to use the `.update` method instead.
 
 *   Flag: `--incompatible_disallow_dict_plus`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#6461](https://github.com/bazelbuild/bazel/issues/6461)
 
 ### Load must appear at top of file
