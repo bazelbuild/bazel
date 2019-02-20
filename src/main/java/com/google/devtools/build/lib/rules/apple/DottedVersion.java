@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  * {@code 5.0.1beta2}. Components must start with a non-negative integer and at least one component
  * must be present.
  *
- * <p>Specifically, the format of a component is {@code \d+([a-z]+\d*)?}.
+ * <p>Specifically, the format of a component is {@code \d+([a-z0-9]*?)?(\d+)?}.
  *
  * <p>Dotted versions are ordered using natural integer sorting on components in order from first to
  * last where any missing element is considered to have the value 0 if they don't contain any
@@ -122,9 +122,10 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     return version == null ? null : new Option(version);
   }
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
-  private static final Pattern COMPONENT_PATTERN = Pattern.compile("(\\d+)(?:([a-z]+)(\\d*))?");
+  private static final Pattern COMPONENT_PATTERN =
+      Pattern.compile("(\\d+)([a-z0-9]*?)?(\\d+)?", Pattern.CASE_INSENSITIVE);
   private static final String ILLEGAL_VERSION =
-      "Dotted version components must all be of the form \\d+([a-z]+\\d*)? but got %s";
+      "Dotted version components must all be of the form \\d+([a-z0-9]*?)?(\\d+)? but got %s";
   private static final String NO_ALPHA_SEQUENCE = null;
   private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
 
@@ -165,7 +166,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     int secondNumber = 0;
     firstNumber = parseNumber(parsedComponent, 1, version);
 
-    if (parsedComponent.group(2) != null) {
+    if (!Strings.isNullOrEmpty(parsedComponent.group(2))) {
       alphaSequence = parsedComponent.group(2);
     }
 
