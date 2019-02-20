@@ -63,21 +63,13 @@ public class ExecutorBuilder {
   }
 
   /**
-   * Sets the strategy name for a given action mnemonic.
+   * Sets the strategy names for a given action mnemonic.
    *
-   * <p>The calling module can either decide for itself which implementation is needed and make the
-   * value associated with this key a constant or defer that decision to the user, for example, by
-   * providing a command line option and setting the value in the map based on that.
-   *
-   * <p>Setting the strategy to the empty string "" redirects it to the value for the empty
-   * mnemonic.
-   *
-   * <p>Example: a module requires {@code SpawnActionContext} to do its job, and it creates actions
-   * with the mnemonic <code>C++</code>. The the module can call
-   * <code>addStrategyByMnemonic("C++", strategy)</code>.
+   * <p>During execution, the {@link ProxySpawnActionContext} will ask each strategy whether it can
+   * execute a given Spawn. The first strategy in the list that says so will get the job.
    */
-  public ExecutorBuilder addStrategyByMnemonic(String mnemonic, String strategy) {
-    spawnActionContextMapsBuilder.strategyByMnemonicMap().put(mnemonic, strategy);
+  public ExecutorBuilder addStrategyByMnemonic(String mnemonic, List<String> strategies) {
+    spawnActionContextMapsBuilder.strategyByMnemonicMap().replaceValues(mnemonic, strategies);
     return this;
   }
 
@@ -106,7 +98,7 @@ public class ExecutorBuilder {
    * Similar to {@link #addStrategyByMnemonic}, but allows specifying a regex for the set of
    * matching mnemonics, instead of an exact string.
    */
-  public ExecutorBuilder addStrategyByRegexp(RegexFilter regexFilter, String strategy) {
+  public ExecutorBuilder addStrategyByRegexp(RegexFilter regexFilter, List<String> strategy) {
     spawnActionContextMapsBuilder.addStrategyByRegexp(regexFilter, strategy);
     return this;
   }

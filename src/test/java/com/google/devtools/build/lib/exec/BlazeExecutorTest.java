@@ -86,6 +86,6 @@ public class BlazeExecutorTest {
             });
     assertThat(event).isNotNull();
     assertThat(event.getMessage())
-        .contains("\"mock\" = " + mockStrategy.getClass().getSimpleName());
+        .contains("\"mock\" = [" + mockStrategy.getClass().getSimpleName() + "]");
   }
 }
