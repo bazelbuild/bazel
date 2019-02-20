@@ -66,7 +66,7 @@ function test_java_test() {
   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
-  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:toolchain' | grep source_version | cut -d '"' -f 2)"
+  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
   assert_test_ok "${java_native_tests}:hello"
   assert_test_ok "${java_native_tests}:custom"
   assert_test_fails "${java_native_tests}:fail"

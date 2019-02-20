@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -58,9 +59,9 @@ public class BazelJavaRuleClasses {
   public static final PredicateWithMessage<Rule> JAVA_PACKAGE_NAMES = new PackageNameConstraint(
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
 
-  protected static final String JUNIT_TESTRUNNER = "//tools/jdk:TestRunner_deploy.jar";
+  protected static final String JUNIT_TESTRUNNER = "@remote_java_tools//:Runner";
   protected static final String EXPERIMENTAL_TESTRUNNER =
-      "//tools/jdk:ExperimentalTestRunner_deploy.jar";
+      "@remote_java_tools//:ExperimentalRunner";
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(
@@ -358,7 +359,7 @@ public class BazelJavaRuleClasses {
                         @Override
                         public Object getDefault(AttributeMap rule) {
                           return rule.get("use_testrunner", Type.BOOLEAN)
-                              ? env.getToolsLabel(JUNIT_TESTRUNNER)
+                              ? Label.parseAbsoluteUnchecked(JUNIT_TESTRUNNER)
                               : null;
                         }
                       }))
@@ -369,7 +370,7 @@ public class BazelJavaRuleClasses {
                         @Override
                         public Object getDefault(AttributeMap rule) {
                           return rule.get("use_testrunner", Type.BOOLEAN)
-                              ? env.getToolsLabel(EXPERIMENTAL_TESTRUNNER)
+                              ? Label.parseAbsoluteUnchecked(EXPERIMENTAL_TESTRUNNER)
                               : null;
                         }
                       }))
