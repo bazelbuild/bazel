@@ -422,8 +422,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
             MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
-            "needsPic: false",
-            "supports_interface_shared_objects: true",
             "artifact_name_pattern {"
                 + "   category_name: 'object_file'"
                 + "   prefix: ''"
@@ -455,7 +453,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 + "   extension: '.if.lib'"
                 + "}");
 
-    useConfiguration();
+    useConfiguration("--features=-supports_pic");
 
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact helloObj =
@@ -940,22 +938,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'map',",
         "    srcs = ['a.cc', 'a.h'],",
         ")");
-  }
-
-  @Test
-  public void testPicNotAvailableError() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
-    useConfiguration("--cpu=k8");
-    writeSimpleCcLibrary();
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//module:map");
-    assertContainsEvent("PIC compilation is requested but the toolchain does not support it");
   }
 
   @Test
