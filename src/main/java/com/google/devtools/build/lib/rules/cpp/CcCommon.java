@@ -840,6 +840,9 @@ public final class CcCommon {
     }
 
     if (cppConfiguration.forcePic()) {
+      if (unsupportedFeatures.contains(CppRuleClasses.SUPPORTS_PIC)) {
+        throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
+      }
       allRequestedFeaturesBuilder.add(CppRuleClasses.SUPPORTS_PIC);
     }
 

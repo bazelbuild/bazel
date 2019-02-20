@@ -284,9 +284,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testStartEndLibThroughFeature() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
     useConfiguration("--start_end_lib");
     scratch.file(
         "test/BUILD",
@@ -528,7 +526,9 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testCcTestBuiltWithFissionHasDwp() throws Exception {
     // Tests that cc_tests built statically and with Fission will have the .dwp file
     // in their runfiles.
-
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
     useConfiguration("--cpu=k8", "--build_test_dwp", "--dynamic_mode=off", "--fission=yes");
     ConfiguredTarget target =
         scratchConfiguredTarget(
@@ -965,10 +965,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            "needsPic: false",
-            "feature { name: 'supports_pic' enabled: true }");
-    useConfiguration();
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration("--cpu=k8");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -992,10 +990,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            "needsPic: false",
-            "feature { name: 'supports_pic' }");
-    useConfiguration();
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration("--features=-supports_pic");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -1019,10 +1015,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            "needsPic: false",
-            "feature { name: 'supports_pic' }");
-    useConfiguration("--force_pic");
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration("--force_pic", "--cpu=k8");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -1047,9 +1041,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            "needsPic: false");
-    useConfiguration("--force_pic");
+            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG);
+    useConfiguration("--force_pic", "--features=-supports_pic");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");

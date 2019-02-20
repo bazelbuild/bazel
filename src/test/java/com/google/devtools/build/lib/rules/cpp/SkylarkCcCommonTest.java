@@ -595,20 +595,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testEmptyLinkVariablesContainSysroot() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "builtin_sysroot: '/foo/bar/sysroot'",
-            "feature {",
-            "  name: 'sysroot'",
-            "  enabled: true",
-            "  flag_set {",
-            "    action: 'c++-link-executable'",
-            "    flag_group {",
-            "      expand_if_all_available: 'sysroot'",
-            "      flag: '--yolo_sysroot_flag=%{sysroot}'",
-            "    }",
-            "  }",
-            "}");
+        .setupCrosstool(mockToolsConfig, "builtin_sysroot: '/foo/bar/sysroot'");
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -617,7 +604,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "feature_configuration = feature_configuration,",
                 "cc_toolchain = toolchain,",
                 ")"))
-        .contains("--yolo_sysroot_flag=/foo/bar/sysroot");
+        .contains("--sysroot=/foo/bar/sysroot");
   }
 
   @Test
@@ -1179,13 +1166,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
-            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
-            "supports_interface_shared_objects: false",
-            "needsPic: false");
+            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION);
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "libdep2.a", "b.a", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.pic.a", "c.pic.a", "e.pic.a"),
-        ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"));
+        ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"),
+        /* disableSupportsPic= */ true);
   }
 
   @Test
@@ -1195,20 +1181,23 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.PIC_FEATURE,
-            "supports_interface_shared_objects: false",
             "needsPic: true");
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
         ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
-        ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
+        ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"),
+        /* disableSupportsPic= */ false);
   }
 
   private void doTestCcLinkingContext(
       List<String> staticLibraryList,
       List<String> picStaticLibraryList,
-      List<String> dynamicLibraryList)
+      List<String> dynamicLibraryList,
+      boolean disableSupportsPic)
       throws Exception {
-    useConfiguration();
+    useConfiguration(
+        "--features=-supports_interface_shared_libraries",
+        disableSupportsPic ? "--features=-supports_pic" : "--features=supports_pic");
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 

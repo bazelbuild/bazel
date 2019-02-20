@@ -141,9 +141,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
     // Make sure the interface shared object generation is enabled in the configuration
     // (which it is not by default for some windows toolchains)
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
     useConfiguration();
 
     verifyIfsoVariables();

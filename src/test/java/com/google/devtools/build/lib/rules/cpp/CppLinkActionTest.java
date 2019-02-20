@@ -95,6 +95,19 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   private final FeatureConfiguration getMockFeatureConfiguration(RuleContext ruleContext)
       throws Exception {
+    CToolchain.FlagGroup flagGroup =
+        CToolchain.FlagGroup.newBuilder().addFlag("-lcpp_standard_library").build();
+    CToolchain.FlagSet flagSet =
+        CToolchain.FlagSet.newBuilder()
+            .addAction("c++-link-executable")
+            .addFlagGroup(flagGroup)
+            .build();
+    CToolchain.Feature linkCppStandardLibrary =
+        CToolchain.Feature.newBuilder()
+            .setName("link_cpp_standard_library")
+            .setEnabled(true)
+            .addFlagSet(flagSet)
+            .build();
     ImmutableList<CToolchain.Feature> features =
         new ImmutableList.Builder<CToolchain.Feature>()
             .addAll(
@@ -105,6 +118,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     /* supportsEmbeddedRuntimes= */ true,
                     /* supportsInterfaceSharedLibraries= */ false))
             .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
+            .add(linkCppStandardLibrary)
             .build();
 
     ImmutableList<CToolchain.ActionConfig> actionConfigs =
@@ -118,6 +132,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     return CcToolchainFeaturesTest.buildFeatures(ruleContext, features, actionConfigs)
         .getFeatureConfiguration(
             ImmutableSet.of(
+                "link_cpp_standard_library",
                 Link.LinkTargetType.EXECUTABLE.getActionName(),
                 Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
                 Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
@@ -658,12 +673,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testInterfaceOutputForDynamicLibrary() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
-            "supports_interface_shared_objects: false");
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
     useConfiguration();
 
     scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
@@ -1065,6 +1075,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(linkCommandLine).contains("output/path.a");
     assertThat(linkCommandLine).contains("path.a-2.params");
 
-    assertThat(result.second).contains("-lstdc++");
+    assertThat(result.second).contains("-lcpp_standard_library");
   }
 }
