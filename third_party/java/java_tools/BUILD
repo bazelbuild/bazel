@@ -8,6 +8,14 @@ filegroup(
 )
 
 filegroup(
+    name = "bazel_embedded_java_tools",
+    srcs = [
+        "BUILD.pkg",
+        "BUILD-new.pkg",
+    ],
+)
+
+filegroup(
     name = "java_tools",
     srcs = glob(
         ["*.jar"],
