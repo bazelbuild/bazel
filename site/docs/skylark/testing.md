@@ -11,7 +11,6 @@ page gathers the current best practices and frameworks by use case.
 * ToC
 {:toc}
 
-
 ## For testing rules
 
 [Skylib](https://github.com/bazelbuild/bazel-skylib) has a test framework called
