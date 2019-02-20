@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -241,22 +240,17 @@ public class GlobCache {
     // Start globbing all patterns in parallel. The getGlob() calls below will
     // block on an individual pattern's results, but the other globs can
     // continue in the background.
-    for (String pattern : Iterables.concat(includes, excludes)) {
+    for (String pattern : includes) {
       @SuppressWarnings("unused") 
       Future<?> possiblyIgnoredError = getGlobUnsortedAsync(pattern, excludeDirs);
     }
 
     HashSet<String> results = new HashSet<>();
+    Preconditions.checkState(!results.contains(null), "glob returned null");
     for (String pattern : includes) {
       results.addAll(getGlobUnsorted(pattern, excludeDirs));
     }
-    for (String pattern : excludes) {
-      for (String excludeMatch : getGlobUnsorted(pattern, excludeDirs)) {
-        results.remove(excludeMatch);
-      }
-    }
-
-    Preconditions.checkState(!results.contains(null), "glob returned null");
+    UnixGlob.removeExcludes(results, excludes);
     return new ArrayList<>(results);
   }
 

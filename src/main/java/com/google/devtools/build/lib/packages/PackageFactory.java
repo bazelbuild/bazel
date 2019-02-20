@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
@@ -300,7 +299,7 @@ public final class PackageFactory {
     @Override
     public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
         throws BadGlobException {
-      for (String pattern : Iterables.concat(includes, excludes)) {
+      for (String pattern : includes) {
         @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError = globCache.getGlobUnsortedAsync(pattern, excludeDirs);
       }
@@ -1732,11 +1731,13 @@ public final class PackageFactory {
           }
           continue;
         }
-        if (arg.getValue() instanceof ListLiteral) {
-          ListLiteral list = (ListLiteral) arg.getValue();
-          for (Expression elem : list.getElements()) {
-            if (elem instanceof StringLiteral) {
-              globStrings.add(((StringLiteral) elem).getValue());
+        if (arg.getIdentifier() == null || arg.getIdentifier().getName().equals("include")) {
+          if (arg.getValue() instanceof ListLiteral) {
+            ListLiteral list = (ListLiteral) arg.getValue();
+            for (Expression elem : list.getElements()) {
+              if (elem instanceof StringLiteral) {
+                globStrings.add(((StringLiteral) elem).getValue());
+              }
             }
           }
         }

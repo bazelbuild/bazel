@@ -34,9 +34,12 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -143,24 +146,21 @@ public final class UnixGlob {
     return null;
   }
 
-  /**
-   * Calls {@link #matches(String, String, ConcurrentHashMap) matches(pattern, str, null)}
-   */
+  /** Calls {@link #matches(String, String, Map) matches(pattern, str, null)} */
   public static boolean matches(String pattern, String str) {
     return matches(pattern, str, null);
   }
 
   /**
-   * Returns whether {@code str} matches the glob pattern {@code pattern}. This
-   * method may use the {@code patternCache} to speed up the matching process.
+   * Returns whether {@code str} matches the glob pattern {@code pattern}. This method may use the
+   * {@code patternCache} to speed up the matching process.
    *
    * @param pattern a glob pattern
    * @param str the string to match
-   * @param patternCache a cache from patterns to compiled Pattern objects, or
-   *        {@code null} to skip caching
+   * @param patternCache a cache from patterns to compiled Pattern objects, or {@code null} to skip
+   *     caching
    */
-  public static boolean matches(String pattern, String str,
-      ConcurrentHashMap<String, Pattern> patternCache) {
+  public static boolean matches(String pattern, String str, Map<String, Pattern> patternCache) {
     if (pattern.length() == 0 || str.length() == 0) {
       return false;
     }
@@ -839,5 +839,65 @@ public final class UnixGlob {
         results.add(path);
       }
     }
+  }
+
+  /**
+   * Filters out exclude patterns from a Set of paths. Common cases such as wildcard-free patterns
+   * or suffix patterns are special-cased to make this function efficient.
+   */
+  public static void removeExcludes(Set<String> paths, Collection<String> excludes) {
+    ArrayList<String> complexPatterns = new ArrayList<>(excludes.size());
+    for (String exclude : excludes) {
+      if (isWildcardFree(exclude)) {
+        paths.remove(exclude);
+        continue;
+      }
+      if (exclude.startsWith("**/*")) {
+        String tail = exclude.substring(4);
+        if (isWildcardFree(tail)) {
+          paths.removeIf(path -> path.endsWith(tail));
+          continue;
+        }
+      }
+      complexPatterns.add(exclude);
+    }
+    if (complexPatterns.isEmpty()) {
+      return;
+    }
+    List<String[]> splitPatterns = checkAndSplitPatterns(complexPatterns);
+    HashMap<String, Pattern> patternCache = new HashMap<>();
+    paths.removeIf(
+        path -> {
+          String[] segments = Iterables.toArray(Splitter.on('/').split(path), String.class);
+          for (String[] splitPattern : splitPatterns) {
+            if (matchesPattern(splitPattern, segments, 0, 0, patternCache)) {
+              return true;
+            }
+          }
+          return false;
+        });
+  }
+
+  /** Returns true if {@code pattern} matches {@code path} starting from the given segments. */
+  private static boolean matchesPattern(
+      String[] pattern, String[] path, int i, int j, Map<String, Pattern> patternCache) {
+    if (i == pattern.length) {
+      return j == path.length;
+    }
+    if (pattern[i].equals("**")) {
+      return matchesPattern(pattern, path, i + 1, j, patternCache)
+          || (j < path.length && matchesPattern(pattern, path, i, j + 1, patternCache));
+    }
+    if (j == path.length) {
+      return false;
+    }
+    if (matches(pattern[i], path[j], patternCache)) {
+      return matchesPattern(pattern, path, i + 1, j + 1, patternCache);
+    }
+    return false;
+  }
+
+  private static boolean isWildcardFree(String pattern) {
+    return !pattern.contains("*") && !pattern.contains("?");
   }
 }
