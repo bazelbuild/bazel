@@ -310,17 +310,19 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
               @Override
               public void onError(Throwable t) {
                 Status status = Status.fromThrowable(t);
+                boolean useBackoff =
+                    status.getCode() != Status.Code.DEADLINE_EXCEEDED
+                    || committed == 0;
                 if (status.getCode() == Status.Code.NOT_FOUND) {
                   future.setException(new CacheNotFoundException(digest, digestUtil));
                 } else if (!(t instanceof Exception)
                     || !retrier.isRetriable((Exception) t)
-                    || !maybeRetry()) {
+                    || !maybeRetry(useBackoff ? stalledBackoff.nextDelayMillis() : 0)) {
                   future.setException(t);
                 }
               }
 
-              private boolean maybeRetry() {
-                long delayMillis = committed == 0 ? stalledBackoff.nextDelayMillis() : 0;
+              private boolean maybeRetry(long delayMillis) {
                 if (delayMillis < 0) {
                   return false;
                 }
