@@ -261,9 +261,17 @@ if [ ! -z "$TEST_SHORT_EXEC_PATH" ]; then
 fi
 
 exitCode=0
-if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" != "1" ]]; then
-  signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
+signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
+if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
+  # If we trap here, then bash forwards the signal to the subprocess, at least
+  # for bash version 4.4.12(1) on Linux. If we don't trap here, then bash does
+  # not forward the signal. This seems to contradict the bash documentation, and
+  # also seems to contradict bug #7119, which reports the opposite behavior.
+  trap 'echo "-- Test timed out at $(date +"%F %T %Z") --"' SIGTERM
+else
   for signal in $signals; do
+    # SIGCHLD is expected when a subprocess dies
+    [ "${signal}" = "SIGCHLD" ] && continue
     trap "write_xml_output_file ${signal}" ${signal}
   done
 fi
@@ -301,10 +309,12 @@ else
   fi
 fi
 
+for signal in $signals; do
+  trap - ${signal}
+done
 if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" != "1" ]]; then
-  for signal in $signals; do
-    trap - ${signal}
-  done
+  # This call to write_xml_output_file does nothing if a a test.xml already
+  # exists, e.g., because we received SIGTERM and the trap handler created it.
   write_xml_output_file
 fi
 

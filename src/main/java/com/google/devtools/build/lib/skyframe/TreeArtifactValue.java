@@ -108,7 +108,7 @@ public class TreeArtifactValue implements SkyValue {
   public BigInteger getValueFingerprint() {
     if (valueFingerprint == null) {
       BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      fp.addBytes(digest);
+      fp.addDigestedBytes(digest);
       valueFingerprint = fp.getFingerprint();
     }
     return valueFingerprint;

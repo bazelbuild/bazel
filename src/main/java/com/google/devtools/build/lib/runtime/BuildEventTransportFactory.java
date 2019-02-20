@@ -19,6 +19,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -45,10 +46,11 @@ public enum BuildEventTransportFactory {
         BuildEventStreamOptions options,
         BuildEventProtocolOptions protocolOptions,
         BuildEventArtifactUploader uploader,
-        Consumer<AbruptExitException> exitFunc)
+        Consumer<AbruptExitException> exitFunc,
+        ArtifactGroupNamer namer)
         throws IOException {
       return new TextFormatFileTransport(
-          options.getBuildEventTextFile(), protocolOptions, uploader, exitFunc);
+          options.getBuildEventTextFile(), protocolOptions, uploader, exitFunc, namer);
     }
 
     @Override
@@ -68,10 +70,11 @@ public enum BuildEventTransportFactory {
         BuildEventStreamOptions options,
         BuildEventProtocolOptions protocolOptions,
         BuildEventArtifactUploader uploader,
-        Consumer<AbruptExitException> exitFunc)
+        Consumer<AbruptExitException> exitFunc,
+        ArtifactGroupNamer namer)
         throws IOException {
       return new BinaryFormatFileTransport(
-          options.getBuildEventBinaryFile(), protocolOptions, uploader, exitFunc);
+          options.getBuildEventBinaryFile(), protocolOptions, uploader, exitFunc, namer);
     }
 
     @Override
@@ -91,10 +94,11 @@ public enum BuildEventTransportFactory {
         BuildEventStreamOptions options,
         BuildEventProtocolOptions protocolOptions,
         BuildEventArtifactUploader uploader,
-        Consumer<AbruptExitException> exitFunc)
+        Consumer<AbruptExitException> exitFunc,
+        ArtifactGroupNamer namer)
         throws IOException {
       return new JsonFormatFileTransport(
-          options.getBuildEventJsonFile(), protocolOptions, uploader, exitFunc);
+          options.getBuildEventJsonFile(), protocolOptions, uploader, exitFunc, namer);
     }
 
     @Override
@@ -105,7 +109,8 @@ public enum BuildEventTransportFactory {
 
   @VisibleForTesting
   public static ImmutableSet<BuildEventTransport> createFromOptions(
-      CommandEnvironment env, Consumer<AbruptExitException> exitFunc) throws IOException {
+      CommandEnvironment env, Consumer<AbruptExitException> exitFunc, ArtifactGroupNamer namer)
+      throws IOException {
     BuildEventProtocolOptions protocolOptions =
         checkNotNull(
             env.getOptions().getOptions(BuildEventProtocolOptions.class),
@@ -116,7 +121,7 @@ public enum BuildEventTransportFactory {
                 .getBuildEventArtifactUploaderFactoryMap()
                 .select(protocolOptions.buildEventUploadStrategy)
                 .create(env);
-    return createFromOptions(env, exitFunc, protocolOptions, uploaderSupplier);
+    return createFromOptions(env, exitFunc, protocolOptions, uploaderSupplier, namer);
   }
   /**
    * Creates a {@link ImmutableSet} of {@link BuildEventTransport} based on the specified {@link
@@ -129,7 +134,8 @@ public enum BuildEventTransportFactory {
       CommandEnvironment env,
       Consumer<AbruptExitException> exitFunc,
       BuildEventProtocolOptions protocolOptions,
-      Supplier<BuildEventArtifactUploader> uploaderSupplier)
+      Supplier<BuildEventArtifactUploader> uploaderSupplier,
+      ArtifactGroupNamer namer)
       throws IOException {
     BuildEventStreamOptions bepOptions =
         checkNotNull(
@@ -143,7 +149,7 @@ public enum BuildEventTransportFactory {
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         buildEventTransportsBuilder.add(
-            transportFactory.create(bepOptions, protocolOptions, uploader, exitFunc));
+            transportFactory.create(bepOptions, protocolOptions, uploader, exitFunc, namer));
       }
     }
     return buildEventTransportsBuilder.build();
@@ -157,7 +163,8 @@ public enum BuildEventTransportFactory {
       BuildEventStreamOptions options,
       BuildEventProtocolOptions protocolOptions,
       BuildEventArtifactUploader uploader,
-      Consumer<AbruptExitException> exitFunc)
+      Consumer<AbruptExitException> exitFunc,
+      ArtifactGroupNamer namer)
       throws IOException;
 
   protected abstract boolean usePathConverter(BuildEventStreamOptions options);

@@ -34,15 +34,15 @@ public interface BuildEventTransport {
   String name();
 
   /**
-   * Writes a build event to an endpoint. This method will always return quickly and will not
-   * wait for the write to complete.
+   * Writes a build event to an endpoint. This method will always return quickly and will not wait
+   * for the write to complete.
    *
    * <p>In case the transport is in error, this method still needs to be able to accept build
    * events. It may choose to ignore them, though.
    *
    * @param event the event to sendBuildEvent.
    */
-  void sendBuildEvent(BuildEvent event, ArtifactGroupNamer namer);
+  void sendBuildEvent(BuildEvent event);
 
   /**
    * Initiates a close. Callers may listen to the returned future to be notified when the close is

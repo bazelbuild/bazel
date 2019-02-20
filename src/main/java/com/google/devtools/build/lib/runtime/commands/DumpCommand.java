@@ -126,6 +126,16 @@ public class DumpCommand implements BlazeCommand {
     public boolean actionGraphIncludeCmdLine;
 
     @Option(
+        name = "action_graph:include_artifacts",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help =
+            "Include inputs and outputs actions in the action graph dump. "
+                + "This option does only apply to --action_graph.")
+    public boolean actionGraphIncludeArtifacts;
+
+    @Option(
       name = "rule_classes",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -240,6 +250,7 @@ public class DumpCommand implements BlazeCommand {
                   dumpOptions.dumpActionGraph,
                   dumpOptions.actionGraphTargets,
                   dumpOptions.actionGraphIncludeCmdLine,
+                  dumpOptions.actionGraphIncludeArtifacts,
                   out);
         } catch (CommandLineExpansionException e) {
           env.getReporter().handle(Event.error(null, "Error expanding command line: " + e));
@@ -298,11 +309,13 @@ public class DumpCommand implements BlazeCommand {
       String path,
       List<String> actionGraphTargets,
       boolean includeActionCmdLine,
+      boolean includeArtifacts,
       PrintStream out)
       throws CommandLineExpansionException, IOException {
     out.println("Dumping action graph to '" + path + "'");
     ActionGraphContainer actionGraphContainer =
-        executor.getActionGraphContainer(actionGraphTargets, includeActionCmdLine);
+        executor.getActionGraphContainer(
+            actionGraphTargets, includeActionCmdLine, includeArtifacts);
     FileOutputStream protoOutputStream = new FileOutputStream(path);
     actionGraphContainer.writeTo(protoOutputStream);
     protoOutputStream.close();

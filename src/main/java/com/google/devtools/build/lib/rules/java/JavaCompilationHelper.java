@@ -374,9 +374,11 @@ public final class JavaCompilationHelper {
 
   private boolean shouldInstrumentJar() {
     // TODO(bazel-team): What about source jars?
+    RuleContext ruleContext = getRuleContext();
     return getConfiguration().isCodeCoverageEnabled()
         && attributes.hasSourceFiles()
-        && InstrumentedFilesCollector.shouldIncludeLocalSources(getRuleContext());
+        && InstrumentedFilesCollector.shouldIncludeLocalSources(
+            ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
   }
 
   private boolean shouldUseHeaderCompilation() {
@@ -449,6 +451,8 @@ public final class JavaCompilationHelper {
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
+    builder.setReduceClasspath(
+        getJavaConfiguration().getReduceJavaClasspath() != JavaClasspathMode.OFF);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());
@@ -675,7 +679,7 @@ public final class JavaCompilationHelper {
         ruleContext,
         ruleContext,
         semantics,
-        attributes.getSourceFiles(),
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
         resourceJars.build(),
         outputJar,
         javaToolchainProvider,
@@ -690,7 +694,11 @@ public final class JavaCompilationHelper {
       resourceJars.add(gensrcJar);
     }
     SingleJarActionBuilder.createSourceJarAction(
-        ruleContext, semantics, attributes.getSourceFiles(), resourceJars.build(), outputJar);
+        ruleContext,
+        semantics,
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
+        resourceJars.build(),
+        outputJar);
   }
 
   /**

@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import javax.annotation.Nullable;
 
 /** Utilities for Java compilation support in Skylark. */
@@ -177,12 +177,12 @@ public interface JavaCommonApi<
       throws EvalException;
 
   @SkylarkCallable(
-    name = "provider",
-    structField = true,
-    doc = "Returns the Java declared provider. <br>"
-        + "The same value is accessible as <code>JavaInfo</code>. <br>"
-        + "Prefer using <code>JavaInfo</code> in new code."
-  )
+      name = "provider",
+      structField = true,
+      doc =
+          "Returns the Java declared provider. <br>"
+              + "The same value is accessible as <code>JavaInfo</code>. <br>"
+              + "Prefer using <code>JavaInfo</code> in new code.")
   public ProviderApi getJavaProvider();
 
   @SkylarkCallable(
@@ -219,6 +219,14 @@ public interface JavaCommonApi<
                 "A list of the Java source files to be compiled. At least one of source_jars or "
                     + "source_files should be specified."),
         @Param(name = "output", positional = false, named = true, type = FileApi.class),
+        @Param(
+            name = "output_source_jar",
+            positional = false,
+            named = true,
+            type = FileApi.class,
+            noneable = true,
+            defaultValue = "None",
+            doc = "The output source jar. Optional. Defaults to `{output_jar}-src.jar` if unset."),
         @Param(
             name = "javac_opts",
             positional = false,
@@ -318,6 +326,7 @@ public interface JavaCommonApi<
       SkylarkList<FileT> sourceJars,
       SkylarkList<FileT> sourceFiles,
       FileT outputJar,
+      Object outputSourceJar,
       SkylarkList<String> javacOpts,
       SkylarkList<JavaInfoT> deps,
       SkylarkList<JavaInfoT> exports,
@@ -383,7 +392,7 @@ public interface JavaCommonApi<
       Object targetLabel,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -436,7 +445,7 @@ public interface JavaCommonApi<
       Label targetLabel,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -506,7 +515,7 @@ public interface JavaCommonApi<
       Object javaToolchain,
       Object hostJavabase,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -518,52 +527,70 @@ public interface JavaCommonApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = SkylarkRuleContextApi.class,
+            type = Object.class,
+            allowedTypes = {@ParamType(type = SkylarkRuleContextApi.class)},
+            noneable = true,
+            defaultValue = "None",
             doc = "The rule context."),
-        @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class),
+        @Param(
+            name = "java_toolchain_attr",
+            positional = false,
+            named = true,
+            type = Object.class,
+            allowedTypes = {@ParamType(type = String.class)},
+            noneable = true,
+            defaultValue = "None"),
+        @Param(
+            name = "java_toolchain",
+            positional = false,
+            named = true,
+            type = Object.class,
+            allowedTypes = {@ParamType(type = ToolchainInfoApi.class)},
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "A JavaToolchainInfo to be used for retrieving the ijar "
+                    + "tool. Only set when use_ijar is True."),
       },
       useSkylarkSemantics = true,
       useLocation = true)
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContextT skylarkRuleContext,
-      String javaToolchainAttr,
+      Object skylarkRuleContext,
+      Object javaToolchainAttr,
+      Object javaToolchain,
       Location loc,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
-    name = "merge",
-    doc = "Merges the given providers into a single JavaInfo.",
-    parameters = {
-      @Param(
-          name = "providers",
-          positional = true,
-          named = false,
-          type = SkylarkList.class,
-          generic1 = JavaInfoApi.class,
-          doc = "The list of providers to merge."
-      ),
-    }
-  )
+      name = "merge",
+      doc = "Merges the given providers into a single JavaInfo.",
+      parameters = {
+        @Param(
+            name = "providers",
+            positional = true,
+            named = false,
+            type = SkylarkList.class,
+            generic1 = JavaInfoApi.class,
+            doc = "The list of providers to merge."),
+      })
   public JavaInfoT mergeJavaProviders(SkylarkList<JavaInfoT> providers);
 
   @SkylarkCallable(
-    name = "make_non_strict",
-    doc =
-        "Returns a new Java provider whose direct-jars part is the union of both the direct and"
-            + " indirect jars of the given Java provider.",
-    parameters = {
-      @Param(
-          name = "java_info",
-          positional = true,
-          named = false,
-          type = JavaInfoApi.class,
-          doc = "The java info."
-      ),
-    }
-  )
+      name = "make_non_strict",
+      doc =
+          "Returns a new Java provider whose direct-jars part is the union of both the direct and"
+              + " indirect jars of the given Java provider.",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class,
+            doc = "The java info."),
+      })
   public JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
   @SkylarkCallable(
@@ -575,11 +602,24 @@ public interface JavaCommonApi<
   public ProviderApi getJavaToolchainProvider();
 
   @SkylarkCallable(
-    name = "JavaRuntimeInfo",
-    doc =
-        "The key used to retrieve the provider that contains information about the Java "
-            + "runtime being used.",
-    structField = true
-  )
+      name = "JavaRuntimeInfo",
+      doc =
+          "The key used to retrieve the provider that contains information about the Java "
+              + "runtime being used.",
+      structField = true)
   public ProviderApi getJavaRuntimeProvider();
+
+  @SkylarkCallable(
+      name = "is_java_toolchain_resolution_enabled_do_not_use",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+      },
+      doc = "Returns true if --experimental_use_toolchain_resolution_for_java_rules is enabled.")
+  boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextT ruleContext) throws EvalException;
 }

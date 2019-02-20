@@ -90,7 +90,7 @@ final class RemoteSpawnCache implements SpawnCache {
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
-    if (!Spawns.mayBeCached(spawn)) {
+    if (!Spawns.mayBeCached(spawn) || !Spawns.mayBeExecutedRemotely(spawn)) {
       return SpawnCache.NO_RESULT_NO_STORE;
     }
     boolean checkCache = options.remoteAcceptCached;

@@ -230,12 +230,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       }
       Set<SkyKey> difference = Sets.difference(depKeys.toSet(), batchMap.keySet());
       logger.atSevere().log("Missing keys for %s: %s\n\n%s", requestor, difference, inFlightEntry);
-      for (SkyKey missingDep : difference) {
-        evaluatorContext
-            .getGraphInconsistencyReceiver()
-            .noteInconsistencyAndMaybeThrow(
-                requestor, missingDep, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
-      }
+      evaluatorContext
+          .getGraphInconsistencyReceiver()
+          .noteInconsistencyAndMaybeThrow(
+              requestor, difference, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
     }
     ImmutableMap.Builder<SkyKey, SkyValue> depValuesBuilder =
         ImmutableMap.builderWithExpectedSize(batchMap.size());
@@ -249,7 +247,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         evaluatorContext
             .getGraphInconsistencyReceiver()
             .noteInconsistencyAndMaybeThrow(
-                skyKey, entry.getKey(), Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
+                skyKey,
+                ImmutableList.of(entry.getKey()),
+                Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
         throw new UndonePreviouslyRequestedDep(entry.getKey());
       }
       depValuesBuilder.put(entry.getKey(), !depDone ? NULL_MARKER : valueMaybeWithMetadata);
@@ -338,7 +338,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       Preconditions.checkState(
           triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
       state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
-      state.signalDep();
+      state.signalDep(evaluatorContext.getGraphVersion(), ErrorTransienceValue.KEY);
       maxChildVersion = evaluatorContext.getGraphVersion();
     }
 

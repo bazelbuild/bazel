@@ -148,6 +148,7 @@ public class NotifyingHelper {
   public enum EventType {
     CREATE_IF_ABSENT,
     ADD_REVERSE_DEP,
+    ADD_EXTERNAL_DEP,
     REMOVE_REVERSE_DEP,
     GET_TEMPORARY_DIRECT_DEPS,
     SIGNAL,
@@ -230,6 +231,12 @@ public class NotifyingHelper {
       DependencyState result = super.addReverseDepAndCheckIfDone(reverseDep);
       graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.AFTER, reverseDep);
       return result;
+    }
+
+    @Override
+    public void addExternalDep() {
+      super.addExternalDep();
+      graphListener.accept(myKey, EventType.ADD_EXTERNAL_DEP, Order.AFTER, null);
     }
 
     @Override

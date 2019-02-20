@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.devtools.common.options.Options;
+
 /** Helpers for Python tests. */
 public class PythonTestUtils {
 
@@ -23,7 +25,7 @@ public class PythonTestUtils {
   private PythonTestUtils() {}
 
   /**
-   * Assert that {@link PythonVersion#DEFAULT_TARGET_VALUE} hasn't changed.
+   * Assert that the default Python version (for flagless builds) hasn't changed.
    *
    * <p>Use this to indicate that the PY2 and PY3 values of your test should be flipped if this
    * default value is changed. In general, it is useful to write tests with expected values that
@@ -35,7 +37,7 @@ public class PythonTestUtils {
             "This test case is written with the assumption that the default is Python 2. When "
                 + "updating the default to Python 3, flip all the PY2/PY3 constants in the test "
                 + "case and this helper function.")
-        .that(PythonVersion.DEFAULT_TARGET_VALUE)
+        .that(Options.getDefaults(PythonOptions.class).getDefaultPythonVersion())
         .isEqualTo(PythonVersion.PY2);
   }
 }

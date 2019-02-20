@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -62,7 +62,8 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       ccLinkingContexts.add(ccInfo.getCcLinkingContext());
     }
     CcCompilationContext.Builder builder =
-        new CcCompilationContext.Builder(/* ruleContext= */ null);
+        new CcCompilationContext.Builder(
+            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
 
     return new CcInfo(
         builder.mergeDependentCcCompilationContexts(ccCompilationContexts.build()).build(),

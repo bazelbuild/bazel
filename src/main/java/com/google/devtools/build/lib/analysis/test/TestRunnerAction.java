@@ -263,6 +263,9 @@ public class TestRunnerAction extends AbstractAction
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
+      if (resolvedPaths.getTestStderr().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_STDERR, resolvedPaths.getTestStderr()));
+      }
       if (resolvedPaths.getXmlOutputPath().exists()) {
         builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
       }

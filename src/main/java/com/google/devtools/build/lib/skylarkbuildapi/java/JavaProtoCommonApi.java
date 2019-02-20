@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
@@ -103,24 +102,4 @@ public interface JavaProtoCommonApi<FileT extends FileApi,
   )
   public JavaInfoApi<FileT> getRuntimeToolchainProvider(
       SkylarkRuleContextT skylarkRuleContext, String protoToolchainAttr) throws EvalException;
-
-  @SkylarkCallable(
-    name = "javac_opts",
-    // This function is experimental for now.
-    documented = false,
-    parameters = {
-      @Param(
-          name = "ctx",
-          positional = true,
-          named = false,
-          type = SkylarkRuleContextApi.class,
-          doc = "The rule context."
-      ),
-      @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
-    }
-  )
-  // TODO(b/78512644): migrate callers to passing explicit proto javacopts or using custom
-  // toolchains, and delete
-  public ImmutableList<String> getJavacOpts(
-      SkylarkRuleContextT skylarkRuleContext, String javaToolchainAttr) throws EvalException;
 }

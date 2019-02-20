@@ -47,6 +47,10 @@ class FeatureSelection {
    * useful, or because the user required them (for example through the command line).
    */
   private final ImmutableSet<CrosstoolSelectable> requestedSelectables;
+
+  /** All features requested by the user regardless of whether they exist in CROSSTOOLs or not. */
+  private final ImmutableSet<String> requestedFeatures;
+
   /**
    * The currently enabled selectable; during feature selection, we first put all selectables
    * reachable via an 'implies' edge into the enabled selectable set, and than prune that set from
@@ -116,6 +120,7 @@ class FeatureSelection {
       ImmutableMultimap<CrosstoolSelectable, CrosstoolSelectable> requiredBy,
       ImmutableMap<String, ActionConfig> actionConfigsByActionName,
       PathFragment ccToolchainPath) {
+    this.requestedFeatures = requestedFeatures;
     ImmutableSet.Builder<CrosstoolSelectable> builder = ImmutableSet.builder();
     for (String name : requestedFeatures) {
       if (selectablesByName.containsKey(name)) {
@@ -185,6 +190,7 @@ class FeatureSelection {
     }
 
     return new FeatureConfiguration(
+        requestedFeatures,
         enabledFeaturesInOrder,
         enabledActionConfigNames.build(),
         actionConfigsByActionName,

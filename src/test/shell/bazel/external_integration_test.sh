@@ -901,7 +901,7 @@ http_archive(
 )
 EOF
   bazel build @repo//... &> $TEST_log && fail "Expected to fail"
-  expect_log "Invalid SHA256 checksum"
+  expect_log "[Ii]nvalid SHA256 checksum"
   shutdown_server
 }
 
@@ -1707,5 +1707,108 @@ EOF
   expect_log "foo.*First action"
   expect_log "foo.*Second action"
 }
+
+function test_progress_reporting() {
+  # Isse 7353 requested that even in the case of a syntactically invalid
+  # checksum, the file still should be fetched and its checksum computed.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  touch ext.tar
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name = "ext",
+  urls = ["file://${WRKDIR}/ext.tar"],
+  sha256 = "badargument",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:in.txt"],
+  outs = ["out.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+
+  expect_log '@ext.*badargument'
+  expect_log 'SHA256 (.*/ext.tar) = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+}
+
+function test_prefix_suggestions() {
+  # Verify that useful suggestions are made if an expected prefix
+  # is not found in an archive.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir -p ext-1.1/foo
+  touch ext-1.1/foo.txt
+
+  tar cvf ext.tar ext-1.1
+  rm -rf ext-1
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-1.0",
+  urls=["file://${WRKDIR}/ext.tar"],
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:foo.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  expect_log "ext-1.0.*not found"
+  expect_log "prefixes.*ext-1.1"
+}
+
+function test_suggest_nostripprefix() {
+  # Verify that a suggestion is made about dropping an unnecessary
+  # `strip_prefix` argument.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir ext
+  touch ext/foo.txt
+  (cd ext && tar cvf "${WRKDIR}/ext.tar" foo.txt)
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-1.0",
+  urls=["file://${WRKDIR}/ext.tar"],
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:foo.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  expect_log "ext-1.0.*not found"
+  expect_log "not.*any directory"
+  expect_log 'no need for `strip_prefix`'
+}
+
 
 run_suite "external tests"

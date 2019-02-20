@@ -51,7 +51,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {",
         "      't0': {'//command_line_option:cpu': 'k8'},",
         "      't1': {'//command_line_option:cpu': 'armeabi-v7a'},",
@@ -206,7 +206,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  transitions = {}",
         "  for cpu in settings['//command_line_option:fat_apk_cpu']:",
         "    transitions[cpu] = {",
@@ -261,7 +261,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {",
         "    '//command_line_option:cpu': 'armeabi-v7a',",
         "    '//command_line_option:dynamic_mode': 'off',",
@@ -310,7 +310,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
         "def impl(ctx): ",
@@ -343,12 +343,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = [],",
         "  outputs = ['//command_line_option:cpu',",
-        "             '//command_line_option:experimental_strict_java_deps'])",
+        "             '//command_line_option:host_cpu'])",
         "def impl(ctx): ",
         "  return []",
         "my_rule = rule(",
@@ -369,7 +369,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/skylark:test");
     assertContainsEvent(
-        "transition outputs [//command_line_option:experimental_strict_java_deps] were not "
+        "transition outputs [//command_line_option:host_cpu] were not "
             + "defined by transition function");
   }
 
@@ -380,14 +380,14 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  if (len(settings) != 2",
-        "      or (not settings['//command_line_option:experimental_strict_java_deps'])",
+        "      or (not settings['//command_line_option:host_cpu'])",
         "      or (not settings['//command_line_option:cpu'])):",
         "    fail()",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
-        "  inputs = ['//command_line_option:experimental_strict_java_deps',",
+        "  inputs = ['//command_line_option:host_cpu',",
         "            '//command_line_option:cpu'],",
         "  outputs = ['//command_line_option:cpu'])",
         "def impl(ctx): ",
@@ -417,7 +417,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = ['cpu'], outputs = ['//command_line_option:cpu'])",
@@ -452,7 +452,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = ['//command_line_option:foo', '//command_line_option:bar'],",
@@ -488,7 +488,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'//command_line_option:foobarbaz': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = ['//command_line_option:cpu'], outputs = ['//command_line_option:foobarbaz'])",
@@ -523,7 +523,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = [], outputs = ['cpu'])",
@@ -558,7 +558,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 1}",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = [], outputs = ['//command_line_option:cpu'])",
@@ -591,7 +591,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/my_rule.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 1}",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = [],",
@@ -744,6 +744,17 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
                 .getStarlarkOptions()
                 .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
         .isEqualTo("puffins mate for life");
+  }
+
+  @Test
+  public void testCannotTransitionWithoutFlag() throws Exception {
+    writeBasicTestFiles();
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=false");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent(
+        "Starlark-defined transitions on rule attributes is experimental and disabled by default");
   }
 
   @Test

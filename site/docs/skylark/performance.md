@@ -156,7 +156,7 @@ Example:
 ```
 def _impl(ctx):
   ...
-  args = ctx.actions.Args()
+  args = ctx.actions.args()
   file = ctx.declare_file(...)
   files = depset(...)
 

@@ -22,20 +22,20 @@ public class OptionFilterDescriptions {
 
   /** The order that the categories should be listed in. */
   static OptionDocumentationCategory[] documentationOrder = {
-      OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      OptionDocumentationCategory.EXECUTION_STRATEGY,
-      OptionDocumentationCategory.TOOLCHAIN,
-      OptionDocumentationCategory.OUTPUT_SELECTION,
-      OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      OptionDocumentationCategory.INPUT_STRICTNESS,
-      OptionDocumentationCategory.SIGNING,
-      OptionDocumentationCategory.SKYLARK_SEMANTICS,
-      OptionDocumentationCategory.TESTING,
-      OptionDocumentationCategory.QUERY,
-      OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      OptionDocumentationCategory.LOGGING,
-      OptionDocumentationCategory.GENERIC_INPUTS,
-      OptionDocumentationCategory.UNCATEGORIZED
+    OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    OptionDocumentationCategory.EXECUTION_STRATEGY,
+    OptionDocumentationCategory.TOOLCHAIN,
+    OptionDocumentationCategory.OUTPUT_SELECTION,
+    OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    OptionDocumentationCategory.INPUT_STRICTNESS,
+    OptionDocumentationCategory.SIGNING,
+    OptionDocumentationCategory.STARLARK_SEMANTICS,
+    OptionDocumentationCategory.TESTING,
+    OptionDocumentationCategory.QUERY,
+    OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+    OptionDocumentationCategory.LOGGING,
+    OptionDocumentationCategory.GENERIC_INPUTS,
+    OptionDocumentationCategory.UNCATEGORIZED
   };
 
   static ImmutableMap<OptionDocumentationCategory, String> getOptionCategoriesEnumDescription(
@@ -74,7 +74,7 @@ public class OptionFilterDescriptions {
             OptionDocumentationCategory.SIGNING,
             "Options that affect the signing outputs of a build")
         .put(
-            OptionDocumentationCategory.SKYLARK_SEMANTICS,
+            OptionDocumentationCategory.STARLARK_SEMANTICS,
             "This option affects semantics of the Starlark language or the build API accessible to "
                 + "BUILD files, .bzl files, or WORKSPACE files.")
         .put(

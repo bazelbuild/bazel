@@ -238,7 +238,7 @@ public final class SandboxModule extends BlazeModule {
 
       // This makes the "sandboxed" strategy the default Spawn strategy, unless it is
       // overridden by a later BlazeModule.
-      builder.addStrategyByMnemonic("", "sandboxed");
+      builder.addStrategyByMnemonic("", ImmutableList.of("sandboxed"));
     }
   }
 
@@ -315,6 +315,10 @@ public final class SandboxModule extends BlazeModule {
     }
   }
 
+  /**
+   * Unmounts an existing sandboxfs instance unless the user asked not to by providing the {@code
+   * --sandbox_debug} flag.
+   */
   private void unmountSandboxfs() {
     if (sandboxfsProcess != null) {
       if (shouldCleanupSandboxBase) {
@@ -325,6 +329,14 @@ public final class SandboxModule extends BlazeModule {
         env.getReporter()
             .handle(Event.info("Leaving sandboxfs mounted because of --sandbox_debug"));
       }
+    }
+  }
+
+  /** Silently tries to unmount an existing sandboxfs instance, ignoring errors. */
+  private void tryUnmountSandboxfsOnShutdown() {
+    if (sandboxfsProcess != null) {
+      sandboxfsProcess.destroy();
+      sandboxfsProcess = null;
     }
   }
 
@@ -360,5 +372,15 @@ public final class SandboxModule extends BlazeModule {
 
     env.getEventBus().unregister(this);
     env = null;
+  }
+
+  @Override
+  public void blazeShutdown() {
+    tryUnmountSandboxfsOnShutdown();
+  }
+
+  @Override
+  public void blazeShutdownOnCrash() {
+    tryUnmountSandboxfsOnShutdown();
   }
 }

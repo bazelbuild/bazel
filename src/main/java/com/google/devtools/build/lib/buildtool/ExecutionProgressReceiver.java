@@ -94,6 +94,7 @@ public final class ExecutionProgressReceiver
       ignoredActions.add(actionLookupData);
       // There is no race here because this is called synchronously during action execution, so no
       // other thread can concurrently enqueue the action for execution under the Skyframe model.
+      completedActions.remove(actionLookupData);
       enqueuedActions.remove(actionLookupData);
     }
   }
@@ -137,6 +138,7 @@ public final class ExecutionProgressReceiver
   @Override
   public void actionCompleted(ActionLookupData actionLookupData) {
     if (!ignoredActions.contains(actionLookupData)) {
+      enqueuedActions.add(actionLookupData);
       completedActions.add(actionLookupData);
     }
   }

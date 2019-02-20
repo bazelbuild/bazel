@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRoots;
@@ -34,8 +33,10 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -278,7 +279,7 @@ public class BuildViewForTesting {
   }
 
   @VisibleForTesting
-  public OrderedSetMultimap<Attribute, Dependency> getDirectPrerequisiteDependenciesForTesting(
+  public OrderedSetMultimap<DependencyKind, Dependency> getDirectPrerequisiteDependenciesForTesting(
       final ExtendedEventHandler eventHandler,
       final ConfiguredTarget ct,
       BuildConfigurationCollection configurations,
@@ -309,8 +310,10 @@ public class BuildViewForTesting {
 
       @Override
       protected Map<Label, Target> getTargets(
-          Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses) {
-        return Streams.stream(labels)
+          OrderedSetMultimap<DependencyKind, Label> labelMap,
+          Target fromTarget,
+          NestedSetBuilder<Cause> rootCauses) {
+        return labelMap.values().stream()
             .distinct()
             .collect(
                 Collectors.toMap(
@@ -331,7 +334,7 @@ public class BuildViewForTesting {
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(
             target, skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey()));
-    OrderedSetMultimap<Attribute, Dependency> dependentNodeMap;
+    OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap;
     try {
       dependentNodeMap =
           dependencyResolver.dependentNodeMap(
@@ -374,14 +377,14 @@ public class BuildViewForTesting {
     return ImmutableMap.copyOf(keys);
   }
 
-  private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> getPrerequisiteMapForTesting(
+  private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getPrerequisiteMapForTesting(
       final ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
       BuildConfigurationCollection configurations,
       ImmutableSet<Label> toolchainLabels)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-      InconsistentAspectOrderException {
-    OrderedSetMultimap<Attribute, Dependency> depNodeNames =
+          InconsistentAspectOrderException {
+    OrderedSetMultimap<DependencyKind, Dependency> depNodeNames =
         getDirectPrerequisiteDependenciesForTesting(
             eventHandler, target, configurations, toolchainLabels);
 
@@ -396,8 +399,9 @@ public class BuildViewForTesting {
       throw new InvalidConfigurationException(e);
     }
 
-    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
-    for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {
+    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
+        OrderedSetMultimap.create();
+    for (Map.Entry<DependencyKind, Dependency> entry : depNodeNames.entries()) {
       result.putAll(entry.getKey(), cts.get(entry.getValue()));
     }
     return result;
@@ -519,32 +523,31 @@ public class BuildViewForTesting {
             .setRequiredToolchainTypes(requiredToolchains)
             .resolve();
 
-    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap =
+    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
             eventHandler,
             configuredTarget,
             configurations,
             unloadedToolchainContext.resolvedToolchainLabels());
-    ToolchainContext toolchainContext = unloadedToolchainContext.load(prerequisiteMap);
+    ToolchainContext toolchainContext =
+        unloadedToolchainContext.load(prerequisiteMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
 
     return new RuleContext.Builder(
-        env,
-        target,
-        ImmutableList.of(),
-        targetConfig,
-        configurations.getHostConfiguration(),
-        ruleClassProvider.getPrerequisiteValidator(),
-        target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
+            env,
+            target,
+            ImmutableList.of(),
+            targetConfig,
+            configurations.getHostConfiguration(),
+            ruleClassProvider.getPrerequisiteValidator(),
+            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy(),
+            ConfiguredTargetKey.inTargetConfig(configuredTarget))
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,
                 PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))))
         .setPrerequisites(
-            getPrerequisiteMapForTesting(
-                eventHandler,
-                configuredTarget,
-                configurations,
-                unloadedToolchainContext.resolvedToolchainLabels()))
+            ConfiguredTargetFactory.transformPrerequisiteMap(
+                prerequisiteMap, target.getAssociatedRule()))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContext(toolchainContext)

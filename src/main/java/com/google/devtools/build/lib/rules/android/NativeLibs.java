@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -71,7 +71,8 @@ public final class NativeLibs {
       CcInfo ccInfo =
           AndroidCommon.getCcInfo(
               entry.getValue(),
-              ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()));
+              ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()),
+              ruleContext.getSymbolGenerator());
 
       Artifact nativeDepsLibrary =
           NativeDepsHelper.linkAndroidNativeDepsIfPresent(
@@ -245,13 +246,13 @@ public final class NativeLibs {
   }
 
   private static Iterable<Artifact> filterUniqueSharedLibraries(
-      RuleContext ruleContext, Artifact linkedLibrary, NestedSet<LibraryToLinkWrapper> libraries) {
+      RuleContext ruleContext, Artifact linkedLibrary, NestedSet<LibraryToLink> libraries) {
     Map<String, Artifact> basenames = new HashMap<>();
     Set<Artifact> artifacts = new HashSet<>();
     if (linkedLibrary != null) {
       basenames.put(linkedLibrary.getExecPath().getBaseName(), linkedLibrary);
     }
-    for (LibraryToLinkWrapper linkerInput : libraries) {
+    for (LibraryToLink linkerInput : libraries) {
       if (linkerInput.getPicStaticLibrary() != null || linkerInput.getStaticLibrary() != null) {
         // This is not a shared library and will not be loaded by Android, so skip it.
         continue;

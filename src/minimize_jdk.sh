@@ -19,17 +19,26 @@
 
 set -euo pipefail
 
+if [ "$1" == "--allmodules" ]; then
+  shift
+  modules="ALL-MODULE-PATH"
+else
+  modules=$(cat "$2" | paste -sd "," - | tr -d '\r')
+  # We have to add this module explicitly because jdeps doesn't find the
+  # dependency on it but it is still necessary for TLSv1.3.
+  modules="$modules,jdk.crypto.ec"
+fi
 fulljdk=$1
-modules=$(cat "$2" | paste -sd "," - | tr -d '\r')
 out=$3
 
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
   set -x
-  unzip "$fulljdk"
+  mkdir "tmp.$$"
+  cd "tmp.$$"
+  unzip "../$fulljdk"
   cd zulu*
-  echo -e "MODULES: >>$modules<<\n"
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
@@ -38,8 +47,9 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
   zip -r -9 ../reduced.zip reduced/
-  cd ..
-  mv reduced.zip "$out"
+  cd ../..
+  mv "tmp.$$/reduced.zip" "$out"
+  rm -rf "tmp.$$"
 else
   tar xf "$fulljdk"
   cd zulu*

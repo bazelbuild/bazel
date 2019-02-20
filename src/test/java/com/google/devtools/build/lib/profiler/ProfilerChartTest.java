@@ -297,11 +297,6 @@ public class ProfilerChartTest extends FoundationTestCase {
     }
 
     @Override
-    public void endVisit(Chart chart) {
-      endChartCount++;
-    }
-
-    @Override
     public void visit(ChartRow chartRow) {
       rowCount++;
     }
@@ -319,6 +314,11 @@ public class ProfilerChartTest extends FoundationTestCase {
     @Override
     public void visit(ChartLine chartLine) {
       lineCount++;
+    }
+
+    @Override
+    public void endVisit(Chart chart) {
+      endChartCount++;
     }
   }
 }

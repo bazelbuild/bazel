@@ -37,7 +37,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   public void canBuildWithIncompatibleSrcsVersionUnderNewSemantics() throws Exception {
     // See PyBaseConfiguredTargetTestBase for the analogous test under the old semantics, which
     // applies not just to py_library but also to py_binary and py_test.
-    useConfiguration("--experimental_allow_python_version_transitions=true", "--force_python=PY3");
+    useConfiguration("--incompatible_allow_python_version_transitions=true", "--force_python=PY3");
     scratch.file(
         "pkg/BUILD",
         "py_library(",
@@ -54,7 +54,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
     // See PyBaseConfiguredTargetTestBase for the analogous test under the old semantics, which
     // applies not just to py_library but also to py_binary and py_test.
     ensureDefaultIsPY2();
-    useConfiguration("--experimental_allow_python_version_transitions=true", "--force_python=PY3");
+    useConfiguration("--incompatible_allow_python_version_transitions=true", "--force_python=PY3");
     scratch.file(
         "pkg/BUILD",
         "py_library(",

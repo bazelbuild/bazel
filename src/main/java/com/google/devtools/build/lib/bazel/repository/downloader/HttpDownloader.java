@@ -26,23 +26,15 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -68,70 +60,6 @@ public class HttpDownloader {
 
   public void setDistdir(List<Path> distdir) {
     this.distdir = ImmutableList.copyOf(distdir);
-  }
-
-  /** Validates native repository rule attributes and calls the other download method. */
-  public Path download(
-      Rule rule,
-      Path outputDirectory,
-      ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnv)
-      throws RepositoryFunctionException, InterruptedException {
-    WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
-    List<URL> urls = new ArrayList<>();
-    String sha256;
-    String type;
-    try {
-      String urlString = Strings.nullToEmpty(mapper.get("url", Type.STRING));
-      if (!urlString.isEmpty()) {
-        try {
-          URL url = new URL(urlString);
-          if (!HttpUtils.isUrlSupportedByDownloader(url)) {
-            throw new EvalException(
-                rule.getAttributeLocation("url"), "Unsupported protocol: " + url.getProtocol());
-          }
-          urls.add(url);
-        } catch (MalformedURLException e) {
-          throw new EvalException(rule.getAttributeLocation("url"), e.toString());
-        }
-      }
-      List<String> urlStrings =
-          MoreObjects.firstNonNull(
-              mapper.get("urls", Type.STRING_LIST),
-              ImmutableList.<String>of());
-      if (!urlStrings.isEmpty()) {
-        if (!urls.isEmpty()) {
-          throw new EvalException(rule.getAttributeLocation("url"), "Don't set url if urls is set");
-        }
-        try {
-          for (String urlString2 : urlStrings) {
-            URL url = new URL(urlString2);
-            if (!HttpUtils.isUrlSupportedByDownloader(url)) {
-              throw new EvalException(
-                  rule.getAttributeLocation("urls"), "Unsupported protocol: " + url.getProtocol());
-            }
-            urls.add(url);
-          }
-        } catch (MalformedURLException e) {
-          throw new EvalException(rule.getAttributeLocation("urls"), e.toString());
-        }
-      }
-      if (urls.isEmpty()) {
-        throw new EvalException(rule.getLocation(), "urls attribute not set");
-      }
-      sha256 = Strings.nullToEmpty(mapper.get("sha256", Type.STRING));
-      if (!sha256.isEmpty() && !RepositoryCache.KeyType.SHA256.isValid(sha256)) {
-        throw new EvalException(rule.getAttributeLocation("sha256"), "Invalid SHA256 checksum");
-      }
-      type = Strings.nullToEmpty(mapper.get("type", Type.STRING));
-    } catch (EvalException e) {
-      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-    }
-    try {
-      return download(urls, sha256, Optional.of(type), outputDirectory, eventHandler, clientEnv);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
   }
 
   /**

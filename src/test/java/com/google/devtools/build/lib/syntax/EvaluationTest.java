@@ -507,15 +507,8 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testListComprehensionOnString() throws Exception {
-    newTest("--incompatible_string_is_not_iterable=false")
-        .testExactOrder("[x for x in 'abc']", "a", "b", "c");
-  }
-
-  @Test
   public void testListComprehensionOnStringIsForbidden() throws Exception {
-    newTest("--incompatible_string_is_not_iterable=true")
-        .testIfErrorContains("type 'string' is not iterable", "[x for x in 'abc']");
+    newTest().testIfErrorContains("type 'string' is not iterable", "[x for x in 'abc']");
   }
 
   @Test

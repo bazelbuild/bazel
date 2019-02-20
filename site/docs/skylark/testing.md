@@ -11,7 +11,6 @@ page gathers the current best practices and frameworks by use case.
 * ToC
 {:toc}
 
-
 ## For testing rules
 
 [Skylib](https://github.com/bazelbuild/bazel-skylib) has a test framework called
@@ -100,7 +99,7 @@ def _provider_contents_test_impl(ctx):
   asserts.equals(env,
     expected="some value",
     actual=ctx.attr.dep[MyInfo].val)
-  unittest.end(env)
+  return unittest.end(env)
 
 # Create the testing rule to wrap the test logic. Note that this must be bound
 # to a global variable due to restrictions on how rules can be defined. Also,
@@ -207,7 +206,7 @@ def _file_action_test_impl(ctx):
   action = actions.by_file[dep.out]
   # Check the content that is to be written by the action.
   asserts.equals(env, action.content, "abc")
-  unittest.end(env)
+  return unittest.end(env)
 
 file_action_test = unittest.make(_file_action_test_impl,
                                  attrs={"dep": attr.label()})
@@ -429,7 +428,7 @@ load(":myhelpers.bzl", "myhelper")
 def _myhelper_test_impl(ctx):
   env = unittest.begin(ctx)
   asserts.equals(env, "abc", myhelper())
-  unittest.end(env)
+  return unittest.end(env)
 
 myhelper_test = unittest.make(_myhelper_test_impl)
 

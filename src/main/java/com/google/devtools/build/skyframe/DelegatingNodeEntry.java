@@ -16,7 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import java.math.BigInteger;
-import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -74,11 +74,6 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public boolean signalDep() {
-    return getDelegate().signalDep();
-  }
-
-  @Override
   public boolean signalDep(Version childVersion, @Nullable SkyKey childForDebugging) {
     return getDelegate().signalDep(childVersion, childForDebugging);
   }
@@ -104,7 +99,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getNextDirtyDirectDeps();
   }
 
@@ -218,7 +213,12 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void addTemporaryDirectDepsGroupToDirtyEntry(Collection<SkyKey> group) {
+  public void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
     getDelegate().addTemporaryDirectDepsGroupToDirtyEntry(group);
+  }
+
+  @Override
+  public void addExternalDep() {
+    getDelegate().addExternalDep();
   }
 }

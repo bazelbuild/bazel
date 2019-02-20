@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @AutoCodec
 public final class JavaNativeLibraryProvider implements TransitiveInfoProvider {
 
-  private final NestedSet<LinkerInput> transitiveJavaNativeLibraries;
+  private final NestedSet<LibraryToLink> transitiveJavaNativeLibraries;
 
-  public JavaNativeLibraryProvider(NestedSet<LinkerInput> transitiveJavaNativeLibraries) {
+  public JavaNativeLibraryProvider(NestedSet<LibraryToLink> transitiveJavaNativeLibraries) {
     this.transitiveJavaNativeLibraries = transitiveJavaNativeLibraries;
   }
 
@@ -39,12 +39,12 @@ public final class JavaNativeLibraryProvider implements TransitiveInfoProvider {
    * Collects native libraries in the transitive closure of its deps that are needed for executing
    * Java code.
    */
-  public NestedSet<LinkerInput> getTransitiveJavaNativeLibraries() {
+  public NestedSet<LibraryToLink> getTransitiveJavaNativeLibraries() {
     return transitiveJavaNativeLibraries;
   }
 
   public static JavaNativeLibraryProvider merge(Iterable<JavaNativeLibraryProvider> deps) {
-    NestedSetBuilder<LinkerInput> transitiveSourceJars = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<LibraryToLink> transitiveSourceJars = NestedSetBuilder.stableOrder();
 
     for (JavaNativeLibraryProvider wrapper : deps) {
       transitiveSourceJars.addTransitive(wrapper.getTransitiveJavaNativeLibraries());

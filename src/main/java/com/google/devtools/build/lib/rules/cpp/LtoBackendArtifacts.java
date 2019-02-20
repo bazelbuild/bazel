@@ -17,8 +17,9 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -73,7 +74,8 @@ public final class LtoBackendArtifacts {
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
       Map<PathFragment, Artifact> allBitCodeFiles,
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      RepositoryName repositoryName,
       BuildConfiguration configuration,
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
@@ -85,14 +87,24 @@ public final class LtoBackendArtifacts {
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
 
-    objectFile = linkArtifactFactory.create(ruleContext, configuration, obj);
-    imports = linkArtifactFactory.create(
-        ruleContext, configuration, FileSystemUtils.appendExtension(obj, ".imports"));
-    index = linkArtifactFactory.create(
-        ruleContext, configuration, FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
+    objectFile =
+        linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
+    imports =
+        linkArtifactFactory.create(
+            actionConstructionContext,
+            repositoryName,
+            configuration,
+            FileSystemUtils.appendExtension(obj, ".imports"));
+    index =
+        linkArtifactFactory.create(
+            actionConstructionContext,
+            repositoryName,
+            configuration,
+            FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
 
     scheduleLtoBackendAction(
-        ruleContext,
+        actionConstructionContext,
+        repositoryName,
         featureConfiguration,
         ccToolchain,
         fdoContext,
@@ -108,7 +120,8 @@ public final class LtoBackendArtifacts {
   public LtoBackendArtifacts(
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      RepositoryName repositoryName,
       BuildConfiguration configuration,
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
@@ -120,12 +133,14 @@ public final class LtoBackendArtifacts {
     this.bitcodeFile = bitcodeFile;
 
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
-    objectFile = linkArtifactFactory.create(ruleContext, configuration, obj);
+    objectFile =
+        linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;
     index = null;
 
     scheduleLtoBackendAction(
-        ruleContext,
+        actionConstructionContext,
+        repositoryName,
         featureConfiguration,
         ccToolchain,
         fdoContext,
@@ -161,7 +176,8 @@ public final class LtoBackendArtifacts {
   }
 
   private void scheduleLtoBackendAction(
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      RepositoryName repositoryName,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
@@ -219,7 +235,8 @@ public final class LtoBackendArtifacts {
     if (generateDwo) {
       dwoFile =
           linkArtifactFactory.create(
-              ruleContext,
+              actionConstructionContext,
+              repositoryName,
               configuration,
               FileSystemUtils.replaceExtension(objectFile.getRootRelativePath(), ".dwo"));
       builder.addOutput(dwoFile);
@@ -241,7 +258,7 @@ public final class LtoBackendArtifacts {
     }
     builder.addExecutableArguments(execArgs);
 
-    ruleContext.registerAction(builder.build(ruleContext));
+    actionConstructionContext.registerAction(builder.build(actionConstructionContext));
   }
 
   /**

@@ -25,7 +25,7 @@ load(
 def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.static.freebsd",
-        "@bazel_tools//tools/cpp:CROSSTOOL",
+        "@bazel_tools//tools/cpp:cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:dummy_toolchain.bzl",
     ])
 
@@ -33,17 +33,18 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
         paths["@bazel_tools//tools/cpp:dummy_toolchain.bzl"],
         "dummy_toolchain.bzl",
     )
+
     env = repository_ctx.os.environ
     cpu_value = get_cpu_value(repository_ctx)
     if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
-        repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL.empty"), "CROSSTOOL")
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
         repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.empty"), "BUILD")
     elif cpu_value == "freebsd":
         # This is defaulting to the static crosstool, we should eventually
         # autoconfigure this platform too.  Theorically, FreeBSD should be
         # straightforward to add but we cannot run it in a docker container so
         # skipping until we have proper tests for FreeBSD.
-        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:CROSSTOOL"], "CROSSTOOL")
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
         repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.freebsd"], "BUILD")
     elif cpu_value == "x64_windows":
         # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.

@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.List;
 
@@ -40,19 +42,44 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
   @Override
   public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    return resolve(spawn, actionExecutionContext.getEventHandler())
-        .exec(spawn, actionExecutionContext);
+    List<SpawnActionContext> strategies = resolve(spawn, actionExecutionContext.getEventHandler());
+
+    // For now, we only support executing with the first strategy in the list. Later versions of
+    // this code will add some smartness to pick the best out of the list.
+    return strategies.get(0).exec(spawn, actionExecutionContext);
+  }
+
+  @Override
+  public FutureSpawn execMaybeAsync(Spawn spawn, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    List<SpawnActionContext> strategies = resolve(spawn, actionExecutionContext.getEventHandler());
+
+    // For now, we only support executing with the first strategy in the list. Later versions of
+    // this code will add some smartness to pick the best out of the list.
+    return strategies.get(0).execMaybeAsync(spawn, actionExecutionContext);
   }
 
   /**
-   * Returns the {@link SpawnActionContext} that should be used to execute the given spawn.
+   * Returns the list of {@link SpawnActionContext}s that should be used to execute the given spawn.
    *
    * @param spawn The spawn for which the correct {@link SpawnActionContext} should be determined.
    * @param eventHandler An event handler that can be used to print messages while resolving the
    *     correct {@link SpawnActionContext} for the given spawn.
    */
   @VisibleForTesting
-  public SpawnActionContext resolve(Spawn spawn, EventHandler eventHandler) {
-    return spawnActionContextMaps.getSpawnActionContext(spawn, eventHandler);
+  public List<SpawnActionContext> resolve(Spawn spawn, EventHandler eventHandler)
+      throws UserExecException {
+    List<SpawnActionContext> strategies =
+        spawnActionContextMaps.getSpawnActionContexts(spawn, eventHandler);
+
+    if (strategies.isEmpty()) {
+      throw new UserExecException(
+          String.format(
+              "No usable spawn strategy found for spawn with mnemonic %s. Are your --spawn_strategy"
+                  + " or --strategy flags too strict?",
+              spawn.getMnemonic()));
+    }
+
+    return strategies;
   }
 }

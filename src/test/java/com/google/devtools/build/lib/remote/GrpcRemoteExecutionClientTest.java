@@ -409,12 +409,7 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    try {
-      client.exec(simpleSpawn, simplePolicy);
-      fail("Expected an exception");
-    } catch (Exception e) {
-      assertThat(e).hasMessageThat().contains("no output files.");
-    }
+    client.exec(simpleSpawn, simplePolicy);
   }
 
   @Test

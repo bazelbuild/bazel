@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.testutil;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Map;
 
@@ -29,11 +29,11 @@ import java.util.Map;
  * appropriate {@code Environment} has to be created
  */
 public abstract class TestMode {
-  private static SkylarkSemantics parseSkylarkSemantics(String... skylarkOptions)
+  private static StarlarkSemantics parseSkylarkSemantics(String... skylarkOptions)
       throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
     parser.parse(skylarkOptions);
-    return parser.getOptions(SkylarkSemanticsOptions.class).toSkylarkSemantics();
+    return parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
   }
 
   public static final TestMode BUILD =

@@ -359,7 +359,7 @@ ExitCode JavaBinaryLauncher::Launch() {
     jvm_flags.push_back(flag);
   }
   wstringstream jvm_flags_launch_info_ss(this->GetLaunchInfoByKey(JVM_FLAGS));
-  while (getline(jvm_flags_launch_info_ss, flag, L' ')) {
+  while (getline(jvm_flags_launch_info_ss, flag, L'\t')) {
     jvm_flags.push_back(flag);
   }
 
@@ -411,8 +411,7 @@ ExitCode JavaBinaryLauncher::Launch() {
   vector<wstring> escaped_arguments;
   // Quote the arguments if having spaces
   for (const auto& arg : arguments) {
-    escaped_arguments.push_back(
-        GetEscapedArgument(arg, /*escape_backslash = */ false));
+    escaped_arguments.push_back(WindowsEscapeArg(arg));
   }
 
   ExitCode exit_code = this->LaunchProcess(java_bin, escaped_arguments);

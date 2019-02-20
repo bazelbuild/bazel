@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
 import java.util.Map;
 
 /** Module which registers the strategy options for Bazel. */
@@ -47,27 +48,26 @@ public class BazelStrategyModule extends BlazeModule {
     ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
 
     // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
-    builder.addStrategyByMnemonic("Javac", "worker");
-    builder.addStrategyByMnemonic("Closure", "worker");
-    builder.addStrategyByMnemonic("DexBuilder", "worker");
+    builder.addStrategyByMnemonic("Javac", ImmutableList.of("worker"));
+    builder.addStrategyByMnemonic("Closure", ImmutableList.of("worker"));
+    builder.addStrategyByMnemonic("DexBuilder", ImmutableList.of("worker"));
 
     // Allow genrule_strategy to also be overridden by --strategy= flags.
     builder.addStrategyByMnemonic("Genrule", options.genruleStrategy);
 
-    for (Map.Entry<String, String> strategy : options.strategy) {
-      String strategyName = strategy.getValue();
-      // TODO(philwo) - remove this when the standalone / local mess is cleaned up.
-      // Some flag expansions use "local" as the strategy name, but the strategy is now called
-      // "standalone", so we'll translate it here.
-      if (strategyName.equals("local")) {
-        strategyName = "standalone";
-      }
-      builder.addStrategyByMnemonic(strategy.getKey(), strategyName);
+    for (Map.Entry<String, List<String>> strategy : options.strategy) {
+      builder.addStrategyByMnemonic(strategy.getKey(), strategy.getValue());
     }
 
-    builder.addStrategyByMnemonic("", options.spawnStrategy);
+    // The --spawn_strategy= flag is a bit special: If it's set to the empty string, we actually
+    // have to pass a literal empty string to the builder to trigger the "use the strategy that was
+    // registered last" behavior. Otherwise we would have no default strategy at all and Bazel would
+    // crash.
+    List<String> spawnStrategies =
+        options.spawnStrategy.isEmpty() ? ImmutableList.of("") : options.spawnStrategy;
+    builder.addStrategyByMnemonic("", spawnStrategies);
 
-    for (Map.Entry<RegexFilter, String> entry : options.strategyByRegexp) {
+    for (Map.Entry<RegexFilter, List<String>> entry : options.strategyByRegexp) {
       builder.addStrategyByRegexp(entry.getKey(), entry.getValue());
     }
 

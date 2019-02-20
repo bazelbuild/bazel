@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -596,20 +595,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testEmptyLinkVariablesContainSysroot() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "builtin_sysroot: '/foo/bar/sysroot'",
-            "feature {",
-            "  name: 'sysroot'",
-            "  enabled: true",
-            "  flag_set {",
-            "    action: 'c++-link-executable'",
-            "    flag_group {",
-            "      expand_if_all_available: 'sysroot'",
-            "      flag: '--yolo_sysroot_flag=%{sysroot}'",
-            "    }",
-            "  }",
-            "}");
+        .setupCrosstool(mockToolsConfig, "builtin_sysroot: '/foo/bar/sysroot'");
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -618,7 +604,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "feature_configuration = feature_configuration,",
                 "cc_toolchain = toolchain,",
                 ")"))
-        .contains("--yolo_sysroot_flag=/foo/bar/sysroot");
+        .contains("--sysroot=/foo/bar/sysroot");
   }
 
   @Test
@@ -1180,13 +1166,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
-            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
-            "supports_interface_shared_objects: false",
-            "needsPic: false");
+            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION);
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "libdep2.a", "b.a", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.pic.a", "c.pic.a", "e.pic.a"),
-        ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"));
+        ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"),
+        /* disableSupportsPic= */ true);
   }
 
   @Test
@@ -1196,20 +1181,23 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.PIC_FEATURE,
-            "supports_interface_shared_objects: false",
             "needsPic: true");
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
         ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
-        ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
+        ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"),
+        /* disableSupportsPic= */ false);
   }
 
   private void doTestCcLinkingContext(
       List<String> staticLibraryList,
       List<String> picStaticLibraryList,
-      List<String> dynamicLibraryList)
+      List<String> dynamicLibraryList,
+      boolean disableSupportsPic)
       throws Exception {
-    useConfiguration();
+    useConfiguration(
+        "--features=-supports_interface_shared_libraries",
+        disableSupportsPic ? "--features=-supports_pic" : "--features=supports_pic");
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 
@@ -1220,8 +1208,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLinkWrapper> librariesToLink =
-        (SkylarkList<LibraryToLinkWrapper>) info.getValue("libraries_to_link", SkylarkList.class);
+    SkylarkList<LibraryToLink> librariesToLink =
+        (SkylarkList<LibraryToLink>) info.getValue("libraries_to_link", SkylarkList.class);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getStaticLibrary() != null)
@@ -1316,6 +1304,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratch.file("tools/build_defs/cc/BUILD", "");
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
+        "top_linking_context_smoke = cc_common.create_linking_context(libraries_to_link=[],",
+        "   user_link_flags=['-first_flag', '-second_flag'])",
         "def _create(ctx, feature_configuration, static_library, pic_static_library,",
         "  dynamic_library, interface_library, alwayslink):",
         "  return cc_common.create_library_to_link(",
@@ -1398,11 +1388,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLinkApi> libraries =
-        (SkylarkList<LibraryToLinkApi>) target.get("libraries");
+    SkylarkList<LibraryToLink> libraries = (SkylarkList<LibraryToLink>) target.get("libraries");
     assertThat(
             libraries.stream()
-                .map(x -> x.getOriginalLibraryArtifact().getFilename())
+                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .contains("libskylark_lib.so");
   }
@@ -1413,9 +1402,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         scratch, "tools/build_defs/foo", "linkopts=depset(['-LINKING_OPTION'])");
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".so"));
-    assertThat(action.getArguments()).contains("-LINKING_OPTION");
+    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getFlattenedUserLinkFlags())
+        .contains("-LINKING_OPTION");
   }
 
   @Test
@@ -1426,9 +1414,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "dynamic_library=ctx.actions.declare_file('dynamic_lib_artifact.so')");
     assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    @SuppressWarnings("unchecked")
+    SkylarkList<LibraryToLink> libraries = (SkylarkList<LibraryToLink>) target.get("libraries");
     assertThat(
-            getFilesToBuild(target).toCollection().stream()
-                .map(x -> x.getFilename())
+            libraries.stream()
+                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .contains("dynamic_lib_artifact.so");
   }
@@ -4086,16 +4076,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
         (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
     assertThat(ccToolchainConfigInfo).isNotNull();
-
-    useConfiguration("--experimental_enable_cc_toolchain_config_info=false");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("Creating a CcToolchainConfigInfo is not enabled.");
   }
 
   @Test
@@ -4159,7 +4144,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testCcToolchainInfoFromSkylarkAllRequiredStringsPresent() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4250,7 +4234,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4320,7 +4303,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4449,7 +4431,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
 
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4584,7 +4565,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
 
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4635,5 +4615,72 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     String ccFlags = (String) r.get("cc_flags");
 
     assertThat(ccFlags).isEqualTo("-test-cflag1 -testcflag2");
+  }
+
+  private boolean toolchainResolutionEnabled() throws Exception {
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain_resolution_enabled = cc_common.is_cc_toolchain_resolution_enabled_do_not_use(",
+        "      ctx = ctx)",
+        "  return struct(",
+        "    toolchain_resolution_enabled = toolchain_resolution_enabled)",
+        "toolchain_resolution_enabled = rule(",
+        "  _impl,",
+        ");");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'toolchain_resolution_enabled')",
+        "toolchain_resolution_enabled(name='r')");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
+    boolean toolchainResolutionEnabled = (boolean) r.get("toolchain_resolution_enabled");
+    return toolchainResolutionEnabled;
+  }
+
+  @Test
+  public void testIsToolchainResolutionEnabled_disabled() throws Exception {
+    useConfiguration("--incompatible_enable_cc_toolchain_resolution=false");
+
+    assertThat(toolchainResolutionEnabled()).isFalse();
+  }
+
+  @Test
+  public void testIsToolchainResolutionEnabled_enabled() throws Exception {
+    useConfiguration("--incompatible_enable_cc_toolchain_resolution");
+
+    assertThat(toolchainResolutionEnabled()).isTrue();
+  }
+
+  @Test
+  public void testWrongExtensionThrowsError() throws Exception {
+    setUpCcLinkingContextTest();
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "cc_binary(name='bin',",
+        "   deps = [':a'],",
+        ")",
+        "crule(name='a',",
+        "   static_library = 'a.o',",
+        "   pic_static_library = 'a.pic.o',",
+        "   dynamic_library = 'a.ifso',",
+        "   interface_library = 'a.so',",
+        ")");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.o' does not have any of the allowed extensions .a, .lib or .pic.a");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.pic.o' does not have any of the allowed extensions .a, .lib or .pic.a");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib or .dll");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.so' does not have any of the allowed extensions .ifso, .tbd or .lib");
   }
 }

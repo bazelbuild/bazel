@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <fstream>
 #include <functional>
 #include <iomanip>
 #include <memory>
@@ -98,6 +99,59 @@ class TeeImpl : Tee {
   bazel::windows::AutoHandle input_;
   bazel::windows::AutoHandle output1_;
   bazel::windows::AutoHandle output2_;
+};
+
+// Buffered input stream (based on a Windows HANDLE) with peek-ahead support.
+//
+// This class uses two consecutive "pages" where it buffers data from the
+// underlying HANDLE (wrapped in an AutoHandle). Both pages are always loaded
+// with data until there's no more data to read.
+//
+// The "active" page is the one where the read cursor is pointing. The other
+// page is the next one to be read once the client moves the read cursor beyond
+// the end of the active page.
+//
+// The client advances the read cursor with Advance(). When the cursor reaches
+// the end of the active page, the other page becomes the active one (whose data
+// is already buffered), and the old active page is loaded with new data from
+// the underlying file.
+class IFStreamImpl : IFStream {
+ public:
+  // Creates a new IFStream.
+  //
+  // If successful, then takes ownership of the HANDLE in 'handle', and returns
+  // a new IFStream pointer. Otherwise leaves 'handle' alone and returns
+  // nullptr.
+  static IFStream* Create(bazel::windows::AutoHandle* handle,
+                          DWORD max_page_size = 0x100000 /* 1 MB */);
+
+  bool Get(uint8_t* result) const override;
+  bool Advance() override;
+
+ protected:
+  bool PeekN(DWORD n, uint8_t* result) const override;
+
+ private:
+  bazel::windows::AutoHandle handle_;
+  const std::unique_ptr<uint8_t[]> data_;
+  const DWORD max_page_size_;
+  DWORD page1_size_;
+  DWORD page2_size_;
+  DWORD page_end_;
+  DWORD read_pos_;
+
+  IFStreamImpl(bazel::windows::AutoHandle* handle,
+               std::unique_ptr<uint8_t[]>&& data, DWORD data_size,
+               DWORD max_page_size)
+      : handle_(handle),
+        data_(std::move(data)),
+        max_page_size_(max_page_size),
+        page1_size_(data_size > max_page_size ? max_page_size : data_size),
+        page2_size_(data_size > max_page_size ? data_size - max_page_size : 0),
+        read_pos_(0),
+        page_end_(page1_size_) {}
+
+  bool Page1Active() const { return read_pos_ < max_page_size_; }
 };
 
 // A lightweight path abstraction that stores a Unicode Windows path.
@@ -1435,26 +1489,33 @@ int RunSubprocess(const Path& test_path,
 //
 // Every octet-sequence matching one of these regexps will be left alone, all
 // other octet-sequences will be replaced by '?' characters.
-//
-// This function also memorizes the locations of "]]>" in `cdata_end_locations`.
-// The reason is "]]>" ends the CDATA section prematurely and cannot be escaped
-// (see https://stackoverflow.com/a/223782/7778502). A separate filtering step
-// can replace those sequences with the string "]]>]]&gt;<![CDATA[" (which ends
-// the current CDATA segment, adds "]]&gt;", then starts a new CDATA segment).
-void CdataEscape(uint8_t* p, const DWORD size,
-                 std::vector<DWORD>* cdata_end_locations) {
+bool CdataEscape(const uint8_t* input, const DWORD size,
+                 std::basic_ostream<char>* out) {
+  // We aren't modifying the input, so const_cast is fine.
+  uint8_t* p = const_cast<uint8_t*>(input);
+
   for (DWORD i = 0; i < size; ++i, ++p) {
     if (p[0] == ']' && (i + 2 < size) && p[1] == ']' && p[2] == '>') {
-      // Mark where "]]>" is, then skip the next two octets.
-      cdata_end_locations->push_back(i);
+      *out << "]]>]]<![CDATA[>";
+      if (!out->good()) {
+        return false;
+      }
       i += 2;
       p += 2;
     } else if (*p == 0x9 || *p == 0xA || *p == 0xD ||
                (*p >= 0x20 && *p <= 0x7F)) {
-      // Matched legal single-octet sequence. Nothing to do.
+      // Matched legal single-octet sequence.
+      *out << *p;
+      if (!out->good()) {
+        return false;
+      }
     } else if ((i + 1 < size) && p[0] >= 0xC0 && p[0] <= 0xDF && p[1] >= 0x80 &&
                p[1] <= 0xBF) {
       // Matched legal double-octet sequence. Skip the next octet.
+      *out << p[0] << p[1];
+      if (!out->good()) {
+        return false;
+      }
       i += 1;
       p += 1;
     } else if ((i + 2 < size) &&
@@ -1469,22 +1530,34 @@ void CdataEscape(uint8_t* p, const DWORD size,
                 (p[0] == 0xEF && p[1] == 0xBF && p[2] >= 0x80 &&
                  p[2] <= 0xBD))) {
       // Matched legal triple-octet sequence. Skip the next two octets.
+      *out << p[0] << p[1] << p[2];
+      if (!out->good()) {
+        return false;
+      }
       i += 2;
       p += 2;
     } else if ((i + 3 < size) && p[0] >= 0xF0 && p[0] <= 0xF7 && p[1] >= 0x80 &&
                p[1] <= 0xBF && p[2] >= 0x80 && p[2] <= 0xBF && p[3] >= 0x80 &&
                p[3] <= 0xBF) {
       // Matched legal quadruple-octet sequence. Skip the next three octets.
+      *out << p[0] << p[1] << p[2] << p[3];
+      if (!out->good()) {
+        return false;
+      }
       i += 3;
       p += 3;
     } else {
       // Illegal octet; replace.
-      *p = '?';
+      *out << '?';
+      if (!out->good()) {
+        return false;
+      }
     }
   }
+  return true;
 }
 
-bool CdataEscapeAndAppend(const Path& input, HANDLE output) {
+bool CdataEscapeAndAppend(const Path& input, std::ofstream* out_stm) {
   DWORD size;
   std::unique_ptr<uint8_t[]> data;
   if (!ReadCompleteFile(input, &data, &size)) {
@@ -1492,49 +1565,7 @@ bool CdataEscapeAndAppend(const Path& input, HANDLE output) {
     return false;
   }
 
-  std::vector<DWORD> cdata_end_locations;
-  CdataEscape(data.get(), size, &cdata_end_locations);
-
-  if (cdata_end_locations.empty()) {
-    // If there were no "]]>" occurrences, we can dump the whole buffer.
-    if (!WriteToFile(output, data.get(), size)) {
-      LogError(__LINE__, input.Get());
-      return false;
-    }
-  } else {
-    // If there were "]]>" occurrences, we must replace each occurrence with
-    // `kCdataReplace`.
-    //
-    // A possible optimization would be to record the length of each "]]>"
-    // sequence. This would allow replacing "]]>]]>]]>" by
-    // "]]>]]&gt;]]&gt;]]&gt;<![CDATA[" instead of by
-    // "]]>]]&gt;<![CDATA[]]>]]&gt;<![CDATA[]]>]]&gt;<![CDATA[", yielding a
-    // smaller XML file but a more complex algorithm and data structure. So we
-    // forgo that optimization for this rare corner-case in favour of the
-    // simpler code and store each location of "]]>" individually.
-    static const std::string kCdataReplace = "]]>]]&gt;<![CDATA[";
-    DWORD start = 0;
-    DWORD end = 0;
-    for (DWORD end : cdata_end_locations) {
-      // Dump the section of the buffer since the last "]]>" to the current one
-      // then write the replacement for the current "]]>".
-      if (!WriteToFile(output, data.get() + start, end - start) ||
-          !WriteToFile(output, kCdataReplace.c_str(), kCdataReplace.size())) {
-        LogError(__LINE__, input.Get());
-        return false;
-      }
-      start = end + 3;
-    }
-
-    if (start < size) {
-      // Write the remainder of the buffer after the last "]]>".
-      if (!WriteToFile(output, data.get() + start, size - start)) {
-        LogError(__LINE__, input.Get());
-        return false;
-      }
-    }
-  }
-  return true;
+  return CdataEscape(data.get(), size, out_stm);
 }
 
 bool GetTestName(std::wstring* result) {
@@ -1642,14 +1673,15 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return false;
   }
 
-  bazel::windows::AutoHandle handle;
-  if (!OpenFileForWriting(output, &handle)) {
+  std::ofstream stm(
+      AddUncPrefixMaybe(output).c_str(),
+      std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+  if (!stm.is_open() || !stm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Create XML file stub.
-  std::stringstream stm;
   stm << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
          "<testsuites>\n"
          "<testsuite name=\""
@@ -1660,21 +1692,20 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
       << "\" time=\"" << duration.seconds << "\">" << error_msg
       << "</testcase>\n"
          "<system-out><![CDATA[";
-  std::string prefix = stm.str();
-  if (!WriteToFile(handle, prefix.c_str(), prefix.size())) {
+  if (!stm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Encode test log to make it embeddable in CDATA.
-  if (!CdataEscapeAndAppend(test_outerr, handle)) {
+  if (!CdataEscapeAndAppend(test_outerr, &stm)) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Append CDATA end and closing tags.
-  std::string suffix = "]]></system-out>\n</testsuite>\n</testsuites>\n";
-  if (!WriteToFile(handle, suffix.c_str(), suffix.size())) {
+  stm << "]]></system-out>\n</testsuite>\n</testsuites>\n";
+  if (!stm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
@@ -1717,6 +1748,100 @@ Path Path::Dirname() const {
   Path result;
   result.path_ = blaze_util::SplitPathW(path_).first;
   return result;
+}
+
+IFStream* IFStreamImpl::Create(bazel::windows::AutoHandle* handle,
+                               DWORD max_page_size) {
+  std::unique_ptr<uint8_t[]> data(new uint8_t[max_page_size * 2]);
+  DWORD read;
+  if (!ReadFile(*handle, data.get(), max_page_size * 2, &read, NULL)) {
+    DWORD err = GetLastError();
+    if (err == ERROR_BROKEN_PIPE) {
+      read = 0;
+    } else {
+      LogErrorWithValue(__LINE__, "Failed to read from file", err);
+      return nullptr;
+    }
+  }
+  return new IFStreamImpl(handle, std::move(data), read, max_page_size);
+}
+
+bool IFStreamImpl::Get(uint8_t* result) const {
+  if (read_pos_ < page_end_) {
+    *result = data_[read_pos_];
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool IFStreamImpl::Advance() {
+  if (read_pos_ + 1 < page_end_) {
+    read_pos_++;
+    return true;
+  }
+  const bool page1_was_active = Page1Active();
+  // The new page should have already been loaded when we started reading the
+  // current one (or it was filled by the Create method). Its size should only
+  // be zero if we reached EOF.
+  if ((page1_was_active && page2_size_ == 0) ||
+      (!page1_was_active && page1_size_ == 0)) {
+    return false;
+  }
+  // Overwrite the *active* page, because read_pos_ is about to move out of it
+  // and the current inactive page will be the new active one.
+  if (!ReadFile(handle_,
+                page1_was_active ? data_.get() : (data_.get() + max_page_size_),
+                max_page_size_, page1_was_active ? &page1_size_ : &page2_size_,
+                NULL)) {
+    DWORD err = GetLastError();
+    if (err == ERROR_BROKEN_PIPE) {
+      // The stream is reading from a pipe, and there's no more data.
+      if (page1_was_active) {
+        page1_size_ = 0;
+      } else {
+        page2_size_ = 0;
+      }
+    } else {
+      LogErrorWithValue(__LINE__, "Failed to read from file", err);
+      return false;
+    }
+  }
+  page_end_ = page1_was_active ? max_page_size_ + page2_size_ : page1_size_;
+  read_pos_ = page1_was_active ? max_page_size_ : 0;
+  return true;
+}
+
+bool IFStreamImpl::PeekN(DWORD n, uint8_t* result) const {
+  if (n > 3) {
+    // We only need to support peeking at up to 3 bytes. The theoretical upper
+    // limit is max_page_size_ * 2 - 1, because the buffer can hold at most
+    // max_page_size_ * 2 bytes of data and peeking starts at the next byte.
+    return false;
+  }
+
+  if (page_end_ - read_pos_ > n) {
+    // The current page has enough data we can peek at.
+    for (DWORD i = 0; i < n; ++i) {
+      result[i] = data_[read_pos_ + 1 + i];
+    }
+    return true;
+  }
+  DWORD required_from_next_page = n - (page_end_ - 1 - read_pos_);
+  // Check that the next page has enough data.
+  if ((Page1Active() && page2_size_ < required_from_next_page) ||
+      (!Page1Active() && page1_size_ < required_from_next_page)) {
+    // Pages are loaded eagerly by Advance(). The only way the next page's size
+    // can be zero is if we reached EOF.
+    return false;
+  }
+  for (DWORD i = 0, pos = read_pos_ + 1; i < n; ++i, ++pos) {
+    if (pos == page_end_) {
+      pos = Page1Active() ? max_page_size_ : 0;
+    }
+    result[i] = data_[pos];
+  }
+  return true;
 }
 
 }  // namespace
@@ -1884,22 +2009,14 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
   return TeeImpl::Create(input, output1, output2, result);
 }
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
-                                std::vector<DWORD>* cdata_end_locations) {
-  CdataEscape(buffer, size, cdata_end_locations);
-  return true;
+bool TestOnly_CdataEncode(const uint8_t* input, const DWORD size,
+                          std::basic_ostream<char>* out_stm) {
+  return CdataEscape(input, size, out_stm);
 }
 
-bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
-                                   const std::wstring& abs_output) {
-  Path input_path, output_path;
-  if (!blaze_util::IsAbsolute(abs_input) || !input_path.Set(abs_input) ||
-      !blaze_util::IsAbsolute(abs_output) || !output_path.Set(abs_output)) {
-    return false;
-  }
-  bazel::windows::AutoHandle output;
-  return OpenFileForWriting(output_path, &output) &&
-         CdataEscapeAndAppend(input_path, output);
+IFStream* TestOnly_CreateIFStream(bazel::windows::AutoHandle* handle,
+                                  DWORD page_size) {
+  return IFStreamImpl::Create(handle, page_size);
 }
 
 }  // namespace testing

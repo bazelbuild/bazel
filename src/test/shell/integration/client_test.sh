@@ -199,4 +199,55 @@ function test_bad_command_nobatch() {
   expect_log "Command 'notacommand' not found."
 }
 
+function get_pid_environment() {
+  local pid="$1"
+  case "$(uname -s)" in
+    Linux)
+      cat "/proc/${pid}/environ" | tr '\0' '\n'
+      ;;
+    Darwin)
+      if ! ps > /dev/null; then
+        echo "Cannot use ps command, probably due to sandboxing." >&2
+        return 1
+      fi
+      ps eww -o command "${pid}" | tr ' ' '\n'
+      ;;
+    *)
+      false
+      ;;
+  esac
+}
+
+function test_proxy_settings() {
+  # We expect that proxy settings are propagated from the client to the server
+  # process, but are _not_ used for client-server communication.
+
+  bazel shutdown  # We are changing the server process's environment variables.
+
+  local example_no_proxy='foo.example.com'
+  # A known-invalid http*_proxy value which, if not ignored, would be expected
+  # to cause the client-server gRPC channel to time out or otherwise fail.
+  local invalid_proxy='http://localhost:0'
+  local server_pid
+  server_pid="$(http_proxy="${invalid_proxy}" HTTP_PROXY="${invalid_proxy}" \
+    https_proxy="${invalid_proxy}" HTTPS_PROXY="${invalid_proxy}" \
+    no_proxy="${example_no_proxy}" NO_PROXY="${example_no_proxy}" \
+    bazel info server_pid 2> $TEST_log)" \
+    || fail "http*_proxy env variables not ignored by client-server channel."
+
+  # Check that the server uses the *_proxy env variables set by the client.
+  if get_pid_environment "${server_pid}" > "${TEST_TMPDIR}/server_env"; then
+    local var
+    for var in http{,s}_proxy HTTP{,S}_PROXY; do
+      assert_contains "^${var}=${invalid_proxy}\$" "${TEST_TMPDIR}/server_env"
+    done
+    for var in no_proxy NO_PROXY; do
+      assert_contains "^${var}=${example_no_proxy}\$" \
+        "${TEST_TMPDIR}/server_env"
+    done
+  else
+    echo "Cannot not test server process environment on this platform"
+  fi
+}
+
 run_suite "Tests of the bazel client."

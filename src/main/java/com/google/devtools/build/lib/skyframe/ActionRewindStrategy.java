@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.LostInputsExecException.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -115,11 +116,10 @@ public class ActionRewindStrategy {
         // need to restart the shared deps twice.
         continue;
       }
-      ImmutableList<Action> actionsToCheckForPropagation =
-          noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
+      ImmutableList<Action> actionsToCheck =
+          noteDepsAndActionsToRestartAndGetActionsToCheck(
               actionMap, depsToRestart, additionalActionsToRestart);
-      recurseAcrossPropagatingActions(
-          actionsToCheckForPropagation, env, depsToRestart, additionalActionsToRestart);
+      checkActions(actionsToCheck, env, depsToRestart, additionalActionsToRestart);
     }
 
     return new RewindPlan(
@@ -138,24 +138,22 @@ public class ActionRewindStrategy {
       throws ActionExecutionException {
     ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
     for (String digest : lostInputsByDigest.keySet()) {
+      // The same action losing the same input twice is unexpected. The action should have waited
+      // until the depended-on action which generates the lost input is (re)run before trying
+      // again.
+      //
+      // Note that we could enforce a stronger check: if action A, which depends on an input N
+      // previously detected as lost (by any action, not just A), discovers that N is still lost,
+      // and action A started after the re-evaluation of N's generating action, then something has
+      // gone wrong. Administering that check would be more complex (e.g., the start/completion
+      // times of actions would need tracking), so we punt on it for now.
       if (!lostInputRecords.add(LostInputRecord.create(actionLookupData, digest))) {
-        // The same action losing the same input twice is unexpected. The action should have waited
-        // until the depended-on action which generates the lost input is (re)run before trying
-        // again. We tolerate such a loss--by failing the build instead of crashing--in case some
-        // kind of infrastructure failure results in an input being lost twice.
-        //
-        // Note that we could enforce a stronger check: if action A, which depends on an input I
-        // previously detected as lost (by any action, not just A), discovers that I is still lost,
-        // and action A started after the re-evaluation of I's generating action, then something has
-        // gone wrong. Administering that check would be more complex (e.g., the start/completion
-        // times of actions would need tracking), so we punt on it for now.
-        logger.severe(
-            String.format(
-                "lost input twice for the same action.\nlostInput: %s\nlostInput digest: %s\n"
-                    + "failedAction: %s",
-                lostInputsByDigest.get(digest), digest, failedAction));
-        // Launder the LostInputs exception as a plain ActionExecutionException so that it may be
-        // processed by SkyframeActionExecutor without short-circuiting.
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                String.format(
+                    "lost input twice for the same action. lostInput: %s, lostInput digest: %s, "
+                        + "failedAction: %s",
+                    lostInputsByDigest.get(digest), digest, failedAction)));
         throw new ActionExecutionException(
             lostInputsException, failedAction, /*catastrophe=*/ false);
       }
@@ -174,7 +172,7 @@ public class ActionRewindStrategy {
       // failure results in their apparent loss.
       logger.info(
           String.format(
-              "lostArtifact unexpectedly source.\nlostArtifact: %s\nlostInputs for artifact: %s\n"
+              "lostArtifact unexpectedly source. lostArtifact: %s, lostInputs for artifact: %s, "
                   + "failedAction: %s",
               lostArtifact, associatedLostInputs, failedAction));
       // Launder the LostInputs exception as a plain ActionExecutionException so that it may be
@@ -183,7 +181,7 @@ public class ActionRewindStrategy {
     }
   }
 
-  private ImmutableList<Action> noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
+  private ImmutableList<Action> noteDepsAndActionsToRestartAndGetActionsToCheck(
       Map<ActionLookupData, Action> actionMap,
       Set<SkyKey> depsToRestart,
       ImmutableList.Builder<Action> additionalActionsToRestart) {
@@ -211,8 +209,8 @@ public class ActionRewindStrategy {
       if (failedActionDeps.contains(lostInput)) {
         Preconditions.checkState(
             lostInput instanceof Artifact,
-            "unexpected non-artifact lostInput which is a dep of the current action.\n"
-                + "lostInput: %s\nfailedAction: %s",
+            "unexpected non-artifact lostInput which is a dep of the current action. "
+                + "lostInput: %s, failedAction: %s",
             lostInput,
             failedActionForLogging);
         lostInputsByDepOwners.put((Artifact) lostInput, lostInput);
@@ -252,12 +250,13 @@ public class ActionRewindStrategy {
       // case, reevaluating the failed action (and no other deps) may help, because doing so may
       // rerun the generating spawn.
       //
-      // It may also happen because of a bug, so we log that this has occurred.
+      // In other cases, such as with bugs, the second time the action fails will cause a crash in
+      // checkIfActionLostInputTwice. We log that this has occurred.
       logger.info(
           String.format(
-              "lostInput not a dep of the failed action, and can't be associated with such a dep.\n"
-                  + "lostInput: %s\nowner: %s\nrunfilesDepOwner: %s\nrunfilesDepTransitiveOwner: %s"
-                  + "\nfailedAction: %s",
+              "lostInput not a dep of the failed action, and can't be associated with such a dep. "
+                  + "lostInput: %s, owner: %s, runfilesDepOwner: %s, runfilesDepTransitiveOwner: %s"
+                  + ", failedAction: %s",
               lostInput,
               owner,
               runfilesDepOwner,
@@ -267,15 +266,24 @@ public class ActionRewindStrategy {
     return lostInputsByDepOwners;
   }
 
-  private void recurseAcrossPropagatingActions(
-      ImmutableList<Action> actionsToCheckForPropagation,
+  /**
+   * Looks at each action in {@code actionsToCheck} and determines whether additional artifacts,
+   * actions, and (in the case of {@link SkyframeAwareAction}s) other Skyframe nodes need to be
+   * restarted. If this finds more actions to restart, those actions are recursively checked too.
+   */
+  private void checkActions(
+      ImmutableList<Action> actionsToCheck,
       Environment env,
       HashSet<SkyKey> depsToRestart,
       ImmutableList.Builder<Action> additionalActionsToRestart)
       throws InterruptedException {
-    ArrayDeque<Action> possiblyPropagatingActions = new ArrayDeque<>(actionsToCheckForPropagation);
-    while (!possiblyPropagatingActions.isEmpty()) {
-      Action action = possiblyPropagatingActions.removeFirst();
+    ArrayDeque<Action> uncheckedActions = new ArrayDeque<>(actionsToCheck);
+    while (!uncheckedActions.isEmpty()) {
+      Action action = uncheckedActions.removeFirst();
+
+      if (action instanceof SkyframeAwareAction) {
+        depsToRestart.addAll(((SkyframeAwareAction) action).getSkyframeDependenciesForRewinding());
+      }
 
       if (!action.mayInsensitivelyPropagateInputs()) {
         continue;
@@ -285,8 +293,10 @@ public class ActionRewindStrategy {
       // those inputs.
       //
       // Note that the artifacts returned by Action#getAllowedDerivedInputs do not need to be
-      // considered because none of the actions which provide non-throwing implementations of
-      // getAllowedDerivedInputs "insensitively propagate inputs".
+      // considered because these two sets:
+      // 1) the set of actions with non-throwing implementations of getAllowedDerivedInputs
+      // 2) the set of actions that "mayInsensitivelyPropagateInputs", plus SkyframeAwareActions
+      // have no overlap.
       Iterable<Artifact> inputs = action.getInputs();
       for (Artifact input : inputs) {
         if (input.isSourceArtifact()) {
@@ -303,10 +313,10 @@ public class ActionRewindStrategy {
         if (actionMap == null) {
           continue;
         }
-        ImmutableList<Action> nextActionsToCheckForPropagation =
-            noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
+        ImmutableList<Action> nextActionsToCheck =
+            noteDepsAndActionsToRestartAndGetActionsToCheck(
                 actionMap, depsToRestart, additionalActionsToRestart);
-        possiblyPropagatingActions.addAll(nextActionsToCheckForPropagation);
+        uncheckedActions.addAll(nextActionsToCheck);
       }
     }
   }

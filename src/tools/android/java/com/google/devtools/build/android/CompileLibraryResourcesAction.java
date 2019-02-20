@@ -26,9 +26,11 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 /** Compiles resources using aapt2 and archives them to zip. */
@@ -136,6 +138,9 @@ public class CompileLibraryResourcesAction {
               options.dataBindingInfoOut, options.packagePath, databindingResourcesRoot)
           .compile(compiler, compiledResources)
           .copyResourcesZipTo(options.output);
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      logger.log(java.util.logging.Level.SEVERE, "Unexpected", e);
+      throw e;
     }
   }
 }

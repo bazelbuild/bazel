@@ -110,7 +110,10 @@ public final class BlazeOptionHandler {
           Event.error(
               "The '"
                   + commandAnnotation.name()
-                  + "' command is only supported from within a workspace."));
+                  + "' command is only supported from within a workspace"
+                  + " (below a directory having a WORKSPACE file).\n"
+                  + "See documentation at"
+                  + " https://docs.bazel.build/versions/master/build-ref.html#workspace"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 

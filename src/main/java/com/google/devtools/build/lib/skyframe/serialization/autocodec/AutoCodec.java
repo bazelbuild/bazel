@@ -20,7 +20,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Specifies that AutoCodec should generate a codec implementation for the annotated class.
+ * Specifies that AutoCodec should generate a codec implementation for the annotated class. For
+ * classes, this is generally only needed if they do interning or other non-trivial creation-time
+ * work.
  *
  * <p>Example:
  *
@@ -36,11 +38,12 @@ import java.lang.annotation.Target;
  * <p>If applied to a field (which must be static and final), the field is stored as a "constant"
  * allowing for trivial serialization of it as an integer tag (see {@code CodecScanner} and
  * {@code ObjectCodecRegistry}). In order to do that, a trivial associated "RegisteredSingleton"
- * class is generated.
+ * class is generated. Tagging such a field is harmless, and can be done conservatively.
  */
 @Target({ElementType.TYPE, ElementType.FIELD})
 // TODO(janakr): remove once serialization is complete.
 @Retention(RetentionPolicy.RUNTIME)
+// TODO(janakr): remove unnecessary @AutoCodec annotations throughout our codebase.
 public @interface AutoCodec {
   /**
    * AutoCodec recursively derives a codec using the public interfaces of the class.

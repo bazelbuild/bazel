@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,6 +30,8 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.function.Consumer;
@@ -76,7 +77,7 @@ public final class SingleJarActionBuilder {
   public static void createSourceJarAction(
       RuleContext ruleContext,
       JavaSemantics semantics,
-      ImmutableCollection<Artifact> resources,
+      NestedSet<Artifact> resources,
       NestedSet<Artifact> resourceJars,
       Artifact outputJar) {
     createSourceJarAction(
@@ -105,7 +106,7 @@ public final class SingleJarActionBuilder {
       ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       JavaSemantics semantics,
-      ImmutableCollection<Artifact> resources,
+      NestedSet<Artifact> resources,
       NestedSet<Artifact> resourceJars,
       Artifact outputJar,
       JavaToolchainProvider toolchainProvider,
@@ -147,7 +148,10 @@ public final class SingleJarActionBuilder {
             .addInputs(jars)
             .addCommandLine(
                 sourceJarCommandLine(
-                    output, /* semantics= */ null, /* resources= */ ImmutableList.of(), jars),
+                    output,
+                    /* semantics= */ null,
+                    /* resources= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+                    jars),
                 ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
             .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
             .setMnemonic("JavaSingleJar");
@@ -157,7 +161,7 @@ public final class SingleJarActionBuilder {
   private static CommandLine sourceJarCommandLine(
       Artifact outputJar,
       JavaSemantics semantics,
-      ImmutableCollection<Artifact> resources,
+      NestedSet<Artifact> resources,
       NestedSet<Artifact> resourceJars) {
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);

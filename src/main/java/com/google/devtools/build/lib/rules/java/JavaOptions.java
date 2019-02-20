@@ -586,7 +586,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_remote_java_toolchain",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
@@ -600,7 +600,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_remote_host_java_toolchain",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
@@ -23,8 +24,44 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  * a library identifier.
  */
 @SkylarkModule(
-    name = "OldLibraryToLink",
+    name = "LibraryToLink",
     category = SkylarkModuleCategory.BUILTIN,
-    documented = false,
-    doc = "A library the user can link to.")
-public interface LibraryToLinkApi<FileT extends FileApi> extends LinkerInputApi<FileT> {}
+    doc = "A library the user can link against.")
+public interface LibraryToLinkApi<FileT extends FileApi> {
+  @SkylarkCallable(
+      name = "static_library",
+      allowReturnNones = true,
+      doc = "<code>Artifact</code> of static library to be linked.",
+      structField = true)
+  FileT getStaticLibrary();
+
+  @SkylarkCallable(
+      name = "pic_static_library",
+      allowReturnNones = true,
+      doc = "<code>Artifact</code> of pic static library to be linked.",
+      structField = true)
+  FileT getPicStaticLibrary();
+
+  @SkylarkCallable(
+      name = "dynamic_library",
+      doc =
+          "<code>Artifact</code> of dynamic library to be linked. Always used for runtime "
+              + "and used for linking if <code>interface_library</code> is not passed.",
+      allowReturnNones = true,
+      structField = true)
+  FileT getDynamicLibrary();
+
+  @SkylarkCallable(
+      name = "interface_library",
+      doc = "<code>Artifact</code> of interface library to be linked.",
+      allowReturnNones = true,
+      structField = true)
+  FileT getInterfaceLibrary();
+
+  @SkylarkCallable(
+      name = "alwayslink",
+      doc = "Whether to link the static library/objects in the --whole_archive block.",
+      allowReturnNones = true,
+      structField = true)
+  boolean getAlwayslink();
+}

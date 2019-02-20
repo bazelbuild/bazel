@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 /** Class used to construct command lines from CROSSTOOL features. */
 @SkylarkModule(
     name = "FeatureConfiguration",
-    documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Class used to construct command lines from CROSSTOOL features.")
 public interface FeatureConfigurationApi {}

@@ -1,61 +1,58 @@
 major_version: "local"
 minor_version: ""
-
 toolchain {
+  toolchain_identifier: "armeabi-v7a"
+  host_system_name: "armeabi-v7a"
+  target_system_name: "arm_a15"
+  target_cpu: "armeabi-v7a"
+  target_libc: "glibc_2.19"
+  compiler: "gcc"
   abi_version: "gcc"
   abi_libc_version: "glibc_2.19"
-  builtin_sysroot: ""
-  compiler: "gcc"
-  host_system_name: "armeabi-v7a"
-  needsPic: true
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: true
-  supports_start_end_lib: false
-  supports_thin_archives: true
-  target_libc: "glibc_2.19"
-  target_cpu: "armeabi-v7a"
-  target_system_name: "arm_a15"
-  toolchain_identifier: "armeabi-v7a"
-
-  tool_path { name: "ar" path: "linaro_linux_gcc/arm-linux-gnueabihf-ar" }
-  tool_path { name: "compat-ld" path: "linaro_linux_gcc/arm-linux-gnueabihf-ld" }
-  tool_path { name: "cpp" path: "linaro_linux_gcc/arm-linux-gnueabihf-gcc" }
-  tool_path { name: "dwp" path: "linaro_linux_gcc/arm-linux-gnueabihf-dwp" }
-  tool_path { name: "gcc" path: "linaro_linux_gcc/arm-linux-gnueabihf-gcc" }
-  tool_path { name: "gcov" path: "arm-frc-linux-gnueabi/arm-frc-linux-gnueabi-gcov-4.9" }
-  # C(++) compiles invoke the compiler (as that is the one knowing where
-  # to find libraries), but we provide LD so other rules can invoke the linker.
-  tool_path { name: "ld" path: "linaro_linux_gcc/arm-linux-gnueabihf-ld" }
-  tool_path { name: "nm" path: "linaro_linux_gcc/arm-linux-gnueabihf-nm" }
-  tool_path { name: "objcopy" path: "linaro_linux_gcc/arm-linux-gnueabihf-objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "linaro_linux_gcc/arm-linux-gnueabihf-objdump" }
-  tool_path { name: "strip" path: "linaro_linux_gcc/arm-linux-gnueabihf-strip" }
-
-  compiler_flag: "--sysroot=external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc"
-  compiler_flag: "-mfloat-abi=hard"
-
-  compiler_flag: "-nostdinc"
-  compiler_flag: "-isystem"
-  compiler_flag: "external/org_linaro_components_toolchain_gcc_5_3_1/lib/gcc/arm-linux-gnueabihf/5.3.1/include"
-  compiler_flag: "-isystem"
-  compiler_flag: "external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc/usr/include"
-  compiler_flag: "-isystem"
-  compiler_flag: "external/org_linaro_components_toolchain_gcc_5_3_1/lib/gcc/arm-linux-gnueabihf/5.3.1/include-fixed"
-  compiler_flag: "-isystem"
-  compiler_flag: "external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc/usr/include"
-  cxx_flag: "-isystem"
-  cxx_flag: "external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/include/c++/5.3.1/arm-linux-gnueabihf"
-  cxx_flag: "-isystem"
-  cxx_flag: "external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/include/c++/5.3.1"
-  cxx_flag: "-isystem"
-  cxx_flag: "external/org_linaro_components_toolchain_gcc_5_3_1/include/c++/5.3.1/arm-linux-gnueabihf"
-  cxx_flag: "-isystem"
-  cxx_flag: "external/org_linaro_components_toolchain_gcc_5_3_1/include/c++/5.3.1"
-
+  tool_path {
+    name: "ar"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-ar"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-gcc"
+  }
+  tool_path {
+    name: "dwp"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-gcc"
+  }
+  tool_path {
+    name: "gcov"
+    path: "arm-frc-linux-gnueabi/arm-frc-linux-gnueabi-gcov-4.9"
+  }
+  tool_path {
+    name: "ld"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "linaro_linux_gcc/arm-linux-gnueabihf-strip"
+  }
   cxx_builtin_include_directory: "%package(@org_linaro_components_toolchain_gcc_5_3_1//include)%"
   cxx_builtin_include_directory: "%package(@org_linaro_components_toolchain_gcc_5_3_1//arm-linux-gnueabihf/libc/usr/include)%"
   cxx_builtin_include_directory: "%package(@org_linaro_components_toolchain_gcc_5_3_1//arm-linux-gnueabihf/libc/usr/lib/include)%"
@@ -66,97 +63,284 @@ toolchain {
   cxx_builtin_include_directory: "%package(@org_linaro_components_toolchain_gcc_5_3_1//lib/gcc/arm-linux-gnueabihf/5.3.1/include)%"
   cxx_builtin_include_directory: "%package(@org_linaro_components_toolchain_gcc_5_3_1//lib/gcc/arm-linux-gnueabihf/5.3.1/include-fixed)%"
   cxx_builtin_include_directory: "%package(@org_linaro_components_toolchain_gcc_5_3_1//arm-linux-gnueabihf/include)%/c++/5.3.1"
-
-  linker_flag: "--sysroot=external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc"
-  linker_flag: "-lstdc++"
-  linker_flag: "-latomic"
-  linker_flag: "-lm"
-  linker_flag: "-lpthread"
-  linker_flag: "-Ltools/arm_compiler/linaro_linux_gcc/clang_more_libs"
-  linker_flag: "-Lexternal/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/lib"
-  linker_flag: "-Lexternal/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc/lib"
-  linker_flag: "-Lexternal/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc/usr/lib"
-  linker_flag: "-Bexternal/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/bin"
-  linker_flag: "-Wl,--dynamic-linker=/lib/ld-linux-armhf.so.3"
-
-  # Anticipated future default.
-  # This makes GCC and Clang do what we want when called through symlinks.
-  unfiltered_cxx_flag: "-no-canonical-prefixes"
-  linker_flag: "-no-canonical-prefixes"
-
-  # Make C++ compilation deterministic. Use linkstamping instead of these
-  # compiler symbols.
-  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
-  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
-
-  # Security hardening on by default.
-  # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
-  # We need to undef it before redefining it as some distributions now have
-  # it enabled by default.
-  compiler_flag: "-U_FORTIFY_SOURCE"
-  compiler_flag: "-fstack-protector"
-  compiler_flag: "-fPIE"
-  linker_flag: "-pie"
-  linker_flag: "-Wl,-z,relro,-z,now"
-
-  # Enable coloring even if there's no attached terminal. Bazel removes the
-  # escape sequences if --nocolor is specified.
-  compiler_flag: "-fdiagnostics-color=always"
-
-  # All warnings are enabled. Maybe enable -Werror as well?
-  compiler_flag: "-Wall"
-  # Enable a few more warnings that aren't part of -Wall.
-  compiler_flag: "-Wunused-but-set-parameter"
-  # But disable some that are problematic.
-  compiler_flag: "-Wno-free-nonheap-object" # has false positives
-
-  # Keep stack frames for debugging, even in opt mode.
-  compiler_flag: "-fno-omit-frame-pointer"
-
-  compilation_mode_flags {
-    mode: DBG
-    # Enable debug symbols.
-    compiler_flag: "-g"
+  builtin_sysroot: ""
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc"
+        flag: "-mfloat-abi=hard"
+        flag: "-nostdinc"
+        flag: "-isystem"
+        flag: "external/org_linaro_components_toolchain_gcc_5_3_1/lib/gcc/arm-linux-gnueabihf/5.3.1/include"
+        flag: "-isystem"
+        flag: "external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc/usr/include"
+        flag: "-isystem"
+        flag: "external/org_linaro_components_toolchain_gcc_5_3_1/lib/gcc/arm-linux-gnueabihf/5.3.1/include-fixed"
+        flag: "-isystem"
+        flag: "external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc/usr/include"
+        flag: "-U_FORTIFY_SOURCE"
+        flag: "-fstack-protector"
+        flag: "-fPIE"
+        flag: "-fdiagnostics-color=always"
+        flag: "-Wall"
+        flag: "-Wunused-but-set-parameter"
+        flag: "-Wno-free-nonheap-object"
+        flag: "-fno-omit-frame-pointer"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g"
+      }
+      with_feature {
+        feature: "dbg"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g0"
+        flag: "-O2"
+        flag: "-DNDEBUG"
+        flag: "-ffunction-sections"
+        flag: "-fdata-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-isystem"
+        flag: "external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/include/c++/5.3.1/arm-linux-gnueabihf"
+        flag: "-isystem"
+        flag: "external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/include/c++/5.3.1"
+        flag: "-isystem"
+        flag: "external/org_linaro_components_toolchain_gcc_5_3_1/include/c++/5.3.1/arm-linux-gnueabihf"
+        flag: "-isystem"
+        flag: "external/org_linaro_components_toolchain_gcc_5_3_1/include/c++/5.3.1"
+      }
+    }
+    enabled: true
   }
-  compilation_mode_flags {
-    mode: OPT
-    # No debug symbols.
-    # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
-    # even generally? However, that can't happen here, as it requires special
-    # handling in Bazel.
-    compiler_flag: "-g0"
-
-    # Conservative choice for -O
-    # -O3 can increase binary size and even slow down the resulting binaries.
-    # Profile first and / or use FDO if you need better performance than this.
-    compiler_flag: "-O2"
-
-    # Disable assertions
-    compiler_flag: "-DNDEBUG"
-
-    # Removal of unused code and data at link time (can this increase binary size in some cases?).
-    compiler_flag: "-ffunction-sections"
-    compiler_flag: "-fdata-sections"
-    linker_flag: "-Wl,--gc-sections"
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "--sysroot=external/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc"
+        flag: "-lstdc++"
+        flag: "-latomic"
+        flag: "-lm"
+        flag: "-lpthread"
+        flag: "-Ltools/arm_compiler/linaro_linux_gcc/clang_more_libs"
+        flag: "-Lexternal/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/lib"
+        flag: "-Lexternal/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc/lib"
+        flag: "-Lexternal/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/libc/usr/lib"
+        flag: "-Bexternal/org_linaro_components_toolchain_gcc_5_3_1/arm-linux-gnueabihf/bin"
+        flag: "-Wl,--dynamic-linker=/lib/ld-linux-armhf.so.3"
+        flag: "-no-canonical-prefixes"
+        flag: "-pie"
+        flag: "-Wl,-z,relro,-z,now"
+      }
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,--gc-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "supports_pic"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "opt"
+  }
+  feature {
+    name: "dbg"
+  }
+  feature {
+    name: "user_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "sysroot"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-no-canonical-prefixes"
+        flag: "-Wno-builtin-macro-redefined"
+        flag: "-D__DATE__=\"redacted\""
+        flag: "-D__TIMESTAMP__=\"redacted\""
+        flag: "-D__TIME__=\"redacted\""
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "linaro_linux_gcc/arm-linux-gnueabihf-objcopy"
+    }
+    enabled: true
   }
 }
-
 toolchain {
   toolchain_identifier: "local"
-  abi_libc_version: "local"
-  abi_version: "local"
-  builtin_sysroot: ""
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "k8"
+  target_libc: "local"
   compiler: "compiler"
-  compiler_flag: "-U_FORTIFY_SOURCE"
-  compiler_flag: "-D_FORTIFY_SOURCE=2"
-  compiler_flag: "-fstack-protector"
-  compiler_flag: "-Wall"
-  compiler_flag: "-Wl,-z,-relro,-z,now"
-  compiler_flag: "-Wunused-but-set-parameter"
-  compiler_flag: "-Wno-free-nonheap-object"
-  compiler_flag: "-fno-omit-frame-pointer"
+  abi_version: "local"
+  abi_libc_version: "local"
+  tool_path {
+    name: "ar"
+    path: "/usr/bin/ar"
+  }
+  tool_path {
+    name: "cpp"
+    path: "/usr/bin/cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "/usr/bin/dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "/usr/bin/gcc"
+  }
+  tool_path {
+    name: "gcov"
+    path: "/usr/bin/gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "/usr/bin/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "/usr/bin/nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "/usr/bin/objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "/usr/bin/objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "/usr/bin/strip"
+  }
   cxx_builtin_include_directory: "/usr/include/c++/4.8"
   cxx_builtin_include_directory: "/usr/include/x86_64-linux-gnu/c++/4.8"
   cxx_builtin_include_directory: "/usr/include/c++/4.8/backward"
@@ -165,52 +349,208 @@ toolchain {
   cxx_builtin_include_directory: "/usr/lib/gcc/x86_64-linux-gnu/4.8/include-fixed"
   cxx_builtin_include_directory: "/usr/include/x86_64-linux-gnu"
   cxx_builtin_include_directory: "/usr/include"
-  cxx_flag: "-std=c++0x"
-  host_system_name: "local"
-  linker_flag: "-lstdc++"
-  linker_flag: "-lm"
-  linker_flag: "-Wl,-no-as-needed"
-  linker_flag: "-pass-exit-codes"
-  needsPic: true
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_fission: false
-  supports_incremental_linker: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-  supports_thin_archives: false
-  target_cpu: "k8"
-  target_libc: "local"
-  target_system_name: "local"
-  unfiltered_cxx_flag: "-fno-canonical-system-headers"
-  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
-  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
-  tool_path {name: "ar" path: "/usr/bin/ar" }
-  tool_path {name: "cpp" path: "/usr/bin/cpp" }
-  tool_path {name: "dwp" path: "/usr/bin/dwp" }
-  tool_path {name: "gcc" path: "/usr/bin/gcc" }
-  tool_path {name: "gcov" path: "/usr/bin/gcov" }
-  tool_path {name: "ld" path: "/usr/bin/ld" }
-  tool_path {name: "nm" path: "/usr/bin/nm" }
-  tool_path {name: "objcopy" path: "/usr/bin/objcopy" }
-  tool_path {name: "objdump" path: "/usr/bin/objdump" }
-  tool_path {name: "strip" path: "/usr/bin/strip" }
-
-  compilation_mode_flags {
-    mode: DBG
-    compiler_flag: "-g"
+  builtin_sysroot: ""
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-U_FORTIFY_SOURCE"
+        flag: "-D_FORTIFY_SOURCE=2"
+        flag: "-fstack-protector"
+        flag: "-Wall"
+        flag: "-Wl,-z,-relro,-z,now"
+        flag: "-Wunused-but-set-parameter"
+        flag: "-Wno-free-nonheap-object"
+        flag: "-fno-omit-frame-pointer"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g"
+      }
+      with_feature {
+        feature: "dbg"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g0"
+        flag: "-O2"
+        flag: "-DNDEBUG"
+        flag: "-ffunction-sections"
+        flag: "-fdata-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-std=c++0x"
+      }
+    }
+    enabled: true
   }
-  compilation_mode_flags {
-    mode: OPT
-    compiler_flag: "-g0"
-    compiler_flag: "-O2"
-    compiler_flag: "-DNDEBUG"
-    compiler_flag: "-ffunction-sections"
-    compiler_flag: "-fdata-sections"
-    linker_flag: "-Wl,--gc-sections"
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-lstdc++"
+        flag: "-lm"
+        flag: "-Wl,-no-as-needed"
+        flag: "-pass-exit-codes"
+      }
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,--gc-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    enabled: true
   }
-  linking_mode_flags { mode: DYNAMIC }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "supports_pic"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "opt"
+  }
+  feature {
+    name: "dbg"
+  }
+  feature {
+    name: "user_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "sysroot"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-fno-canonical-system-headers"
+        flag: "-Wno-builtin-macro-redefined"
+        flag: "-D__DATE__=\"redacted\""
+        flag: "-D__TIMESTAMP__=\"redacted\""
+        flag: "-D__TIME__=\"redacted\""
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "/usr/bin/objcopy"
+    }
+    enabled: true
+  }
 }

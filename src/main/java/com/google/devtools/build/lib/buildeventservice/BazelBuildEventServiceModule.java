@@ -84,7 +84,7 @@ public class BazelBuildEventServiceModule
           "mobile-install");
 
   @Override
-  protected Set<String> whitelistedCommands() {
+  protected Set<String> whitelistedCommands(BuildEventServiceOptions besOptions) {
     return WHITELISTED_COMMANDS;
   }
 }

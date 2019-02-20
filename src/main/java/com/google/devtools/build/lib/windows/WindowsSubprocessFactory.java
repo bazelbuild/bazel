@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.windows;
 
+import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
@@ -31,10 +32,10 @@ import java.util.TreeMap;
  * A subprocess factory that uses the Win32 API.
  */
 public class WindowsSubprocessFactory implements SubprocessFactory {
-  public static final WindowsSubprocessFactory INSTANCE = new WindowsSubprocessFactory();
+  private final boolean windowsStyleArgEscaping;
 
-  private WindowsSubprocessFactory() {
-    // Singleton
+  public WindowsSubprocessFactory(boolean windowsStyleArgEscaping) {
+    this.windowsStyleArgEscaping = windowsStyleArgEscaping;
   }
 
   @Override
@@ -43,8 +44,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
 
     // DO NOT quote argv0, createProcess will do it for us.
     String argv0 = processArgv0(argv.get(0));
-    String argvRest =
-        argv.size() > 1 ? WindowsProcesses.quoteCommandLine(argv.subList(1, argv.size())) : "";
+    String argvRest = argv.size() > 1 ? escapeArgvRest(argv.subList(1, argv.size())) : "";
     byte[] env = convertEnvToNative(builder.getEnv());
 
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());
@@ -73,7 +73,25 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
         builder.getTimeoutMillis());
   }
 
-  public String processArgv0(String argv0) {
+  private String escapeArgvRest(List<String> argv) {
+    if (windowsStyleArgEscaping) {
+      StringBuilder result = new StringBuilder();
+      boolean first = true;
+      for (String arg : argv) {
+        if (first) {
+          first = false;
+        } else {
+          result.append(" ");
+        }
+        result.append(ShellUtils.windowsEscapeArg(arg));
+      }
+      return result.toString();
+    } else {
+      return WindowsProcesses.quoteCommandLine(argv);
+    }
+  }
+
+  public static String processArgv0(String argv0) {
     // Normalize the path and make it Windows-style.
     // If argv0 is at least MAX_PATH (260 chars) long, createNativeProcess calls GetShortPathNameW
     // to obtain a 8dot3 name for it (thereby support long paths in CreateProcessA), but then argv0
@@ -83,10 +101,10 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     // If it's not absolute, then it cannot be longer than MAX_PATH, since MAX_PATH also limits the
     // length of file names.
     PathFragment argv0fragment = PathFragment.create(argv0);
-    return (argv0fragment.isAbsolute()) ? argv0fragment.getPathString().replace('/', '\\') : argv0;
+    return argv0fragment.isAbsolute() ? argv0fragment.getPathString().replace('/', '\\') : argv0;
   }
 
-  private String getRedirectPath(StreamAction action, File file) {
+  private static String getRedirectPath(StreamAction action, File file) {
     switch (action) {
       case DISCARD:
         return "NUL";  // That's /dev/null on Windows
@@ -102,10 +120,8 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     }
   }
 
-  /**
-   * Converts an environment map to the format expected in lpEnvironment by CreateProcess().
-   */
-  private byte[] convertEnvToNative(Map<String, String> envMap) throws IOException {
+  /** Converts an environment map to the format expected in lpEnvironment by CreateProcess(). */
+  private static byte[] convertEnvToNative(Map<String, String> envMap) throws IOException {
     Map<String, String> realEnv = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     Map<String, String> systemEnv = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     if (envMap != null) {

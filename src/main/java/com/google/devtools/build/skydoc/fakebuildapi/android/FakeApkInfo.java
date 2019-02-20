@@ -32,6 +32,16 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   }
 
   @Override
+  public FileApi getUnsignedApk() {
+    return null;
+  }
+
+  @Override
+  public FileApi getKeystore() {
+    return null;
+  }
+
+  @Override
   public String toProto(Location loc) throws EvalException {
     return "";
   }

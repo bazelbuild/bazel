@@ -8,6 +8,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/tools/skylark/java/com/google/devtools/skylark/common",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:skylint_lib",
         "//third_party:guava",
         "//third_party:junit4",

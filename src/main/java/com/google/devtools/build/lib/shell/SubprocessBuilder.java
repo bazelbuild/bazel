@@ -41,6 +41,7 @@ public class SubprocessBuilder {
     STREAM
   }
 
+  private final SubprocessFactory factory;
   private ImmutableList<String> argv;
   private ImmutableMap<String, String> env;
   private StreamAction stdoutAction;
@@ -51,15 +52,20 @@ public class SubprocessBuilder {
   private long timeoutMillis;
   private boolean redirectErrorStream;
 
-  static SubprocessFactory factory = JavaSubprocessFactory.INSTANCE;
+  static SubprocessFactory defaultFactory = JavaSubprocessFactory.INSTANCE;
 
-  public static void setSubprocessFactory(SubprocessFactory factory) {
-    SubprocessBuilder.factory = factory;
+  public static void setDefaultSubprocessFactory(SubprocessFactory factory) {
+    SubprocessBuilder.defaultFactory = factory;
   }
 
   public SubprocessBuilder() {
+    this(defaultFactory);
+  }
+
+  public SubprocessBuilder(SubprocessFactory factory) {
     stdoutAction = StreamAction.STREAM;
     stderrAction = StreamAction.STREAM;
+    this.factory = factory;
   }
 
   /**

@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -50,6 +51,31 @@ public class AbstractQueueVisitorTest {
     counter.enqueue();
     counter.awaitQuiescence(/*interruptWorkers=*/ false);
     assertThat(counter.getCount()).isSameAs(10);
+  }
+
+  @Test
+  public void externalDep() throws Exception {
+    SettableFuture<Object> future = SettableFuture.create();
+    AbstractQueueVisitor counter =
+        new AbstractQueueVisitor(
+            /*parallelism=*/ 2,
+            /* keepAliveTime= */ 3L,
+            TimeUnit.SECONDS,
+            /* failFastOnException= */ true,
+            "FOO-BAR",
+            ErrorClassifier.DEFAULT);
+    counter.dependOnFuture(future);
+    new Thread(
+            () -> {
+              try {
+                Thread.sleep(5);
+                future.set(new Object());
+              } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .start();
+    counter.awaitQuiescence(/*interruptWorkers=*/ false);
   }
 
   @Test

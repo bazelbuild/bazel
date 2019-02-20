@@ -206,8 +206,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.ifso", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive, implSharedObject,
         implInterfaceSharedObject);
-    assertThat(LinkerInputs.toLibraryArtifacts(
-        hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
+    assertThat(
+            LibraryToLink.getDynamicLibrariesForLinking(
+                hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
         .containsExactly(implInterfaceSharedObjectLink);
     assertThat(
             hello
@@ -271,8 +272,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact implSharedObjectLink =
         getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.so", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive, sharedObject, implSharedObject);
-    assertThat(LinkerInputs.toLibraryArtifacts(
-        hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
+    assertThat(
+            LibraryToLink.getDynamicLibrariesForLinking(
+                hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
         .containsExactly(sharedObjectLink);
     assertThat(
             hello
@@ -420,8 +422,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
             MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
-            "needsPic: false",
-            "supports_interface_shared_objects: true",
             "artifact_name_pattern {"
                 + "   category_name: 'object_file'"
                 + "   prefix: ''"
@@ -453,7 +453,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 + "   extension: '.if.lib'"
                 + "}");
 
-    useConfiguration();
+    useConfiguration("--features=-supports_pic");
 
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact helloObj =
@@ -941,22 +941,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPicNotAvailableError() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
-    useConfiguration("--cpu=k8");
-    writeSimpleCcLibrary();
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//module:map");
-    assertContainsEvent("PIC compilation is requested but the toolchain does not support it");
-  }
-
-  @Test
   public void testToolchainWithoutPicForNoPicCompilation() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -1228,12 +1212,17 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(flags).containsNoneOf("-fastbuild", "-opt");
   }
 
-  private List<String> getHostAndTargetFlags(boolean useHost) throws Exception {
+  private List<String> getHostAndTargetFlags(boolean useHost, boolean isDisabledByFlag)
+      throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, MockCcSupport.HOST_AND_NONHOST_CONFIGURATION);
     scratch.overwriteFile("mode/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
-    useConfiguration("--cpu=k8");
+    useConfiguration(
+        "--cpu=k8",
+        isDisabledByFlag
+            ? "--incompatible_dont_enable_host_nonhost_crosstool_features"
+            : "--noincompatible_dont_enable_host_nonhost_crosstool_features");
     ConfiguredTarget target;
     String objectPath;
     if (useHost) {
@@ -1253,12 +1242,25 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testHostAndNonHostFeatures() throws Exception {
     List<String> flags;
 
-    flags = getHostAndTargetFlags(true);
+    flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ false);
     assertThat(flags).contains("-host");
     assertThat(flags).doesNotContain("-nonhost");
 
-    flags = getHostAndTargetFlags(false);
+    flags = getHostAndTargetFlags(/* useHost= */ false, /* isDisabledByFlag= */ false);
     assertThat(flags).contains("-nonhost");
+    assertThat(flags).doesNotContain("-host");
+  }
+
+  @Test
+  public void testHostAndNonHostFeaturesDisabledByTheFlag() throws Exception {
+    List<String> flags;
+
+    flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ true);
+    assertThat(flags).doesNotContain("-host");
+    assertThat(flags).doesNotContain("-nonhost");
+
+    flags = getHostAndTargetFlags(/* useHost= */ false, /* isDisabledByFlag= */ true);
+    assertThat(flags).doesNotContain("-nonhost");
     assertThat(flags).doesNotContain("-host");
   }
 
@@ -1376,7 +1378,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
-    LibraryToLinkWrapper library =
+    LibraryToLink library =
         Iterables.getOnlyElement(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries());
     Artifact libraryToUse = library.getPicStaticLibrary();
     if (libraryToUse == null) {
@@ -1393,7 +1395,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['libfoo.so'])");
 
-    LibraryToLinkWrapper library =
+    LibraryToLink library =
         Iterables.getOnlyElement(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries());
     assertThat(library.getStaticLibrary()).isNull();
     assertThat(artifactsToStrings(ImmutableList.of(library.getResolvedSymlinkDynamicLibrary())))
@@ -1462,10 +1464,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     checkError(
         "a",
         "foo",
-        "in cc_library rule //a:foo: Can't put libfoo.lo into the srcs of a cc_library with the "
-            + "same name (foo) which also contains other code or objects to link; it shares a name "
-            + "with libfoo.a, libfoo.ifso, libfoo.so (output compiled and linked from the "
-            + "non-library sources of this rule), which could cause confusion",
+        "in cc_library rule //a:foo: Can't put library with "
+            + "identifier 'a/libfoo' into the srcs of a cc_library with the same name (foo) which "
+            + "also contains other code or objects to link",
         "cc_library(name = 'foo', srcs = ['foo.cc', 'libfoo.lo'])");
   }
 

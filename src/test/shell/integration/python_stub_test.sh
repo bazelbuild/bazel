@@ -121,7 +121,7 @@ py_library(
 EOF
   touch test/lib2.py test/lib3.py
 
-  EXPFLAG="--experimental_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true"
 
   bazel build --python_version=PY2 $EXPFLAG //test:* \
       &> $TEST_log || fail "bazel build failed"

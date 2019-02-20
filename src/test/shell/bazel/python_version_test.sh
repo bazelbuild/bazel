@@ -245,7 +245,7 @@ EOF
   sed s/py3bin/py2bin/ test/py2bin_calling_py3bin.py > test/py3bin_calling_py2bin.py
   chmod u+x test/py2bin_calling_py3bin.py test/py3bin_calling_py2bin.py
 
-  EXPFLAG="--experimental_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true"
 
   bazel build $EXPFLAG //test:py2bin_calling_py3bin //test:py3bin_calling_py2bin \
       || fail "bazel build failed"
@@ -324,7 +324,7 @@ EOF
 
   chmod u+x test/shbin_calling_py23bins.sh
 
-  EXPFLAG="--experimental_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true"
 
   bazel build $EXPFLAG //test:shbin_calling_py23bins \
       || fail "bazel build failed"
@@ -364,8 +364,8 @@ EOF
 
   # Run under both old and new semantics.
   for EXPFLAG in \
-      "--experimental_allow_python_version_transitions=true" \
-      "--experimental_allow_python_version_transitions=false"; do
+      "--incompatible_allow_python_version_transitions=true" \
+      "--incompatible_allow_python_version_transitions=false"; do
     echo "Using $EXPFLAG" > $TEST_log
     bazel build $EXPFLAG --host_force_python=PY2 //test:genrule_calling_pybin \
         || fail "bazel build failed"
@@ -454,7 +454,7 @@ $(rlocation {{WORKSPACE_NAME}}/test/py3bin)
 EOF
   chmod u+x test/shbin.sh
 
-  EXPFLAG="--experimental_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true"
 
   bazel build $EXPFLAG //test:shbin \
       || fail "bazel build failed"

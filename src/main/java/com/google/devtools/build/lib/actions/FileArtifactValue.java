@@ -108,7 +108,7 @@ public abstract class FileArtifactValue implements SkyValue {
   public BigInteger getValueFingerprint() {
     byte[] digest = getDigest();
     if (digest != null) {
-      return new BigIntegerFingerprint().addBytes(digest).getFingerprint();
+      return new BigIntegerFingerprint().addDigestedBytes(digest).getFingerprint();
     }
     // TODO(janakr): return fingerprint in other cases: symlink, directory.
     return null;

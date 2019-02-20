@@ -25,13 +25,14 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.syntax.Type;
-import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -135,8 +136,8 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     }
 
     if (notNullArtifactToLink != null) {
-      LibraryToLinkWrapper libraryToLinkWrapper =
-          LibraryToLinkWrapper.builder()
+      LibraryToLink libraryToLink =
+          LibraryToLink.builder()
               .setStaticLibrary(noPicAndPicStaticLibrary.noPicStaticLibrary())
               .setPicStaticLibrary(noPicAndPicStaticLibrary.picStaticLibrary())
               .setDynamicLibrary(sharedLibrary)
@@ -148,10 +149,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
               .build();
       ccLinkingContext =
           CcLinkingContext.builder()
-              .addLibraries(
-                  NestedSetBuilder.<LibraryToLinkWrapper>linkOrder()
-                      .add(libraryToLinkWrapper)
-                      .build())
+              .addLibraries(NestedSetBuilder.<LibraryToLink>linkOrder().add(libraryToLink).build())
               .build();
     }
 
@@ -159,23 +157,33 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     CompilationInfo compilationInfo =
         new CcCompilationHelper(
                 ruleContext,
+                ruleContext,
+                ruleContext.getLabel(),
+                CppHelper.getGrepIncludes(ruleContext),
                 semantics,
                 featureConfiguration,
                 ccToolchain,
                 ccToolchain.getFdoContext())
             .addPublicHeaders(common.getHeaders())
             .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
+            .addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext))
+            .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
             .compile();
 
+    CppDebugFileProvider cppDebugFileProvider =
+        CcCompilationHelper.buildCppDebugFileProvider(
+            compilationInfo.getCcCompilationOutputs(), ImmutableList.of());
+    Map<String, NestedSet<Artifact>> outputGroups =
+        CcCompilationHelper.buildOutputGroups(compilationInfo.getCcCompilationOutputs());
     RuleConfiguredTargetBuilder result =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .addProvider(compilationInfo.getCppDebugFileProvider())
+            .addProvider(cppDebugFileProvider)
             .addNativeDeclaredProvider(
                 CcInfo.builder()
                     .setCcCompilationContext(compilationInfo.getCcCompilationContext())
                     .setCcLinkingContext(ccLinkingContext)
                     .build())
-            .addOutputGroups(compilationInfo.getOutputGroups())
+            .addOutputGroups(outputGroups)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
     CcSkylarkApiProvider.maybeAdd(ruleContext, result);
@@ -206,12 +214,5 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
           "'interface library' must be specified when using cc_import for shared library on"
               + " Windows");
     }
-  }
-
-  private <T extends Object> List<T> asList(Object object, Class<T> type) {
-    if (object == null) {
-      return ImmutableList.of();
-    }
-    return ImmutableList.of(type.cast(object));
   }
 }

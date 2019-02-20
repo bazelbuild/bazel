@@ -30,9 +30,10 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -91,6 +92,11 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     @Override
     public boolean exists() {
       return exists;
+    }
+
+    @Override
+    public ImmutableList<RootedPath> logicalChainDuringResolution() {
+      throw new UnsupportedOperationException();
     }
 
     void setExists(boolean exists) {
@@ -161,7 +167,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(FileValue.FILE))))
         .thenReturn(fakeWorkspaceFileValue);
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_FILE))))
+    Mockito.when(
+            env.getValue(Matchers.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
         .then(
             new Answer<SkyValue>() {
               @Override
@@ -185,8 +192,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
               @Override
               public SkyValue answer(InvocationOnMock invocation) throws Throwable {
                 SkyKey key = (SkyKey) invocation.getArguments()[0];
-                if (key.equals(PrecomputedValue.SKYLARK_SEMANTICS.getKeyForTesting())) {
-                  return new PrecomputedValue(SkylarkSemantics.DEFAULT_SEMANTICS);
+                if (key.equals(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting())) {
+                  return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
                 } else if (key.equals(
                     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
                         .getKeyForTesting())) {

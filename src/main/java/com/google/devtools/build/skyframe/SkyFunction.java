@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
@@ -352,5 +353,21 @@ public interface SkyFunction {
     /** Returns whether we are currently in error bubbling. */
     @VisibleForTesting
     boolean inErrorBubblingForTesting();
+
+    /**
+     * Adds a dependency on a Skyframe-external event. If the given future is already complete, this
+     * method silently returns without doing anything (to avoid unnecessary function restarts).
+     * Otherwise, Skyframe adds a listener to the passed-in future, and only re-enqueues the current
+     * node after the future completes and all requested deps are done. The added listener will
+     * perform the minimum amount of work on the thread completing the future necessary for Skyframe
+     * bookkeeping.
+     *
+     * <p>Callers of this method must check {@link #valuesMissing} before returning {@code null}
+     * from a {@link SkyFunction}.
+     *
+     * <p>This API is intended for performing async computations (e.g., remote execution) in another
+     * thread pool without blocking the current Skyframe thread.
+     */
+    void dependOnFuture(ListenableFuture<?> future);
   }
 }

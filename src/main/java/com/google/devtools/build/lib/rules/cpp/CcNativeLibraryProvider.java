@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @Immutable
 @AutoCodec
 public final class CcNativeLibraryProvider implements TransitiveInfoProvider {
-  private final NestedSet<LinkerInput> transitiveCcNativeLibraries;
+  private final NestedSet<LibraryToLink> transitiveCcNativeLibraries;
 
-  public CcNativeLibraryProvider(NestedSet<LinkerInput> transitiveCcNativeLibraries) {
+  public CcNativeLibraryProvider(NestedSet<LibraryToLink> transitiveCcNativeLibraries) {
     this.transitiveCcNativeLibraries = transitiveCcNativeLibraries;
   }
 
@@ -38,7 +38,7 @@ public final class CcNativeLibraryProvider implements TransitiveInfoProvider {
    *
    * <p>In effect, returns all dynamic library (.so) artifacts provided by the transitive closure.
    */
-  public NestedSet<LinkerInput> getTransitiveCcNativeLibraries() {
+  public NestedSet<LibraryToLink> getTransitiveCcNativeLibraries() {
     return transitiveCcNativeLibraries;
   }
 }

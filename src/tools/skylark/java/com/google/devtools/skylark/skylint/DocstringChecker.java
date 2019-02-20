@@ -14,7 +14,7 @@
 
 package com.google.devtools.skylark.skylint;
 
-import static com.google.devtools.skylark.skylint.DocstringUtils.extractDocstring;
+import static com.google.devtools.skylark.common.DocstringUtils.extractDocstring;
 
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.syntax.ASTNode;
@@ -26,10 +26,12 @@ import com.google.devtools.build.lib.syntax.ReturnStatement;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
-import com.google.devtools.skylark.skylint.DocstringUtils.DocstringInfo;
-import com.google.devtools.skylark.skylint.DocstringUtils.DocstringParseError;
-import com.google.devtools.skylark.skylint.DocstringUtils.ParameterDoc;
-import com.google.devtools.skylark.skylint.LocationRange.Location;
+import com.google.devtools.skylark.common.DocstringUtils;
+import com.google.devtools.skylark.common.DocstringUtils.DocstringInfo;
+import com.google.devtools.skylark.common.DocstringUtils.DocstringParseError;
+import com.google.devtools.skylark.common.DocstringUtils.ParameterDoc;
+import com.google.devtools.skylark.common.LocationRange;
+import com.google.devtools.skylark.common.LocationRange.Location;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -123,7 +125,7 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       checkMultilineFunctionDocstring(
           node, functionDocstring, info, containsReturnWithValue, issues);
     }
-    if (info.argumentsLocation != null) {
+    if (info.getArgumentsLocation() != null) {
       int lineOffset = functionDocstring.getLocation().getStartLine() - 1;
       issues.add(
           new Issue(
@@ -131,11 +133,11 @@ public class DocstringChecker extends SyntaxTreeVisitor {
               "Prefer 'Args:' to 'Arguments:' when documenting function arguments.",
               new LocationRange(
                   new Location(
-                      info.argumentsLocation.start.line + lineOffset,
-                      info.argumentsLocation.start.column),
+                      info.getArgumentsLocation().start.line + lineOffset,
+                      info.getArgumentsLocation().start.column),
                   new Location(
-                      info.argumentsLocation.end.line + lineOffset,
-                      info.argumentsLocation.end.column))));
+                      info.getArgumentsLocation().end.line + lineOffset,
+                      info.getArgumentsLocation().end.column))));
     }
   }
 
@@ -160,7 +162,7 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       DocstringInfo docstring,
       boolean functionReturnsWithValue,
       List<Issue> issues) {
-    if (functionReturnsWithValue && docstring.returns.isEmpty()) {
+    if (functionReturnsWithValue && docstring.getReturns().isEmpty()) {
       issues.add(
           Issue.create(
               INCONSISTENT_DOCSTRING_CATEGORY,
@@ -169,8 +171,8 @@ public class DocstringChecker extends SyntaxTreeVisitor {
               docstringLiteral.getLocation()));
     }
     List<String> documentedParams = new ArrayList<>();
-    for (ParameterDoc param : docstring.parameters) {
-      documentedParams.add(param.parameterName);
+    for (ParameterDoc param : docstring.getParameters()) {
+      documentedParams.add(param.getParameterName());
     }
     List<String> declaredParams = new ArrayList<>();
     for (Parameter<Expression, Expression> param : functionDef.getParameters()) {
@@ -244,9 +246,9 @@ public class DocstringChecker extends SyntaxTreeVisitor {
   }
 
   private Issue docstringParseErrorToIssue(StringLiteral docstring, DocstringParseError error) {
-    int startLine = docstring.getLocation().getStartLine() + error.lineNumber - 1;
+    int startLine = docstring.getLocation().getStartLine() + error.getLineNumber() - 1;
     int startColumn;
-    if (error.lineNumber == 1) {
+    if (error.getLineNumber() == 1) {
       // The Skylark AST does not expose whether the string literal was a triple-quoted string, so
       // we just assume the most common case: triple-quoted docstrings.
       // There's also the possibility of a raw string (r'''docstring'''), in which case we would
@@ -257,10 +259,10 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       startColumn = 1;
     }
     Location start = new Location(startLine, startColumn);
-    Location end = new Location(startLine, Math.max(1, startColumn + error.line.length() - 1));
+    Location end = new Location(startLine, Math.max(1, startColumn + error.getLine().length() - 1));
     return new Issue(
         BAD_DOCSTRING_FORMAT_CATEGORY,
-        "bad docstring format: " + error.message,
+        "bad docstring format: " + error.getMessage(),
         new LocationRange(start, end));
   }
 }

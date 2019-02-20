@@ -26,6 +26,8 @@ proto_alias("protobuf_python", PROTOBUF_VERSION)
 
 proto_alias("protobuf", PROTOBUF_VERSION)
 
+proto_alias("protobuf_headers", PROTOBUF_VERSION)
+
 proto_alias("protoc_lib", PROTOBUF_VERSION)
 
 proto_alias("java_toolchain", PROTOBUF_VERSION)

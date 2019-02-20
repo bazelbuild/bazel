@@ -459,10 +459,16 @@ bool IsSharedLibrary(const string &filename) {
 
 string GetSystemJavabase() {
   string javahome(GetEnv("JAVA_HOME"));
-  if (javahome.empty()) {
-    return "";
+  if (!javahome.empty()) {
+    string javac = blaze_util::JoinPath(javahome, "bin/javac.exe");
+    if (blaze_util::PathExists(javac.c_str())) {
+      return javahome;
+    }
+    BAZEL_LOG(WARNING)
+        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
   }
-  return javahome;
+
+  return "";
 }
 
 namespace {
@@ -1458,12 +1464,15 @@ static string LocateBash() {
   return result;
 }
 
-void DetectBashOrDie() {
-  if (!blaze::GetEnv("BAZEL_SH").empty()) return;
+string DetectBashAndExportBazelSh() {
+  string bash = blaze::GetEnv("BAZEL_SH");
+  if (!bash.empty()) {
+    return bash;
+  }
 
   uint64_t start = blaze::GetMillisecondsMonotonic();
 
-  string bash = LocateBash();
+  bash = LocateBash();
   uint64_t end = blaze::GetMillisecondsMonotonic();
   BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
                   << " msec, found " << bash.c_str();
@@ -1471,7 +1480,13 @@ void DetectBashOrDie() {
   if (!bash.empty()) {
     // Set process environment variable.
     blaze::SetEnv("BAZEL_SH", bash);
-  } else {
+  }
+  return bash;
+}
+
+void DetectBashOrDie() {
+  string bash = DetectBashAndExportBazelSh();
+  if (bash.empty()) {
     // TODO(bazel-team) should this be printed to stderr? If so, it should use
     // BAZEL_LOG(ERROR)
     printf(

@@ -464,4 +464,23 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + " flag in your bazelrc once and forget about it so that you get coredumps when you"
           + " actually encounter a condition that triggers them.")
   public boolean unlimitCoredumps;
+
+  @Option(
+      name = "incompatible_windows_style_arg_escaping",
+      defaultValue = "false", // NOTE: purely decorative, rc files are read by the client.
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.EXECUTION,
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+      },
+      help =
+          "On Linux/macOS/non-Windows: no-op. On Windows: if true, then subprocess arguments are"
+              + " escaped Windows-style. When false, the arguments are escaped Bash-style. The"
+              + " Bash-style is buggy, the Windows-style is correct. See"
+              + " https://github.com/bazelbuild/bazel/issues/7122")
+  public boolean windowsStyleArgEscaping;
 }

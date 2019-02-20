@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -80,24 +80,10 @@ public class PrecomputedValue implements SkyValue {
     return new Injected(precomputed, Suppliers.ofInstance(value));
   }
 
-  public static final Precomputed<Boolean> ENABLE_DEFAULTS_PACKAGE =
-      new Precomputed<>(Key.create("enable_default_pkg"));
-
-  // TODO(dbabkin): better to move this code to PrecomputedValueUtils.
-  // It will gone soon after removing tools/defaults
-  public static boolean isInMemoryToolsDefaults(SkyFunction.Environment env)
-      throws InterruptedException {
-    Boolean enableDefaultsPackage = PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.get(env);
-    return Preconditions.checkNotNull(enableDefaultsPackage);
-  }
-
-  public static final Precomputed<String> DEFAULTS_PACKAGE_CONTENTS =
-      new Precomputed<>(Key.create("default_pkg"));
-
   public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
       new Precomputed<>(Key.create("default_visibility"));
 
-  public static final Precomputed<SkylarkSemantics> SKYLARK_SEMANTICS =
+  public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
       new Precomputed<>(Key.create("skylark_semantics"));
 
   static final Precomputed<UUID> BUILD_ID =

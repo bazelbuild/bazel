@@ -24,17 +24,17 @@ public class SkylarkCallbackFunction {
 
   private final BaseFunction callback;
   private final FuncallExpression ast;
-  private final SkylarkSemantics skylarkSemantics;
+  private final StarlarkSemantics starlarkSemantics;
   private final StarlarkContext starlarkContext;
 
   public SkylarkCallbackFunction(
       BaseFunction callback,
       FuncallExpression ast,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       StarlarkContext starlarkContext) {
     this.callback = callback;
     this.ast = ast;
-    this.skylarkSemantics = skylarkSemantics;
+    this.starlarkSemantics = starlarkSemantics;
     this.starlarkContext = starlarkContext;
   }
 
@@ -47,7 +47,7 @@ public class SkylarkCallbackFunction {
     try (Mutability mutability = Mutability.create("callback %s", callback)) {
       Environment env =
           Environment.builder(mutability)
-              .setSemantics(skylarkSemantics)
+              .setSemantics(starlarkSemantics)
               .setEventHandler(eventHandler)
               .setStarlarkContext(starlarkContext)
               .build();

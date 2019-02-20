@@ -115,7 +115,7 @@ public final class HttpUtils {
     try {
       result = new URI(protocol, userInfo, host, port, path, query, fragment).toURL();
     } catch (URISyntaxException | MalformedURLException e) {
-      throw new IOException("Could not merge " + preferred + " into " + original);
+      throw new IOException("Could not merge " + preferred + " into " + original, e);
     }
     return result;
   }

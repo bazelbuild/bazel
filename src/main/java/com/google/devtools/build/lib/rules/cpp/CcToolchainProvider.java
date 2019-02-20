@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -34,7 +33,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
@@ -49,7 +48,6 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class CcToolchainProvider extends ToolchainInfo
     implements CcToolchainProviderApi<FeatureConfiguration>, HasCcToolchainLabel {
-  public static final String SKYLARK_NAME = "CcToolchainInfo";
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
@@ -455,11 +453,11 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns the static runtime libraries. */
   public NestedSet<Artifact> getStaticRuntimeLinkInputs(
-      RuleContext ruleContext, FeatureConfiguration featureConfiguration)
+      RuleErrorConsumer ruleErrorConsumer, FeatureConfiguration featureConfiguration)
       throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (staticRuntimeLinkInputs == null) {
-        throw ruleContext.throwWithRuleError(
+        throw ruleErrorConsumer.throwWithRuleError(
             "Toolchain supports embedded runtimes, but didn't "
                 + "provide static_runtime_lib attribute.");
       }
@@ -472,11 +470,11 @@ public final class CcToolchainProvider extends ToolchainInfo
   /** Returns an aggregating middleman that represents the static runtime libraries. */
   @Nullable
   public Artifact getStaticRuntimeLinkMiddleman(
-      RuleContext ruleContext, FeatureConfiguration featureConfiguration)
+      RuleErrorConsumer ruleErrorConsumer, FeatureConfiguration featureConfiguration)
       throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (staticRuntimeLinkInputs == null) {
-        throw ruleContext.throwWithRuleError(
+        throw ruleErrorConsumer.throwWithRuleError(
             "Toolchain supports embedded runtimes, but didn't "
                 + "provide static_runtime_lib attribute.");
       }
@@ -601,14 +599,6 @@ public final class CcToolchainProvider extends ToolchainInfo
    * supplied inside the toolchain distribution.
    */
   public boolean supportsEmbeddedRuntimes() {
-    return toolchainInfo.supportsEmbeddedRuntimes();
-  }
-
-  /**
-   * Returns whether the toolchain supports EXEC_ORIGIN libraries resolution.
-   */
-  public boolean supportsExecOrigin() {
-    // We're rolling out support for this in the same release that also supports embedded runtimes.
     return toolchainInfo.supportsEmbeddedRuntimes();
   }
 

@@ -52,7 +52,7 @@ public abstract class BugReport {
   private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
 
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
-      System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
+      IN_TEST && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
 
   /**
    * This is a narrow interface for {@link BugReport}'s usage of BlazeRuntime. It lives in this
@@ -90,6 +90,14 @@ public abstract class BugReport {
         }
       }
     }
+  }
+
+  /**
+   * Convenience method for {@linkplain #sendBugReport(Throwable, List, String...) sending a bug
+   * report} without additional arguments.
+   */
+  public static void sendBugReport(Throwable exception) {
+    sendBugReport(exception, /*args=*/ ImmutableList.of());
   }
 
   /**

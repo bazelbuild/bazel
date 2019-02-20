@@ -13,20 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import java.util.regex.Pattern;
 
 /** Encapsulate the action filters parsed from aquery command. */
 public class AqueryActionFilter {
   // TODO(leba): Use Enum for list of filters.
-  private final ImmutableMap<String, List<Pattern>> filterMap;
+  private final ImmutableMultimap<String, Pattern> filterMap;
 
   private AqueryActionFilter(Builder builder) {
-    filterMap = ImmutableMap.copyOf(builder.filterMap);
+    filterMap = ImmutableMultimap.copyOf(builder.filterMap);
   }
 
   public static AqueryActionFilter emptyInstance() {
@@ -60,16 +58,14 @@ public class AqueryActionFilter {
 
   /** Builder class for {@code AqueryActionFilter} */
   public static class Builder {
-    private final Map<String, List<Pattern>> filterMap;
+    private final Multimap<String, Pattern> filterMap;
 
     public Builder() {
-      filterMap = new HashMap<>();
+      filterMap = HashMultimap.create();
     }
 
     public Builder put(String key, Pattern value) {
-      filterMap.putIfAbsent(key, new ArrayList<>());
-      filterMap.get(key).add(value);
-
+      filterMap.put(key, value);
       return this;
     }
 

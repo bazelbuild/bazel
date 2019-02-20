@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -117,14 +117,15 @@ public final class AspectResolver {
    * combinations of aspects for a particular configured target, so it would result in a
    * combinatorial explosion of Skyframe nodes.
    */
-  public static OrderedSetMultimap<Attribute, ConfiguredTargetAndData> mergeAspects(
-      OrderedSetMultimap<Attribute, Dependency> depValueNames,
+  public static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> mergeAspects(
+      OrderedSetMultimap<DependencyKind, Dependency> depValueNames,
       Map<SkyKey, ConfiguredTargetAndData> depConfiguredTargetMap,
       OrderedSetMultimap<Dependency, ConfiguredAspect> depAspectMap)
       throws MergedConfiguredTarget.DuplicateException {
-    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
+    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
+        OrderedSetMultimap.create();
 
-    for (Map.Entry<Attribute, Dependency> entry : depValueNames.entries()) {
+    for (Map.Entry<DependencyKind, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
       SkyKey depKey = ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration());
       ConfiguredTargetAndData depConfiguredTarget = depConfiguredTargetMap.get(depKey);

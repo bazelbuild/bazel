@@ -1,3 +1,27 @@
+nanopb-0.3.6 (2016-06-19)
+ Protect against corrupted _count fields in pb_release (#205)
+ Fix error in STATIC_ASSERT with multiple files (#203)
+ Add -D option to specify output directory (#193)
+ Generate MIN/MAX/ARRAYSIZE defines for enums (#194)
+ Generate comments about uncalculable message sizes (#195)
+ Documentation updates (#196, #201)
+ Improvements to test cases.
+
+nanopb-0.3.5 (2016-02-13)
+ NOTE: If you are using pb_syshdr.h, you will need to add uint_least8_t
+ definition. See docs/migration.rst for details.
+
+ Fix generator crash with Enum inside Oneof (#188)
+ Fix some generator regressions related to .options file path (#172)
+ Add support for platforms without uint8_t (#191)
+ Allow const parameter to pb_istream_from_buffer (#152)
+ Ignore null pointers in pb_release() (#183)
+ Add support for anonymous unions (#184)
+ Add Python3 support to the generator (#169)
+ Add code generator insertion points to generated files (#178)
+ Improvements to CMake script (#181)
+ Improvements to test cases.
+
 nanopb-0.3.4 (2015-09-26)
  Fix handling of unsigned 8- and 16-bit enums (issue 164)
  Fix generator on systems where python = python3. (issue 155)

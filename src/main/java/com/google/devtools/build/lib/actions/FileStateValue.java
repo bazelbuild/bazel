@@ -267,7 +267,7 @@ public abstract class FileStateValue implements SkyValue {
 
     @Override
     public BigInteger getValueFingerprint() {
-      BigIntegerFingerprint fp = new BigIntegerFingerprint().addBytes(digest).addLong(size);
+      BigIntegerFingerprint fp = new BigIntegerFingerprint().addDigestedBytes(digest).addLong(size);
       if (contentsProxy != null) {
         contentsProxy.addToFingerprint(fp);
       }

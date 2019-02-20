@@ -55,9 +55,9 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("PACKAGE_ERROR_MESSAGE");
   public static final SkyFunctionName TARGET_MARKER =
       SkyFunctionName.createHermetic("TARGET_MARKER");
-  // Non-hermetic because accesses package locator
+  // Semi-hermetic because accesses package locator
   public static final SkyFunctionName TARGET_PATTERN =
-      SkyFunctionName.createNonHermetic("TARGET_PATTERN");
+      SkyFunctionName.createSemiHermetic("TARGET_PATTERN");
   static final SkyFunctionName TARGET_PATTERN_ERROR =
       SkyFunctionName.createHermetic("TARGET_PATTERN_ERROR");
   public static final SkyFunctionName PREPARE_DEPS_OF_PATTERNS =
@@ -116,8 +116,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.createHermetic("BUILD_INFO");
   public static final SkyFunctionName WORKSPACE_NAME =
       SkyFunctionName.createHermetic("WORKSPACE_NAME");
-  public static final SkyFunctionName WORKSPACE_FILE =
-      SkyFunctionName.createHermetic("WORKSPACE_FILE");
   static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.createHermetic("COVERAGE_REPORT");
   public static final SkyFunctionName REPOSITORY = SkyFunctionName.createHermetic("REPOSITORY");
   public static final SkyFunctionName REPOSITORY_DIRECTORY =

@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -283,6 +284,54 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         .exec(spawn, actionExecutionContext);
   }
 
+  public boolean mayExecuteAsync() {
+    return true;
+  }
+
+  public FutureSpawn execMaybeAsync(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, ExecException, InterruptedException {
+    Spawn spawn;
+    try {
+      spawn = getSpawn(actionExecutionContext);
+    } catch (CommandLineExpansionException e) {
+      throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
+    }
+    SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
+    return context.execMaybeAsync(spawn, actionExecutionContext);
+  }
+
+  public ActionResult finishSync(FutureSpawn futureSpawn, boolean verboseFailures)
+      throws ActionExecutionException, InterruptedException {
+    try {
+      return ActionResult.create(ImmutableList.of(futureSpawn.get()));
+    } catch (ExecException e) {
+      String failMessage;
+      if (isShellCommand()) {
+        // The possible reasons it could fail are: shell executable not found, shell
+        // exited non-zero, or shell died from signal.  The first is impossible
+        // and the second two aren't very interesting, so in the interests of
+        // keeping the noise-level down, we don't print a reason why, just the
+        // command that failed.
+        //
+        // 0=shell executable, 1=shell command switch, 2=command
+        try {
+          failMessage =
+              "error executing shell command: "
+                  + "'"
+                  + truncate(Joiner.on(" ").join(getArguments()), 200)
+                  + "'";
+        } catch (CommandLineExpansionException commandLineExpansionException) {
+          failMessage =
+              "error executing shell command, and error expanding command line: "
+                  + commandLineExpansionException;
+        }
+      } else {
+        failMessage = getRawProgressMessage();
+      }
+      throw e.toActionExecutionException(failMessage, verboseFailures, this);
+    }
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -315,7 +364,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       throw e.toActionExecutionException(
           failMessage, actionExecutionContext.getVerboseFailures(), this);
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(e, this, false);
+      throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
     }
   }
 

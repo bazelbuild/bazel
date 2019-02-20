@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.List;
 import java.util.Map;
@@ -161,11 +161,13 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     public String structField() {
       return "a";
     }
-    @SkylarkCallable(name = "struct_field_with_extra",
+
+    @SkylarkCallable(
+        name = "struct_field_with_extra",
         documented = false,
         structField = true,
         useSkylarkSemantics = true)
-    public String structFieldWithExtra(SkylarkSemantics sem) {
+    public String structFieldWithExtra(StarlarkSemantics sem) {
       return "struct_field_with_extra("
         + (sem != null)
         + ")";
@@ -320,7 +322,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         Location location,
         FuncallExpression func,
         Environment env,
-        SkylarkSemantics sem,
+        StarlarkSemantics sem,
         StarlarkContext context) {
       return "with_extra("
           + location.getStartLine()
@@ -336,59 +338,53 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
 
     @SkylarkCallable(
-      name = "with_params_and_extra",
-      documented = false,
-      parameters = {
-        @Param(name = "pos1"),
-        @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
-        @Param(
-          name = "posOrNamed",
-          defaultValue = "False",
-          type = Boolean.class,
-          positional = true,
-          named = true
-        ),
-        @Param(name = "named", type = Boolean.class, positional = false, named = true),
-        @Param(
-          name = "optionalNamed",
-          type = Boolean.class,
-          defaultValue = "False",
-          positional = false,
-          named = true
-        ),
-        @Param(
-          name = "nonNoneable",
-          type = Object.class,
-          defaultValue = "\"a\"",
-          positional = false,
-          named = true
-        ),
-        @Param(
-          name = "noneable",
-          type = Integer.class,
-          defaultValue = "None",
-          noneable = true,
-          positional = false,
-          named = true
-        ),
-        @Param(
-          name = "multi",
-          allowedTypes = {
-            @ParamType(type = String.class),
-            @ParamType(type = Integer.class),
-            @ParamType(type = SkylarkList.class, generic1 = Integer.class),
-          },
-          defaultValue = "None",
-          noneable = true,
-          positional = false,
-          named = true
-        )
-      },
-      useAst = true,
-      useLocation = true,
-      useEnvironment = true,
-      useSkylarkSemantics = true
-    )
+        name = "with_params_and_extra",
+        documented = false,
+        parameters = {
+          @Param(name = "pos1"),
+          @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
+          @Param(
+              name = "posOrNamed",
+              defaultValue = "False",
+              type = Boolean.class,
+              positional = true,
+              named = true),
+          @Param(name = "named", type = Boolean.class, positional = false, named = true),
+          @Param(
+              name = "optionalNamed",
+              type = Boolean.class,
+              defaultValue = "False",
+              positional = false,
+              named = true),
+          @Param(
+              name = "nonNoneable",
+              type = Object.class,
+              defaultValue = "\"a\"",
+              positional = false,
+              named = true),
+          @Param(
+              name = "noneable",
+              type = Integer.class,
+              defaultValue = "None",
+              noneable = true,
+              positional = false,
+              named = true),
+          @Param(
+              name = "multi",
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = Integer.class),
+                @ParamType(type = SkylarkList.class, generic1 = Integer.class),
+              },
+              defaultValue = "None",
+              noneable = true,
+              positional = false,
+              named = true)
+        },
+        useAst = true,
+        useLocation = true,
+        useEnvironment = true,
+        useSkylarkSemantics = true)
     public String withParamsAndExtraInterpreterParams(
         Integer pos1,
         boolean pos2,
@@ -401,7 +397,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         Location location,
         FuncallExpression func,
         Environment env,
-        SkylarkSemantics sem) {
+        StarlarkSemantics sem) {
       return "with_params_and_extra("
           + pos1
           + ", "
@@ -692,19 +688,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testForOnString() throws Exception {
-    new SkylarkTest("--incompatible_string_is_not_iterable=false")
-        .setUp(
-            "def foo():",
-            "  s = []",
-            "  for i in 'abc':",
-            "    s = s + [i]",
-            "  return s",
-            "s = foo()")
-        .testExactOrder("s", "a", "b", "c");
-  }
-
-  @Test
   public void testForAssignmentList() throws Exception {
     new SkylarkTest().setUp("def foo():",
         "  d = ['a', 'b', 'c']",
@@ -842,6 +825,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "def func():",
             "  for i in mock.value_of('1'): a = i",
             "func()\n");
+  }
+
+  @Test
+  public void testForStringNotIterable() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfErrorContains(
+            "type 'string' is not iterable", "def func():", "  for i in 'abc': a = i", "func()\n");
   }
 
   @Test

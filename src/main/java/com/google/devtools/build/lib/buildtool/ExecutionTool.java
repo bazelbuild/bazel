@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -307,6 +308,8 @@ public class ExecutionTool {
           .printErrLn(
               env.getRuntime().getProductName() + ": Entering directory `" + getExecRoot() + "/'");
     }
+
+    Throwable catastrophe = null;
     boolean buildCompleted = false;
     try {
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
@@ -337,7 +340,6 @@ public class ExecutionTool {
       }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
-
       builder.buildArtifacts(
           env.getReporter(),
           analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
@@ -356,8 +358,28 @@ public class ExecutionTool {
     } catch (BuildFailedException | TestExecException e) {
       buildCompleted = true;
       throw e;
+    } catch (Error | RuntimeException e) {
+      catastrophe = e;
     } finally {
+      // These may flush logs, which may help if there is a catastrophic failure.
+      for (ActionContextProvider actionContextProvider : actionContextProviders) {
+        actionContextProvider.executionPhaseEnding();
+      }
+
+      // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
+      // a catastrophic failure. Posting these is consistent with other behavior.
+      env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
+
+      env.getEventBus()
+          .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+
+      if (catastrophe != null) {
+        Throwables.throwIfUnchecked(catastrophe);
+      }
+      // NOTE: No finalization activities below will run in the event of a catastrophic error!
+
       env.recordLastExecutionTime();
+
       if (request.isRunningInEmacs()) {
         request
             .getOutErr()
@@ -368,21 +390,11 @@ public class ExecutionTool {
         getReporter().handle(Event.progress("Building complete."));
       }
 
-      env.getEventBus().post(new ExecutionFinishedEvent(ImmutableMap.<String, Long> of(), 0L,
-          skyframeExecutor.getOutputDirtyFilesAndClear(),
-          skyframeExecutor.getModifiedFilesDuringPreviousBuildAndClear()));
-
       executor.executionPhaseEnding();
-      for (ActionContextProvider actionContextProvider : actionContextProviders) {
-        actionContextProvider.executionPhaseEnding();
-      }
 
       if (buildCompleted) {
         saveActionCache(actionCache);
       }
-
-      env.getEventBus()
-          .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
 
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
@@ -390,8 +402,12 @@ public class ExecutionTool {
         buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
         buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-        buildResultPrinter.showBuildResult(request, buildResult, configuredTargets,
-            analysisResult.getTargetsToSkip(), analysisResult.getAspects());
+        buildResultPrinter.showBuildResult(
+            request,
+            buildResult,
+            configuredTargets,
+            analysisResult.getTargetsToSkip(),
+            analysisResult.getAspects());
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {

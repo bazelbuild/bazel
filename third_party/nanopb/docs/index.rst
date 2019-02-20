@@ -23,6 +23,7 @@ So a typical project might include these files:
 
 1) Nanopb runtime library:
     - pb.h
+    - pb_common.h and pb_common.c (always needed)
     - pb_decode.h and pb_decode.c (needed for decoding messages)
     - pb_encode.h and pb_encode.c (needed for encoding messages)
 2) Protocol description (you can have many):
@@ -39,9 +40,9 @@ Features and limitations
 #) Small code size (2–10 kB depending on processor, plus any message definitions)
 #) Small ram usage (typically ~300 bytes, plus any message structs)
 #) Allows specifying maximum size for strings and arrays, so that they can be allocated statically.
-#) No malloc needed: everything can be allocated statically or on the stack.
+#) No malloc needed: everything can be allocated statically or on the stack. Optional malloc support available.
 #) You can use either encoder or decoder alone to cut the code size in half.
-#) Support for most protobuf features, including: all data types, nested submessages, default values, repeated and optional fields, packed arrays, extension fields.
+#) Support for most protobuf features, including: all data types, nested submessages, default values, repeated and optional fields, oneofs, packed arrays, extension fields.
 #) Callback mechanism for handling messages larger than can fit in available RAM.
 #) Extensive set of tests.
 
@@ -53,8 +54,8 @@ Features and limitations
 #) Fields in the generated structs are ordered by the tag number, instead of the natural ordering in .proto file.
 #) Unknown fields are not preserved when decoding and re-encoding a message.
 #) Reflection (runtime introspection) is not supported. E.g. you can't request a field by giving its name in a string.
-#) Numeric arrays are always encoded as packed, even if not marked as packed in .proto. This causes incompatibility with decoders that do not support packed format.
-#) Cyclic references between messages are supported only in callback mode.
+#) Numeric arrays are always encoded as packed, even if not marked as packed in .proto..
+#) Cyclic references between messages are supported only in callback and malloc mode.
 
 Getting started
 ===============

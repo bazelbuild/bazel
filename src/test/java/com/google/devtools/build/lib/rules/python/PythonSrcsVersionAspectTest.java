@@ -33,7 +33,7 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    useConfiguration("--experimental_allow_python_version_transitions=true");
+    useConfiguration("--incompatible_allow_python_version_transitions=true");
   }
 
   private static String join(String... args) {

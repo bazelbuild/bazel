@@ -350,6 +350,7 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:command-utils",
         "//src/main/java/com/google/devtools/build/lib:out-err",
+        "//src/main/java/com/google/devtools/build/lib:resource-converter",
         "//src/main/java/com/google/devtools/build/lib:simple-log-handler",
         "//src/main/java/com/google/devtools/build/lib:single-line-formatter",
         "//src/main/java/com/google/devtools/build/lib:util",
@@ -513,6 +514,7 @@ java_test(
     srcs = WINDOWS_ON_WINDOWS_TESTS,
     data = [
         ":MockSubprocess_deploy.jar",
+        ":printarg",
     ] + JNI_LIB,
     jvm_flags = [
         "-Dbazel.windows_unix_root=C:/fake/msys",
@@ -533,6 +535,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "@bazel_tools//tools/java/runfiles",
     ],
+)
+
+cc_binary(
+    name = "printarg",
+    testonly = 1,
+    srcs = ["windows/printarg.cc"],
 )
 
 java_library(
@@ -621,6 +629,9 @@ java_library(
         ],
         exclude = ["analysis/util/DefaultBuildOptionsForTesting.java"],
     ),
+    data = [
+        "//tools/jdk:srcs",
+    ],
     resources = [
         "analysis/mock/MOCK_CROSSTOOL",
     ],
@@ -671,6 +682,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -683,6 +695,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 
@@ -1210,17 +1223,6 @@ java_test(
 )
 
 java_test(
-    name = "StrictDepsUtilsTest",
-    srcs = ["rules/java/proto/StrictDepsUtilsTest.java"],
-    deps = [
-        ":analysis_testutil",
-        ":guava_junit_truth",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
-    ],
-)
-
-java_test(
     name = "test-rules-tests",
     srcs = ["rules/test/SkylarkTestingModuleTest.java"],
     tags = ["rules"],
@@ -1280,6 +1282,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -1619,6 +1623,7 @@ java_test(
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:resource-converter",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",

@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -56,7 +55,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -286,9 +284,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testStartEndLibThroughFeature() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
     useConfiguration("--start_end_lib");
     scratch.file(
         "test/BUILD",
@@ -397,20 +393,27 @@ public class CcCommonTest extends BuildViewTestCase {
         "           srcs = [ 'library.cc' ])",
         "cc_binary(name = 'nopic',",
         "           srcs = [ 'binary.cc' ],",
+        "           features = ['coptnopic'],",
         "           nocopts = '-fPIC')",
         "cc_binary(name = 'libnopic.so',",
         "           srcs = [ 'binary.cc' ],",
+        "           features = ['coptnopic'],",
         "           nocopts = '-fPIC')",
         "cc_library(name = 'nopiclib',",
         "           srcs = [ 'library.cc' ],",
+        "           features = ['coptnopic'],",
         "           nocopts = '-fPIC')");
 
     assertThat(getCppCompileAction("//a:pic").getArguments()).contains("-fPIC");
     assertThat(getCppCompileAction("//a:libpic.so").getArguments()).contains("-fPIC");
     assertThat(getCppCompileAction("//a:piclib").getArguments()).contains("-fPIC");
+    assertThat(getCppCompileAction("//a:piclib").getOutputFile().getFilename())
+        .contains("library.pic.o");
     assertThat(getCppCompileAction("//a:nopic").getArguments()).doesNotContain("-fPIC");
     assertThat(getCppCompileAction("//a:libnopic.so").getArguments()).doesNotContain("-fPIC");
     assertThat(getCppCompileAction("//a:nopiclib").getArguments()).doesNotContain("-fPIC");
+    assertThat(getCppCompileAction("//a:nopiclib").getOutputFile().getFilename())
+        .contains("library.o");
   }
 
   @Test
@@ -523,7 +526,9 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testCcTestBuiltWithFissionHasDwp() throws Exception {
     // Tests that cc_tests built statically and with Fission will have the .dwp file
     // in their runfiles.
-
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
     useConfiguration("--cpu=k8", "--build_test_dwp", "--dynamic_mode=off", "--fission=yes");
     ConfiguredTarget target =
         scratchConfiguredTarget(
@@ -775,56 +780,6 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='bad_absolute_include', srcs=[], includes=['/usr/include/'])");
   }
 
-  @Test
-  public void testSelectPreferredLibrariesInvariant() {
-    // All combinations of libraries:
-    // a - static+pic+shared
-    // b - static+pic
-    // c - static+shared
-    // d - static
-    // e - pic+shared
-    // f - pic
-    // g - shared
-    CcLinkingOutputs linkingOutputs =
-        CcLinkingOutputs.builder()
-            .addStaticLibraries(
-                ImmutableList.copyOf(
-                    LinkerInputs.opaqueLibrariesToLink(ArtifactCategory.STATIC_LIBRARY,
-                        Arrays.asList(
-                            getSourceArtifact("liba.a"),
-                            getSourceArtifact("libb.a"),
-                            getSourceArtifact("libc.a"),
-                            getSourceArtifact("libd.a")))))
-            .addPicStaticLibraries(
-                ImmutableList.copyOf(
-                    LinkerInputs.opaqueLibrariesToLink(ArtifactCategory.STATIC_LIBRARY,
-                        Arrays.asList(
-                            getSourceArtifact("liba.pic.a"),
-                            getSourceArtifact("libb.pic.a"),
-                            getSourceArtifact("libe.pic.a"),
-                            getSourceArtifact("libf.pic.a")))))
-            .addDynamicLibraries(
-                ImmutableList.copyOf(
-                    LinkerInputs.opaqueLibrariesToLink(ArtifactCategory.DYNAMIC_LIBRARY,
-                        Arrays.asList(
-                            getSourceArtifact("liba.so"),
-                            getSourceArtifact("libc.so"),
-                            getSourceArtifact("libe.so"),
-                            getSourceArtifact("libg.so")))))
-            .build();
-
-    // Whether linkShared is true or false, this should return the identical results.
-    List<Artifact> sharedLibraries1 =
-        FileType.filterList(
-            LinkerInputs.toLibraryArtifacts(linkingOutputs.getPreferredLibraries(true, false)),
-            CppFileTypes.SHARED_LIBRARY);
-    List<Artifact> sharedLibraries2 =
-        FileType.filterList(
-            LinkerInputs.toLibraryArtifacts(linkingOutputs.getPreferredLibraries(true, true)),
-            CppFileTypes.SHARED_LIBRARY);
-    assertThat(sharedLibraries2).isEqualTo(sharedLibraries1);
-  }
-
   /** Tests that shared libraries of the form "libfoo.so.1.2" are permitted within "srcs". */
   @Test
   public void testVersionedSharedLibrarySupport() throws Exception {
@@ -1010,10 +965,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            "needsPic: false",
-            "feature { name: 'supports_pic' enabled: true }");
-    useConfiguration();
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration("--cpu=k8");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -1037,10 +990,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            "needsPic: false",
-            "feature { name: 'supports_pic' }");
-    useConfiguration();
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration("--features=-supports_pic");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -1064,10 +1015,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            "needsPic: false",
-            "feature { name: 'supports_pic' }");
-    useConfiguration("--force_pic");
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration("--force_pic", "--cpu=k8");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -1092,9 +1041,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            "needsPic: false");
-    useConfiguration("--force_pic");
+            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG);
+    useConfiguration("--force_pic", "--features=-supports_pic");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");

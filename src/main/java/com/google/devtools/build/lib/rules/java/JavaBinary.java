@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
@@ -315,7 +315,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     SingleJarActionBuilder.createSourceJarAction(
         ruleContext,
         semantics,
-        ImmutableList.of(),
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         transitiveSourceJars,
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR));
 
@@ -650,14 +650,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
    */
   public static Collection<Artifact> collectNativeLibraries(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    NestedSet<LinkerInput> linkerInputs =
+    NestedSet<LibraryToLink> linkerInputs =
         new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
-    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (LinkerInput linkerInput : linkerInputs) {
-      result.add(linkerInput.getArtifact());
-    }
-
-    return result.build();
+    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
   }
 
   /**

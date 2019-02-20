@@ -16,24 +16,31 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -66,10 +73,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   private EvaluationResult<ToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
       throws InterruptedException {
-    ConfiguredTarget mockLinuxTarget = mock(ConfiguredTarget.class);
-    when(mockLinuxTarget.get(PlatformInfo.PROVIDER)).thenReturn(linuxPlatform);
-    ConfiguredTarget mockMacTarget = mock(ConfiguredTarget.class);
-    when(mockMacTarget.get(PlatformInfo.PROVIDER)).thenReturn(macPlatform);
+    ConfiguredTarget mockLinuxTarget = new SerializableConfiguredTarget(linuxPlatform);
+    ConfiguredTarget mockMacTarget = new SerializableConfiguredTarget(macPlatform);
     getSkyframeExecutor()
         .getDifferencerForTesting()
         .inject(
@@ -186,5 +191,84 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
                     .put(MAC_CTKEY, makeLabel("//test:toolchain_impl_1"))
                     .build()))
         .testEquals();
+  }
+
+  /** Use custom class instead of mock to make sure that the dynamic codecs lookup is correct. */
+  class SerializableConfiguredTarget implements ConfiguredTarget {
+
+    private final PlatformInfo platform;
+
+    SerializableConfiguredTarget(PlatformInfo platform) {
+      this.platform = platform;
+    }
+
+    @Override
+    public ImmutableCollection<String> getFieldNames() {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public String getErrorMessageForUnknownField(String field) {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public Object getValue(String name) {
+      return null;
+    }
+
+    @Override
+    public Label getLabel() {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public BuildConfigurationValue.Key getConfigurationKey() {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public Object get(String providerKey) {
+      return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends InfoInterface> T get(NativeProvider<T> provider) {
+      if (PlatformInfo.PROVIDER.equals(provider)) {
+        return (T) this.platform;
+      }
+      return provider.getValueClass().cast(get(provider.getKey()));
+    }
+
+    @Nullable
+    @Override
+    public InfoInterface get(Provider.Key providerKey) {
+
+      return null;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {}
+
+    @Override
+    public Object getIndex(Object key, Location loc) throws EvalException {
+      return null;
+    }
+
+    @Override
+    public boolean containsKey(Object key, Location loc) throws EvalException {
+      return false;
+    }
   }
 }

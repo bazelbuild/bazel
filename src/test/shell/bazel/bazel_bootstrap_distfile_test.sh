@@ -69,43 +69,23 @@ else
   declare -r EMBEDDED_JDK=""
 fi
 
-function _log_progress() {
-  if $is_windows; then
-    log_info "test_bootstrap: $*"
-  fi
-}
-
 function test_bootstrap()  {
-    _log_progress "start"
-    local olddir=$(pwd)
-    WRKDIR=$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)
-    mkdir -p "${WRKDIR}" || fail "Could not create workdir"
-    trap "rm -rf \"$WRKDIR\"" EXIT
-    cd "${WRKDIR}" || fail "Could not change to work directory"
+    cd "$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)"
     export SOURCE_DATE_EPOCH=1501234567
-    _log_progress "unzip"
     unzip -q "${DISTFILE}"
     if [[ $EMBEDDED_JDK == *.tar.gz ]]; then
       tar xf $EMBEDDED_JDK
     elif [[ $EMBEDDED_JDK == *.zip ]]; then
       unzip -q $EMBEDDED_JDK
     fi
-    JAVABASE=$(echo zulu*)
+    JAVABASE=$(echo reduced*)
 
-    _log_progress "bootstrap"
-    env EXTRA_BAZEL_ARGS="--curses=no --strategy=Javac=standalone --host_javabase=@local_jdk//:jdk" ./compile.sh \
+    env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
-    _log_progress "run"
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
-      version > "${TEST_log}" || fail "Generated bazel not working"
-    ./output/bazel \
-      --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
-      shutdown
-    _log_progress "assert"
+      version &> "${TEST_log}" || fail "Generated bazel not working"
     expect_log "${SOURCE_DATE_EPOCH}"
-    cd "${olddir}"
-    _log_progress "done"
 }
 
 run_suite "bootstrap test"

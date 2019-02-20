@@ -24,8 +24,10 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
@@ -41,9 +43,9 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -76,10 +78,13 @@ public abstract class NativeDepsHelper {
   private static final CppLinkAction.LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
       new CppLinkAction.LinkArtifactFactory() {
         @Override
-        public Artifact create(RuleContext ruleContext, BuildConfiguration configuration,
+        public Artifact create(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfiguration configuration,
             PathFragment rootRelativePath) {
-          return ruleContext.getShareableArtifact(rootRelativePath,
-              configuration.getBinDirectory(ruleContext.getRule().getRepository()));
+          return actionConstructionContext.getShareableArtifact(
+              rootRelativePath, configuration.getBinDirectory(repositoryName));
         }
       };
 
@@ -143,8 +148,8 @@ public abstract class NativeDepsHelper {
   }
 
   /** Determines if there is any code to be linked in the input iterable. */
-  private static boolean containsCodeToLink(Iterable<LibraryToLinkWrapper> libraries) {
-    for (LibraryToLinkWrapper library : libraries) {
+  private static boolean containsCodeToLink(Iterable<LibraryToLink> libraries) {
+    for (LibraryToLink library : libraries) {
       if (containsCodeToLink(library)) {
         return true;
       }
@@ -153,7 +158,7 @@ public abstract class NativeDepsHelper {
   }
 
   /** Determines if the input library is or contains an archive which must be linked. */
-  private static boolean containsCodeToLink(LibraryToLinkWrapper library) {
+  private static boolean containsCodeToLink(LibraryToLink library) {
     if (library.getStaticLibrary() == null && library.getPicStaticLibrary() == null) {
       // this is a shared library so we're going to have to copy it
       return false;
@@ -205,7 +210,7 @@ public abstract class NativeDepsHelper {
             ruleContext, CppBuildInfo.KEY, configuration);
 
     boolean shareNativeDeps = configuration.getFragment(CppConfiguration.class).shareNativeDeps();
-    NestedSet<LibraryToLinkWrapper> linkerInputs = ccLinkingContext.getLibraries();
+    NestedSet<LibraryToLink> linkerInputs = ccLinkingContext.getLibraries();
     Artifact sharedLibrary;
     if (shareNativeDeps) {
       PathFragment sharedPath =
@@ -255,7 +260,7 @@ public abstract class NativeDepsHelper {
           toolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration));
     }
     LtoCompilationContext.Builder ltoCompilationContext = new LtoCompilationContext.Builder();
-    for (LibraryToLinkWrapper lib : linkerInputs) {
+    for (LibraryToLink lib : linkerInputs) {
       if (lib.getPicLtoCompilationContext() != null
           && !lib.getPicLtoCompilationContext().isEmpty()) {
         ltoCompilationContext.addAll(lib.getPicLtoCompilationContext());
@@ -273,7 +278,7 @@ public abstract class NativeDepsHelper {
     builder
         .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
         .setLinkerFiles(toolchain.getLinkerFiles())
-        .addLibraryToLinkWrappers(linkerInputs)
+        .addLibrariesToLink(linkerInputs)
         .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
         .setLinkingMode(LinkingMode.STATIC)
         .setLibraryIdentifier(libraryIdentifier)

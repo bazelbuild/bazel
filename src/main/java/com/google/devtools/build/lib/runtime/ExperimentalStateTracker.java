@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.runtime;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -119,6 +118,8 @@ class ExperimentalStateTracker {
   private int failedTests;
   private boolean ok;
   private boolean buildComplete;
+  private String defaultStatus = "Loading";
+  private String defaultActivity = "loading...";
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private PackageProgressReceiver packageProgressReceiver;
@@ -200,6 +201,8 @@ class ExperimentalStateTracker {
     status = null;
     packageProgressReceiver = null;
     configuredTargetProgressReceiver = null;
+    defaultStatus = "Building";
+    defaultActivity = "checking cached actions";
     return workDone;
   }
 
@@ -312,8 +315,7 @@ class ExperimentalStateTracker {
           new IllegalStateException(
               "Should not complete an action before starting it, and action did not discover "
                   + "inputs, so should not have published a status before execution: "
-                  + action),
-          ImmutableList.of());
+                  + action));
     }
 
     if (action.getOwner() != null) {
@@ -733,7 +735,7 @@ class ExperimentalStateTracker {
     if (postfix.length() > 0) {
       postfix = ";" + postfix;
     }
-    url = shortenUrl(url, width - postfix.length());
+    url = shortenUrl(url, Math.max(width - postfix.length(), 3 * ELLIPSIS.length()));
     terminalWriter.append(url + postfix);
   }
 
@@ -848,7 +850,7 @@ class ExperimentalStateTracker {
     if (executionProgressReceiver != null) {
       terminalWriter.okStatus().append(executionProgressReceiver.getProgressString());
     } else {
-      terminalWriter.okStatus().append("Building:");
+      terminalWriter.okStatus().append(defaultStatus).append(":");
     }
     if (completedTests > 0) {
       terminalWriter.normal().append(" " + completedTests + " / " + totalTests + " tests");
@@ -861,7 +863,7 @@ class ExperimentalStateTracker {
     // might not be one.
     ActionState oldestAction = getOldestAction();
     if (actionsCount == 0 || oldestAction == null) {
-      terminalWriter.normal().append(" no action");
+      terminalWriter.normal().append(" ").append(defaultActivity);
       maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
     } else if (actionsCount == 1) {
       if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {

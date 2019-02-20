@@ -71,7 +71,7 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
   public void canSelectOnForcePythonFlagsUnderOldApi() throws Exception {
     // For backwards compatibility purposes, select()-ing on --force_python and --host_force_python
     // is allowed while the old API is still enabled.
-    useConfiguration("--experimental_remove_old_python_version_api=false");
+    useConfiguration("--incompatible_remove_old_python_version_api=false");
     scratch.file("fp/BUILD", makeFooThatSelectsOnFlag("force_python", "PY2"));
     scratch.file("hfp/BUILD", makeFooThatSelectsOnFlag("host_force_python", "PY2"));
     assertThat(getConfiguredTarget("//fp:foo")).isNotNull();
@@ -80,7 +80,7 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
 
   @Test
   public void cannotSelectOnForcePythonFlagsWithoutOldApi() throws Exception {
-    useConfiguration("--experimental_remove_old_python_version_api=true");
+    useConfiguration("--incompatible_remove_old_python_version_api=true");
     checkError(
         "fp",
         "foo",

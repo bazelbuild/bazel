@@ -35,13 +35,12 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.HashMap;
@@ -293,8 +292,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public static final Key<Artifact> STRINGS = new Key<>(STABLE_ORDER, "strings", Artifact.class);
 
   /** Linking information from cc dependencies. */
-  public static final Key<LibraryToLinkWrapper> CC_LIBRARY =
-      new Key<>(LINK_ORDER, "cc_library", LibraryToLinkWrapper.class);
+  public static final Key<LibraryToLink> CC_LIBRARY =
+      new Key<>(LINK_ORDER, "cc_library", LibraryToLink.class);
 
   /**
    * Linking options from dependencies.
@@ -347,7 +346,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     HAS_WATCH2_EXTENSION,
   }
 
-  private final SkylarkSemantics semantics;
+  private final StarlarkSemantics semantics;
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 
   // Items which should not be propagated to dependents.
@@ -398,7 +397,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       ImmutableList.<Key<?>>of(
           ASSET_CATALOG,
           BUNDLE_FILE,
-          MERGE_ZIP,
+          // TODO(kaipi): Add this back once we have migrated usages of merge_zip from custom rules.
+          // MERGE_ZIP,
           ROOT_MERGE_ZIP,
           STORYBOARD,
           STRINGS,
@@ -664,7 +664,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public static final BuiltinProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
@@ -748,9 +748,9 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
 
   /** Returns the list of .a files required for linking that arise from cc libraries. */
   List<Artifact> getCcLibraries() {
-    NestedSetBuilder<LibraryToLinkWrapper> libraryToLinkListBuilder = NestedSetBuilder.linkOrder();
-    for (LibraryToLinkWrapper libraryToLinkWrapper : get(CC_LIBRARY)) {
-      libraryToLinkListBuilder.add(libraryToLinkWrapper);
+    NestedSetBuilder<LibraryToLink> libraryToLinkListBuilder = NestedSetBuilder.linkOrder();
+    for (LibraryToLink libraryToLink : get(CC_LIBRARY)) {
+      libraryToLinkListBuilder.add(libraryToLink);
     }
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder().addLibraries(libraryToLinkListBuilder.build()).build();
@@ -781,13 +781,9 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     // TODO(cpeyser): Clean up objc-cc interop.
     HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
     for (CcLinkingContext ccLinkingContext : avoidCcProviders) {
-      List<LibraryToLink> librariesToLink =
-          LibraryToLinkWrapper.convertLibraryToLinkWrapperListToLibraryToLinkList(
-              ccLinkingContext.getLibraries(),
-              /* staticMode= */ true,
-              /* forDynamicLibrary= */ false);
-      for (LibraryToLink libraryToLink : librariesToLink) {
-        avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
+      List<Artifact> libraries = ccLinkingContext.getStaticModeParamsForExecutableLibraries();
+      for (Artifact library : libraries) {
+        avoidLibrariesSet.add(library.getRunfilesPath());
       }
     }
     for (ObjcProvider avoidProvider : avoidObjcProviders) {
@@ -830,39 +826,38 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   /**
-   * Returns a predicate which returns true for a given {@link LibraryToLinkWrapper} if the
-   * library's runfiles path is not contained in the given set.
+   * Returns a predicate which returns true for a given {@link LibraryToLink} if the library's
+   * runfiles path is not contained in the given set.
    *
    * @param runfilesPaths if a given library has runfiles path present in this set, the predicate
    *     will return false
    */
-  private static Predicate<LibraryToLinkWrapper> ccLibraryNotYetLinked(
+  private static Predicate<LibraryToLink> ccLibraryNotYetLinked(
       final HashSet<PathFragment> runfilesPaths) {
     return libraryToLink -> !checkIfLibraryIsInPaths(libraryToLink, runfilesPaths);
   }
 
   private static boolean checkIfLibraryIsInPaths(
-      LibraryToLinkWrapper libraryToLinkWrapper, HashSet<PathFragment> runfilesPaths) {
+      LibraryToLink libraryToLink, HashSet<PathFragment> runfilesPaths) {
     ImmutableList.Builder<PathFragment> libraryRunfilesPaths = ImmutableList.builder();
-    if (libraryToLinkWrapper.getStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLinkWrapper.getStaticLibrary().getRunfilesPath());
+    if (libraryToLink.getStaticLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getStaticLibrary().getRunfilesPath());
     }
-    if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLinkWrapper.getPicStaticLibrary().getRunfilesPath());
+    if (libraryToLink.getPicStaticLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getPicStaticLibrary().getRunfilesPath());
     }
-    if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLinkWrapper.getDynamicLibrary().getRunfilesPath());
+    if (libraryToLink.getDynamicLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getDynamicLibrary().getRunfilesPath());
     }
-    if (libraryToLinkWrapper.getResolvedSymlinkDynamicLibrary() != null) {
+    if (libraryToLink.getResolvedSymlinkDynamicLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getInterfaceLibrary() != null) {
+      libraryRunfilesPaths.add(libraryToLink.getInterfaceLibrary().getRunfilesPath());
+    }
+    if (libraryToLink.getResolvedSymlinkInterfaceLibrary() != null) {
       libraryRunfilesPaths.add(
-          libraryToLinkWrapper.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
-    }
-    if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLinkWrapper.getInterfaceLibrary().getRunfilesPath());
-    }
-    if (libraryToLinkWrapper.getResolvedSymlinkInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(
-          libraryToLinkWrapper.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
+          libraryToLink.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
     }
 
     return !Collections.disjoint(libraryRunfilesPaths.build(), runfilesPaths);
@@ -935,13 +930,13 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
    * several transitive dependencies.
    */
   public static final class Builder {
-    private final SkylarkSemantics skylarkSemantics;
+    private final StarlarkSemantics starlarkSemantics;
     private final Map<Key<?>, NestedSetBuilder<?>> items = new HashMap<>();
     private final Map<Key<?>, NestedSetBuilder<?>> nonPropagatedItems = new HashMap<>();
     private final Map<Key<?>, NestedSetBuilder<?>> strictDependencyItems = new HashMap<>();
 
-    public Builder(SkylarkSemantics semantics) {
-      this.skylarkSemantics = semantics;
+    public Builder(StarlarkSemantics semantics) {
+      this.starlarkSemantics = semantics;
     }
 
     private static void maybeAddEmptyBuilder(Map<Key<?>, NestedSetBuilder<?>> set, Key<?> key) {
@@ -1141,8 +1136,10 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
         strictDependencyBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
 
-      return new ObjcProvider(skylarkSemantics,
-          propagatedBuilder.build(), nonPropagatedBuilder.build(),
+      return new ObjcProvider(
+          starlarkSemantics,
+          propagatedBuilder.build(),
+          nonPropagatedBuilder.build(),
           strictDependencyBuilder.build());
     }
   }

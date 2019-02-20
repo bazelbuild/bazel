@@ -62,6 +62,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   static final QName TAG_LAYOUT = QName.valueOf("layout");
   static final QName TAG_MENU = QName.valueOf("menu");
   static final QName TAG_MIPMAP = QName.valueOf("mipmap");
+  static final QName TAG_NAVIGATION = QName.valueOf("navigation");
   static final QName TAG_PUBLIC = QName.valueOf("public");
   static final QName TAG_RAW = QName.valueOf("raw");
   static final QName TAG_STRING = QName.valueOf("string");
@@ -79,6 +80,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     LAYOUT(TAG_LAYOUT),
     MENU(TAG_MENU),
     MIPMAP(TAG_MIPMAP),
+    NAVIGATION(TAG_NAVIGATION),
     PUBLIC(TAG_PUBLIC),
     RAW(TAG_RAW),
     STRING(TAG_STRING);

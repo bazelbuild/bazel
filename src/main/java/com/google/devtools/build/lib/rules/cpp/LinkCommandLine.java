@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -98,6 +97,12 @@ public final class LinkCommandLine extends CommandLine {
   /** Returns the (ordered, immutable) list of paths to the linker's input files. */
   public Iterable<Artifact> getLinkerInputArtifacts() {
     return linkerInputArtifacts;
+  }
+
+  @Nullable
+  @VisibleForTesting
+  public FeatureConfiguration getFeatureConfiguration() {
+    return featureConfiguration;
   }
 
   /**
@@ -291,6 +296,9 @@ public final class LinkCommandLine extends CommandLine {
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
+      if (arg.isEmpty()) {
+        continue;
+      }
       if (arg.equals("-Wl,-no-whole-archive")) {
         paramFileArgs.add("-no-whole-archive");
       } else if (arg.equals("-Wl,-whole-archive")) {
@@ -404,7 +412,6 @@ public final class LinkCommandLine extends CommandLine {
   /** A builder for a {@link LinkCommandLine}. */
   public static final class Builder {
 
-    private final RuleContext ruleContext;
     private String forcedToolPath;
     private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
     private Iterable<Artifact> linkerInputArtifacts = ImmutableList.of();
@@ -417,21 +424,12 @@ public final class LinkCommandLine extends CommandLine {
     private CcToolchainVariables variables;
     private FeatureConfiguration featureConfiguration;
 
-    public Builder(RuleContext ruleContext) {
-      this.ruleContext = ruleContext;
-    }
-
     public LinkCommandLine build() {
 
       if (linkTargetType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
         Preconditions.checkArgument(
             buildInfoHeaderArtifacts.isEmpty(),
             "build info headers may only be present on dynamic library or executable links");
-      }
-
-      // The ruleContext can be null for some tests.
-      if (ruleContext != null) {
-        Preconditions.checkNotNull(featureConfiguration);
       }
 
       if (variables == null) {

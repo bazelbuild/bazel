@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import java.util.Collection;
 import java.util.Set;
 
 /**
@@ -60,6 +61,15 @@ public final class NestedSetVisitor<E> {
     // VisitedState#seenNodes.
     if (!nestedSet.isEmpty()) {
       visitRaw(nestedSet.getChildren());
+    }
+  }
+
+  /** Visit every entry in a collection. */
+  public void visit(Collection<E> collection) {
+    for (E e : collection) {
+      if (visited.add(e)) {
+        callback.accept(e);
+      }
     }
   }
 

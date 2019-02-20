@@ -61,7 +61,7 @@ public class Platform implements RuleConfiguredTargetFactory {
     platformBuilder.setParent(parentPlatform);
 
     if (!platformOptions.autoConfigureHostPlatform) {
-      // If the flag is set, the constraints are defaulted by @local_config_platforms.
+      // If the flag is set, the constraints are defaulted by @local_config_platform.
       setDefaultConstraints(platformBuilder, ruleContext);
     }
 

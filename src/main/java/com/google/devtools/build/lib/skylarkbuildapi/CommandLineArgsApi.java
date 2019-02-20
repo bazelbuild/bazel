@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
@@ -197,7 +196,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "of <code>add_all</code> or <code>add_joined</code> instead.")
       },
       useLocation = true)
-  public Runtime.NoneType addArgument(
+  public CommandLineArgsApi addArgument(
       Object argNameOrValue,
       Object value,
       Object format,
@@ -356,7 +355,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "its items are filtered)."),
       },
       useLocation = true)
-  public Runtime.NoneType addAll(
+  public CommandLineArgsApi addAll(
       Object argNameOrValue,
       Object values,
       Object mapEach,
@@ -472,7 +471,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
             doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>.")
       },
       useLocation = true)
-  public Runtime.NoneType addJoined(
+  public CommandLineArgsApi addJoined(
       Object argNameOrValue,
       Object values,
       String joinWith,
@@ -515,7 +514,8 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "bazel will decide whether the arguments need to be spilled "
                     + "based on your system and arg length.")
       })
-  public void useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException;
+  public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "set_param_file_format",
@@ -533,5 +533,5 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "characters</li></ul>"
                     + "<p>The format defaults to \"shell\" if not called.")
       })
-  public void setParamFileFormat(String format) throws EvalException;
+  public CommandLineArgsApi setParamFileFormat(String format) throws EvalException;
 }

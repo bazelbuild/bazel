@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -77,7 +78,7 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
             .build();
 
     List<Iterable<SkyKey>> registeredDeps = new ArrayList<>();
-    p.traverse(registeredDeps::add);
+    p.traverse(registeredDeps::add, /*visitedGlobalDeps=*/ new HashSet<>());
 
     assertThat(registeredDeps)
         .containsExactly(

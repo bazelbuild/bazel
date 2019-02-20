@@ -158,7 +158,8 @@ public final class InstrumentedFilesCollector {
 
     // Local sources.
     NestedSet<Artifact> localSources = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    if (shouldIncludeLocalSources(ruleContext)) {
+    if (shouldIncludeLocalSources(
+        ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget())) {
       NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
       for (TransitiveInfoCollection dep :
           getAllPrerequisites(ruleContext, spec.sourceAttributes)) {
@@ -205,15 +206,6 @@ public final class InstrumentedFilesCollector {
   }
 
   /**
-   * Return whether the sources of the rule in {@code ruleContext} should be instrumented based on
-   * the --instrumentation_filter and --instrument_test_targets config settings.
-   */
-  public static boolean shouldIncludeLocalSources(RuleContext ruleContext) {
-    return shouldIncludeLocalSources(ruleContext.getConfiguration(), ruleContext.getLabel(),
-        ruleContext.isTestTarget());
-  }
-
-  /**
    * Return whether the sources included by {@code target} (a {@link TransitiveInfoCollection}
    * representing a rule) should be instrumented according the --instrumentation_filter and
    * --instrument_test_targets settings in {@code config}.
@@ -224,8 +216,12 @@ public final class InstrumentedFilesCollector {
         target.getProvider(TestProvider.class) != null);
   }
 
-  private static boolean shouldIncludeLocalSources(BuildConfiguration config, Label label,
-      boolean isTest) {
+  /**
+   * Return whether the sources of the rule in {@code ruleContext} should be instrumented based on
+   * the --instrumentation_filter and --instrument_test_targets config settings.
+   */
+  public static boolean shouldIncludeLocalSources(
+      BuildConfiguration config, Label label, boolean isTest) {
     return ((config.shouldInstrumentTestTargets() || !isTest)
         && config.getInstrumentationFilter().isIncluded(label.toString()));
   }

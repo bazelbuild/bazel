@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -25,12 +26,20 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 /**
  * Implements the general flow of a sandboxed spawn that uses a container directory to build an
  * execution root for a spawn.
  */
 public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedSpawn {
+
+  private static final Logger logger =
+      Logger.getLogger(AbstractContainerizingSandboxedSpawn.class.getName());
+
+  private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
+
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
   private final List<String> arguments;
@@ -149,7 +158,17 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
         // have already been created, but the spawn outputs may be different from the overall action
         // outputs. This is the case for test actions.
         target.getParentDirectory().createDirectoryAndParents();
-        FileSystemUtils.moveFile(source, target);
+        if (FileSystemUtils.moveFile(source, target).equals(MoveResult.FILE_COPIED)) {
+          if (warnedAboutMovesBeingCopies.compareAndSet(false, true)) {
+            logger.warning(
+                "Moving files out of the sandbox (e.g. from "
+                    + source
+                    + " to "
+                    + target
+                    + ") had to be done with a file copy, which is detrimental to performance; are "
+                    + " the two trees in different file systems?");
+          }
+        }
       } else if (source.isDirectory()) {
         try {
           source.renameTo(target);

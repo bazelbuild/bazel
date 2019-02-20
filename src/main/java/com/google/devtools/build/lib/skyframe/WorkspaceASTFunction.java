@@ -97,7 +97,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       }
       if (newWorkspaceFileContents != null) {
         ast =
-            BuildFileAST.parseBuildFile(
+            BuildFileAST.parseVirtualBuildFile(
                 ParserInputSource.create(
                     newWorkspaceFileContents, resolvedFile.get().asPath().asFragment()),
                 ast.getStatements(),

@@ -16,14 +16,15 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.devtools.build.lib.events.Event.of;
 import static com.google.devtools.build.lib.events.EventKind.PROGRESS;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
@@ -41,12 +42,10 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
@@ -72,21 +71,19 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Listens for {@link BuildEvent}s and streams them to the provided {@link BuildEventTransport}s.
@@ -109,7 +106,7 @@ public class BuildEventStreamer implements EventHandler {
   private List<Pair<String, String>> bufferedStdoutStderrPairs = new ArrayList<>();
   private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
   private int progressCount;
-  private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
+  private final CountingArtifactGroupNamer artifactGroupNamer;
   private OutErrProvider outErrProvider;
   private volatile AbortReason abortReason = AbortReason.UNKNOWN;
   // Will be set to true if the build was invoked through "bazel test" or "bazel coverage".
@@ -130,60 +127,26 @@ public class BuildEventStreamer implements EventHandler {
    */
   public interface OutErrProvider {
     /**
-     * Return the chunk of stdout that was produced since the last call to this function (or the
+     * Return the chunks of stdout that were produced since the last call to this function (or the
      * beginning of the build, for the first call). It is the responsibility of the class
      * implementing this interface to properly synchronize with simultaneously written output.
      */
-    String getOut();
+    Iterable<String> getOut();
 
     /**
-     * Return the chunk of stderr that was produced since the last call to this function (or the
+     * Return the chunks of stderr that were produced since the last call to this function (or the
      * beginning of the build, for the first call). It is the responsibility of the class
      * implementing this interface to properly synchronize with simultaneously written output.
      */
-    String getErr();
-  }
-
-  @ThreadSafe
-  private static class CountingArtifactGroupNamer implements ArtifactGroupNamer {
-    @GuardedBy("this")
-    private final Map<Object, Long> reportedArtifactNames = new HashMap<>();
-
-    @GuardedBy("this")
-    private long nextArtifactName;
-
-    @Override
-    public NamedSetOfFilesId apply(Object id) {
-      Long name;
-      synchronized (this) {
-        name = reportedArtifactNames.get(id);
-      }
-      if (name == null) {
-        return null;
-      }
-      return NamedSetOfFilesId.newBuilder().setId(name.toString()).build();
-    }
-
-    /**
-     * If the {@link NestedSetView} has no name already, return a new name for it. Return null
-     * otherwise.
-     */
-    synchronized String maybeName(NestedSetView<Artifact> view) {
-      if (reportedArtifactNames.containsKey(view.identifier())) {
-        return null;
-      }
-      Long name = nextArtifactName;
-      nextArtifactName++;
-      reportedArtifactNames.put(view.identifier(), name);
-      return name.toString();
-    }
+    Iterable<String> getErr();
   }
 
   /** Creates a new build event streamer. */
   public BuildEventStreamer(
       Collection<BuildEventTransport> transports,
       @Nullable Reporter reporter,
-      BuildEventStreamOptions options) {
+      BuildEventStreamOptions options,
+      CountingArtifactGroupNamer artifactGroupNamer) {
     checkArgument(transports.size() > 0);
     checkNotNull(options);
     this.transports = transports;
@@ -191,12 +154,15 @@ public class BuildEventStreamer implements EventHandler {
     this.options = options;
     this.announcedEvents = null;
     this.progressCount = 0;
+    this.artifactGroupNamer = artifactGroupNamer;
   }
 
   /** Creates a new build event streamer with default options. */
   public BuildEventStreamer(
-      Collection<BuildEventTransport> transports, @Nullable Reporter reporter) {
-    this(transports, reporter, new BuildEventStreamOptions());
+      Collection<BuildEventTransport> transports,
+      @Nullable Reporter reporter,
+      CountingArtifactGroupNamer namer) {
+    this(transports, reporter, new BuildEventStreamOptions(), namer);
   }
 
   public void registerOutErrProvider(OutErrProvider outErrProvider) {
@@ -211,7 +177,7 @@ public class BuildEventStreamer implements EventHandler {
    * come before their parents.
    */
   private void post(BuildEvent event) {
-    BuildEvent linkEvent = null;
+    List<BuildEvent> linkEvents = null;
     BuildEventId id = event.getEventId();
     List<BuildEvent> flushEvents = null;
     boolean lastEvent = false;
@@ -224,13 +190,14 @@ public class BuildEventStreamer implements EventHandler {
         // that the set of posted events is always a subset of the set of announced events.
         announcedEvents.add(id);
         if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
-          linkEvent = ProgressEvent.progressChainIn(progressCount, event.getEventId());
+          BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
+          linkEvents = ImmutableList.of(progress);
           progressCount++;
-          announcedEvents.addAll(linkEvent.getChildrenEvents());
+          announcedEvents.addAll(progress.getChildrenEvents());
           // the new first event in the stream, implicitly announced by the fact that complete
           // stream may not be empty.
-          announcedEvents.add(linkEvent.getEventId());
-          postedEvents.add(linkEvent.getEventId());
+          announcedEvents.add(progress.getEventId());
+          postedEvents.add(progress.getEventId());
         }
 
         if (reporter != null) {
@@ -246,16 +213,25 @@ public class BuildEventStreamer implements EventHandler {
         bufferedStdoutStderrPairs = null;
       } else {
         if (!announcedEvents.contains(id)) {
-          String out = null;
-          String err = null;
+          Iterable<String> allOut = ImmutableList.of();
+          Iterable<String> allErr = ImmutableList.of();
           if (outErrProvider != null) {
-            out = outErrProvider.getOut();
-            err = outErrProvider.getErr();
+            allOut = orEmpty(outErrProvider.getOut());
+            allErr = orEmpty(outErrProvider.getErr());
           }
-          linkEvent = ProgressEvent.progressChainIn(progressCount, id, out, err);
-          progressCount++;
-          announcedEvents.addAll(linkEvent.getChildrenEvents());
-          postedEvents.add(linkEvent.getEventId());
+          linkEvents = new ArrayList<>();
+          List<BuildEvent> finalLinkEvents = linkEvents;
+          consumeAsPairsofStrings(
+              allOut,
+              allErr,
+              (out, err) -> {
+                BuildEvent progressEvent =
+                    ProgressEvent.progressChainIn(progressCount, id, out, err);
+                finalLinkEvents.add(progressEvent);
+                progressCount++;
+                announcedEvents.addAll(progressEvent.getChildrenEvents());
+                postedEvents.add(progressEvent.getEventId());
+              });
         }
       }
 
@@ -282,16 +258,18 @@ public class BuildEventStreamer implements EventHandler {
     }
 
     for (BuildEventTransport transport : transports) {
-      if (linkEvent != null) {
-        transport.sendBuildEvent(linkEvent, artifactGroupNamer);
+      if (linkEvents != null) {
+        for (BuildEvent linkEvent : linkEvents) {
+          transport.sendBuildEvent(linkEvent);
+        }
       }
-      transport.sendBuildEvent(mainEvent, artifactGroupNamer);
+      transport.sendBuildEvent(mainEvent);
     }
 
     if (flushEvents != null) {
       for (BuildEvent flushEvent : flushEvents) {
         for (BuildEventTransport transport : transports) {
-          transport.sendBuildEvent(flushEvent, artifactGroupNamer);
+          transport.sendBuildEvent(flushEvent);
         }
       }
     }
@@ -564,29 +542,100 @@ public class BuildEventStreamer implements EventHandler {
   }
 
   void flush() {
-    BuildEvent updateEvent = null;
+    List<BuildEvent> updateEvents = null;
     synchronized (this) {
-      String out = null;
-      String err = null;
+      Iterable<String> allOut = ImmutableList.of();
+      Iterable<String> allErr = ImmutableList.of();
       if (outErrProvider != null) {
-        out = outErrProvider.getOut();
-        err = outErrProvider.getErr();
+        allOut = orEmpty(outErrProvider.getOut());
+        allErr = orEmpty(outErrProvider.getErr());
       }
-      if (Strings.isNullOrEmpty(out) && Strings.isNullOrEmpty(err)) {
+      if (Iterables.isEmpty(allOut) && Iterables.isEmpty(allErr)) {
         // Nothing to flush; avoid generating an unneeded progress event.
         return;
       }
       if (announcedEvents != null) {
-        updateEvent = flushStdoutStderrEvent(out, err);
+        updateEvents = new ArrayList<>();
+        List<BuildEvent> finalUpdateEvents = updateEvents;
+        consumeAsPairsofStrings(
+            allOut, allErr, (s1, s2) -> finalUpdateEvents.add(flushStdoutStderrEvent(s1, s2)));
       } else {
-        bufferedStdoutStderrPairs.add(Pair.of(out, err));
+        consumeAsPairsofStrings(
+            allOut, allErr, (s1, s2) -> bufferedStdoutStderrPairs.add(Pair.of(s1, s2)));
       }
     }
-    if (updateEvent != null) {
-      for (BuildEventTransport transport : transports) {
-        transport.sendBuildEvent(updateEvent, artifactGroupNamer);
+    if (updateEvents != null) {
+      for (BuildEvent updateEvent : updateEvents) {
+        for (BuildEventTransport transport : transports) {
+          transport.sendBuildEvent(updateEvent);
+        }
       }
     }
+  }
+
+  // Returns the given Iterable, or an empty list if null.
+  private static <T> Iterable<T> orEmpty(Iterable<T> original) {
+    return original == null ? ImmutableList.of() : original;
+  }
+
+  // Given a pair of iterables and {@link BiConsumer}s, emit a sequence of pairs to the consumers.
+  // Given the leftIterables [L1, L2, ... LN], and the rightIterable [R1, R2, ... RM], the consumers
+  // will see this sequence of calls:
+  //  biConsumer.accept(L1, null);
+  //  biConsumer.accept(L2, null);
+  //  ....
+  //  biConsumer.accept(L(N-1), null);
+  //  biConsumer.accept(LN, R1);
+  //  biConsumer.accept(R2, null);
+  //  ...
+  //  biConsumer.accept(R(M-1), null);
+  //  lastConsumer.accept(RM, null);
+  //
+  // The lastConsumer is always called exactly once, even if both Iterables are empty.
+  @VisibleForTesting
+  static <T> void consumeAsPairs(
+      Iterable<T> leftIterable,
+      Iterable<T> rightIterable,
+      BiConsumer<T, T> biConsumer,
+      BiConsumer<T, T> lastConsumer) {
+    if (Iterables.isEmpty(leftIterable) && Iterables.isEmpty(rightIterable)) {
+      lastConsumer.accept(null, null);
+      return;
+    }
+
+    Iterator<T> leftIterator = leftIterable.iterator();
+    Iterator<T> rightIterator = rightIterable.iterator();
+    while (leftIterator.hasNext()) {
+      T left = leftIterator.next();
+      boolean lastT = !leftIterator.hasNext();
+      T right = (lastT && rightIterator.hasNext()) ? rightIterator.next() : null;
+      boolean lastItem = lastT && !rightIterator.hasNext();
+      (lastItem ? lastConsumer : biConsumer).accept(left, right);
+    }
+
+    while (rightIterator.hasNext()) {
+      T right = rightIterator.next();
+      (!rightIterator.hasNext() ? lastConsumer : biConsumer).accept(null, right);
+    }
+  }
+
+  private static <T> void consumeAsPairsofStrings(
+      Iterable<String> leftIterable,
+      Iterable<String> rightIterable,
+      BiConsumer<String, String> biConsumer,
+      BiConsumer<String, String> lastConsumer) {
+    consumeAsPairs(
+        leftIterable,
+        rightIterable,
+        (s1, s2) -> biConsumer.accept(nullToEmpty(s1), nullToEmpty(s2)),
+        (s1, s2) -> lastConsumer.accept(nullToEmpty(s1), nullToEmpty(s2)));
+  }
+
+  private static <T> void consumeAsPairsofStrings(
+      Iterable<String> leftIterable,
+      Iterable<String> rightIterable,
+      BiConsumer<String, String> biConsumer) {
+    consumeAsPairsofStrings(leftIterable, rightIterable, biConsumer, biConsumer);
   }
 
   @VisibleForTesting
@@ -596,13 +645,17 @@ public class BuildEventStreamer implements EventHandler {
 
   private synchronized void clearEventsAndPostFinalProgress(ChainableEvent event) {
     clearPendingEvents();
-    String out = null;
-    String err = null;
+    Iterable<String> allOut = ImmutableList.of();
+    Iterable<String> allErr = ImmutableList.of();
     if (outErrProvider != null) {
-      out = outErrProvider.getOut();
-      err = outErrProvider.getErr();
+      allOut = orEmpty(outErrProvider.getOut());
+      allErr = orEmpty(outErrProvider.getErr());
     }
-    post(ProgressEvent.finalProgressUpdate(progressCount, out, err));
+    consumeAsPairsofStrings(
+        allOut,
+        allErr,
+        (s1, s2) -> post(flushStdoutStderrEvent(s1, s2)),
+        (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount, s1, s2)));
     clearAnnouncedEvents(event == null ? ImmutableList.of() : event.getChildrenEvents());
   }
 

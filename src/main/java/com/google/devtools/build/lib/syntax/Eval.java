@@ -149,7 +149,7 @@ public class Eval {
         Identifier name = binding.getLocalName();
         Identifier declared = binding.getOriginalName();
 
-        if (declared.isPrivate()) {
+        if (declared.isPrivate() && !node.mayLoadInternalSymbols()) {
           throw new EvalException(
               node.getLocation(),
               "symbol '" + declared.getName() + "' is private and cannot be imported.");

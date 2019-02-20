@@ -30,4 +30,9 @@ public class FilesystemFileAccessor implements SkylarkFileAccessor {
     byte[] content = Files.readAllBytes(Paths.get(pathString));
     return ParserInputSource.create(content, PathFragment.create(pathString));
   }
+
+  @Override
+  public boolean fileExists(String pathString) {
+    return Files.exists(Paths.get(pathString));
+  }
 }

@@ -29,6 +29,10 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PyProviderUtilsTest extends BuildViewTestCase {
 
+  private static String join(String... lines) {
+    return String.join("\n", lines);
+  }
+
   private static void assertThrowsEvalExceptionContaining(
       ThrowingRunnable runnable, String message) {
     assertThat(assertThrows(EvalException.class, runnable)).hasMessageThat().contains(message);
@@ -37,18 +41,22 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
   /**
    * Creates {@code //pkg:target} as an instance of a trivial rule having the given implementation
    * function body.
+   *
+   * <p>The body is formed by joining the input strings with newlines, then inserting 4 spaces of
+   * indentation before the first line and each newline. This allows a single string argument to
+   * contain multiple pre-joined lines and still be indented correctly.
    */
-  private void declareTargetWithImplementation(String... lines) throws Exception {
-    String body;
-    if (lines.length == 0) {
-      body = "    pass";
+  private void declareTargetWithImplementation(String... input) throws Exception {
+    String indentedBody;
+    if (input.length == 0) {
+      indentedBody = "    pass";
     } else {
-      body = "    " + String.join("\n    ", lines);
+      indentedBody = "    " + String.join("\n", input).replace("\n", "\n    ");
     }
     scratch.file(
         "pkg/rules.bzl",
         "def _myrule_impl(ctx):",
-        body,
+        indentedBody,
         "myrule = rule(",
         "    implementation = _myrule_impl,",
         ")");
@@ -68,57 +76,118 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void getAndHasProvider_Present() throws Exception {
+  public void getAndHasModernProvider_Present() throws Exception {
     declareTargetWithImplementation( //
-        "return struct(py=struct())"); // Accessor doesn't actually check fields
-    assertThat(PyProviderUtils.hasProvider(getTarget())).isTrue();
-    assertThat(PyProviderUtils.getProvider(getTarget())).isNotNull();
+        "return [PyInfo(transitive_sources=depset([]))]");
+    assertThat(PyProviderUtils.hasModernProvider(getTarget())).isTrue();
+    assertThat(PyProviderUtils.getModernProvider(getTarget())).isNotNull();
   }
 
   @Test
-  public void getAndHasProvider_Absent() throws Exception {
+  public void getAndHasModernProvider_Absent() throws Exception {
     declareTargetWithImplementation( //
         "return []");
-    assertThat(PyProviderUtils.hasProvider(getTarget())).isFalse();
-    assertThrowsEvalExceptionContaining(
-        () -> PyProviderUtils.getProvider(getTarget()), "Target does not have 'py' provider");
+    assertThat(PyProviderUtils.hasModernProvider(getTarget())).isFalse();
+    assertThat(PyProviderUtils.getModernProvider(getTarget())).isNull();
   }
 
   @Test
-  public void getProvider_NotAStruct() throws Exception {
+  public void getAndHasLegacyProvider_Present() throws Exception {
+    declareTargetWithImplementation( //
+        "return struct(py=struct())"); // Accessor doesn't actually check fields
+    assertThat(PyProviderUtils.hasLegacyProvider(getTarget())).isTrue();
+    assertThat(PyProviderUtils.getLegacyProvider(getTarget())).isNotNull();
+  }
+
+  @Test
+  public void getAndHasLegacyProvider_Absent() throws Exception {
+    declareTargetWithImplementation( //
+        "return []");
+    assertThat(PyProviderUtils.hasLegacyProvider(getTarget())).isFalse();
+    assertThrowsEvalExceptionContaining(
+        () -> PyProviderUtils.getLegacyProvider(getTarget()), "Target does not have 'py' provider");
+  }
+
+  @Test
+  public void getLegacyProvider_NotAStruct() throws Exception {
     declareTargetWithImplementation( //
         "return struct(py=123)");
     assertThrowsEvalExceptionContaining(
-        () -> PyProviderUtils.getProvider(getTarget()), "'py' provider should be a struct");
+        () -> PyProviderUtils.getLegacyProvider(getTarget()), "'py' provider should be a struct");
+  }
+
+  private static final String TRANSITIVE_SOURCES_SETUP_CODE =
+      join(
+          "afile = ctx.actions.declare_file('a.py')",
+          "ctx.actions.write(output=afile, content='a')",
+          "bfile = ctx.actions.declare_file('b.py')",
+          "ctx.actions.write(output=bfile, content='b')",
+          "modern_info = PyInfo(transitive_sources = depset(direct=[afile]))",
+          "legacy_info = struct(transitive_sources = depset(direct=[bfile]))");
+
+  @Test
+  public void getTransitiveSources_ModernProvider() throws Exception {
+    declareTargetWithImplementation( //
+        TRANSITIVE_SOURCES_SETUP_CODE, //
+        "return [modern_info]");
+    assertThat(PyProviderUtils.getTransitiveSources(getTarget()))
+        .containsExactly(getBinArtifact("a.py", getTarget()));
   }
 
   @Test
-  public void getTransitiveSources_Provider() throws Exception {
-    declareTargetWithImplementation(
-        "afile = ctx.actions.declare_file('a.py')",
-        "ctx.actions.write(output=afile, content='a')",
-        "info = struct(transitive_sources = depset(direct=[afile]))",
-        "return struct(py=info)");
+  public void getTransitiveSources_LegacyProvider() throws Exception {
+    declareTargetWithImplementation( //
+        TRANSITIVE_SOURCES_SETUP_CODE, //
+        "return struct(py=legacy_info)");
+    assertThat(PyProviderUtils.getTransitiveSources(getTarget()))
+        .containsExactly(getBinArtifact("b.py", getTarget()));
+  }
+
+  @Test
+  public void getTransitiveSources_BothProviders() throws Exception {
+    declareTargetWithImplementation( //
+        TRANSITIVE_SOURCES_SETUP_CODE, //
+        "return struct(py=legacy_info, providers=[modern_info])");
     assertThat(PyProviderUtils.getTransitiveSources(getTarget()))
         .containsExactly(getBinArtifact("a.py", getTarget()));
   }
 
   @Test
   public void getTransitiveSources_NoProvider() throws Exception {
-    declareTargetWithImplementation(
-        "afile = ctx.actions.declare_file('a.py')",
-        "ctx.actions.write(output=afile, content='a')",
+    declareTargetWithImplementation( //
+        TRANSITIVE_SOURCES_SETUP_CODE, //
         "return [DefaultInfo(files=depset(direct=[afile]))]");
     assertThat(PyProviderUtils.getTransitiveSources(getTarget()))
         .containsExactly(getBinArtifact("a.py", getTarget()));
   }
 
+  private static final String USES_SHARED_LIBRARIES_SETUP_CODE =
+      join(
+          "modern_info = PyInfo(transitive_sources = depset([]), uses_shared_libraries=False)",
+          "legacy_info = struct(transitive_sources = depset([]), uses_shared_libraries=True)");
+
   @Test
-  public void getUsesSharedLibraries_Provider() throws Exception {
-    declareTargetWithImplementation(
-        "info = struct(transitive_sources = depset([]), uses_shared_libraries=True)",
-        "return struct(py=info)");
+  public void getUsesSharedLibraries_ModernProvider() throws Exception {
+    declareTargetWithImplementation( //
+        USES_SHARED_LIBRARIES_SETUP_CODE, //
+        "return [modern_info]");
+    assertThat(PyProviderUtils.getUsesSharedLibraries(getTarget())).isFalse();
+  }
+
+  @Test
+  public void getUsesSharedLibraries_LegacyProvider() throws Exception {
+    declareTargetWithImplementation( //
+        USES_SHARED_LIBRARIES_SETUP_CODE, //
+        "return struct(py=legacy_info)");
     assertThat(PyProviderUtils.getUsesSharedLibraries(getTarget())).isTrue();
+  }
+
+  @Test
+  public void getUsesSharedLibraries_BothProviders() throws Exception {
+    declareTargetWithImplementation( //
+        USES_SHARED_LIBRARIES_SETUP_CODE, //
+        "return struct(py=legacy_info, providers=[modern_info])");
+    assertThat(PyProviderUtils.getUsesSharedLibraries(getTarget())).isFalse();
   }
 
   @Test
@@ -130,15 +199,72 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     assertThat(PyProviderUtils.getUsesSharedLibraries(getTarget())).isTrue();
   }
 
-  // TODO(#7054): Add tests for getImports once we actually read the Python provider instead of the
-  // specialized PythonImportsProvider.
+  private static final String IMPORTS_SETUP_CODE =
+      join(
+          "modern_info = PyInfo(transitive_sources = depset([]), imports = depset(direct=['abc']))",
+          "legacy_info = struct(",
+          "    transitive_sources = depset([]),",
+          "    imports = depset(direct=['def']))");
 
   @Test
-  public void getHasPy2OnlySources_Provider() throws Exception {
-    declareTargetWithImplementation(
-        "info = struct(transitive_sources = depset([]), has_py2_only_sources=True)",
-        "return struct(py=info)");
+  public void getImports_ModernProvider() throws Exception {
+    declareTargetWithImplementation( //
+        IMPORTS_SETUP_CODE, //
+        "return [modern_info]");
+    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("abc");
+  }
+
+  @Test
+  public void getImports_LegacyProvider() throws Exception {
+    declareTargetWithImplementation( //
+        IMPORTS_SETUP_CODE, //
+        "return struct(py=legacy_info)");
+    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("def");
+  }
+
+  @Test
+  public void getImports_BothProviders() throws Exception {
+    declareTargetWithImplementation( //
+        IMPORTS_SETUP_CODE, //
+        "return struct(py=legacy_info, providers=[modern_info])");
+    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("abc");
+  }
+
+  @Test
+  public void getImports_NoProvider() throws Exception {
+    declareTargetWithImplementation( //
+        IMPORTS_SETUP_CODE, //
+        "return []");
+    assertThat(PyProviderUtils.getImports(getTarget())).isEmpty();
+  }
+
+  private static final String HAS_PY2_ONLY_SOURCES_SETUP_CODE =
+      join(
+          "modern_info = PyInfo(transitive_sources = depset([]), has_py2_only_sources = False)",
+          "legacy_info = struct(transitive_sources = depset([]), has_py2_only_sources = True)");
+
+  @Test
+  public void getHasPy2OnlySources_ModernProvider() throws Exception {
+    declareTargetWithImplementation( //
+        HAS_PY2_ONLY_SOURCES_SETUP_CODE, //
+        "return [modern_info]");
+    assertThat(PyProviderUtils.getHasPy2OnlySources(getTarget())).isFalse();
+  }
+
+  @Test
+  public void getHasPy2OnlySources_LegacyProvider() throws Exception {
+    declareTargetWithImplementation( //
+        HAS_PY2_ONLY_SOURCES_SETUP_CODE, //
+        "return struct(py=legacy_info)");
     assertThat(PyProviderUtils.getHasPy2OnlySources(getTarget())).isTrue();
+  }
+
+  @Test
+  public void getHasPy2OnlySources_BothProviders() throws Exception {
+    declareTargetWithImplementation( //
+        HAS_PY2_ONLY_SOURCES_SETUP_CODE, //
+        "return struct(py=legacy_info, providers=[modern_info])");
+    assertThat(PyProviderUtils.getHasPy2OnlySources(getTarget())).isFalse();
   }
 
   @Test
@@ -148,12 +274,33 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     assertThat(PyProviderUtils.getHasPy2OnlySources(getTarget())).isFalse();
   }
 
+  private static final String HAS_PY3_ONLY_SOURCES_SETUP_CODE =
+      join(
+          "modern_info = PyInfo(transitive_sources = depset([]), has_py3_only_sources = False)",
+          "legacy_info = struct(transitive_sources = depset([]), has_py3_only_sources = True)");
+
   @Test
-  public void getHasPy3OnlySources_Provider() throws Exception {
-    declareTargetWithImplementation(
-        "info = struct(transitive_sources = depset([]), has_py3_only_sources=True)",
-        "return struct(py=info)");
+  public void getHasPy3OnlySources_ModernProvider() throws Exception {
+    declareTargetWithImplementation( //
+        HAS_PY3_ONLY_SOURCES_SETUP_CODE, //
+        "return [modern_info]");
+    assertThat(PyProviderUtils.getHasPy3OnlySources(getTarget())).isFalse();
+  }
+
+  @Test
+  public void getHasPy3OnlySources_LegacyProvider() throws Exception {
+    declareTargetWithImplementation( //
+        HAS_PY3_ONLY_SOURCES_SETUP_CODE, //
+        "return struct(py=legacy_info)");
     assertThat(PyProviderUtils.getHasPy3OnlySources(getTarget())).isTrue();
+  }
+
+  @Test
+  public void getHasPy3OnlySources_BothProviders() throws Exception {
+    declareTargetWithImplementation( //
+        HAS_PY3_ONLY_SOURCES_SETUP_CODE, //
+        "return struct(py=legacy_info, providers=[modern_info])");
+    assertThat(PyProviderUtils.getHasPy3OnlySources(getTarget())).isFalse();
   }
 
   @Test

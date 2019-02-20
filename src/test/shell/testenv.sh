@@ -286,6 +286,21 @@ common --color=no --curses=no
 
 ${EXTRA_BAZELRC:-}
 EOF
+
+  if [[ -n ${REPOSITORY_CACHE:-} ]]; then
+    echo "testenv.sh: Using repository cache at $REPOSITORY_CACHE."
+    cat >>$TEST_TMPDIR/bazelrc <<EOF
+sync --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+fetch --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+build --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+query --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+EOF
+  fi
+
+  if [[ -n ${INSTALL_BASE:-} ]]; then
+    echo "testenv.sh: Using shared install base at $INSTALL_BASE."
+    echo "startup --install_base=$INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+  fi
 }
 
 function setup_android_sdk_support() {

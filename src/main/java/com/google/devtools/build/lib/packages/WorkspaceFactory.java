@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -49,11 +50,13 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
@@ -133,25 +136,12 @@ public class WorkspaceFactory {
         allowOverride, ruleFactory);
   }
 
-  /**
-   * Parses the given WORKSPACE file without resolving Skylark imports, using the default Skylark
-   * semantics.
-   */
-  public void parse(ParserInputSource source)
-      throws BuildFileContainsErrorsException, InterruptedException {
-    parse(source, SkylarkSemantics.DEFAULT_SEMANTICS, null);
-  }
-
   @VisibleForTesting
-  public void parse(
+  void parseForTesting(
       ParserInputSource source,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       @Nullable StoredEventHandler localReporter)
       throws BuildFileContainsErrorsException, InterruptedException {
-    // This method is split in 2 so WorkspaceFileFunction can call the two parts separately and
-    // do the Skylark load imports in between. We can't load skylark imports from
-    // generate_workspace at the moment because it doesn't have access to skyframe, but that's okay
-    // because most people are just using it to resolve Maven dependencies.
     if (localReporter == null) {
       localReporter = new StoredEventHandler();
     }
@@ -160,30 +150,36 @@ public class WorkspaceFactory {
       throw new BuildFileContainsErrorsException(
           LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getPath());
     }
-    execute(buildFileAST, null, skylarkSemantics, localReporter);
+    execute(
+        buildFileAST,
+        null,
+        starlarkSemantics,
+        localReporter,
+        WorkspaceFileValue.key(
+            RootedPath.toRootedPath(Root.fromPath(workspaceDir), source.getPath())));
   }
 
-
   /**
-   * Actually runs through the AST, calling the functions in the WORKSPACE file and adding rules
-   * to the //external package.
+   * Actually runs through the AST, calling the functions in the WORKSPACE file and adding rules to
+   * the //external package.
    */
   public void execute(
       BuildFileAST ast,
       Map<String, Extension> importedExtensions,
-      SkylarkSemantics skylarkSemantics)
+      StarlarkSemantics starlarkSemantics,
+      WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
     Preconditions.checkNotNull(ast);
     Preconditions.checkNotNull(importedExtensions);
-    execute(ast, importedExtensions, skylarkSemantics, new StoredEventHandler());
+    execute(ast, importedExtensions, starlarkSemantics, new StoredEventHandler(), workspaceFileKey);
   }
-
 
   private void execute(
       BuildFileAST ast,
       @Nullable Map<String, Extension> importedExtensions,
-      SkylarkSemantics skylarkSemantics,
-      StoredEventHandler localReporter)
+      StarlarkSemantics starlarkSemantics,
+      StoredEventHandler localReporter,
+      WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
     if (importedExtensions != null) {
       importMap = ImmutableMap.copyOf(importedExtensions);
@@ -192,7 +188,7 @@ public class WorkspaceFactory {
     }
     Environment workspaceEnv =
         Environment.builder(mutability)
-            .setSemantics(skylarkSemantics)
+            .setSemantics(starlarkSemantics)
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(localReporter)
             .setImportedExtensions(importMap)
@@ -204,7 +200,8 @@ public class WorkspaceFactory {
                 new BazelStarlarkContext(
                     /* toolsRepository= */ null,
                     /* fragmentNameToClass= */ null,
-                    ImmutableMap.of()))
+                    ImmutableMap.of(),
+                    new SymbolGenerator<>(workspaceFileKey)))
             .build();
     SkylarkUtils.setPhase(workspaceEnv, Phase.WORKSPACE);
     addWorkspaceFunctions(workspaceEnv, localReporter);

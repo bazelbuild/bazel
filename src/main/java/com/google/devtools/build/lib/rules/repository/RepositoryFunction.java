@@ -178,7 +178,8 @@ public abstract class RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData)
+      Map<String, String> markerData,
+      SkyKey key)
       throws SkyFunctionException, InterruptedException;
 
   @SuppressWarnings("unchecked")
@@ -288,14 +289,15 @@ public abstract class RepositoryFunction {
   }
 
   /**
-   * A method that can be called from a implementation of
-   * {@link #fetch(Rule, Path, BlazeDirectories, Environment, Map)} to declare a list of Skyframe
-   * dependencies on environment variable. It also add the information to the marker file. It
-   * returns the list of environment variable on which the function depends, or null if the skyframe
-   * function needs to be restarted.
+   * A method that can be called from a implementation of {@link #fetch(Rule, Path,
+   * BlazeDirectories, Environment, Map, SkyKey)} to declare a list of Skyframe dependencies on
+   * environment variable. It also add the information to the marker file. It returns the list of
+   * environment variable on which the function depends, or null if the skyframe function needs to
+   * be restarted.
    */
-  protected Map<String, String> declareEnvironmentDependencies(Map<String, String> markerData,
-      Environment env, Iterable<String> keys) throws InterruptedException {
+  protected Map<String, String> declareEnvironmentDependencies(
+      Map<String, String> markerData, Environment env, Iterable<String> keys)
+      throws InterruptedException {
     Map<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
 
     // Returns true if there is a null value and we need to wait for some dependencies.

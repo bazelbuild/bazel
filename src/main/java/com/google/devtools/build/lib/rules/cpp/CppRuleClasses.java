@@ -285,6 +285,11 @@ public class CppRuleClasses {
    */
   public static final String ENABLE_FDO_THINLTO = "enable_fdo_thinlto";
 
+  /*
+   * A string constant for enabling ThinLTO for XFDO implicitly.
+   */
+  public static final String ENABLE_XFDO_THINLTO = "enable_xbinaryfdo_thinlto";
+
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
    * with ThinLTO.

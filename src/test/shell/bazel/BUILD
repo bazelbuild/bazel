@@ -7,7 +7,7 @@ filegroup(
         "//src/test/shell/bazel/apple:srcs",
         "//src/test/shell/bazel/remote:srcs",
         "//src/test/shell/bazel/testdata:srcs",
-        "//tools/cmd_line_differ:srcs",
+        "//tools/aquery_differ:srcs",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )
@@ -71,17 +71,6 @@ sh_test(
         "//src/test/shell/bazel/apple:objc-deps",
     ],
     shard_count = 3,
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "bazel_enable_disable_tools_defaults_flag_test",
-    size = "large",
-    srcs = ["bazel_enable_disable_tools_defaults_flag_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell:shell_utils.sh",
-    ],
     tags = ["no_windows"],
 )
 
@@ -235,6 +224,16 @@ sh_test(
 sh_test(
     name = "bazel_coverage_java_test",
     srcs = ["bazel_coverage_java_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "local",
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_coverage_experimental_java_test",
+    srcs = ["bazel_coverage_experimental_java_test.sh"],
     data = [":test-deps"],
     tags = [
         "local",
@@ -536,7 +535,7 @@ sh_test(
         ":jdk_WORKSPACE",
         ":test-deps",
     ],
-    shard_count = 19,
+    shard_count = 20,
     tags = [
         "block-network",
         "no_windows",
@@ -653,12 +652,12 @@ sh_test(
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = [
         "$(location //:bazel-distfile)",
-        "$(location //src:embedded_jdk_allmodules)",
+        "$(location //src:embedded_jdk_allmodules_cached)",
     ],
     data = [
         ":test-deps",
         "//:bazel-distfile",
-        "//src:embedded_jdk_allmodules",
+        "//src:embedded_jdk_allmodules_cached",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["block-network"],
@@ -808,5 +807,12 @@ sh_test(
         "//src/test/shell:bashunit",
         "//tools/test:test_xml_generator",
     ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "windows_arg_esc_test",
+    srcs = ["windows_arg_esc_test.sh"],
+    data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

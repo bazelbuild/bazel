@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
-
 /** Interface for conversion of paths to URIs. */
+// TODO(lpino): This interface shouldn't exist since there's only trivial implementation of it.
+// However, it's really hard to move this class to the right package because of package boundaries.
 public interface ArtifactGroupNamer {
   /**
    * Return the name of a declared group of artifacts, identified by the identifier of their {@link

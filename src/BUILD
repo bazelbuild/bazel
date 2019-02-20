@@ -178,7 +178,7 @@ JAVA_TOOLS = [
         "//src/test:__subpackages__",  # For integration tests
     ],
 ) for suffix, jdk in {
-    "_jdk_allmodules": [":embedded_jdk_allmodules"],
+    "_jdk_allmodules": [":embedded_jdk_allmodules_cached"],
     "_jdk_minimal": [":embedded_jdk_minimal_cached"],
     "_dev_jdk": [":embedded_jdk_minimal"],
     "_nojdk": [],
@@ -195,7 +195,7 @@ rule_size_test(
 )
 
 filegroup(
-    name = "embedded_jdk_allmodules",
+    name = "embedded_jdk_allmodules_cached",
     srcs = select({
         "//src/conditions:darwin": [
             "@openjdk_macos//file",
@@ -274,6 +274,19 @@ filegroup(
     }),
 )
 
+filegroup(
+    name = "embedded_jdk_allmodules",
+    srcs = select({
+        "//src/conditions:windows": [
+            ":embedded_jdk_allmodules.zip",
+        ],
+        "//conditions:default": [
+            ":embedded_jdk_allmodules.tar.gz",
+        ],
+    }),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
 [genrule(
     name = "embedded_jdk_minimal" + suffix,
     srcs = [
@@ -283,6 +296,21 @@ filegroup(
     ],
     outs = ["minimal_jdk" + suffix],
     cmd = "$(location :minimize_jdk.sh) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+) for suffix in [
+    ".zip",
+    ".tar.gz",
+]]
+
+[genrule(
+    name = "embedded_jdk_allmodules" + suffix,
+    srcs = [
+        ":embedded_jdk_vanilla",
+        ":minimize_jdk.sh",
+        ":jdeps_modules.golden",
+    ],
+    outs = ["allmodules_jdk" + suffix],
+    cmd = "$(location :minimize_jdk.sh) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
     visibility = ["//src/test/shell/bazel:__pkg__"],
 ) for suffix in [
     ".zip",
@@ -425,7 +453,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skydoc:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
-        "//src/main/java/com/google/devtools/skylark:srcs",
+        "//src/main/java/com/google/devtools/starlark:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/tools:srcs",
@@ -434,7 +462,7 @@ filegroup(
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
         "//src/test/native:srcs",
-        "//src/test/skylark:srcs",
+        "//src/test/starlark:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
@@ -449,6 +477,7 @@ filegroup(
         "//src/tools/workspacelog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:srcs",
+        "//src/tools/skylark/java/com/google/devtools/skylark/common:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",
         "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:srcs",
         "//src/tools/xcode/actoolwrapper:srcs",
