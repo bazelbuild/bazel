@@ -118,9 +118,13 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
                     + fileLabel
                     + "'.\n"
                     + "It usually happens when the repository is not defined prior to being used.\n"
-                    + "Maybe repository '"
+                    + "This could either mean you have to add the '"
+                    + fileLabel.getWorkspaceName()
+                    + "' repository with a statement like `http_archive` in your WORKSPACE file"
+                    + " (note that transitive dependencies are not added automatically), or"
+                    + " the repository '"
                     + repositoryName
-                    + "' was defined later in your WORKSPACE file?"));
+                    + "' was defined too late in your WORKSPACE file."));
         return true;
       } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
         eventHandler.handle(
