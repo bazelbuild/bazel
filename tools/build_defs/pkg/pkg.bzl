@@ -44,6 +44,7 @@ def _pkg_tar_impl(ctx):
         "--output=" + ctx.outputs.out.path,
         "--directory=" + ctx.attr.package_dir,
         "--mode=" + ctx.attr.mode,
+        "--mtime=" + ctx.attr.mtime,
         "--owner=" + ctx.attr.owner,
         "--owner_name=" + ctx.attr.ownername,
     ]
@@ -218,6 +219,7 @@ _real_pkg_tar = rule(
         "files": attr.label_keyed_string_dict(allow_files = True),
         "mode": attr.string(default = "0555"),
         "modes": attr.string_dict(),
+        "mtime": attr.string(default = "portable"),
         "owner": attr.string(default = "0.0"),
         "ownername": attr.string(default = "."),
         "owners": attr.string_dict(),

@@ -22,7 +22,7 @@ import tarfile
 
 # Use a deterministic mtime that doesn't confuse other programs.
 # See: https://github.com/bazelbuild/bazel/issues/1299
-MTIME = 946684800  # 2000-01-01 00:00:00.000 UTC
+PORTABLE_MTIME = 946684800  # 2000-01-01 00:00:00.000 UTC
 
 
 class SimpleArFile(object):
@@ -110,7 +110,7 @@ class TarFileWriter(object):
                name,
                compression='',
                root_directory='./',
-               default_mtime=MTIME):
+               default_mtime=None):
     """TarFileWriter wraps tarfile.open().
 
     Args:
@@ -118,6 +118,8 @@ class TarFileWriter(object):
       compression: compression type: bzip2, bz2, gz, tgz, xz, lzma.
       root_directory: virtual root to prepend to elements in the archive.
       default_mtime: default mtime to use for elements in the archive.
+          May be an integer or the value 'portable' to use the date
+          2000-01-01, which is compatible with non *nix OSes'.
     """
     if compression in ['bzip2', 'bz2']:
       mode = 'w:bz2'
@@ -128,7 +130,12 @@ class TarFileWriter(object):
     self.xz = compression in ['xz', 'lzma']
     self.name = name
     self.root_directory = root_directory.rstrip('/')
-    self.default_mtime = default_mtime
+    if default_mtime is None:
+      self.default_mtime = 0
+    elif default_mtime == 'portable':
+      self.default_mtime = PORTABLE_MTIME
+    else:
+      self.default_mtime = int(default_mtime)
 
     self.fileobj = None
     if self.gz:
@@ -282,6 +289,8 @@ class TarFileWriter(object):
                     mtime=mtime,
                     mode=0o755)
     tarinfo = tarfile.TarInfo(name)
+    if mtime < 0:
+      mtime = self.default_mtime
     tarinfo.mtime = mtime
     tarinfo.uid = uid
     tarinfo.gid = gid
@@ -292,8 +301,6 @@ class TarFileWriter(object):
       tarinfo.mode = 0o644 if kind == tarfile.REGTYPE else 0o755
     else:
       tarinfo.mode = mode
-    if mtime < 0:
-      mtime = self.default_mtime
     if link:
       tarinfo.linkname = link
     if content:
