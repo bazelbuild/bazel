@@ -289,7 +289,7 @@ class TarFileWriter(object):
                     mtime=mtime,
                     mode=0o755)
     tarinfo = tarfile.TarInfo(name)
-    if mtime < 0:
+    if mtime is None:
       mtime = self.default_mtime
     tarinfo.mtime = mtime
     tarinfo.uid = uid
