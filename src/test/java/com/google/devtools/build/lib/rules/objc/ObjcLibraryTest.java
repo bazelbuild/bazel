@@ -2046,4 +2046,81 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
         .contains("cc/txt_dep/hdr.h");
   }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_assetCatalogs() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', asset_catalogs = ['fg'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_datamodels() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', datamodels = ['fg'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_resources() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', resources = ['fg'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_storyboards() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', storyboards = ['fg.storyboard'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_strings() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', strings = ['fg.strings'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_structuredResources() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', structured_resources = ['fg'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_xibs() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', xibs = ['fg.xib'])");
+  }
 }
