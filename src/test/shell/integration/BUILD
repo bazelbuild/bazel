@@ -582,6 +582,13 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "jvm_flags_escaping_test",
+    srcs = ["jvm_flags_escaping_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
 ########################################################################
 # Test suites.
 
