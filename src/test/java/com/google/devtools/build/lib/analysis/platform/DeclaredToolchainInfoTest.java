@@ -37,37 +37,42 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
-                ImmutableList.of(constraint1),
-                ImmutableList.of(constraint2),
-                makeLabel("//toolchain:toolchain1")),
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
-                ImmutableList.of(constraint1),
-                ImmutableList.of(constraint2),
-                makeLabel("//toolchain:toolchain1")))
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")))
+                .addExecConstraints(ImmutableList.of(constraint1))
+                .addTargetConstraints(ImmutableList.of(constraint2))
+                .toolchainLabel(makeLabel("//toolchain:toolchain1"))
+                .build(),
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")))
+                .addExecConstraints(ImmutableList.of(constraint1))
+                .addTargetConstraints(ImmutableList.of(constraint2))
+                .toolchainLabel(makeLabel("//toolchain:toolchain1"))
+                .build())
         .addEqualityGroup(
             // Different type.
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc2")),
-                ImmutableList.of(constraint1),
-                ImmutableList.of(constraint2),
-                makeLabel("//toolchain:toolchain1")))
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc2")))
+                .addExecConstraints(ImmutableList.of(constraint1))
+                .addTargetConstraints(ImmutableList.of(constraint2))
+                .toolchainLabel(makeLabel("//toolchain:toolchain1"))
+                .build())
         .addEqualityGroup(
             // Different constraints.
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
-                ImmutableList.of(constraint2),
-                ImmutableList.of(constraint1),
-                makeLabel("//toolchain:toolchain1")))
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")))
+                .addExecConstraints(ImmutableList.of(constraint2))
+                .addTargetConstraints(ImmutableList.of(constraint1))
+                .toolchainLabel(makeLabel("//toolchain:toolchain1"))
+                .build())
         .addEqualityGroup(
             // Different toolchain label.
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
-                ImmutableList.of(constraint1),
-                ImmutableList.of(constraint2),
-                makeLabel("//toolchain:toolchain2")))
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")))
+                .addExecConstraints(ImmutableList.of(constraint1))
+                .addTargetConstraints(ImmutableList.of(constraint2))
+                .toolchainLabel(makeLabel("//toolchain:toolchain2"))
+                .build())
         .testEquals();
   }
 }

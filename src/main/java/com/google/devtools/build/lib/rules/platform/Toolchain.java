@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -52,11 +51,12 @@ public class Toolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get(ToolchainRule.TOOLCHAIN_ATTR, BuildType.NODEP_LABEL);
 
     DeclaredToolchainInfo registeredToolchain =
-        DeclaredToolchainInfo.create(
-            toolchainType,
-            ImmutableList.copyOf(execConstraints),
-            ImmutableList.copyOf(targetConstraints),
-            toolchainLabel);
+        DeclaredToolchainInfo.builder()
+            .toolchainType(toolchainType)
+            .addExecConstraints(execConstraints)
+            .addTargetConstraints(targetConstraints)
+            .toolchainLabel(toolchainLabel)
+            .build();
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
