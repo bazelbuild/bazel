@@ -183,8 +183,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleStricArgumentOrdering();
 
-  public abstract boolean incompatibleStringIsNotIterable();
-
   public abstract boolean internalSkylarkFlagTestCanary();
 
   public abstract boolean incompatibleUseToolchainProvidersInJavaCommon();
@@ -239,7 +237,6 @@ public abstract class StarlarkSemantics {
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRequireFeatureConfigurationForPic(true)
           .incompatibleStricArgumentOrdering(true)
-          .incompatibleStringIsNotIterable(true)
           .internalSkylarkFlagTestCanary(false)
           .build();
 
@@ -315,8 +312,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
 
     public abstract Builder incompatibleStricArgumentOrdering(boolean value);
-
-    public abstract Builder incompatibleStringIsNotIterable(boolean value);
 
     public abstract Builder incompatibleUseToolchainProvidersInJavaCommon(boolean value);
 

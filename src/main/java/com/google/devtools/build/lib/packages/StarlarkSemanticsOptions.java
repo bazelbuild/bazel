@@ -494,20 +494,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "https://github.com/bazelbuild/bazel/issues/6611")
   public boolean incompatibleStricArgumentOrdering;
 
-  @Option(
-      name = "incompatible_string_is_not_iterable",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, iterating over a string will throw an error. String indexing and `len` "
-              + "are still allowed.")
-  public boolean incompatibleStringIsNotIterable;
-
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
     name = "internal_skylark_flag_test_canary",
@@ -572,7 +558,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
         .incompatibleRequireFeatureConfigurationForPic(requireFeatureConfigurationForPic)
         .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
-        .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
         .incompatibleUseToolchainProvidersInJavaCommon(
             incompatibleUseToolchainProvidersInJavaCommon)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)

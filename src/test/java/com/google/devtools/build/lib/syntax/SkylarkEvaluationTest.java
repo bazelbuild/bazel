@@ -688,19 +688,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testForOnString() throws Exception {
-    new SkylarkTest("--incompatible_string_is_not_iterable=false")
-        .setUp(
-            "def foo():",
-            "  s = []",
-            "  for i in 'abc':",
-            "    s = s + [i]",
-            "  return s",
-            "s = foo()")
-        .testExactOrder("s", "a", "b", "c");
-  }
-
-  @Test
   public void testForAssignmentList() throws Exception {
     new SkylarkTest().setUp("def foo():",
         "  d = ['a', 'b', 'c']",
@@ -838,6 +825,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "def func():",
             "  for i in mock.value_of('1'): a = i",
             "func()\n");
+  }
+
+  @Test
+  public void testForStringNotIterable() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfErrorContains(
+            "type 'string' is not iterable", "def func():", "  for i in 'abc': a = i", "func()\n");
   }
 
   @Test
