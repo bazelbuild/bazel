@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttribut
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
@@ -49,8 +50,12 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.IntegerLiteral;
+import com.google.devtools.build.lib.syntax.ListLiteral;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -62,6 +67,8 @@ import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -73,6 +80,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -423,7 +431,9 @@ public final class PackageFactory {
   /**
    * Sets the number of directories to eagerly traverse on the first glob for a given package, in
    * order to warm the filesystem. -1 means do no eager traversal. See {@code
-   * PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
+   * PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}. -2 means do the eager traversal
+   * using the regular globbing infrastructure, i.e. sharing the globbing threads and caching the
+   * actual glob results.
    */
   public void setMaxDirectoriesToEagerlyVisitInGlobbing(
       int maxDirectoriesToEagerlyVisitInGlobbing) {
@@ -1664,6 +1674,17 @@ public final class PackageFactory {
         pkgBuilder.setContainsErrors();
       }
 
+      if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
+        GlobPatternExtractor extractor = new GlobPatternExtractor();
+        extractor.visit(buildFileAST);
+        try {
+          globber.runAsync(extractor.getIncludeDirectoriesPatterns(), ImmutableList.of(), false);
+          globber.runAsync(extractor.getExcludeDirectoriesPatterns(), ImmutableList.of(), true);
+        } catch (BadGlobException | InterruptedException e) {
+          // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
+        }
+      }
+
       // TODO(bazel-team): (2009) the invariant "if errors are reported, mark the package
       // as containing errors" is strewn all over this class.  Refactor to use an
       // event sensor--and see if we can simplify the calling code in
@@ -1676,6 +1697,64 @@ public final class PackageFactory {
     pkgBuilder.addPosts(eventHandler.getPosts());
     pkgBuilder.addEvents(eventHandler.getEvents());
     return pkgBuilder;
+  }
+
+  /**
+   * A GlobPatternExtractor visits a syntax tree, tries to extract glob() patterns from it, and
+   * eagerly instructs a {@link Globber} to fetch them asynchronously. That way, the glob results
+   * are readily available when required in the actual execution of the syntax tree. The starlark
+   * code itself is later executed sequentially and having costly globs, especially slow on
+   * networked file systems, executed sequentially in them can be very time consuming.
+   */
+  @VisibleForTesting
+  static class GlobPatternExtractor extends SyntaxTreeVisitor {
+    private final Set<String> includeDirectoriesPatterns = new HashSet<>();
+    private final Set<String> excludeDirectoriesPatterns = new HashSet<>();
+
+    @Override
+    public void visit(FuncallExpression node) {
+      super.visit(node);
+      Expression function = node.getFunction();
+      if (!(function instanceof Identifier)) {
+        return;
+      }
+      if (!((Identifier) function).getName().equals("glob")) {
+        return;
+      }
+
+      boolean excludeDirectories = true; // excluded by default.
+      List<String> globStrings = new ArrayList<>();
+      for (Passed arg : node.getArguments()) {
+        if (arg.getIdentifier() != null
+            && arg.getIdentifier().getName().equals("exclude_directories")) {
+          if (arg.getValue() instanceof IntegerLiteral) {
+            excludeDirectories = ((IntegerLiteral) arg.getValue()).getValue() != 0;
+          }
+          continue;
+        }
+        if (arg.getValue() instanceof ListLiteral) {
+          ListLiteral list = (ListLiteral) arg.getValue();
+          for (Expression elem : list.getElements()) {
+            if (elem instanceof StringLiteral) {
+              globStrings.add(((StringLiteral) elem).getValue());
+            }
+          }
+        }
+      }
+      if (excludeDirectories) {
+        excludeDirectoriesPatterns.addAll(globStrings);
+      } else {
+        includeDirectoriesPatterns.addAll(globStrings);
+      }
+    }
+
+    List<String> getIncludeDirectoriesPatterns() {
+      return ImmutableList.copyOf(includeDirectoriesPatterns);
+    }
+
+    List<String> getExcludeDirectoriesPatterns() {
+      return ImmutableList.copyOf(excludeDirectoriesPatterns);
+    }
   }
 
   // Reports an error and returns false iff package identifier was illegal.
