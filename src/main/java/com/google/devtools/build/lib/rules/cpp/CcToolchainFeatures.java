@@ -516,6 +516,7 @@ public class CcToolchainFeatures implements Serializable {
   @VisibleForSerialization
   public static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
+    private final ImmutableSet<String> expandIfAllAvailable;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
     private final ImmutableList<FlagGroup> flagGroups;
 
@@ -526,6 +527,7 @@ public class CcToolchainFeatures implements Serializable {
     /** Constructs a FlagSet for the given set of actions. */
     private FlagSet(CToolchain.FlagSet flagSet, ImmutableSet<String> actions) throws EvalException {
       this.actions = actions;
+      this.expandIfAllAvailable = ImmutableSet.copyOf(flagSet.getExpandIfAllAvailableList());
       ImmutableSet.Builder<WithFeatureSet> featureSetBuilder = ImmutableSet.builder();
       for (CToolchain.WithFeatureSet withFeatureSet : flagSet.getWithFeatureList()) {
         featureSetBuilder.add(new WithFeatureSet(withFeatureSet));
@@ -541,9 +543,11 @@ public class CcToolchainFeatures implements Serializable {
     @AutoCodec.Instantiator
     public FlagSet(
         ImmutableSet<String> actions,
+        ImmutableSet<String> expandIfAllAvailable,
         ImmutableSet<WithFeatureSet> withFeatureSets,
         ImmutableList<FlagGroup> flagGroups) {
       this.actions = actions;
+      this.expandIfAllAvailable = expandIfAllAvailable;
       this.withFeatureSets = withFeatureSets;
       this.flagGroups = flagGroups;
     }
@@ -555,6 +559,11 @@ public class CcToolchainFeatures implements Serializable {
         Set<String> enabledFeatureNames,
         @Nullable ArtifactExpander expander,
         List<String> commandLine) {
+      for (String variable : expandIfAllAvailable) {
+        if (!variables.isAvailable(variable, expander)) {
+          return;
+        }
+      }
       if (!isWithFeaturesSatisfied(withFeatureSets, enabledFeatureNames)) {
         return;
       }
@@ -571,6 +580,7 @@ public class CcToolchainFeatures implements Serializable {
       if (object instanceof FlagSet) {
         FlagSet that = (FlagSet) object;
         return Iterables.elementsEqual(actions, that.actions)
+            && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
             && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets)
             && Iterables.elementsEqual(flagGroups, that.flagGroups);
       }
@@ -579,11 +589,15 @@ public class CcToolchainFeatures implements Serializable {
 
     @Override
     public int hashCode() {
-      return Objects.hash(actions, withFeatureSets, flagGroups);
+      return Objects.hash(actions, expandIfAllAvailable, withFeatureSets, flagGroups);
     }
 
     ImmutableSet<String> getActions() {
       return actions;
+    }
+
+    ImmutableSet<String> getExpandIfAllAvailable() {
+      return expandIfAllAvailable;
     }
 
     ImmutableSet<WithFeatureSet> getWithFeatureSets() {
