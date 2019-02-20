@@ -39,29 +39,39 @@ public class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
   private static final SkyKey EXTERNAL_PACKAGE_KEY =
       PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
   private final SkyQueryEnvironment env;
+  private final Uniquifier<SkyKey> resultUniquifier;
   private final QueryExpressionContext<Target> context;
   private final Function<SkyKey, Boolean> rdepFilter;
 
   public RBuildFilesVisitor(
       SkyQueryEnvironment env,
-      Uniquifier<SkyKey> uniquifier,
+      Uniquifier<SkyKey> visitUniquifier,
+      Uniquifier<SkyKey> resultUniquifier,
       QueryExpressionContext<Target> context,
       Callback<Target> callback,
       Function<SkyKey, Boolean> rdepFilter) {
-    super(uniquifier, callback, ParallelSkyQueryUtils.VISIT_BATCH_SIZE, PROCESS_RESULTS_BATCH_SIZE);
+    super(
+        visitUniquifier,
+        callback,
+        ParallelSkyQueryUtils.VISIT_BATCH_SIZE,
+        PROCESS_RESULTS_BATCH_SIZE);
     this.env = env;
+    this.resultUniquifier = resultUniquifier;
     this.context = context;
     this.rdepFilter = rdepFilter;
   }
 
   @Override
-  protected Visit getVisitResult(Iterable<SkyKey> values) throws InterruptedException {
+  protected Visit getVisitResult(Iterable<SkyKey> values)
+      throws QueryException, InterruptedException {
     Collection<Iterable<SkyKey>> reverseDeps = env.graph.getReverseDeps(values).values();
     Set<SkyKey> keysToUseForResult = CompactHashSet.create();
     Set<SkyKey> keysToVisitNext = CompactHashSet.create();
     for (SkyKey rdep : Iterables.concat(reverseDeps)) {
       if (rdep.functionName().equals(SkyFunctions.PACKAGE)) {
-        keysToUseForResult.add(rdep);
+        if (resultUniquifier.unique(rdep)) {
+          keysToUseForResult.add(rdep);
+        }
         // Every package has a dep on the external package, so we need to include those edges too.
         if (rdep.equals(EXTERNAL_PACKAGE_KEY)) {
           keysToVisitNext.add(rdep);
