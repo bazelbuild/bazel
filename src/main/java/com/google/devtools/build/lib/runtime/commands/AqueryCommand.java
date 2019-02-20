@@ -65,11 +65,6 @@ public final class AqueryCommand implements BlazeCommand {
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     // TODO(twerth): Reduce overlap with CqueryCommand.
-    env.getReporter()
-        .handle(
-            Event.warn(
-                "Note that the aquery command is still experimental "
-                    + "and its API will change in the future."));
     AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
     boolean queryCurrentSkyframeState = aqueryOptions.queryCurrentSkyframeState;
 
