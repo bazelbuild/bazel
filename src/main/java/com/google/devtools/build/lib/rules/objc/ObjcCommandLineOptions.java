@@ -310,6 +310,18 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean strictObjcModuleMaps;
 
+  @Option(
+      name = "incompatible_disable_objc_library_resources",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, objc_library resource attributes are disallowed.")
+  public boolean disableObjcLibraryResources;
+
   @Override
   public FragmentOptions getHost() {
     ObjcCommandLineOptions host = (ObjcCommandLineOptions) super.getHost();
