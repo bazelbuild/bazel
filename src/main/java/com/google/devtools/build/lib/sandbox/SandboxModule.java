@@ -238,7 +238,7 @@ public final class SandboxModule extends BlazeModule {
 
       // This makes the "sandboxed" strategy the default Spawn strategy, unless it is
       // overridden by a later BlazeModule.
-      builder.addStrategyByMnemonic("", "sandboxed");
+      builder.addStrategyByMnemonic("", ImmutableList.of("sandboxed"));
     }
   }
 
