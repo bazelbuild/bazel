@@ -106,7 +106,19 @@ class TarFileWriter(object):
   class Error(Exception):
     pass
 
-  def __init__(self, name, compression='', root_directory='./'):
+  def __init__(self,
+               name,
+               compression='',
+               root_directory='./',
+               default_mtime=MTIME):
+    """TarFileWriter wraps tarfile.open().
+
+    Args:
+      name: the tar file name.
+      compression: compression type: bzip2, bz2, gz, tgz, xz, lzma.
+      root_directory: virtual root to prepend to elements in the archive.
+      default_mtime: default mtime to use for elements in the archive.
+    """
     if compression in ['bzip2', 'bz2']:
       mode = 'w:bz2'
     else:
@@ -116,13 +128,14 @@ class TarFileWriter(object):
     self.xz = compression in ['xz', 'lzma']
     self.name = name
     self.root_directory = root_directory.rstrip('/')
+    self.default_mtime = default_mtime
 
     self.fileobj = None
     if self.gz:
       # The Tarfile class doesn't allow us to specify gzip's mtime attribute.
       # Instead, we manually re-implement gzopen from tarfile.py and set mtime.
       self.fileobj = gzip.GzipFile(
-          filename=name, mode='w', compresslevel=9, mtime=MTIME)
+          filename=name, mode='w', compresslevel=9, mtime=self.default_mtime)
     self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj)
     self.members = set([])
     self.directories = set([])
@@ -140,7 +153,7 @@ class TarFileWriter(object):
               gid=0,
               uname='',
               gname='',
-              mtime=MTIME,
+              mtime=None,
               mode=None,
               depth=100):
     """Recursively add a directory.
@@ -164,6 +177,8 @@ class TarFileWriter(object):
     if not (name == self.root_directory or name.startswith('/') or
             name.startswith(self.root_directory + '/')):
       name = os.path.join(self.root_directory, name)
+    if mtime is None:
+      mtime = self.default_mtime
     if os.path.isdir(path):
       # Remove trailing '/' (index -1 => last character)
       if name[-1] == '/':
@@ -223,7 +238,7 @@ class TarFileWriter(object):
                gid=0,
                uname='',
                gname='',
-               mtime=MTIME,
+               mtime=None,
                mode=None):
     """Add a file to the current tar.
 
@@ -252,6 +267,8 @@ class TarFileWriter(object):
       name = name.rstrip('/')
       if name in self.directories:
         return
+    if mtime is None:
+      mtime = self.default_mtime
 
     components = name.rsplit('/', 1)
     if len(components) > 1:
@@ -275,6 +292,8 @@ class TarFileWriter(object):
       tarinfo.mode = 0o644 if kind == tarfile.REGTYPE else 0o755
     else:
       tarinfo.mode = mode
+    if mtime < 0:
+      mtime = self.default_mtime
     if link:
       tarinfo.linkname = link
     if content:
@@ -354,7 +373,7 @@ class TarFileWriter(object):
       intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
       if name_filter is None or name_filter(tarinfo.name):
-        tarinfo.mtime = MTIME
+        tarinfo.mtime = self.default_mtime
         if rootuid is not None and tarinfo.uid == rootuid:
           tarinfo.uid = 0
           tarinfo.uname = 'root'
