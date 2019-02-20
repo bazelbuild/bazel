@@ -51,7 +51,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
 
     try {
-      externalFilesHelper.maybeHandleExternalFile(dirRootedPath, env);
+      externalFilesHelper.maybeHandleExternalFile(dirRootedPath, true, env);
       if (env.valuesMissing()) {
         return null;
       }

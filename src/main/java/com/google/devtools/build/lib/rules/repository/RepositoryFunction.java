@@ -508,7 +508,7 @@ public abstract class RepositoryFunction {
    * encourage nor optimize for since it is not common. So the set of external files is small.
    */
   public static void addExternalFilesDependencies(
-      RootedPath rootedPath, BlazeDirectories directories, Environment env)
+      RootedPath rootedPath, boolean isDirectory, BlazeDirectories directories, Environment env)
       throws IOException, InterruptedException {
     Path externalRepoDir = getExternalRepositoryDirectory(directories);
     PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
@@ -531,8 +531,8 @@ public abstract class RepositoryFunction {
         return;
       }
 
-      if (repositoryPath.segmentCount() > 1) {
-        if (rule.getRuleClass().equals(LocalRepositoryRule.NAME)
+      if (isDirectory || repositoryPath.segmentCount() > 1) {
+        if (!isDirectory && rule.getRuleClass().equals(LocalRepositoryRule.NAME)
             && repositoryPath.endsWith(BuildFileName.WORKSPACE.getFilenameFragment())) {
           // Ignore this, there is a dependency from LocalRepositoryFunction->WORKSPACE file already
           return;

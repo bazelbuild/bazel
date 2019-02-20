@@ -205,7 +205,8 @@ public class ExternalFilesHelper {
    * a {@link NonexistentImmutableExternalFileException} instead.
    */
   @ThreadSafe
-  void maybeHandleExternalFile(RootedPath rootedPath, SkyFunction.Environment env)
+  void maybeHandleExternalFile(
+      RootedPath rootedPath, boolean isDirectory, SkyFunction.Environment env)
       throws NonexistentImmutableExternalFileException, IOException, InterruptedException {
     FileType fileType = getAndNoteFileType(rootedPath);
     if (fileType == FileType.INTERNAL) {
@@ -225,6 +226,6 @@ public class ExternalFilesHelper {
     Preconditions.checkState(
         externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         externalFileAction);
-    RepositoryFunction.addExternalFilesDependencies(rootedPath, directories, env);
+    RepositoryFunction.addExternalFilesDependencies(rootedPath, isDirectory, directories, env);
   }
 }
