@@ -140,7 +140,14 @@ public class Artifact
         } else if (b == null) {
           return 1;
         } else {
-          return a.rootRelativePath.compareTo(b.rootRelativePath);
+          int result = a.rootRelativePath.compareTo(b.rootRelativePath);
+          if (result == 0) {
+            // Use the full exec path as a fallback if the root-relative paths are the same, thus
+            // avoiding problems when ImmutableSortedMaps are switched from EXEC_PATH_COMPARATOR.
+            return a.execPath.compareTo(b.execPath);
+          } else {
+            return result;
+          }
         }
       };
 
