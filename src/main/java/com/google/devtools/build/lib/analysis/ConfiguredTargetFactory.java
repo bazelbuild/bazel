@@ -307,6 +307,11 @@ public final class ConfiguredTargetFactory {
             .setToolchainContext(toolchainContext)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .build();
+
+    List<NestedSet<AnalysisFailure>> analysisFailures = depAnalysisFailures(ruleContext);
+    if (!analysisFailures.isEmpty()) {
+      return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
+    }
     if (ruleContext.hasErrors()) {
       return erroredConfiguredTarget(ruleContext);
     }
@@ -355,6 +360,34 @@ public final class ConfiguredTargetFactory {
       // inspect ruleContext for multiple errors and output thorough messaging on each.
       return erroredConfiguredTarget(ruleContext);
     }
+  }
+
+  private List<NestedSet<AnalysisFailure>> depAnalysisFailures(RuleContext ruleContext) {
+    if (ruleContext.getConfiguration().allowAnalysisFailures()) {
+      ImmutableList.Builder<NestedSet<AnalysisFailure>> analysisFailures = ImmutableList.builder();
+      Iterable<? extends TransitiveInfoCollection> infoCollections =
+          ruleContext.getConfiguredTargetMap().values();
+      for (TransitiveInfoCollection infoCollection : infoCollections) {
+        AnalysisFailureInfo failureInfo =
+            infoCollection.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR);
+        if (failureInfo != null) {
+          analysisFailures.add(failureInfo.getCauses());
+        }
+      }
+      return analysisFailures.build();
+    }
+    // Analysis failures are only created and propagated if --allow_analysis_failures is
+    // enabled, otherwise these result in actual rule errors which are not caught.
+    return ImmutableList.of();
+  }
+
+  private ConfiguredTarget erroredConfiguredTargetWithFailures(
+      RuleContext ruleContext, List<NestedSet<AnalysisFailure>> analysisFailures)
+      throws ActionConflictException {
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+    builder.addNativeDeclaredProvider(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
+    builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+    return builder.build();
   }
 
   /**

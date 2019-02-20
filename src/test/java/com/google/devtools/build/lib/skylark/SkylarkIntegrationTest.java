@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -2060,6 +2061,65 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     AnalysisFailure failure = info.getCauses().toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
     assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
+  }
+
+  @Test
+  public void testTransitiveAnalysisFailureInfo() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "   fail('This Is My Failure Message')",
+        "   return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl)",
+        "",
+        "def depending_rule_impl(ctx):",
+        "   return []",
+        "",
+        "depending_rule = rule(implementation = depending_rule_impl,",
+        "     attrs = {'deps' : attr.label_list()})");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule', 'depending_rule')",
+        "",
+        "custom_rule(name = 'one')",
+        "custom_rule(name = 'two')",
+        "depending_rule(name = 'failures_are_direct_deps',",
+        "    deps = [':one', ':two'])",
+        "depending_rule(name = 'failures_are_indirect_deps',",
+        "    deps = [':failures_are_direct_deps'])");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:failures_are_indirect_deps");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
+
+    Correspondence<AnalysisFailure, AnalysisFailure> correspondence =
+        new Correspondence<AnalysisFailure, AnalysisFailure>() {
+          @Override
+          public boolean compare(AnalysisFailure actual, AnalysisFailure expected) {
+            return actual.getLabel().equals(expected.getLabel())
+                && actual.getMessage().contains(expected.getMessage());
+          }
+
+          @Override
+          public String toString() {
+            return "is equivalent to";
+          }
+        };
+
+    AnalysisFailure expectedOne =
+        new AnalysisFailure(
+            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Failure Message");
+    AnalysisFailure expectedTwo =
+        new AnalysisFailure(
+            Label.parseAbsoluteUnchecked("//test:two"), "This Is My Failure Message");
+
+    assertThat(info.getCauses().toList())
+        .comparingElementsUsing(correspondence)
+        .containsExactly(expectedOne, expectedTwo);
   }
 
   @Test
