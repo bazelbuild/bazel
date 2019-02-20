@@ -730,13 +730,13 @@ public final class UnixGlob {
       protected void queueGlob(Path base, boolean baseIsDir, int patternIdx) {
         if (visitedGlobSubTasks.add(new GlobTask(base, patternIdx))) {
           // This is a unique glob task. For example of how duplicates can arise, consider:
-          //   glob(['**/foo.txt'])
+          //   glob(['**/a/**/foo.txt'])
           // with the only file being
-          //   a/foo.txt
+          //   a/a/foo.txt
           //
-          // there are two ways to reach a/foo.txt: one by recursively globbing 'foo.txt' in the
-          // subdirectory 'a', and another other by recursively globbing '**/foo.txt' in the
-          // subdirectory 'a'.
+          // there are multiple ways to reach a/a/foo.txt: one route starts by recursively globbing
+          // 'a/**/foo.txt' in the base directory of the package, and another route starts by
+          // recursively globbing '**/a/**/foo.txt' in subdirectory 'a'.
           super.queueGlob(base, baseIsDir, patternIdx);
         }
       }
