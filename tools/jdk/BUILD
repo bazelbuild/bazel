@@ -275,6 +275,12 @@ default_remote_java_toolchain(
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_remote_java_toolchain(
+    name = "toolchain",
+    source_version = "8",
+    target_version = "8",
+)
+
+default_remote_java_toolchain(
     name = "remote_toolchain",
     source_version = "8",
     target_version = "8",
