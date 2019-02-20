@@ -47,16 +47,6 @@ public class EvalUtilsTest extends EvaluationTestCase {
     return SkylarkDict.of(env, 1, 1, 2, 2);
   }
 
-  @Test
-  public void testEmptyStringToIterable() throws Exception {
-    assertThat(EvalUtils.toIterable("", null, null)).isEmpty();
-  }
-
-  @Test
-  public void testStringToIterable() throws Exception {
-    assertThat(EvalUtils.toIterable("abc", null, null)).hasSize(3);
-  }
-
   /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "MockClassA")
   public static class MockClassA {

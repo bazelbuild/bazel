@@ -354,11 +354,7 @@ public final class EvalUtils {
 
   public static Iterable<?> toIterable(Object o, Location loc, @Nullable Environment env)
       throws EvalException {
-    if (o instanceof String) {
-      // This is not as efficient as special casing String in for and dict and list comprehension
-      // statements. However this is a more unified way.
-      return split((String) o, loc, env);
-    } else if (o instanceof SkylarkNestedSet) {
+    if (o instanceof SkylarkNestedSet) {
       return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
     } else if (o instanceof Iterable) {
       return (Iterable<?>) o;
@@ -408,22 +404,6 @@ public final class EvalUtils {
     if (object instanceof SkylarkMutable) {
       ((SkylarkMutable) object).unlock(loc);
     }
-  }
-
-  private static ImmutableList<String> split(String value, Location loc, @Nullable Environment env)
-      throws EvalException {
-    if (env != null && env.getSemantics().incompatibleStringIsNotIterable()) {
-      throw new EvalException(
-          loc,
-          "type 'string' is not iterable. You may still use `len` and string indexing. Use "
-              + "--incompatible_string_is_not_iterable=false to temporarily disable this check.");
-    }
-
-    ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(value.length());
-    for (char c : value.toCharArray()) {
-      builder.add(String.valueOf(c));
-    }
-    return builder.build();
   }
 
   // The following functions for indexing and slicing match the behavior of Python.
