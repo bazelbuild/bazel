@@ -44,27 +44,37 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Tests that you have to opt-in to list based strategy selection via an incompatible flag.
+function test_incompatible_flag_required() {
+  bazel build --spawn_strategy=worker,local --debug_print_action_contexts &> $TEST_log || true
+  expect_log "incompatible_list_based_execution_strategy_selection was not enabled"
+}
+
 # Tests that you can set the spawn strategy flags to a list of strategies.
 function test_multiple_strategies() {
-  bazel build --spawn_strategy=worker,local --debug_print_action_contexts &> $TEST_log || fail
+  bazel build --incompatible_list_based_execution_strategy_selection \
+      --spawn_strategy=worker,local --debug_print_action_contexts &> $TEST_log || fail
   # Can't test for exact strategy names here, because they differ between platforms and products.
   expect_log "\"\" = \[.*, .*\]"
 }
 
 # Tests that Bazel catches an invalid strategy list that has an empty string as an element.
 function test_empty_strategy_in_list_is_forbidden() {
-  bazel build --spawn_strategy=worker,,local --debug_print_action_contexts &> $TEST_log || true
+  bazel build --incompatible_list_based_execution_strategy_selection \
+      --spawn_strategy=worker,,local --debug_print_action_contexts &> $TEST_log || true
   expect_log "--spawn_strategy=worker,,local: Empty values are not allowed as part of this comma-separated list of options"
 }
 
 # Test that when you set a strategy to the empty string, it gets removed from the map of strategies
 # and thus results in the default strategy being used (the one set via --spawn_strategy=).
 function test_empty_strategy_means_default() {
-  bazel build --spawn_strategy=worker,local --strategy=FooBar=local \
+  bazel build --incompatible_list_based_execution_strategy_selection \
+      --spawn_strategy=worker,local --strategy=FooBar=local \
       --debug_print_action_contexts &> $TEST_log || fail
   expect_log "\"FooBar\" = "
 
-  bazel build --spawn_strategy=worker,local --strategy=FooBar=local --strategy=FooBar= \
+  bazel build --incompatible_list_based_execution_strategy_selection \
+      --spawn_strategy=worker,local --strategy=FooBar=local --strategy=FooBar= \
       --debug_print_action_contexts &> $TEST_log || fail
   expect_not_log "\"FooBar\" = "
 }

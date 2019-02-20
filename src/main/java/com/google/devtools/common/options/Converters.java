@@ -268,6 +268,12 @@ public final class Converters {
       List<String> result =
           input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
       if (!allowEmptyValues && result.contains("")) {
+        // If the list contains exactly the empty string, it means an empty value was passed and we
+        // should instead return an empty list.
+        if (result.size() == 1) {
+          return ImmutableList.of();
+        }
+
         throw new OptionsParsingException(
             "Empty values are not allowed as part of this " + getTypeDescription());
       }

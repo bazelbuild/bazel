@@ -35,4 +35,7 @@ public interface SpawnActionContext extends ActionContext {
     SpawnResult result = Iterables.getOnlyElement(exec(spawn, actionExecutionContext));
     return FutureSpawn.immediate(result);
   }
+
+  /** Returns whether this SpawnActionContext supports executing the given Spawn. */
+  boolean canExec(Spawn spawn);
 }
