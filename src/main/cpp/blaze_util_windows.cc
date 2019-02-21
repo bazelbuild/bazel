@@ -648,6 +648,7 @@ int ExecuteDaemon(const string& exe,
                   const std::map<string, EnvVarValue>& env,
                   const string& daemon_output,
                   const bool daemon_out_append,
+                  const string& binaries_dir,
                   const string& server_dir,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
