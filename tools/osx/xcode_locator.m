@@ -176,14 +176,6 @@ static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
     NSLog(@"Version strings for %@: short=%@, expanded=%@",
           url, version, expandedVersion);
 
-    NSURL *versionPlistUrl = [url URLByAppendingPathComponent:@"Contents/version.plist"];
-    NSDictionary *versionPlistContents = [[NSDictionary alloc] initWithContentsOfURL:versionPlistUrl
-                                                                               error:nil];
-    NSString *productVersion = [versionPlistContents objectForKey:@"ProductBuildVersion"];
-    if (productVersion) {
-      expandedVersion = [expandedVersion stringByAppendingFormat:@".%@", productVersion];
-    }
-
     NSURL *developerDir =
         [url URLByAppendingPathComponent:@"Contents/Developer"];
     XcodeVersionEntry *entry =
@@ -267,6 +259,12 @@ int main(int argc, const char * argv[]) {
         versionArg = @"";
       } else {
         versionArg = firstArg;
+        NSCharacterSet *versSet =
+            [NSCharacterSet characterSetWithCharactersInString:@"0123456789."];
+        if ([versionArg rangeOfCharacterFromSet:versSet.invertedSet].length
+            != 0) {
+          versionArg = nil;
+        }
       }
     }
     if (versionArg == nil) {
