@@ -54,7 +54,7 @@ title: Aquery (Action Graph Query)
 $ bazel aquery 'deps(//some:label)'
 action 'Writing file some_file_name'
   Mnemonic: ...
-  Owner: ...
+  Target: ...
   Configuration: ...
   ActionKey: ...
   Inputs: [...]
@@ -272,12 +272,17 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
   command lines being run did not change. <code>aquery_differ</code> is the tool for that.
 </p>
 
+<p>
+  The tool is available in the [bazelbuild/bazel](https://github.com/bazelbuild/bazel/tree/master/tools/aquery_differ) repository.
+  To use it, clone the repository to your local machine. An example usage:
+</p>
+
 <pre>
-  bazel run //tools/aquery_differ -- \
+  $ bazel run //tools/aquery_differ -- \
   --before=/path/to/before.proto \
-  --after=/path/to/after.proto
-  --input_type=proto
-  --attrs=cmdline
+  --after=/path/to/after.proto \
+  --input_type=proto \
+  --attrs=cmdline \
   --attrs=inputs
 </pre>
 
@@ -382,6 +387,5 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
 <h2 id='updates'>Updates</h2>
 
 <p>
-  Aquery is a work in progress, and its API might change in the future.
   Please contact twerth@google.com and leba@google.com for any issue/feature request.
 </p>
