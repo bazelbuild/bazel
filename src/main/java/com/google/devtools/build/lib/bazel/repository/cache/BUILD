@@ -15,3 +15,12 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+java_library(
+    name = "events",
+    srcs = ["RepositoryCacheHitEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//third_party:guava",
+    ],
+)

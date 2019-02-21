@@ -47,6 +47,7 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.coverage.BazelCoverageReportModule.class,
           com.google.devtools.build.lib.skylarkdebug.module.SkylarkDebuggerModule.class,
           com.google.devtools.build.lib.bazel.repository.RepositoryResolvedModule.class,
+          com.google.devtools.build.lib.bazel.repository.CacheHitReportingModule.class,
           com.google.devtools.build.lib.bazel.SpawnLogModule.class,
           com.google.devtools.build.lib.ssd.SsdModule.class,
           com.google.devtools.build.lib.worker.WorkerModule.class,
