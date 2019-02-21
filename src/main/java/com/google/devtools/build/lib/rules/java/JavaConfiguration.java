@@ -157,6 +157,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImportDepsCheckingLevel importDepsCheckingLevel;
   private final boolean allowRuntimeDepsOnNeverLink;
   private final JavaClasspathMode javaClasspath;
+  private final boolean inmemoryJdepsFiles;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
@@ -190,6 +191,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.generateJavaDeps =
         javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
     this.javaClasspath = javaOptions.javaClasspath;
+    this.inmemoryJdepsFiles = javaOptions.inmemoryJdepsFiles;
     this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.jvmOpts);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
@@ -283,6 +285,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public JavaClasspathMode getReduceJavaClasspath() {
     return javaClasspath;
+  }
+
+  public boolean inmemoryJdepsFiles() {
+    return inmemoryJdepsFiles;
   }
 
   public ImmutableList<String> getDefaultJvmFlags() {
