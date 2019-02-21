@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
+#include <spawn.h>
 #include <string.h>  // strerror
 #include <sys/mount.h>
 #include <sys/param.h>
@@ -152,6 +153,11 @@ string GetSystemJavabase() {
   }
 
   return "/usr/local/openjdk8";
+}
+
+int ConfigureDaemonProcess(posix_spawnattr_t* attrp) {
+  // No interesting platform-specific details to configure on this platform.
+  return 0;
 }
 
 void WriteSystemSpecificProcessIdentifier(
