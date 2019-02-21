@@ -27,12 +27,15 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
+import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
+import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
-import com.google.devtools.build.lib.runtime.BuildEventTransportFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
@@ -45,6 +48,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -286,23 +290,58 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       CommandEnvironment cmdEnv,
       Supplier<BuildEventArtifactUploader> uploaderSupplier,
       CountingArtifactGroupNamer artifactGroupNamer) {
-    // TODO(lpino): Rewrite the BuildEventTransportFactory using the Builder pattern too.
-    ImmutableSet<BuildEventTransport> bepFileTransports =
-        BuildEventTransportFactory.createFromOptions(
-            cmdEnv,
-            cmdEnv.getBlazeModuleEnvironment()::exit,
-            bepOptions,
-            uploaderSupplier,
-            artifactGroupNamer);
+    ImmutableSet.Builder<BuildEventTransport> bepTransportsBuilder = new ImmutableSet.Builder<>();
+    Consumer<AbruptExitException> abruptExitFunction = cmdEnv.getBlazeModuleEnvironment()::exit;
+
+    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
+      BuildEventArtifactUploader localFileUploader =
+          besStreamOptions.buildEventTextFilePathConversion
+              ? uploaderSupplier.get()
+              : new LocalFilesArtifactUploader();
+      bepTransportsBuilder.add(
+          new TextFormatFileTransport(
+              besStreamOptions.buildEventTextFile,
+              bepOptions,
+              localFileUploader,
+              abruptExitFunction,
+              artifactGroupNamer));
+    }
+
+    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventBinaryFile)) {
+      BuildEventArtifactUploader localFileUploader =
+          besStreamOptions.buildEventBinaryFilePathConversion
+              ? uploaderSupplier.get()
+              : new LocalFilesArtifactUploader();
+      bepTransportsBuilder.add(
+          new BinaryFormatFileTransport(
+              besStreamOptions.buildEventBinaryFile,
+              bepOptions,
+              localFileUploader,
+              abruptExitFunction,
+              artifactGroupNamer));
+    }
+
+    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventJsonFile)) {
+      BuildEventArtifactUploader localFileUploader =
+          besStreamOptions.buildEventJsonFilePathConversion
+              ? uploaderSupplier.get()
+              : new LocalFilesArtifactUploader();
+      bepTransportsBuilder.add(
+          new JsonFormatFileTransport(
+              besStreamOptions.buildEventJsonFile,
+              bepOptions,
+              localFileUploader,
+              abruptExitFunction,
+              artifactGroupNamer));
+    }
+
     BuildEventServiceTransport besTransport =
         createBesTransport(cmdEnv, uploaderSupplier, artifactGroupNamer);
-
-    ImmutableSet.Builder<BuildEventTransport> transportsBuilder =
-        ImmutableSet.<BuildEventTransport>builder().addAll(bepFileTransports);
     if (besTransport != null) {
-      transportsBuilder.add(besTransport);
+      bepTransportsBuilder.add(besTransport);
     }
-    return transportsBuilder.build();
+
+    return bepTransportsBuilder.build();
   }
 
   protected abstract Class<BESOptionsT> optionsClass();
@@ -329,3 +368,4 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     return bepTransports;
   }
 }
+
