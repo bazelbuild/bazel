@@ -107,9 +107,12 @@ public final class Identifier extends Expression {
     if (result == null) {
       // Since Scope was set, we know that the variable is defined in the scope.
       // However, the assignment was not yet executed.
-      throw new EvalException(
-          getLocation(),
-          scope.getQualifier() + " variable '" + name + "' is referenced before assignment.");
+      EvalException e = getSpecialException();
+      throw e != null
+          ? e
+          : new EvalException(
+              getLocation(),
+              scope.getQualifier() + " variable '" + name + "' is referenced before assignment.");
     }
 
     return result;
@@ -125,9 +128,33 @@ public final class Identifier extends Expression {
     return Kind.IDENTIFIER;
   }
 
+  /** Exception to provide a better error message for using PACKAGE_NAME or REPOSITORY_NAME. */
+  private EvalException getSpecialException() {
+    if (name.equals("PACKAGE_NAME")) {
+      return new EvalException(
+          getLocation(),
+          "The value 'PACKAGE_NAME' has been removed in favor of 'package_name()', "
+              + "please use the latter ("
+              + "https://docs.bazel.build/versions/master/skylark/lib/native.html#package_name). ");
+    }
+    if (name.equals("REPOSITORY_NAME")) {
+      return new EvalException(
+          getLocation(),
+          "The value 'REPOSITORY_NAME' has been removed in favor of 'repository_name()', "
+              + "please use the latter ("
+              + "https://docs.bazel.build/versions/master/skylark/lib/native.html#repository_name).");
+    }
+    return null;
+  }
+
   EvalException createInvalidIdentifierException(Set<String> symbols) {
     if (name.equals("$error$")) {
       return new EvalException(getLocation(), "contains syntax error(s)", true);
+    }
+
+    EvalException e = getSpecialException();
+    if (e != null) {
+      return e;
     }
 
     String suggestion = SpellChecker.didYouMean(name, symbols);
