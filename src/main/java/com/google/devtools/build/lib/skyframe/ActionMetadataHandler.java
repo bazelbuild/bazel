@@ -510,6 +510,16 @@ public final class ActionMetadataHandler implements MetadataHandler {
     store.clear();
   }
 
+  @Override
+  public void resetOutputs(Iterable<Artifact> outputs) {
+    Preconditions.checkState(
+        executionMode.get(), "resetOutputs() should only be called from within a running action.");
+    for (Artifact output : outputs) {
+      omittedOutputs.remove(output);
+      store.remove(output);
+    }
+  }
+
   OutputStore getOutputStore() {
     return store;
   }
