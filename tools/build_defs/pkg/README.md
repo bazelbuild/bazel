@@ -174,6 +174,25 @@ Creates a tar file from a list of inputs.
       </td>
     </tr>
     <tr>
+      <td><code>mtime</code></td>
+      <td>
+        <code>int, seconds since Jan 1, 1970, default to -1 (ignored)</code>
+        <p>
+          Set the mod time of files added by the <code>files</code> attribute.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>portale_mtime</code></td>
+      <td>
+        <code>bool, default True</code>
+        <p>
+          Set the mod time of files added by the <code>files</code> attribute
+          to a 2000-01-01.
+        </p>
+      </td>
+    </tr>
+    <tr>
       <td><code>modes</code></td>
       <td>
         <code>Dictionary, default to '{}'</code>

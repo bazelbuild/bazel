@@ -34,6 +34,11 @@ gflags.DEFINE_string('manifest', None,
 gflags.DEFINE_string('mode', None,
                      'Force the mode on the added files (in octal).')
 
+gflags.DEFINE_string(
+    'mtime', None, 'Set mtime on tar file entries. May be an integer or the'
+    ' value "portable", to get the value 2000-01-01, which is'
+    ' is usable with non *nix OSes')
+
 gflags.DEFINE_multistring('empty_file', [], 'An empty file to add to the layer')
 
 gflags.DEFINE_multistring('empty_dir', [], 'An empty dir to add to the layer')
@@ -86,20 +91,25 @@ FLAGS = gflags.FLAGS
 
 
 class TarFile(object):
-  """A class to generates a Docker layer."""
+  """A class to generates a TAR file."""
 
   class DebError(Exception):
     pass
 
-  def __init__(self, output, directory, compression, root_directory):
+  def __init__(self, output, directory, compression, root_directory,
+               default_mtime):
     self.directory = directory
     self.output = output
     self.compression = compression
     self.root_directory = root_directory
+    self.default_mtime = default_mtime
 
   def __enter__(self):
-    self.tarfile = archive.TarFileWriter(self.output, self.compression,
-                                         self.root_directory)
+    self.tarfile = archive.TarFileWriter(
+        self.output,
+        self.compression,
+        self.root_directory,
+        default_mtime=self.default_mtime)
     return self
 
   def __exit__(self, t, v, traceback):
@@ -326,7 +336,7 @@ def main(unused_argv):
 
   # Add objects to the tar file
   with TarFile(FLAGS.output, FLAGS.directory, FLAGS.compression,
-               FLAGS.root_directory) as output:
+               FLAGS.root_directory, FLAGS.mtime) as output:
 
     def file_attributes(filename):
       if filename.startswith('/'):
