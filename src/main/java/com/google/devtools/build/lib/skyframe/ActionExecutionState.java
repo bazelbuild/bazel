@@ -66,17 +66,13 @@ final class ActionExecutionState {
     this.state = Preconditions.checkNotNull(state);
   }
 
-  public boolean isOwner(ActionLookupData actionLookupData) {
-    return this.actionLookupData.equals(actionLookupData);
-  }
-
   public ActionExecutionValue getResultOrDependOnFuture(
       SkyFunction.Environment env,
       ActionLookupData actionLookupData,
       Action action,
       ActionCompletedReceiver actionCompletedReceiver)
       throws ActionExecutionException, InterruptedException {
-    if (isOwner(actionLookupData)) {
+    if (this.actionLookupData.equals(actionLookupData)) {
       // This continuation is owned by the Skyframe node executed by the current thread, so we use
       // it to run the state machine.
       return runStateMachine(env);

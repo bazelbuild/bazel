@@ -144,6 +144,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
     return value;
   }
 
+  public ArtifactPathResolver getArtifactPathResolver() {
+    return artifactPathResolver;
+  }
+
   @Nullable
   private FileArtifactValue getInputFileArtifactValue(Artifact input) {
     if (isKnownOutput(input)) {
