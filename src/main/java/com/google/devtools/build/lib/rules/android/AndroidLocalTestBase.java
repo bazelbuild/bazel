@@ -270,8 +270,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         mainClass,
         originalMainClass,
         filesToBuildBuilder,
-        javaExecutable,
-        /* createCoverageMetadataJar= */ true);
+        javaExecutable);
 
     Artifact oneVersionOutputArtifact = null;
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
