@@ -271,7 +271,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
           eventHandler.post(new RunningActionEvent(action, name));
           break;
         case SCHEDULING:
-          eventHandler.post(new SchedulingActionEvent(action));
+          eventHandler.post(new SchedulingActionEvent(action, name));
           break;
         default:
           break;

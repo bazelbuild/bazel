@@ -104,7 +104,7 @@ public class ActionExecutionStatusReporterTest {
     setPreparing(mockAction("action1"));
     clock.advanceMillis(1000);
     verifyWarningOutput("Still waiting for unfinished jobs");
-    setScheduling(mockAction("action2"));
+    setScheduling(mockAction("action2"), "remote");
     clock.advanceMillis(1000);
     setRunning(mockAction("action3"), "remote");
     clock.advanceMillis(1000);
@@ -130,7 +130,7 @@ public class ActionExecutionStatusReporterTest {
     verifyOutput("Still waiting for 1 job to complete:", "Preparing:", "action1, 1 s");
     clock.advanceMillis(5000);
 
-    setScheduling(action);
+    setScheduling(action, "remote");
     clock.advanceMillis(1200);
     // Only started *scheduling* 1200 ms ago, not 6200 ms ago.
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "action1, 1 s");
@@ -149,7 +149,7 @@ public class ActionExecutionStatusReporterTest {
     setPreparing(action);
     clock.advanceMillis(1000);
     verifyOutput("Still waiting for 1 job to complete:", "Preparing:", "action1, 1 s");
-    setScheduling(action);
+    setScheduling(action, "remote");
     clock.advanceMillis(1000);
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "action1, 1 s");
     setRunning(action, "remote");
@@ -172,7 +172,7 @@ public class ActionExecutionStatusReporterTest {
         mockAction("local1"), mockAction("local2"), mockAction("local3"));
 
     for (Action a : actions) {
-      setScheduling(a);
+      setScheduling(a, "remote");
       clock.advanceMillis(1000);
     }
 
@@ -204,7 +204,7 @@ public class ActionExecutionStatusReporterTest {
     for (int i = 1; i <= 100; i++) {
       Action a = mockAction("a" + i);
       actions.add(a);
-      setScheduling(a);
+      setScheduling(a, "remote");
       clock.advanceMillis(1000);
     }
     verifyOutput("Still waiting for 100 jobs to complete:", "Scheduling:",
@@ -224,13 +224,13 @@ public class ActionExecutionStatusReporterTest {
   @Test
   public void testOrdering() throws Exception {
     verifyNoOutput();
-    setScheduling(mockAction("a1"));
+    setScheduling(mockAction("a1"), "remote");
     clock.advanceMillis(1000);
     setPreparing(mockAction("b1"));
     clock.advanceMillis(1000);
     setPreparing(mockAction("b2"));
     clock.advanceMillis(1000);
-    setScheduling(mockAction("a2"));
+    setScheduling(mockAction("a2"), "remote");
     clock.advanceMillis(1000);
     verifyOutput("Still waiting for 4 jobs to complete:",
         "Preparing:", "b1, 3 s", "b2, 2 s",
@@ -240,7 +240,7 @@ public class ActionExecutionStatusReporterTest {
   @Test
   public void testNoProgressMessage() throws Exception {
     verifyNoOutput();
-    setScheduling(mockAction(null));
+    setScheduling(mockAction(null), "remote");
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "default message, 0 s");
   }
 
@@ -261,8 +261,8 @@ public class ActionExecutionStatusReporterTest {
     assertThat(ActionExecutionStatusReporter.getWaitTime(30, 30)).isEqualTo(30);
   }
 
-  private void setScheduling(ActionExecutionMetadata action) {
-    eventBus.post(new SchedulingActionEvent(action));
+  private void setScheduling(ActionExecutionMetadata action, String strategy) {
+    eventBus.post(new SchedulingActionEvent(action, strategy));
   }
 
   private void setPreparing(Action action) {
