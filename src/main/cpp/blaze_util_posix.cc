@@ -206,28 +206,50 @@ string GetHomeDir() { return GetEnv("HOME"); }
 
 string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 
-// NB: execve() requires pointers to non-const char arrays but .c_str() returns
-// a pointer to const char arrays. We could do the const_cast in this function,
-// but it's better to violate const correctness as late as possible. No one
-// cares about what happens just before execve() because we'll soon become a new
-// binary anyway.
-const char** ConvertStringVectorToArgv(const vector<string>& args) {
-  const char** argv = new const char*[args.size() + 1];
-  for (size_t i = 0; i < args.size(); i++) {
-    argv[i] = args[i].c_str();
+// Converter of C++ data structures to a C-style array of strings.
+//
+// The primary consumer of this class is the execv family of functions
+// (including posix_spawn) which require mutable arrays as their inputs even
+// if they do not modify them.
+class CharPP {
+ public:
+  // Constructs a new CharPP from a list of arguments.
+  explicit CharPP(const vector<string>& args) {
+    charpp_ = static_cast<char**>(malloc(sizeof(char*) * (args.size() + 1)));
+    size_t i = 0;
+    for (; i < args.size(); i++) {
+      charpp_[i] = strdup(args[i].c_str());
+    }
+    charpp_[i] = NULL;
   }
 
-  argv[args.size()] = NULL;
+  // Deletes all memory held by the CharPP.
+  ~CharPP() {
+    for (char** ptr = charpp_; *ptr != NULL; ptr++) {
+      free(*ptr);
+    }
+    free(charpp_);
+  }
 
-  return argv;
-}
+  // Obtains the raw pointer to the array of strings.
+  char** get() {
+    return charpp_;
+  }
+
+  // Prevent copies as we manually manage memory.
+  CharPP(const CharPP&) = delete;
+  CharPP& operator=(const CharPP&) = delete;
+
+ private:
+  char** charpp_;
+};
 
 void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   BAZEL_LOG(INFO) << "Invoking binary " << exe << " in "
                   << blaze_util::GetCwd();
 
-  const char** argv = ConvertStringVectorToArgv(args_vector);
-  execv(exe.c_str(), const_cast<char**>(argv));
+  CharPP argv(args_vector);
+  execv(exe.c_str(), argv.get());
 }
 
 const char kListSeparator = ':';
@@ -398,7 +420,7 @@ int ExecuteDaemon(const string& exe,
   }
 
   const char* daemon_output_chars = daemon_output.c_str();
-  const char** argv = ConvertStringVectorToArgv(args_vector);
+  CharPP argv(args_vector);
   const char* exe_chars = exe.c_str();
 
   int child = fork();
@@ -449,7 +471,7 @@ int ExecuteDaemon(const string& exe,
           fds[1], &dummy, 1,
           "cannot get PID file write acknowledgement from client");
 
-      execv(exe_chars, const_cast<char**>(argv));
+      execv(exe_chars, argv.get());
       DieAfterFork("Cannot execute daemon");
       return -1;
     }
