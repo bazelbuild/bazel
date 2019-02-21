@@ -69,6 +69,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     String bazelToolWorkspace = config.getPath("/bazel_tools_workspace").getPathString();
     String localConfigPlatformWorkspace =
         config.getPath("/local_config_platform_workspace").getPathString();
+
     return new ArrayList<>(
         ImmutableList.of(
             "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
@@ -138,6 +139,18 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  singlejar = ['SingleJar_deploy.jar'],",
         "  genclass = ['GenClass_deploy.jar'],",
         "  ijar = ['ijar'],",
+        ")",
+        "java_import(",
+        "  name = 'remote_jacoco_coverage_runner',",
+        "  jars = ['JacocoCoverage_jarjar_deploy.jar'],",
+        ")",
+        "java_import(",
+        "  name = 'TestRunner',",
+        "  jars = ['TestRunner.jar'],",
+        ")",
+        "java_import(",
+        "  name = 'ExperimentalTestRunner',",
+        "  jars = ['ExperimentalTestRunner.jar'],",
         ")",
         "java_runtime(name = 'jdk', srcs = [])",
         "java_runtime(name = 'host_jdk', srcs = [])",

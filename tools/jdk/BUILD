@@ -1,10 +1,8 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
     "default_remote_java_toolchain",
     "java_runtime_files",
     "JDK8_JVM_OPTS",
-    "JDK8_JVM_OPTS_REMOTE_JAVAC",
     "bootclasspath",
 )
 load(
@@ -153,18 +151,8 @@ filegroup(
 exports_files(["BUILD.pkg"])
 
 filegroup(
-    name = "genclass",
-    srcs = ["//tools/jdk:GenClass_deploy.jar"],
-)
-
-filegroup(
     name = "remote-genclass",
     srcs = ["@remote_java_tools//:GenClass"],
-)
-
-filegroup(
-    name = "turbine",
-    srcs = ["//tools/jdk:turbine_deploy.jar"],
 )
 
 filegroup(
@@ -173,18 +161,8 @@ filegroup(
 )
 
 filegroup(
-    name = "turbine_direct",
-    srcs = glob(["turbine_direct*"]),
-)
-
-filegroup(
     name = "remote-turbine_direct",
     srcs = ["@remote_java_tools//:TurbineDirect"],
-)
-
-filegroup(
-    name = "javabuilder",
-    srcs = ["//tools/jdk:JavaBuilder_deploy.jar"],
 )
 
 filegroup(
@@ -215,6 +193,21 @@ filegroup(
 filegroup(
     name = "remote-java_compiler_jar",
     srcs = ["@remote_java_tools//:java_compiler_jar"],
+)
+
+java_import(
+    name = "remote_jacoco_coverage_runner",
+    jars = ["@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar"],
+)
+
+java_import(
+    name = "TestRunner",
+    jars = ["@remote_java_tools//:java_tools/Runner_deploy.jar"],
+)
+
+java_import(
+    name = "ExperimentalTestRunner",
+    jars = ["@remote_java_tools//:java_tools/ExperimentalRunner_deploy.jar"],
 )
 
 BOOTCLASS_JARS = [
@@ -275,7 +268,7 @@ bootclasspath(
     target_javabase = "current_java_runtime",
 )
 
-default_java_toolchain(
+default_remote_java_toolchain(
     name = "toolchain_hostjdk8",
     jvm_opts = JDK8_JVM_OPTS,
     source_version = "8",
@@ -284,14 +277,14 @@ default_java_toolchain(
 
 default_remote_java_toolchain(
     name = "remote_toolchain_hostjdk8",
-    jvm_opts = JDK8_JVM_OPTS_REMOTE_JAVAC,
+    jvm_opts = JDK8_JVM_OPTS,
     source_version = "8",
     target_version = "8",
 )
 
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
-default_java_toolchain(
+default_remote_java_toolchain(
     name = "toolchain",
     source_version = "8",
     target_version = "8",
@@ -317,7 +310,7 @@ default_remote_java_toolchain(
 #
 # However it does allow using a wider range of `--host_javabase`s, including
 # versions newer than the current embedded JDK.
-default_java_toolchain(
+default_remote_java_toolchain(
     name = "toolchain_vanilla",
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
@@ -334,7 +327,7 @@ default_remote_java_toolchain(
 RELEASES = (8, 9)
 
 [
-    default_java_toolchain(
+    default_remote_java_toolchain(
         name = "toolchain_java%d" % release,
         source_version = "%s" % release,
         target_version = "%s" % release,
@@ -384,11 +377,6 @@ py_test(
 alias(
     name = "jacoco-blaze-agent",
     actual = "//third_party/java/jacoco:blaze-agent",
-)
-
-java_import(
-    name = "JacocoCoverage",
-    jars = [":JacocoCoverage_deploy.jar"],
 )
 
 java_import(
