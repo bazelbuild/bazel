@@ -399,7 +399,8 @@ public class SkylarkRepositoryContext
               Optional.<String>absent(),
               outputPath.getPath(),
               env.getListener(),
-              osObject.getEnvironmentVariables());
+              osObject.getEnvironmentVariables(),
+              getName());
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
@@ -485,7 +486,8 @@ public class SkylarkRepositoryContext
               Optional.of(type),
               outputPath.getPath(),
               env.getListener(),
-              osObject.getEnvironmentVariables());
+              osObject.getEnvironmentVariables(),
+              getName());
     } catch (InterruptedException e) {
       env.getListener().post(w);
       throw new RepositoryFunctionException(
