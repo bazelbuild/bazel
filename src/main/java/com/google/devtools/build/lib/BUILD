@@ -412,6 +412,7 @@ java_library(
     srcs = [
         "syntax/StarlarkSemantics.java",
     ],
+    visibility = ["//visibility:public"],  # needed by Copybara
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
