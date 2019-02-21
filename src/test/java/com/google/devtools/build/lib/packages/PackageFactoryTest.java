@@ -25,8 +25,10 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.PackageFactory.GlobPatternExtractor;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -1252,5 +1254,26 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Override
   protected String getPathPrefix() {
     return "";
+  }
+
+  @Test
+  public void testGlobPatternExtractor() {
+    GlobPatternExtractor globPatternExtractor = new GlobPatternExtractor();
+    globPatternExtractor.visit(
+        BuildFileAST.parseString(
+            event -> {
+              throw new IllegalArgumentException(event.getMessage());
+            },
+            "pattern = '*'",
+            "some_variable = glob([",
+            "  '**/*',",
+            "  'a' + 'b',",
+            "  pattern,",
+            "])",
+            "other_variable = glob(include = ['a'], exclude = ['b'])",
+            "third_variable = glob(['c'], exclude_directories = 0)"));
+    assertThat(globPatternExtractor.getExcludeDirectoriesPatterns())
+        .containsExactly("ab", "a", "**/*");
+    assertThat(globPatternExtractor.getIncludeDirectoriesPatterns()).containsExactly("c");
   }
 }
