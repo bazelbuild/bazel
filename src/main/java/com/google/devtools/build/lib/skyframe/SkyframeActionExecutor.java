@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -122,6 +123,7 @@ import javax.annotation.Nullable;
  * all output artifacts were created, error reporting, etc.
  */
 public final class SkyframeActionExecutor {
+
   enum ProgressEventBehavior {
     EMIT,
     SUPPRESS
@@ -237,6 +239,10 @@ public final class SkyframeActionExecutor {
       }
       throw new IllegalStateException();
     }
+  }
+
+  ActionCompletedReceiver getActionCompletedReceiver() {
+    return completionReceiver;
   }
 
   /**
@@ -550,12 +556,15 @@ public final class SkyframeActionExecutor {
             new OwnerlessArtifactWrapper(action.getPrimaryOutput()),
             (_unused_key) ->
                 new ActionExecutionState(
-                    action,
-                    metadataHandler,
-                    actionStartTime,
-                    actionExecutionContext,
-                    actionLookupData));
-    return activeAction.getResultOrDependOnFuture(env, actionLookupData, action);
+                    actionLookupData,
+                    new ActionRunner(
+                        action,
+                        metadataHandler,
+                        actionStartTime,
+                        actionExecutionContext,
+                        actionLookupData)));
+    return activeAction.getResultOrDependOnFuture(
+        env, actionLookupData, action, completionReceiver);
   }
 
   /**
@@ -781,153 +790,6 @@ public final class SkyframeActionExecutor {
     this.actionInputPrefetcher = actionInputPrefetcher;
   }
 
-  /**
-   * A state machine representing the synchronous or asynchronous execution of an action. This is
-   * shared between all instances of the same shared action and must therefore be thread-safe. Note
-   * that only one caller will receive events and output for this action.
-   */
-  final class ActionExecutionState {
-    private final ActionLookupData actionLookupData;
-    private ActionStepOrResult state;
-
-    ActionExecutionState(
-        Action action,
-        ActionMetadataHandler metadataHandler,
-        long actionStartTime,
-        ActionExecutionContext actionExecutionContext,
-        ActionLookupData actionLookupData) {
-      this.actionLookupData = actionLookupData;
-      this.state =
-          new ActionRunner(
-              action, metadataHandler, actionStartTime, actionExecutionContext, actionLookupData);
-    }
-
-    public ActionLookupData getActionLookupData() {
-      return actionLookupData;
-    }
-
-    public ActionExecutionValue getResultOrDependOnFuture(
-        SkyFunction.Environment env, ActionLookupData actionLookupData, Action action)
-        throws ActionExecutionException, InterruptedException {
-      if (actionLookupData.equals(this.actionLookupData)) {
-        // This continuation is owned by the Skyframe node executed by the current thread, so we use
-        // it to run the state machine.
-        return runStateMachine(env);
-      }
-      // This is a shared action, and the executed action is owned by another Skyframe node. We do
-      // not attempt to make progress, but instead block waiting for the owner to complete the
-      // action. This is the same behavior as before this comment was added.
-      //
-      // When we async action execution we MUST also change this to async execution. Otherwise we
-      // can end up with a deadlock where all Skyframe threads are blocked here, and no thread is
-      // available to make progress on the original action.
-      synchronized (this) {
-        while (!state.isDone()) {
-          this.wait();
-        }
-        try {
-          return state.get().transformForSharedAction(action.getOutputs());
-        } finally {
-          if (action.getProgressMessage() != null) {
-            completionReceiver.actionCompleted(actionLookupData);
-          }
-        }
-      }
-    }
-
-    private synchronized ActionExecutionValue runStateMachine(SkyFunction.Environment env)
-        throws ActionExecutionException, InterruptedException {
-      while (!state.isDone()) {
-        // Run the state machine for one step; isDone returned false, so this is safe.
-        state = state.run(env);
-
-        // This method guarantees that it either blocks until the action is completed, or it
-        // registers a dependency on a ListenableFuture and returns null (it may only return null if
-        // valuesMissing returns true).
-        if (env.valuesMissing()) {
-          return null;
-        }
-      }
-      this.notifyAll();
-      // We're done, return the value to the caller (or throw an exception).
-      return state.get();
-    }
-  }
-
-  /**
-   * A state machine where instances of this interface either represent an intermediate state that
-   * requires more work to be done (possibly waiting for a ListenableFuture to complete) or the
-   * final result of the executed action (either an ActionExecutionValue or an Exception).
-   *
-   * <p>This design allows us to store the current state of the in-progress action execution using a
-   * single object reference.
-   */
-  private interface ActionStepOrResult {
-    /**
-     * Returns true if and only if the underlying action is complete, i.e., it is legal to call
-     * {@link #get}.
-     */
-    default boolean isDone() {
-      return true;
-    }
-
-    /**
-     * Returns the next state of the state machine after performing some work towards the end goal
-     * of executing the action. This must only be called if {@link #isDone} returns false, and must
-     * only be called by one thread at a time for the same instance.
-     */
-    default ActionStepOrResult run(SkyFunction.Environment env) {
-      throw new IllegalStateException();
-    }
-
-    /**
-     * Returns the final value of the action or an exception to indicate that the action failed (or
-     * the process was interrupted). This must only be called if {@link #isDone} returns true.
-     */
-    default ActionExecutionValue get() throws ActionExecutionException, InterruptedException {
-      throw new IllegalStateException();
-    }
-  }
-
-  /**
-   * Represents a finished action with a specific value. We specifically avoid anonymous inner
-   * classes to not accidentally retain a reference to the ActionRunner.
-   */
-  private static final class FinishedActionStepOrResult implements ActionStepOrResult {
-    private final ActionExecutionValue value;
-
-    FinishedActionStepOrResult(ActionExecutionValue value) {
-      this.value = value;
-    }
-
-    public ActionExecutionValue get() {
-      return value;
-    }
-  }
-
-  /**
-   * Represents a finished action with an exception. We specifically avoid anonymous inner classes
-   * to not accidentally retain a reference to the ActionRunner.
-   */
-  private static final class ExceptionalActionStepOrResult implements ActionStepOrResult {
-    private final Exception e;
-
-    ExceptionalActionStepOrResult(ActionExecutionException e) {
-      this.e = e;
-    }
-
-    ExceptionalActionStepOrResult(InterruptedException e) {
-      this.e = e;
-    }
-
-    public ActionExecutionValue get() throws ActionExecutionException, InterruptedException {
-      if (e instanceof InterruptedException) {
-        throw (InterruptedException) e;
-      }
-      throw (ActionExecutionException) e;
-    }
-  }
-
   /** A local interface to unify immediate and deferred action execution code paths. */
   private interface ActionClosure {
     ActionResult execute() throws ActionExecutionException, InterruptedException;
@@ -1021,7 +883,7 @@ public final class SkyframeActionExecutor {
           // This try-catch block cannot trigger rewinding, so it is safe to notify the status
           // reporter and also post the ActionCompletionEvent.
           notifyActionCompletion(env.getListener(), /*postActionCompletionEvent=*/ true);
-          return new ExceptionalActionStepOrResult(e);
+          return ActionStepOrResult.of(e);
         }
 
         // This is the first iteration of the async action execution framework. It is currently only
@@ -1036,13 +898,13 @@ public final class SkyframeActionExecutor {
             try {
               futureSpawn = spawnAction.execMaybeAsync(actionExecutionContext);
             } catch (InterruptedException e) {
-              return new ExceptionalActionStepOrResult(e);
+              return ActionStepOrResult.of(e);
             } catch (ActionExecutionException e) {
-              return new ExceptionalActionStepOrResult(e);
+              return ActionStepOrResult.of(e);
             }
             return new ActionCompletionStep(futureSpawn, spawnAction);
           } catch (ExecException e) {
-            return new ExceptionalActionStepOrResult(e.toActionExecutionException(spawnAction));
+            return ActionStepOrResult.of(e.toActionExecutionException(spawnAction));
           }
         }
 
@@ -1111,11 +973,11 @@ public final class SkyframeActionExecutor {
           lostInputsActionExecutionException = e;
           throw lostInputsActionExecutionException;
         } catch (InterruptedException e) {
-          return new ExceptionalActionStepOrResult(e);
+          return ActionStepOrResult.of(e);
         }
-        return new FinishedActionStepOrResult(actuallyCompleteAction(eventHandler, actionResult));
+        return ActionStepOrResult.of(actuallyCompleteAction(eventHandler, actionResult));
       } catch (ActionExecutionException e) {
-        return new ExceptionalActionStepOrResult(e);
+        return ActionStepOrResult.of(e);
       } finally {
         notifyActionCompletion(
             eventHandler,

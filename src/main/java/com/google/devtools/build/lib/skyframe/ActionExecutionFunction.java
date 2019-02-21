@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlan;
-import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionExecutionState;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -559,7 +558,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // In either case, we must use this continuation to continue. Note that in the first case,
       // we don't have any input metadata available, so we couldn't re-execute the action even if we
       // wanted to.
-      return previousAction.getResultOrDependOnFuture(env, actionLookupData, action);
+      return previousAction.getResultOrDependOnFuture(
+          env, actionLookupData, action, skyframeActionExecutor.getActionCompletedReceiver());
     }
     // The metadataHandler may be recreated if we discover inputs.
     ArtifactPathResolver pathResolver = ArtifactPathResolver.createPathResolver(
