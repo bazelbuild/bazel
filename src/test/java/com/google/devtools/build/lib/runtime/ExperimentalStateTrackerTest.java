@@ -602,7 +602,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     // Then action bar gets scheduled.
     stateTracker.actionStarted(new ActionStartedEvent(actionBar, 123456701));
-    stateTracker.schedulingAction(new SchedulingActionEvent(actionBar));
+    stateTracker.schedulingAction(new SchedulingActionEvent(actionBar, "bar-sandbox"));
 
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
@@ -667,7 +667,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     stateTracker.runningAction(new RunningActionEvent(actionFoo, "foo-sandbox"));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(7));
     stateTracker.actionStarted(new ActionStartedEvent(actionBar, clock.nanoTime()));
-    stateTracker.schedulingAction(new SchedulingActionEvent(actionBar));
+    stateTracker.schedulingAction(new SchedulingActionEvent(actionBar, "bar-sandbox"));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(21));
 
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -748,7 +748,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
       ActionOwner owner = Mockito.mock(ActionOwner.class);
       when(action.getOwner()).thenReturn(owner);
       stateTracker.actionStarted(new ActionStartedEvent(action, 123456789 + i));
-      stateTracker.schedulingAction(new SchedulingActionEvent(action));
+      stateTracker.schedulingAction(new SchedulingActionEvent(action, "xyz-sandbox"));
     }
 
     for (int i = 0; i < 3; i++) {
