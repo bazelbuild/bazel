@@ -226,6 +226,22 @@ public class JavaOptions extends FragmentOptions {
   public JavaClasspathMode javaClasspath;
 
   @Option(
+      name = "experimental_inmemory_jdeps_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, the dependency (.jdeps) files generated from Java compilations will be "
+              + "passed through in memory directly from the remote build nodes instead of being "
+              + "written to disk.")
+  public boolean inmemoryJdepsFiles;
+
+  @Option(
       name = "java_debug",
       defaultValue = "null",
       expansion = {
@@ -679,6 +695,7 @@ public class JavaOptions extends FragmentOptions {
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
+    host.inmemoryJdepsFiles = inmemoryJdepsFiles;
 
     host.strictJavaDeps = strictJavaDeps;
     host.fixDepsTool = fixDepsTool;

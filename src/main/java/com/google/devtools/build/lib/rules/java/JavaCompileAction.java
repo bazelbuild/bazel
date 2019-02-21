@@ -95,11 +95,12 @@ public class JavaCompileAction extends AbstractAction
   private final ImmutableList<Artifact> sourceJars;
   private final JavaPluginInfo plugins;
 
+  private final ImmutableList<? extends ActionInput> outputFiles;
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> transitiveInputs;
   private final NestedSet<Artifact> dependencyArtifacts;
-  private final Artifact outputDepsProto;
+  private final ActionInput outputDepsProto;
   private final JavaClasspathMode classpathMode;
 
   private final JavaCompileExtraActionInfoSupplier extraActionInfoSupplier;
@@ -122,7 +123,7 @@ public class JavaCompileAction extends AbstractAction
       CommandLine flagLine,
       BuildConfiguration configuration,
       NestedSet<Artifact> dependencyArtifacts,
-      Artifact outputDepsProto,
+      ActionInput outputDepsProto,
       JavaClasspathMode classpathMode) {
     super(
         owner,
@@ -147,6 +148,12 @@ public class JavaCompileAction extends AbstractAction
     this.dependencyArtifacts = dependencyArtifacts;
     this.outputDepsProto = outputDepsProto;
     this.classpathMode = classpathMode;
+    ImmutableList.Builder<ActionInput> outputsBuilder = ImmutableList.builder();
+    outputsBuilder.addAll(outputs);
+    if (outputDepsProto != null) {
+      outputsBuilder.add(outputDepsProto);
+    }
+    outputFiles = outputsBuilder.build();
   }
 
   @Override
@@ -297,7 +304,12 @@ public class JavaCompileAction extends AbstractAction
               spawnActionContext.exec(
                   getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false),
                   actionExecutionContext);
-          try (InputStream input = outputDepsProto.getPath().getInputStream()) {
+
+          SpawnResult spawnResult = Iterables.getOnlyElement(results);
+          try (InputStream input =
+              (outputDepsProto instanceof Artifact)
+                  ? ((Artifact) outputDepsProto).getPath().getInputStream()
+                  : spawnResult.getInMemoryOutput(outputDepsProto)) {
             if (!Deps.Dependencies.parseFrom(input).getRequiresReducedClasspathFallback()) {
               return ActionResult.create(results);
             }
@@ -406,6 +418,11 @@ public class JavaCompileAction extends AbstractAction
     public Iterable<? extends ActionInput> getInputFiles() {
       return inputs;
     }
+
+    @Override
+    public Collection<? extends ActionInput> getOutputFiles() {
+      return outputFiles;
+    }
   }
 
   @VisibleForTesting
@@ -462,5 +479,9 @@ public class JavaCompileAction extends AbstractAction
   @Override
   public Iterable<Artifact> getPossibleInputsForTesting() {
     return null;
+  }
+
+  public Artifact getOutputDepsProto() {
+    return (outputDepsProto instanceof Artifact) ? (Artifact) outputDepsProto : null;
   }
 }
