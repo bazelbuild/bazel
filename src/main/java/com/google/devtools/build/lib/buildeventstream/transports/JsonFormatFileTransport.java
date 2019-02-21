@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
-import java.io.IOException;
 import java.util.function.Consumer;
 
 /**
@@ -36,8 +35,7 @@ public final class JsonFormatFileTransport extends FileTransport {
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
       Consumer<AbruptExitException> exitFunc,
-      ArtifactGroupNamer namer)
-      throws IOException {
+      ArtifactGroupNamer namer) {
     super(path, options, uploader, exitFunc, namer);
   }
 

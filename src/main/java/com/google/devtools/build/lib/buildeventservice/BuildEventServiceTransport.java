@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -28,68 +28,14 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
 import java.time.Duration;
+import javax.annotation.Nullable;
 
 /** A {@link BuildEventTransport} that streams {@link BuildEvent}s to BuildEventService. */
 public class BuildEventServiceTransport implements BuildEventTransport {
   private final BuildEventServiceUploader besUploader;
-
-  /** A builder for {@link BuildEventServiceTransport}. */
-  public static class Builder {
-    private boolean publishLifecycleEvents;
-    private Duration closeTimeout;
-    private Sleeper sleeper;
-    private EventBus eventBus;
-
-    /** Whether to publish lifecycle events. */
-    public Builder publishLifecycleEvents(boolean publishLifecycleEvents) {
-      this.publishLifecycleEvents = publishLifecycleEvents;
-      return this;
-    }
-
-    /** The time to wait for the build event upload after the build has completed. */
-    public Builder closeTimeout(Duration closeTimeout) {
-      this.closeTimeout = closeTimeout;
-      return this;
-    }
-
-    @VisibleForTesting
-    public Builder sleeper(Sleeper sleeper) {
-      this.sleeper = sleeper;
-      return this;
-    }
-
-    public Builder setEventBus(EventBus eventBus) {
-      this.eventBus = eventBus;
-      return this;
-    }
-
-    public BuildEventServiceTransport build(
-        BuildEventServiceClient besClient,
-        BuildEventArtifactUploader localFileUploader,
-        BuildEventProtocolOptions bepOptions,
-        BuildEventServiceProtoUtil besProtoUtil,
-        Clock clock,
-        ExitFunction exitFunction,
-        ArtifactGroupNamer namer) {
-      Preconditions.checkNotNull(eventBus);
-      return new BuildEventServiceTransport(
-          besClient,
-          localFileUploader,
-          bepOptions,
-          besProtoUtil,
-          clock,
-          exitFunction,
-          publishLifecycleEvents,
-          closeTimeout != null ? closeTimeout : Duration.ZERO,
-          sleeper != null ? sleeper : new JavaSleeper(),
-          namer,
-          eventBus);
-    }
-  }
 
   private BuildEventServiceTransport(
       BuildEventServiceClient besClient,
@@ -99,23 +45,24 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       Clock clock,
       ExitFunction exitFunc,
       boolean publishLifecycleEvents,
+      ArtifactGroupNamer artifactGroupNamer,
+      EventBus eventBus,
       Duration closeTimeout,
-      Sleeper sleeper,
-      ArtifactGroupNamer namer,
-      EventBus eventBus) {
+      Sleeper sleeper) {
     this.besUploader =
-        new BuildEventServiceUploader(
-            besClient,
-            localFileUploader,
-            besProtoUtil,
-            bepOptions,
-            publishLifecycleEvents,
-            closeTimeout,
-            exitFunc,
-            sleeper,
-            clock,
-            namer,
-            eventBus);
+        new BuildEventServiceUploader.Builder()
+            .besClient(besClient)
+            .localFileUploader(localFileUploader)
+            .bepOptions(bepOptions)
+            .besProtoUtil(besProtoUtil)
+            .clock(clock)
+            .exitFunc(exitFunc)
+            .publishLifecycleEvents(publishLifecycleEvents)
+            .sleeper(sleeper)
+            .artifactGroupNamer(artifactGroupNamer)
+            .eventBus(eventBus)
+            .closeTimeout(closeTimeout)
+            .build();
   }
 
   @Override
@@ -148,12 +95,84 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     return besUploader;
   }
 
-  /**
-   * Called by the {@link BuildEventServiceUploader} in case of error to asynchronously notify Bazel
-   * of an error.
-   */
-  @FunctionalInterface
-  public interface ExitFunction {
-    void accept(String message, Throwable cause, ExitCode code);
+  /** A builder for {@link BuildEventServiceTransport}. */
+  public static class Builder {
+    private BuildEventServiceClient besClient;
+    private BuildEventArtifactUploader localFileUploader;
+    private BuildEventServiceOptions besOptions;
+    private BuildEventProtocolOptions bepOptions;
+    private Clock clock;
+    private ArtifactGroupNamer artifactGroupNamer;
+    private BuildEventServiceProtoUtil besProtoUtil;
+    private EventBus eventBus;
+    private ExitFunction exitFunction;
+    private @Nullable Sleeper sleeper;
+
+    public Builder besClient(BuildEventServiceClient value) {
+      this.besClient = value;
+      return this;
+    }
+
+    public Builder localFileUploader(BuildEventArtifactUploader value) {
+      this.localFileUploader = value;
+      return this;
+    }
+
+    public Builder besProtoUtil(BuildEventServiceProtoUtil value) {
+      this.besProtoUtil = value;
+      return this;
+    }
+
+    public Builder bepOptions(BuildEventProtocolOptions value) {
+      this.bepOptions = value;
+      return this;
+    }
+
+    public Builder besOptions(BuildEventServiceOptions value) {
+      this.besOptions = value;
+      return this;
+    }
+
+    public Builder clock(Clock value) {
+      this.clock = value;
+      return this;
+    }
+
+    public Builder artifactGroupNamer(ArtifactGroupNamer value) {
+      this.artifactGroupNamer = value;
+      return this;
+    }
+
+    public Builder eventBus(EventBus value) {
+      this.eventBus = value;
+      return this;
+    }
+
+    public Builder exitFunction(ExitFunction value) {
+      this.exitFunction = value;
+      return this;
+    }
+
+    @VisibleForTesting
+    public Builder sleeper(Sleeper value) {
+      this.sleeper = value;
+      return this;
+    }
+
+    public BuildEventServiceTransport build() {
+      checkNotNull(besOptions);
+      return new BuildEventServiceTransport(
+          checkNotNull(besClient),
+          checkNotNull(localFileUploader),
+          checkNotNull(bepOptions),
+          checkNotNull(besProtoUtil),
+          checkNotNull(clock),
+          checkNotNull(exitFunction),
+          besOptions.besLifecycleEvents,
+          checkNotNull(artifactGroupNamer),
+          checkNotNull(eventBus),
+          (besOptions.besTimeout != null) ? besOptions.besTimeout : Duration.ZERO,
+          sleeper != null ? sleeper : new JavaSleeper());
+    }
   }
 }

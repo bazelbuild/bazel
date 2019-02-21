@@ -22,9 +22,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.ExitFunction;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
@@ -99,46 +97,76 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment commandEnvironment) {
-    OptionsParsingResult parsingResult = commandEnvironment.getOptions();
-    besOptions = Preconditions.checkNotNull(parsingResult.getOptions(optionsClass()));
-    bepOptions =
+  public void beforeCommand(CommandEnvironment cmdEnv) {
+    // Reset to null in case afterCommand was not called.
+    // TODO(lpino): Remove this statement once {@link BlazeModule#afterCommmand()} is guaranteed
+    // to be executed for every invocation.
+    this.outErr = null;
+
+    OptionsParsingResult parsingResult = cmdEnv.getOptions();
+    this.besOptions = Preconditions.checkNotNull(parsingResult.getOptions(optionsClass()));
+    this.bepOptions =
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
-    authTlsOptions = Preconditions.checkNotNull(parsingResult.getOptions(AuthAndTLSOptions.class));
-    besStreamOptions =
+    this.authTlsOptions =
+        Preconditions.checkNotNull(parsingResult.getOptions(AuthAndTLSOptions.class));
+    this.besStreamOptions =
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventStreamOptions.class));
 
-    // Reset to null in case afterCommand was not called.
-    this.outErr = null;
-    if (!whitelistedCommands(besOptions).contains(commandEnvironment.getCommandName())) {
+    CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
+    Supplier<BuildEventArtifactUploader> uploaderSupplier =
+        Suppliers.memoize(
+            () ->
+                cmdEnv
+                    .getRuntime()
+                    .getBuildEventArtifactUploaderFactoryMap()
+                    .select(bepOptions.buildEventUploadStrategy)
+                    .create(cmdEnv));
+
+    if (!whitelistedCommands(besOptions).contains(cmdEnv.getCommandName())) {
+      // Exit early if the running command isn't supported.
       return;
     }
 
-    streamer = tryCreateStreamer(commandEnvironment);
-    if (streamer != null) {
-      commandEnvironment.getReporter().addHandler(streamer);
-      commandEnvironment.getEventBus().register(streamer);
-      int bufferSize = besOptions.besOuterrBufferSize;
-      int chunkSize = besOptions.besOuterrChunkSize;
-
-      final SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize, chunkSize);
-      final SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize, chunkSize);
-      this.outErr = OutErr.create(out, err);
-      streamer.registerOutErrProvider(
-          new BuildEventStreamer.OutErrProvider() {
-            @Override
-            public Iterable<String> getOut() {
-              return out.readAndReset();
-            }
-
-            @Override
-            public Iterable<String> getErr() {
-              return err.readAndReset();
-            }
-          });
-      err.registerStreamer(streamer);
-      out.registerStreamer(streamer);
+    bepTransports = createBepTransports(cmdEnv, uploaderSupplier, artifactGroupNamer);
+    if (bepTransports.isEmpty()) {
+      // Exit early if there are no transports to stream to.
+      return;
     }
+
+    streamer =
+        new BuildEventStreamer.Builder()
+            .buildEventTransports(bepTransports)
+            .cmdLineReporter(cmdEnv.getReporter())
+            .besStreamOptions(besStreamOptions)
+            .artifactGroupNamer(artifactGroupNamer)
+            .build();
+
+    cmdEnv.getReporter().addHandler(streamer);
+    cmdEnv.getEventBus().register(streamer);
+    registerOutAndErrOutputStreams();
+  }
+
+  private void registerOutAndErrOutputStreams() {
+    int bufferSize = besOptions.besOuterrBufferSize;
+    int chunkSize = besOptions.besOuterrChunkSize;
+    final SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize, chunkSize);
+    final SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize, chunkSize);
+
+    this.outErr = OutErr.create(out, err);
+    streamer.registerOutErrProvider(
+        new BuildEventStreamer.OutErrProvider() {
+          @Override
+          public Iterable<String> getOut() {
+            return out.readAndReset();
+          }
+
+          @Override
+          public Iterable<String> getErr() {
+            return err.readAndReset();
+          }
+        });
+    err.registerStreamer(streamer);
+    out.registerStreamer(streamer);
   }
 
   @Override
@@ -175,121 +203,106 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     this.bepTransports = null;
   }
 
-  /** Returns {@code null} if no stream could be created. */
+  // TODO(b/115961387): Remove the @Nullable and print one line for the IDs and another optional
+  //  line for the results URL instead. Currently it's not straightforward since
+  //  {@link ExitFunction} (accidentally) depends on the nullability of besResultsUrl.
   @Nullable
-  @VisibleForTesting
-  BuildEventStreamer tryCreateStreamer(CommandEnvironment env) {
-    Supplier<BuildEventArtifactUploader> uploaderSupplier =
-        Suppliers.memoize(
-            () ->
-                env.getRuntime()
-                    .getBuildEventArtifactUploaderFactoryMap()
-                    .select(bepOptions.buildEventUploadStrategy)
-                    .create(env));
-
-    CountingArtifactGroupNamer namer = new CountingArtifactGroupNamer();
-    try {
-      BuildEventTransport besTransport;
-      try {
-        besTransport = tryCreateBesTransport(env, uploaderSupplier, namer);
-      } catch (IOException | OptionsParsingException e) {
-        reportError(
-            env.getReporter(),
-            env.getBlazeModuleEnvironment(),
-            "Failed to create BuildEventTransport: " + e,
-            e,
-            (e instanceof OptionsParsingException)
-                ? ExitCode.COMMAND_LINE_ERROR
-                : ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
-        clearBesClient();
-        return null;
-      }
-
-      ImmutableSet<BuildEventTransport> bepFileTransports =
-          BuildEventTransportFactory.createFromOptions(
-              env, env.getBlazeModuleEnvironment()::exit, bepOptions, uploaderSupplier, namer);
-
-      ImmutableSet.Builder<BuildEventTransport> transportsBuilder =
-          ImmutableSet.<BuildEventTransport>builder().addAll(bepFileTransports);
-      if (besTransport != null) {
-        transportsBuilder.add(besTransport);
-      }
-
-      bepTransports = transportsBuilder.build();
-      if (!bepTransports.isEmpty()) {
-        return new BuildEventStreamer(bepTransports, env.getReporter(), besStreamOptions, namer);
-      }
-    } catch (Exception e) {
-      // TODO(lpino): This generic catch with Exception shouldn't exist, remove it once the code
-      // above is re-structured.
-      reportError(
-          env.getReporter(),
-          env.getBlazeModuleEnvironment(),
-          e.getMessage(),
-          e,
-          ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+  private String constructAndReportBesResultsMessage(
+      String invocationId, String buildRequestId, EventHandler reporter) {
+    final String besResultsUrl;
+    if (!Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
+      besResultsUrl =
+          besOptions.besResultsUrl.endsWith("/")
+              ? besOptions.besResultsUrl + invocationId
+              : besOptions.besResultsUrl + "/" + invocationId;
+      reporter.handle(Event.info("Streaming Build Event Protocol to " + besResultsUrl));
+    } else {
+      besResultsUrl = null;
+      reporter.handle(
+          Event.info(
+              String.format(
+                  "Streaming Build Event Protocol to %s build_request_id: %s "
+                      + "invocation_id: %s",
+                  besOptions.besBackend, buildRequestId, invocationId)));
     }
-    return null;
+    return besResultsUrl;
   }
 
   @Nullable
-  private BuildEventTransport tryCreateBesTransport(
-      CommandEnvironment env,
+  private BuildEventServiceTransport createBesTransport(
+      CommandEnvironment cmdEnv,
       Supplier<BuildEventArtifactUploader> uploaderSupplier,
-      ArtifactGroupNamer namer)
-      throws IOException, OptionsParsingException {
-    OptionsParsingResult optionsProvider = env.getOptions();
-
+      CountingArtifactGroupNamer artifactGroupNamer) {
     if (Strings.isNullOrEmpty(besOptions.besBackend)) {
       clearBesClient();
       return null;
-    } else {
-      String invocationId = env.getCommandId().toString();
-      final String besResultsUrl;
-      if (!Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
-        besResultsUrl =
-            besOptions.besResultsUrl.endsWith("/")
-                ? besOptions.besResultsUrl + invocationId
-                : besOptions.besResultsUrl + "/" + invocationId;
-        env.getReporter().handle(Event.info("Streaming Build Event Protocol to " + besResultsUrl));
-      } else {
-        besResultsUrl = null;
-        env.getReporter()
-            .handle(
-                Event.info(
-                    String.format(
-                        "Streaming Build Event Protocol to %s build_request_id: %s "
-                            + "invocation_id: %s",
-                        besOptions.besBackend, env.getBuildRequestId(), invocationId)));
-      }
-
-      BuildEventServiceClient client = getBesClient(besOptions, authTlsOptions);
-      BuildEventArtifactUploader artifactUploader = uploaderSupplier.get();
-
-      BuildEventServiceProtoUtil besProtoUtil =
-          new BuildEventServiceProtoUtil(
-              env.getBuildRequestId(),
-              invocationId,
-              besOptions.projectId,
-              env.getCommandName(),
-              keywords(besOptions, env.getRuntime().getStartupOptionsProvider()));
-
-      BuildEventTransport besTransport =
-          new BuildEventServiceTransport.Builder()
-              .closeTimeout(besOptions.besTimeout)
-              .publishLifecycleEvents(besOptions.besLifecycleEvents)
-              .setEventBus(env.getEventBus())
-              .build(
-                  client,
-                  artifactUploader,
-                  bepOptions,
-                  besProtoUtil,
-                  env.getRuntime().getClock(),
-                  bazelExitFunction(
-                      env.getReporter(), env.getBlazeModuleEnvironment(), besResultsUrl),
-                  namer);
-      return besTransport;
     }
+
+    String besResultsUrl =
+        constructAndReportBesResultsMessage(
+            cmdEnv.getCommandId().toString(), cmdEnv.getBuildRequestId(), cmdEnv.getReporter());
+
+    final BuildEventServiceClient besClient;
+    try {
+      besClient = getBesClient(besOptions, authTlsOptions);
+    } catch (IOException | OptionsParsingException e) {
+      reportError(
+          cmdEnv.getReporter(),
+          cmdEnv.getBlazeModuleEnvironment(),
+          e.getMessage(),
+          e,
+          ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+      return null;
+    }
+
+    BuildEventServiceProtoUtil besProtoUtil =
+        new BuildEventServiceProtoUtil.Builder()
+            .buildRequestId(cmdEnv.getBuildRequestId())
+            .invocationId(cmdEnv.getCommandId().toString())
+            .projectId(besOptions.projectId)
+            .commandName(cmdEnv.getCommandName())
+            .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
+            .build();
+
+    return new BuildEventServiceTransport.Builder()
+        .localFileUploader(uploaderSupplier.get())
+        .besClient(besClient)
+        .besOptions(besOptions)
+        .besProtoUtil(besProtoUtil)
+        .artifactGroupNamer(artifactGroupNamer)
+        .bepOptions(bepOptions)
+        .clock(cmdEnv.getRuntime().getClock())
+        .exitFunction(
+            ExitFunction.standardExitFunction(
+                cmdEnv.getReporter(),
+                cmdEnv.getBlazeModuleEnvironment(),
+                besResultsUrl,
+                errorsShouldFailTheBuild()))
+        .eventBus(cmdEnv.getEventBus())
+        .build();
+  }
+
+  private ImmutableSet<BuildEventTransport> createBepTransports(
+      CommandEnvironment cmdEnv,
+      Supplier<BuildEventArtifactUploader> uploaderSupplier,
+      CountingArtifactGroupNamer artifactGroupNamer) {
+    // TODO(lpino): Rewrite the BuildEventTransportFactory using the Builder pattern too.
+    ImmutableSet<BuildEventTransport> bepFileTransports =
+        BuildEventTransportFactory.createFromOptions(
+            cmdEnv,
+            cmdEnv.getBlazeModuleEnvironment()::exit,
+            bepOptions,
+            uploaderSupplier,
+            artifactGroupNamer);
+    BuildEventServiceTransport besTransport =
+        createBesTransport(cmdEnv, uploaderSupplier, artifactGroupNamer);
+
+    ImmutableSet.Builder<BuildEventTransport> transportsBuilder =
+        ImmutableSet.<BuildEventTransport>builder().addAll(bepFileTransports);
+    if (besTransport != null) {
+      transportsBuilder.add(besTransport);
+    }
+    return transportsBuilder.build();
   }
 
   protected abstract Class<BESOptionsT> optionsClass();
@@ -302,40 +315,11 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
   protected abstract Set<String> whitelistedCommands(BESOptionsT besOptions);
 
-  protected Set<String> keywords(
+  protected Set<String> getBesKeywords(
       BESOptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
     return besOptions.besKeywords.stream()
         .map(keyword -> "user_keyword=" + keyword)
         .collect(ImmutableSet.toImmutableSet());
-  }
-
-  private ExitFunction bazelExitFunction(
-      EventHandler commandLineReporter, ModuleEnvironment moduleEnvironment, String besResultsUrl) {
-    return (String message, Throwable cause, ExitCode exitCode) -> {
-      if (exitCode == ExitCode.SUCCESS) {
-        Preconditions.checkState(cause == null, cause);
-        commandLineReporter.handle(Event.info("Build Event Protocol upload finished successfully"));
-        if (besResultsUrl != null) {
-          commandLineReporter.handle(
-              Event.info("Build Event Protocol results available at " + besResultsUrl));
-        }
-      } else {
-        Preconditions.checkState(cause != null, cause);
-        if (errorsShouldFailTheBuild()) {
-          commandLineReporter.handle(Event.error(message));
-          moduleEnvironment.exit(new AbruptExitException(exitCode, cause));
-        } else {
-          commandLineReporter.handle(Event.warn(message));
-        }
-        if (besResultsUrl != null) {
-          if (!Strings.isNullOrEmpty(besResultsUrl)) {
-            commandLineReporter.handle(
-                Event.info(
-                    "Partial Build Event Protocol results may be available at " + besResultsUrl));
-          }
-        }
-      }
-    };
   }
 
   // TODO(lpino): This method shouldn exist. It only does because some tests are relying on the
