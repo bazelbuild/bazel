@@ -25,10 +25,8 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.PackageFactory.GlobPatternExtractor;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -241,30 +239,12 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testPackageConstant() throws Exception {
-    Path buildFile =
-        scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
-
-    Package pkg =
-        packages.createPackage(
-            "pina",
-            RootedPath.toRootedPath(root, buildFile),
-            "--incompatible_package_name_is_a_function=false");
-    events.assertNoWarningsOrErrors();
-    assertThat(pkg.containsErrors()).isFalse();
-    assertThat(pkg.getRule("pina-colada")).isNotNull();
-    assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
-    assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameAs(1);
-  }
-
-  @Test
   public void testPackageConstantIsForbidden() throws Exception {
     events.setFailFast(false);
     Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
     packages.createPackage(
         "pina",
-        RootedPath.toRootedPath(root, buildFile),
-        "--incompatible_package_name_is_a_function=true");
+        RootedPath.toRootedPath(root, buildFile));
     events.assertContainsError("The value 'PACKAGE_NAME' has been removed");
   }
 
@@ -702,22 +682,22 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     assertEvaluates(
         pkg,
-        Collections.emptyList(),
+        Collections.<String>emptyList(),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc"),
         ImmutableList.of("**/*.cc"));
     assertEvaluates(
         pkg,
-        Collections.emptyList(),
+        Collections.<String>emptyList(),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("**/*.cc"));
     assertEvaluates(
         pkg,
-        Collections.emptyList(),
+        Collections.<String>emptyList(),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc", "*/*/*/*.cc"));
     assertEvaluates(
         pkg,
-        Collections.emptyList(),
+        Collections.<String>emptyList(),
         ImmutableList.of("**"),
         ImmutableList.of("*", "*/*", "*/*/*", "*/*/*/*"));
     assertEvaluates(
@@ -790,7 +770,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
       assertGlobMatches(
           /*result=*/ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
           /*includes=*/ ImmutableList.of("W*", "subdir"),
-          /*excludes=*/ ImmutableList.of(),
+          /*excludes=*/ ImmutableList.<String>of(),
           /* excludeDirs= */ true);
       fail();
     } catch (IllegalArgumentException e) {
@@ -803,7 +783,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobMatches(
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
         /*includes=*/ ImmutableList.of("W*", "subdir"),
-        /*excludes=*/ ImmutableList.of(),
+        /*excludes=*/ ImmutableList.<String>of(),
         /* excludeDirs= */ true);
   }
 
@@ -812,7 +792,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobMatches(
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java", "subdir"),
         /*includes=*/ ImmutableList.of("W*", "subdir"),
-        /*excludes=*/ ImmutableList.of(),
+        /*excludes=*/ ImmutableList.<String>of(),
         /* excludeDirs= */ false);
   }
 
@@ -821,7 +801,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobMatches(
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
         /*includes=*/ ImmutableList.of("W*"),
-        /*excludes=*/ Collections.emptyList(),
+        /*excludes=*/ Collections.<String>emptyList(),
         /* excludeDirs= */ false);
   }
 
@@ -1272,26 +1252,5 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Override
   protected String getPathPrefix() {
     return "";
-  }
-
-  @Test
-  public void testGlobPatternExtractor() {
-    GlobPatternExtractor globPatternExtractor = new GlobPatternExtractor();
-    globPatternExtractor.visit(
-        BuildFileAST.parseString(
-            event -> {
-              throw new IllegalArgumentException(event.getMessage());
-            },
-            "pattern = '*'",
-            "some_variable = glob([",
-            "  '**/*',",
-            "  'a' + 'b',",
-            "  pattern,",
-            "])",
-            "other_variable = glob(include = ['a'], exclude = ['b'])",
-            "third_variable = glob(['c'], exclude_directories = 0)"));
-    assertThat(globPatternExtractor.getExcludeDirectoriesPatterns())
-        .containsExactly("ab", "a", "**/*");
-    assertThat(globPatternExtractor.getIncludeDirectoriesPatterns()).containsExactly("c");
   }
 }
