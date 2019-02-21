@@ -241,6 +241,34 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testPackageConstant() throws Exception {
+    Path buildFile =
+        scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
+
+    Package pkg =
+        packages.createPackage(
+            "pina",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_package_name_is_a_function=false");
+    events.assertNoWarningsOrErrors();
+    assertThat(pkg.containsErrors()).isFalse();
+    assertThat(pkg.getRule("pina-colada")).isNotNull();
+    assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
+    assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameAs(1);
+  }
+
+  @Test
+  public void testPackageConstantIsForbidden() throws Exception {
+    events.setFailFast(false);
+    Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
+    packages.createPackage(
+        "pina",
+        RootedPath.toRootedPath(root, buildFile),
+        "--incompatible_package_name_is_a_function=true");
+    events.assertContainsError("The value 'PACKAGE_NAME' has been removed");
+  }
+
+  @Test
   public void testPackageNameFunction() throws Exception {
     Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=package_name() + '-colada')");
 
@@ -250,6 +278,19 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.getRule("pina-colada")).isNotNull();
     assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameAs(1);
+  }
+
+  @Test
+  public void testPackageConstantInExternalRepositoryIsForbidden() throws Exception {
+    events.setFailFast(false);
+    Path buildFile =
+        scratch.file(
+            "/external/a/b/BUILD", "genrule(name='c', srcs=[], outs=['ao'], cmd=REPOSITORY_NAME)");
+    packages.createPackage(
+        PackageIdentifier.create("@a", PathFragment.create("b")),
+        RootedPath.toRootedPath(root, buildFile),
+        events.reporter());
+    events.assertContainsError("The value 'REPOSITORY_NAME' has been removed");
   }
 
   @Test
@@ -661,22 +702,22 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     assertEvaluates(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc"),
         ImmutableList.of("**/*.cc"));
     assertEvaluates(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("**/*.cc"));
     assertEvaluates(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc", "*/*/*/*.cc"));
     assertEvaluates(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("**"),
         ImmutableList.of("*", "*/*", "*/*/*", "*/*/*/*"));
     assertEvaluates(
@@ -749,7 +790,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
       assertGlobMatches(
           /*result=*/ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
           /*includes=*/ ImmutableList.of("W*", "subdir"),
-          /*excludes=*/ ImmutableList.<String>of(),
+          /*excludes=*/ ImmutableList.of(),
           /* excludeDirs= */ true);
       fail();
     } catch (IllegalArgumentException e) {
@@ -762,7 +803,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobMatches(
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
         /*includes=*/ ImmutableList.of("W*", "subdir"),
-        /*excludes=*/ ImmutableList.<String>of(),
+        /*excludes=*/ ImmutableList.of(),
         /* excludeDirs= */ true);
   }
 
@@ -771,7 +812,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobMatches(
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java", "subdir"),
         /*includes=*/ ImmutableList.of("W*", "subdir"),
-        /*excludes=*/ ImmutableList.<String>of(),
+        /*excludes=*/ ImmutableList.of(),
         /* excludeDirs= */ false);
   }
 
@@ -780,7 +821,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobMatches(
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
         /*includes=*/ ImmutableList.of("W*"),
-        /*excludes=*/ Collections.<String>emptyList(),
+        /*excludes=*/ Collections.emptyList(),
         /* excludeDirs= */ false);
   }
 
