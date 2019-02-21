@@ -37,8 +37,7 @@ public final class BinaryFormatFileTransport extends FileTransport {
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
       Consumer<AbruptExitException> exitFunc,
-      ArtifactGroupNamer namer)
-      throws IOException {
+      ArtifactGroupNamer namer) {
     super(path, options, uploader, exitFunc, namer);
   }
 

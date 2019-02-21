@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventservice;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
@@ -29,7 +30,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.ExitFunction;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.AckReceivedCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.EventLoopCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.OpenStreamCommand;
@@ -148,7 +148,7 @@ public final class BuildEventServiceUploader implements Runnable {
 
   private StreamContext streamContext;
 
-  BuildEventServiceUploader(
+  private BuildEventServiceUploader(
       BuildEventServiceClient besClient,
       BuildEventArtifactUploader localFileUploader,
       BuildEventServiceProtoUtil besProtoUtil,
@@ -160,15 +160,15 @@ public final class BuildEventServiceUploader implements Runnable {
       Clock clock,
       ArtifactGroupNamer namer,
       EventBus eventBus) {
-    this.besClient = Preconditions.checkNotNull(besClient);
-    this.localFileUploader = Preconditions.checkNotNull(localFileUploader);
-    this.besProtoUtil = Preconditions.checkNotNull(besProtoUtil);
+    this.besClient = besClient;
+    this.localFileUploader = localFileUploader;
+    this.besProtoUtil = besProtoUtil;
     this.buildEventProtocolOptions = buildEventProtocolOptions;
     this.publishLifecycleEvents = publishLifecycleEvents;
-    this.closeTimeout = Preconditions.checkNotNull(closeTimeout);
-    this.exitFunc = Preconditions.checkNotNull(exitFunc);
-    this.sleeper = Preconditions.checkNotNull(sleeper);
-    this.clock = Preconditions.checkNotNull(clock);
+    this.closeTimeout = closeTimeout;
+    this.exitFunc = exitFunc;
+    this.sleeper = sleeper;
+    this.clock = clock;
     this.namer = namer;
     this.eventBus = eventBus;
   }
@@ -748,6 +748,90 @@ public final class BuildEventServiceUploader implements Runnable {
   private class LocalFileUploadException extends Exception {
     LocalFileUploadException(Throwable cause) {
       super(cause);
+    }
+  }
+
+  static class Builder {
+    private BuildEventServiceClient besClient;
+    private BuildEventArtifactUploader localFileUploader;
+    private BuildEventServiceProtoUtil besProtoUtil;
+    private BuildEventProtocolOptions bepOptions;
+    private boolean publishLifecycleEvents;
+    private Duration closeTimeout;
+    private ExitFunction exitFunc;
+    private Sleeper sleeper;
+    private Clock clock;
+    private ArtifactGroupNamer artifactGroupNamer;
+    private EventBus eventBus;
+
+    Builder besClient(BuildEventServiceClient value) {
+      this.besClient = value;
+      return this;
+    }
+
+    Builder localFileUploader(BuildEventArtifactUploader value) {
+      this.localFileUploader = value;
+      return this;
+    }
+
+    Builder besProtoUtil(BuildEventServiceProtoUtil value) {
+      this.besProtoUtil = value;
+      return this;
+    }
+
+    Builder bepOptions(BuildEventProtocolOptions value) {
+      this.bepOptions = value;
+      return this;
+    }
+
+    Builder publishLifecycleEvents(boolean value) {
+      this.publishLifecycleEvents = value;
+      return this;
+    }
+
+    Builder closeTimeout(Duration value) {
+      this.closeTimeout = value;
+      return this;
+    }
+
+    Builder clock(Clock value) {
+      this.clock = value;
+      return this;
+    }
+
+    Builder exitFunc(ExitFunction value) {
+      this.exitFunc = value;
+      return this;
+    }
+
+    Builder sleeper(Sleeper value) {
+      this.sleeper = value;
+      return this;
+    }
+
+    Builder artifactGroupNamer(ArtifactGroupNamer value) {
+      this.artifactGroupNamer = value;
+      return this;
+    }
+
+    Builder eventBus(EventBus value) {
+      this.eventBus = value;
+      return this;
+    }
+
+    BuildEventServiceUploader build() {
+      return new BuildEventServiceUploader(
+          checkNotNull(besClient),
+          checkNotNull(localFileUploader),
+          checkNotNull(besProtoUtil),
+          checkNotNull(bepOptions),
+          publishLifecycleEvents,
+          checkNotNull(closeTimeout),
+          checkNotNull(exitFunc),
+          checkNotNull(sleeper),
+          checkNotNull(clock),
+          checkNotNull(artifactGroupNamer),
+          checkNotNull(eventBus));
     }
   }
 }

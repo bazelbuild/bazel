@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.protobuf.TextFormat;
-import java.io.IOException;
 import java.util.function.Consumer;
 
 /**
@@ -37,8 +36,7 @@ public final class TextFormatFileTransport extends FileTransport {
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
       Consumer<AbruptExitException> exitFunc,
-      ArtifactGroupNamer namer)
-      throws IOException {
+      ArtifactGroupNamer namer) {
     super(path, options, uploader, exitFunc, namer);
   }
 
