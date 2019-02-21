@@ -816,3 +816,10 @@ sh_test(
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_test(
+    name = "new_local_repo_test",
+    srcs = ["new_local_repo_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
