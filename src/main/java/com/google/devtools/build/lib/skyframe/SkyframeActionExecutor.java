@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -510,7 +511,7 @@ public final class SkyframeActionExecutor {
             "%s %s",
             action,
             actionLookupData);
-    return actionLookupData.equals(cachedRun.getActionLookupData());
+    return cachedRun.isOwner(actionLookupData);
   }
 
   void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
@@ -796,7 +797,7 @@ public final class SkyframeActionExecutor {
   }
 
   /** Represents an action that needs to be run. */
-  private final class ActionRunner implements ActionStepOrResult {
+  private final class ActionRunner extends ActionStep {
     private final Action action;
     private final ActionMetadataHandler metadataHandler;
     private final long actionStartTime;
@@ -816,11 +817,6 @@ public final class SkyframeActionExecutor {
       this.actionExecutionContext = actionExecutionContext;
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
-    }
-
-    @Override
-    public boolean isDone() {
-      return false;
     }
 
     @Override
@@ -1072,18 +1068,13 @@ public final class SkyframeActionExecutor {
     }
 
     /** A closure to complete an asynchronously running action. */
-    private class ActionCompletionStep implements ActionStepOrResult {
+    private class ActionCompletionStep extends ActionStep {
       private final FutureSpawn futureSpawn;
       private final SpawnAction spawnAction;
 
       public ActionCompletionStep(FutureSpawn futureSpawn, SpawnAction spawnAction) {
         this.futureSpawn = futureSpawn;
         this.spawnAction = spawnAction;
-      }
-
-      @Override
-      public boolean isDone() {
-        return false;
       }
 
       @Override

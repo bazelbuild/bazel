@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,7 +35,7 @@ public class ActionLookupData implements SkyKey {
   private final int actionIndex;
 
   private ActionLookupData(ActionLookupKey actionLookupKey, int actionIndex) {
-    this.actionLookupKey = actionLookupKey;
+    this.actionLookupKey = Preconditions.checkNotNull(actionLookupKey);
     this.actionIndex = actionIndex;
   }
 
