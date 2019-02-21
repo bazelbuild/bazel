@@ -232,7 +232,7 @@ parameters are disabled. To add many arguments at once you must use `add_all()`
 or `add_joined()` instead.
 
 *   Flag: `--incompatible_disallow_old_style_args_add`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5822](https://github.com/bazelbuild/bazel/issues/5822)
 
 

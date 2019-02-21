@@ -333,7 +333,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   /** Controls legacy arguments to ctx.actions.Args#add. */
   @Option(
       name = "incompatible_disallow_old_style_args_add",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "incompatible changes",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
