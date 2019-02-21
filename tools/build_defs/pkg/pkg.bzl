@@ -47,12 +47,12 @@ def _pkg_tar_impl(ctx):
         "--owner=" + ctx.attr.owner,
         "--owner_name=" + ctx.attr.ownername,
     ]
-    if ctx.attr.mtime >= 0:
-      if ctx.attr.portable_mtime:
-        fail("You man not set both mtime and portable_mtime")
-      args.append("--mtime=" + ctx.attr.mtime)
+    if ctx.attr.mtime != -1:  # Note: Must match default in rule def.
+        if ctx.attr.portable_mtime:
+            fail("You may not set both mtime and portable_mtime")
+        args.append("--mtime=" + ctx.attr.mtime)
     if ctx.attr.portable_mtime:
-      args.append("--mtime=portable")
+        args.append("--mtime=portable")
 
     # Add runfiles if requested
     file_inputs = []
