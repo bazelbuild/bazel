@@ -66,8 +66,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
    */
   Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
-  Artifact getDerivedArtifactUntracked(PathFragment rootRelativePath, ArtifactRoot root);
-
   /**
    * Returns an artifact for the derived file {@code rootRelativePath} whose changes do not cause a
    * rebuild.
