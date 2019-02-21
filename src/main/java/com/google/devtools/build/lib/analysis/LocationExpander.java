@@ -362,15 +362,21 @@ public final class LocationExpander {
       }
     }
 
+    boolean inAspect = ruleContext.getAspects().size() > 0;
+
     // Add all destination locations.
     for (OutputFile out : ruleContext.getRule().getOutputFiles()) {
-      Artifact artifact = ruleContext.getOutputArtifactsProvider().getOutputArtifact(out);
-      if (artifact == null) {
-        // I see correct output if I just ignore missing artifacts here. Should we be logging
-        // or something along those lines?
-        //throw new IllegalStateException(String.format("Output artifact unavailable for '%s'", out.getLocation().getPath()));
+      Artifact artifact;
+      if (inAspect) {
+        // In aspect processing, so don't create & verify a new artifact, just find any cached ones.
+        artifact = ruleContext.getOutputArtifactsProvider().getOutputArtifact(out);
+        // FIXME: I see correct output if I just ignore missing artifacts here. Is that problematic?
+        if (artifact != null) {
+          mapGet(locationMap, out.getLabel()).add(artifact);
+        }
       } else {
-        mapGet(locationMap, out.getLabel()).add(artifact);
+        // Not in aspect processing, so explicitly build an artifact & let it verify.
+        mapGet(locationMap, out.getLabel()).add(ruleContext.createOutputArtifact(out));
       }
     }
 

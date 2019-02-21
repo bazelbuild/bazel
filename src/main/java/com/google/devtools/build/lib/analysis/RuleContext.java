@@ -604,15 +604,9 @@ public final class RuleContext extends TargetContext
         target.getLabel().getPackageIdentifier().equals(getLabel().getPackageIdentifier()),
         "Creating output artifact for target '%s' in different package than the rule '%s' "
             + "being analyzed", target.getLabel(), getLabel());
-
-    // See if we have one cached. If so, return that rather than creating another.
-    Artifact artifact = getOutputArtifactsProvider().getOutputArtifact(target);
-    if (artifact != null) {
-      return artifact;
-    }
-
     ArtifactRoot root = getBinOrGenfilesDirectory();
 
+    Artifact artifact;
     switch (outputFileKind) {
       case FILE:
         artifact = getDerivedArtifact(rootRelativePath, root);
