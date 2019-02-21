@@ -274,7 +274,7 @@ function test_untokenizable_jvm_flag_when_escaping_is_disabled() {
     # to the launcher, which also just passes it to the JVM.  This is bad, the
     # flag should have been rejected because it cannot be Bash-tokenized.
     expect_program_runs "bazel-bin/$pkg/cannot_tokenize${EXE_EXT}"
-    expect_log "arg0=('a)"
+    expect_log "arg0=('abc)"
   else
     # On other platforms, Bazel will build the target but it fails to run.
     expect_program_cannot_run "bazel-bin/$pkg/cannot_tokenize${EXE_EXT}"
