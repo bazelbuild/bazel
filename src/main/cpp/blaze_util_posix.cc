@@ -276,6 +276,11 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   BAZEL_LOG(INFO) << "Invoking binary " << exe << " in "
                   << blaze_util::GetCwd();
 
+  // TODO(jmmv): This execution does not respect any settings we might apply
+  // to the server process with ConfigureDaemonProcess when executed in the
+  // background as a daemon.  Because we use that function to lower the
+  // priority of Bazel on macOS from a QoS perspective, this could have
+  // adverse scheduling effects on any tools invoked via ExecuteProgram.
   CharPP argv(args_vector);
   execv(exe.c_str(), argv.get());
 }
@@ -325,6 +330,12 @@ bool SocketBlazeServerStartup::IsStillAlive() {
   }
 }
 
+// Sets platform-specific attributes for the creation of the daemon process.
+//
+// Returns zero on success or -1 on error, in which case errno is set to the
+// corresponding error details.
+int ConfigureDaemonProcess(posix_spawnattr_t* attrp);
+
 void WriteSystemSpecificProcessIdentifier(
     const string& server_dir, pid_t server_pid);
 
@@ -366,8 +377,18 @@ int ExecuteDaemon(const string& exe,
       << "Failed to modify posix_spawn_file_actions: "<< GetLastErrorString();
   }
 
+  posix_spawnattr_t attrp;
+  if (posix_spawnattr_init(&attrp) == -1) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+      << "Failed to create posix_spawnattr: "<< GetLastErrorString();
+  }
+  if (ConfigureDaemonProcess(&attrp) == -1) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+      << "Failed to modify posix_spawnattr: "<< GetLastErrorString();
+  }
+
   pid_t transient_pid;
-  if (posix_spawn(&transient_pid, daemonize.c_str(), &file_actions, NULL,
+  if (posix_spawn(&transient_pid, daemonize.c_str(), &file_actions, &attrp,
       CharPP(daemonize_args).get(), CharPP(env).get()) == -1) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
       << "Failed to execute JVM via " << daemonize
@@ -375,6 +396,7 @@ int ExecuteDaemon(const string& exe,
   }
   close(fds[1]);
 
+  posix_spawnattr_destroy(&attrp);
   posix_spawn_file_actions_destroy(&file_actions);
 
   // Wait for daemonize to exit. This guarantees that the pid file exists.
