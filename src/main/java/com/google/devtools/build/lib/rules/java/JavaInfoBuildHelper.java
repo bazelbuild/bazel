@@ -269,8 +269,9 @@ final class JavaInfoBuildHelper {
       return sourceJars.get(0);
     }
     ActionRegistry actionRegistry = actions.asActionRegistry(location, actions);
-    Artifact outputSrcJar =
-        getSourceJar(actions.getActionConstructionContext(), outputJar, outputSourceJar);
+    if (outputSourceJar == null) {
+      outputSourceJar = getDerivedSourceJar(actions.getActionConstructionContext(), outputJar);
+    }
     JavaRuntimeInfo javaRuntimeInfo =
         getJavaRuntimeProvider(semantics, location, hostJavabase, null);
     JavaToolchainProvider javaToolchainProvider =
@@ -282,10 +283,10 @@ final class JavaInfoBuildHelper {
         javaSemantics,
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceFiles),
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceJars),
-        outputSrcJar,
+        outputSourceJar,
         javaToolchainProvider,
         javaRuntimeInfo);
-    return outputSrcJar;
+    return outputSourceJar;
   }
 
   private JavaSourceJarsProvider createJavaSourceJarsProvider(
@@ -455,21 +456,8 @@ final class JavaInfoBuildHelper {
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
-    boolean createOutputSourceJar;
-    if (environment.getSemantics().incompatibleGenerateJavaCommonSourceJar()) {
-      outputSourceJar =
-          getSourceJar(skylarkRuleContext.getRuleContext(), outputJar, outputSourceJar);
-      createOutputSourceJar = true;
-    } else {
-      createOutputSourceJar =
-          (sourceJars.size() > 1 || !sourceFiles.isEmpty())
-              || (sourceJars.isEmpty()
-                  && sourceFiles.isEmpty()
-                  && (!exports.isEmpty() || !exportedPlugins.isEmpty()));
-      outputSourceJar =
-          createOutputSourceJar
-              ? getSourceJar(skylarkRuleContext.getRuleContext(), outputJar, outputSourceJar)
-              : sourceJars.get(0);
+    if (outputSourceJar == null) {
+      outputSourceJar = getDerivedSourceJar(skylarkRuleContext.getRuleContext(), outputJar);
     }
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
@@ -480,7 +468,7 @@ final class JavaInfoBuildHelper {
             javaRuntimeInfo,
             SkylarkList.createImmutable(ImmutableList.of()),
             outputJarsBuilder,
-            /*createOutputSourceJar=*/ createOutputSourceJar,
+            /*createOutputSourceJar=*/ true,
             outputSourceJar,
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
@@ -673,11 +661,8 @@ final class JavaInfoBuildHelper {
     }
   }
 
-  private static Artifact getSourceJar(
-      ActionConstructionContext context, Artifact outputJar, Artifact outputSourceJar) {
-    if (outputSourceJar != null) {
-      return outputSourceJar;
-    }
+  private static Artifact getDerivedSourceJar(
+      ActionConstructionContext context, Artifact outputJar) {
     return JavaCompilationHelper.derivedArtifact(context, outputJar, "", "-src.jar");
   }
 }

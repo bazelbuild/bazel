@@ -161,8 +161,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleExpandDirectories();
 
-  public abstract boolean incompatibleGenerateJavaCommonSourceJar();
-
   public abstract boolean incompatibleNewActionsApi();
 
   public abstract boolean incompatibleNoAttrLicense();
@@ -226,7 +224,6 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowOldStyleArgsAdd(false)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleExpandDirectories(true)
-          .incompatibleGenerateJavaCommonSourceJar(true)
           .incompatibleNewActionsApi(false)
           .incompatibleNoAttrLicense(false)
           .incompatibleNoOutputAttrDefault(false)
@@ -292,8 +289,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
 
     public abstract Builder incompatibleExpandDirectories(boolean value);
-
-    public abstract Builder incompatibleGenerateJavaCommonSourceJar(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
