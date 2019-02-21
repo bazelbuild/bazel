@@ -685,6 +685,8 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
                         BlazeServerStartup **server_startup) {
   vector<string> jvm_args_vector = GetArgumentArray(workspace_layout);
   string argument_string = GetArgumentString(jvm_args_vector);
+  const string binaries_dir =
+      GetEmbeddedBinariesRoot(globals->options->install_base);
   string server_dir =
       blaze_util::JoinPath(globals->options->output_base, "server");
   // Write the cmdline argument string to the server dir. If we get to this
@@ -708,7 +710,7 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 
   return ExecuteDaemon(exe, jvm_args_vector, PrepareEnvironmentForJvm(),
                        globals->jvm_log_file, globals->jvm_log_file_append,
-                       server_dir, server_startup);
+                       binaries_dir, server_dir, server_startup);
 }
 
 // Replace this process with blaze in standalone/batch mode.
