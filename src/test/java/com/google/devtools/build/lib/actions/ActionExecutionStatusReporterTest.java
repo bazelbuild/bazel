@@ -157,7 +157,7 @@ public class ActionExecutionStatusReporterTest {
     verifyOutput("Still waiting for 1 job to complete:", "Running (remote):", "action1, 1 s");
     clock.advanceMillis(1000);
 
-    eventBus.post(ActionStatusMessage.analysisStrategy(action));
+    eventBus.post(new AnalyzingActionEvent(action));
     // Locality strategy was changed, so timer was reset to 0 s.
     verifyOutput("Still waiting for 1 job to complete:", "Analyzing:", "action1, 0 s");
     statusReporter.remove(action);
@@ -262,14 +262,14 @@ public class ActionExecutionStatusReporterTest {
   }
 
   private void setScheduling(ActionExecutionMetadata action) {
-    eventBus.post(ActionStatusMessage.schedulingStrategy(action));
+    eventBus.post(new SchedulingActionEvent(action));
   }
 
-  private void setPreparing(ActionExecutionMetadata action) {
-    eventBus.post(ActionStatusMessage.preparingStrategy(action));
+  private void setPreparing(Action action) {
+    eventBus.post(new ActionStartedEvent(action, 0));
   }
 
   private void setRunning(ActionExecutionMetadata action, String strategy) {
-    eventBus.post(ActionStatusMessage.runningStrategy(action, strategy));
+    eventBus.post(new RunningActionEvent(action, strategy));
   }
 }

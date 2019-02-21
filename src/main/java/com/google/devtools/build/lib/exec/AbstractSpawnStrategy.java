@@ -20,13 +20,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
+import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -267,10 +268,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       switch (state) {
         case EXECUTING:
         case CHECKING_CACHE:
-          eventHandler.post(ActionStatusMessage.runningStrategy(action, name));
+          eventHandler.post(new RunningActionEvent(action, name));
           break;
         case SCHEDULING:
-          eventHandler.post(ActionStatusMessage.schedulingStrategy(action));
+          eventHandler.post(new SchedulingActionEvent(action));
           break;
         default:
           break;

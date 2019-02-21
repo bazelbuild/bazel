@@ -48,6 +48,8 @@ public final class ActionExecutionStatusReporter {
   // Maximum number of lines to output per each status category before truncation.
   private static final int MAX_LINES = 10;
 
+  private static final String PREPARING_MESSAGE = "Preparing";
+
   private final EventHandler eventHandler;
   private final EventBus eventBus;
   private final Clock clock;
@@ -109,10 +111,27 @@ public final class ActionExecutionStatusReporter {
   }
 
   @Subscribe
-  public void updateStatus(ActionStatusMessage statusMsg) {
-    String message = statusMsg.getMessage();
-    ActionExecutionMetadata action = statusMsg.getActionMetadata();
-    setStatus(action, message);
+  public void updateStatus(ActionStartedEvent event) {
+    ActionExecutionMetadata action = event.getAction();
+    setStatus(action, PREPARING_MESSAGE);
+  }
+
+  @Subscribe
+  public void updateStatus(AnalyzingActionEvent event) {
+    ActionExecutionMetadata action = event.getActionMetadata();
+    setStatus(action, "Analyzing");
+  }
+
+  @Subscribe
+  public void updateStatus(SchedulingActionEvent event) {
+    ActionExecutionMetadata action = event.getActionMetadata();
+    setStatus(action, "Scheduling");
+  }
+
+  @Subscribe
+  public void updateStatus(RunningActionEvent event) {
+    ActionExecutionMetadata action = event.getActionMetadata();
+    setStatus(action, String.format("Running (%s)", event.getStrategy()));
   }
 
   public int getCount() {
@@ -204,7 +223,7 @@ public final class ActionExecutionStatusReporter {
     Iterator<ActionExecutionMetadata> iterator = statusMap.keySet().iterator();
     while (iterator.hasNext()) {
       // Filter out actions that are not executed yet.
-      if (statusMap.get(iterator.next()).first.equals(ActionStatusMessage.PREPARING)) {
+      if (PREPARING_MESSAGE.equals(statusMap.get(iterator.next()).first)) {
         iterator.remove();
       }
     }
