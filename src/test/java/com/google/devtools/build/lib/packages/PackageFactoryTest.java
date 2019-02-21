@@ -241,6 +241,14 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testPackageConstantIsForbidden() throws Exception {
+    events.setFailFast(false);
+    Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
+    packages.createPackage("pina", RootedPath.toRootedPath(root, buildFile));
+    events.assertContainsError("The value 'PACKAGE_NAME' has been removed");
+  }
+
+  @Test
   public void testPackageNameFunction() throws Exception {
     Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=package_name() + '-colada')");
 
@@ -250,6 +258,19 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.getRule("pina-colada")).isNotNull();
     assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameAs(1);
+  }
+
+  @Test
+  public void testPackageConstantInExternalRepositoryIsForbidden() throws Exception {
+    events.setFailFast(false);
+    Path buildFile =
+        scratch.file(
+            "/external/a/b/BUILD", "genrule(name='c', srcs=[], outs=['ao'], cmd=REPOSITORY_NAME)");
+    packages.createPackage(
+        PackageIdentifier.create("@a", PathFragment.create("b")),
+        RootedPath.toRootedPath(root, buildFile),
+        events.reporter());
+    events.assertContainsError("The value 'REPOSITORY_NAME' has been removed");
   }
 
   @Test
