@@ -905,6 +905,39 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectSkippingOrphanArtifactsWithLocation() throws Exception {
+    scratch.file("aspects/BUILD", "");
+    scratch.file(
+        "aspects/print.bzl",
+        "def _print_expanded_copts_impl(target, ctx):",
+        "    # Make sure the rule has a srcs attribute.",
+        "    if hasattr(ctx.rule.attr, 'cmd'):",
+        "        cmd = ctx.rule.attr.cmd",
+        "        print(\"{} -> {}\".format(cmd, ctx.expand_location(cmd, [])))",
+        "    return []",
+        "",
+        "print_expanded_copts = aspect(",
+        "    implementation = _print_expanded_copts_impl,",
+        "    attr_aspects = ['deps'],",
+        ")");
+    scratch.file("simple/BUILD", "filegroup(",
+        "    name = \"files\",",
+        "    srcs = [\"afile\"],",
+        ")",
+        "",
+        "genrule(",
+        "    name = \"concat_all_files\",",
+        "    srcs = [\":files\"],",
+        "    outs = [\"concatenated.txt\"],",
+        "    cmd = \"cat $(location :files) >  $@\"",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    AnalysisResult result = update(ImmutableList.of("aspects/print.bzl%print_expanded_copts"), "//simple:concat_all_files");
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
   public void topLevelAspectIsNotAnAspect() throws Exception {
     scratch.file("test/aspect.bzl", "MyAspect = 4");
     scratch.file("test/BUILD", "java_library(name = 'xxx')");

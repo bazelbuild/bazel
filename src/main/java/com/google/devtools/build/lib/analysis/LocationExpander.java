@@ -364,7 +364,14 @@ public final class LocationExpander {
 
     // Add all destination locations.
     for (OutputFile out : ruleContext.getRule().getOutputFiles()) {
-      mapGet(locationMap, out.getLabel()).add(ruleContext.createOutputArtifact(out));
+      Artifact artifact = ruleContext.getOutputArtifactsProvider().getOutputArtifact(out);
+      if (artifact == null) {
+        // I see correct output if I just ignore missing artifacts here. Should we be logging
+        // or something along those lines?
+        //throw new IllegalStateException(String.format("Output artifact unavailable for '%s'", out.getLocation().getPath()));
+      } else {
+        mapGet(locationMap, out.getLabel()).add(artifact);
+      }
     }
 
     if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {

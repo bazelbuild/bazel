@@ -190,6 +190,9 @@ public final class RuleContext extends TargetContext
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
 
+  /* cache for output artifacts, allows fetching them without creating/validating during Aspect processing */
+  private transient OutputArtifactsProvider outputArtifactsProvider;
+
   private RuleContext(
       Builder builder,
       AttributeMap attributes,
@@ -231,6 +234,7 @@ public final class RuleContext extends TargetContext
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
     this.constraintSemantics = constraintSemantics;
+    this.outputArtifactsProvider = new OutputArtifactsProvider();
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -600,16 +604,37 @@ public final class RuleContext extends TargetContext
         target.getLabel().getPackageIdentifier().equals(getLabel().getPackageIdentifier()),
         "Creating output artifact for target '%s' in different package than the rule '%s' "
             + "being analyzed", target.getLabel(), getLabel());
+
+    // See if we have one cached. If so, return that rather than creating another.
+    Artifact artifact = getOutputArtifactsProvider().getOutputArtifact(target);
+    if (artifact != null) {
+      return artifact;
+    }
+
     ArtifactRoot root = getBinOrGenfilesDirectory();
 
     switch (outputFileKind) {
       case FILE:
-        return getDerivedArtifact(rootRelativePath, root);
+        artifact = getDerivedArtifact(rootRelativePath, root);
+        break;
       case FILESET:
-        return getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
+        artifact = getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
+        break;
       default:
         throw new IllegalStateException();
     }
+
+    if (artifact != null) {
+      outputArtifactsProvider.cachedArtifacts.put(target, artifact);
+    }
+    return artifact;
+  }
+
+  /**
+   * Returns the provider for output artifacts that have already been built.
+   */
+  public OutputArtifactsProvider getOutputArtifactsProvider() {
+    return outputArtifactsProvider;
   }
 
   /**
@@ -2069,6 +2094,17 @@ public final class RuleContext extends TargetContext
      */
     public List<String> getErrorMessages() {
       return errorMessages;
+    }
+  }
+
+  /**
+   * Caches artifacts associated with output files.
+   */
+  public static final class OutputArtifactsProvider {
+    private final Map<Target, Artifact> cachedArtifacts = Maps.newHashMap();
+
+    public Artifact getOutputArtifact(Target target) {
+      return cachedArtifacts.get(target);
     }
   }
 }
