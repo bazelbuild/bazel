@@ -115,15 +115,27 @@ function test_no_arguments() {
   expect_log "Usage: b\\(laze\\|azel\\)"
 }
 
-
 function test_max_idle_secs() {
-  # Remove when https://github.com/bazelbuild/bazel/issues/6773 is fixed.
+  # TODO(https://github.com/bazelbuild/bazel/issues/6773): Remove when fixed.
   bazel shutdown
 
-  local server_pid1=$(bazel --max_idle_secs=1 info server_pid 2>$TEST_log)
-  sleep 5
-  local server_pid2=$(bazel info server_pid 2>$TEST_log)
-  assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
+  local options=( --max_idle_secs=1 )
+
+  local output_base
+  output_base="$(bazel "${options[@]}" info output_base 2>"$TEST_log")" \
+    || fail "bazel info failed"
+  local timeout=60  # Lower than the default --max_idle_secs.
+  while [[ -f "${output_base}/server/server.pid.txt" ]]; do
+    timeout="$(( ${timeout} - 1 ))"
+    [[ "${timeout}" -gt 0 ]] || fail "--max_idle_secs was not respected"
+
+    # Wait for the server to go away.
+    sleep 1
+  done
+
+  bazel "${options[@]}" info >"$TEST_log" 2>&1 || fail "bazel info failed"
+  expect_log "Starting local.*server and connecting to it"
+  # Ensure the restart was not triggered by different startup options.
   expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
