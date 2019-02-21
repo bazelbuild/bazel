@@ -59,9 +59,9 @@ public class BazelJavaRuleClasses {
   public static final PredicateWithMessage<Rule> JAVA_PACKAGE_NAMES = new PackageNameConstraint(
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
 
-  protected static final String JUNIT_TESTRUNNER = "@remote_java_tools//:Runner";
+  protected static final String JUNIT_TESTRUNNER = "//tools/jdk:TestRunner";
   protected static final String EXPERIMENTAL_TESTRUNNER =
-      "@remote_java_tools//:ExperimentalRunner";
+      "//tools/jdk:ExperimentalTestRunner";
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(
@@ -359,7 +359,7 @@ public class BazelJavaRuleClasses {
                         @Override
                         public Object getDefault(AttributeMap rule) {
                           return rule.get("use_testrunner", Type.BOOLEAN)
-                              ? Label.parseAbsoluteUnchecked(JUNIT_TESTRUNNER)
+                              ? env.getToolsLabel(JUNIT_TESTRUNNER)
                               : null;
                         }
                       }))
@@ -370,7 +370,7 @@ public class BazelJavaRuleClasses {
                         @Override
                         public Object getDefault(AttributeMap rule) {
                           return rule.get("use_testrunner", Type.BOOLEAN)
-                              ? Label.parseAbsoluteUnchecked(EXPERIMENTAL_TESTRUNNER)
+                              ? env.getToolsLabel(EXPERIMENTAL_TESTRUNNER)
                               : null;
                         }
                       }))
