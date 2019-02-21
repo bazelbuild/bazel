@@ -44,9 +44,9 @@ import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
+import com.google.devtools.build.lib.actions.AnalyzingActionEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
@@ -715,7 +715,7 @@ public final class SkyframeActionExecutor {
       // streams is sufficient.
       setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
     }
-    actionExecutionContext.getEventHandler().post(ActionStatusMessage.analysisStrategy(action));
+    actionExecutionContext.getEventHandler().post(new AnalyzingActionEvent(action));
     try {
       return action.discoverInputs(actionExecutionContext);
     } catch (ActionExecutionException e) {
@@ -846,8 +846,9 @@ public final class SkyframeActionExecutor {
           // TODO(ulfjack): Change the uses of ActionStartedEvent and ActionCompletionEvent such
           // that they can be reposted when rewinding and simplify this code path. Maybe also keep
           // track of the rewind attempt, so that listeners can use that to adjust their behavior.
-          statusReporter.updateStatus(ActionStatusMessage.preparingStrategy(action));
-          env.getListener().post(new ActionStartedEvent(action, actionStartTime));
+          ActionStartedEvent event = new ActionStartedEvent(action, actionStartTime);
+          statusReporter.updateStatus(event);
+          env.getListener().post(event);
           Preconditions.checkState(
               actionExecutionContext.getMetadataHandler() == metadataHandler,
               "%s %s",

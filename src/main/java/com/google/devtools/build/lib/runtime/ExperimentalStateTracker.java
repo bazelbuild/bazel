@@ -20,7 +20,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.ActionStatusMessage;
+import com.google.devtools.build.lib.actions.AnalyzingActionEvent;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -280,27 +282,37 @@ class ExperimentalStateTracker {
     }
   }
 
-  void actionStatusMessage(ActionStatusMessage event) {
+  void analyzingAction(AnalyzingActionEvent event) {
+    String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
+    ActionState state = activeActions.remove(name);
+    if (state != null) {
+      activeActions.put(
+          name, new ActionState(state.action, clock.nanoTime(), /*executing=*/ false, "Analyzing"));
+    }
+    notStartedActionStatus.remove(name);
+  }
+
+  void schedulingAction(SchedulingActionEvent event) {
+    String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
+    ActionState state = activeActions.remove(name);
+    if (state != null) {
+      activeActions.put(
+          name,
+          new ActionState(state.action, clock.nanoTime(), /*executing=*/ false, "Scheduling"));
+    }
+    notStartedActionStatus.remove(name);
+  }
+
+  void runningAction(RunningActionEvent event) {
     String strategy = event.getStrategy();
     String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
 
     ActionState state = activeActions.remove(name);
-
-    if (strategy != null) {
-      if (state != null) {
-        activeActions.put(
-            name, new ActionState(state.action, clock.nanoTime(), /*executing=*/ true, strategy));
-      } else {
-        notStartedActionStatus.put(name, strategy);
-      }
+    if (state != null) {
+      activeActions.put(
+          name, new ActionState(state.action, clock.nanoTime(), /*executing=*/ true, strategy));
     } else {
-      if (state != null) {
-        activeActions.put(
-            name,
-            new ActionState(
-                state.action, clock.nanoTime(), /*executing=*/ false, event.getMessage()));
-      }
-      notStartedActionStatus.remove(name);
+      notStartedActionStatus.put(name, strategy);
     }
   }
 
