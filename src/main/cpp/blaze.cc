@@ -75,6 +75,8 @@
 
 using blaze_util::GetLastErrorString;
 
+extern char** environ;
+
 namespace blaze {
 
 using std::map;
@@ -1415,6 +1417,26 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
 // of '--client_env'.
 static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   map<string, EnvVarValue> result;
+
+  // Make sure all existing environment variables appear as part of the
+  // resulting map unless they are overridden below by UNSET values.
+  //
+  // Even though the map we return is intended to represent a "delta" of
+  // environment variables to modify the current process, we may actually use
+  // such map to configure a process from scratch (via interfaces like execvpe
+  // or posix_spawn), so we need to inherit any untouched variables.
+  for (char** entry = environ; *entry != NULL; entry++) {
+    const std::string var_value = *entry;
+    std::string::size_type equals = var_value.find('=');
+    if (equals == std::string::npos) {
+      // Ignore possibly-bad environment. We don't control what we see in this
+      // global variable, so it could be invalid.
+      continue;
+    }
+    const std::string var = var_value.substr(0, equals);
+    const std::string value = var_value.substr(equals + 1);
+    result[var] = EnvVarValue(EnvVarAction::SET, value);
+  }
 
   if (!blaze::GetEnv("LD_ASSUME_KERNEL").empty()) {
     // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
