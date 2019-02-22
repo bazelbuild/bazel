@@ -104,7 +104,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
                     }))
         .add(
             attr("$jacocorunner", LABEL)
-                .value(env.getToolsLabel("//tools/jdk:remote_jacoco_coverage_runner")))
+                .value(env.getToolsLabel("//tools/jdk:JacocoCoverageRunner")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }

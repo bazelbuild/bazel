@@ -141,7 +141,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  ijar = ['ijar'],",
         ")",
         "java_import(",
-        "  name = 'remote_jacoco_coverage_runner',",
+        "  name = 'JacocoCoverageRunner',",
         "  jars = ['JacocoCoverage_jarjar_deploy.jar'],",
         ")",
         "java_import(",
