@@ -416,7 +416,8 @@ public class SkydocMain {
         throw new IllegalStateException(
             String.format(
                 "File %s imported '%s', yet %s was not found, even at roots %s.",
-                path, anImport.getImportString(), pathOfLabel(relativeLabel), depRoots));
+                path, anImport.getImportString(), pathOfLabel(relativeLabel), depRoots),
+            noSuchFileException);
       }
     }
 
