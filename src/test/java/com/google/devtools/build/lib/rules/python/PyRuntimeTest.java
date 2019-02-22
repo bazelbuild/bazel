@@ -41,10 +41,9 @@ public class PyRuntimeTest extends BuildViewTestCase {
         "    files = [':myfile'],",
         "    interpreter = ':myinterpreter',",
         ")");
-    PyRuntimeProvider info =
-        getConfiguredTarget("//pkg:myruntime").getProvider(PyRuntimeProvider.class);
+    PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
 
-    assertThat(info.isHermetic()).isTrue();
+    assertThat(info.isInBuild()).isTrue();
     assertThat(info.getInterpreterPath()).isNull();
     assertThat(info.getInterpreter().getExecPathString()).isEqualTo("pkg/myinterpreter");
     assertThat(ActionsTestUtil.baseArtifactNames(info.getFiles())).containsExactly("myfile");
@@ -58,10 +57,9 @@ public class PyRuntimeTest extends BuildViewTestCase {
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
         ")");
-    PyRuntimeProvider info =
-        getConfiguredTarget("//pkg:myruntime").getProvider(PyRuntimeProvider.class);
+    PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
 
-    assertThat(info.isHermetic()).isFalse();
+    assertThat(info.isInBuild()).isFalse();
     assertThat(info.getInterpreterPath().getPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();

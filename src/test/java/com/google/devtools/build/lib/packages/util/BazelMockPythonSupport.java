@@ -51,4 +51,11 @@ public class BazelMockPythonSupport extends MockPythonSupport {
         "exports_files(['precompile.py'])",
         "sh_binary(name='2to3', srcs=['2to3.sh'])");
   }
+
+  @Override
+  public String createPythonTopEntryPoint(MockToolsConfig config, String pyRuntimeLabel)
+      throws IOException {
+    // Under BazelPythonSemantics, we can simply set --python_top to be the py_runtime target.
+    return pyRuntimeLabel;
+  }
 }

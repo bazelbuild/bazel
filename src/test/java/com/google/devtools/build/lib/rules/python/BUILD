@@ -16,6 +16,7 @@ test_suite(
         ":PyInfoTest",
         ":PyLibraryConfiguredTargetTest",
         ":PyProviderUtilsTest",
+        ":PyRuntimeInfoTest",
         ":PyRuntimeTest",
         ":PyStructUtilsTest",
         ":PyTestConfiguredTargetTest",
@@ -214,7 +215,21 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PyRuntimeInfoTest",
+    srcs = ["PyRuntimeInfoTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//third_party:junit4",
         "//third_party:truth",

@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyInfo;
+import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
@@ -348,7 +349,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new BazelPyRuntimeRule());
 
-          builder.addSkylarkBootstrap(new PyBootstrap(PyInfo.PROVIDER));
+          builder.addSkylarkBootstrap(new PyBootstrap(PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER));
         }
 
         @Override

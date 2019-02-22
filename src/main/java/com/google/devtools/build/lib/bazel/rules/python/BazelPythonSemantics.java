@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
-import com.google.devtools.build.lib.rules.python.PyRuntimeProvider;
+import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -314,9 +314,9 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static void addRuntime(RuleContext ruleContext, Runfiles.Builder builder) {
-    PyRuntimeProvider provider =
-        ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeProvider.class);
-    if (provider != null && provider.isHermetic()) {
+    PyRuntimeInfo provider =
+        ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeInfo.PROVIDER);
+    if (provider != null && provider.isInBuild()) {
       builder.addArtifact(provider.getInterpreter());
       // WARNING: we are adding the all Python runtime files here,
       // and it would fail if the filenames of them contain spaces.
@@ -334,12 +334,12 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     String pythonBinary;
 
-    PyRuntimeProvider provider =
-        ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeProvider.class);
+    PyRuntimeInfo provider =
+        ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeInfo.PROVIDER);
 
     if (provider != null) {
       // make use of py_runtime defined by --python_top
-      if (!provider.isHermetic()) {
+      if (!provider.isInBuild()) {
         // absolute Python path in py_runtime
         pythonBinary = provider.getInterpreterPath().getPathString();
       } else {
