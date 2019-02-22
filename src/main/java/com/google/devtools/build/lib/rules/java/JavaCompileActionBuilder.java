@@ -301,7 +301,8 @@ public final class JavaCompileActionBuilder {
       } else {
         Artifact outputDepsProtoArtifact =
             ruleContext.getDerivedArtifact(
-                FileSystemUtils.replaceExtension(outputJar.getRootRelativePath(), ".jdeps"),
+                FileSystemUtils.replaceExtension(
+                    outputDepsProto.relativeTo(outputJar.getRoot().getExecPath()), ".jdeps"),
                 outputJar.getRoot());
         outputDepsProtoInput = outputDepsProtoArtifact;
         outputs.add(outputDepsProtoArtifact);

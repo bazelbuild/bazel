@@ -191,8 +191,6 @@ public final class JavaCompilationHelper {
    * @param manifestProtoOutput the output artifact for the manifest proto emitted from JavaBuilder
    * @param gensrcOutputJar the generated sources jar Artifact to create with the Action (null if no
    *     sources will be generated).
-   * @param outputDepsProto the compiler-generated jdeps file to create with the Action (null if not
-   *     requested)
    * @param instrumentationMetadataJar metadata file (null if no instrumentation is needed or if
    *     --experimental_java_coverage is true).
    * @param nativeHeaderOutput an archive of generated native header files.
@@ -241,7 +239,7 @@ public final class JavaCompilationHelper {
     builder.setNativeHeaderOutput(nativeHeaderOutput);
     builder.setManifestProtoOutput(manifestProtoOutput);
     builder.setGensrcOutputJar(gensrcOutputJar);
-    builder.setOutputDepsProto(getOutputDepsProtoPath(classJar));
+    builder.setOutputDepsProto(getOutputDepsProtoPath(outputJar));
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
     builder.setMetadata(instrumentationMetadataJar);
     builder.setInstrumentationJars(jacocoInstrumentation);
