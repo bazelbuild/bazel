@@ -310,7 +310,8 @@ public interface JavaSemantics {
       String javaStartClass,
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
-      String javaExecutable)
+      String javaExecutable,
+      boolean createCoverageMetadataJar)
       throws InterruptedException;
 
   /**
