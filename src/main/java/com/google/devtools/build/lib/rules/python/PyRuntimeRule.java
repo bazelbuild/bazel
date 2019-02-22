@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.python;
+package com.google.devtools.build.lib.rules.python;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -24,32 +24,31 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.python.PyRuntime;
-import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@code py_runtime} */
-public final class BazelPyRuntimeRule implements RuleDefinition {
+public final class PyRuntimeRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
 
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(files) -->
-        The set of files comprising this Python runtime.
+        For an in-build runtime, this is the set of files comprising this runtime. These files will
+        be added to the runfiles of Python binaries that use this runtime. For a platform runtime
+        this attribute must not be set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("files", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
 
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(interpreter) -->
-        The Python interpreter used in this runtime. Binary rules will be executed using this
-        binary.
+        For an in-build runtime, this is the target to invoke as the interpreter. For a platform
+        runtime this attribute must not be set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("interpreter", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).singleArtifact())
 
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(interpreter_path) -->
-        The absolute path of a Python interpreter. This attribute and interpreter attribute cannot
-        be set at the same time.
+        For a platform runtime, this is the absolute path of a Python interpreter on the target
+        platform. For an in-build runtime this attribute must not be set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("interpreter_path", STRING))
         .add(attr("output_licenses", LICENSE))
@@ -67,10 +66,19 @@ public final class BazelPyRuntimeRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = py_runtime, TYPE = OTHER, FAMILY = Python) -->
 
-<p>
-Specifies the configuration for a Python runtime. This rule can either describe a Python runtime in
-the source tree or one at a well-known absolute path.
-</p>
+<p>Represents a Python runtime used to execute Python code.
+
+<p>A <code>py_runtime</code> target can represent either a <em>platform runtime</em> or an
+<em>in-build runtime</em>. A platform runtime accesses a system-installed interpreter at a known
+path, whereas an in-build runtime points to an executable target that acts as the interpreter. In
+both cases, an "interpreter" means any executable binary or wrapper script that is capable of
+running a Python script passed on the command line, following the same conventions as the standard
+CPython interpreter.
+
+<p>A platform runtime is by its nature non-hermetic. It imposes a requirement on the target platform
+to have an interpreter located at a specific path. An in-build runtime may or may not be hermetic,
+depending on whether it points to a checked-in interpreter or a wrapper script that accesses the
+system interpreter.
 
 <h4 id="py_runtime">Example:</h4>
 
@@ -83,7 +91,6 @@ py_runtime(
 
 py_runtime(
     name = "python-3.6.0",
-    files = [],
     interpreter_path = "/opt/pyenv/versions/3.6.0/bin/python",
 )
 </pre>

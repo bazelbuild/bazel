@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibrar
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuntimeRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
@@ -84,6 +83,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
+import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
@@ -347,7 +347,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyLibraryRule());
           builder.addRuleDefinition(new BazelPyBinaryRule());
           builder.addRuleDefinition(new BazelPyTestRule());
-          builder.addRuleDefinition(new BazelPyRuntimeRule());
+          builder.addRuleDefinition(new PyRuntimeRule());
 
           builder.addSkylarkBootstrap(new PyBootstrap(PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER));
         }
