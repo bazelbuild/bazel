@@ -1563,8 +1563,10 @@ public final class PackageFactory {
           "error getting package_name or repository_name functions from the native module",
           exception);
     }
+    if (!pkgEnv.getSemantics().incompatibleDisallowNativeInBuildFile()) {
+      pkgEnv.setup("native", nativeModule);
+    }
     pkgEnv
-        .setup("native", nativeModule)
         .setup("distribs", newDistribsFunction.apply(context))
         .setup("glob", newGlobFunction.apply(context))
         .setup("licenses", newLicensesFunction.apply(context))

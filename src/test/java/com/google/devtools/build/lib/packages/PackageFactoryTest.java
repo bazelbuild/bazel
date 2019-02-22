@@ -870,6 +870,29 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testNativeModuleIsAvailable() throws Exception {
+    Path buildFile = scratch.file("/pkg/BUILD", "native.cc_library(name='bar')");
+    Package pkg =
+        packages.createPackage(
+            "pkg",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disallow_native_in_build_file=false");
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  @Test
+  public void testNativeModuleIsDisabled() throws Exception {
+    events.setFailFast(false);
+    Path buildFile = scratch.file("/pkg/BUILD", "native.cc_library(name='bar')");
+    Package pkg =
+        packages.createPackage(
+            "pkg",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disallow_native_in_build_file=true");
+    assertThat(pkg.containsErrors()).isTrue();
+  }
+
+  @Test
   public void testPackageGroupSpecMinimal() throws Exception {
     expectEvalSuccess("package_group(name='skin', packages=[])");
   }
