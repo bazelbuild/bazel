@@ -172,31 +172,26 @@ filegroup(
 
 filegroup(
     name = "vanillajavabuilder",
-    srcs = ["//tools/jdk:VanillaJavaBuilder_deploy.jar"],
-)
-
-filegroup(
-    name = "remote-vanillajavabuilder",
     srcs = ["@remote_java_tools//:VanillaJavaBuilder"],
 )
 
 filegroup(
-    name = "remote-javac_jar",
+    name = "javac_jar",
     srcs = ["@remote_java_tools//:javac_jar"],
 )
 
 filegroup(
-    name = "remote-jdk_compiler_jar",
+    name = "jdk_compiler_jar",
     srcs = ["@remote_java_tools//:jdk_compiler_jar"],
 )
 
 filegroup(
-    name = "remote-java_compiler_jar",
+    name = "java_compiler_jar",
     srcs = ["@remote_java_tools//:java_compiler_jar"],
 )
 
 java_import(
-    name = "remote_jacoco_coverage_runner",
+    name = "JacocoCoverageRunner",
     jars = ["@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar"],
 )
 
@@ -275,23 +270,10 @@ default_java_toolchain(
     target_version = "8",
 )
 
-default_java_toolchain(
-    name = "remote_toolchain_hostjdk8",
-    jvm_opts = JDK8_JVM_OPTS,
-    source_version = "8",
-    target_version = "8",
-)
-
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
     name = "toolchain",
-    source_version = "8",
-    target_version = "8",
-)
-
-default_java_toolchain(
-    name = "remote_toolchain",
     source_version = "8",
     target_version = "8",
 )
@@ -314,13 +296,6 @@ default_java_toolchain(
     name = "toolchain_vanilla",
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
-    jvm_opts = [],
-)
-
-default_java_toolchain(
-    name = "remote_toolchain_vanilla",
-    forcibly_disable_header_compilation = True,
-    javabuilder = ["@bazel_tools//tools/jdk:remote-vanillajavabuilder"],
     jvm_opts = [],
 )
 

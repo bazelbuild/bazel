@@ -15,7 +15,7 @@
 """Bazel rules for creating Java toolchains."""
 
 JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:remote-javac_jar)",
+    "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
 ]
 
 JDK9_JVM_OPTS = [
@@ -34,8 +34,8 @@ JDK9_JVM_OPTS = [
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
 
     # override the javac in the JDK.
-    "--patch-module=java.compiler=$(location @bazel_tools//tools/jdk:remote-java_compiler_jar)",
-    "--patch-module=jdk.compiler=$(location @bazel_tools//tools/jdk:remote-jdk_compiler_jar)",
+    "--patch-module=java.compiler=$(location @bazel_tools//tools/jdk:java_compiler_jar)",
+    "--patch-module=jdk.compiler=$(location @bazel_tools//tools/jdk:jdk_compiler_jar)",
 
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
@@ -68,10 +68,10 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "header_compiler_direct": ["@bazel_tools//tools/jdk:turbine_direct"],
     "ijar": ["@bazel_tools//tools/jdk:ijar"],
     "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
-    "javac": ["@bazel_tools//tools/jdk:remote-javac_jar"],
+    "javac": ["@bazel_tools//tools/jdk:javac_jar"],
     "tools": [
-        "@bazel_tools//tools/jdk:remote-java_compiler_jar",
-        "@bazel_tools//tools/jdk:remote-jdk_compiler_jar",
+        "@bazel_tools//tools/jdk:java_compiler_jar",
+        "@bazel_tools//tools/jdk:jdk_compiler_jar",
     ],
     "javac_supports_workers": 1,
     "jvm_opts": JDK9_JVM_OPTS,
