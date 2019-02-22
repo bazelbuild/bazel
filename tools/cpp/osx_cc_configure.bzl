@@ -125,8 +125,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
                 err = xcrun_result.stderr,
                 out = xcrun_result.stdout,
             )
-            fail("wrapped_clang failed to generate. This shouldn't cause " +
-                 "problems, but please file an issue at " +
+            fail("wrapped_clang failed to generate. Please file an issue at " +
                  "https://github.com/bazelbuild/bazel/issues with the following:\n" +
                  error_msg)
 
