@@ -57,15 +57,15 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    PyRuntimeProvider provider =
+    PyRuntimeInfo provider =
         hermetic
-            ? PyRuntimeProvider.create(files, interpreter, /*interpreterPath=*/ null)
-            : PyRuntimeProvider.create(/*files=*/ null, /*interpreter=*/ null, interpreterPath);
+            ? PyRuntimeInfo.createForInBuildRuntime(interpreter, files)
+            : PyRuntimeInfo.createForPlatformRuntime(interpreterPath);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(files)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(PyRuntimeProvider.class, provider)
+        .addNativeDeclaredProvider(provider)
         .build();
   }
 

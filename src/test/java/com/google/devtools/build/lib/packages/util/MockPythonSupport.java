@@ -23,4 +23,12 @@ public abstract class MockPythonSupport {
 
   /** Setup the support for building Python. */
   public abstract void setup(MockToolsConfig config) throws IOException;
+
+  /**
+   * Setup support for, and return the string label of, a target that can be passed to {@code
+   * --python_top} that causes the {@code py_runtime} consumed by Python rules to be the given
+   * {@code pyRuntimeLabel}.
+   */
+  public abstract String createPythonTopEntryPoint(MockToolsConfig config, String pyRuntimeLabel)
+      throws IOException;
 }
