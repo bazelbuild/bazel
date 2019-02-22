@@ -95,7 +95,7 @@ public class JavaCompileAction extends AbstractAction
   private final ImmutableList<Artifact> sourceJars;
   private final JavaPluginInfo plugins;
 
-  private final ImmutableList<? extends ActionInput> outputFiles;
+  private final ImmutableSet<? extends ActionInput> outputFiles;
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> transitiveInputs;
@@ -148,9 +148,12 @@ public class JavaCompileAction extends AbstractAction
     this.dependencyArtifacts = dependencyArtifacts;
     this.outputDepsProto = outputDepsProto;
     this.classpathMode = classpathMode;
-    ImmutableList.Builder<ActionInput> outputsBuilder = ImmutableList.builder();
+    ImmutableSet.Builder<ActionInput> outputsBuilder = ImmutableSet.builder();
     outputsBuilder.addAll(outputs);
     if (outputDepsProto != null) {
+      // If the outputDepsProto is a proper Artifact, it is already in outputs and has thus been
+      // declared as an output of the action above. Adding it again won't hurt as this is a set.
+      // If we are reading deps protos in memory, add the virtual action output here.
       outputsBuilder.add(outputDepsProto);
     }
     outputFiles = outputsBuilder.build();
