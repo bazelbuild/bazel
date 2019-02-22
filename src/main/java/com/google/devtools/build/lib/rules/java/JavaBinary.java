@@ -292,7 +292,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               mainClass,
               originalMainClass,
               filesBuilder,
-              javaExecutable);
+              javaExecutable,
+              /* createCoverageMetadataJar= */ false);
       if (!executableToRun.equals(executableForRunfiles)) {
         filesBuilder.add(executableToRun);
         runfilesBuilder.addArtifact(executableToRun);
