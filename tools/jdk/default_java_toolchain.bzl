@@ -15,10 +15,10 @@
 """Bazel rules for creating Java toolchains."""
 
 JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:remote-javac_jar)",
+    "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
 ]
 
-JDK9_REMOTE_JVM_OPTS = [
+JDK9_JVM_OPTS = [
     # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
     # G1 collector and having compact strings enabled.
     "-XX:+UseParallelOldGC",
@@ -34,8 +34,8 @@ JDK9_REMOTE_JVM_OPTS = [
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
 
     # override the javac in the JDK.
-    "--patch-module=java.compiler=$(location @bazel_tools//tools/jdk:remote-java_compiler_jar)",
-    "--patch-module=jdk.compiler=$(location @bazel_tools//tools/jdk:remote-jdk_compiler_jar)",
+    "--patch-module=java.compiler=$(location @bazel_tools//tools/jdk:java_compiler_jar)",
+    "--patch-module=jdk.compiler=$(location @bazel_tools//tools/jdk:jdk_compiler_jar)",
 
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
@@ -61,31 +61,30 @@ PROTO_JAVACOPTS = [
 COMPATIBLE_JAVACOPTS = {
     "proto": PROTO_JAVACOPTS,
 }
-
-DEFAULT_REMOTE_TOOLCHAIN_CONFIGURATION = {
+DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "forcibly_disable_header_compilation": 0,
-    "genclass": ["@bazel_tools//tools/jdk:remote-genclass"],
-    "header_compiler": ["@bazel_tools//tools/jdk:remote-turbine"],
-    "header_compiler_direct": ["@bazel_tools//tools/jdk:remote-turbine_direct"],
+    "genclass": ["@bazel_tools//tools/jdk:genclass"],
+    "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
+    "header_compiler_direct": ["@bazel_tools//tools/jdk:turbine_direct"],
     "ijar": ["@bazel_tools//tools/jdk:ijar"],
-    "javabuilder": ["@bazel_tools//tools/jdk:remote-javabuilder"],
-    "javac": ["@bazel_tools//tools/jdk:remote-javac_jar"],
+    "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
+    "javac": ["@bazel_tools//tools/jdk:javac_jar"],
     "tools": [
-        "@bazel_tools//tools/jdk:remote-java_compiler_jar",
-        "@bazel_tools//tools/jdk:remote-jdk_compiler_jar",
+        "@bazel_tools//tools/jdk:java_compiler_jar",
+        "@bazel_tools//tools/jdk:jdk_compiler_jar",
     ],
     "javac_supports_workers": 1,
-    "jvm_opts": JDK9_REMOTE_JVM_OPTS,
+    "jvm_opts": JDK9_JVM_OPTS,
     "misc": DEFAULT_JAVACOPTS,
     "compatible_javacopts": COMPATIBLE_JAVACOPTS,
     "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
     "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
 }
 
-def default_remote_java_toolchain(name, **kwargs):
+def default_java_toolchain(name, **kwargs):
     """Defines a remote java_toolchain with appropriate defaults for Bazel."""
 
-    toolchain_args = dict(DEFAULT_REMOTE_TOOLCHAIN_CONFIGURATION)
+    toolchain_args = dict(DEFAULT_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(kwargs)
 
     native.java_toolchain(
