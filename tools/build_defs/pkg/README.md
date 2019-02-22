@@ -183,7 +183,7 @@ Creates a tar file from a list of inputs.
       </td>
     </tr>
     <tr>
-      <td><code>portale_mtime</code></td>
+      <td><code>portable_mtime</code></td>
       <td>
         <code>bool, default True</code>
         <p>
