@@ -84,7 +84,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
 def default_java_toolchain(name, **kwargs):
     """Defines a remote java_toolchain with appropriate defaults for Bazel."""
 
-    toolchain_args = dict(DEFAULT_REMOTE_TOOLCHAIN_CONFIGURATION)
+    toolchain_args = dict(DEFAULT_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(kwargs)
 
     native.java_toolchain(

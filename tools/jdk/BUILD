@@ -156,8 +156,23 @@ filegroup(
 )
 
 filegroup(
+    name = "GenClass_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/GenClass_deploy.jar"],
+)
+
+filegroup(
+    name = "bazel-singlejar_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/bazel-singlejar_deploy.jar"],
+)
+
+filegroup(
     name = "turbine",
     srcs = ["@remote_java_tools//:Turbine"],
+)
+
+filegroup(
+    name = "turbine_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/turbine_deploy.jar"],
 )
 
 filegroup(
@@ -166,8 +181,18 @@ filegroup(
 )
 
 filegroup(
+    name = "turbine_direct_binary_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/turbine_direct_binary_deploy.jar"],
+)
+
+filegroup(
     name = "javabuilder",
     srcs = ["@remote_java_tools//:JavaBuilder"],
+)
+
+filegroup(
+    name = "JavaBuilder_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/JavaBuilder_deploy.jar"],
 )
 
 filegroup(
@@ -200,9 +225,19 @@ java_import(
     jars = ["@remote_java_tools//:java_tools/Runner_deploy.jar"],
 )
 
+filegroup(
+    name = "TestRunner_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/Runner_deploy.jar"],
+)
+
 java_import(
     name = "ExperimentalTestRunner",
     jars = ["@remote_java_tools//:java_tools/ExperimentalRunner_deploy.jar"],
+)
+
+filegroup(
+    name = "ExperimentalRunner_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/ExperimentalRunner_deploy.jar"],
 )
 
 BOOTCLASS_JARS = [
@@ -274,6 +309,12 @@ default_java_toolchain(
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
     name = "toolchain",
+    source_version = "8",
+    target_version = "8",
+)
+
+default_java_toolchain(
+    name = "remote_toolchain",
     source_version = "8",
     target_version = "8",
 )
