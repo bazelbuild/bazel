@@ -18,7 +18,7 @@ JDK8_JVM_OPTS = [
     "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:remote-javac_jar)",
 ]
 
-JDK9_REMOTE_JVM_OPTS = [
+JDK9_JVM_OPTS = [
     # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
     # G1 collector and having compact strings enabled.
     "-XX:+UseParallelOldGC",
@@ -61,28 +61,27 @@ PROTO_JAVACOPTS = [
 COMPATIBLE_JAVACOPTS = {
     "proto": PROTO_JAVACOPTS,
 }
-
-DEFAULT_REMOTE_TOOLCHAIN_CONFIGURATION = {
+DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "forcibly_disable_header_compilation": 0,
-    "genclass": ["@bazel_tools//tools/jdk:remote-genclass"],
-    "header_compiler": ["@bazel_tools//tools/jdk:remote-turbine"],
-    "header_compiler_direct": ["@bazel_tools//tools/jdk:remote-turbine_direct"],
+    "genclass": ["@bazel_tools//tools/jdk:genclass"],
+    "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
+    "header_compiler_direct": ["@bazel_tools//tools/jdk:turbine_direct"],
     "ijar": ["@bazel_tools//tools/jdk:ijar"],
-    "javabuilder": ["@bazel_tools//tools/jdk:remote-javabuilder"],
+    "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
     "javac": ["@bazel_tools//tools/jdk:remote-javac_jar"],
     "tools": [
         "@bazel_tools//tools/jdk:remote-java_compiler_jar",
         "@bazel_tools//tools/jdk:remote-jdk_compiler_jar",
     ],
     "javac_supports_workers": 1,
-    "jvm_opts": JDK9_REMOTE_JVM_OPTS,
+    "jvm_opts": JDK9_JVM_OPTS,
     "misc": DEFAULT_JAVACOPTS,
     "compatible_javacopts": COMPATIBLE_JAVACOPTS,
     "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
     "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
 }
 
-def default_remote_java_toolchain(name, **kwargs):
+def default_java_toolchain(name, **kwargs):
     """Defines a remote java_toolchain with appropriate defaults for Bazel."""
 
     toolchain_args = dict(DEFAULT_REMOTE_TOOLCHAIN_CONFIGURATION)

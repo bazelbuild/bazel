@@ -1,6 +1,6 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
-    "default_remote_java_toolchain",
+    "default_java_toolchain",
     "java_runtime_files",
     "JDK8_JVM_OPTS",
     "bootclasspath",
@@ -151,22 +151,22 @@ filegroup(
 exports_files(["BUILD.pkg"])
 
 filegroup(
-    name = "remote-genclass",
+    name = "genclass",
     srcs = ["@remote_java_tools//:GenClass"],
 )
 
 filegroup(
-    name = "remote-turbine",
+    name = "turbine",
     srcs = ["@remote_java_tools//:Turbine"],
 )
 
 filegroup(
-    name = "remote-turbine_direct",
+    name = "turbine_direct",
     srcs = ["@remote_java_tools//:TurbineDirect"],
 )
 
 filegroup(
-    name = "remote-javabuilder",
+    name = "javabuilder",
     srcs = ["@remote_java_tools//:JavaBuilder"],
 )
 
@@ -268,14 +268,14 @@ bootclasspath(
     target_javabase = "current_java_runtime",
 )
 
-default_remote_java_toolchain(
+default_java_toolchain(
     name = "toolchain_hostjdk8",
     jvm_opts = JDK8_JVM_OPTS,
     source_version = "8",
     target_version = "8",
 )
 
-default_remote_java_toolchain(
+default_java_toolchain(
     name = "remote_toolchain_hostjdk8",
     jvm_opts = JDK8_JVM_OPTS,
     source_version = "8",
@@ -284,13 +284,13 @@ default_remote_java_toolchain(
 
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
-default_remote_java_toolchain(
+default_java_toolchain(
     name = "toolchain",
     source_version = "8",
     target_version = "8",
 )
 
-default_remote_java_toolchain(
+default_java_toolchain(
     name = "remote_toolchain",
     source_version = "8",
     target_version = "8",
@@ -310,14 +310,14 @@ default_remote_java_toolchain(
 #
 # However it does allow using a wider range of `--host_javabase`s, including
 # versions newer than the current embedded JDK.
-default_remote_java_toolchain(
+default_java_toolchain(
     name = "toolchain_vanilla",
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
     jvm_opts = [],
 )
 
-default_remote_java_toolchain(
+default_java_toolchain(
     name = "remote_toolchain_vanilla",
     forcibly_disable_header_compilation = True,
     javabuilder = ["@bazel_tools//tools/jdk:remote-vanillajavabuilder"],
@@ -327,7 +327,7 @@ default_remote_java_toolchain(
 RELEASES = (8, 9)
 
 [
-    default_remote_java_toolchain(
+    default_java_toolchain(
         name = "toolchain_java%d" % release,
         source_version = "%s" % release,
         target_version = "%s" % release,
