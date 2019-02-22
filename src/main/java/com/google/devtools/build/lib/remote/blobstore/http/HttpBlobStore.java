@@ -271,7 +271,16 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   p.addLast(new HttpUploadHandler(creds));
                 }
 
-                channelReady.setSuccess(ch);
+                if (!ch.eventLoop().inEventLoop()) {
+                  // If addLast is called outside an event loop, then it doesn't complete until the
+                  // event loop is run again. In that case, a message sent to the last handler gets
+                  // delivered to the last non-pending handler, which will most likely end up
+                  // throwing UnsupportedMessageTypeException. Therefore, we only complete the
+                  // promise in the event loop.
+                  ch.eventLoop().execute(() -> channelReady.setSuccess(ch));
+                } else {
+                  channelReady.setSuccess(ch);
+                }
               } catch (Throwable t) {
                 channelReady.setFailure(t);
               }
@@ -332,7 +341,16 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   p.addLast(new HttpDownloadHandler(creds));
                 }
 
-                channelReady.setSuccess(ch);
+                if (!ch.eventLoop().inEventLoop()) {
+                  // If addLast is called outside an event loop, then it doesn't complete until the
+                  // event loop is run again. In that case, a message sent to the last handler gets
+                  // delivered to the last non-pending handler, which will most likely end up
+                  // throwing UnsupportedMessageTypeException. Therefore, we only complete the
+                  // promise in the event loop.
+                  ch.eventLoop().execute(() -> channelReady.setSuccess(ch));
+                } else {
+                  channelReady.setSuccess(ch);
+                }
               } catch (Throwable t) {
                 channelReady.setFailure(t);
               }
