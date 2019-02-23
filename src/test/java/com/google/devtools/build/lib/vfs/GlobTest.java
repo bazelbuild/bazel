@@ -374,7 +374,7 @@ public class GlobTest {
           new UnixGlob.Builder(tmpPath)
               .addPattern("**")
               .setDirectoryFilter(interrupterPredicate)
-              .setThreadPool(executor)
+              .setExecutor(executor)
               .globAsync();
       globResult.get();
       fail(); // Should have received InterruptedException
@@ -413,9 +413,12 @@ public class GlobTest {
       }
     };
 
-    List<Path> result = new UnixGlob.Builder(tmpPath)
-        .addPatterns("**", "*")
-        .setDirectoryFilter(interrupterPredicate).setThreadPool(executor).glob();
+    List<Path> result =
+        new UnixGlob.Builder(tmpPath)
+            .addPatterns("**", "*")
+            .setDirectoryFilter(interrupterPredicate)
+            .setExecutor(executor)
+            .glob();
 
     // In the non-interruptible case, the interrupt bit should be set, but the
     // glob should return the correct set of full results.

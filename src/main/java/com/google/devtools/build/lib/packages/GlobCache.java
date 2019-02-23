@@ -35,8 +35,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -76,10 +76,9 @@ public class GlobCache {
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
   private final int maxDirectoriesToEagerlyVisit;
 
-  /**
-   * The thread pool for glob evaluation.
-   */
-  private final ThreadPoolExecutor globExecutor;
+  /** The thread pool for glob evaluation. */
+  private final Executor globExecutor;
+
   private final AtomicBoolean globalStarted = new AtomicBoolean(false);
 
   /**
@@ -98,7 +97,7 @@ public class GlobCache {
       final PackageIdentifier packageId,
       final CachingPackageLocator locator,
       AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
-      ThreadPoolExecutor globExecutor,
+      Executor globExecutor,
       int maxDirectoriesToEagerlyVisit) {
     this.packageDirectory = Preconditions.checkNotNull(packageDirectory);
     this.packageId = Preconditions.checkNotNull(packageId);
@@ -206,7 +205,7 @@ public class GlobCache {
         .addPattern(pattern)
         .setExcludeDirectories(excludeDirs)
         .setDirectoryFilter(childDirectoryPredicate)
-        .setThreadPool(globExecutor)
+        .setExecutor(globExecutor)
         .setFilesystemCalls(syscalls)
         .globAsync();
   }
