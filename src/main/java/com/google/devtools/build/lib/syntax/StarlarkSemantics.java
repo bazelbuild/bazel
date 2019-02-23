@@ -211,7 +211,7 @@ public abstract class StarlarkSemantics {
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(false)
           .experimentalTransitionWhitelistLocation("")
-          .incompatibleUseToolchainProvidersInJavaCommon(false)
+          .incompatibleUseToolchainProvidersInJavaCommon(true)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
