@@ -16,6 +16,7 @@ syntax = "proto3";
 
 package build_event_stream;
 
+option go_package = "github.com/bazelbuild/bazel/src/main/java/com/google/devtools/build/lib/buildeventstream/proto";
 option java_package = "com.google.devtools.build.lib.buildeventstream";
 option java_outer_classname = "BuildEventStreamProtos";
 

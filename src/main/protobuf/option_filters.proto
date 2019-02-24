@@ -14,6 +14,7 @@
 syntax = "proto3";
 package options;
 
+option go_package = "github.com/bazelbuild/bazel/src/main/protobuf";
 // option java_api_version = 2;
 option java_package = "com.google.devtools.common.options.proto";
 
