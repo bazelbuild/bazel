@@ -64,6 +64,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
             err = xcodebuild_result.stderr,
             out = xcodebuild_result.stdout,
         )
+        print(error_msg)
         fail(error_msg)
     ios_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "iphoneos")
     tvos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "appletvos")
@@ -136,6 +137,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
             err = xcrun_result.stderr,
             out = xcrun_result.stdout,
         )
+        print(error_msg)
         fail(error_msg)
 
     xcode_locator_result = repository_ctx.execute(["./xcode-locator-bin", "-v"], 30)
@@ -147,8 +149,9 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
             code = xcode_locator_result.return_code,
             err = xcode_locator_result.stderr,
             out = xcode_locator_result.stdout,
-        )
-        fail(error_msg.replace("\n", " "))
+        ).replace("\n", " ")
+        print(error_msg)
+        fail(error_msg)
     xcode_toolchains = []
 
     # xcode_dump is comprised of newlines with different installed xcode versions,
