@@ -24,11 +24,25 @@ public class FunctionParamInfo {
   private final String name;
   private final String docString;
   @Nullable private final Object defaultValue;
+  private final boolean mandatory;
 
-  public FunctionParamInfo(String name, String docString, @Nullable Object defaultValue) {
+  private FunctionParamInfo(
+      String name, String docString, @Nullable Object defaultValue, boolean mandatory) {
     this.name = name;
     this.docString = docString;
     this.defaultValue = defaultValue;
+    this.mandatory = mandatory;
+  }
+
+  /** Constructor to be used for normal parameters. */
+  public static FunctionParamInfo forParam(
+      String name, String docString, @Nullable Object defaultValue) {
+    return new FunctionParamInfo(name, docString, defaultValue, defaultValue == null);
+  }
+
+  /** Constructor to be used for *args or **kwargs. */
+  public static FunctionParamInfo forSpecialParam(String name, String docString) {
+    return new FunctionParamInfo(name, docString, null, false);
   }
 
   /**
@@ -74,6 +88,6 @@ public class FunctionParamInfo {
    * Returns 'required' if this parameter is mandatory, otherwise returns 'optional'.
    */
   public String getMandatoryString() {
-    return defaultValue == null ? "required" : "optional";
+    return mandatory ? "required" : "optional";
   }
 }

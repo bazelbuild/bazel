@@ -171,3 +171,10 @@ skydoc_test(
         "my_module",
     ],
 )
+
+skydoc_test(
+    name = "macro_kwargs_test",
+    golden_file = "testdata/macro_kwargs_test/golden.txt",
+    input_file = "testdata/macro_kwargs_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
