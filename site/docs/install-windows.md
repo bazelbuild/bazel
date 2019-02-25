@@ -77,6 +77,10 @@ information about the Chocolatey package.
 
         scoop install bazel
 
+See [Scoop installation and package maintenance
+guide](https://bazel.build/windows-scoop-maintenance.html) for more
+information about the Scoop package.
+
 ### Using Bazel
 
 Once you have installed Bazel, see [Using Bazel on Windows](windows.html).
