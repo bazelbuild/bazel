@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -470,7 +471,7 @@ public class LicensingTests extends BuildViewTestCase {
         "    all_files = ':every-file',",
         "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
         "    static_runtime_lib = 'static-runtime-libs-cherry')");
-    scratch.file("c/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
+    scratch.file("c/CROSSTOOL", MockCcSupport.EMPTY_CROSSTOOL);
 
     ConfiguredTarget target = getConfiguredTarget("//c:c");
     Map<Label, License> expected = licenses("//c:c", "notice");

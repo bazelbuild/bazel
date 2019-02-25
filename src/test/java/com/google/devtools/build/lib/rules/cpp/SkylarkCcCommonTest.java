@@ -438,7 +438,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "compiler_flag: '-foo'", "cxx_flag: '-foo_for_cxx_only'");
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
     SkylarkList<String> commandLine =
         commandLineForVariables(
             CppActionNames.CPP_COMPILE,
@@ -455,7 +455,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "compiler_flag: '-foo'", "cxx_flag: '-foo_for_cxx_only'");
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_COMPILE,
@@ -524,6 +524,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCompileBuildVariablesForPic() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE, MockCcSupport.PIC_FEATURE);
+    useConfiguration();
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_COMPILE,
@@ -893,7 +898,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "test_only_linker_flag: '-im_only_testing_flag'");
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
@@ -930,7 +935,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             "  mode: DYNAMIC",
             "  linker_flag: '-dynamic_linking_mode_flag'",
             "}");
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
     SkylarkList<String> staticLinkingModeFlags =
         commandLineForVariables(
             CppActionNames.CPP_LINK_EXECUTABLE,
@@ -1166,12 +1171,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
-            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION);
+            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "libdep2.a", "b.a", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.pic.a", "c.pic.a", "e.pic.a"),
-        ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"),
-        /* disableSupportsPic= */ true);
+        ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"));
   }
 
   @Test
@@ -1181,23 +1186,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.PIC_FEATURE,
-            "needsPic: true");
+            MockCcSupport.SUPPORTS_PIC_FEATURE,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
         ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
-        ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"),
-        /* disableSupportsPic= */ false);
+        ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
   }
 
   private void doTestCcLinkingContext(
       List<String> staticLibraryList,
       List<String> picStaticLibraryList,
-      List<String> dynamicLibraryList,
-      boolean disableSupportsPic)
+      List<String> dynamicLibraryList)
       throws Exception {
-    useConfiguration(
-        "--features=-supports_interface_shared_libraries",
-        disableSupportsPic ? "--features=-supports_pic" : "--features=supports_pic");
+    useConfiguration("--features=-supports_interface_shared_libraries");
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 

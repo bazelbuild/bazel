@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
@@ -39,21 +40,12 @@ final class Crosstool {
   private final String crosstoolTop;
   private String version;
   private String crosstoolFileContents;
-  private boolean addEmbeddedRuntimes;
-  private String staticRuntimeLabelOrNull;
-  private String dynamicRuntimeLabelOrNull;
   private ImmutableList<String> archs;
-  private boolean addModuleMap;
   private boolean supportsHeaderParsing;
 
   Crosstool(MockToolsConfig config, String crosstoolTop) {
     this.config = config;
     this.crosstoolTop = crosstoolTop;
-  }
-
-  public Crosstool setAddModuleMap(boolean addModuleMap) {
-    this.addModuleMap = addModuleMap;
-    return this;
   }
 
   public Crosstool setCrosstoolFile(String version, String crosstoolFileContents) {
@@ -69,14 +61,6 @@ final class Crosstool {
 
   public Crosstool setSupportsHeaderParsing(boolean supportsHeaderParsing) {
     this.supportsHeaderParsing = supportsHeaderParsing;
-    return this;
-  }
-
-  public Crosstool setEmbeddedRuntimes(
-      boolean addEmbeddedRuntimes, String staticRuntimesLabel, String dynamicRuntimesLabel) {
-    this.addEmbeddedRuntimes = addEmbeddedRuntimes;
-    this.staticRuntimeLabelOrNull = staticRuntimesLabel;
-    this.dynamicRuntimeLabelOrNull = dynamicRuntimesLabel;
     return this;
   }
 
@@ -108,15 +92,18 @@ final class Crosstool {
     Set<String> seenCpus = new LinkedHashSet<>();
     StringBuilder compilerMap = new StringBuilder();
     for (CToolchain toolchain : toolchainList) {
+      boolean hasStaticLinkCppRuntimesFeature =
+          toolchain.getFeatureList().stream()
+              .anyMatch(f -> f.getName().equals(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
       String staticRuntimeLabel =
-          staticRuntimeLabelOrNull != null
-              ? staticRuntimeLabelOrNull
-              : toolchain.getStaticRuntimesFilegroup();
+          hasStaticLinkCppRuntimesFeature
+              ? "mock-static-runtimes-target-for-" + toolchain.getToolchainIdentifier()
+              : null;
       String dynamicRuntimeLabel =
-          dynamicRuntimeLabelOrNull != null
-              ? dynamicRuntimeLabelOrNull
-              : toolchain.getDynamicRuntimesFilegroup();
-      if (!staticRuntimeLabel.isEmpty()) {
+          hasStaticLinkCppRuntimesFeature
+              ? "mock-dynamic-runtimes-target-for-" + toolchain.getToolchainIdentifier()
+              : null;
+      if (staticRuntimeLabel != null) {
         runtimes.add(
             Joiner.on('\n')
                 .join(
@@ -126,7 +113,7 @@ final class Crosstool {
                     "  srcs = ['libstatic-runtime-lib-source.a'])",
                     ""));
       }
-      if (!dynamicRuntimeLabel.isEmpty()) {
+      if (dynamicRuntimeLabel != null) {
         runtimes.add(
             Joiner.on('\n')
                 .join(
@@ -166,7 +153,7 @@ final class Crosstool {
                   "  name = 'cc-compiler-" + suffix + "',",
                   "  toolchain_identifier = '" + toolchain.getToolchainIdentifier() + "',",
                   "  output_licenses = ['unencumbered'],",
-                  addModuleMap ? "    module_map = 'crosstool.cppmap'," : "",
+                  "  module_map = 'crosstool.cppmap',",
                   "  cpu = '" + toolchain.getTargetCpu() + "',",
                   "  compiler = '" + toolchain.getCompiler() + "',",
                   "  ar_files = 'ar-" + toolchain.getTargetCpu() + "',",
@@ -179,10 +166,10 @@ final class Crosstool {
                   "  all_files = ':every-file',",
                   "  licenses = ['unencumbered'],",
                   supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
-                  dynamicRuntimeLabel.isEmpty()
+                  dynamicRuntimeLabel == null
                       ? ""
                       : "    dynamic_runtime_lib = '" + dynamicRuntimeLabel + "',",
-                  staticRuntimeLabel.isEmpty()
+                  staticRuntimeLabel == null
                       ? ""
                       : "    static_runtime_lib = '" + staticRuntimeLabel + "',",
                   ")",
@@ -207,10 +194,8 @@ final class Crosstool {
                     "cc_toolchain_suite(name = 'everything', toolchains = {%s})", compilerMap),
                 "",
                 String.format(
-                    "filegroup(name = 'every-file', srcs = ['%s'%s%s])",
-                    Joiner.on("', '").join(CROSSTOOL_BINARIES),
-                    addEmbeddedRuntimes ? ", ':dynamic-runtime-libs-k8'" : "",
-                    addEmbeddedRuntimes ? ", ':static-runtime-libs-k8'" : ""),
+                    "filegroup(name = 'every-file', srcs = ['%s'])",
+                    Joiner.on("', '").join(CROSSTOOL_BINARIES)),
                 "",
                 compilationTools.toString(),
                 Joiner.on("\n").join(runtimes),

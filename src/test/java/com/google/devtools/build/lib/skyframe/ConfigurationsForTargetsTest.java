@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -344,6 +345,12 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       return;
     }
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain= */ false,
+            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
     scratch.file(
         "java/a/BUILD",
         "cc_library(name = 'lib', srcs = ['lib.cc'])",

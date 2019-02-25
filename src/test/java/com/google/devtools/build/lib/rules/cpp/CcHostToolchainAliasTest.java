@@ -18,9 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,7 +55,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "})",
         "cc_toolchain(",
         "    name = 'toolchain_b',",
-        "    toolchain_identifier = 'toolchain-identifier-k8',",
+        "    toolchain_identifier = 'mock-llvm-toolchain-k8',",
         "    cpu = 'ED-E',",
         "    all_files = ':banana',",
         "    ar_files = ':empty',",
@@ -65,7 +65,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty')");
-    scratch.file("b/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
+    scratch.file("b/CROSSTOOL", MockCcSupport.EMPTY_CROSSTOOL);
 
     scratch.file("a/BUILD", "cc_host_toolchain_alias(name='current_cc_host_toolchain')");
 

@@ -282,7 +282,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     LoadingPhaseThreadsOption.class,
                     LoadingOptions.class),
                 ruleClassProvider.getConfigurationOptions()));
-    optionsParser.parse(new String[] {"--default_visibility=public" });
+    optionsParser.parse(new String[] {"--default_visibility=public", "--cpu=k8", "--host_cpu=k8"});
     optionsParser.parse(args);
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       optionsParser.parse("--experimental_dynamic_configs=on");
