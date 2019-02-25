@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
@@ -74,6 +75,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkAttrApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkCommandLineApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
@@ -157,7 +159,7 @@ public class SkydocMain {
   }
 
   public static void main(String[] args)
-      throws IOException, InterruptedException, LabelSyntaxException {
+      throws IOException, InterruptedException, LabelSyntaxException, EvalException {
     OptionsParser parser =
         OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class, SkydocOptions.class);
     parser.parseAndExitUponError(args);
@@ -209,31 +211,36 @@ public class SkydocMain {
 
     MarkdownRenderer renderer = new MarkdownRenderer();
 
-    if (symbolNames.isEmpty()) {
-      try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
-        printRuleInfos(printWriter, renderer, ruleInfoMap.build(), unknownNamedRules.build());
-        printProviderInfos(printWriter, renderer, providerInfoMap.build());
-        printUserDefinedFunctions(printWriter, renderer, userDefinedFunctions.build());
-      }
-    } else {
-      Map<String, RuleInfo> filteredRuleInfos =
-          ruleInfoMap.build().entrySet().stream()
-              .filter(entry -> symbolNames.contains(entry.getKey()))
-              .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-      Map<String, ProviderInfo> filteredProviderInfos =
-          providerInfoMap.build().entrySet().stream()
-              .filter(entry -> symbolNames.contains(entry.getKey()))
-              .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-      Map<String, UserDefinedFunction> filteredUserDefinedFunctions =
-          userDefinedFunctions.build().entrySet().stream()
-              .filter(entry -> symbolNames.contains(entry.getKey()))
-              .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-      try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
-        printRuleInfos(printWriter, renderer, filteredRuleInfos, ImmutableList.of());
-        printProviderInfos(printWriter, renderer, filteredProviderInfos);
-        printUserDefinedFunctions(printWriter, renderer, filteredUserDefinedFunctions);
-      }
+    Map<String, RuleInfo> filteredRuleInfos =
+        ruleInfoMap.build().entrySet().stream()
+            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+            .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+    Map<String, ProviderInfo> filteredProviderInfos =
+        providerInfoMap.build().entrySet().stream()
+            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+            .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+    Map<String, UserDefinedFunction> filteredUserDefinedFunctions =
+        userDefinedFunctions.build().entrySet().stream()
+            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+            .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+    try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
+      printRuleInfos(printWriter, renderer, filteredRuleInfos, ImmutableList.of());
+      printProviderInfos(printWriter, renderer, filteredProviderInfos);
+      printUserDefinedFunctions(printWriter, renderer, filteredUserDefinedFunctions);
     }
+  }
+
+  private static boolean validSymbolName(ImmutableSet<String> symbolNames, String symbolName) {
+    if (symbolNames.isEmpty()) {
+      // Symbols prefixed with an underscore are private, and thus, by default, documentation
+      // should not be generated for them.
+      return !symbolName.startsWith("_");
+    } else if (symbolNames.contains(symbolName)) {
+      return true;
+    } else if (symbolName.contains(".")) {
+      return symbolNames.contains(symbolName.substring(0, symbolName.indexOf('.')));
+    }
+    return false;
   }
 
   private static ImmutableSet<String> getSymbolNames(List<String> args) {
@@ -332,7 +339,7 @@ public class SkydocMain {
       ImmutableList.Builder<RuleInfo> unknownNamedRules,
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
       ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
-      throws InterruptedException, IOException, LabelSyntaxException {
+      throws InterruptedException, IOException, LabelSyntaxException, EvalException {
 
     List<RuleInfo> ruleInfoList = new ArrayList<>();
     List<ProviderInfo> providerInfoList = new ArrayList<>();
@@ -365,6 +372,15 @@ public class SkydocMain {
       if (envEntry.getValue() instanceof UserDefinedFunction) {
         UserDefinedFunction userDefinedFunction = (UserDefinedFunction) envEntry.getValue();
         userDefinedFunctionMap.put(envEntry.getKey(), userDefinedFunction);
+      }
+      if (envEntry.getValue() instanceof FakeStructApi) {
+        FakeStructApi struct = (FakeStructApi) envEntry.getValue();
+        for (String field : struct.getFieldNames()) {
+          if (struct.getValue(field) instanceof UserDefinedFunction) {
+            UserDefinedFunction userDefinedFunction = (UserDefinedFunction) struct.getValue(field);
+            userDefinedFunctionMap.put(envEntry.getKey() + "." + field, userDefinedFunction);
+          }
+        }
       }
     }
 

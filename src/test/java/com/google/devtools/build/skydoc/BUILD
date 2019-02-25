@@ -154,3 +154,20 @@ skydoc_test(
     input_file = "testdata/function_basic_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
+
+skydoc_test(
+    name = "module_test",
+    golden_file = "testdata/module_test/golden.txt",
+    input_file = "testdata/module_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
+    name = "module_test_with_whitelist",
+    golden_file = "testdata/module_test/golden.txt",
+    input_file = "testdata/module_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+    whitelisted_symbols = [
+        "my_module",
+    ],
+)
