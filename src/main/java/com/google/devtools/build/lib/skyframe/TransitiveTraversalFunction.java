@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -92,7 +92,7 @@ public class TransitiveTraversalFunction
   @Override
   protected Collection<Label> getAspectLabels(
       Rule fromRule,
-      Attribute attr,
+      ImmutableList<Aspect> aspectsOfAttribute,
       Label toLabel,
       ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
       Environment env) {
@@ -106,9 +106,9 @@ public class TransitiveTraversalFunction
       }
       // Retrieve the providers of the dep from the TransitiveTraversalValue, so we can avoid
       // issuing a dep on its defining Package.
-      return AspectDefinition.visitAspectsIfRequired(fromRule, attr,
-          traversalVal.getProviders(),
-          DependencyFilter.ALL_DEPS).values();
+      return AspectDefinition.visitAspectsIfRequired(
+              fromRule, aspectsOfAttribute, traversalVal.getProviders(), DependencyFilter.ALL_DEPS)
+          .values();
     } catch (NoSuchThingException e) {
       // Do nothing. This error was handled when we computed the corresponding
       // TransitiveTargetValue.

@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
@@ -183,24 +186,34 @@ abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements Sky
       Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
       Environment env)
       throws InterruptedException {
-    List<SkyKey> depKeys = Lists.newArrayList();
-    if (target instanceof Rule) {
-      Map<Label, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> labelDepMap =
-          new HashMap<>(depMap.size());
-      for (Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>
-          entry : depMap.entrySet()) {
-        labelDepMap.put(argumentFromKey(entry.getKey()), entry.getValue());
-      }
+    if (!(target instanceof Rule)) {
+      return ImmutableList.of();
+    }
 
-      Multimap<Attribute, Label> transitions =
-          ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
-      for (Map.Entry<Attribute, Label> entry : transitions.entries()) {
+    Rule rule = (Rule) target;
+    Map<Label, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> labelDepMap =
+        new HashMap<>(depMap.size());
+    for (Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
+        depMap.entrySet()) {
+      labelDepMap.put(argumentFromKey(entry.getKey()), entry.getValue());
+    }
+
+    Map<String, ImmutableList<Aspect>> aspectsByAttribute =
+        Maps.newHashMapWithExpectedSize(rule.getAttributes().size());
+    for (Attribute attribute : rule.getAttributes()) {
+      aspectsByAttribute.put(attribute.getName(), attribute.getAspects(rule));
+    }
+
+    List<SkyKey> depKeys = Lists.newArrayList();
+    Multimap<Attribute, Label> transitions =
+        rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
+    for (Attribute attribute : transitions.keySet()) {
+      ImmutableList<Aspect> aspects = attribute.getAspects(rule);
+      for (Label toLabel : transitions.get(attribute)) {
         ValueOrException2<NoSuchPackageException, NoSuchTargetException> value =
-            labelDepMap.get(entry.getValue());
-        for (Label label :
-                getAspectLabels((Rule) target, entry.getKey(), entry.getValue(), value, env)) {
-          depKeys.add(getKey(label));
-        }
+            labelDepMap.get(toLabel);
+        getAspectLabels(rule, aspects, toLabel, value, env)
+            .forEach(aspectLabel -> depKeys.add(getKey(aspectLabel)));
       }
     }
     return depKeys;
@@ -209,7 +222,7 @@ abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements Sky
   /** Get the Aspect-related Label deps for the given edge. */
   protected abstract Collection<Label> getAspectLabels(
       Rule fromRule,
-      Attribute attr,
+      ImmutableList<Aspect> aspectsOfAttribute,
       Label toLabel,
       ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
       Environment env)

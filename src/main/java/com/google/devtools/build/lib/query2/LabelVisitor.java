@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -394,8 +395,13 @@ final class LabelVisitor {
 
     private void visitAspectsIfRequired(
         Target from, Attribute attribute, final Target to, int depth, int count) {
+      // TODO(bazel-team): The getAspects call below is duplicate work for each direct dep entailed
+      // by an attribute's value. Consider doing a slight refactor where we make this method call
+      // exactly once per Attribute.
+      ImmutableList<Aspect> aspectsOfAttribute =
+          (from instanceof Rule) ? attribute.getAspects((Rule) from) : ImmutableList.of();
       ImmutableMultimap<Attribute, Label> labelsFromAspects =
-          AspectDefinition.visitAspectsIfRequired(from, attribute, to, edgeFilter);
+          AspectDefinition.visitAspectsIfRequired(from, aspectsOfAttribute, to, edgeFilter);
       // Create an edge from target to the attribute value.
       for (Map.Entry<Attribute, Label> entry : labelsFromAspects.entries()) {
         enqueueTarget(from, entry.getKey(), entry.getValue(), depth, count);
