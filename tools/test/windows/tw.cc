@@ -1795,9 +1795,7 @@ DWORD IFStreamImpl::Peek(DWORD n, uint8_t* out) const {
   if (n1 > n) {
     n1 = n;  // all 'n' bytes are on the current page
   }
-  for (DWORD i = 0; i < n1; ++i) {
-    out[i] = pages_[pos_ + i];
-  }
+  memcpy(out, pages_.get() + pos_, n1);
   if (n1 == n) {
     return n;
   }
@@ -1807,9 +1805,7 @@ DWORD IFStreamImpl::Peek(DWORD n, uint8_t* out) const {
   if (n2 > next_size_) {
     n2 = next_size_;  // read no more than the other page's size
   }
-  for (DWORD i = 0; i < n2; ++i) {
-    out[n1 + i] = pages_[offs + i];
-  }
+  memcpy(out + n1, pages_.get() + offs, n2);
   return n1 + n2;
 }
 
