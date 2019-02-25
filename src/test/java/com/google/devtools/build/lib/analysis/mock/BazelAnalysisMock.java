@@ -77,8 +77,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "register_toolchains('@bazel_tools//tools/cpp:all')",
-            "register_toolchains('@bazel_tools//tools/jdk:dummy_java_toolchain')",
-            "register_toolchains('@bazel_tools//tools/jdk:dummy_java_runtime_toolchain')",
+            "register_toolchains('@bazel_tools//tools/jdk:all')",
             "local_repository(name = 'local_config_platform', path = '"
                 + localConfigPlatformWorkspace
                 + "')"));
