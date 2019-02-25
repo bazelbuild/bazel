@@ -60,46 +60,48 @@ public final class CombinedDiskHttpBlobStore extends OnDiskBlobStore {
       // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
       Path temp = toPath(UUID.randomUUID().toString());
 
-      try (OutputStream tempOut = temp.getOutputStream()) {
-        ListenableFuture<Boolean> chained = Futures.transformAsync(
-          bsHttp.get(key, tempOut),
-          (found) -> {
-            if (!found) {
-              return Futures.immediateFuture(false);
-            } else {
-              Path target = toPath(key);
-              // The following note and line is taken from OnDiskBlobStore.java
-              // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the case of machine
-              // crashes (the OS may reorder the writes and the rename).
-              temp.renameTo(target);
-
-              SettableFuture<Boolean> f = SettableFuture.create();
-              try (InputStream in = target.getInputStream()) {
-                ByteStreams.copy(in, out);
-                f.set(true);
-              } catch (IOException e) {
-                f.setException(e);
-              }
-              return f;
-            }
-          },
-          MoreExecutors.directExecutor()
-        );
-        chained.addListener(
-          () -> {
-            try {
-              tempOut.close();
-            } catch (IOException e) {
-              // not sure what to do here, we either are here because of another exception being thrown,
-              // or we have successfully used the file we are trying (and failing) to close
-              logger.log(Level.WARNING, "Failed to close temporary file on get", e);
-            }
-          },
-          MoreExecutors.directExecutor());
-        return chained;
+      OutputStream tempOut;
+      try {
+          tempOut = temp.getOutputStream();
       } catch (IOException e) {
-        return Futures.immediateFailedFuture(e);
+          return Futures.immediateFailedFuture(e);
       }
+      ListenableFuture<Boolean> chained = Futures.transformAsync(
+        bsHttp.get(key, tempOut),
+        (found) -> {
+          if (!found) {
+            return Futures.immediateFuture(false);
+          } else {
+            Path target = toPath(key);
+            // The following note and line is taken from OnDiskBlobStore.java
+            // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the case of machine
+            // crashes (the OS may reorder the writes and the rename).
+            temp.renameTo(target);
+
+            SettableFuture<Boolean> f = SettableFuture.create();
+            try (InputStream in = target.getInputStream()) {
+              ByteStreams.copy(in, out);
+              f.set(true);
+            } catch (IOException e) {
+              f.setException(e);
+            }
+            return f;
+          }
+        },
+        MoreExecutors.directExecutor()
+      );
+      chained.addListener(
+        () -> {
+          try {
+            tempOut.close();
+          } catch (IOException e) {
+            // not sure what to do here, we either are here because of another exception being thrown,
+            // or we have successfully used the file we are trying (and failing) to close
+            logger.log(Level.WARNING, "Failed to close temporary file on get", e);
+          }
+        },
+        MoreExecutors.directExecutor());
+      return chained;
     }
   }
 
