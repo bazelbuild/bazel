@@ -26,6 +26,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.LicenseCheckingModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License;
@@ -552,8 +553,13 @@ public class LicensingTests extends BuildViewTestCase {
         Maps.filterKeys(getTransitiveLicenses(used), AnalysisMock.get().ccSupport().labelFilter());
     Label usedLabel = Label.parseAbsolute("//used", ImmutableMap.of());
     License license = usedActual.get(usedLabel);
-    license.checkCompatibility(EnumSet.of(DistributionType.CLIENT),
-        getTarget("//user"), usedLabel, reporter, false);
+    LicenseCheckingModule.checkCompatibility(
+        license,
+        EnumSet.of(DistributionType.CLIENT),
+        getTarget("//user"),
+        usedLabel,
+        reporter,
+        false);
     assertNoEvents();
   }
 
@@ -576,8 +582,13 @@ public class LicensingTests extends BuildViewTestCase {
         Maps.filterKeys(getTransitiveLicenses(used), AnalysisMock.get().ccSupport().labelFilter());
     Label usedLabel = Label.parseAbsolute("//used", ImmutableMap.of());
     License license = usedActual.get(usedLabel);
-    license.checkCompatibility(EnumSet.of(DistributionType.CLIENT),
-        getTarget("//user"), usedLabel, reporter, false);
+    LicenseCheckingModule.checkCompatibility(
+        license,
+        EnumSet.of(DistributionType.CLIENT),
+        getTarget("//user"),
+        usedLabel,
+        reporter,
+        false);
     assertNoEvents();
   }
 
