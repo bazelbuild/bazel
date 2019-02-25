@@ -888,6 +888,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         workspaceOnly,
         outputsDefaultExecutable,
         isAnalysisTest,
+        /* hasAnalysisTestTransition=*/ false,
         /* hasFunctionTransitionWhitelist=*/ false,
         /* ignorePackageLicenses=*/ false,
         implicitOutputsFunction,

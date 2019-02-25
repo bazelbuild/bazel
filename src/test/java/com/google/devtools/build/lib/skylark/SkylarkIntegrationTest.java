@@ -2417,7 +2417,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestOverDepsLimit() throws Exception {
-    setupAnalysisTestDepsLimitTest(10, 12);
+    setupAnalysisTestDepsLimitTest(10, 12, true);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
@@ -2427,13 +2427,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestUnderDepsLimit() throws Exception {
-    setupAnalysisTestDepsLimitTest(10, 8);
+    setupAnalysisTestDepsLimitTest(10, 8, true);
 
     assertThat(getConfiguredTarget("//test:r")).isNotNull();
   }
 
-  private void setupAnalysisTestDepsLimitTest(int limit, int dependencyChainSize) throws Exception {
+  @Test
+  public void testAnalysisDepsLimitOnlyForTransition() throws Exception {
+    setupAnalysisTestDepsLimitTest(3, 10, false);
+
+    assertThat(getConfiguredTarget("//test:r")).isNotNull();
+  }
+
+  private void setupAnalysisTestDepsLimitTest(
+      int limit, int dependencyChainSize, boolean useTransition) throws Exception {
     useConfiguration("--analysis_testing_deps_limit=" + limit);
+
+    String transitionDefinition;
+    if (useTransition) {
+      transitionDefinition =
+          "my_transition = analysis_test_transition("
+              + "settings = {'//command_line_option:test_arg' : ['yeehaw'] })";
+    } else {
+      transitionDefinition = "my_transition = None";
+    }
 
     scratch.file(
         "test/extension.bzl",
@@ -2443,10 +2460,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "def dep_rule_impl(ctx):",
         "  return []",
         "",
-        "my_transition = analysis_test_transition(",
-        "    settings = {",
-        "        '//command_line_option:test_arg' : ['yeehaw'] }",
-        ")",
+        transitionDefinition,
+        "",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",
         "  attrs = {'dep':  attr.label()}",
