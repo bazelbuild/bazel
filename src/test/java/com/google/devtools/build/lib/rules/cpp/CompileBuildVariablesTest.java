@@ -70,7 +70,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   @Test
   public void testPresenceOfLegacyCompileFlags() throws Exception {
     AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, "cxx_flag: '-foo'");
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
 
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
@@ -125,7 +125,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "unfiltered_cxx_flag: '--i_ll_live_forever'");
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
 
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
@@ -269,7 +269,9 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
   @Test
   public void testPresenceOfPerObjectDebugFileBuildVariableUsingLegacyFields() throws Exception {
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, "supports_fission: true");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
     useConfiguration("--fission=yes");
 
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");

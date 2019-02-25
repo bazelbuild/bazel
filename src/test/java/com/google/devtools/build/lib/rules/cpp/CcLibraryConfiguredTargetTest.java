@@ -194,6 +194,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
     useConfiguration("--cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = getTargetConfiguration().getCpu();
@@ -260,7 +266,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuildWithInterfaceSharedObjects() throws Exception {
-    useConfiguration("--interface_shared_objects");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
     useConfiguration("--cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = getTargetConfiguration().getCpu();
@@ -293,6 +304,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testSoName() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
     // Without interface shared libraries.
     useConfiguration("--nointerface_shared_objects");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
@@ -316,6 +333,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testCppLinkActionExtraActionInfoWithoutSharedLibraries() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
     useConfiguration("--nointerface_shared_objects");
 
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
@@ -351,6 +374,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testCppLinkActionExtraActionInfoWithSharedLibraries() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     useConfiguration("--cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact sharedObject =
@@ -420,7 +446,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
             MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
             MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
             "artifact_name_pattern {"
                 + "   category_name: 'object_file'"
@@ -452,8 +480,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 + "   prefix: ''"
                 + "   extension: '.if.lib'"
                 + "}");
-
-    useConfiguration("--features=-supports_pic");
+    useConfiguration();
 
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact helloObj =
@@ -537,6 +564,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testArtifactsToAlwaysBuild() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_PIC_FEATURE,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     useConfiguration("--cpu=k8");
     // ArtifactsToAlwaysBuild should apply both for static libraries.
     ConfiguredTarget helloStatic = getConfiguredTarget("//hello:hello_static");
@@ -555,6 +588,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveArtifactsToAlwaysBuildStatic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+
     useConfiguration("--cpu=k8");
     ConfiguredTarget x = scratchConfiguredTarget(
         "foo", "x",
@@ -570,7 +607,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testBuildHeaderModulesAsPrerequisites() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION,
+            MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--cpu=k8");
     ConfiguredTarget x =
 
@@ -589,7 +629,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testCodeCoverage() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION,
+            MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--cpu=k8", "--collect_code_coverage");
     ConfiguredTarget x =
         scratchConfiguredTarget(
@@ -674,10 +717,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
-            ""
-                + "feature { name: 'header_modules' implies: 'use_header_modules' }"
-                + "feature { name: 'module_maps' }"
-                + "feature { name: 'use_header_modules' }");
+            MockCcSupport.SUPPORTS_PIC_FEATURE,
+            "feature { name: 'header_modules' implies: 'use_header_modules' }",
+            "feature { name: 'module_maps' enabled: true }",
+            "feature { name: 'use_header_modules' }");
     useConfiguration("--cpu=k8");
     scratch.file("module/BUILD",
         "package(features = ['header_modules'])",
@@ -721,7 +764,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testContainingSourcesWithSameBaseName() throws Exception {
-    AnalysisMock.get().ccSupport().setup(mockToolsConfig);
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--cpu=k8");
     setupPackagesForSourcesWithSameBaseNameTests();
     getConfiguredTarget("//foo:lib");
@@ -816,9 +861,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testCompileHeaderModulesTransitively() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION,
+            MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--cpu=k8");
-    setupPackagesForModuleTests(/*useHeaderModules=*/false);
+    setupPackagesForModuleTests(/* useHeaderModules= */ false);
 
     // The //nomodule:f target only depends on non-module targets, thus it should be module-free.
     ConfiguredTarget nomoduleF = getConfiguredTarget("//nomodule:f");
@@ -895,9 +943,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testCompileUsingHeaderModulesTransitively() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION,
+            MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--cpu=k8");
-    setupPackagesForModuleTests( /*useHeaderModules=*/true);
+    setupPackagesForModuleTests(/* useHeaderModules= */ true);
+    invalidatePackages();
 
     ConfiguredTarget nomoduleF = getConfiguredTarget("//nomodule:f");
     Artifact fObjectArtifact =
@@ -946,7 +998,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
-            "needsPic: false",
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
             MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
             MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
@@ -954,7 +1005,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_STRIP_ACTION_CONFIG,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
-    useConfiguration();
+    useConfiguration("--features=-supports_pic");
     scratchConfiguredTarget("a", "a",
         "cc_binary(name='a', srcs=['a.cc'], deps=[':b'])",
         "cc_library(name='b', srcs=['b.cc'])");
@@ -982,7 +1033,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testCppModuleMap() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "feature { name: 'module_maps' }");
+        .setupCrosstool(mockToolsConfig, "feature { name: 'module_maps' enabled: true }");
     useConfiguration();
     writeSimpleCcLibrary();
     CppModuleMapAction action = getCppModuleMapAction("//module:map");
@@ -1183,7 +1234,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
       + "}";
 
   private List<String> getCompilationModeFlags(String... flags) throws Exception {
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, COMPILATION_MODE_FEATURES);
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig, COMPILATION_MODE_FEATURES, MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration(flags);
     scratch.overwriteFile("mode/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
     getConfiguredTarget("//mode:a");
@@ -1216,7 +1270,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
       throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HOST_AND_NONHOST_CONFIGURATION);
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.HOST_AND_NONHOST_CONFIGURATION,
+            MockCcSupport.SUPPORTS_PIC_FEATURE);
     scratch.overwriteFile("mode/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
     useConfiguration(
         "--cpu=k8",
@@ -1240,6 +1297,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testHostAndNonHostFeatures() throws Exception {
+    useConfiguration();
     List<String> flags;
 
     flags = getHostAndTargetFlags(/* useHost= */ true, /* isDisabledByFlag= */ false);
@@ -1349,6 +1407,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void alwaysAddStaticAndDynamicLibraryToFilesToBuildWhenBuilding() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
     useConfiguration("--cpu=k8");
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['source.cc'])");
@@ -1417,7 +1481,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(
-            mockToolsConfig, MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION);
+            mockToolsConfig,
+            MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     useConfiguration("--cpu=k8", "--features=copy_dynamic_libraries_to_binary");
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
@@ -1432,7 +1498,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testCcLinkParamsHasDynamicLibrariesForRuntimeWithoutCopyFeature() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     useConfiguration("--cpu=k8");
+    invalidatePackages();
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
     Iterable<Artifact> libraries =

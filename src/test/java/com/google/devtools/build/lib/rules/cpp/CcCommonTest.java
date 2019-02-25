@@ -28,33 +28,20 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.CcRules;
-import com.google.devtools.build.lib.bazel.rules.GenericRules;
-import com.google.devtools.build.lib.bazel.rules.ToolchainRules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
-import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.platform.PlatformRules;
-import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.common.options.InvocationPolicyEnforcer;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -261,11 +248,12 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testStartEndLib() throws Exception {
-    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig,
-        CrosstoolConfig.CToolchain.newBuilder().setSupportsStartEndLib(true).buildPartial());
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
     useConfiguration(
         // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
-        "--fat_apk_cpu=" + CrosstoolConfigurationHelper.defaultCpu(), "--start_end_lib");
+        "--fat_apk_cpu=k8", "--start_end_lib");
     scratch.file(
         "test/BUILD",
         "cc_library(name='lib',",
@@ -284,7 +272,9 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testStartEndLibThroughFeature() throws Exception {
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
     useConfiguration("--start_end_lib");
     scratch.file(
         "test/BUILD",
@@ -302,6 +292,10 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testTempsWithDifferentExtensions() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+    invalidatePackages();
     useConfiguration("--cpu=k8", "--save_temps");
     scratch.file(
         "ananas/BUILD",
@@ -322,8 +316,8 @@ public class CcCommonTest extends BuildViewTestCase {
    * Returns the {@link IterableSubject} for the {@link OutputGroupInfo#TEMP_FILES} generated when
    * {@code testTarget} is built for {@code cpu}.
    */
-  private IterableSubject assertTempsForTarget(String cpu, String testTarget) throws Exception {
-    useConfiguration("--cpu=" + cpu, "--host_cpu=" + cpu, "--save_temps");
+  private IterableSubject assertTempsForTarget(String testTarget) throws Exception {
+    useConfiguration("--save_temps");
     ConfiguredTarget target = getConfiguredTarget(testTarget);
     assertThat(target).isNotNull();
 
@@ -331,31 +325,39 @@ public class CcCommonTest extends BuildViewTestCase {
         ActionsTestUtil.baseArtifactNames(getOutputGroup(target, OutputGroupInfo.TEMP_FILES));
 
     // Return the IterableSubject for the temp files.
-    return assertThat(temps).named(cpu);
+    return assertThat(temps).named("k8");
   }
 
   @Test
-  public void testTempsForCc_k8() throws Exception {
-    assertTempsForTarget("k8", "//foo:foo").containsExactly("foo.pic.ii", "foo.pic.s");
+  public void testTempsForCcWithPic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+    invalidatePackages();
+    assertTempsForTarget("//foo:foo").containsExactly("foo.pic.ii", "foo.pic.s");
   }
 
   @Test
-  public void testTempsForCc_piii() throws Exception {
-    // PIII does not use PIC.
-    assertTempsForTarget("piii", "//foo:foo").containsExactly("foo.ii", "foo.s");
+  public void testTempsForCcWithoutPic() throws Exception {
+    assertTempsForTarget("//foo:foo").containsExactly("foo.ii", "foo.s");
   }
 
   @Test
-  public void testTempsForC_k8() throws Exception {
+  public void testTempsForCWithPic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+    invalidatePackages();
+    useConfiguration();
+
     scratch.file("csrc/BUILD", "cc_library(name='csrc', srcs=['foo.c'])");
-    assertTempsForTarget("k8", "//csrc:csrc").containsExactly("foo.pic.i", "foo.pic.s");
+    assertTempsForTarget("//csrc:csrc").containsExactly("foo.pic.i", "foo.pic.s");
   }
 
   @Test
-  public void testTempsForC_piii() throws Exception {
+  public void testTempsForCWithoutPic() throws Exception {
     scratch.file("csrc/BUILD", "cc_library(name='csrc', srcs=['foo.c'])");
-    // PIII does not use PIC.
-    assertTempsForTarget("piii", "//csrc:csrc").containsExactly("foo.i", "foo.s");
+    assertTempsForTarget("//csrc:csrc").containsExactly("foo.i", "foo.s");
   }
 
   @Test
@@ -377,11 +379,12 @@ public class CcCommonTest extends BuildViewTestCase {
    */
   @Test
   public void testNoCoptfPicOverride() throws Exception {
-    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig,
-        CrosstoolConfig.CToolchain.newBuilder().setNeedsPic(true).buildPartial());
-    useConfiguration(
-        // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
-        "--fat_apk_cpu=" + CrosstoolConfigurationHelper.defaultCpu());
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE, MockCcSupport.PIC_FEATURE);
+    // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
+    useConfiguration("--fat_apk_cpu=k8");
 
     scratch.file(
         "a/BUILD",
@@ -418,6 +421,11 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testPicModeAssembly() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE, MockCcSupport.PIC_FEATURE);
+    invalidatePackages();
     useConfiguration("--cpu=k8");
     scratch.file("a/BUILD", "cc_library(name='preprocess', srcs=['preprocess.S'])");
     List<String> argv = getCppCompileAction("//a:preprocess").getArguments();
@@ -709,7 +717,13 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLibraryWithDashStaticOnDarwin() throws Exception {
-    assumeTrue(OS.getCurrent() == OS.DARWIN);
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain= */ false,
+            MockCcSupport.emptyToolchainForCpu("darwin"));
+    useConfiguration("--cpu=darwin");
     checkError(
         "badlib",
         "lib_with_dash_static",
@@ -965,7 +979,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--cpu=k8");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -1015,7 +1030,8 @@ public class CcCommonTest extends BuildViewTestCase {
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--force_pic", "--cpu=k8");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -1051,75 +1067,5 @@ public class CcCommonTest extends BuildViewTestCase {
     assertContainsEvent(
         "PIC compilation is requested but the toolchain does not support it"
             + " (feature named 'supports_pic' is not enabled");
-  }
-
-  /**
-   * Tests for the case where there are only C++ rules defined.
-   */
-  @RunWith(JUnit4.class)
-  public static class OnlyCppRules extends CcCommonTest {
-
-    @Override
-    protected AnalysisMock getAnalysisMock() {
-      final AnalysisMock original = BazelAnalysisMock.INSTANCE;
-      return new AnalysisMock.Delegate(original) {
-        @Override
-        public ConfiguredRuleClassProvider createRuleClassProvider() {
-          ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-          builder.setToolsRepository("@bazel_tools");
-          BazelRuleClassProvider.BAZEL_SETUP.init(builder);
-          CoreRules.INSTANCE.init(builder);
-          CoreWorkspaceRules.INSTANCE.init(builder);
-          PlatformRules.INSTANCE.init(builder);
-          ToolchainRules.INSTANCE.init(builder);
-          GenericRules.INSTANCE.init(builder);
-          CcRules.INSTANCE.init(builder);
-          return builder.build();
-        }
-
-        @Override
-        public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
-          return new InvocationPolicyEnforcer(null);
-        }
-
-        @Override
-        public boolean isThisBazel() {
-          return true;
-        }
-
-        @Override
-        public List<String> getWorkspaceContents(MockToolsConfig config) {
-          String bazelToolWorkspace = config.getPath("/bazel_tools_workspace").getPathString();
-          return new ArrayList<>(
-              ImmutableList.of(
-                  "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
-                  "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
-                  "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
-                  "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
-                  "bind(name = 'tools/python', actual='//tools/python')",
-                  "register_toolchains('@bazel_tools//tools/cpp:all')"));
-        }
-      };
-    }
-
-    @Override
-    public void testNoCoptfPicOverride() throws Exception {
-      // Test sets --fat_apk_cpu, which doesn't exist.
-    }
-
-    @Override
-    public void testStartEndLib() throws Exception {
-      // Test sets --fat_apk_cpu, which doesn't exist.
-    }
-
-    @Override
-    public void testExpandLabelInLinkoptsAgainstSrc() throws Exception {
-      // genrule now requires JavaConfiguration, so isn't appropriate for OnlyCppRules.
-    }
-
-    @Override
-    public void testExpandedLinkopts() throws Exception {
-      // genrule now requires JavaConfiguration, so isn't appropriate for OnlyCppRules.
-    }
   }
 }

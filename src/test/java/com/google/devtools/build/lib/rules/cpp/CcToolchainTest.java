@@ -22,16 +22,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
@@ -60,12 +60,8 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder()
-                .setSupportsInterfaceSharedObjects(false)
-                .buildPartial());
-    useConfiguration();
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
+    useConfiguration("--features=-supports_interface_shared_libraries");
     invalidatePackages();
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
@@ -78,7 +74,7 @@ public class CcToolchainTest extends BuildViewTestCase {
                 FeatureConfiguration.EMPTY))
         .isFalse();
 
-    useConfiguration("--interface_shared_objects");
+    useConfiguration();
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
@@ -88,25 +84,6 @@ public class CcToolchainTest extends BuildViewTestCase {
                 toolchainProvider,
                 FeatureConfiguration.EMPTY))
         .isFalse();
-
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder()
-                .setSupportsInterfaceSharedObjects(true)
-                .buildPartial());
-    useConfiguration();
-    invalidatePackages();
-
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.useInterfaceSharedLibraries(
-                getConfiguration(target).getFragment(CppConfiguration.class),
-                toolchainProvider,
-                FeatureConfiguration.EMPTY))
-        .isTrue();
 
     useConfiguration("--nointerface_shared_objects");
     invalidatePackages();
@@ -122,86 +99,75 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testFission() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file("a/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
 
     // Default configuration: disabled.
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder().setSupportsFission(true).buildPartial());
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
     useConfiguration();
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
-    assertThat(toolchainProvider.useFission()).isFalse();
+    assertThat(getCppCompileOutputs()).doesNotContain("yolo");
 
     // Mode-specific settings.
     useConfiguration("-c", "dbg", "--fission=dbg");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isTrue();
+    assertThat(getCppCompileOutputs()).contains("a.dwo");
 
     useConfiguration("-c", "dbg", "--fission=opt");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isFalse();
+    assertThat(getCppCompileOutputs()).doesNotContain("a.dwo");
 
     useConfiguration("-c", "dbg", "--fission=opt,dbg");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isTrue();
+    assertThat(getCppCompileOutputs()).contains("a.dwo");
 
     useConfiguration("-c", "fastbuild", "--fission=opt,dbg");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isFalse();
+    assertThat(getCppCompileOutputs()).doesNotContain("a.dwo");
 
     useConfiguration("-c", "fastbuild", "--fission=opt,dbg");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isFalse();
+    assertThat(getCppCompileOutputs()).doesNotContain("a.dwo");
 
     // Universally enabled
     useConfiguration("-c", "dbg", "--fission=yes");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isTrue();
+    assertThat(getCppCompileOutputs()).contains("a.dwo");
 
     useConfiguration("-c", "opt", "--fission=yes");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isTrue();
+    assertThat(getCppCompileOutputs()).contains("a.dwo");
 
     useConfiguration("-c", "fastbuild", "--fission=yes");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isTrue();
+    assertThat(getCppCompileOutputs()).contains("a.dwo");
 
     // Universally disabled
     useConfiguration("-c", "dbg", "--fission=no");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isFalse();
+    assertThat(getCppCompileOutputs()).doesNotContain("a.dwo");
 
     useConfiguration("-c", "opt", "--fission=no");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isFalse();
+    assertThat(getCppCompileOutputs()).doesNotContain("a.dwo");
 
     useConfiguration("-c", "fastbuild", "--fission=no");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.useFission()).isFalse();
+    assertThat(getCppCompileOutputs()).doesNotContain("a.dwo");
+  }
+
+  private ImmutableList<String> getCppCompileOutputs() throws LabelSyntaxException {
+    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//a:a");
+    return target.getActions().stream()
+        .filter(a -> a.getMnemonic().equals("CppCompile"))
+        .findFirst()
+        .get()
+        .getOutputs()
+        .stream()
+        .map(a -> a.getFilename())
+        .collect(ImmutableList.toImmutableList());
   }
 
   @Test
   public void testPic() throws Exception {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
 
-    assertThat(usePicForBinariesWithConfiguration("--cpu=piii")).isFalse();
-    assertThat(usePicForBinariesWithConfiguration("--cpu=piii", "-c", "opt")).isFalse();
+    assertThat(usePicForBinariesWithConfiguration("--cpu=k8")).isFalse();
+    assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isFalse();
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+    invalidatePackages();
     assertThat(usePicForBinariesWithConfiguration("--cpu=k8")).isTrue();
     assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isFalse();
   }
@@ -243,11 +209,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder()
-                .setSupportsEmbeddedRuntimes(true)
-                .buildPartial());
+        .setupCrosstool(mockToolsConfig, MockCcSupport.STATIC_LINK_CPP_RUNTIMES_FEATURE);
 
     useConfiguration();
 
@@ -277,7 +239,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = ':empty',",
         "    dynamic_runtime_lib = ':empty',",
         "    static_runtime_lib = ':empty')");
-    scratch.file("a/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
+    scratch.file("a/CROSSTOOL", MockCcSupport.EMPTY_CROSSTOOL);
 
     // Check defaults.
     useConfiguration();
@@ -312,27 +274,6 @@ public class CcToolchainTest extends BuildViewTestCase {
               "While parsing option --dynamic_mode=very: Not a valid dynamic mode: 'very' "
                   + "(should be off, default or fully)");
     }
-  }
-
-  // Regression test for bug 2088255:
-  // "StringIndexOutOfBoundsException in BuildConfiguration.<init>()"
-  @Test
-  public void testShortLibcVersion() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
-
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder().setTargetLibc("2.3.6").buildPartial());
-
-    useConfiguration();
-
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-
-    assertThat(toolchainProvider.getTargetLibc()).isEqualTo("2.3.6");
   }
 
   @Test
@@ -378,11 +319,7 @@ public class CcToolchainTest extends BuildViewTestCase {
       scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
       getAnalysisMock()
           .ccSupport()
-          .setupCrosstool(
-              mockToolsConfig,
-              CrosstoolConfig.CToolchain.newBuilder()
-                  .addCxxBuiltinIncludeDirectory(entry)
-                  .buildPartial());
+          .setupCrosstool(mockToolsConfig, "cxx_builtin_include_directory: '" + entry + "'");
 
       useConfiguration();
       invalidatePackages();
@@ -585,7 +522,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "fdo/BUILD",
         "exports_files(['my_profile.afdo'])",
         "fdo_profile(name = 'fdo', profile = ':my_profile.profdata')");
-    scratch.file("a/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
+    scratch.file("a/CROSSTOOL", MockCcSupport.EMPTY_CROSSTOOL);
 
     useConfiguration();
     assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isEmpty();
@@ -625,11 +562,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "      target_libc: \"banana\"",
         "    \"\"\")");
 
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, CrosstoolConfig.CToolchain.newBuilder()
-            .setAbiVersion("orange")
-            .buildPartial());
+    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig, "abi_version: 'orange'");
 
     useConfiguration("--incompatible_enable_cc_toolchain_resolution");
 
@@ -652,11 +585,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     writeStarlarkRule();
 
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder().setAbiVersion("orange").buildPartial());
+    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig, "abi_version: 'orange'");
 
     useConfiguration("--cpu=k8");
 
@@ -777,35 +706,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testSupportsDynamicLinkerIsFalseWhenFeatureNotSet() throws Exception {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
 
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.DYNAMIC_LINKING_MODE_FEATURE);
-
-    // To make sure the toolchain doesn't define linking_mode_flags { mode: DYNAMIC } as that would
-    // also result in supportsDynamicLinker returning true
-    useConfiguration("--compiler=compiler_no_dyn_linker");
-
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-
-    assertThat(toolchainProvider.supportsDynamicLinker(FeatureConfiguration.EMPTY)).isFalse();
-  }
-
-  @Test
-  public void testSupportsDynamicLinkerIsTrueWhenFeatureSet() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
-
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            MockCcSupport.DYNAMIC_LINKING_MODE_FEATURE,
-            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
-
-    // To make sure the toolchain doesn't define linking_mode_flags { mode: DYNAMIC } as that would
-    // also result in supportsDynamicLinker returning true
-    useConfiguration("--compiler=compiler_no_dyn_linker");
+    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig);
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider =
@@ -830,41 +731,24 @@ public class CcToolchainTest extends BuildViewTestCase {
         .isEqualTo(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
   }
 
-  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is false
-  // in the toolchain.
-  @Test
-  public void testStaticLinkCppRuntimesSetViaSupportsEmbeddedRuntimesFalse() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
-    getAnalysisMock().ccSupport().setupCrosstoolWithEmbeddedRuntimes(mockToolsConfig);
-    useConfiguration();
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(getRuleContext(target), toolchainProvider);
-    assertThat(toolchainProvider.supportsEmbeddedRuntimes())
-        .isEqualTo(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
-  }
-
-  private FeatureConfiguration configureFeaturesForStaticLinkCppRuntimesTest(
-      String partialToolchain, String configurationToUse) throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+  private FeatureConfiguration getFeatureConfigurationForStaticLinkCppRuntimes(
+      String partialToolchain, String... configurationToUse) throws Exception {
+    scratch.file("a/BUILD", "cc_binary(name = 'a')");
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(partialToolchain, toolchainBuilder);
     getAnalysisMock()
         .ccSupport()
         .setupCrosstool(
-            mockToolsConfig,
-            /* addEmbeddedRuntimes= */ true,
-            /* addModuleMap= */ false,
-            /* staticRuntimesLabel= */ "static-runtime",
-            /* dynamicRuntimesLabel= */ "dynamic-runtime",
-            toolchainBuilder.buildPartial());
+            mockToolsConfig, MockCcSupport.STATIC_LINK_CPP_RUNTIMES_FEATURE, partialToolchain);
     useConfiguration(configurationToUse);
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    return CcCommon.configureFeaturesOrReportRuleError(getRuleContext(target), toolchainProvider);
+    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//a:a");
+    CppLinkAction action =
+        (CppLinkAction)
+            target.getActions().stream()
+                .filter(a -> a.getMnemonic().equals("CppLink"))
+                .findFirst()
+                .get();
+    return action.getLinkCommandLine().getFeatureConfiguration();
   }
 
   // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is true in
@@ -872,7 +756,8 @@ public class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testSupportsEmbeddedRuntimesNoFeatureAtAll() throws Exception {
     FeatureConfiguration featureConfiguration =
-        configureFeaturesForStaticLinkCppRuntimesTest("supports_embedded_runtimes: true", "");
+        getFeatureConfigurationForStaticLinkCppRuntimes(
+            "supports_embedded_runtimes: true", "--noincompatible_disable_legacy_crosstool_fields");
     assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isTrue();
   }
 
@@ -881,8 +766,10 @@ public class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testSupportsEmbeddedRuntimesFeatureEnabled() throws Exception {
     FeatureConfiguration featureConfiguration =
-        configureFeaturesForStaticLinkCppRuntimesTest(
-            "supports_embedded_runtimes: true", "--features=static_link_cpp_runtimes");
+        getFeatureConfigurationForStaticLinkCppRuntimes(
+            "supports_embedded_runtimes: true",
+            "--features=static_link_cpp_runtimes",
+            "--noincompatible_disable_legacy_crosstool_fields");
     assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isTrue();
   }
 
@@ -891,9 +778,10 @@ public class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testStaticLinkCppRuntimesOverridesSupportsEmbeddedRuntimes() throws Exception {
     FeatureConfiguration featureConfiguration =
-        configureFeaturesForStaticLinkCppRuntimesTest(
-            "supports_embedded_runtimes: true feature { name: 'static_link_cpp_runtimes' }",
-            "--features=-static_link_cpp_runtimes");
+        getFeatureConfigurationForStaticLinkCppRuntimes(
+            "supports_embedded_runtimes: true",
+            "--features=-static_link_cpp_runtimes",
+            "--noincompatible_disable_legacy_crosstool_fields");
     assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isFalse();
   }
 
@@ -902,12 +790,6 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
-
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder().clearDefaultGrteTop().buildPartial());
     useConfiguration();
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider =
@@ -953,11 +835,8 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("libc2/BUILD", "filegroup(name = 'everything', srcs = ['header2.h'])");
     scratch.file("libc2/header2.h", "#define FOO 2");
 
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
+    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig, "default_grte_top: '//libc1'");
+
     useConfiguration("--cpu=k8");
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider ccToolchainProvider =
@@ -1006,11 +885,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("libc3/BUILD", "filegroup(name = 'everything', srcs = ['header.h'])");
     scratch.file("libc3/header.h", "#define FOO 3");
 
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
+    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig, "default_grte_top: '//libc1'");
     useConfiguration("--cpu=k8", "--grte_top=//libc3");
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider ccToolchainProvider =
@@ -1034,11 +909,10 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testCrosstoolReadWhenStarlarkRuleIsEnabledButNotPresent() throws Exception {
-    reporter.removeHandler(failFastHandler);
     scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
     getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
 
-    scratch.file("a/CROSSTOOL", getAnalysisMock().ccSupport().readCrosstoolFile());
+    scratch.file("a/CROSSTOOL", MockCcSupport.EMPTY_CROSSTOOL);
 
     useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
     ConfiguredTarget target = getConfiguredTarget("//lib:lib");
@@ -1047,7 +921,6 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testCrosstoolNotNeededWhenStarlarkRuleIsEnabled() throws Exception {
-    reporter.removeHandler(failFastHandler);
     scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
     getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ true);
 
@@ -1079,7 +952,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    toolchain_identifier = 'toolchain-identifier-k8',",
+        "    toolchain_identifier = 'mock-llvm-toolchain-k8',",
         (addToolchainConfigAttribute ? "    toolchain_config = ':toolchain_config'" : "") + ")");
 
     scratch.file(

@@ -55,6 +55,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testForcePicBuildVariable() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--force_pic");
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
@@ -69,7 +72,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testLibrariesToLinkAreExported() throws Exception {
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     useConfiguration();
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -133,11 +138,12 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testInterfaceLibraryBuildingVariablesWhenLegacyGenerationPossible() throws Exception {
-    // Make sure the interface shared object generation is enabled in the configuration
-    // (which it is not by default for some windows toolchains)
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "supports_interface_shared_objects: true");
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     useConfiguration();
 
     verifyIfsoVariables();
@@ -145,9 +151,12 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
-    // Make sure the interface shared object generation is enabled in the configuration
-    // (which it is not by default for some windows toolchains)
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
     useConfiguration();
 
     verifyIfsoVariables();
@@ -198,10 +207,11 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.THIN_LTO_CONFIGURATION,
+            MockCcSupport.SUPPORTS_PIC_FEATURE,
             MockCcSupport.HOST_AND_NONHOST_CONFIGURATION,
-            "supports_interface_shared_objects: true",
-            "needsPic: true",
-            "supports_start_end_lib: true");
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
     useConfiguration("--features=thin_lto");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -254,7 +264,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     // (which it is not by default for some windows toolchains)
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "supports_interface_shared_objects: true");
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
     useConfiguration();
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -292,6 +302,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testOutputExecpath() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     // Make sure the interface shared object generation is enabled in the configuration
     // (which it is not by default for some windows toolchains)
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -309,16 +322,16 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testOutputExecpathIsNotExposedWhenThinLtoIndexing() throws Exception {
-    // Make sure the interface shared object generation is enabled in the configuration
-    // (which it is not by default for some windows toolchains)
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.THIN_LTO_CONFIGURATION,
             MockCcSupport.HOST_AND_NONHOST_CONFIGURATION,
-            "needsPic: true",
-            "supports_start_end_lib: true");
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_PIC_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
+            MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
     useConfiguration("--features=thin_lto");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -399,7 +412,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "supports_fission: true");
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
 
     useConfiguration("--fission=no");
     ConfiguredTarget target = getConfiguredTarget("//x:foo");

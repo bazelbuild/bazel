@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -75,6 +76,16 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AndroidBinaryTest extends AndroidBuildViewTestCase {
+
+  @Before
+  public void setupCcToolchain() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain=*/ false,
+            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
+  }
 
   @Before
   public void createFiles() throws Exception {

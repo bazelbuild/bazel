@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
@@ -60,6 +61,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -69,6 +71,15 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AndroidLibraryTest extends AndroidBuildViewTestCase {
+  @Before
+  public void setupCcToolchain() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain=*/ false,
+            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
+  }
 
   @Test
   public void testSimpleLibrary() throws Exception {

@@ -128,8 +128,8 @@ public class MockPlatformSupport {
     }
   }
 
-  /** Adds a mock piii platform. */
-  public static void addMockPiiiPlatform(MockToolsConfig mockToolsConfig, Label crosstoolLabel)
+  /** Adds a mock K8 platform. */
+  public static void addMockK8Platform(MockToolsConfig mockToolsConfig, Label crosstoolLabel)
       throws Exception {
     mockToolsConfig.create(
         "mock_platform/BUILD",
@@ -137,15 +137,14 @@ public class MockPlatformSupport {
         "constraint_setting(name = 'mock_setting')",
         "constraint_value(name = 'mock_value', constraint_setting = ':mock_setting')",
         "platform(",
-        "   name = 'mock-piii-platform',",
+        "   name = 'mock-k8-platform',",
         "   constraint_values = [':mock_value'],",
         ")",
         "toolchain(",
-        "   name = 'toolchain_cc-compiler-piii',",
+        "   name = 'toolchain_cc-compiler-k8',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         "   toolchain = '"
-            + crosstoolLabel.getRelativeWithRemapping(
-                "cc-compiler-piii-compiler", ImmutableMap.of())
+            + crosstoolLabel.getRelativeWithRemapping("cc-compiler-k8-compiler", ImmutableMap.of())
             + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");

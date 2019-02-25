@@ -147,11 +147,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])",
-        "cc_binary(name='foo', deps=['x'], data=['_objs/x/foo.pic.o'])");
+        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])",
+        "cc_binary(name='foo', deps=['x'], data=['_objs/x/foo.o'])");
     reporter.removeHandler(failFastHandler); // expect errors
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:foo");
-    assertContainsEvent("file 'conflict/_objs/x/foo.pic.o' " + CONFLICT_MSG);
+    assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
     assertThat(getAnalysisResult().getTargetsToBuild()).isEmpty();
   }
 
@@ -173,17 +173,16 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     update("//conflict:x");
     ConfiguredTarget conflict = getConfiguredTarget("//conflict:x");
-    Action oldAction = getGeneratingAction(getBinArtifact("_objs/x/foo.pic.o", conflict));
+    Action oldAction = getGeneratingAction(getBinArtifact("_objs/x/foo.o", conflict));
     assertThat(oldAction.getOwner().getLabel().toString()).isEqualTo("//conflict:x");
     scratch.overwriteFile(
         "conflict/BUILD",
         "cc_library(name='newx', srcs=['foo.cc'])", // Rename target.
-        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
-    update(defaultFlags(), "//conflict:_objs/x/foo.pic.o");
-    ConfiguredTarget objsConflict = getConfiguredTarget("//conflict:_objs/x/foo.pic.o");
-    Action newAction = getGeneratingAction(getBinArtifact("_objs/x/foo.pic.o", objsConflict));
-    assertThat(newAction.getOwner().getLabel().toString())
-        .isEqualTo("//conflict:_objs/x/foo.pic.o");
+        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+    update(defaultFlags(), "//conflict:_objs/x/foo.o");
+    ConfiguredTarget objsConflict = getConfiguredTarget("//conflict:_objs/x/foo.o");
+    Action newAction = getGeneratingAction(getBinArtifact("_objs/x/foo.o", objsConflict));
+    assertThat(newAction.getOwner().getLabel().toString()).isEqualTo("//conflict:_objs/x/foo.o");
   }
 
   /** Generating the same output from multiple actions is causing an error. */
@@ -197,10 +196,10 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o");
-    assertContainsEvent("file 'conflict/_objs/x/foo.pic.o' " + CONFLICT_MSG);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
+    assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
   }
 
   @Test
@@ -213,20 +212,20 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o");
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
     // We want to force a "dropConfiguredTargetsNow" operation, which won't inform the
     // invalidation receiver about the dropped configured targets.
     skyframeExecutor.clearAnalysisCache(
         ImmutableList.<ConfiguredTarget>of(), ImmutableSet.<AspectValue>of());
-    assertContainsEvent("file 'conflict/_objs/x/foo.pic.o' " + CONFLICT_MSG);
+    assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
     eventCollector.clear();
     scratch.overwriteFile(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['baz.cc'])",
-        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
-    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o");
+        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
     assertNoEvents();
   }
 
@@ -244,11 +243,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o");
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
 
-    assertContainsEvent("file 'conflict/_objs/x/foo.pic.o' " + CONFLICT_MSG);
+    assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
     assertDoesNotContainEvent("MandatoryInputs");
     assertDoesNotContainEvent("Outputs");
   }
@@ -268,12 +267,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo1.cc', 'foo2.cc', 'foo3.cc', 'foo4.cc', 'foo5.cc'"
             + ", 'foo6.cc'])",
-        "genrule(name = 'foo', outs=['_objs/x/foo1.pic.o'], srcs=['foo1.cc', 'foo2.cc', "
+        "genrule(name = 'foo', outs=['_objs/x/foo1.o'], srcs=['foo1.cc', 'foo2.cc', "
             + "'foo3.cc', 'foo4.cc', 'foo5.cc', 'foo6.cc'], cmd='', output_to_bindir=1)");
     reporter.removeHandler(failFastHandler); // expect errors
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:foo");
 
-    Event event = assertContainsEvent("file 'conflict/_objs/x/foo1.pic.o' " + CONFLICT_MSG);
+    Event event = assertContainsEvent("file 'conflict/_objs/x/foo1.o' " + CONFLICT_MSG);
     assertContainsEvent("MandatoryInputs");
     assertContainsEvent("Outputs");
 
