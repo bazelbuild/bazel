@@ -90,7 +90,7 @@ public final class CcImportRule implements RuleDefinition {
         provided by some service.
 
         <p>If alwayslink doesn't work with VS 2017 on Windows, that is due to a
-        [known issue](https://github.com/bazelbuild/bazel/issues/3949),
+        <a href="https://github.com/bazelbuild/bazel/issues/3949">known issue</a>,
         please upgrade your VS 2017 to the latest version.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
