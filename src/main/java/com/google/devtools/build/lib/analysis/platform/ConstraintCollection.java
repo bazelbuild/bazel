@@ -77,7 +77,7 @@ public abstract class ConstraintCollection
     /** Returns the completed {@link ConstraintCollection} instance. */
     public ConstraintCollection build() {
       ImmutableList<ConstraintValueInfo> constraintValues = this.constraintValues.build();
-      // TODO: validate
+      // TODO(https://github.com/bazelbuild/bazel/issues/7548): validate duplicated constraints.
       return new AutoValue_ConstraintCollection(
           this.parent,
           constraintValues.stream()
