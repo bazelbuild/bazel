@@ -44,17 +44,58 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   /** The label of the toolchain to resolve for use in toolchain-aware rules. */
   public abstract Label toolchainLabel();
 
-  /** Returns a new {@link DeclaredToolchainInfo} with the given data. */
-  public static DeclaredToolchainInfo create(
-      ToolchainTypeInfo toolchainType,
-      ImmutableList<ConstraintValueInfo> execConstraints,
-      ImmutableList<ConstraintValueInfo> targetConstraints,
-      Label toolchainLabel) {
-    return create(
-        toolchainType,
-        ConstraintCollection.builder().addConstraints(execConstraints).build(),
-        ConstraintCollection.builder().addConstraints(targetConstraints).build(),
-        toolchainLabel);
+  /** Builder class to assist in creating {@link DeclaredToolchainInfo} instances. */
+  public static class Builder {
+    private ToolchainTypeInfo toolchainType;
+    private ConstraintCollection.Builder execConstraints = ConstraintCollection.builder();
+    private ConstraintCollection.Builder targetConstraints = ConstraintCollection.builder();
+    private Label toolchainLabel;
+
+    /** Sets the type of the toolchain being declared. */
+    public Builder toolchainType(ToolchainTypeInfo toolchainType) {
+      this.toolchainType = toolchainType;
+      return this;
+    }
+
+    /** Adds constraints describing the execution environment. */
+    public Builder addExecConstraints(Iterable<ConstraintValueInfo> constraints) {
+      this.execConstraints.addConstraints(constraints);
+      return this;
+    }
+
+    /** Adds constraints describing the execution environment. */
+    public Builder addExecConstraints(ConstraintValueInfo... constraints) {
+      return addExecConstraints(ImmutableList.copyOf(constraints));
+    }
+
+    /** Adds constraints describing the target environment. */
+    public Builder addTargetConstraints(Iterable<ConstraintValueInfo> constraints) {
+      this.targetConstraints.addConstraints(constraints);
+      return this;
+    }
+
+    /** Adds constraints describing the target environment. */
+    public Builder addTargetConstraints(ConstraintValueInfo... constraints) {
+      return addTargetConstraints(ImmutableList.copyOf(constraints));
+    }
+
+    /** Sets the label of the toolchain to resolve for use in toolchain-aware rules. */
+    public Builder toolchainLabel(Label toolchainLabel) {
+      this.toolchainLabel = toolchainLabel;
+      return this;
+    }
+
+    /** Returns the newly created {@link DeclaredToolchainInfo} instance. */
+    public DeclaredToolchainInfo build() {
+      // TODO(katre): handle constraint duplication in attributes separately.
+      return new AutoValue_DeclaredToolchainInfo(
+          toolchainType, execConstraints.build(), targetConstraints.build(), toolchainLabel);
+    }
+  }
+
+  /** Returns a new {@link Builder} for creating {@link DeclaredToolchainInfo} instances. */
+  public static Builder builder() {
+    return new Builder();
   }
 
   @AutoCodec.Instantiator

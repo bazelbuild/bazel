@@ -280,17 +280,19 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   @Test
   public void testRegisteredToolchainsValue_equalsAndHashCode() {
     DeclaredToolchainInfo toolchain1 =
-        DeclaredToolchainInfo.create(
-            ToolchainTypeInfo.create(makeLabel("//test:toolchain")),
-            ImmutableList.of(),
-            ImmutableList.of(),
-            makeLabel("//test/toolchain_impl_1"));
+        DeclaredToolchainInfo.builder()
+            .toolchainType(ToolchainTypeInfo.create(makeLabel("//test:toolchain")))
+            .addExecConstraints(ImmutableList.of())
+            .addTargetConstraints(ImmutableList.of())
+            .toolchainLabel(makeLabel("//test/toolchain_impl_1"))
+            .build();
     DeclaredToolchainInfo toolchain2 =
-        DeclaredToolchainInfo.create(
-            ToolchainTypeInfo.create(makeLabel("//test:toolchain")),
-            ImmutableList.of(),
-            ImmutableList.of(),
-            makeLabel("//test/toolchain_impl_2"));
+        DeclaredToolchainInfo.builder()
+            .toolchainType(ToolchainTypeInfo.create(makeLabel("//test:toolchain")))
+            .addExecConstraints(ImmutableList.of())
+            .addTargetConstraints(ImmutableList.of())
+            .toolchainLabel(makeLabel("//test/toolchain_impl_2"))
+            .build();
 
     new EqualsTester()
         .addEqualityGroup(
