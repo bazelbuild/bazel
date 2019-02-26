@@ -194,8 +194,7 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
                         bazel::windows::AutoHandle* output2,
                         std::unique_ptr<Tee>* result);
 
-bool TestOnly_CdataEncode(const uint8_t* buffer, const DWORD size,
-                          std::basic_ostream<char>* out_stm);
+bool TestOnly_CdataEncode(IFStream* in_stm, std::basic_ostream<char>* out_stm);
 
 IFStream* TestOnly_CreateIFStream(HANDLE handle, DWORD page_size);
 

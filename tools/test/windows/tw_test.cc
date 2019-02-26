@@ -142,12 +142,16 @@ HANDLE FopenRead(const std::wstring& unc_path) {
                      FILE_ATTRIBUTE_NORMAL, NULL);
 }
 
-HANDLE FopenContents(wchar_t* wline, const char* contents) {
+HANDLE FopenContents(const wchar_t* wline, const char* contents, DWORD size) {
   std::wstring tmpdir;
   GET_TEST_TMPDIR(&tmpdir);
   std::wstring filename = tmpdir + L"\\tmp" + wline;
-  EXPECT_TRUE(blaze_util::CreateDummyFile(filename, contents));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(filename, contents, size));
   return FopenRead(filename);
+}
+
+HANDLE FopenContents(const wchar_t* wline, const char* contents) {
+  return FopenContents(wline, contents, strlen(contents));
 }
 
 TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
@@ -471,24 +475,27 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
   write1 = INVALID_HANDLE_VALUE;  // closes handle so the Tee thread can exit
 }
 
-void AssertCdataEncodeBuffer(const char* input, DWORD size,
-                             const char* expected_output) {
+void AssertCdataEncodeBuffer(const wchar_t* wline, const char* input,
+                             DWORD size, const char* expected_output) {
+  bazel::windows::AutoHandle h(FopenContents(wline, input, size));
+  std::unique_ptr<IFStream> istm(TestOnly_CreateIFStream(h, /* page_size */ 4));
   std::stringstream out_stm;
-  ASSERT_TRUE(TestOnly_CdataEncode(reinterpret_cast<const uint8_t*>(input),
-                                   size, &out_stm));
+  ASSERT_TRUE(TestOnly_CdataEncode(istm.get(), &out_stm));
   ASSERT_EQ(expected_output, out_stm.str());
 }
 
-void AssertCdataEncodeBuffer(const char* input, const char* expected_output) {
-  AssertCdataEncodeBuffer(input, strlen(input), expected_output);
+void AssertCdataEncodeBuffer(const wchar_t* wline, const char* input,
+                             const char* expected_output) {
+  AssertCdataEncodeBuffer(wline, input, strlen(input), expected_output);
 }
 
 TEST_F(TestWrapperWindowsTest, TestCdataEscapeNullTerminator) {
-  AssertCdataEncodeBuffer("x\0y", 3, "x?y");
+  AssertCdataEncodeBuffer(WLINE, "x\0y", 3, "x?y");
 }
 
 TEST_F(TestWrapperWindowsTest, TestCdataEscapeCdataEndings) {
   AssertCdataEncodeBuffer(
+      WLINE,
       // === Input ===
       // CDATA end sequence, followed by some arbitrary octet.
       "]]>x"
@@ -504,24 +511,26 @@ TEST_F(TestWrapperWindowsTest, TestCdataEscapeCdataEndings) {
 }
 
 TEST_F(TestWrapperWindowsTest, TestCdataEscapeSingleOctets) {
-  AssertCdataEncodeBuffer(  // === Input ===
-                            // Legal single-octets.
-      "AB\x9\xA\xD\x20\x7F"
-      // Illegal single-octets.
-      "\x8\xB\xC\x1F\x80\xFF"
-      "x",
+  AssertCdataEncodeBuffer(WLINE,
+                          // === Input ===
+                          // Legal single-octets.
+                          "AB\x9\xA\xD\x20\x7F"
+                          // Illegal single-octets.
+                          "\x8\xB\xC\x1F\x80\xFF"
+                          "x",
 
-      // === Expected output ===
-      // Legal single-octets.
-      "AB\x9\xA\xD\x20\x7F"
-      // Illegal single-octets.
-      "??????"
-      "x");
+                          // === Expected output ===
+                          // Legal single-octets.
+                          "AB\x9\xA\xD\x20\x7F"
+                          // Illegal single-octets.
+                          "??????"
+                          "x");
 }
 
 TEST_F(TestWrapperWindowsTest, TestCdataEscapeDoubleOctets) {
   // Legal range: [\xc0-\xdf][\x80-\xbf]
   AssertCdataEncodeBuffer(
+      WLINE,
       "x"
       // Legal double-octet sequences.
       "\xC0\x80"
@@ -558,34 +567,34 @@ TEST_F(TestWrapperWindowsTest, TestCdataEscapeAndAppend) {
   std::wstring tmpdir;
   GET_TEST_TMPDIR(&tmpdir);
 
-  AssertCdataEncodeBuffer(
-      // === Input ===
-      "AB\xA\xC\xD"
-      "]]>"
-      "]]]>"
-      "\xC0\x80"
-      "a"
-      "\xED\x9F\xBF"
-      "b"
-      "\xEF\xBF\xB0"
-      "c"
-      "\xF7\xB0\x80\x81"
-      "d"
-      "]]>",
+  AssertCdataEncodeBuffer(WLINE,
+                          // === Input ===
+                          "AB\xA\xC\xD"
+                          "]]>"
+                          "]]]>"
+                          "\xC0\x80"
+                          "a"
+                          "\xED\x9F\xBF"
+                          "b"
+                          "\xEF\xBF\xB0"
+                          "c"
+                          "\xF7\xB0\x80\x81"
+                          "d"
+                          "]]>",
 
-      // === Output ===
-      "AB\xA?\xD"
-      "]]>]]<![CDATA[>"
-      "]]]>]]<![CDATA[>"
-      "\xC0\x80"
-      "a"
-      "\xED\x9F\xBF"
-      "b"
-      "\xEF\xBF\xB0"
-      "c"
-      "\xF7\xB0\x80\x81"
-      "d"
-      "]]>]]<![CDATA[>");
+                          // === Output ===
+                          "AB\xA?\xD"
+                          "]]>]]<![CDATA[>"
+                          "]]]>]]<![CDATA[>"
+                          "\xC0\x80"
+                          "a"
+                          "\xED\x9F\xBF"
+                          "b"
+                          "\xEF\xBF\xB0"
+                          "c"
+                          "\xF7\xB0\x80\x81"
+                          "d"
+                          "]]>]]<![CDATA[>");
 }
 
 TEST_F(TestWrapperWindowsTest, TestIFStreamNoData) {
