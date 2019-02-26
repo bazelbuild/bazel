@@ -15,10 +15,7 @@ filegroup(
 
 java_test(
     name = "RepositoryTests",
-    srcs = select({
-        "//src/conditions:windows": [":RepositoryTests_windows_srcs"],
-        "//conditions:default": glob(["*.java"]),
-    }),
+    srcs = glob(["*.java"]),
     data = [
         "test_decompress_archive.tar.gz",
         "test_decompress_archive.zip",
@@ -61,15 +58,8 @@ java_test(
         "//third_party:maven",
         "//third_party:mockito",
         "//third_party:truth",
+        "@bazel_tools//tools/java/runfiles",
     ],
-)
-
-filegroup(
-    name = "RepositoryTests_windows_srcs",
-    srcs = glob(
-        ["*.java"],
-        exclude = ["CompressedTarFunctionTest.java"],
-    ),
 )
 
 test_suite(

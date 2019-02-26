@@ -252,7 +252,7 @@ function test_download_then_extract() {
   ensure_contains_exactly 'output: "downloaded_file.zip"' 1
   ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
   ensure_contains_exactly 'extract_event' 1
-  ensure_contains_exactly 'archive: ".*out_dir/downloaded_file.zip"' 1
+  ensure_contains_exactly 'archive: "downloaded_file.zip"' 1
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
 
@@ -289,7 +289,7 @@ function test_download_then_extract_tar() {
   ensure_contains_exactly 'output: "downloaded_file.tar.gz"' 1
   ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
   ensure_contains_exactly 'extract_event' 1
-  ensure_contains_exactly 'archive: ".*out_dir/downloaded_file.tar.gz"' 1
+  ensure_contains_exactly 'archive: "downloaded_file.tar.gz"' 1
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly 'strip_prefix: "data_dir/"' 1
 

@@ -1,9 +1,8 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
-
-import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
@@ -12,6 +11,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -57,11 +57,8 @@ public class TestArchiveDescriptor {
         ? new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS)
         : new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
 
-    Path tarballPath = testFS
-        .getPath(BlazeTestUtils.runfilesDir())
-        .getRelative(TestConstants.JAVATESTS_ROOT)
-        .getRelative(PATH_TO_TEST_ARCHIVE)
-        .getRelative(archiveName);
+    Path tarballPath = testFS.getPath(Runfiles.create()
+        .rlocation(TestConstants.JAVATESTS_ROOT + PATH_TO_TEST_ARCHIVE + archiveName));
 
     Path workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     Path outDir = workingDir.getRelative(outDirName);
