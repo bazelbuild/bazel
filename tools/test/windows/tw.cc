@@ -1480,83 +1480,70 @@ int RunSubprocess(const Path& test_path,
 //
 // Every octet-sequence matching one of these regexps will be left alone, all
 // other octet-sequences will be replaced by '?' characters.
-bool CdataEscape(const uint8_t* input, const DWORD size,
-                 std::basic_ostream<char>* out) {
-  // We aren't modifying the input, so const_cast is fine.
-  uint8_t* p = const_cast<uint8_t*>(input);
-
-  for (DWORD i = 0; i < size; ++i, ++p) {
-    if (p[0] == ']' && (i + 2 < size) && p[1] == ']' && p[2] == '>') {
+bool CdataEscape(IFStream* in, std::basic_ostream<char>* out) {
+  int c0 = in->Get();
+  uint8_t p[3];
+  for (; c0 < 256; c0 = in->Get()) {
+    if (c0 == ']' && in->Peek(2, p) == 2 && p[0] == ']' && p[1] == '>') {
       *out << "]]>]]<![CDATA[>";
       if (!out->good()) {
         return false;
       }
-      i += 2;
-      p += 2;
-    } else if (*p == 0x9 || *p == 0xA || *p == 0xD ||
-               (*p >= 0x20 && *p <= 0x7F)) {
+      (void) in->Get();
+      (void) in->Get();
+    } else if (c0 == 0x9 || c0 == 0xA || c0 == 0xD ||
+               (c0 >= 0x20 && c0 <= 0x7F)) {
       // Matched legal single-octet sequence.
-      *out << *p;
+      *out << (char) c0;
       if (!out->good()) {
         return false;
       }
-    } else if ((i + 1 < size) && p[0] >= 0xC0 && p[0] <= 0xDF && p[1] >= 0x80 &&
-               p[1] <= 0xBF) {
+    } else if (c0 >= 0xC0 && c0 <= 0xDF && in->Peek(1, p) == 1 &&
+               p[0] >= 0x80 && p[0] <= 0xBF) {
       // Matched legal double-octet sequence. Skip the next octet.
-      *out << p[0] << p[1];
+      *out << (char) c0 << (char) p[0];
       if (!out->good()) {
         return false;
       }
-      i += 1;
-      p += 1;
-    } else if ((i + 2 < size) &&
-               ((p[0] >= 0xE0 && p[0] <= 0xEC && p[1] >= 0x80 && p[1] <= 0xBF &&
-                 p[2] >= 0x80 && p[2] <= 0xBF) ||
-                (p[0] == 0xED && p[1] >= 0x80 && p[1] <= 0x9F && p[2] >= 0x80 &&
-                 p[2] <= 0xBF) ||
-                (p[0] == 0xEE && p[1] >= 0x80 && p[1] <= 0xBF && p[2] >= 0x80 &&
-                 p[2] <= 0xBF) ||
-                (p[0] == 0xEF && p[1] >= 0x80 && p[1] <= 0xBE && p[2] >= 0x80 &&
-                 p[2] <= 0xBF) ||
-                (p[0] == 0xEF && p[1] == 0xBF && p[2] >= 0x80 &&
-                 p[2] <= 0xBD))) {
+      (void) in->Get();
+    } else if (in->Peek(2, p) == 2 &&
+               ((c0 >= 0xE0 && c0 <= 0xEC && p[0] >= 0x80 && p[0] <= 0xBF &&
+                 p[1] >= 0x80 && p[1] <= 0xBF) ||
+                (c0 == 0xED && p[0] >= 0x80 && p[0] <= 0x9F && p[1] >= 0x80 &&
+                 p[1] <= 0xBF) ||
+                (c0 == 0xEE && p[0] >= 0x80 && p[0] <= 0xBF && p[1] >= 0x80 &&
+                 p[1] <= 0xBF) ||
+                (c0 == 0xEF && p[0] >= 0x80 && p[0] <= 0xBE && p[1] >= 0x80 &&
+                 p[1] <= 0xBF) ||
+                (c0 == 0xEF && p[0] == 0xBF && p[1] >= 0x80 &&
+                 p[1] <= 0xBD))) {
       // Matched legal triple-octet sequence. Skip the next two octets.
-      *out << p[0] << p[1] << p[2];
+      *out << (char) c0 << (char) p[0] << (char) p[1];
       if (!out->good()) {
         return false;
       }
-      i += 2;
-      p += 2;
-    } else if ((i + 3 < size) && p[0] >= 0xF0 && p[0] <= 0xF7 && p[1] >= 0x80 &&
-               p[1] <= 0xBF && p[2] >= 0x80 && p[2] <= 0xBF && p[3] >= 0x80 &&
-               p[3] <= 0xBF) {
+      (void) in->Get();
+      (void) in->Get();
+    } else if (in->Peek(3, p) == 3 && c0 >= 0xF0 && c0 <= 0xF7 &&
+               p[0] >= 0x80 && p[0] <= 0xBF && p[1] >= 0x80 && p[1] <= 0xBF &&
+               p[2] >= 0x80 && p[2] <= 0xBF) {
       // Matched legal quadruple-octet sequence. Skip the next three octets.
-      *out << p[0] << p[1] << p[2] << p[3];
+      *out << (char) c0 << (char) p[0] << (char) p[1] << (char) p[2];
       if (!out->good()) {
         return false;
       }
-      i += 3;
-      p += 3;
+      (void) in->Get();
+      (void) in->Get();
+      (void) in->Get();
     } else {
       // Illegal octet; replace.
-      *out << '?';
+      *out << (char) '?';
       if (!out->good()) {
         return false;
       }
     }
   }
-  return true;
-}
-
-bool CdataEscapeAndAppend(const Path& input, std::ofstream* out_stm) {
-  DWORD size;
-  std::unique_ptr<uint8_t[]> data;
-  if (!ReadCompleteFile(input, &data, &size)) {
-    LogError(__LINE__, input.Get());
-    return false;
-  }
-
-  return CdataEscape(data.get(), size, out_stm);
+  return c0 == IFStream::kIFStreamErrorEOF;
 }
 
 bool GetTestName(std::wstring* result) {
@@ -1664,39 +1651,51 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return false;
   }
 
-  std::ofstream stm(
+  bazel::windows::AutoHandle test_log;
+  if (!OpenExistingFileForRead(test_outerr, &test_log)) {
+    LogError(__LINE__, test_outerr.Get().c_str());
+    return false;
+  }
+
+  std::unique_ptr<IFStream> istm(IFStreamImpl::Create(test_log));
+  if (istm == nullptr) {
+    LogError(__LINE__, test_outerr.Get().c_str());
+    return false;
+  }
+
+  std::ofstream ostm(
       AddUncPrefixMaybe(output).c_str(),
       std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
-  if (!stm.is_open() || !stm.good()) {
+  if (!ostm.is_open() || !ostm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Create XML file stub.
-  stm << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-         "<testsuites>\n"
-         "<testsuite name=\""
-      << acp_test_name << "\" tests=\"1\" failures=\"0\" errors=\"" << errors
-      << "\">\n"
-         "<testcase name=\""
-      << acp_test_name << "\" status=\"run\" duration=\"" << duration.seconds
-      << "\" time=\"" << duration.seconds << "\">" << error_msg
-      << "</testcase>\n"
-         "<system-out><![CDATA[";
-  if (!stm.good()) {
+  ostm << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+          "<testsuites>\n"
+          "<testsuite name=\""
+       << acp_test_name << "\" tests=\"1\" failures=\"0\" errors=\"" << errors
+       << "\">\n"
+          "<testcase name=\""
+       << acp_test_name << "\" status=\"run\" duration=\"" << duration.seconds
+       << "\" time=\"" << duration.seconds << "\">" << error_msg
+       << "</testcase>\n"
+          "<system-out><![CDATA[";
+  if (!ostm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Encode test log to make it embeddable in CDATA.
-  if (!CdataEscapeAndAppend(test_outerr, &stm)) {
+  if (!CdataEscape(istm.get(), &ostm)) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Append CDATA end and closing tags.
-  stm << "]]></system-out>\n</testsuite>\n</testsuites>\n";
-  if (!stm.good()) {
+  ostm << "]]></system-out>\n</testsuite>\n</testsuites>\n";
+  if (!ostm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
@@ -1973,9 +1972,8 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
   return TeeImpl::Create(input, output1, output2, result);
 }
 
-bool TestOnly_CdataEncode(const uint8_t* input, const DWORD size,
-                          std::basic_ostream<char>* out_stm) {
-  return CdataEscape(input, size, out_stm);
+bool TestOnly_CdataEncode(IFStream* in_stm, std::basic_ostream<char>* out_stm) {
+  return CdataEscape(in_stm, out_stm);
 }
 
 IFStream* TestOnly_CreateIFStream(HANDLE handle, DWORD page_size) {

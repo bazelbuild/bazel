@@ -32,6 +32,11 @@ bool DeleteAllUnder(std::wstring path);
 bool CreateDummyFile(const std::wstring& path,
                      const std::string& content = "hello");
 
+// Creates a dummy file under `path`.
+// `path` must be a valid Windows path, and have a UNC prefix if necessary.
+bool CreateDummyFile(const std::wstring& path,
+                     const void* content, const DWORD size);
+
 }  // namespace blaze_util
 
 #endif  // BAZEL_SRC_TEST_CPP_UTIL_WINDOWS_TEST_UTIL_H_
