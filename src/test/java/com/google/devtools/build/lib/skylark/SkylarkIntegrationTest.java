@@ -91,7 +91,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     checkError(
         "test/skylark",
         "the_rule",
-        "no such package '@r//': The repository could not be resolved",
+        "no such package '@r//': The repository '@r' could not be resolved",
         "load('//test/skylark:extension.bzl', 'my_rule')",
         "",
         "my_rule(name='the_rule')");

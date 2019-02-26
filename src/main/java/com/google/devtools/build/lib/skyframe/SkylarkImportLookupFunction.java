@@ -249,7 +249,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         return null;
       }
       if (!containingPackageLookupValue.hasContainingPackage()) {
-        throw SkylarkImportFailedException.noBuildFile(fileLabel.toPathFragment());
+        throw SkylarkImportFailedException.noBuildFile(
+            fileLabel, containingPackageLookupValue.getReasonForNoContainingPackage());
       }
       if (!containingPackageLookupValue.getContainingPackageName().equals(
           fileLabel.getPackageIdentifier())) {
@@ -600,7 +601,11 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           cause);
     }
 
-    static SkylarkImportFailedException noBuildFile(PathFragment file) {
+    static SkylarkImportFailedException noBuildFile(Label file, @Nullable String reason) {
+      if (reason != null) {
+        return new SkylarkImportFailedException(
+            String.format("Unable to find package for %s: %s.", file, reason));
+      }
       return new SkylarkImportFailedException(
           String.format("Every .bzl file must have a corresponding package, but '%s' "
               + "does not have one. Please create a BUILD file in the same or any parent directory."

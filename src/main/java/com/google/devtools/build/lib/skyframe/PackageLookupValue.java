@@ -51,10 +51,6 @@ public abstract class PackageLookupValue implements SkyValue {
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
 
-  @AutoCodec
-  public static final NoRepositoryPackageLookupValue NO_SUCH_REPOSITORY_VALUE =
-      new NoRepositoryPackageLookupValue();
-
   enum ErrorReason {
     /** There is no BUILD file. */
     NO_BUILD_FILE,
@@ -391,11 +387,15 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /**
-   * Marker value for repository we could not find. This can happen when looking for a label that
-   * specifies a non-existent repository.
+   * Value for repository we could not find. This can happen when looking for a label that specifies
+   * a non-existent repository.
    */
   public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
-    private NoRepositoryPackageLookupValue() {}
+    private final String repositoryName;
+
+    NoRepositoryPackageLookupValue(String repositoryName) {
+      this.repositoryName = repositoryName;
+    }
 
     @Override
     ErrorReason getErrorReason() {
@@ -404,7 +404,7 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public String getErrorMsg() {
-      return "The repository could not be resolved";
+      return String.format("The repository '%s' could not be resolved", repositoryName);
     }
   }
 }

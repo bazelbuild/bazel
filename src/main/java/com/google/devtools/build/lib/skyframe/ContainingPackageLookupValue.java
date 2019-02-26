@@ -26,6 +26,7 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nonnull;
 
 /**
  * A value that represents the result of looking for the existence of a package that owns a
@@ -44,6 +45,14 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
 
   /** If there is a containing package, returns its package root */
   public abstract Root getContainingPackageRoot();
+
+  /**
+   * If there is not a containing package, returns a reason why (this is usually the reason the
+   * outer-most directory isn't a package).
+   */
+  public String getReasonForNoContainingPackage() {
+    throw new IllegalStateException();
+  }
 
   public static Key key(PackageIdentifier id) {
     Preconditions.checkArgument(!id.getPackageFragment().isAbsolute(), id);
@@ -112,7 +121,15 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
 
   /** Value indicating there is no containing package. */
   public static class NoContainingPackage extends ContainingPackageLookupValue {
-    private NoContainingPackage() {}
+    private final String reason;
+
+    private NoContainingPackage() {
+      this.reason = null;
+    }
+
+    NoContainingPackage(@Nonnull String reason) {
+      this.reason = reason;
+    }
 
     @Override
     public boolean hasContainingPackage() {
@@ -132,6 +149,11 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     @Override
     public String toString() {
       return getClass().getName();
+    }
+
+    @Override
+    public String getReasonForNoContainingPackage() {
+      return reason;
     }
   }
 

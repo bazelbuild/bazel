@@ -321,7 +321,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
     if (!repositoryValue.repositoryExists()) {
       // TODO(ulfjack): Maybe propagate the error message from the repository delegator function?
-      return PackageLookupValue.NO_SUCH_REPOSITORY_VALUE;
+      return new PackageLookupValue.NoRepositoryPackageLookupValue(id.getRepository().getName());
     }
 
     // This checks for the build file names in the correct precedence order.
