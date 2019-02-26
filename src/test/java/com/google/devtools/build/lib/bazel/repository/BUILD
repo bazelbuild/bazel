@@ -15,9 +15,14 @@ filegroup(
 
 java_test(
     name = "RepositoryTests",
-    srcs = glob([
-        "**/*.java",
-    ]),
+    srcs = select({
+        "//src/conditions:windows": [":RepositoryTests_windows_srcs"],
+        "//conditions:default": glob(["*.java"]),
+    }),
+    data = [
+        "test_decompress_archive.tar.gz",
+        "test_decompress_archive.zip",
+    ],
     tags = [
         "rules",
     ],
@@ -30,6 +35,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
@@ -56,6 +62,14 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
     ],
+)
+
+filegroup(
+    name = "RepositoryTests_windows_srcs",
+    srcs = glob(
+        ["*.java"],
+        exclude = ["CompressedTarFunctionTest.java"],
+    ),
 )
 
 test_suite(

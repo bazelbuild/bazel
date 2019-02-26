@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
+
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -68,15 +70,7 @@ public abstract class CompressedTarFunction implements Decompressor {
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
             PathFragment linkName = PathFragment.create(entry.getLinkName());
-            boolean wasAbsolute = linkName.isAbsolute();
-            // Strip the prefix from the link path if set.
-            linkName =
-                StripPrefixedPath.maybeDeprefix(linkName.getPathString(), prefix).getPathFragment();
-            if (wasAbsolute) {
-              // Recover the path to an absolute path as maybeDeprefix() relativize the path
-              // even if the prefix is not set
-              linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
-            }
+            linkName = maybeDeprefixSymlink(linkName, prefix, descriptor.repositoryPath());
             if (filename.exists()) {
               filename.delete();
             }
