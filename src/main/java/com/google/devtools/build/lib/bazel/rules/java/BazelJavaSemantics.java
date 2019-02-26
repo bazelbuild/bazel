@@ -66,6 +66,8 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
@@ -407,13 +409,32 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.ofSpaceSeparatedList("%jvm_flags%", jvmFlagsList));
 
     if (OS.getCurrent() == OS.WINDOWS) {
+      boolean windowsEscapeJvmFlags =
+          ruleContext
+              .getConfiguration()
+              .getFragment(JavaConfiguration.class)
+              .windowsEscapeJvmFlags();
+
+      List<String> jvmFlagsForLauncher = jvmFlagsList;
+      if (windowsEscapeJvmFlags) {
+        try {
+          jvmFlagsForLauncher = new ArrayList<>(jvmFlagsList.size());
+          for (String f : jvmFlagsList) {
+            ShellUtils.tokenize(jvmFlagsForLauncher, f);
+          }
+        } catch (TokenizationException e) {
+          ruleContext.attributeError("jvm_flags", "could not Bash-tokenize flag: " + e);
+        }
+      }
+
       return createWindowsExeLauncher(
           ruleContext,
           javaExecutable,
           classpath,
           javaStartClass,
-          jvmFlagsList,
-          executable);
+          jvmFlagsForLauncher,
+          executable,
+          windowsEscapeJvmFlags);
     }
 
     ruleContext.registerAction(new TemplateExpansionAction(
@@ -426,9 +447,9 @@ public class BazelJavaSemantics implements JavaSemantics {
       String javaExecutable,
       NestedSet<Artifact> classpath,
       String javaStartClass,
-      ImmutableList<String> jvmFlags,
-      Artifact javaLauncher) {
-
+      List<String> jvmFlags,
+      Artifact javaLauncher,
+      boolean windowsEscapeJvmFlags) {
     LaunchInfo launchInfo =
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Java")
@@ -448,6 +469,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "classpath",
                 ";",
                 Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
+            .addKeyValuePair("escape_jvmflags", windowsEscapeJvmFlags ? "1" : "0")
             // TODO(laszlocsomor): Change the Launcher to accept multiple jvm_flags entries. As of
             // 2019-02-13 the Launcher accepts just one jvm_flags entry, which contains all the
             // flags, joined by TAB characters. The Launcher splits up the string to get the
