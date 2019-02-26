@@ -3581,6 +3581,7 @@ def _impl(ctx):
 
     pic_feature = feature(
         name = "pic",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -4243,6 +4244,7 @@ def _impl(ctx):
 
     random_seed_feature = feature(
         name = "random_seed",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -4391,7 +4393,7 @@ def _impl(ctx):
         ],
     )
 
-    module_maps_feature = feature(name = "module_maps")
+    module_maps_feature = feature(name = "module_maps", enabled = True)
 
     if (ctx.attr.cpu == "ios_arm64"):
         unfiltered_compile_flags_feature = feature(
@@ -4877,6 +4879,7 @@ def _impl(ctx):
 
     include_paths_feature = feature(
         name = "include_paths",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -5269,6 +5272,7 @@ def _impl(ctx):
 
     dependency_file_feature = feature(
         name = "dependency_file",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -5293,6 +5297,7 @@ def _impl(ctx):
 
     preprocessor_defines_feature = feature(
         name = "preprocessor_defines",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [

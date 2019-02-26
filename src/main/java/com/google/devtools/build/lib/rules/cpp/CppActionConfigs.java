@@ -145,6 +145,7 @@ public class CppActionConfigs {
                 Joiner.on("\n")
                     .join(
                         "  name: 'pic'",
+                        "  enabled: true",
                         "  flag_set {",
                         "    action: 'assemble'",
                         "    action: 'preprocess-assemble'",

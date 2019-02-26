@@ -719,7 +719,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             MockCcSupport.SUPPORTS_PIC_FEATURE,
             "feature { name: 'header_modules' implies: 'use_header_modules' }",
-            "feature { name: 'module_maps' enabled: true }",
+            MockCcSupport.MODULE_MAPS_FEATURE,
             "feature { name: 'use_header_modules' }");
     useConfiguration("--cpu=k8");
     scratch.file("module/BUILD",
@@ -1033,7 +1033,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testCppModuleMap() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "feature { name: 'module_maps' enabled: true }");
+        .setupCrosstool(mockToolsConfig, MockCcSupport.MODULE_MAPS_FEATURE);
     useConfiguration();
     writeSimpleCcLibrary();
     CppModuleMapAction action = getCppModuleMapAction("//module:map");

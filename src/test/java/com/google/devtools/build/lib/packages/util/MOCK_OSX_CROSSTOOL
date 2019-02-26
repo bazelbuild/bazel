@@ -570,6 +570,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -634,6 +635,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -887,6 +889,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -900,6 +903,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -914,6 +918,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -976,6 +981,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -2349,6 +2355,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -2413,6 +2420,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -2666,6 +2674,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -2679,6 +2688,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -2693,6 +2703,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -2755,6 +2766,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -4135,6 +4147,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -4199,6 +4212,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -4454,6 +4468,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -4467,6 +4482,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -4481,6 +4497,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -4543,6 +4560,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -5937,6 +5955,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -6001,6 +6020,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -6258,6 +6278,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -6271,6 +6292,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -6285,6 +6307,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -6347,6 +6370,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -7742,6 +7766,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -7806,6 +7831,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -8061,6 +8087,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -8074,6 +8101,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -8088,6 +8116,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -8150,6 +8179,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -9574,6 +9604,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -9638,6 +9669,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -9893,6 +9925,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -9906,6 +9939,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -9920,6 +9954,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -9982,6 +10017,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -11376,6 +11412,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -11440,6 +11477,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -11695,6 +11733,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -11708,6 +11747,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -11722,6 +11762,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -11784,6 +11825,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -13198,6 +13240,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -13262,6 +13305,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -13519,6 +13563,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -13532,6 +13577,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -13546,6 +13592,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -13608,6 +13655,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -15023,6 +15071,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -15087,6 +15136,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -15342,6 +15392,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -15355,6 +15406,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -15369,6 +15421,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -15431,6 +15484,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"
@@ -16875,6 +16929,7 @@ toolchain {
   }
   feature {
     name: "module_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -16939,6 +16994,7 @@ toolchain {
         iterate_over: "preprocessor_defines"
       }
     }
+    enabled: true
   }
   feature {
     name: "xcode_5.0"
@@ -17194,6 +17250,7 @@ toolchain {
         expand_if_all_available: "dependency_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "random_seed"
@@ -17207,6 +17264,7 @@ toolchain {
         expand_if_all_available: "output_file"
       }
     }
+    enabled: true
   }
   feature {
     name: "pic"
@@ -17221,6 +17279,7 @@ toolchain {
         expand_if_all_available: "pic"
       }
     }
+    enabled: true
   }
   feature {
     name: "per_object_debug_info"
@@ -17283,6 +17342,7 @@ toolchain {
         iterate_over: "system_include_paths"
       }
     }
+    enabled: true
   }
   feature {
     name: "fdo_instrument"

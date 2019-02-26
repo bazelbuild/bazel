@@ -469,6 +469,23 @@ public abstract class MockCcSupport {
           + "   extension: '.a'"
           + "}";
 
+  public static final String MODULE_MAPS_FEATURE =
+      ""
+          + "feature {"
+          + "  name: 'module_maps'"
+          + "  enabled: true"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-module-compile'"
+          + "    flag_group {"
+          + "      flag: 'module_name:%{module_name}'"
+          + "      flag: 'module_map_file:%{module_map_file}'"
+          + "    }"
+          + "  }"
+          + "}";
+
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
       emptyActionConfigFor(CppActionNames.CPP_COMPILE);
 

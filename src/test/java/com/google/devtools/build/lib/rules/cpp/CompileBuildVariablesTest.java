@@ -226,7 +226,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
             "  }",
             "}",
             MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION,
-            "supports_start_end_lib: true",
+            MockCcSupport.SUPPORTS_START_END_LIB_FEATURE,
             MockCcSupport.THIN_LTO_CONFIGURATION,
             MockCcSupport.HOST_AND_NONHOST_CONFIGURATION);
     useConfiguration("--fission=yes", "--features=thin_lto");
