@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import javax.annotation.Nullable;
 
 /**
  * Provider for a toolchain declaration, which associates a toolchain type, the execution and target
@@ -86,10 +88,30 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
     }
 
     /** Returns the newly created {@link DeclaredToolchainInfo} instance. */
-    public DeclaredToolchainInfo build() {
+    public DeclaredToolchainInfo build() throws DuplicateConstraintException {
       // TODO(katre): handle constraint duplication in attributes separately.
+      ConstraintCollection.DuplicateConstraintException execConstraintsException = null;
+      ConstraintCollection execConstraints;
+      try {
+        execConstraints = this.execConstraints.build();
+      } catch (ConstraintCollection.DuplicateConstraintException e) {
+        execConstraints = null;
+        execConstraintsException = e;
+      }
+      ConstraintCollection.DuplicateConstraintException targetConstraintsException = null;
+      ConstraintCollection targetConstraints;
+      try {
+        targetConstraints = this.targetConstraints.build();
+      } catch (ConstraintCollection.DuplicateConstraintException e) {
+        targetConstraints = null;
+        targetConstraintsException = e;
+      }
+      if (execConstraintsException != null || targetConstraintsException != null) {
+        throw new DuplicateConstraintException(
+            execConstraintsException, targetConstraintsException);
+      }
       return new AutoValue_DeclaredToolchainInfo(
-          toolchainType, execConstraints.build(), targetConstraints.build(), toolchainLabel);
+          toolchainType, execConstraints, targetConstraints, toolchainLabel);
     }
   }
 
@@ -107,5 +129,48 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
       Label toolchainLabel) {
     return new AutoValue_DeclaredToolchainInfo(
         toolchainType, execConstraints, targetConstraints, toolchainLabel);
+  }
+
+  public static class DuplicateConstraintException extends Exception {
+    @Nullable
+    private final ConstraintCollection.DuplicateConstraintException execConstraintsException;
+
+    @Nullable
+    private final ConstraintCollection.DuplicateConstraintException targetConstraintsException;
+
+    private DuplicateConstraintException(
+        @Nullable ConstraintCollection.DuplicateConstraintException execConstraintsException,
+        @Nullable ConstraintCollection.DuplicateConstraintException targetConstraintsException) {
+      // At least one should be non-null.
+      super(formatError(execConstraintsException, targetConstraintsException));
+      this.execConstraintsException = execConstraintsException;
+      this.targetConstraintsException = targetConstraintsException;
+    }
+
+    public ConstraintCollection.DuplicateConstraintException execConstraintsException() {
+      return execConstraintsException;
+    }
+
+    public ConstraintCollection.DuplicateConstraintException targetConstraintsException() {
+      return targetConstraintsException;
+    }
+
+    public static String formatError(
+        @Nullable ConstraintCollection.DuplicateConstraintException execConstraintsException,
+        @Nullable ConstraintCollection.DuplicateConstraintException targetConstraintsException) {
+      StringBuilder message = new StringBuilder();
+      message.append("Duplicate constraints detected[");
+      if (execConstraintsException != null) {
+        message.append("in execution constraints: ").append(execConstraintsException.getMessage());
+      }
+      if (targetConstraintsException != null) {
+        if (execConstraintsException != null) {
+          message.append(", ");
+        }
+        message.append("in target constraints: ").append(targetConstraintsException.getMessage());
+      }
+      message.append("]");
+      return message.toString();
+    }
   }
 }

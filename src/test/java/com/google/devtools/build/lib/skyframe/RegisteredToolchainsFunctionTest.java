@@ -278,7 +278,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   }
 
   @Test
-  public void testRegisteredToolchainsValue_equalsAndHashCode() {
+  public void testRegisteredToolchainsValue_equalsAndHashCode() throws Exception {
     DeclaredToolchainInfo toolchain1 =
         DeclaredToolchainInfo.builder()
             .toolchainType(ToolchainTypeInfo.create(makeLabel("//test:toolchain")))

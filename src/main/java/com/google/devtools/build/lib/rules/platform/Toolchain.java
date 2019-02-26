@@ -50,13 +50,27 @@ public class Toolchain implements RuleConfiguredTargetFactory {
     Label toolchainLabel =
         ruleContext.attributes().get(ToolchainRule.TOOLCHAIN_ATTR, BuildType.NODEP_LABEL);
 
-    DeclaredToolchainInfo registeredToolchain =
-        DeclaredToolchainInfo.builder()
-            .toolchainType(toolchainType)
-            .addExecConstraints(execConstraints)
-            .addTargetConstraints(targetConstraints)
-            .toolchainLabel(toolchainLabel)
-            .build();
+    DeclaredToolchainInfo registeredToolchain;
+    try {
+      registeredToolchain =
+          DeclaredToolchainInfo.builder()
+              .toolchainType(toolchainType)
+              .addExecConstraints(execConstraints)
+              .addTargetConstraints(targetConstraints)
+              .toolchainLabel(toolchainLabel)
+              .build();
+    } catch (DeclaredToolchainInfo.DuplicateConstraintException e) {
+      if (e.execConstraintsException() != null) {
+        ruleContext.attributeError(
+            ToolchainRule.EXEC_COMPATIBLE_WITH_ATTR, e.execConstraintsException().getMessage());
+      }
+      if (e.targetConstraintsException() != null) {
+        ruleContext.attributeError(
+            ToolchainRule.TARGET_COMPATIBLE_WITH_ATTR, e.targetConstraintsException().getMessage());
+      }
+      // One of the above must have been non-null, so we just return early.
+      return null;
+    }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
