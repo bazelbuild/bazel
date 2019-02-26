@@ -58,6 +58,7 @@ java_test(
     name = "PyRuntimeTest",
     srcs = ["PyRuntimeTest.java"],
     deps = [
+        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",

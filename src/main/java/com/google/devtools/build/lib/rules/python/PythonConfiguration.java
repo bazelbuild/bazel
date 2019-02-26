@@ -39,6 +39,7 @@ import com.google.devtools.common.options.TriState;
 public class PythonConfiguration extends BuildConfiguration.Fragment {
 
   private final PythonVersion version;
+  private final PythonVersion defaultVersion;
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
 
@@ -51,12 +52,14 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
 
   PythonConfiguration(
       PythonVersion version,
+      PythonVersion defaultVersion,
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees,
       boolean oldPyVersionApiAllowed,
       boolean useNewPyVersionSemantics,
       boolean disallowLegacyPyProvider) {
     this.version = version;
+    this.defaultVersion = defaultVersion;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
     this.oldPyVersionApiAllowed = oldPyVersionApiAllowed;
@@ -73,6 +76,21 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
    */
   public PythonVersion getPythonVersion() {
     return version;
+  }
+
+  /**
+   * Returns the default Python version to use on targets that omit their {@code python_version}
+   * attribute.
+   *
+   * <p>Specified using {@code --incompatible_py3_is_default}. Long-term, the default will simply be
+   * hardcoded as {@code PY3}.
+   *
+   * <p>This information is stored on the configuration for the benefit of callers in rule analysis.
+   * However, transitions have access to the option fragment instead of the configuration fragment,
+   * and should rely on {@link PythonOptions#getDefaultPythonVersion} instead.
+   */
+  public PythonVersion getDefaultPythonVersion() {
+    return defaultVersion;
   }
 
   @Override

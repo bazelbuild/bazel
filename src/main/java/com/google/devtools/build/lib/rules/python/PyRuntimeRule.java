@@ -33,6 +33,9 @@ public final class PyRuntimeRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
 
+        // For --incompatible_py3_is_default.
+        .requiresConfigurationFragments(PythonConfiguration.class)
+
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(files) -->
         For an in-build runtime, this is the set of files comprising this runtime. These files will
         be added to the runfiles of Python binaries that use this runtime. For a platform runtime
@@ -51,6 +54,18 @@ public final class PyRuntimeRule implements RuleDefinition {
         platform. For an in-build runtime this attribute must not be set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("interpreter_path", STRING))
+
+        /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(python_version) -->
+        Whether this runtime is for Python major version 2 or 3. Valid values are <code>"PY2"</code>
+        and <code>"PY3"</code>.
+
+        <p>The default value is controlled by the <code>--incompatible_py3_is_default</code> flag.
+        However, in the future this attribute will be mandatory and have no default value.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("python_version", STRING)
+                .value(PythonVersion._INTERNAL_SENTINEL.toString())
+                .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET))
         .add(attr("output_licenses", LICENSE))
         .build();
   }

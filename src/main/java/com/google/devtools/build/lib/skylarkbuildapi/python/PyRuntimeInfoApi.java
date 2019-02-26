@@ -78,6 +78,14 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends SkylarkValue {
   @Nullable
   SkylarkNestedSet getFilesForStarlark();
 
+  @SkylarkCallable(
+      name = "python_version",
+      structField = true,
+      doc =
+          "Indicates whether this runtime uses Python major version 2 or 3. Valid values are "
+              + "(only) <code>\"PY2\"</code> and <code>\"PY3\"</code>.")
+  String getPythonVersionForStarlark();
+
   /** Provider type for {@link PyRuntimeInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
   interface PyRuntimeInfoProviderApi extends ProviderApi {
@@ -119,12 +127,22 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends SkylarkValue {
                       + "for this argument if you pass in <code>interpreter_path</code>. If "
                       + "<code>interpreter</code> is given and this argument is <code>None</code>, "
                       + "<code>files</code> becomes an empty <code>depset</code> instead."),
+          @Param(
+              name = "python_version",
+              type = String.class,
+              positional = false,
+              named = true,
+              doc = "The value for the new object's <code>python_version</code> field."),
         },
         selfCall = true,
         useLocation = true)
     @SkylarkConstructor(objectType = PyRuntimeInfoApi.class, receiverNameForDoc = "PyRuntimeInfo")
     PyRuntimeInfoApi<?> constructor(
-        Object interpreterPathUncast, Object interpreterUncast, Object filesUncast, Location loc)
+        Object interpreterPathUncast,
+        Object interpreterUncast,
+        Object filesUncast,
+        String pythonVersion,
+        Location loc)
         throws EvalException;
   }
 }

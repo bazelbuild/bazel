@@ -40,6 +40,11 @@ public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
   }
 
   @Override
+  public String getPythonVersionForStarlark() {
+    return "";
+  }
+
+  @Override
   public void repr(SkylarkPrinter printer) {}
 
   /** Fake implementation of {@link PyRuntimeInfoProviderApi}. */
@@ -47,7 +52,11 @@ public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
 
     @Override
     public PyRuntimeInfoApi<?> constructor(
-        Object interpreterPathUncast, Object interpreterUncast, Object filesUncast, Location loc)
+        Object interpreterPathUncast,
+        Object interpreterUncast,
+        Object filesUncast,
+        String pythonVersion,
+        Location loc)
         throws EvalException {
       return new FakePyRuntimeInfo();
     }

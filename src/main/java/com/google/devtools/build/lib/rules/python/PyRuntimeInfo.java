@@ -52,15 +52,19 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
   @Nullable private final PathFragment interpreterPath;
   @Nullable private final Artifact interpreter;
   @Nullable private final SkylarkNestedSet files;
+  /** Invariant: either PY2 or PY3. */
+  private final PythonVersion pythonVersion;
 
   private PyRuntimeInfo(
       @Nullable Location location,
       @Nullable PathFragment interpreterPath,
       @Nullable Artifact interpreter,
-      @Nullable SkylarkNestedSet files) {
+      @Nullable SkylarkNestedSet files,
+      PythonVersion pythonVersion) {
     super(PROVIDER, location);
     Preconditions.checkArgument((interpreterPath == null) != (interpreter == null));
     Preconditions.checkArgument((interpreter == null) == (files == null));
+    Preconditions.checkArgument(pythonVersion.isTargetValue());
     if (files != null) {
       // Work around #7266 by special-casing the empty set in the type check.
       Preconditions.checkArgument(
@@ -69,22 +73,25 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
     this.interpreterPath = interpreterPath;
     this.interpreter = interpreter;
     this.files = files;
+    this.pythonVersion = pythonVersion;
   }
 
   /** Constructs an instance from native rule logic (built-in location) for an in-build runtime. */
   public static PyRuntimeInfo createForInBuildRuntime(
-      Artifact interpreter, NestedSet<Artifact> files) {
+      Artifact interpreter, NestedSet<Artifact> files, PythonVersion pythonVersion) {
     return new PyRuntimeInfo(
         /*location=*/ null,
         /*interpreterPath=*/ null,
         interpreter,
-        SkylarkNestedSet.of(Artifact.class, files));
+        SkylarkNestedSet.of(Artifact.class, files),
+        pythonVersion);
   }
 
   /** Constructs an instance from native rule logic (built-in location) for a platform runtime. */
-  public static PyRuntimeInfo createForPlatformRuntime(PathFragment interpreterPath) {
+  public static PyRuntimeInfo createForPlatformRuntime(
+      PathFragment interpreterPath, PythonVersion pythonVersion) {
     return new PyRuntimeInfo(
-        /*location=*/ null, interpreterPath, /*interpreter=*/ null, /*files=*/ null);
+        /*location=*/ null, interpreterPath, /*interpreter=*/ null, /*files=*/ null, pythonVersion);
   }
 
   @Override
@@ -148,6 +155,15 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
     return files;
   }
 
+  public PythonVersion getPythonVersion() {
+    return pythonVersion;
+  }
+
+  @Override
+  public String getPythonVersionForStarlark() {
+    return pythonVersion.name();
+  }
+
   /** The class of the {@code PyRuntimeInfo} provider type. */
   public static class PyRuntimeInfoProvider extends BuiltinProvider<PyRuntimeInfo>
       implements PyRuntimeInfoApi.PyRuntimeInfoProviderApi {
@@ -158,7 +174,11 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
 
     @Override
     public PyRuntimeInfo constructor(
-        Object interpreterPathUncast, Object interpreterUncast, Object filesUncast, Location loc)
+        Object interpreterPathUncast,
+        Object interpreterUncast,
+        Object filesUncast,
+        String pythonVersion,
+        Location loc)
         throws EvalException {
       String interpreterPath =
           interpreterPathUncast == NONE ? null : (String) interpreterPathUncast;
@@ -175,15 +195,27 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
         throw new EvalException(loc, "cannot specify 'files' if 'interpreter_path' is given");
       }
 
+      PythonVersion parsedPythonVersion;
+      try {
+        parsedPythonVersion = PythonVersion.parseTargetValue(pythonVersion);
+      } catch (IllegalArgumentException ex) {
+        throw new EvalException(loc, "illegal value for 'python_version'", ex);
+      }
+
       if (isInBuildRuntime) {
         if (files == null) {
           files =
               SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
         }
-        return new PyRuntimeInfo(loc, /*interpreterPath=*/ null, interpreter, files);
+        return new PyRuntimeInfo(
+            loc, /*interpreterPath=*/ null, interpreter, files, parsedPythonVersion);
       } else {
         return new PyRuntimeInfo(
-            loc, PathFragment.create(interpreterPath), /*interpreter=*/ null, /*files=*/ null);
+            loc,
+            PathFragment.create(interpreterPath),
+            /*interpreter=*/ null,
+            /*files=*/ null,
+            parsedPythonVersion);
       }
     }
   }

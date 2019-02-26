@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -40,6 +41,7 @@ public class PyRuntimeTest extends BuildViewTestCase {
         "    name = 'myruntime',",
         "    files = [':myfile'],",
         "    interpreter = ':myinterpreter',",
+        "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
 
@@ -47,6 +49,7 @@ public class PyRuntimeTest extends BuildViewTestCase {
     assertThat(info.getInterpreterPath()).isNull();
     assertThat(info.getInterpreter().getExecPathString()).isEqualTo("pkg/myinterpreter");
     assertThat(ActionsTestUtil.baseArtifactNames(info.getFiles())).containsExactly("myfile");
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
 
   @Test
@@ -56,6 +59,7 @@ public class PyRuntimeTest extends BuildViewTestCase {
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
+        "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
 
@@ -63,6 +67,30 @@ public class PyRuntimeTest extends BuildViewTestCase {
     assertThat(info.getInterpreterPath().getPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+  }
+
+  @Test
+  public void pythonVersionDefault() throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file(
+        "pkg/BUILD",
+        "py_runtime(",
+        "    name = 'myruntime_default',",
+        "    interpreter_path = '/system/interpreter',",
+        ")",
+        "py_runtime(",
+        "    name = 'myruntime_explicit',",
+        "    interpreter_path = '/system/interpreter',",
+        "    python_version = 'PY3',",
+        ")");
+    PyRuntimeInfo infoDefault =
+        getConfiguredTarget("//pkg:myruntime_default").get(PyRuntimeInfo.PROVIDER);
+    PyRuntimeInfo infoExplicit =
+        getConfiguredTarget("//pkg:myruntime_explicit").get(PyRuntimeInfo.PROVIDER);
+
+    assertThat(infoDefault.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(infoExplicit.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
@@ -74,6 +102,7 @@ public class PyRuntimeTest extends BuildViewTestCase {
         "    name = 'myruntime',",
         "    interpreter = ':myinterpreter',",
         "    interpreter_path = '/system/interpreter',",
+        "    python_version = 'PY2',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -88,6 +117,7 @@ public class PyRuntimeTest extends BuildViewTestCase {
         "pkg/BUILD", //
         "py_runtime(",
         "    name = 'myruntime',",
+        "    python_version = 'PY2',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -103,6 +133,7 @@ public class PyRuntimeTest extends BuildViewTestCase {
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = 'some/relative/path',",
+        "    python_version = 'PY2',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -118,9 +149,25 @@ public class PyRuntimeTest extends BuildViewTestCase {
         "    name = 'myruntime',",
         "    files = [':myfile'],",
         "    interpreter_path = '/system/interpreter',",
+        "    python_version = 'PY2',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
     assertContainsEvent("if 'interpreter_path' is given then 'files' must be empty");
+  }
+
+  @Test
+  public void badPythonVersionAttribute() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "pkg/BUILD",
+        "py_runtime(",
+        "    name = 'myruntime',",
+        "    interpreter_path = '/system/interpreter',",
+        "    python_version = 'not a Python version',",
+        ")");
+    getConfiguredTarget("//pkg:myruntime");
+
+    assertContainsEvent("invalid value in 'python_version' attribute");
   }
 }

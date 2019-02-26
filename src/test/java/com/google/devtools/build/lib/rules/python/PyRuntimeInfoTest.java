@@ -54,7 +54,8 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   @Test
   public void factoryMethod_InBuildRuntime() {
     NestedSet<Artifact> files = NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile);
-    PyRuntimeInfo inBuildRuntime = PyRuntimeInfo.createForInBuildRuntime(dummyInterpreter, files);
+    PyRuntimeInfo inBuildRuntime =
+        PyRuntimeInfo.createForInBuildRuntime(dummyInterpreter, files, PythonVersion.PY2);
 
     assertThat(inBuildRuntime.getCreationLoc()).isEqualTo(Location.BUILTIN);
     assertThat(inBuildRuntime.getInterpreterPath()).isNull();
@@ -62,12 +63,14 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
     assertThat(inBuildRuntime.getInterpreter()).isEqualTo(dummyInterpreter);
     assertThat(inBuildRuntime.getFiles()).isEqualTo(files);
     assertThat(inBuildRuntime.getFilesForStarlark().getSet(Artifact.class)).isEqualTo(files);
+    assertThat(inBuildRuntime.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(inBuildRuntime.getPythonVersionForStarlark()).isEqualTo("PY2");
   }
 
   @Test
   public void factoryMethod_PlatformRuntime() {
     PathFragment path = PathFragment.create("/system/interpreter");
-    PyRuntimeInfo platformRuntime = PyRuntimeInfo.createForPlatformRuntime(path);
+    PyRuntimeInfo platformRuntime = PyRuntimeInfo.createForPlatformRuntime(path, PythonVersion.PY2);
 
     assertThat(platformRuntime.getCreationLoc()).isEqualTo(Location.BUILTIN);
     assertThat(platformRuntime.getInterpreterPath()).isEqualTo(path);
@@ -75,6 +78,8 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
     assertThat(platformRuntime.getInterpreter()).isNull();
     assertThat(platformRuntime.getFiles()).isNull();
     assertThat(platformRuntime.getFilesForStarlark()).isNull();
+    assertThat(platformRuntime.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(platformRuntime.getPythonVersionForStarlark()).isEqualTo("PY2");
   }
 
   @Test
@@ -83,12 +88,14 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
         "info = PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = depset([dummy_file]),",
+        "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
     assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
     assertThat(info.getInterpreterPath()).isNull();
     assertThat(info.getInterpreter()).isEqualTo(dummyInterpreter);
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER, dummyFile);
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
 
   @Test
@@ -96,12 +103,14 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
     eval(
         "info = PyRuntimeInfo(", //
         "    interpreter_path = '/system/interpreter',",
+        "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
     assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
     assertThat(info.getInterpreterPath()).isEqualTo(PathFragment.create("/system/interpreter"));
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
 
   @Test
@@ -109,6 +118,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
     eval(
         "info = PyRuntimeInfo(", //
         "    interpreter = dummy_interpreter,",
+        "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER);
@@ -118,12 +128,15 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   public void starlarkConstructorErrors_InBuildXorPlatform() throws Exception {
     checkEvalErrorContains(
         "exactly one of the 'interpreter' or 'interpreter_path' arguments must be specified",
-        "PyRuntimeInfo()");
+        "PyRuntimeInfo(",
+        "    python_version = 'PY2',",
+        ")");
     checkEvalErrorContains(
         "exactly one of the 'interpreter' or 'interpreter_path' arguments must be specified",
         "PyRuntimeInfo(",
         "    interpreter_path = '/system/interpreter',",
         "    interpreter = dummy_interpreter,",
+        "    python_version = 'PY2',",
         ")");
   }
 
@@ -134,18 +147,37 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
         "PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = 'abc',",
+        "    python_version = 'PY2',",
         ")");
     checkEvalErrorContains(
         "expected value of type 'depset of Files or NoneType' for parameter 'files'",
         "PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = depset(['abc']),",
+        "    python_version = 'PY2',",
         ")");
     checkEvalErrorContains(
         "cannot specify 'files' if 'interpreter_path' is given",
         "PyRuntimeInfo(",
         "    interpreter_path = '/system/interpreter',",
         "    files = depset([dummy_file]),",
+        "    python_version = 'PY2',",
+        ")");
+  }
+
+  @Test
+  public void starlarkConstructorErrors_PythonVersion() throws Exception {
+    checkEvalErrorContains(
+        "parameter 'python_version' has no default value",
+        "PyRuntimeInfo(",
+        "    interpreter_path = '/system/interpreter',",
+        ")");
+    checkEvalErrorContains(
+        "illegal value for 'python_version': 'not a Python version' is not a valid Python major "
+            + "version. Expected 'PY2' or 'PY3'.",
+        "PyRuntimeInfo(",
+        "    interpreter_path = '/system/interpreter',",
+        "    python_version = 'not a Python version',",
         ")");
   }
 }
