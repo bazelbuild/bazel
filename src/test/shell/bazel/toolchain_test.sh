@@ -187,6 +187,48 @@ EOF
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
+function test_toolchain_alias_use_in_rule {
+  write_test_toolchain
+  write_test_rule
+
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchain.
+filegroup(name = 'dep_rule_test_toolchain')
+test_toolchain(
+    name = 'test_toolchain_impl_1',
+    extra_label = ':dep_rule_test_toolchain',
+    extra_str = 'foo from test_toolchain',
+    visibility = ['//visibility:public'])
+alias(
+    name = 'test_toolchain_impl_1_alias',
+    actual = ':test_toolchain_impl_1',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchain.
+toolchain(
+    name = 'test_toolchain_1',
+    toolchain_type = '//toolchain:test_toolchain',
+    exec_compatible_with = [],
+    target_compatible_with = [],
+    toolchain = ':test_toolchain_impl_1_alias',
+    visibility = ['//visibility:public'])
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build --extra_toolchains=//:test_toolchain_1 //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
 function test_toolchain_use_in_rule_missing {
   write_test_toolchain
   write_test_rule
