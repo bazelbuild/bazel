@@ -52,8 +52,8 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
       Label toolchainLabel) {
     return create(
         toolchainType,
-        new ConstraintCollection(execConstraints),
-        new ConstraintCollection(targetConstraints),
+        ConstraintCollection.builder().addConstraints(execConstraints).build(),
+        ConstraintCollection.builder().addConstraints(targetConstraints).build(),
         toolchainLabel);
   }
 
