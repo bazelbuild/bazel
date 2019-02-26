@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-import com.google.testing.coverage.internal.BranchDetailAnalyzer;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
