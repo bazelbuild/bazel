@@ -32,6 +32,7 @@ public class BazelMockPythonSupport extends MockPythonSupport {
   public void setup(MockToolsConfig config) throws IOException {
     addTool(config, "tools/python/python_version.bzl");
     addTool(config, "tools/python/srcs_version.bzl");
+    addTool(config, "tools/python/toolchain.bzl");
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",
@@ -48,6 +49,9 @@ public class BazelMockPythonSupport extends MockPythonSupport {
         "    name = 'PY3',",
         "    flag_values = {':python_version': 'PY3'},",
         ")",
+        "toolchain_type(name = 'toolchain_type')",
+        "constraint_setting(name = 'py2_interpreter_path')",
+        "constraint_setting(name = 'py3_interpreter_path')",
         "exports_files(['precompile.py'])",
         "sh_binary(name='2to3', srcs=['2to3.sh'])");
   }

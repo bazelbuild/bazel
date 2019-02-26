@@ -23,6 +23,7 @@ test_suite(
         ":PythonConfigurationTest",
         ":PythonSrcsVersionAspectTest",
         ":PythonStarlarkApiTest",
+        ":PythonToolchainTest",
         ":PythonVersionSelectTest",
         ":PythonVersionTest",
     ],
@@ -166,6 +167,19 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PythonToolchainTest",
+    srcs = ["PythonToolchainTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
