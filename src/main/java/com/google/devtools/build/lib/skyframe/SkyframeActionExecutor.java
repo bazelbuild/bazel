@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Striped;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Action;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -55,11 +57,9 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.LostInputsExecException.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MetadataConsumer;
@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCached
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -788,6 +787,53 @@ public final class SkyframeActionExecutor {
         throws InterruptedException;
   }
 
+  private static ActionContinuationOrResult begin(
+      Action action, ActionExecutionContext actionExecutionContext) {
+    return new ActionContinuationOrResult() {
+      @Override
+      public ListenableFuture<?> getFuture() {
+        return null;
+      }
+
+      @Override
+      public ActionContinuationOrResult execute()
+          throws ActionExecutionException, InterruptedException {
+        return action.beginExecution(actionExecutionContext);
+      }
+    };
+  }
+
+  /** Returns a continuation to run the specified action in a profiler task. */
+  private ActionContinuationOrResult runFully(
+      Action action,
+      ActionExecutionContext actionExecutionContext,
+      ExtendedEventHandler eventHandler) {
+    return new ActionContinuationOrResult() {
+      @Override
+      public ListenableFuture<?> getFuture() {
+        return null;
+      }
+
+      @Override
+      public ActionContinuationOrResult execute()
+          throws ActionExecutionException, InterruptedException {
+        // ActionExecutionExceptions that occur as the thread is interrupted are assumed to be a
+        // result of that, so we throw InterruptedException instead.
+        try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_EXECUTE, action.describe())) {
+          return ActionContinuationOrResult.of(action.execute(actionExecutionContext));
+        } catch (ActionExecutionException e) {
+          throw processAndGetExceptionToThrow(
+              eventHandler,
+              actionExecutionContext.getInputPath(action.getPrimaryOutput()),
+              action,
+              e,
+              actionExecutionContext.getFileOutErr(),
+              ErrorTiming.AFTER_EXECUTION);
+        }
+      }
+    };
+  }
+
   /** Represents an action that needs to be run. */
   private final class ActionRunner extends ActionStep {
     private final Action action;
@@ -881,26 +927,20 @@ public final class SkyframeActionExecutor {
         // This is the first iteration of the async action execution framework. It is currently only
         // implemented for SpawnAction (and subclasses), and will need to be extended for all other
         // action types.
-        if (useAsyncExecution
-            && (action instanceof SpawnAction)
-            && ((SpawnAction) action).mayExecuteAsync()) {
-          SpawnAction spawnAction = (SpawnAction) action;
-          try {
-            FutureSpawn futureSpawn;
-            try {
-              futureSpawn = spawnAction.execMaybeAsync(actionExecutionContext);
-            } catch (InterruptedException e) {
-              return ActionStepOrResult.of(e);
-            } catch (ActionExecutionException e) {
-              return ActionStepOrResult.of(e);
-            }
-            return new ActionCompletionStep(futureSpawn, spawnAction);
-          } catch (ExecException e) {
-            return ActionStepOrResult.of(e.toActionExecutionException(spawnAction));
-          }
+        if (useAsyncExecution) {
+          // TODO(ulfjack): This implicitly drops the ACTION_EXECUTE profiler segment that otherwise
+          // wraps the Action.execute call. That one is already excluded from the Json profile, so
+          // maybe we should just remove it.
+          // TODO(ulfjack): This causes problems in that REMOTE_EXECUTION segments now heavily
+          // overlap in the Json profile, which the renderer isn't able to handle. We should move
+          // those to some sort of 'virtual thread' to visualize the work that's happening on other
+          // machines.
+          return continueAction(
+              actionExecutionContext.getEventHandler(), begin(action, actionExecutionContext));
         }
 
-        return completeAction(env.getListener(), () -> executeAction(env.getListener()));
+        return continueAction(
+            env.getListener(), runFully(action, actionExecutionContext, env.getListener()));
       }
     }
 
@@ -920,60 +960,41 @@ public final class SkyframeActionExecutor {
       }
     }
 
-    /**
-     * Execute the specified action, in a profiler task. The caller is responsible for having
-     * already checked that we need to execute it and for acquiring/releasing any scheduling locks
-     * needed.
-     *
-     * <p>This is thread-safe so long as you don't try to execute the same action twice at the same
-     * time (or overlapping times). May execute in a worker thread.
-     *
-     * @throws ActionExecutionException if the execution of the specified action failed for any
-     *     reason.
-     * @throws InterruptedException if the thread was interrupted.
-     * @return true if the action output was dumped, false otherwise.
-     */
-    private ActionResult executeAction(ExtendedEventHandler eventHandler)
-        throws ActionExecutionException, InterruptedException {
-      // ActionExecutionExceptions that occur as the thread is interrupted are assumed to be a
-      // result of that, so we throw InterruptedException instead.
-      try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_EXECUTE, action.describe())) {
-        return action.execute(actionExecutionContext);
-      } catch (ActionExecutionException e) {
-        throw processAndGetExceptionToThrow(
-            eventHandler,
-            actionExecutionContext.getInputPath(action.getPrimaryOutput()),
-            action,
-            e,
-            actionExecutionContext.getFileOutErr(),
-            ErrorTiming.AFTER_EXECUTION);
-      }
-    }
-
-    private ActionStepOrResult completeAction(
-        ExtendedEventHandler eventHandler, ActionClosure actionClosure) {
-      LostInputsActionExecutionException lostInputsActionExecutionException = null;
+    /** Executes the given continuation and returns a new one or a final result. */
+    private ActionStepOrResult continueAction(
+        ExtendedEventHandler eventHandler, ActionContinuationOrResult actionContinuation) {
+      // Every code path that exits this method must call notifyActionCompletion, except for the
+      // one that returns a new ActionContinuationStep. Unfortunately, that requires some code
+      // duplication.
+      ActionContinuationOrResult nextActionContinuationOrResult;
       try {
-        ActionResult actionResult;
-        try {
-          actionResult = actionClosure.execute();
-        } catch (LostInputsActionExecutionException e) {
-          // If inputs are lost, then avoid publishing ActionCompletedEvent. Action rewinding will
-          // rerun this failed action after trying to regenerate the lost inputs. However, enrich
-          // the exception so that, if rewinding fails, an ActionCompletedEvent will be published.
-          e.setActionStartedEventAlreadyEmitted();
-          lostInputsActionExecutionException = e;
-          throw lostInputsActionExecutionException;
-        } catch (InterruptedException e) {
-          return ActionStepOrResult.of(e);
-        }
-        return new ActionCacheWriteStep(actuallyCompleteAction(eventHandler, actionResult));
+        nextActionContinuationOrResult = actionContinuation.execute();
+      } catch (LostInputsActionExecutionException e) {
+        // If inputs are lost, then avoid publishing ActionCompletedEvent. Action rewinding will
+        // rerun this failed action after trying to regenerate the lost inputs. However, enrich
+        // the exception so that, if rewinding fails, an ActionCompletedEvent will be published.
+        e.setActionStartedEventAlreadyEmitted();
+        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ false);
+        return ActionStepOrResult.of(e);
+      } catch (ActionExecutionException e) {
+        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ true);
+        return ActionStepOrResult.of(e);
+      } catch (InterruptedException e) {
+        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ true);
+        return ActionStepOrResult.of(e);
+      }
+
+      if (!nextActionContinuationOrResult.isDone()) {
+        return new ActionContinuationStep(nextActionContinuationOrResult);
+      }
+
+      try {
+        return new ActionCacheWriteStep(
+            actuallyCompleteAction(eventHandler, nextActionContinuationOrResult.get()));
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);
       } finally {
-        notifyActionCompletion(
-            eventHandler,
-            /*postActionCompletionEvent=*/ lostInputsActionExecutionException == null);
+        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ true);
       }
     }
 
@@ -1063,28 +1084,27 @@ public final class SkyframeActionExecutor {
           ActionExecutionFunction.actionDependsOnBuildId(action));
     }
 
-    /** A closure to complete an asynchronously running action. */
-    private class ActionCompletionStep extends ActionStep {
-      private final FutureSpawn futureSpawn;
-      private final SpawnAction spawnAction;
+    /** A closure to continue an asynchronously running action. */
+    private class ActionContinuationStep extends ActionStep {
+      private final ActionContinuationOrResult actionContinuationOrResult;
 
-      public ActionCompletionStep(FutureSpawn futureSpawn, SpawnAction spawnAction) {
-        this.futureSpawn = futureSpawn;
-        this.spawnAction = spawnAction;
+      public ActionContinuationStep(ActionContinuationOrResult actionContinuationOrResult) {
+        Preconditions.checkArgument(!actionContinuationOrResult.isDone());
+        this.actionContinuationOrResult = actionContinuationOrResult;
       }
 
       @Override
       public ActionStepOrResult run(Environment env) {
-        if (!futureSpawn.getFuture().isDone()) {
-          env.dependOnFuture(futureSpawn.getFuture());
+        ListenableFuture<?> future = actionContinuationOrResult.getFuture();
+        if (future != null && !future.isDone()) {
+          env.dependOnFuture(future);
           return this;
         }
-        return completeAction(
-            actionExecutionContext.getEventHandler(),
-            () -> spawnAction.finishSync(futureSpawn, actionExecutionContext.getVerboseFailures()));
+        return continueAction(actionExecutionContext.getEventHandler(), actionContinuationOrResult);
       }
     }
 
+    /** A closure to post-process the action and write the result to the action cache. */
     private class ActionCacheWriteStep extends ActionStep {
       private final ActionExecutionValue value;
 

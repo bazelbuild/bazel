@@ -104,7 +104,7 @@ public final class ExtraAction extends SpawnAction {
   }
 
   @Override
-  public boolean mayExecuteAsync() {
+  protected boolean mayExecuteAsync() {
     return false;
   }
 

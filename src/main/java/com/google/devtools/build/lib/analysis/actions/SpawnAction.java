@@ -22,8 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -284,51 +286,41 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         .exec(spawn, actionExecutionContext);
   }
 
-  public boolean mayExecuteAsync() {
+  protected boolean mayExecuteAsync() {
     return true;
   }
 
-  public FutureSpawn execMaybeAsync(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, ExecException, InterruptedException {
-    Spawn spawn;
+  @Override
+  public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    if (!mayExecuteAsync()) {
+      return super.beginExecution(actionExecutionContext);
+    }
     try {
-      spawn = getSpawn(actionExecutionContext);
+      Spawn spawn = getSpawn(actionExecutionContext);
+      SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
+      FutureSpawn futureSpawn = context.execMaybeAsync(spawn, actionExecutionContext);
+      return new ActionContinuationOrResult() {
+        @Override
+        public ListenableFuture<?> getFuture() {
+          return futureSpawn.getFuture();
+        }
+
+        @Override
+        public ActionContinuationOrResult execute()
+            throws ActionExecutionException, InterruptedException {
+          try {
+            return ActionContinuationOrResult.of(
+                ActionResult.create(ImmutableList.of(futureSpawn.get())));
+          } catch (ExecException e) {
+            throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+          }
+        }
+      };
+    } catch (ExecException e) {
+      throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
-    }
-    SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
-    return context.execMaybeAsync(spawn, actionExecutionContext);
-  }
-
-  public ActionResult finishSync(FutureSpawn futureSpawn, boolean verboseFailures)
-      throws ActionExecutionException, InterruptedException {
-    try {
-      return ActionResult.create(ImmutableList.of(futureSpawn.get()));
-    } catch (ExecException e) {
-      String failMessage;
-      if (isShellCommand()) {
-        // The possible reasons it could fail are: shell executable not found, shell
-        // exited non-zero, or shell died from signal.  The first is impossible
-        // and the second two aren't very interesting, so in the interests of
-        // keeping the noise-level down, we don't print a reason why, just the
-        // command that failed.
-        //
-        // 0=shell executable, 1=shell command switch, 2=command
-        try {
-          failMessage =
-              "error executing shell command: "
-                  + "'"
-                  + truncate(Joiner.on(" ").join(getArguments()), 200)
-                  + "'";
-        } catch (CommandLineExpansionException commandLineExpansionException) {
-          failMessage =
-              "error executing shell command, and error expanding command line: "
-                  + commandLineExpansionException;
-        }
-      } else {
-        failMessage = getRawProgressMessage();
-      }
-      throw e.toActionExecutionException(failMessage, verboseFailures, this);
     }
   }
 
@@ -338,34 +330,38 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     try {
       return ActionResult.create(internalExecute(actionExecutionContext));
     } catch (ExecException e) {
-      String failMessage;
-      if (isShellCommand()) {
-        // The possible reasons it could fail are: shell executable not found, shell
-        // exited non-zero, or shell died from signal.  The first is impossible
-        // and the second two aren't very interesting, so in the interests of
-        // keeping the noise-level down, we don't print a reason why, just the
-        // command that failed.
-        //
-        // 0=shell executable, 1=shell command switch, 2=command
-        try {
-          failMessage =
-              "error executing shell command: "
-                  + "'"
-                  + truncate(Joiner.on(" ").join(getArguments()), 200)
-                  + "'";
-        } catch (CommandLineExpansionException commandLineExpansionException) {
-          failMessage =
-              "error executing shell command, and error expanding command line: "
-                  + commandLineExpansionException;
-        }
-      } else {
-        failMessage = getRawProgressMessage();
-      }
-      throw e.toActionExecutionException(
-          failMessage, actionExecutionContext.getVerboseFailures(), this);
+      throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
     }
+  }
+
+  private ActionExecutionException toActionExecutionException(
+      ExecException e, boolean verboseFailures) {
+    String failMessage;
+    if (isShellCommand()) {
+      // The possible reasons it could fail are: shell executable not found, shell
+      // exited non-zero, or shell died from signal.  The first is impossible
+      // and the second two aren't very interesting, so in the interests of
+      // keeping the noise-level down, we don't print a reason why, just the
+      // command that failed.
+      //
+      // 0=shell executable, 1=shell command switch, 2=command
+      try {
+        failMessage =
+            "error executing shell command: "
+                + "'"
+                + truncate(Joiner.on(" ").join(getArguments()), 200)
+                + "'";
+      } catch (CommandLineExpansionException commandLineExpansionException) {
+        failMessage =
+            "error executing shell command, and error expanding command line: "
+                + commandLineExpansionException;
+      }
+    } else {
+      failMessage = getRawProgressMessage();
+    }
+    return e.toActionExecutionException(failMessage, verboseFailures, this);
   }
 
   /**

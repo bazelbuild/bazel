@@ -86,32 +86,73 @@ public interface Action extends ActionExecutionMetadata {
   void prepare(FileSystem fileSystem, Path execRoot) throws IOException;
 
   /**
-   * Executes this action; called by the Builder when all of this Action's inputs have been
-   * successfully created. (Behaviour is undefined if the prerequisites are not up to date.) This
-   * method <i>actually does the work of the Action, unconditionally</i>; in other words, it is
-   * invoked by the Builder only when dependency analysis has deemed it necessary.
+   * Executes this action. This method <i>unconditionally does the work of the Action</i>, although
+   * it may delegate some of that work to {@link ActionContext} instances obtained from the {@link
+   * ActionExecutionContext}, which may in turn perform caching at smaller granularity than an
+   * entire action.
    *
-   * <p>The framework guarantees that the output directory for each file in <code>getOutputs()
-   * </code> has already been created, and will check to ensure that each of those files is indeed
-   * created.
+   * <p>This method may not be invoked if an equivalent action (as determined by the hashes of the
+   * input files, the list of output files, and the action cache key) has been previously executed,
+   * possibly on another machine.
    *
-   * <p>Implementations of this method should try to honour the {@link java.lang.Thread#interrupted}
-   * contract: if an interrupt is delivered to the thread in which execution occurs, the action
-   * should detect this on a best-effort basis and terminate as quickly as possible by throwing an
-   * ActionExecutionException.
+   * <p>The framework guarantees that:
    *
-   * <p>Action execution must be ThreadCompatible in order to be safely used with a concurrent
-   * Builder implementation such as ParallelBuilder.
+   * <ul>
+   *   <li>all declared inputs have already been successfully created,
+   *   <li>the output directory for each file in <code>getOutputs()</code> has already been created,
+   *   <li>this method is only called by at most one thread at a time, but subsequent calls may be
+   *       made from different threads,
+   *   <li>for shared actions, at most one instance is executed per build.
+   * </ul>
+   *
+   * <p>Multiple instances of the same action implementation may be called in parallel.
+   * Implementations must therefore be thread-compatible. Also see the class documentation for
+   * additional invariants.
+   *
+   * <p>Implementations should attempt to detect interrupts, and exit quickly with an {@link
+   * InterruptedException}.
    *
    * @param actionExecutionContext services in the scope of the action, like the output and error
    *     streams to use for messages arising during action execution
    * @return returns an ActionResult containing action execution metadata
    * @throws ActionExecutionException if execution fails for any reason
-   * @throws InterruptedException
+   * @throws InterruptedException if the execution is interrupted
    */
   @ConditionallyThreadCompatible
   ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
+
+  /**
+   * Actions that want to support async execution can use this interface to do so. While this is
+   * still disabled by default, we want to eventually deprecate the {@link #execute} method in favor
+   * of this new interface.
+   *
+   * <p>If the relevant command-line flag is enabled, Skyframe will call this method rather than
+   * {@link #execute}. As such, actions implementing both should exhibit identical behavior, and all
+   * requirements from the {@link #execute} documentation apply.
+   *
+   * <p>This method allows an action to return a continuation representing future work to be done,
+   * in combination with a listenable future representing concurrent ongoing work in another thread
+   * pool or even on another machine. When the concurrent work finishes, the listenable future must
+   * be completed to notify Skyframe of this fact.
+   *
+   * <p>Once the listenable future is completed, Skyframe will re-execute the corresponding Skyframe
+   * node representing this action, which will eventually call into the continuation returned here.
+   *
+   * <p>Actions implementing this method are not required to run asynchronously, although we expect
+   * the majority of actions to do so eventually. They can block the current thread for any amount
+   * of time as long as they return eventually, and also honor interrupt signals.
+   *
+   * @param actionExecutionContext services in the scope of the action, like the output and error
+   *     streams to use for messages arising during action execution
+   * @return returns an ActionResult containing action execution metadata
+   * @throws ActionExecutionException if execution fails for any reason
+   * @throws InterruptedException if the execution is interrupted
+   */
+  default ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    return ActionContinuationOrResult.of(execute(actionExecutionContext));
+  }
 
   /**
    * Returns true iff action must be executed regardless of its current state.
