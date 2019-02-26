@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -735,7 +736,23 @@ public final class PackageFactory {
               String.format("licenses for exported file '%s' declared twice",
                   inputFile.getName()));
         }
-        if (env.getSemantics().checkThirdPartyTargetsHaveLicenses()
+
+        // See if we should check third-party licenses: first checking for any hard-coded policy,
+        // then falling back to user-settable flags.
+        boolean checkLicenses;
+        if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
+            == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
+          checkLicenses = true;
+        } else if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
+            == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
+          checkLicenses = false;
+        } else {
+          checkLicenses =
+              env.getSemantics().checkThirdPartyTargetsHaveLicenses()
+                  && !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
+        }
+
+        if (checkLicenses
             && license == null
             && !pkgBuilder.getDefaultLicense().isSpecified()
             && RuleClass.isThirdPartyPackage(pkgBuilder.getPackageIdentifier())) {
@@ -1665,6 +1682,9 @@ public final class PackageFactory {
       if (buildFileAST.containsErrors()) {
         pkgBuilder.setContainsErrors();
       }
+
+      pkgBuilder.setThirdPartyLicenceExistencePolicy(
+          ruleClassProvider.getThirdPartyLicenseExistencePolicy());
 
       if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
         GlobPatternExtractor extractor = new GlobPatternExtractor();

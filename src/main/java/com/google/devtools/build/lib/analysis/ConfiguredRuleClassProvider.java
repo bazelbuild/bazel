@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
@@ -261,6 +262,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         (BuildOptions options) -> ActionEnvironment.EMPTY;
     private ConstraintSemantics constraintSemantics = new ConstraintSemantics();
 
+    private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy =
+        ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
+
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
       return this;
@@ -385,6 +389,15 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
+     * Sets the policy for checking if third_party rules declare <code>licenses()</code>. See {@link
+     * #thirdPartyLicenseExistencePolicy} for the default value.
+     */
+    public Builder setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
+      this.thirdPartyLicenseExistencePolicy = policy;
+      return this;
+    }
+
+    /**
      * Adds a transition factory that produces a trimming transition to be run over all targets
      * after other transitions.
      *
@@ -486,6 +499,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       RuleClass.Builder builder = new RuleClass.Builder(
           metadata.name(), metadata.type(), false, ancestorClasses);
       builder.factory(factory);
+      builder.setThirdPartyLicenseExistencePolicy(thirdPartyLicenseExistencePolicy);
       RuleClass ruleClass = instance.build(builder, this);
       ruleMap.put(definitionClass, ruleClass);
       ruleClassMap.put(ruleClass.getName(), ruleClass);
@@ -520,7 +534,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           skylarkBootstraps.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
-          constraintSemantics);
+          constraintSemantics,
+          thirdPartyLicenseExistencePolicy);
     }
 
     @Override
@@ -609,6 +624,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final ConstraintSemantics constraintSemantics;
 
+  private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
+
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
@@ -629,7 +646,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<Bootstrap> skylarkBootstraps,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
-      ConstraintSemantics constraintSemantics) {
+      ConstraintSemantics constraintSemantics,
+      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -650,6 +668,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
     this.constraintSemantics = constraintSemantics;
+    this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -839,6 +858,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   public ConstraintSemantics getConstraintSemantics() {
     return constraintSemantics;
+  }
+
+  @Override
+  public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
+    return thirdPartyLicenseExistencePolicy;
   }
 
   /** Returns all skylark objects in global scope for this RuleClassProvider. */

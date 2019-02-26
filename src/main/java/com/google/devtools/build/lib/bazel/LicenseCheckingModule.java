@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -56,7 +57,11 @@ import java.util.Set;
  */
 public class LicenseCheckingModule extends BlazeModule {
 
-  private boolean shouldCheckLicenses(BuildOptions buildOptions) {
+  protected boolean shouldCheckLicenses(BuildRequest request, BuildOptions buildOptions) {
+    if (request.getOptions(StarlarkSemanticsOptions.class)
+        .incompatibleDisableThirdPartyLicenseChecking) {
+      return false;
+    }
     return buildOptions.get(BuildConfiguration.Options.class).checkLicenses;
   }
 
@@ -71,7 +76,7 @@ public class LicenseCheckingModule extends BlazeModule {
     // We check licenses if the first target configuration has license checking enabled. Right
     // now, it is not possible to have multiple target configurations with different settings
     // for this flag, which allows us to take this short cut.
-    if (shouldCheckLicenses(buildOptions)) {
+    if (shouldCheckLicenses(request, buildOptions)) {
       Profiler.instance().markPhase(ProfilePhase.LICENSE);
       try (SilentCloseable c = Profiler.instance().profile("validateLicensingForTargets")) {
         validateLicensingForTargets(env, configuredTargets, request.getKeepGoing());

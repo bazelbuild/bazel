@@ -187,6 +187,9 @@ public class BazelRuleClassProvider {
   public static ConfiguredRuleClassProvider create() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(TOOLS_REPOSITORY);
+    // TODO(gregce): uncomment the below line in the same change that retires
+    // --incompatible_disable_third_party_license_checking. See the flag's comments for details.
+    // builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
     setup(builder);
     return builder.build();
   }

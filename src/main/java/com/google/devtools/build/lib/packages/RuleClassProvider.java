@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -103,4 +104,7 @@ public interface RuleClassProvider {
    * class.
    */
   Map<String, Class<?>> getConfigurationFragmentMap();
+
+  /** Returns the policy on checking that third-party rules have licenses. */
+  ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy();
 }
