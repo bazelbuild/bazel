@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.repository;
+package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,6 +34,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class JarDecompressorTest {
+  private static final String OUTPUT_DIRECTORY = "/whatever/external/tester";
   private DecompressorDescriptor.Builder jarDescriptorBuilder;
   private DecompressorDescriptor.Builder srcjarDescriptorBuilder;
   private JarDecompressor decompressor;
@@ -40,7 +42,7 @@ public class JarDecompressorTest {
   @Before
   public void setUpFs() throws Exception {
     Scratch fs = new Scratch();
-    Path dir = fs.dir("/whatever/external/tester");
+    Path dir = fs.dir(OUTPUT_DIRECTORY);
     Path jar = fs.file("/foo.jar", "I'm a jar");
     Path srcjar = fs.file("/foo-sources.jar", "I'm a source jar");
     FileSystemUtils.createDirectoryAndParents(dir);
@@ -96,6 +98,7 @@ public class JarDecompressorTest {
         decompressor.decompressWithSrcjar(
             srcjarDescriptorBuilder.build(),
             Optional.fromNullable(srcjarDescriptorBuilder.build()));
+    assertThat(outputDir.asFragment().endsWith(PathFragment.create(OUTPUT_DIRECTORY))).isTrue();
     assertThat(outputDir.exists()).isTrue();
     assertThat(outputDir.getRelative("jar/foo.jar").exists()).isFalse();
     assertThat(outputDir.getRelative("jar/foo-sources.jar").exists()).isTrue();

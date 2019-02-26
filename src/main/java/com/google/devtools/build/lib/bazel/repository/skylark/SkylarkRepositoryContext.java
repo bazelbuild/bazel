@@ -441,23 +441,10 @@ public class SkylarkRepositoryContext
 
     SkylarkPath outputPath = getPath("extract()", output);
     checkInOutputDirectory(outputPath);
-    SkylarkPath archiveInTargetDirectory = archivePath.getDirname();
-    Preconditions.checkNotNull(archiveInTargetDirectory);
-
-    boolean outputLocationIsDifferent = !outputPath.equals(archivePath.getDirname());
-    if (outputLocationIsDifferent) {
-      createDirectory(outputPath.getPath());
-      archiveInTargetDirectory = outputPath.getChild(archivePath.getBasename());
-      try {
-        FileSystemUtils.copyFile(archivePath.getPath(), archiveInTargetDirectory.getPath());
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    }
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExtractEvent(
-            archiveInTargetDirectory.toString(),
+            archive.toString(),
             output.toString(),
             stripPrefix,
             rule.getLabel().toString(),
@@ -468,18 +455,10 @@ public class SkylarkRepositoryContext
         DecompressorDescriptor.builder()
             .setTargetKind(rule.getTargetKind())
             .setTargetName(rule.getName())
-            .setArchivePath(archiveInTargetDirectory.getPath())
+            .setArchivePath(archivePath.getPath())
             .setRepositoryPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .build());
-
-    if (outputLocationIsDifferent) {
-      try {
-        archiveInTargetDirectory.getPath().delete();
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    }
   }
 
   @Override
