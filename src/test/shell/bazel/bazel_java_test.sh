@@ -178,8 +178,8 @@ def _impl(ctx):
     exports = exports,
     resources = ctx.files.resources,
     strict_deps = "ERROR",
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
   )
   return struct(
     files = depset([output_jar]),
@@ -303,8 +303,8 @@ def _impl(ctx):
     deps = [],
     sourcepath = ctx.files.sourcepath,
     strict_deps = "ERROR",
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
   )
   return struct(
     files = depset([output_jar]),
@@ -380,8 +380,8 @@ def _impl(ctx):
     deps = [],
     sourcepath = ctx.files.sourcepath,
     strict_deps = "ERROR",
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
   )
   return struct(
     files = depset([output_jar]),
@@ -1291,8 +1291,8 @@ def _impl(ctx):
     ctx,
     source_files = ctx.files.srcs,
     output = compiled_jar,
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
   )
 
   imported_provider = JavaInfo(output_jar = imported_jar, use_ijar=False);
@@ -1343,7 +1343,7 @@ def _impl(ctx):
   provider = java_common.create_provider(
     ctx.actions,
     compile_time_jars = ctx.files.compile_time_jars,
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
+    java_toolchain = ctx.attr._java_toolchain
   )
   print(provider.compile_jars)
   print(provider.full_compile_jars)
@@ -1418,7 +1418,7 @@ EOF
 def _impl(ctx):
   provider = java_common.create_provider(
     compile_time_jars = ctx.files.compile_time_jars,
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
+    java_toolchain = ctx.attr._java_toolchain
   )
   return DefaultInfo(files = provider.compile_jars)
 
@@ -1455,7 +1455,7 @@ def _impl(ctx):
     output_jar = ctx.file.output_jar,
     source_jars = ctx.files.source_jars,
     use_ijar = True,
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
+    java_toolchain = ctx.attr._java_toolchain
   )
   return [result(property = javaInfo)]
 
@@ -1676,14 +1676,14 @@ def _impl(ctx):
     ctx.actions,
     jar = ctx.file.output_jar,
     target_label = ctx.label,
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+    java_toolchain = ctx.attr._java_toolchain,
   )
   source_jar = java_common.pack_sources(
     ctx.actions,
     output_jar = ctx.file.output_jar,
     source_jars = ctx.files.source_jars,
-    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase,
   )
   javaInfo = JavaInfo(
     output_jar = ctx.file.output_jar,
