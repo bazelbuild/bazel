@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -521,17 +522,22 @@ public class ToolchainResolver {
       ImmutableList.Builder<TemplateVariableInfo> templateVariableProviders =
           new ImmutableList.Builder<>();
       for (ConfiguredTargetAndData target : toolchainTargets) {
-        Label discoveredLabel = target.getTarget().getLabel();
+        Label discoveredLabel;
+        // Aliases are in toolchainTypeToResolved by the original alias label, not via the final
+        // target's label.
+        if (target.getConfiguredTarget() instanceof AliasConfiguredTarget) {
+          discoveredLabel =
+              ((AliasConfiguredTarget) target.getConfiguredTarget()).getOriginalLabel();
+        } else {
+          discoveredLabel = target.getConfiguredTarget().getLabel();
+        }
         ToolchainTypeInfo toolchainType = toolchainTypeToResolved().inverse().get(discoveredLabel);
+        ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target.getConfiguredTarget());
 
         // If the toolchainType hadn't been resolved to an actual toolchain, resolution would have
         // failed with an error much earlier. This null check is just for safety.
-        if (toolchainType != null) {
-          ToolchainInfo toolchainInfo =
-              PlatformProviderUtils.toolchain(target.getConfiguredTarget());
-          if (toolchainInfo != null) {
-            toolchains.put(toolchainType, toolchainInfo);
-          }
+        if (toolchainType != null && toolchainInfo != null) {
+          toolchains.put(toolchainType, toolchainInfo);
         }
 
         // Find any template variables present for this toolchain.
