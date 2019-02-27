@@ -1,4 +1,4 @@
-The following tools were built with bazel 0.22.0 at commit 569e2cb4d1b7653b5a02bbf664765476233e6c33
+The following tools were built with bazel 0.23.0 at commit 1724cb27adc695e34ad59623201ecfabc1f45135
 by running:
 $ third_party/java/java_tools/update_java_tools.sh 
 
