@@ -5,6 +5,7 @@ filegroup(
     srcs = [
         "BUILD",
         "//tools/whitelists/config_feature_flag:srcs",
+        "//tools/whitelists/function_transition_whitelist:srcs",
     ],
     visibility = ["//tools:__pkg__"],
 )
