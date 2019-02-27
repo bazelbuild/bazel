@@ -254,10 +254,6 @@ public class CppCompileAction extends AbstractAction
     this.mandatoryInputs = mandatoryInputs;
     this.inputsForInvalidation = inputsForInvalidation;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
-    // inputsKnown begins as the logical negation of shouldScanIncludes.
-    // When scanning includes, the inputs begin as not known, and become
-    // known after inclusion scanning. When *not* scanning includes,
-    // the inputs are as declared, hence known, and remain so.
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
     this.usePic = usePic;

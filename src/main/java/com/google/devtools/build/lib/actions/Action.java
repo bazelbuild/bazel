@@ -189,10 +189,12 @@ public interface Action extends ActionExecutionMetadata {
       throws ActionExecutionException, InterruptedException;
 
   /**
-   * Returns the set of artifacts that can possibly be inputs. It will be called iff inputsKnown()
-   * is false for the given action instance and there is a related cache entry in the action cache.
+   * Returns the set of artifacts that can possibly be inputs. It will be called iff {@link
+   * #inputsDiscovered()} is false for the given action instance and there is a related cache entry
+   * in the action cache.
    *
-   * <p>Method must be redefined for any action that may return inputsKnown() == false.
+   * <p>Method must be redefined for any action for which {@link #inputsDiscovered()} may return
+   * false.
    *
    * <p>The method is allowed to return source artifacts. They are useless, though, since exec paths
    * in the action cache referring to source artifacts are always resolved.
