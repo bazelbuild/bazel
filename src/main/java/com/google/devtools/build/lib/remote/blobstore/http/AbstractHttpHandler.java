@@ -35,7 +35,7 @@ import java.util.Map;
 abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelInboundHandler<T>
     implements ChannelOutboundHandler {
 
-  private static final String USER_AGENT_VALUE = "bazel " + BlazeVersionInfo.instance().getReleaseName();
+  private static final String USER_AGENT_VALUE = "bazel " + BlazeVersionInfo.instance().getVersion();
   private final Credentials credentials;
 
   public AbstractHttpHandler(Credentials credentials) {

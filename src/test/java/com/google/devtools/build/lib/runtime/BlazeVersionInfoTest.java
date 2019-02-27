@@ -64,4 +64,18 @@ public class BlazeVersionInfoTest {
     Map<String, String> sortedData = new TreeMap<>(data);
     assertThat(info.getSummary()).isEqualTo(StringUtilities.layoutTable(sortedData));
   }
+
+  @Test
+  public void testVersionIsHeadIfBuildLabelIsNull() {
+    BlazeVersionInfo info = new BlazeVersionInfo(Collections.<String, String>emptyMap());
+    assertThat(info.getVersion()).isEqualTo("HEAD");
+  }
+
+  @Test
+  public void testVersionsIIfBuildLabelIsPresent() {
+    Map<String, String> data = singletonMap("Build label", "123.4");
+    BlazeVersionInfo info = new BlazeVersionInfo(data);
+    assertThat(info.getVersion()).isEqualTo("123.4");
+  }
+
 }
