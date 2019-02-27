@@ -16,8 +16,8 @@ test_suite(
         ":PyInfoTest",
         ":PyLibraryConfiguredTargetTest",
         ":PyProviderUtilsTest",
+        ":PyRuntimeConfiguredTargetTest",
         ":PyRuntimeInfoTest",
-        ":PyRuntimeTest",
         ":PyStructUtilsTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
@@ -56,8 +56,8 @@ java_test(
 )
 
 java_test(
-    name = "PyRuntimeTest",
-    srcs = ["PyRuntimeTest.java"],
+    name = "PyRuntimeConfiguredTargetTest",
+    srcs = ["PyRuntimeConfiguredTargetTest.java"],
     deps = [
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",

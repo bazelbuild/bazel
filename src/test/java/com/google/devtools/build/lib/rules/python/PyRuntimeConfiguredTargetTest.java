@@ -26,7 +26,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@code py_runtime}. */
 @RunWith(JUnit4.class)
-public class PyRuntimeTest extends BuildViewTestCase {
+public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
 
   @Before
   public final void setUpPython() throws Exception {
