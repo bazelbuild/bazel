@@ -1275,6 +1275,59 @@ EOF
   expect_log "Misconfigured toolchains: //:upper_toolchain is declared as a toolchain but has inappropriate dependencies"
 }
 
+function test_platform_duplicate_constraint_error() {
+  # Write a platform with duplicate constraint values for the same setting.
+  mkdir -p platform
+  cat >> platform/BUILD <<EOF
+constraint_setting(name = 'foo')
+constraint_value(name = 'val1', constraint_setting = ':foo')
+constraint_value(name = 'val2', constraint_setting = ':foo')
+platform(
+    name = 'test',
+    constraint_values = [
+        ':val1',
+        ':val2',
+    ],
+)
+EOF
+
+  bazel build //platform:test &> $TEST_log && fail "Build failure expected"
+  expect_log "Duplicate constraint values detected"
+}
+
+function test_toolchain_duplicate_constraint_error() {
+  # Write a toolchain with duplicate constraint values for the same setting.
+  mkdir -p toolchain
+  cat >> toolchain/BUILD <<EOF
+constraint_setting(name = 'foo')
+constraint_value(name = 'val1', constraint_setting = ':foo')
+constraint_value(name = 'val2', constraint_setting = ':foo')
+constraint_setting(name = 'bar')
+constraint_value(name = 'val3', constraint_setting = ':bar')
+constraint_value(name = 'val4', constraint_setting = ':bar')
+toolchain_type(name = 'toolchain_type')
+filegroup(name = 'toolchain')
+toolchain(
+    name = 'test',
+    toolchain_type = ':toolchain_type',
+    exec_compatible_with = [
+        ':val1',
+        ':val2',
+    ],
+    target_compatible_with = [
+        ':val3',
+        ':val4',
+    ],
+    toolchain = ':toolchain',
+)
+EOF
+
+  bazel build //toolchain:test &> $TEST_log && fail "Build failure expected"
+  expect_not_log "java.lang.IllegalArgumentException"
+  expect_log "in exec_compatible_with attribute of toolchain rule //toolchain:test: Duplicate constraint values detected: constraint_setting //toolchain:foo has \[//toolchain:val1, //toolchain:val2\]"
+  expect_log "in target_compatible_with attribute of toolchain rule //toolchain:test: Duplicate constraint values detected: constraint_setting //toolchain:bar has \[//toolchain:val3, //toolchain:val4\]"
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"

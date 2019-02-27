@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ConstraintCollectionTest extends BuildViewTestCase {
   @Test
-  public void testSetArithmetic() {
+  public void testSetArithmetic() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1"));
     ConstraintValueInfo value1 =
@@ -54,7 +54,7 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSetArithmetic_withDefaultValues() {
+  public void testSetArithmetic_withDefaultValues() throws Exception {
     ConstraintSettingInfo setting =
         ConstraintSettingInfo.create(
             Label.parseAbsoluteUnchecked("//foo:s"), Label.parseAbsoluteUnchecked("//foo:value1"));
@@ -78,7 +78,7 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDiff() {
+  public void testDiff() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1"));
     ConstraintValueInfo value1 =
