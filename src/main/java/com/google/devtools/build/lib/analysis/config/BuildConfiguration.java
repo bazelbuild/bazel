@@ -589,7 +589,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     @Option(
         name = "incompatible_java_coverage",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         metadataTags = {

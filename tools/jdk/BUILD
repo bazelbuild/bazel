@@ -221,6 +221,11 @@ java_import(
 )
 
 java_import(
+    name = "JacocoCoverage",
+    jars = ["@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar"],
+)
+
+java_import(
     name = "TestRunner",
     jars = ["@remote_java_tools//:java_tools/Runner_deploy.jar"],
 )
