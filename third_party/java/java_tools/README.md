@@ -2,22 +2,20 @@
 
 # How to upgrade the Java tools version in Bazel
 
-Please first [update the java tools](#update-the-java-tools) and then [upgrade the Java tools version in Bazel](#upgrade-the-java-tools-version). See the required steps below.
-
 First make sure the following environment variables are set accordingly:
 
 ```
-BAZEL_WORKSPACE      the root of your local bazel repository
-VERSION              the new version of the Java tools; Please check the
-previous version in
-src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE
-for the target "remote_java_tools". For example if the url
-ends in "java_tools_pkg-0.4.tar.gz" than the current version
-is 0.4 and the new version will be 0.5.
-For now only upgrade the minor version.
-UPDATE_TOOLS_BRANCH  The names of new git branches.
-UPGRADE_VERSION_BRANCH
+BAZEL_WORKSPACE the root of your local bazel repository
+VERSION the new version of the Java tools (see below)
+NEW_BRANCH  the name of a new git branch
 ```
+
+To get the new version of the Java tools please check the previous version in
+`src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE`
+by looking at the target `remote_java_tools`. For example if the url ends in
+`java_tools_pkg-0.4.tar.gz` than the current version is `0.4` and the new
+version will be `0.5`. For now only increase the minor version.
+
 ## Step 1: Update the Java tools
 
 Updating the Java tools version in Bazel consists of three steps, by following the instructions below:
