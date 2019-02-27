@@ -142,7 +142,7 @@ and push the "Upload files" button in the upper-left side. Upload `~/java_tools_
 $ sha256sum ~/java_tools_pkg-$VERSION.tar.gz | awk '{print $1}'
 ```
 
-**In your bazel repository** update the urls and sha256 for the target `remote_java_tools` in
+**In your bazel repository** update the `urls` and `sha256` fields for the target `remote_java_tools` in
 `src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE`
 and also the name, urls and sha256 of all the occurrences in `WORKSPACE`
 (targets `jdk_WORKSPACE_files` and `additional_distfiles`).
