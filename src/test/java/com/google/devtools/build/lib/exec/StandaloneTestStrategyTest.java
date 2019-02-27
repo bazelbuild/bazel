@@ -255,7 +255,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     List<SpawnResult> spawnResults =
         standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
 
-    assertThat(spawnResults).containsExactly(passSpawnResult);
+    assertThat(spawnResults).containsExactly(failSpawnResult, passSpawnResult).inOrder();
 
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();

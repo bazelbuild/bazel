@@ -24,12 +24,14 @@ import java.util.List;
 
 /** Contains information about the results of test execution. */
 @AutoValue
-public abstract class StandaloneTestResult {
+public abstract class StandaloneTestResult implements TestStrategy.TestAttemptResult {
+  @Override
   public boolean hasPassed() {
     return testResultDataBuilder().getStatus() == BlazeTestStatus.PASSED;
   }
 
   /** Returns the SpawnResults created by the test, if any. */
+  @Override
   public abstract List<SpawnResult> spawnResults();
 
   /** Returns the TestResultData for the test. */
