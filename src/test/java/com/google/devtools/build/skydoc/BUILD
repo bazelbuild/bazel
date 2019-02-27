@@ -178,3 +178,20 @@ skydoc_test(
     input_file = "testdata/macro_kwargs_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
+
+genrule(
+    name = "generate_bzl_test_dep",
+    srcs = ["testdata/generated_bzl_test/dep.bzl.tpl"],
+    outs = ["testdata/generated_bzl_test/dep.bzl"],
+    cmd = "cp $< $@",
+)
+
+skydoc_test(
+    name = "generated_bzl_test",
+    golden_file = "testdata/generated_bzl_test/golden.txt",
+    input_file = "testdata/generated_bzl_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+    deps = [
+        "testdata/generated_bzl_test/dep.bzl",
+    ],
+)
