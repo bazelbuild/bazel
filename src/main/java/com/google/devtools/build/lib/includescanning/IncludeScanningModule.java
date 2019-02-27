@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.includescanning.IncludeParser.GrepIncludesFileType;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
@@ -136,26 +134,6 @@ public class IncludeScanningModule extends BlazeModule {
     @Override
     public ArtifactResolver getArtifactResolver() {
       return env.getSkyframeBuildView().getArtifactFactory();
-    }
-
-    @Override
-    public void extractIncludes(
-        ActionExecutionContext actionExecutionContext,
-        Action resourceOwner,
-        Artifact primaryInput,
-        Artifact primaryOutput,
-        Artifact grepIncludes)
-        throws ExecException, InterruptedException {
-      SpawnIncludeScanner.spawnGrep(
-          primaryInput,
-          primaryOutput.getExecPath(),
-          // We must actually write the .includes files to disk here because they are Artifacts in
-          // the action graph.
-          /*inMemoryOutput=*/ false,
-          resourceOwner,
-          actionExecutionContext,
-          grepIncludes,
-          GrepIncludesFileType.CPP);
     }
   }
 
