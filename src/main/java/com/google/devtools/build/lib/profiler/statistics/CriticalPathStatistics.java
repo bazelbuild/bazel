@@ -55,7 +55,7 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
                     }
                   })),
           typeFilter("the dependency checking", ProfilerTask.ACTION_CHECK),
-          typeFilter("the execution setup", ProfilerTask.ACTION_EXECUTE),
+          typeFilter("the execution setup", ProfilerTask.ACTION),
           typeFilter("local execution", ProfilerTask.LOCAL_EXECUTION),
           typeFilter("the include scanner", ProfilerTask.SCANNER),
           typeFilter(
