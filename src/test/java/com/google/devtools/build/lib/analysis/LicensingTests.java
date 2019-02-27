@@ -32,7 +32,10 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.syntax.Type;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -681,6 +684,28 @@ public class LicensingTests extends BuildViewTestCase {
             new TargetLicense(label2, unencumbered),
             new TargetLicense(label2, unencumbered))
         .testEquals();
+  }
+
+  /** Regression fix for https://github.com/bazelbuild/bazel/issues/7194. */
+  @Test
+  public void testStarlarkLicensesAttributeCanUseUseCustomDefault() throws Exception {
+    scratch.file(
+        "foo/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return []",
+        "",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        "    attrs = {",
+        "        'licenses': attr.string(default = 'custom_licenses_default'),",
+        "    }",
+        ")");
+
+    scratch.file("foo/BUILD", "load('//foo:rules.bzl', 'myrule')", "myrule(name = 'hi')");
+
+    assertThat(RawAttributeMapper.of((Rule) getTarget("//foo:hi")).get("licenses", Type.STRING))
+        .isEqualTo("custom_licenses_default");
+    assertNoEvents();
   }
 
   /**
