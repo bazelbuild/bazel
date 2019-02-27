@@ -422,10 +422,18 @@ public class JacocoCoverageRunner {
     final File[] metadataFilesFinal = metadataFiles;
     final String javaRunfilesRoot = System.getenv("JACOCO_JAVA_RUNFILES_ROOT");
 
-    final boolean hasOneFile =
-        !isNewImplementation
-            || metadataFile.endsWith("_merged_instr.jar")
-            || metadataFile.endsWith("_deploy.jar");
+    boolean hasOneFile = false;
+    if (!isNewImplementation) {
+      // --noexperimental_java_coverage sets JACOCO_METADATA_JAR to the instrumented jar
+      // and it is only one file.
+      hasOneFile = true;
+    } else if (metadataFile != null
+        && (metadataFile.endsWith("_merged_instr.jar") || metadataFile.endsWith("_deploy.jar"))) {
+      // --experimental_java_coverage can set JACOCO_METADATA_JAR to either one file (a deploy jar
+      // or a merged jar) or to multiple jars.
+      hasOneFile = true;
+    }
+    final boolean hasOneFileFinal = hasOneFile;
 
     final String coverageReportBase = System.getenv("JAVA_COVERAGE_FILE");
 
@@ -489,7 +497,7 @@ public class JacocoCoverageRunner {
                       metadataJars = metadataFilesFinal;
                     } else {
                       metadataJars =
-                          hasOneFile
+                          hasOneFileFinal
                               ? new File[] {new File(metadataFileFinal)}
                               : getFilesFromFileList(new File(metadataFileFinal), javaRunfilesRoot)
                                   .toArray(new File[0]);
