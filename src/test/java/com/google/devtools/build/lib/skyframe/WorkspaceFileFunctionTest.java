@@ -278,17 +278,19 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     RepositoryName b = RepositoryName.create("@b");
     RepositoryName x = RepositoryName.create("@x");
     RepositoryName y = RepositoryName.create("@y");
+    RepositoryName good = RepositoryName.create("@good");
+    RepositoryName main = RepositoryName.MAIN;
 
     SkyKey key0 = WorkspaceFileValue.key(workspace, 0);
     EvaluationResult<WorkspaceFileValue> result0 = eval(key0);
     WorkspaceFileValue value0 = result0.get(key0);
-    assertThat(value0.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y));
+    assertThat(value0.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y, good, main));
 
     SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
     EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
     WorkspaceFileValue value1 = result1.get(key1);
-    assertThat(value1.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y));
-    assertThat(value1.getRepositoryMapping()).containsEntry(b, ImmutableMap.of(x, y));
+    assertThat(value1.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y, good, main));
+    assertThat(value1.getRepositoryMapping()).containsEntry(b, ImmutableMap.of(x, y, good, main));
   }
 
   @Test
