@@ -156,6 +156,11 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     return cachedLocally;
   }
 
+  @VisibleForTesting
+  public int getAttempt() {
+    return attempt;
+  }
+
   @Override
   public BuildEventId getEventId() {
     return BuildEventId.testResult(
