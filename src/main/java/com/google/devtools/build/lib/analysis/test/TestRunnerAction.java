@@ -873,5 +873,9 @@ public class TestRunnerAction extends AbstractAction
     public Path getXmlOutputPath() {
       return getPath(xmlOutputPath);
     }
+
+    public Path getCoverageDataPath() {
+      return getPath(getCoverageData().getExecPath());
+    }
   }
 }
