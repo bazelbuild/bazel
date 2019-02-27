@@ -23,6 +23,7 @@ public enum OS {
   FREEBSD("freebsd", "FreeBSD"),
   LINUX("linux", "Linux"),
   WINDOWS("windows", "Windows"),
+  NONE("none", "No OS"),
   UNKNOWN("unknown", "");
 
   private static final EnumSet<OS> POSIX_COMPATIBLE = EnumSet.of(DARWIN, FREEBSD, LINUX);

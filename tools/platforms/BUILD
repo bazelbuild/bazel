@@ -82,6 +82,11 @@ constraint_value(
     constraint_setting = ":os",
 )
 
+constraint_value(
+    name = "none",
+    constraint_setting = ":os",
+)
+
 # A default platform with nothing defined.
 platform(name = "default_platform")
 
