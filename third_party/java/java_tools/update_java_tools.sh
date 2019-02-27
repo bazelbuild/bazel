@@ -6,6 +6,8 @@
 # For usage please run
 # third_party/java/java_tools/update_java_tools.sh help
 
+set -euo pipefail
+
 # Maps the java tool names to their associated bazel target.
 declare -A tool_name_to_target=(["JavaBuilder"]="src/java_tools/buildjar:JavaBuilder_deploy.jar" \
 ["VanillaJavaBuilder"]="src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar" \
@@ -37,7 +39,7 @@ tools_to_update=()
 # (e.g. third_party/java/java_tools/JavaBuilder_deploy.jar)
 updated_tools=()
 
-tools_to_update=(${!tool_name_to_target[*]})
+tools_to_update=("${!tool_name_to_target[*]}")
 
 # Create the sources archive only when all the tools were updated.
 # TODO(iirina): Find another archiving method that is reproducible
