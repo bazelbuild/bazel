@@ -389,14 +389,14 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     differencer.invalidate(ImmutableList.of(DirectoryListingStateValue.key(path)));
   }
 
+  private void invalidateDirectory(Artifact directoryArtifact) {
+    invalidateDirectory(rootedPath(directoryArtifact));
+  }
+
   private void invalidateOutputArtifact(Artifact output) {
     assertThat(output.isSourceArtifact()).isFalse();
     differencer.invalidate(
         ImmutableList.of(new NonHermeticArtifactSkyKey(ArtifactSkyKey.key(output, true))));
-  }
-
-  private void invalidateDirectory(Artifact directoryArtifact) {
-    invalidateDirectory(rootedPath(directoryArtifact));
   }
 
   private static final class RecordingEvaluationProgressReceiver
