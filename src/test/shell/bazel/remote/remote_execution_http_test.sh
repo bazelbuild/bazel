@@ -316,4 +316,29 @@ function test_directory_artifact_in_runfiles_skylark_rest_cache() {
       || fail "Remote cache hit generated different result"
 }
 
+
+function test_remote_state_cleared() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/7555
+  # Test that the remote cache state is properly reset, so that building without
+  # a remote cache works after previously building with a remote cache.
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "gen1",
+  outs = ["out1"],
+  cmd = "touch $@",
+)
+EOF
+
+  bazel build \
+      --remote_http_cache=http://localhost:${http_port} \
+      //a:gen1 \
+    || fail "Failed to build //a:gen1 with remote cache"
+
+  bazel clean
+
+  bazel build //a:gen1 \
+    || fail "Failed to build //a:gen1 without remote cache"
+}
+
 run_suite "Remote execution and remote cache tests"

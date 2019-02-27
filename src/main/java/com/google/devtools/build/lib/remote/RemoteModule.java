@@ -331,6 +331,8 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void afterCommand() {
+    buildEventArtifactUploaderFactoryDelegate.reset();
+    actionContextProvider = null;
     if (rpcLogFile != null) {
       try {
         rpcLogFile.close();
@@ -340,7 +342,6 @@ public final class RemoteModule extends BlazeModule {
         rpcLogFile = null;
       }
     }
-    buildEventArtifactUploaderFactoryDelegate.reset();
   }
 
   @Override
