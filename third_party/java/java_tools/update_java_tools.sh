@@ -152,9 +152,12 @@ See for example [upgrading the java tools version from 0.4 to 0.5](https://githu
 
 The following tools were built with bazel $bazel_version at commit $git_head
 by running:
+
+```
 $ third_party/java/java_tools/update_java_tools.sh $@
 
 $( IFS=$'\n'; echo "${updated_tools[*]}" )
+```
 EOL
 
 echo "IMPORTANT: Make sure that third_party/java/java_tools/java_tools-srcs.zip was created \
