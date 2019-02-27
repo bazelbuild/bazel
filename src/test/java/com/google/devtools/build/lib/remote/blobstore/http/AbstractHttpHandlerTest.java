@@ -101,7 +101,6 @@ public abstract class AbstractHttpHandlerTest {
   public void headersDoIncludeUserAgent() throws Exception {
     URI uri = new URI("http://does.not.exist:8080/foo");
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
-    ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);

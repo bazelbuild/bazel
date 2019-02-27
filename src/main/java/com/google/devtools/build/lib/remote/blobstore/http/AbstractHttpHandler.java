@@ -31,12 +31,11 @@ import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Common functionality shared by concrete classes.
- */
+/** Common functionality shared by concrete classes. */
 abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelInboundHandler<T>
     implements ChannelOutboundHandler {
 
+  private static final String USER_AGENT_VALUE = "Bazel/" + BlazeVersionInfo.instance().getReleaseName();
   private final Credentials credentials;
 
   public AbstractHttpHandler(Credentials credentials) {
@@ -53,8 +52,8 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     userPromise = null;
   }
 
-  @SuppressWarnings("FutureReturnValueIgnored") 
-  protected void succeedAndResetUserPromise() {  
+  @SuppressWarnings("FutureReturnValueIgnored")
+  protected void succeedAndResetUserPromise() {
     userPromise.setSuccess();
     userPromise = null;
   }
@@ -82,7 +81,7 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   }
 
   protected void addUserAgentHeader(HttpRequest request) {
-    request.headers().set(HttpHeaderNames.USER_AGENT, "Bazel/" + BlazeVersionInfo.instance().getReleaseName());
+    request.headers().set(HttpHeaderNames.USER_AGENT, USER_AGENT_VALUE);
   }
 
   protected String constructPath(URI uri, String hash, boolean isCas) {
