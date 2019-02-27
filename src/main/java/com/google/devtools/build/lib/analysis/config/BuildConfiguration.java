@@ -607,7 +607,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean experimentalJavaCoverage;
 
     @Option(
-        name = "experimental_cc_coverage",
+        name = "incompatible_cc_coverage",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
@@ -615,7 +615,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
           OptionEffectTag.AFFECTS_OUTPUTS,
           OptionEffectTag.LOADING_AND_ANALYSIS
         },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        oldName = "experimental_cc_coverage",
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
         help =
             "If specified, Bazel will use gcov to collect code coverage for C++ test targets. "
                 + "This option only works for gcc compilation.")
