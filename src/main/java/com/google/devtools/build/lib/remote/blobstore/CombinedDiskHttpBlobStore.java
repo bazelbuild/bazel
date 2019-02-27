@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
+import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -29,7 +30,8 @@ import java.util.UUID;
 
 import com.google.devtools.build.lib.vfs.Path;
 
-/** A {@link SimpleBlobStore} implementation combining two blob stores.
+/**
+ * A {@link SimpleBlobStore} implementation combining two blob stores.
  * A local disk blob store and a remote http blob store.
  * If a blob isn't found in the first store, the second store is used, and the
  * blob added to the first. Put puts the blob on both stores.
@@ -40,7 +42,7 @@ public final class CombinedDiskHttpBlobStore extends OnDiskBlobStore {
 
   public CombinedDiskHttpBlobStore(Path root, SimpleBlobStore bsHttp) {
     super(root);
-    this.bsHttp = bsHttp;
+    this.bsHttp = Preconditions.checkNotNull(bsHttp);
   }
 
   @Override
@@ -52,9 +54,9 @@ public final class CombinedDiskHttpBlobStore extends OnDiskBlobStore {
 
   @Override
   public ListenableFuture<Boolean> get(String key, OutputStream out) {
-    boolean use_bsDisk = super.containsKey(key);
+    boolean foundOnDisk = super.containsKey(key);
 
-    if (use_bsDisk) {
+    if (foundOnDisk) {
       return super.get(key, out);
     } else {
       // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
