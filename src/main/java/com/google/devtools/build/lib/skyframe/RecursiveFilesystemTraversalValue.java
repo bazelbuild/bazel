@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -192,6 +193,11 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
           DirectTraversalRoot.forRootedPath(
               RootedPath.toRootedPath(newRoot, root.asRootedPath().getRootRelativePath())),
               skipTestingForSubpackage);
+    }
+
+    @VisibleForTesting
+    public DirectTraversalRoot getRoot() {
+      return root;
     }
 
     @Override

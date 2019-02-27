@@ -56,7 +56,7 @@ public class ActionLookupData implements SkyKey {
     return actionIndex;
   }
 
-  public Label getLabelForErrors() {
+  public Label getLabel() {
     return ((ActionLookupKey) actionLookupKey.argument()).getLabel();
   }
 

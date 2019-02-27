@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.ImmutableGraph;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -80,5 +80,5 @@ public interface SkyframeAwareAction {
    * Returns the Skyframe nodes which need to be rewound if a consumer of this action's output finds
    * out that output has been lost.
    */
-  ImmutableSet<SkyKey> getSkyframeDependenciesForRewinding();
+  ImmutableGraph<SkyKey> getSkyframeDependenciesForRewinding(SkyKey self);
 }

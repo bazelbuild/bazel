@@ -2758,14 +2758,19 @@ public class MemoizingEvaluatorTest {
             if (type == EventType.MARK_DIRTY) {
               TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
                   threadsStarted, "Both threads did not query if value isChanged in time");
-              DirtyType dirtyType = (DirtyType) context;
-              if (order == Order.BEFORE && dirtyType.equals(DirtyType.DIRTY)) {
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    waitForChanged, "'changed' thread did not mark value changed in time");
-                return;
+              if (order == Order.BEFORE) {
+                DirtyType dirtyType = (DirtyType) context;
+                if (dirtyType.equals(DirtyType.DIRTY)) {
+                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                      waitForChanged, "'changed' thread did not mark value changed in time");
+                  return;
+                }
               }
-              if (order == Order.AFTER && dirtyType.equals(DirtyType.CHANGE)) {
-                waitForChanged.countDown();
+              if (order == Order.AFTER) {
+                DirtyType dirtyType = ((NotifyingHelper.MarkDirtyAfterContext) context).dirtyType();
+                if (dirtyType.equals(DirtyType.CHANGE)) {
+                  waitForChanged.countDown();
+                }
               }
             }
           }

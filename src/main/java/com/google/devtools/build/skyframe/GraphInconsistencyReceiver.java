@@ -39,6 +39,7 @@ public interface GraphInconsistencyReceiver {
     RESET_REQUESTED,
     CHILD_MISSING_FOR_DIRTY_NODE, // TODO(mschaller): put "parent" before "child" for consistency
     PARENT_FORCE_REBUILD_OF_CHILD,
+    PARENT_FORCE_REBUILD_OF_MISSING_CHILD,
     BUILDING_PARENT_FOUND_UNDONE_CHILD,
     ALREADY_DECLARED_CHILD_MISSING
   }

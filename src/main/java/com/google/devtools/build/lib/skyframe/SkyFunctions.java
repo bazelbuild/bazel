@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.skyframe.FunctionHermeticity;
@@ -107,8 +108,11 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
   public static final SkyFunctionName ACTION_EXECUTION = ActionLookupData.NAME;
-  static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
+
+  @VisibleForTesting
+  public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
       SkyFunctionName.createHermetic("RECURSIVE_DIRECTORY_TRAVERSAL");
+
   public static final SkyFunctionName FILESET_ENTRY =
       SkyFunctionName.createHermetic("FILESET_ENTRY");
   static final SkyFunctionName BUILD_INFO_COLLECTION =
