@@ -236,7 +236,6 @@ public class PackageFunction implements SkyFunction {
      * <p>Do not use this unless you know what you are doing; Bazel will be intentionally
      * incrementally incorrect!
      */
-    // TODO(nharmata): Consider using this when --track_incremental_state=false.
     NON_INCREMENTAL
   }
 
