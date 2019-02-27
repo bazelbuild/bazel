@@ -115,33 +115,34 @@ version will be `0.5`. For now only increase the minor version.
 
 ## Step 1: Update the Java tools
 
-Updating the Java tools version in Bazel consists of three steps, by following the instructions below:
-1. Building the Java tools under `third_party/java/java_tools/`
-2. Archiving the tools
-3. Uploading the archive to the cloud
+Updating the Java tools consists of three steps: building the Java tools under `third_party/java/java_tools/`,
+archiving the tools, uploading the archive to the cloud. Follow the instructions:
+
+**In your terminal**
 
 ```
 $ cd $BAZEL_WORKSPACE
-$ git checkout -b $UPDATE_TOOLS_BRANCH
+$ git checkout -b $NEW_BRANCH
 $ third_party/java/java_tools/update_java_tools.sh
-$ git add . && git commit -m "Update the Java tools under third_party/java/java_tools/" && git push origin $UPDATE_TOOLS_BRANCH
+$ git add . && git commit -m "Update the Java tools under third_party/java/java_tools/" && git push origin $NEW_BRANCH
 $ bazel build third_party:java_tools_pkg-gz
 $ cp bazel-bin/third_party/java_tools_pkg-gz.tar.gz ~/java_tools_pkg-$VERSION.tar.gz
+
 ```
 
-In your browser go to https://pantheon.corp.google.com/storage/browser/bazel-mirror/bazel_java_tools/
+**In your browser** go to https://pantheon.corp.google.com/storage/browser/bazel-mirror/bazel_java_tools/
 and push the "Upload files" button in the upper-left side. Upload `~/java_tools_pkg-$VERSION.tar.gz`
-**and** `$BAZEL_WORKSPACE/third_party/java/java_tools/java_tools-srcs.zip`.
+**and** `third_party/java/java_tools/java_tools-srcs.zip`.
 
 ## Step 2: Upgrade the Java tools version
 
+**In your terminal**:
+
 ```
-$ cd $BAZEL_WORKSPACE
-$ git checkout -b $UPGRADE_VERSION_BRANCH
 $ sha256sum ~/java_tools_pkg-$VERSION.tar.gz | awk '{print $1}'
 ```
 
-Next update the urls and sha256 for the target `remote_java_tools` in
+**In your bazel repository** update the urls and sha256 for the target `remote_java_tools` in
 `src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE`
 and also the name, urls and sha256 of all the occurrences in `WORKSPACE`
 (targets `jdk_WORKSPACE_files` and `additional_distfiles`).
