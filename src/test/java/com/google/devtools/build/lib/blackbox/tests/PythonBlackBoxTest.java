@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.blackbox.bazel.PythonToolsSetup;
+import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
@@ -39,7 +40,8 @@ public class PythonBlackBoxTest extends AbstractBlackBoxTest {
   public void testCompileAndRunHelloWorldStub() throws Exception {
     writeHelloWorldFiles();
 
-    context().bazel().build("//python/hello:hello");
+    BuilderRunner bazel = context().bazel();
+    bazel.build("//python/hello:hello");
 
     ProcessResult result = context().runBuiltBinary(bazel, "python/hello/hello", -1);
     assertThat(result.outString()).isEqualTo(HELLO);
