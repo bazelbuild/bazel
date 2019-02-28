@@ -19,7 +19,6 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -196,12 +195,6 @@ abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements Sky
     for (Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
         depMap.entrySet()) {
       labelDepMap.put(argumentFromKey(entry.getKey()), entry.getValue());
-    }
-
-    Map<String, ImmutableList<Aspect>> aspectsByAttribute =
-        Maps.newHashMapWithExpectedSize(rule.getAttributes().size());
-    for (Attribute attribute : rule.getAttributes()) {
-      aspectsByAttribute.put(attribute.getName(), attribute.getAspects(rule));
     }
 
     List<SkyKey> depKeys = Lists.newArrayList();
