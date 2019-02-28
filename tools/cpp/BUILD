@@ -420,16 +420,6 @@ filegroup(
     srcs = ["lib_cc_configure.bzl"],
 )
 
-filegroup(
-    name = "crosstool_utils",
-    srcs = ["crosstool_utils.bzl"],
-)
-
-filegroup(
-    name = "crosstool_lib",
-    srcs = ["crosstool_lib.bzl"],
-)
-
 load(":compiler_flag.bzl", "compiler_flag")
 
 compiler_flag(name = "compiler")
