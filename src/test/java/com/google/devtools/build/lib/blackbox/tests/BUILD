@@ -28,11 +28,43 @@ java_test(
     ],
 )
 
+java_test(
+    name = "WorkspaceBlackBoxTest",
+    timeout = "moderate",
+    srcs = [
+        "HelperStarlarkTexts.java",
+        "WorkspaceBlackBoxTest.java",
+    ],
+    tags = ["black_box_test"],
+    deps = [
+        ":common_deps",
+    ],
+)
+
+java_test(
+    name = "BazelEmbeddedSkylarkBlackBoxTest",
+    timeout = "moderate",
+    srcs = [
+        "BazelEmbeddedSkylarkBlackBoxTest.java",
+        "HelperStarlarkTexts.java",
+    ],
+    tags = ["black_box_test"],
+    deps = [
+        ":common_deps",
+        "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
+        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
+    ],
+)
+
 test_suite(
     name = "black_box_tests",
     tags = ["black_box_test"],
     tests = [
+        "BazelEmbeddedSkylarkBlackBoxTest",
         "PythonBlackBoxTest",
+        "WorkspaceBlackBoxTest",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework:framework_tests",
         "//src/test/java/com/google/devtools/build/lib/blackbox/junit:TimeoutTestWatcherTest",
     ],

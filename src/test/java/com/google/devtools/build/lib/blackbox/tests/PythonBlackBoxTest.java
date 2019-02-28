@@ -41,10 +41,10 @@ public class PythonBlackBoxTest extends AbstractBlackBoxTest {
 
     context().bazel().build("//python/hello:hello");
 
-    ProcessResult result = context().runBuiltBinary("python/hello/hello", -1);
+    ProcessResult result = context().runBuiltBinary(bazel, "python/hello/hello", -1);
     assertThat(result.outString()).isEqualTo(HELLO);
 
-    Path binaryPath = context().resolveBinPath("python/hello/hello.par");
+    Path binaryPath = context().resolveBinPath(bazel, "python/hello/hello.par");
     assertThat(Files.exists(binaryPath)).isFalse();
   }
 
