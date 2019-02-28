@@ -122,7 +122,7 @@ public class BlazeVersionInfo {
    */
   public String getVersion() {
     String buildLabel = buildData.get(BUILD_LABEL);
-    return buildLabel != null ? buildLabel : "HEAD";
+    return buildLabel != null ? buildLabel : "";
   }
 
   /**
