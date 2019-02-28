@@ -464,7 +464,7 @@ public class DocstringUtilsTest {
     Truth.assertThat(errors.toString())
         .contains("6: 'Returns:' section should go before the 'Deprecated:' section");
     Truth.assertThat(errors.toString())
-        .contains(("12: description body should go before the special sections"));
+        .contains("12: description body should go before the special sections");
   }
 
   @Test

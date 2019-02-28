@@ -38,12 +38,12 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.LogHandlerQuerier;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.lang.management.GarbageCollectorMXBean;
@@ -294,25 +294,13 @@ public abstract class InfoItem {
     @Override
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
-      LogHandlerQuerier logHandlerQuerier;
       try {
-        logHandlerQuerier = LogHandlerQuerier.getConfiguredInstance();
-      } catch (IllegalStateException e) {
-        // Non-fatal error: we don't want the "info" command to crash.
-        logger.log(Level.WARNING, "Could not find a querier for server log location", e);
+        Optional<Path> path = env.getRuntime().getServerLogPath();
+        return print(path.map(Path::toString).orElse(""));
+      } catch (IOException e) {
+        logger.log(Level.WARNING, "Failed to determine server log location", e);
         return print("UNKNOWN LOG LOCATION");
       }
-      Optional<java.nio.file.Path> loggerFilePath;
-      try {
-        loggerFilePath = logHandlerQuerier.getLoggerFilePath(logger);
-      } catch (IllegalArgumentException e) {
-        // Non-fatal error: we don't want the "info" command to crash.
-        logger.log(Level.WARNING, "Could not query for server log location", e);
-        return print("UNKNOWN LOG LOCATION");
-      }
-      // If loggerFilePath is empty, then no log file is currently open, so an empty string is the
-      // correct output.
-      return print(loggerFilePath.map(java.nio.file.Path::toString).orElse(""));
     }
   }
 

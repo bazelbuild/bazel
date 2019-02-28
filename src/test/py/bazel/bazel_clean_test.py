@@ -37,23 +37,29 @@ class BazelCleanTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     output_base = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertTrue(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
+    # Repeat 10 times to ensure flaky error like
+    # https://github.com/bazelbuild/bazel/issues/5907 are caught.
+    for _ in range(0, 10):
+      exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertTrue(os.path.exists(
+          os.path.join(bazel_genfiles, 'foo/x.out')))
 
-    exit_code, _, stderr = self.RunBazel(['clean'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertFalse(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
-    self.assertTrue(os.path.exists(output_base))
+      exit_code, _, stderr = self.RunBazel(['clean'])
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertFalse(os.path.exists(
+          os.path.join(bazel_genfiles, 'foo/x.out')))
+      self.assertTrue(os.path.exists(output_base))
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertTrue(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
+      exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertTrue(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
 
-    exit_code, _, stderr = self.RunBazel(['clean', '--expunge'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertFalse(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
-    self.assertFalse(os.path.exists(output_base))
+      exit_code, _, stderr = self.RunBazel(['clean', '--expunge'])
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertFalse(os.path.exists(
+          os.path.join(bazel_genfiles, 'foo/x.out')))
+      self.assertFalse(os.path.exists(output_base))
 
 
 if __name__ == '__main__':

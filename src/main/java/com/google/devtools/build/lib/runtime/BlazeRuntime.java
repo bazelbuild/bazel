@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.LogHandlerQuerier;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -579,6 +580,30 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return finalCommandResult;
   }
 
+  /**
+   * Returns the path to the Blaze server INFO log.
+   *
+   * @return the path to the log or empty if the log is not yet open
+   * @throws IOException if the log location cannot be determined
+   */
+  public Optional<Path> getServerLogPath() throws IOException {
+    LogHandlerQuerier logHandlerQuerier;
+    try {
+      logHandlerQuerier = LogHandlerQuerier.getConfiguredInstance();
+    } catch (IllegalStateException e) {
+      throw new IOException("Could not find a querier for server log location", e);
+    }
+
+    Optional<java.nio.file.Path> loggerFilePath;
+    try {
+      loggerFilePath = logHandlerQuerier.getLoggerFilePath(logger);
+    } catch (IllegalArgumentException e) {
+      throw new IOException("Could not query server log location", e);
+    }
+
+    return loggerFilePath.map((p) -> fileSystem.getPath(p.toAbsolutePath().toString()));
+  }
+
   // Make sure we keep a strong reference to this logger, so that the
   // configuration isn't lost when the gc kicks in.
   private static Logger templateLogger = Logger.getLogger("com.google.devtools.build");
@@ -1021,9 +1046,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem();
   }
 
-  private static SubprocessFactory subprocessFactoryImplementation() {
+  private static SubprocessFactory subprocessFactoryImplementation(
+      BlazeServerStartupOptions startupOptions) {
     if (!"0".equals(System.getProperty("io.bazel.EnableJni")) && OS.getCurrent() == OS.WINDOWS) {
-      return WindowsSubprocessFactory.INSTANCE;
+      return new WindowsSubprocessFactory(startupOptions.windowsStyleArgEscaping);
     } else {
       return JavaSubprocessFactory.INSTANCE;
     }
@@ -1130,7 +1156,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           "No module set the default hash function.", ExitCode.BLAZE_INTERNAL_ERROR, e);
     }
     Path.setFileSystemForSerialization(fs);
-    SubprocessBuilder.setSubprocessFactory(subprocessFactoryImplementation());
+    SubprocessBuilder.setDefaultSubprocessFactory(subprocessFactoryImplementation(startupOptions));
 
     Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);

@@ -63,9 +63,9 @@ public abstract class MockCcSupport {
       "feature { name: '" + CppRuleClasses.DYNAMIC_LINKING_MODE + "'}";
 
   public static final String SUPPORTS_DYNAMIC_LINKER_FEATURE =
-      "feature { name: '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + " enabled: true'}";
+      "feature { name: '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + "' enabled: true}";
 
-  public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES =
+  public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE =
       "feature { name: '" + CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES + "' enabled: true}";
 
   /** Feature expected by the C++ rules when pic build is requested */
@@ -73,12 +73,15 @@ public abstract class MockCcSupport {
       ""
           + "feature {"
           + "  name: 'pic'"
+          + "  enabled: true"
           + "  flag_set {"
+          + "    action: 'assemble'"
+          + "    action: 'preprocess-assemble'"
+          + "    action: 'linkstamp-compile'"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-module-codegen'"
           + "    action: 'c++-module-compile'"
-          + "    action: 'preprocess-assemble'"
           + "    flag_group {"
           + "      expand_if_all_available: 'pic'"
           + "      flag: '-fPIC'"
@@ -126,6 +129,7 @@ public abstract class MockCcSupport {
           + "}"
           + "feature {"
           + "  name: 'header_module_compile'"
+          + "  enabled: true"
           + "  implies: 'module_maps'"
           + "  flag_set {"
           + "    action: 'c++-module-compile'"
@@ -146,6 +150,7 @@ public abstract class MockCcSupport {
           + "}"
           + "feature {"
           + "  name: 'module_maps'"
+          + "  enabled: true"
           + "  flag_set {"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
@@ -171,9 +176,24 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  /**
-   * A feature configuration snippet useful for testing environment variables.
-   */
+  public static final String MODULE_MAP_HOME_CWD_FEATURE =
+      ""
+          + "feature {"
+          + "  name: 'module_map_home_cwd'"
+          + "  enabled: true"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-module-compile'"
+          + "    action: 'preprocess-assemble'"
+          + "    flag_group {"
+          + "      flag: '<flag>'"
+          + "    }"
+          + "  }"
+          + "}";
+
+  /** A feature configuration snippet useful for testing environment variables. */
   public static final String ENV_VAR_FEATURE_CONFIGURATION =
       ""
           + "feature {"
@@ -196,6 +216,7 @@ public abstract class MockCcSupport {
           + "}"
           + "feature {"
           + "  name: 'module_maps'"
+          + "  enabled: true"
           + "  env_set {"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
@@ -419,7 +440,10 @@ public abstract class MockCcSupport {
       "" + "feature { name: 'copy_dynamic_libraries_to_binary' }";
 
   public static final String SUPPORTS_START_END_LIB_FEATURE =
-      "" + "feature {" + "   name: 'supports_start_end_lib'" + "   enabled: true" + "}";
+      "" + "feature { name: 'supports_start_end_lib' enabled: true }";
+
+  public static final String SUPPORTS_PIC_FEATURE =
+      "" + "feature { name: 'supports_pic' enabled: true }";
 
   public static final String TARGETS_WINDOWS_CONFIGURATION =
       ""
@@ -443,6 +467,23 @@ public abstract class MockCcSupport {
           + "   category_name: 'static_library'"
           + "   prefix: 'lib'"
           + "   extension: '.a'"
+          + "}";
+
+  public static final String MODULE_MAPS_FEATURE =
+      ""
+          + "feature {"
+          + "  name: 'module_maps'"
+          + "  enabled: true"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-module-compile'"
+          + "    flag_group {"
+          + "      flag: 'module_name:%{module_name}'"
+          + "      flag: 'module_map_file:%{module_map_file}'"
+          + "    }"
+          + "  }"
           + "}";
 
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
@@ -470,6 +511,29 @@ public abstract class MockCcSupport {
       emptyActionConfigFor(CppActionNames.CLIF_MATCH);
 
   public static final String EMPTY_STRIP_ACTION_CONFIG = emptyActionConfigFor(CppActionNames.STRIP);
+  public static final String STATIC_LINK_CPP_RUNTIMES_FEATURE =
+      "feature { name: 'static_link_cpp_runtimes' enabled: true }";
+  public static final String EMPTY_CROSSTOOL =
+      "major_version: 'foo'\nminor_version:' foo'\n" + emptyToolchainForCpu("k8");
+
+  public static String emptyToolchainForCpu(String cpu, String... append) {
+    return Joiner.on("\n")
+        .join(
+            ImmutableList.builder()
+                .add(
+                    "toolchain {",
+                    "  toolchain_identifier: 'mock-llvm-toolchain-" + cpu + "'",
+                    "  host_system_name: 'mock-system-name-for-" + cpu + "'",
+                    "  target_system_name: 'mock-target-system-name-for-" + cpu + "'",
+                    "  target_cpu: '" + cpu + "'",
+                    "  target_libc: 'mock-libc-for-" + cpu + "'",
+                    "  compiler: 'mock-compiler-for-" + cpu + "'",
+                    "  abi_version: 'mock-abi-version-for-" + cpu + "'",
+                    "  abi_libc_version: 'mock-abi-libc-for-" + cpu + "'")
+                .addAll(ImmutableList.copyOf(append))
+                .add("}")
+                .build());
+  }
 
   /**
    * Creates action_config for {@code actionName} action using DUMMY_TOOL that doesn't imply any
@@ -548,10 +612,6 @@ public abstract class MockCcSupport {
    */
   public abstract void setup(MockToolsConfig config) throws IOException;
 
-  public void setupCrosstoolWithEmbeddedRuntimes(MockToolsConfig config) throws IOException {
-    createCrosstoolPackage(config, /* addEmbeddedRuntimes= */ true);
-  }
-
   /**
    * Creates a crosstool package by merging {@code toolchain} with the default mock CROSSTOOL file.
    *
@@ -560,120 +620,28 @@ public abstract class MockCcSupport {
    */
   public void setupCrosstool(MockToolsConfig config, String... partialToolchain)
       throws IOException {
-    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    TextFormat.merge(Joiner.on("\n").join(partialToolchain), toolchainBuilder);
-    setupCrosstool(config, toolchainBuilder.buildPartial());
-  }
-
-  /**
-   * Creates a crosstool package by merging {@code toolchain} with the default mock CROSSTOOL file.
-   */
-  public void setupCrosstool(MockToolsConfig config, CToolchain toolchain) throws IOException {
-    createCrosstoolPackage(
-        config,
-        /* addEmbeddedRuntimes= */ false,
-        /* addModuleMap= */ true,
-        /* staticRuntimesLabel= */ null,
-        /* dynamicRuntimesLabel= */ null,
-        toolchain);
-  }
-
-  /**
-   * Create a crosstool package. For integration tests, it actually links in a working crosstool,
-   * for all other tests, it only creates a dummy package, with a working CROSSTOOL file.
-   *
-   * <p>If <code>addEmbeddedRuntimes</code> is true, it also adds filegroups for the embedded
-   * runtimes.
-   */
-  public void setupCrosstool(
-      MockToolsConfig config,
-      boolean addEmbeddedRuntimes,
-      boolean addModuleMap,
-      String staticRuntimesLabel,
-      String dynamicRuntimesLabel,
-      CToolchain toolchain)
-      throws IOException {
-    createCrosstoolPackage(
-        config,
-        addEmbeddedRuntimes,
-        addModuleMap,
-        staticRuntimesLabel,
-        dynamicRuntimesLabel,
-        toolchain);
+    setupCrosstool(config, /* appendToCurrentToolchain= */ true, partialToolchain);
   }
 
   public void setupCrosstool(
-      MockToolsConfig config,
-      boolean addEmbeddedRuntimes,
-      boolean addModuleMap,
-      String staticRuntimesLabel,
-      String dynamicRuntimesLabel,
-      String crosstool)
+      MockToolsConfig config, boolean appendToCurrentToolchain, String... partialToolchain)
       throws IOException {
+    String toolchainString = Joiner.on("\n").join(partialToolchain);
+    String crosstoolFile;
+    if (appendToCurrentToolchain) {
+      CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
+      TextFormat.merge(toolchainString, toolchainBuilder);
+      crosstoolFile = mergeCrosstoolConfig(readCrosstoolFile(), toolchainBuilder.buildPartial());
+    } else {
+      crosstoolFile = readCrosstoolFile() + toolchainString;
+    }
     createCrosstoolPackage(
         config,
-        addEmbeddedRuntimes,
-        addModuleMap,
-        staticRuntimesLabel,
-        dynamicRuntimesLabel,
-        crosstool);
-  }
-
-  public void setupCrosstoolWithRelease(MockToolsConfig config, String crosstool)
-      throws IOException {
-    createCrosstoolPackage(config, false, true, null, null, crosstool);
-  }
-
-  protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)
-      throws IOException {
-    createCrosstoolPackage(
-        config,
-        addEmbeddedRuntimes,
-        /* addModuleMap= */ true,
-        /* staticRuntimesLabel= */ null,
-        /* dynamicRuntimesLabel= */ null);
-  }
-
-  private void createCrosstoolPackage(
-      MockToolsConfig config,
-      boolean addEmbeddedRuntimes,
-      boolean addModuleMap,
-      String staticRuntimesLabel,
-      String dynamicRuntimesLabel)
-      throws IOException {
-    createCrosstoolPackage(
-        config,
-        addEmbeddedRuntimes,
-        addModuleMap,
-        staticRuntimesLabel,
-        dynamicRuntimesLabel,
-        readCrosstoolFile());
-  }
-
-  private void createCrosstoolPackage(
-      MockToolsConfig config,
-      boolean addEmbeddedRuntimes,
-      boolean addModuleMap,
-      String staticRuntimesLabel,
-      String dynamicRuntimesLabel,
-      CToolchain toolchain)
-      throws IOException {
-    String crosstoolFile = mergeCrosstoolConfig(readCrosstoolFile(), toolchain);
-    createCrosstoolPackage(
-        config,
-        addEmbeddedRuntimes,
-        addModuleMap,
-        staticRuntimesLabel,
-        dynamicRuntimesLabel,
         crosstoolFile);
   }
 
   protected void createCrosstoolPackage(
       MockToolsConfig config,
-      boolean addEmbeddedRuntimes,
-      boolean addModuleMap,
-      String staticRuntimesLabel,
-      String dynamicRuntimesLabel,
       String crosstoolFile)
       throws IOException {
     String crosstoolTop = getCrosstoolTopPathForConfig(config);
@@ -681,10 +649,8 @@ public abstract class MockCcSupport {
       config.linkTools(getRealFilesystemTools(crosstoolTop));
     } else {
       new Crosstool(config, crosstoolTop)
-          .setEmbeddedRuntimes(addEmbeddedRuntimes, staticRuntimesLabel, dynamicRuntimesLabel)
           .setCrosstoolFile(getMockCrosstoolVersion(), crosstoolFile)
           .setSupportedArchs(getCrosstoolArchs())
-          .setAddModuleMap(addModuleMap)
           .setSupportsHeaderParsing(true)
           .write();
     }
@@ -711,11 +677,14 @@ public abstract class MockCcSupport {
     }
   }
 
+  protected String readCrosstoolFile() throws IOException {
+    return ResourceLoader.readFromResources(
+        "com/google/devtools/build/lib/analysis/mock/MOCK_CROSSTOOL");
+  }
+
   public abstract String getMockCrosstoolVersion();
 
   public abstract Label getMockCrosstoolLabel();
-
-  public abstract String readCrosstoolFile() throws IOException;
 
   protected abstract ImmutableList<String> getCrosstoolArchs();
 

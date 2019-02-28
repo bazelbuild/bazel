@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -90,7 +91,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     checkError(
         "test/skylark",
         "the_rule",
-        "no such package '@r//': The repository could not be resolved",
+        "no such package '@r//': The repository '@r' could not be resolved",
         "load('//test/skylark:extension.bzl', 'my_rule')",
         "",
         "my_rule(name='the_rule')");
@@ -1154,31 +1155,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTransitionGuardedByExperimentalFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=false");
-
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "  return []",
-        "def transition_func(settings):",
-        "  return settings",
-        "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/BUILD",
-        "load('//test:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'r')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:r");
-    assertContainsEvent("transition() is experimental and disabled by default");
-  }
-
-  @Test
   public void testNoOutputListAttrDefault() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=true");
 
@@ -2088,6 +2064,65 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTransitiveAnalysisFailureInfo() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "   fail('This Is My Failure Message')",
+        "   return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl)",
+        "",
+        "def depending_rule_impl(ctx):",
+        "   return []",
+        "",
+        "depending_rule = rule(implementation = depending_rule_impl,",
+        "     attrs = {'deps' : attr.label_list()})");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule', 'depending_rule')",
+        "",
+        "custom_rule(name = 'one')",
+        "custom_rule(name = 'two')",
+        "depending_rule(name = 'failures_are_direct_deps',",
+        "    deps = [':one', ':two'])",
+        "depending_rule(name = 'failures_are_indirect_deps',",
+        "    deps = [':failures_are_direct_deps'])");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:failures_are_indirect_deps");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
+
+    Correspondence<AnalysisFailure, AnalysisFailure> correspondence =
+        new Correspondence<AnalysisFailure, AnalysisFailure>() {
+          @Override
+          public boolean compare(AnalysisFailure actual, AnalysisFailure expected) {
+            return actual.getLabel().equals(expected.getLabel())
+                && actual.getMessage().contains(expected.getMessage());
+          }
+
+          @Override
+          public String toString() {
+            return "is equivalent to";
+          }
+        };
+
+    AnalysisFailure expectedOne =
+        new AnalysisFailure(
+            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Failure Message");
+    AnalysisFailure expectedTwo =
+        new AnalysisFailure(
+            Label.parseAbsoluteUnchecked("//test:two"), "This Is My Failure Message");
+
+    assertThat(info.getCauses().toList())
+        .comparingElementsUsing(correspondence)
+        .containsExactly(expectedOne, expectedTwo);
+  }
+
+  @Test
   public void testTestResultInfo() throws Exception {
     scratch.file(
         "test/extension.bzl",
@@ -2152,7 +2187,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestTransitionOnAnalysisTest() throws Exception {
-    useConfiguration("--experimental_strict_java_deps=OFF");
+    useConfiguration("--copt=yeehaw");
 
     scratch.file(
         "test/extension.bzl",
@@ -2160,21 +2195,21 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "MyDep = provider()",
         "",
         "def outer_rule_impl(ctx):",
-        "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps),",
+        "  return [MyInfo(copts = ctx.fragments.cpp.copts),",
         "          MyDep(info = ctx.attr.dep[0][MyInfo]),",
         "          AnalysisTestResultInfo(success = True, message = 'message contents')]",
         "def inner_rule_impl(ctx):",
-        "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps)]",
+        "  return [MyInfo(copts = ctx.fragments.cpp.copts)]",
         "",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:copt' : ['cowabunga'] }",
         ")",
         "inner_rule = rule(implementation = inner_rule_impl,",
-        "                  fragments = ['java'])",
+        "                  fragments = ['cpp'])",
         "outer_rule_test = rule(",
         "  implementation = outer_rule_impl,",
-        "  fragments = ['java'],",
+        "  fragments = ['cpp'],",
         "  analysis_test = True,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
@@ -2197,8 +2232,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     StructImpl outerDepInfo = (StructImpl) outerTarget.get(myDepKey);
     StructImpl innerInfo = (StructImpl) outerDepInfo.getValue("info");
 
-    assertThat(outerInfo.getValue("strict_java_deps")).isEqualTo("off");
-    assertThat(innerInfo.getValue("strict_java_deps")).isEqualTo("warn");
+    assertThat((SkylarkList) outerInfo.getValue("copts")).containsExactly("yeehaw");
+    assertThat((SkylarkList) innerInfo.getValue("copts")).containsExactly("cowabunga");
   }
 
   @Test
@@ -2209,7 +2244,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  return []",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:test_arg' : ['yeehaw'] }",
         ")",
         "",
         "custom_rule = rule(",
@@ -2347,7 +2382,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:test_arg' : ['yeehaw'] }",
         ")",
         "",
         "inner_rule_test = rule(",
@@ -2382,7 +2417,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestOverDepsLimit() throws Exception {
-    setupAnalysisTestDepsLimitTest(10, 12);
+    setupAnalysisTestDepsLimitTest(10, 12, true);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
@@ -2392,13 +2427,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestUnderDepsLimit() throws Exception {
-    setupAnalysisTestDepsLimitTest(10, 8);
+    setupAnalysisTestDepsLimitTest(10, 8, true);
 
     assertThat(getConfiguredTarget("//test:r")).isNotNull();
   }
 
-  private void setupAnalysisTestDepsLimitTest(int limit, int dependencyChainSize) throws Exception {
+  @Test
+  public void testAnalysisDepsLimitOnlyForTransition() throws Exception {
+    setupAnalysisTestDepsLimitTest(3, 10, false);
+
+    assertThat(getConfiguredTarget("//test:r")).isNotNull();
+  }
+
+  private void setupAnalysisTestDepsLimitTest(
+      int limit, int dependencyChainSize, boolean useTransition) throws Exception {
     useConfiguration("--analysis_testing_deps_limit=" + limit);
+
+    String transitionDefinition;
+    if (useTransition) {
+      transitionDefinition =
+          "my_transition = analysis_test_transition("
+              + "settings = {'//command_line_option:test_arg' : ['yeehaw'] })";
+    } else {
+      transitionDefinition = "my_transition = None";
+    }
 
     scratch.file(
         "test/extension.bzl",
@@ -2408,10 +2460,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "def dep_rule_impl(ctx):",
         "  return []",
         "",
-        "my_transition = analysis_test_transition(",
-        "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
-        ")",
+        transitionDefinition,
+        "",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",
         "  attrs = {'dep':  attr.label()}",
@@ -2506,7 +2556,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "my_transition = analysis_test_transition(",
         "    settings = {",
-        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        "        '//command_line_option:test_arg' : ['yeehaw'] }",
         ")",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",

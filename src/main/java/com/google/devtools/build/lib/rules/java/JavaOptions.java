@@ -226,6 +226,22 @@ public class JavaOptions extends FragmentOptions {
   public JavaClasspathMode javaClasspath;
 
   @Option(
+      name = "experimental_inmemory_jdeps_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, the dependency (.jdeps) files generated from Java compilations will be "
+              + "passed through in memory directly from the remote build nodes instead of being "
+              + "written to disk.")
+  public boolean inmemoryJdepsFiles;
+
+  @Option(
       name = "java_debug",
       defaultValue = "null",
       expansion = {
@@ -586,7 +602,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_remote_java_toolchain",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
@@ -600,7 +616,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_remote_host_java_toolchain",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
@@ -624,6 +640,27 @@ public class JavaOptions extends FragmentOptions {
       help =
           "Disables the resource_jars attribute; use java_import and deps or runtime_deps instead.")
   public boolean disallowResourceJars;
+
+  @Option(
+      name = "incompatible_windows_escape_jvm_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "On Linux/macOS/non-Windows: no-op. On Windows: this flag affects how java_binary and"
+              + " java_test targets are built; in particular, how the launcher of these targets"
+              + " escapes flags at the time of running the java_binary/java_test. When the flag is"
+              + " true, the launcher escapes the JVM flags using Windows-style escaping (correct"
+              + " behavior). When the flag is false, the launcher uses Bash-style escaping"
+              + " (buggy behavior). See https://github.com/bazelbuild/bazel/issues/7072")
+  public boolean windowsEscapeJvmFlags;
 
   private Label getHostJavaBase() {
     if (hostJavaBase == null) {
@@ -679,6 +716,7 @@ public class JavaOptions extends FragmentOptions {
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
+    host.inmemoryJdepsFiles = inmemoryJdepsFiles;
 
     host.strictJavaDeps = strictJavaDeps;
     host.fixDepsTool = fixDepsTool;
@@ -697,6 +735,8 @@ public class JavaOptions extends FragmentOptions {
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 
     host.disallowResourceJars = disallowResourceJars;
+
+    host.windowsEscapeJvmFlags = windowsEscapeJvmFlags;
 
     return host;
   }

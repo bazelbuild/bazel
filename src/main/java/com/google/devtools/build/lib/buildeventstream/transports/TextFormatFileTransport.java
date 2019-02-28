@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.protobuf.TextFormat;
-import java.io.IOException;
+import java.io.BufferedOutputStream;
 import java.util.function.Consumer;
 
 /**
@@ -33,13 +33,12 @@ import java.util.function.Consumer;
  */
 public final class TextFormatFileTransport extends FileTransport {
   public TextFormatFileTransport(
-      String path,
+      BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      Consumer<AbruptExitException> exitFunc,
-      ArtifactGroupNamer namer)
-      throws IOException {
-    super(path, options, uploader, exitFunc, namer);
+      Consumer<AbruptExitException> abruptExitCallback,
+      ArtifactGroupNamer namer) {
+    super(outputStream, options, uploader, abruptExitCallback, namer);
   }
 
   @Override

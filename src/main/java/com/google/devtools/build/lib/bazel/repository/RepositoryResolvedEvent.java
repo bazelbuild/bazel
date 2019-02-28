@@ -123,21 +123,24 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
           this.message =
               "Rule '"
                   + rule.getName()
-                  + "' dropped arguments "
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " dropping arguments "
                   + Printer.getPrinter().repr(diff.getSecond());
         } else if (diff.getSecond().isEmpty()) {
           this.message =
               "Rule '"
                   + rule.getName()
-                  + "' modified arguments "
-                  + Printer.getPrinter().repr(diff.getFirst());
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " modifying arguments "
+                  + representModifications(diff.getFirst());
         } else {
           this.message =
               "Rule '"
                   + rule.getName()
-                  + "' modified arguments "
-                  + Printer.getPrinter().repr(diff.getFirst())
-                  + " and dropped "
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " modifying arguments "
+                  + representModifications(diff.getFirst())
+                  + " and dropping "
                   + Printer.getPrinter().repr(diff.getSecond());
         }
       }
@@ -212,5 +215,21 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       }
     }
     return Pair.of(valuesChanged.build(), keysDropped.build());
+  }
+
+  static String representModifications(Map<String, Object> changes) {
+    StringBuilder representation = new StringBuilder();
+    boolean isFirst = true;
+    for (Map.Entry<String, Object> entry : changes.entrySet()) {
+      if (!isFirst) {
+        representation.append(", ");
+      }
+      representation
+          .append(entry.getKey())
+          .append(" = ")
+          .append(Printer.getPrinter().repr(entry.getValue()));
+      isFirst = false;
+    }
+    return representation.toString();
   }
 }

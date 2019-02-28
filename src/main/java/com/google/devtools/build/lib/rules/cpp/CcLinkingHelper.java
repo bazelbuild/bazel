@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -668,7 +669,7 @@ public final class CcLinkingHelper {
     if (shouldLinkTransitively) {
       CcLinkingContext ccLinkingContext = CcLinkingContext.merge(ccLinkingContexts);
       List<LinkerInputs.LibraryToLink> libraries =
-          LibraryToLink.convertLibraryToLinkListToLibraryToLinkList(
+          convertLibraryToLinkListToLinkerInputList(
               ccLinkingContext.getLibraries(),
               linkingMode != LinkingMode.DYNAMIC,
               dynamicLinkType.isDynamicLibrary());
@@ -819,5 +820,66 @@ public final class CcLinkingHelper {
     }
 
     return result;
+  }
+
+  private static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLinkerInputList(
+      NestedSet<LibraryToLink> librariesToLink, boolean staticMode, boolean forDynamicLibrary) {
+    ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
+        ImmutableList.builder();
+    for (LibraryToLink libraryToLink : librariesToLink) {
+      LinkerInputs.LibraryToLink staticLibraryToLink =
+          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
+      LinkerInputs.LibraryToLink picStaticLibraryToLink =
+          libraryToLink.getPicStaticLibrary() == null
+              ? null
+              : libraryToLink.getPicStaticLibraryToLink();
+      LinkerInputs.LibraryToLink libraryToLinkToUse = null;
+      if (staticMode) {
+        if (forDynamicLibrary) {
+          if (picStaticLibraryToLink != null) {
+            libraryToLinkToUse = picStaticLibraryToLink;
+          } else if (staticLibraryToLink != null) {
+            libraryToLinkToUse = staticLibraryToLink;
+          }
+        } else {
+          if (staticLibraryToLink != null) {
+            libraryToLinkToUse = staticLibraryToLink;
+          } else if (picStaticLibraryToLink != null) {
+            libraryToLinkToUse = picStaticLibraryToLink;
+          }
+        }
+        if (libraryToLinkToUse == null) {
+          if (libraryToLink.getInterfaceLibrary() != null) {
+            libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
+          } else if (libraryToLink.getDynamicLibrary() != null) {
+            libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
+          }
+        }
+      } else {
+        if (libraryToLink.getInterfaceLibrary() != null) {
+          libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
+        } else if (libraryToLink.getDynamicLibrary() != null) {
+          libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
+        }
+        if (libraryToLinkToUse == null) {
+          if (forDynamicLibrary) {
+            if (picStaticLibraryToLink != null) {
+              libraryToLinkToUse = picStaticLibraryToLink;
+            } else if (staticLibraryToLink != null) {
+              libraryToLinkToUse = staticLibraryToLink;
+            }
+          } else {
+            if (staticLibraryToLink != null) {
+              libraryToLinkToUse = staticLibraryToLink;
+            } else if (picStaticLibraryToLink != null) {
+              libraryToLinkToUse = picStaticLibraryToLink;
+            }
+          }
+        }
+      }
+      Preconditions.checkNotNull(libraryToLinkToUse);
+      librariesToLinkBuilder.add(libraryToLinkToUse);
+    }
+    return librariesToLinkBuilder.build();
   }
 }

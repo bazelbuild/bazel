@@ -113,7 +113,7 @@ EOF
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
   cat <<EOF > result.dat
-SF:com/example/Collatz.java
+SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
@@ -201,7 +201,7 @@ EOF
    || echo "Coverage for //:test failed"
 
   cat <<EOF > result.dat
-SF:com/example/Collatz.java
+SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V

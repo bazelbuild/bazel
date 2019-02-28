@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.TransitiveBaseTraversalFunction.TargetAndErrorIfAnyImpl;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.vfs.Path;
@@ -113,6 +113,6 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         RootedPath.toRootedPath(root, buildFile),
         packageIdentifier -> buildFile,
         reporter,
-        SkylarkSemantics.DEFAULT_SEMANTICS);
+        StarlarkSemantics.DEFAULT_SEMANTICS);
   }
 }

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootst
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
@@ -57,6 +58,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaI
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyInfo.FakePyInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyRuntimeInfo.FakePyRuntimeInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
@@ -73,6 +75,9 @@ import java.util.Map;
  * builtin types.
  */
 public class SymbolFamilies {
+  // Common prefix of packages that may contain Skylark modules.
+  private static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
+
   private final ImmutableList<RuleDocumentation> nativeRules;
   private final ImmutableMap<String, SkylarkModuleDoc> types;
 
@@ -125,7 +130,8 @@ public class SymbolFamilies {
    * in BZL and BUILD files.
    */
   private Map<String, SkylarkModuleDoc> collectTypes() throws ClassPathException {
-    return SkylarkDocumentationCollector.collectModules();
+    return SkylarkDocumentationCollector.collectModules(
+        Classpath.findClasses(MODULES_PACKAGE_PREFIX));
   }
 
   /*
@@ -189,7 +195,8 @@ public class SymbolFamilies {
             new FakeJavaProtoCommon(),
             new FakeJavaCcLinkParamsProvider.Provider());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
-    PyBootstrap pyBootstrap = new PyBootstrap(new FakePyInfoProvider());
+    PyBootstrap pyBootstrap =
+        new PyBootstrap(new FakePyInfoProvider(), new FakePyRuntimeInfoProvider());
     RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
     TestingBootstrap testingBootstrap =
         new TestingBootstrap(

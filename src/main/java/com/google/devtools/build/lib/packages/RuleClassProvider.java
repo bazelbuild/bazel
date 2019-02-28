@@ -18,10 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -51,7 +52,7 @@ public interface RuleClassProvider {
    *
    * @param label the location of the rule.
    * @param mutability the Mutability for the current evaluation context
-   * @param skylarkSemantics the semantics options that modify the interpreter
+   * @param starlarkSemantics the semantics options that modify the interpreter
    * @param eventHandler the EventHandler for warnings, errors, etc.
    * @param astFileContentHashCode the hash code identifying this environment.
    * @param importMap map from import string to Extension
@@ -61,7 +62,7 @@ public interface RuleClassProvider {
   Environment createSkylarkRuleClassEnvironment(
       Label label,
       Mutability mutability,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       EventHandler eventHandler,
       @Nullable String astFileContentHashCode,
       @Nullable Map<String, Extension> importMap,
@@ -103,4 +104,7 @@ public interface RuleClassProvider {
    * class.
    */
   Map<String, Class<?>> getConfigurationFragmentMap();
+
+  /** Returns the policy on checking that third-party rules have licenses. */
+  ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy();
 }

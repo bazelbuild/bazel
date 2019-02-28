@@ -29,16 +29,13 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.SolibLibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.ListIterator;
 import javax.annotation.Nullable;
 
 /**
@@ -51,67 +48,6 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
-
-  public static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLibraryToLinkList(
-      NestedSet<LibraryToLink> librariesToLink, boolean staticMode, boolean forDynamicLibrary) {
-    ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
-        ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink) {
-      LinkerInputs.LibraryToLink staticLibraryToLink =
-          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
-      LinkerInputs.LibraryToLink picStaticLibraryToLink =
-          libraryToLink.getPicStaticLibrary() == null
-              ? null
-              : libraryToLink.getPicStaticLibraryToLink();
-      LinkerInputs.LibraryToLink libraryToLinkToUse = null;
-      if (staticMode) {
-        if (forDynamicLibrary) {
-          if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          } else if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          }
-        } else {
-          if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          } else if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          }
-        }
-        if (libraryToLinkToUse == null) {
-          if (libraryToLink.getInterfaceLibrary() != null) {
-            libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
-          } else if (libraryToLink.getDynamicLibrary() != null) {
-            libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
-          }
-        }
-      } else {
-        if (libraryToLink.getInterfaceLibrary() != null) {
-          libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
-        } else if (libraryToLink.getDynamicLibrary() != null) {
-          libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
-        }
-        if (libraryToLinkToUse == null) {
-          if (forDynamicLibrary) {
-            if (picStaticLibraryToLink != null) {
-              libraryToLinkToUse = picStaticLibraryToLink;
-            } else if (staticLibraryToLink != null) {
-              libraryToLinkToUse = staticLibraryToLink;
-            }
-          } else {
-            if (staticLibraryToLink != null) {
-              libraryToLinkToUse = staticLibraryToLink;
-            } else if (picStaticLibraryToLink != null) {
-              libraryToLinkToUse = picStaticLibraryToLink;
-            }
-          }
-        }
-      }
-      Preconditions.checkNotNull(libraryToLinkToUse);
-      librariesToLinkBuilder.add(libraryToLinkToUse);
-    }
-    return librariesToLinkBuilder.build();
-  }
 
   public Artifact getDynamicLibraryForRuntimeOrNull(boolean linkingStatically) {
     if (getDynamicLibrary() == null) {
@@ -170,8 +106,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
         }
         BugReport.sendBugReport(
             new IllegalStateException(
-                "Unexpected inequality with equal symbols: " + this + ", " + that),
-            ImmutableList.of());
+                "Unexpected inequality with equal symbols: " + this + ", " + that));
         return false;
       }
 
@@ -521,100 +456,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   public static Builder builder() {
     return new AutoValue_LibraryToLink.Builder().setMustKeepDebug(false).setAlwayslink(false);
-  }
-
-  @Nullable
-  @SuppressWarnings("ReferenceEquality")
-  static String setDynamicArtifactsAndReturnIdentifier(
-      LibraryToLink.Builder libraryToLinkBuilder,
-      LinkerInputs.LibraryToLink dynamicModeParamsForExecutableEntry,
-      LinkerInputs.LibraryToLink dynamicModeParamsForDynamicLibraryEntry,
-      ListIterator<Artifact> runtimeLibraryIterator) {
-    Preconditions.checkNotNull(runtimeLibraryIterator);
-    Artifact artifact = dynamicModeParamsForExecutableEntry.getArtifact();
-    String libraryIdentifier = null;
-    Artifact runtimeArtifact = null;
-    if (dynamicModeParamsForExecutableEntry.getArtifactCategory()
-            == ArtifactCategory.DYNAMIC_LIBRARY
-        || dynamicModeParamsForExecutableEntry.getArtifactCategory()
-            == ArtifactCategory.INTERFACE_LIBRARY) {
-      Preconditions.checkState(
-          dynamicModeParamsForExecutableEntry == dynamicModeParamsForDynamicLibraryEntry);
-      libraryIdentifier = dynamicModeParamsForExecutableEntry.getLibraryIdentifier();
-
-      // Not every library to link has a corresponding runtime artifact, for example this is the
-      // case when it is provided by the system. Here we check if the next runtime artifact has the
-      // same basename as the current library to link, if it is, then we match them together. If
-      // isn't, then we must rewind the iterator since every call to next() advances it.
-      if (runtimeLibraryIterator.hasNext()) {
-        runtimeArtifact = runtimeLibraryIterator.next();
-        if (!doArtifactsHaveSameBasename(artifact, runtimeArtifact)) {
-          runtimeArtifact = null;
-          runtimeLibraryIterator.previous();
-        }
-      }
-    }
-
-    if (dynamicModeParamsForExecutableEntry.getArtifactCategory()
-        == ArtifactCategory.DYNAMIC_LIBRARY) {
-      // The SolibLibraryToLink implementation returns ArtifactCategory.DYNAMIC_LIBRARY even if
-      // the library being symlinked is an interface library. This was probably an oversight that
-      // didn't cause any issues. In any case, here we have to figure out whether the library is
-      // an interface library or not by checking the extension if it's a symlink.
-
-      if (dynamicModeParamsForExecutableEntry instanceof SolibLibraryToLink) {
-        // Note: with the old way of doing C++ linking, we lose the information regarding the
-        // runtime library. If {@code runtimeArtifact} is a symlink we only have the symlink but
-        // not a reference to the artifact it points to. We can infer whether it's a symlink by
-        // looking at whether the interface library is a symlink, however, we can't find out what
-        // it points to. With the new API design, we won't lose this information anymore. This is
-        // the way it has been done until now, but it wasn't a problem because symlinks get
-        // automatically resolved when they are in runfiles.
-        if (ArtifactCategory.INTERFACE_LIBRARY
-            .getAllowedExtensions()
-            .contains("." + artifact.getExtension())) {
-          libraryToLinkBuilder.setInterfaceLibrary(artifact);
-          libraryToLinkBuilder.setResolvedSymlinkInterfaceLibrary(
-              dynamicModeParamsForExecutableEntry.getOriginalLibraryArtifact());
-          if (runtimeArtifact != null) {
-            libraryToLinkBuilder.setDynamicLibrary(runtimeArtifact);
-          }
-        } else {
-          Preconditions.checkState(runtimeArtifact == null || artifact == runtimeArtifact);
-          libraryToLinkBuilder.setDynamicLibrary(artifact);
-          libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(
-              dynamicModeParamsForExecutableEntry.getOriginalLibraryArtifact());
-        }
-      } else {
-        libraryToLinkBuilder.setDynamicLibrary(artifact);
-        Preconditions.checkState(runtimeArtifact == null || artifact == runtimeArtifact);
-      }
-    } else if (dynamicModeParamsForExecutableEntry.getArtifactCategory()
-        == ArtifactCategory.INTERFACE_LIBRARY) {
-      Preconditions.checkState(
-          !(dynamicModeParamsForExecutableEntry instanceof SolibLibraryToLink));
-      libraryToLinkBuilder.setInterfaceLibrary(artifact);
-      if (runtimeArtifact != null) {
-        libraryToLinkBuilder.setDynamicLibrary(runtimeArtifact);
-      }
-    }
-    return libraryIdentifier;
-  }
-
-  private static boolean doArtifactsHaveSameBasename(Artifact first, Artifact second) {
-    String nameFirst = removeAllExtensions(first.getRootRelativePath().getPathString());
-    String nameSecond = removeAllExtensions(second.getRootRelativePath().getPathString());
-    return nameFirst.equals(nameSecond);
-  }
-
-  private static String removeAllExtensions(String name) {
-    String previousWithoutExtension = FileSystemUtils.removeExtension(name);
-    String currentWithoutExtension = FileSystemUtils.removeExtension(previousWithoutExtension);
-    while (!previousWithoutExtension.equals(currentWithoutExtension)) {
-      previousWithoutExtension = currentWithoutExtension;
-      currentWithoutExtension = FileSystemUtils.removeExtension(previousWithoutExtension);
-    }
-    return currentWithoutExtension;
   }
 
   LinkerInputs.LibraryToLink getStaticLibraryToLink() {

@@ -671,19 +671,18 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Preconditions.checkState(
           newState != DependencyState.ALREADY_EVALUATING, "%s %s", key, prevEntry);
       if (prevEntry.isDirty()) {
+        // Get the node in the state where it is able to accept a value.
         Preconditions.checkState(
             newState == DependencyState.NEEDS_SCHEDULING, "%s %s", key, prevEntry);
-        // There was an existing entry for this key in the graph.
-        // Get the node in the state where it is able to accept a value.
-
-        // Check that the previous node has no dependencies. Overwriting a value with deps with an
-        // injected value (which is by definition deps-free) needs a little additional bookkeeping
-        // (removing reverse deps from the dependencies), but more importantly it's something that
-        // we want to avoid, because it indicates confusion of input values and derived values.
+        // If there was a node in the graph before, check that the previous node has no
+        // dependencies. Overwriting a value with deps with an injected value (which is by
+        // definition deps-free) needs a little additional bookkeeping (removing reverse deps from
+        // the dependencies), but more importantly it's something that we want to avoid, because it
+        // indicates confusion of input values and derived values.
         Preconditions.checkState(
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
-        prevEntry.markRebuilding();
       }
+      prevEntry.markRebuilding();
       prevEntry.setValue(
           value,
           version,

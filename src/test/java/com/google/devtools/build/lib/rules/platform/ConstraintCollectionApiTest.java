@@ -36,7 +36,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests Skylark API for {@link ConstraintCollection} providers. */
 @RunWith(JUnit4.class)
-public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
+public class ConstraintCollectionApiTest extends PlatformTestCase {
 
   @Test
   public void testConstraintSettings() throws Exception {

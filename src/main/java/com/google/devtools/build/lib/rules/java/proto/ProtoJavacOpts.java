@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 
@@ -28,9 +27,8 @@ public class ProtoJavacOpts {
    *
    * <p>See java_toolchain.compatible_javacopts for the javacopts required for protos.
    */
-  public static ImmutableList<String> constructJavacOpts(
-      RuleContext ruleContext, Label toolchainType) {
-    JavaToolchainProvider toolchain = JavaToolchainProvider.from(ruleContext, toolchainType);
+  public static ImmutableList<String> constructJavacOpts(RuleContext ruleContext) {
+    JavaToolchainProvider toolchain = JavaToolchainProvider.from(ruleContext);
     return ImmutableList.<String>builder()
         .addAll(toolchain.getJavacOptions())
         .addAll(toolchain.getCompatibleJavacOptions(JavaSemantics.PROTO_JAVACOPTS_KEY))

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -63,5 +64,10 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
   @Override
   public boolean inErrorBubblingForTesting() {
     return false;
+  }
+
+  @Override
+  public void dependOnFuture(ListenableFuture<?> future) {
+    throw new UnsupportedOperationException();
   }
 }

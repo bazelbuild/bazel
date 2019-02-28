@@ -131,8 +131,10 @@ dependency.
 ## Fetching dependencies
 
 By default, external dependencies are fetched as needed during `bazel build`. If
-you would like to disable this behavior or prefetch dependencies, use
-[`bazel fetch`](http://docs.bazel.build/user-manual.html#fetch).
+you would like to prefetch the dependencies needed for a specific set of targets, use
+[`bazel fetch`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
+To unconditionally fetch all external dependencies, use
+[`bazel sync`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
 
 <a name="shadowing-dependencies"></a>
 ## Shadowing dependencies

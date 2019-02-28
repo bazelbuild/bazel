@@ -36,6 +36,7 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
     PythonVersion pythonVersion = pythonOptions.getPythonVersion();
     return new PythonConfiguration(
         pythonVersion,
+        pythonOptions.getDefaultPythonVersion(),
         pythonOptions.buildPythonZip,
         pythonOptions.buildTransitiveRunfilesTrees,
         /*oldPyVersionApiAllowed=*/ !pythonOptions.incompatibleRemoveOldPythonVersionApi,

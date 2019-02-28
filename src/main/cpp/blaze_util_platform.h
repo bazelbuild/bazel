@@ -154,6 +154,7 @@ int ExecuteDaemon(const std::string& exe,
                   const std::map<std::string, EnvVarValue>& env,
                   const std::string& daemon_output,
                   const bool daemon_output_append,
+                  const std::string& binaries_dir,
                   const std::string& server_dir,
                   BlazeServerStartup** server_startup);
 

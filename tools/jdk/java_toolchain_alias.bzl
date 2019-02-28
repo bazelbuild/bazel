@@ -26,17 +26,10 @@ def _copy_default_info(info):
 
 def _java_runtime_alias(ctx):
     """An experimental implementation of java_runtime_alias using toolchain resolution."""
-    toolchain = find_java_runtime_toolchain(ctx, target = ctx.attr._java_runtime)
-
-    # find_java_runtime_toolchain returns a configured target if toolchain resolution is disabled
-    # TODO(cushon): consolidate this with the branch below once JavaRuntimeInfo.files is released
-    if type(toolchain) == "Target":
-        return [
-            toolchain[java_common.JavaRuntimeInfo],
-            toolchain[platform_common.TemplateVariableInfo],
-            _copy_default_info(toolchain[DefaultInfo]),
-        ]
-
+    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
+        toolchain = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+    else:
+        toolchain = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
     return [
         toolchain,
         platform_common.TemplateVariableInfo({
@@ -85,17 +78,15 @@ java_host_runtime_alias = rule(
 
 def _java_toolchain_alias(ctx):
     """An experimental implementation of java_toolchain_alias using toolchain resolution."""
-    toolchain = find_java_toolchain(ctx, target = ctx.attr._java_toolchain)
-
-    # find_java_runtime_toolchain returns a configured target if toolchain resolution is disabled
-    if type(toolchain) == "Target":
-        return struct(
-            providers = [toolchain[java_common.JavaToolchainInfo]],
-            # Use the legacy provider syntax for compatibility with the native rules.
-            java_toolchain = toolchain[java_common.JavaToolchainInfo],
-        )
-
-    return toolchain
+    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
+        toolchain = ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]
+    else:
+        toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
+    return struct(
+        providers = [toolchain],
+        # Use the legacy provider syntax for compatibility with the native rules.
+        java_toolchain = toolchain,
+    )
 
 java_toolchain_alias = rule(
     implementation = _java_toolchain_alias,

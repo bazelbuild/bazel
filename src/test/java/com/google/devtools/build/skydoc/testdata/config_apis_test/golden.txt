@@ -58,32 +58,6 @@ string_flag(<a href="#string_flag-name">name</a>)
 </table>
 
 
-## _build_setting_impl
-
-<pre>
-_build_setting_impl(<a href="#_build_setting_impl-ctx">ctx</a>)
-</pre>
-
-
-
-### Parameters
-
-<table class="params-table">
-  <colgroup>
-    <col class="col-param" />
-    <col class="col-description" />
-  </colgroup>
-  <tbody>
-    <tr id="_build_setting_impl-ctx">
-      <td><code>ctx</code></td>
-      <td>
-        required.
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-
 ## exercise_the_api
 
 <pre>

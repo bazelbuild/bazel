@@ -331,7 +331,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     final int numTrials;
 
     Random random;
-    Artifact artifacts[];
+    Artifact[] artifacts;
 
     public StressTest(int numArtifacts, int numTrials, int randomSeed) {
       this.numTrials = numTrials;

@@ -316,6 +316,20 @@ public class BuildRequestOptions extends OptionsBase {
       help = "This option is deprecated and has no effect.")
   public boolean discardActionsAfterExecution;
 
+  @Option(
+      name = "experimental_async_execution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set to true, Bazel is allowed to run aynchronously, i.e., without reserving a local "
+              + "thread. This only has an effect if the action implementation and the lower-level "
+              + "strategy support it. This setting effectively circumvents the implicit limit of "
+              + "number of concurrently running actions otherwise imposed by the --jobs flag. Use "
+              + "with caution.")
+  public boolean useAsyncExecution;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.

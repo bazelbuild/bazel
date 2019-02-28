@@ -131,4 +131,50 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
     assertThat(modernInfo.getHasPy2OnlySources()).isTrue();
     assertThat(modernInfo.getHasPy3OnlySources()).isTrue();
   }
+
+  @Test
+  public void runtimeSandwich() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _userruntime_impl(ctx):",
+        "    info = ctx.attr.runtime[PyRuntimeInfo]",
+        "    return [PyRuntimeInfo(",
+        "        interpreter = ctx.file.interpreter,",
+        "        files = depset(direct = ctx.files.files, transitive=[info.files]),",
+        "        python_version = info.python_version)]",
+        "",
+        "userruntime = rule(",
+        "    implementation = _userruntime_impl,",
+        "    attrs = {",
+        "        'runtime': attr.label(),",
+        "        'interpreter': attr.label(allow_single_file=True),",
+        "        'files': attr.label_list(allow_files=True),",
+        "    },",
+        ")");
+    scratch.file(
+        "pkg/BUILD",
+        "load(':rules.bzl', 'userruntime')",
+        "py_runtime(",
+        "    name = 'pyruntime',",
+        "    interpreter = ':intr',",
+        "    files = ['data.txt'],",
+        "    python_version = 'PY2',",
+        ")",
+        "userruntime(",
+        "    name = 'userruntime',",
+        "    runtime = ':pyruntime',",
+        "    interpreter = ':userintr',",
+        "    files = ['userdata.txt'],",
+        ")",
+        "py_binary(",
+        "    name = 'pybin',",
+        "    srcs = ['pybin.py'],",
+        ")");
+    String pythonTopLabel =
+        analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:userruntime");
+    useConfiguration("--python_top=" + pythonTopLabel);
+    ConfiguredTarget target = getConfiguredTarget("//pkg:pybin");
+    assertThat(collectRunfiles(target))
+        .containsAllOf(getSourceArtifact("pkg/data.txt"), getSourceArtifact("pkg/userdata.txt"));
+  }
 }

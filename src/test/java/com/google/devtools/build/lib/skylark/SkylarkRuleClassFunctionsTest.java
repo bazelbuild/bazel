@@ -56,7 +56,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -199,11 +199,12 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testDisableDeprecatedParams() throws Exception {
-    ev = createEvaluationTestCase(
-        SkylarkSemantics.DEFAULT_SEMANTICS
-            .toBuilder()
-            .incompatibleDisableDeprecatedAttrParams(true)
-            .build());
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS
+                .toBuilder()
+                .incompatibleDisableDeprecatedAttrParams(true)
+                .build());
     ev.initialize();
 
     // Verify 'single_file' deprecation.
@@ -591,11 +592,12 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void incompatibleDataTransition() throws Exception {
-    ev = createEvaluationTestCase(
-        SkylarkSemantics.DEFAULT_SEMANTICS
-            .toBuilder()
-            .incompatibleDisallowDataTransition(true)
-            .build());
+    ev =
+        createEvaluationTestCase(
+            StarlarkSemantics.DEFAULT_SEMANTICS
+                .toBuilder()
+                .incompatibleDisallowDataTransition(true)
+                .build());
     ev.initialize();
     EvalException expected =
         assertThrows(EvalException.class, () -> eval("attr.label(cfg = 'data')"));
@@ -643,7 +645,10 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testNoAttrLicense() throws Exception {
     ev =
         createEvaluationTestCase(
-            SkylarkSemantics.DEFAULT_SEMANTICS.toBuilder().incompatibleNoAttrLicense(true).build());
+            StarlarkSemantics.DEFAULT_SEMANTICS
+                .toBuilder()
+                .incompatibleNoAttrLicense(true)
+                .build());
     ev.initialize();
 
     EvalException expected = assertThrows(EvalException.class, () -> eval("attr.license()"));
@@ -853,8 +858,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testFileTypeIsDisabled() throws Exception {
-    SkylarkSemantics semantics =
-        SkylarkSemantics.DEFAULT_SEMANTICS.toBuilder().incompatibleDisallowFileType(true).build();
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder().incompatibleDisallowFileType(true).build();
     EvalException expected =
         assertThrows(EvalException.class, () -> evalRuleClassCode(semantics, "FileType(['.css'])"));
     assertThat(expected).hasMessageThat().contains("FileType function is not available.");

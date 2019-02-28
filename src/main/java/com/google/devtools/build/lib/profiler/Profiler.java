@@ -424,7 +424,6 @@ public final class Profiler {
             // CRITICAL_PATH corresponds to writing the file.
             && type != ProfilerTask.CRITICAL_PATH
             && type != ProfilerTask.SKYFUNCTION
-            && type != ProfilerTask.ACTION_EXECUTE
             && type != ProfilerTask.ACTION_COMPLETE
             && !type.isStarlark();
       }

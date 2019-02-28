@@ -99,6 +99,12 @@ public final class LinkCommandLine extends CommandLine {
     return linkerInputArtifacts;
   }
 
+  @Nullable
+  @VisibleForTesting
+  public FeatureConfiguration getFeatureConfiguration() {
+    return featureConfiguration;
+  }
+
   /**
    * Returns the current type of link target set.
    */

@@ -537,7 +537,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         BuildOptions toOptions = options.clone();
         TestConfiguration.TestOptions baseOptions =
             toOptions.get(TestConfiguration.TestOptions.class);
-        baseOptions.testFilter = (nullToEmpty(baseOptions.testFilter)) + value;
+        baseOptions.testFilter = nullToEmpty(baseOptions.testFilter) + value;
         return toOptions;
       }
     };

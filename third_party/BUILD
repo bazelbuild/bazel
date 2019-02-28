@@ -100,13 +100,13 @@ java_import(
         "android_common/com.android.tools_sdk-common_25.0.0.jar",
         "android_common/com.android.tools_sdklib_25.0.0.jar",
     ],
-    deps = [
-        "//third_party/jaxb",
-    ],
     runtime_deps = [
         ":asm",
         ":asm-analysis",
         ":asm-tree",
+    ],
+    deps = [
+        "//third_party/jaxb",
     ],
 )
 
@@ -606,26 +606,18 @@ filegroup(
 )
 
 pkg_tar(
-    name = "java_tools_pkg",
-    srcs = [
-        "//third_party/java/java_tools:java_tools",
-        "//third_party/java/jdk/langtools:javac_jar",
-        "//third_party/java/jdk/langtools:jdk_compiler_jar",
-        "//third_party/java/jdk/langtools:java_compiler_jar"
-    ],
-)
-
-pkg_tar(
     name = "java_tools_pkg-gz",
     srcs = [
-        "//third_party/java/java_tools:java_tools",
+        "//third_party/java/java_tools",
+        "//third_party/java/jdk/langtools:java_compiler_jar",
         "//third_party/java/jdk/langtools:javac_jar",
         "//third_party/java/jdk/langtools:jdk_compiler_jar",
-        "//third_party/java/jdk/langtools:java_compiler_jar"
     ],
-    extension = "tar.gz"
+    extension = "tar.gz",
+    # Permissions -rwxr-xr-x
+    mode = "755",
+    package_dir = "java_tools",
 )
-
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 

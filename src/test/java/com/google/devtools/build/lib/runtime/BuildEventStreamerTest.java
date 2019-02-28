@@ -1028,7 +1028,12 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     options.publishAllActions = true;
 
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.of(transport), reporter, options, artifactGroupNamer);
+        new BuildEventStreamer.Builder()
+            .artifactGroupNamer(artifactGroupNamer)
+            .besStreamOptions(options)
+            .cmdLineReporter(reporter)
+            .buildEventTransports(ImmutableSet.of(transport))
+            .build();
 
     ActionExecutedEvent failedActionExecutedEvent =
         new ActionExecutedEvent(

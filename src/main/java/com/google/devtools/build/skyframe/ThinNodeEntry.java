@@ -32,8 +32,8 @@ public interface ThinNodeEntry {
   boolean isDone();
 
   /**
-   * Returns true if the entry is marked dirty, meaning that at least one of its transitive
-   * dependencies is marked changed.
+   * Returns true if the entry is new or marked as dirty. This includes the case where its deps are
+   * still being checked for up-to-dateness.
    */
   @ThreadSafe
   boolean isDirty();

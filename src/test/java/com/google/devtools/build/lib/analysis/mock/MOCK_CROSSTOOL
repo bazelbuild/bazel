@@ -1,704 +1,92 @@
-# This test resource file is the default test setup - it largely matches what
-# we have in our repository cover; individual test cases can override this in
-# order to test more scenarios.
-
-major_version: "1"
-minor_version: "42"
-
+major_version: "13"
+minor_version: "0"
 toolchain {
-  abi_version: "local"
-  abi_libc_version: "local"
-  builtin_sysroot: "/test/"
-  compiler: "compiler"
-  host_system_name: "local"
-  needsPic: true
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-  target_libc: "local"
-  target_cpu: "local"
-  target_system_name: "local"
-  toolchain_identifier: "toolchain-identifier-local"
-
-  tool_path { name: "ar" path: "/usr/bin/ar" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-
-  # TODO(bazel-team): In theory, the path here ought to exactly match the path
-  # used by gcc. That works because bazel currently doesn't track files at
-  # absolute locations and has no remote execution, yet. However, this will need
-  # to be fixed, maybe with auto-detection?
-  cxx_builtin_include_directory: "/usr/lib/gcc/"
-  cxx_builtin_include_directory: "/usr/local/include"
-  cxx_builtin_include_directory: "/usr/include"
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-
-  # C(++) compiles invoke the compiler (as that is the one knowing where
-  # to find libraries), but we provide LD so other rules can invoke the linker.
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
-
-  # Anticipated future default.
-  unfiltered_cxx_flag: "-no-canonical-prefixes"
-  unfiltered_cxx_flag: "-fno-canonical-system-headers"
-
-  # Make C++ compilation deterministic. Use linkstamping instead of these
-  # compiler symbols.
-  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
-  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
-
-  # Security hardening on by default.
-  # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
-  # We need to undef it before redefining it as some distributions now have
-  # it enabled by default.
-  compiler_flag: "-U_FORTIFY_SOURCE"
-  compiler_flag: "-D_FORTIFY_SOURCE=1"
-  compiler_flag: "-fstack-protector"
-  linker_flag: "-Wl,-z,relro,-z,now"
-
-  # Enable coloring even if there's no attached terminal. Bazel removes the
-  # escape sequences if --nocolor is specified. This isn't supported by gcc
-  # on Ubuntu 14.04.
-  # compiler_flag: "-fcolor-diagnostics"
-
-  # All warnings are enabled. Maybe enable -Werror as well?
-  compiler_flag: "-Wall"
-  # Enable a few more warnings that aren't part of -Wall.
-  compiler_flag: "-Wunused-but-set-parameter"
-  # But disable some that are problematic.
-  compiler_flag: "-Wno-free-nonheap-object" # has false positives
-
-  # Keep stack frames for debugging, even in opt mode.
-  compiler_flag: "-fno-omit-frame-pointer"
-
-  # Anticipated future default.
-  linker_flag: "-no-canonical-prefixes"
-  # Have gcc return the exit code from ld.
-  linker_flag: "-pass-exit-codes"
-  # Gold linker only? Can we enable this by default?
-  # linker_flag: "-Wl,--warn-execstack"
-  # linker_flag: "-Wl,--detect-odr-violations"
-
-  compilation_mode_flags {
-    mode: DBG
-    # Enable debug symbols.
-    compiler_flag: "-g"
-  }
-  compilation_mode_flags {
-    mode: OPT
-
-    # No debug symbols.
-    # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
-    # even generally? However, that can't happen here, as it requires special
-    # handling in Bazel.
-    compiler_flag: "-g0"
-
-    # Conservative choice for -O
-    # -O3 can increase binary size and even slow down the resulting binaries.
-    # Profile first and / or use FDO if you need better performance than this.
-    compiler_flag: "-O2"
-
-    # Disable assertions
-    compiler_flag: "-DNDEBUG"
-
-    # Removal of unused code and data at link time (can this increase binary size in some cases?).
-    compiler_flag: "-ffunction-sections"
-    compiler_flag: "-fdata-sections"
-    linker_flag: "-Wl,--gc-sections"
-  }
-  linking_mode_flags { mode: DYNAMIC }
-}
-
-toolchain {
-  abi_version: "local"
-  abi_libc_version: "local"
-  builtin_sysroot: "/test/"
-  compiler: "compiler"
-  host_system_name: "local"
-  needsPic: true
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-  target_libc: "local"
-  target_cpu: "ppc"
-  target_system_name: "local"
-  toolchain_identifier: "toolchain-identifier-ppc"
-
-  tool_path { name: "ar" path: "/usr/bin/ar" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-
-  # TODO(bazel-team): In theory, the path here ought to exactly match the path
-  # used by gcc. That works because bazel currently doesn't track files at
-  # absolute locations and has no remote execution, yet. However, this will need
-  # to be fixed, maybe with auto-detection?
-  cxx_builtin_include_directory: "/usr/lib/gcc/"
-  cxx_builtin_include_directory: "/usr/local/include"
-  cxx_builtin_include_directory: "/usr/include"
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-
-  # C(++) compiles invoke the compiler (as that is the one knowing where
-  # to find libraries), but we provide LD so other rules can invoke the linker.
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
-
-  # Anticipated future default.
-  unfiltered_cxx_flag: "-no-canonical-prefixes"
-  unfiltered_cxx_flag: "-fno-canonical-system-headers"
-
-  # Make C++ compilation deterministic. Use linkstamping instead of these
-  # compiler symbols.
-  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
-  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
-
-  # Security hardening on by default.
-  # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
-  # We need to undef it before redefining it as some distributions now have
-  # it enabled by default.
-  compiler_flag: "-U_FORTIFY_SOURCE"
-  compiler_flag: "-D_FORTIFY_SOURCE=1"
-  compiler_flag: "-fstack-protector"
-  linker_flag: "-Wl,-z,relro,-z,now"
-
-  # Enable coloring even if there's no attached terminal. Bazel removes the
-  # escape sequences if --nocolor is specified. This isn't supported by gcc
-  # on Ubuntu 14.04.
-  # compiler_flag: "-fcolor-diagnostics"
-
-  # All warnings are enabled. Maybe enable -Werror as well?
-  compiler_flag: "-Wall"
-  # Enable a few more warnings that aren't part of -Wall.
-  compiler_flag: "-Wunused-but-set-parameter"
-  # But disable some that are problematic.
-  compiler_flag: "-Wno-free-nonheap-object" # has false positives
-
-  # Keep stack frames for debugging, even in opt mode.
-  compiler_flag: "-fno-omit-frame-pointer"
-
-  # Anticipated future default.
-  linker_flag: "-no-canonical-prefixes"
-  # Have gcc return the exit code from ld.
-  linker_flag: "-pass-exit-codes"
-  # Gold linker only? Can we enable this by default?
-  # linker_flag: "-Wl,--warn-execstack"
-  # linker_flag: "-Wl,--detect-odr-violations"
-
-  compilation_mode_flags {
-    mode: DBG
-    # Enable debug symbols.
-    compiler_flag: "-g"
-  }
-  compilation_mode_flags {
-    mode: OPT
-
-    # No debug symbols.
-    # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
-    # even generally? However, that can't happen here, as it requires special
-    # handling in Bazel.
-    compiler_flag: "-g0"
-
-    # Conservative choice for -O
-    # -O3 can increase binary size and even slow down the resulting binaries.
-    # Profile first and / or use FDO if you need better performance than this.
-    compiler_flag: "-O2"
-
-    # Disable assertions
-    compiler_flag: "-DNDEBUG"
-
-    # Removal of unused code and data at link time (can this increase binary size in some cases?).
-    compiler_flag: "-ffunction-sections"
-    compiler_flag: "-fdata-sections"
-    linker_flag: "-Wl,--gc-sections"
-  }
-  linking_mode_flags { mode: DYNAMIC }
-}
-
-toolchain {
-  toolchain_identifier: "toolchain-identifier-k8"
-
+  toolchain_identifier: "mock-llvm-toolchain-k8"
   host_system_name: "local"
   target_system_name: "local"
   target_cpu: "k8"
   target_libc: "local"
   compiler: "compiler"
-  linking_mode_flags { mode: DYNAMIC }
-
   abi_version: "local"
   abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "/usr/bin/ar" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
-
-  needsPic: true
-  supports_fission: true
-
+  tool_path {
+    name: "ar"
+    path: "/usr/bin/mock-ar"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "/usr/bin/mock-compat-ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "/usr/bin/mock-cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "/usr/bin/mock-dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "/usr/bin/mock-gcc"
+  }
+  tool_path {
+    name: "gcov"
+    path: "/usr/bin/mock-gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "/usr/bin/mock-ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "/usr/bin/mock-nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "/usr/bin/mock-objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "/usr/bin/mock-objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "/usr/bin/mock-strip"
+  }
+  tool_path {
+    name: "llvm-profdata"
+    path: "/usr/bin/mock-llvm-profdata"
+  }
+  cxx_builtin_include_directory: "/usr/lib/gcc/"
+  cxx_builtin_include_directory: "/usr/local/include"
+  cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: "/usr/grte/v1"
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-  cxx_builtin_include_directory: "/usr/lib/gcc/"
-  cxx_builtin_include_directory: "/usr/local/include"
-  cxx_builtin_include_directory: "/usr/include"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  toolchain_identifier: "k8-no-dyn-linker"
-
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "k8"
-  target_libc: "local"
-  compiler: "compiler_no_dyn_linker"
-  # No linking_mode_flags here
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "/usr/bin/ar" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
-
-  needsPic: true
-  supports_fission: true
-
-  builtin_sysroot: ""
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-  cxx_builtin_include_directory: "/usr/lib/gcc/"
-  cxx_builtin_include_directory: "/usr/local/include"
-  cxx_builtin_include_directory: "/usr/include"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  toolchain_identifier: "piii"
-
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "piii"
-  target_libc: "local"
-  compiler: "compiler"
-  linking_mode_flags { mode: DYNAMIC }
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "/usr/bin/ar" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
-
-  needsPic: false
-
-  builtin_sysroot: ""
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-  cxx_builtin_include_directory: "/usr/lib/gcc/"
-  cxx_builtin_include_directory: "/usr/local/include"
-  cxx_builtin_include_directory: "/usr/include"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  toolchain_identifier: "local_darwin"
-
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "darwin"
-  target_libc: "macosx"
-  compiler: "compiler"
-  linking_mode_flags { mode: DYNAMIC }
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "/usr/bin/libtool" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
-
-  needsPic: false
-
-  builtin_sysroot: "/usr/grte/v1"
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-  cxx_builtin_include_directory: "/usr/include"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
-  cxx_builtin_include_directory: "/opt/local/include"
-  cxx_builtin_include_directory: "/Library/Developer/CommandLineTools"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  toolchain_identifier: "darwin-no-dyn-linker"
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "darwin"
-  target_libc: "macosx"
-  compiler: "compiler_no_dyn_linker"
-  # No linking_mode_flags here
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "/usr/bin/libtool" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
-
-  needsPic: false
-
-  builtin_sysroot: ""
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-  cxx_builtin_include_directory: "/usr/include"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
-  cxx_builtin_include_directory: "/opt/local/include"
-  cxx_builtin_include_directory: "/Library/Developer/CommandLineTools"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  toolchain_identifier: "local_ios"
-
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "ios_x86_64"
-  target_libc: "ios"
-  compiler: "compiler"
-  linking_mode_flags { mode: DYNAMIC }
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "/usr/bin/libtool" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
-
-  needsPic: false
-
-  builtin_sysroot: ""
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-  cxx_builtin_include_directory: "/usr/include"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs"
-  cxx_builtin_include_directory: "/opt/local/include"
-  cxx_builtin_include_directory: "/Library/Developer/CommandLineTools"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  toolchain_identifier: "local_windows_mingw"
-
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "k8"
-  target_libc: "local"
-  compiler: "windows_mingw"
-  linking_mode_flags { mode: DYNAMIC }
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "C:/mingw/bin/ar" }
-  tool_path { name: "compat-ld" path: "C:/mingw/bin/ld" }
-  tool_path { name: "cpp" path: "C:/mingw/bin/cpp" }
-  tool_path { name: "dwp" path: "C:/mingw/bin/dwp" }
-  tool_path { name: "gcc" path: "C:/mingw/bin/gcc" }
-  tool_path { name: "gcov" path: "C:/mingw/bin/gcov" }
-  tool_path { name: "ld" path: "C:/mingw/bin/ld" }
-  tool_path { name: "nm" path: "C:/mingw/bin/nm" }
-  tool_path { name: "objcopy" path: "C:/mingw/bin/objcopy" }
-  tool_path { name: "objdump" path: "C:/mingw/bin/objdump" }
-  tool_path { name: "strip" path: "C:/mingw/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "C:/mingw/bin/llvm-profdata" }
-
-  builtin_sysroot: ""
-  cxx_flag: "-std=c++0x"
-  cxx_builtin_include_directory: "C:/mingw/include"
-  cxx_builtin_include_directory: "C:/mingw/lib/gcc"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  toolchain_identifier: "local_windows_msys64_mingw64"
-
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "k8"
-  target_libc: "local"
-  compiler: "windows_msys64_mingw64"
-  linking_mode_flags { mode: DYNAMIC }
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "C:/msys64/mingw64/bin/ar" }
-  tool_path { name: "compat-ld" path: "C:/msys64/mingw64/bin/ld" }
-  tool_path { name: "cpp" path: "C:/msys64/mingw64/bin/cpp" }
-  tool_path { name: "dwp" path: "C:/msys64/mingw64/bin/dwp" }
-  tool_path { name: "gcc" path: "C:/msys64/mingw64/bin/gcc" }
-  tool_path { name: "gcov" path: "C:/msys64/mingw64/bin/gcov" }
-  tool_path { name: "ld" path: "C:/msys64/mingw64/bin/ld" }
-  tool_path { name: "nm" path: "C:/msys64/mingw64/bin/nm" }
-  tool_path { name: "objcopy" path: "C:/msys64/mingw64/bin/objcopy" }
-  tool_path { name: "objdump" path: "C:/msys64/mingw64/bin/objdump" }
-  tool_path { name: "strip" path: "C:/msys64/mingw64/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "C:/msys64/mingw64/bin/llvm-profdata" }
-
-  builtin_sysroot: "/usr/grte/v1"
-  cxx_flag: "-std=c++0x"
-  cxx_builtin_include_directory: "C:/msys64/mingw64/x86_64-w64-mingw32/include"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  toolchain_identifier: "local_windows_clang"
-
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "k8"
-  target_libc: "local"
-  compiler: "windows_clang"
-  linking_mode_flags { mode: DYNAMIC }
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "C:/mingw/bin/ar" }
-  tool_path { name: "compat-ld" path: "C:/Program Files (x86)/LLVM/bin/ld" }
-  tool_path { name: "cpp" path: "C:/Program Files (x86)/LLVM/bin/cpp" }
-  tool_path { name: "dwp" path: "C:/Program Files (x86)/LLVM/bin/dwp" }
-  tool_path { name: "gcc" path: "C:/Program Files (x86)/LLVM/bin/clang" }
-  tool_path { name: "gcov" path: "C:/Program Files (x86)/LLVM/bin/gcov" }
-  tool_path { name: "ld" path: "C:/Program Files (x86)/LLVM/bin/ld" }
-  tool_path { name: "nm" path: "C:/Program Files (x86)/LLVM/bin/nm" }
-  tool_path { name: "objcopy" path: "C:/Program Files (x86)/LLVM/bin/objcopy" }
-  tool_path { name: "objdump" path: "C:/Program Files (x86)/LLVM/bin/objdump" }
-  tool_path { name: "strip" path: "C:/Program Files (x86)/LLVM/bin/strip" }
-  tool_path { name: "llvm-profdata" path: "C:/Program Files (x86)/LLVM/bin/llvm-profdata" }
-
-  cxx_flag: "-std=c++0x"
-  cxx_builtin_include_directory: "/usr/lib/gcc/"
-  cxx_builtin_include_directory: "/usr/local/include"
-  cxx_builtin_include_directory: "/usr/include"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  builtin_sysroot: ""
-
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-  abi_version: "armeabi-v7a"
-  abi_libc_version: "armeabi-v7a"
-  builtin_sysroot: ""
-  compiler: "compiler"
-  linking_mode_flags { mode: DYNAMIC }
-  host_system_name: "armeabi-v7a"
-  needsPic: true
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-  target_libc: "armeabi-v7a"
-  target_cpu: "armeabi-v7a"
-  target_system_name: "armeabi-v7a"
-  toolchain_identifier: "stub_armeabi-v7a"
-
-  tool_path { name: "ar" path: "/bin/false" }
-  tool_path { name: "compat-ld" path: "/bin/false" }
-  tool_path { name: "cpp" path: "/bin/false" }
-  tool_path { name: "dwp" path: "/bin/false" }
-  tool_path { name: "gcc" path: "/bin/false" }
-  tool_path { name: "gcov" path: "/bin/false" }
-  tool_path { name: "ld" path: "/bin/false" }
-
-  tool_path { name: "nm" path: "/bin/false" }
-  tool_path { name: "objcopy" path: "/bin/false" }
-  tool_path { name: "objdump" path: "/bin/false" }
-  tool_path { name: "strip" path: "/bin/false" }
-  tool_path { name: "llvm-profdata" path: "/bin/false" }
-
-  supports_interface_shared_objects: true
-}
-
-toolchain {
-   abi_version: "local"
-   abi_libc_version: "local"
-   builtin_sysroot: "/usr/grte/v1"
-   compiler: "windows_msys64"
-   host_system_name: "local"
-   needsPic: false
-   target_libc: "local"
-   target_cpu: "x64_windows"
-   target_system_name: "local"
-   toolchain_identifier: "local_windows_msys64"
-
-   tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
-   tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
-   tool_path { name: "cpp" path: "C:/tools/msys64/usr/bin/cpp" }
-   tool_path { name: "dwp" path: "C:/tools/msys64/usr/bin/dwp" }
-   # Use gcc instead of g++ so that C will compile correctly.
-   tool_path { name: "gcc" path: "C:/tools/msys64/usr/bin/gcc" }
-   cxx_flag: "-std=gnu++0x"
-   linker_flag: "-lstdc++"
-   # TODO(bazel-team): In theory, the path here ought to exactly match the path
-   # used by gcc. That works because bazel currently doesn't track files at
-   # absolute locations and has no remote execution, yet. However, this will need
-   # to be fixed, maybe with auto-detection?
-   cxx_builtin_include_directory: "C:/tools/msys64/"
-   cxx_builtin_include_directory: "/usr/"
-   tool_path { name: "gcov" path: "C:/tools/msys64/usr/bin/gcov" }
-   tool_path { name: "ld" path: "C:/tools/msys64/usr/bin/ld" }
-   tool_path { name: "nm" path: "C:/tools/msys64/usr/bin/nm" }
-   tool_path { name: "objcopy" path: "C:/tools/msys64/usr/bin/objcopy" }
-   objcopy_embed_flag: "-I"
-   objcopy_embed_flag: "binary"
-   tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
-   tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
-   tool_path { name: "llvm-profdata" path: "C:/tools/msys64/usr/bin/llvm-profdata" }
-   linking_mode_flags { mode: DYNAMIC }
-
-   supports_interface_shared_objects: true
-}
-
-toolchain {
-   toolchain_identifier: "windows_msys64-no-dyn-linker"
-   abi_version: "local"
-   abi_libc_version: "local"
-   builtin_sysroot: ""
-   compiler: "compiler_no_dyn_linker"
-   host_system_name: "local"
-   needsPic: false
-   target_libc: "local"
-   target_cpu: "x64_windows"
-   target_system_name: "local"
-
-   tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
-   tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
-   tool_path { name: "cpp" path: "C:/tools/msys64/usr/bin/cpp" }
-   tool_path { name: "dwp" path: "C:/tools/msys64/usr/bin/dwp" }
-   # Use gcc instead of g++ so that C will compile correctly.
-   tool_path { name: "gcc" path: "C:/tools/msys64/usr/bin/gcc" }
-   cxx_flag: "-std=gnu++0x"
-   linker_flag: "-lstdc++"
-   # TODO(bazel-team): In theory, the path here ought to exactly match the path
-   # used by gcc. That works because bazel currently doesn't track files at
-   # absolute locations and has no remote execution, yet. However, this will need
-   # to be fixed, maybe with auto-detection?
-   cxx_builtin_include_directory: "C:/tools/msys64/"
-   cxx_builtin_include_directory: "/usr/"
-   tool_path { name: "gcov" path: "C:/tools/msys64/usr/bin/gcov" }
-   tool_path { name: "ld" path: "C:/tools/msys64/usr/bin/ld" }
-   tool_path { name: "nm" path: "C:/tools/msys64/usr/bin/nm" }
-   tool_path { name: "objcopy" path: "C:/tools/msys64/usr/bin/objcopy" }
-   objcopy_embed_flag: "-I"
-   objcopy_embed_flag: "binary"
-   tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
-   tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
-   tool_path { name: "llvm-profdata" path: "C:/tools/msys64/usr/bin/llvm-profdata" }
-   # No linking_mode_flags here
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--default-compile-flag"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-ldefault-link-flag"
+      }
+    }
+    enabled: true
+  }
 }

@@ -254,15 +254,30 @@ public final class Converters {
 
     private final String separatorDescription;
     private final Splitter splitter;
+    private final boolean allowEmptyValues;
 
-    protected SeparatedOptionListConverter(char separator, String separatorDescription) {
+    protected SeparatedOptionListConverter(
+        char separator, String separatorDescription, boolean allowEmptyValues) {
       this.separatorDescription = separatorDescription;
       this.splitter = Splitter.on(separator);
+      this.allowEmptyValues = allowEmptyValues;
     }
 
     @Override
-    public List<String> convert(String input) {
-      return input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
+    public List<String> convert(String input) throws OptionsParsingException {
+      List<String> result =
+          input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
+      if (!allowEmptyValues && result.contains("")) {
+        // If the list contains exactly the empty string, it means an empty value was passed and we
+        // should instead return an empty list.
+        if (result.size() == 1) {
+          return ImmutableList.of();
+        }
+
+        throw new OptionsParsingException(
+            "Empty values are not allowed as part of this " + getTypeDescription());
+      }
+      return result;
     }
 
     @Override
@@ -273,13 +288,20 @@ public final class Converters {
 
   public static class CommaSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public CommaSeparatedOptionListConverter() {
-      super(',', "comma");
+      super(',', "comma", true);
+    }
+  }
+
+  public static class CommaSeparatedNonEmptyOptionListConverter
+      extends SeparatedOptionListConverter {
+    public CommaSeparatedNonEmptyOptionListConverter() {
+      super(',', "comma", false);
     }
   }
 
   public static class ColonSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public ColonSeparatedOptionListConverter() {
-      super(':', "colon");
+      super(':', "colon", true);
     }
   }
 
@@ -439,6 +461,44 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a 'name=value' assignment";
+    }
+  }
+
+  /**
+   * A converter for variable assignments from the parameter list of a blaze command invocation.
+   * Assignments are expected to have the form {@code name=value1[,..,valueN]}, where names and
+   * values are defined to be as permissive as possible.
+   */
+  public static class AssignmentToListOfValuesConverter
+      implements Converter<Map.Entry<String, List<String>>> {
+
+    private final Splitter splitter = Splitter.on(',');
+
+    @Override
+    public Map.Entry<String, List<String>> convert(String input) throws OptionsParsingException {
+      int pos = input.indexOf("=");
+      if (pos <= 0) {
+        throw new OptionsParsingException(
+            "Variable definitions must be in the form of a 'name=value1[,..,valueN]' assignment");
+      }
+      String name = input.substring(0, pos);
+      List<String> value = splitter.splitToList(input.substring(pos + 1));
+      if (value.contains("")) {
+        // If the list contains exactly the empty string, it means an empty value was passed and we
+        // should instead return an empty list.
+        if (value.size() == 1) {
+          value = ImmutableList.of();
+        } else {
+          throw new OptionsParsingException(
+              "Variable definitions must not contain empty strings or leading / trailing commas");
+        }
+      }
+      return Maps.immutableEntry(name, value);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a 'name=value1[,..,valueN]' assignment";
     }
   }
 

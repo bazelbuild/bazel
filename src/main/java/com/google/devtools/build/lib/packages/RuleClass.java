@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -645,6 +646,7 @@ public class RuleClass {
     private boolean workspaceOnly = false;
     private boolean isExecutableSkylark = false;
     private boolean isAnalysisTest = false;
+    private boolean hasAnalysisTestTransition = false;
     private boolean isConfigMatcher = false;
     private boolean hasFunctionTransitionWhitelist = false;
     private boolean ignorePackageLicenses = false;
@@ -669,6 +671,31 @@ public class RuleClass {
         new ConfigurationFragmentPolicy.Builder();
 
     private boolean supportsConstraintChecking = true;
+
+    /**
+     * The policy on whether Bazel should enforce that third_party rules declare <code>licenses().
+     * </code>. This is only intended for the migration of <a
+     * href="https://github.com/bazelbuild/bazel/issues/7444">GitHub #7444</a>. Our final end state
+     * is to have no license-related logic whatsoever. But that's going to take some time.
+     */
+    public enum ThirdPartyLicenseExistencePolicy {
+      /**
+       * Always do this check, overriding whatever {@link
+       * StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says.
+       */
+      ALWAYS_CHECK,
+
+      /**
+       * Never do this check, overriding whatever {@link
+       * StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says.
+       */
+      NEVER_CHECK,
+
+      /** Do whatever {@link StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says. */
+      USER_CONTROLLABLE
+    }
+
+    private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
@@ -808,6 +835,7 @@ public class RuleClass {
           workspaceOnly,
           isExecutableSkylark,
           isAnalysisTest,
+          hasAnalysisTestTransition,
           hasFunctionTransitionWhitelist,
           ignorePackageLicenses,
           implicitOutputsFunction,
@@ -824,6 +852,7 @@ public class RuleClass {
           ruleDefinitionEnvironmentHashCode,
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
+          thirdPartyLicenseExistencePolicy,
           requiredToolchains,
           supportsPlatforms,
           executionPlatformConstraintsAllowed,
@@ -1024,6 +1053,11 @@ public class RuleClass {
       return this;
     }
 
+    public Builder setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
+      this.thirdPartyLicenseExistencePolicy = policy;
+      return this;
+    }
+
     public Builder setValidityPredicate(PredicateWithMessage<Rule> predicate) {
       this.validityPredicate = predicate;
       return this;
@@ -1192,6 +1226,19 @@ public class RuleClass {
 
     public boolean isAnalysisTest() {
       return this.isAnalysisTest;
+    }
+
+    /**
+     * This rule class has at least one attribute with an analysis test transition. (A
+     * starlark-defined transition using analysis_test_transition()).
+     */
+    public Builder setHasAnalysisTestTransition() {
+      this.hasAnalysisTestTransition = true;
+      return this;
+    }
+
+    public boolean hasAnalysisTestTransition() {
+      return this.hasAnalysisTestTransition;
     }
 
     /**
@@ -1390,6 +1437,7 @@ public class RuleClass {
   private final boolean workspaceOnly;
   private final boolean isExecutableSkylark;
   private final boolean isAnalysisTest;
+  private final boolean hasAnalysisTestTransition;
   private final boolean isConfigMatcher;
   private final boolean hasFunctionTransitionWhitelist;
   private final boolean ignorePackageLicenses;
@@ -1481,6 +1529,8 @@ public class RuleClass {
    */
   private final boolean supportsConstraintChecking;
 
+  private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
+
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean supportsPlatforms;
   private final ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed;
@@ -1519,6 +1569,7 @@ public class RuleClass {
       boolean workspaceOnly,
       boolean isExecutableSkylark,
       boolean isAnalysisTest,
+      boolean hasAnalysisTestTransition,
       boolean hasFunctionTransitionWhitelist,
       boolean ignorePackageLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
@@ -1535,6 +1586,7 @@ public class RuleClass {
       String ruleDefinitionEnvironmentHashCode,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
+      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       Set<Label> requiredToolchains,
       boolean supportsPlatforms,
       ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
@@ -1569,10 +1621,12 @@ public class RuleClass {
     this.workspaceOnly = workspaceOnly;
     this.isExecutableSkylark = isExecutableSkylark;
     this.isAnalysisTest = isAnalysisTest;
+    this.hasAnalysisTestTransition = hasAnalysisTestTransition;
     this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
     this.ignorePackageLicenses = ignorePackageLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
+    this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.supportsPlatforms = supportsPlatforms;
     this.executionPlatformConstraintsAllowed = executionPlatformConstraintsAllowed;
@@ -1817,7 +1871,17 @@ public class RuleClass {
       populateAttributeLocations(rule, ast);
     }
     checkForDuplicateLabels(rule, eventHandler);
-    if (checkThirdPartyRulesHaveLicenses) {
+
+    boolean actuallyCheckLicense;
+    if (thirdPartyLicenseExistencePolicy == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
+      actuallyCheckLicense = true;
+    } else if (thirdPartyLicenseExistencePolicy == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
+      actuallyCheckLicense = false;
+    } else {
+      actuallyCheckLicense = checkThirdPartyRulesHaveLicenses;
+    }
+
+    if (actuallyCheckLicense) {
       checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
     }
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
@@ -2166,7 +2230,9 @@ public class RuleClass {
    */
   private static Object getAttributeNoncomputedDefaultValue(Attribute attr,
       Package.Builder pkgBuilder) {
-    if (attr.getName().equals("licenses")) {
+    // Starlark rules may define their own "licenses" attributes with different types -
+    // we shouldn't trigger the special "licenses" on those cases.
+    if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
       return pkgBuilder.getDefaultLicense();
     }
     if (attr.getName().equals("distribs")) {
@@ -2421,6 +2487,14 @@ public class RuleClass {
   /** Returns true if this rule class is an analysis test (set by analysis_test = true). */
   public boolean isAnalysisTest() {
     return isAnalysisTest;
+  }
+
+  /**
+   * Returns true if this rule class has at least one attribute with an analysis test transition. (A
+   * starlark-defined transition using analysis_test_transition()).
+   */
+  public boolean hasAnalysisTestTransition() {
+    return hasAnalysisTestTransition;
   }
 
   /**

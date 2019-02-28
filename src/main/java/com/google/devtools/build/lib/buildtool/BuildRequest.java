@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
@@ -76,7 +76,7 @@ public class BuildRequest implements OptionsProvider {
       ImmutableList.of(
           BuildRequestOptions.class,
           PackageCacheOptions.class,
-          SkylarkSemanticsOptions.class,
+          StarlarkSemanticsOptions.class,
           LoadingOptions.class,
           AnalysisOptions.class,
           ExecutionOptions.class,
@@ -223,7 +223,7 @@ public class BuildRequest implements OptionsProvider {
   }
 
   /** Returns the value of the --keep_going option. */
-  boolean getKeepGoing() {
+  public boolean getKeepGoing() {
     return getOptions(KeepGoingOption.class).keepGoing;
   }
 

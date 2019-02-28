@@ -677,11 +677,14 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         Attribute attr = descriptor.build(name);
 
         hasStarlarkDefinedTransition |= attr.hasStarlarkDefinedTransition();
-        if (attr.hasAnalysisTestTransition() && !builder.isAnalysisTest()) {
-          throw new EvalException(
-              location,
-              "Only rule definitions with analysis_test=True may have attributes with "
-                  + "analysis_test_transition transitions");
+        if (attr.hasAnalysisTestTransition()) {
+          if (!builder.isAnalysisTest()) {
+            throw new EvalException(
+                location,
+                "Only rule definitions with analysis_test=True may have attributes with "
+                    + "analysis_test_transition transitions");
+          }
+          builder.setHasAnalysisTestTransition();
         }
         // Check for existence of the function transition whitelist attribute.
         // TODO(b/121385274): remove when we stop whitelisting starlark transitions

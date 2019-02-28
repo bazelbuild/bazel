@@ -27,12 +27,15 @@ import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.util.JsonFormat;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -59,18 +62,20 @@ public class JsonFormatFileTransportTest {
   @Mock public ArtifactGroupNamer artifactGroupNamer;
 
   @Before
-  public void initMocks() {
+  public void setUp() {
     MockitoAnnotations.initMocks(this);
   }
 
   @After
-  public void validateMocks() {
+  public void tearDown() {
     Mockito.validateMockitoUsage();
   }
 
   @Test
   public void testCreatesFileAndWritesProtoJsonFormat() throws Exception {
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
 
     BuildEventStreamProtos.BuildEvent started =
         BuildEventStreamProtos.BuildEvent.newBuilder()
@@ -79,7 +84,7 @@ public class JsonFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     JsonFormatFileTransport transport =
         new JsonFormatFileTransport(
-            output.getAbsolutePath(),
+            outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
             (e) -> {},
@@ -144,6 +149,8 @@ public class JsonFormatFileTransportTest {
   @Test
   public void testFlushesStreamAfterSmallWrites() throws Exception {
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
 
     BuildEventStreamProtos.BuildEvent started =
         BuildEventStreamProtos.BuildEvent.newBuilder()
@@ -152,7 +159,7 @@ public class JsonFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     JsonFormatFileTransport transport =
         new JsonFormatFileTransport(
-            output.getAbsolutePath(),
+            outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
             (e) -> {},

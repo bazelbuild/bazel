@@ -172,11 +172,11 @@ public final class AspectDefinition {
     return applyToFiles;
   }
 
-  /**
-   * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
-   */
+  /** Returns the attribute -&gt; set of labels that are provided by aspects of attribute. */
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
-      Target from, Attribute attribute, Target to,
+      Target from,
+      ImmutableList<Aspect> aspectsOfAttribute,
+      Target to,
       DependencyFilter dependencyFilter) {
     // Aspect can be declared only for Rules.
     if (!(from instanceof Rule) || !(to instanceof Rule)) {
@@ -184,19 +184,17 @@ public final class AspectDefinition {
     }
     RuleClass ruleClass = ((Rule) to).getRuleClassObject();
     AdvertisedProviderSet providers = ruleClass.getAdvertisedProviders();
-    return visitAspectsIfRequired((Rule) from, attribute,
-        providers, dependencyFilter);
+    return visitAspectsIfRequired((Rule) from, aspectsOfAttribute, providers, dependencyFilter);
   }
 
-  /**
-   * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
-   */
+  /** Returns the attribute -&gt; set of labels that are provided by aspects of attribute. */
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
-      Rule from, Attribute attribute,
+      Rule from,
+      ImmutableList<Aspect> aspectsOfAttribute,
       AdvertisedProviderSet advertisedProviders,
       DependencyFilter dependencyFilter) {
     SetMultimap<Attribute, Label> result = LinkedHashMultimap.create();
-    for (Aspect candidateClass : attribute.getAspects(from)) {
+    for (Aspect candidateClass : aspectsOfAttribute) {
       // Check if target satisfies condition for this aspect (has to provide all required
       // TransitiveInfoProviders)
       RequiredProviders requiredProviders =

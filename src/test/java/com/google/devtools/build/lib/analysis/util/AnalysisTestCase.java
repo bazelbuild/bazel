@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -232,7 +232,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
-        Options.getDefaults(SkylarkSemanticsOptions.class),
+        Options.getDefaults(StarlarkSemanticsOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -275,14 +275,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 Arrays.asList(
                     ExecutionOptions.class,
                     PackageCacheOptions.class,
-                    SkylarkSemanticsOptions.class,
+                    StarlarkSemanticsOptions.class,
                     BuildRequestOptions.class,
                     AnalysisOptions.class,
                     KeepGoingOption.class,
                     LoadingPhaseThreadsOption.class,
                     LoadingOptions.class),
                 ruleClassProvider.getConfigurationOptions()));
-    optionsParser.parse(new String[] {"--default_visibility=public" });
+    optionsParser.parse(new String[] {"--default_visibility=public", "--cpu=k8", "--host_cpu=k8"});
     optionsParser.parse(args);
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       optionsParser.parse("--experimental_dynamic_configs=on");
@@ -360,13 +360,13 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
 
-    SkylarkSemanticsOptions skylarkSemanticsOptions =
-        optionsParser.getOptions(SkylarkSemanticsOptions.class);
+    StarlarkSemanticsOptions starlarkSemanticsOptions =
+        optionsParser.getOptions(StarlarkSemanticsOptions.class);
 
     skyframeExecutor.preparePackageLoading(
         pathPackageLocator,
         packageCacheOptions,
-        skylarkSemanticsOptions,
+        starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));

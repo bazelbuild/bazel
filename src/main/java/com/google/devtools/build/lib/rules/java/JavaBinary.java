@@ -236,9 +236,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             javaArtifactsBuilder,
             ruleOutputJarsProviderBuilder,
             javaSourceJarsProviderBuilder);
-    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
-    ruleOutputJarsProviderBuilder.setJdeps(outputDepsProto);
-
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);
 
@@ -252,14 +249,15 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
 
-    helper.createCompileAction(
-        classJar,
-        manifestProtoOutput,
-        genSourceJar,
-        outputDepsProto,
-        instrumentationMetadata,
-        /* nativeHeaderOutput= */ null);
+    JavaCompileAction javaCompileAction =
+        helper.createCompileAction(
+            classJar,
+            manifestProtoOutput,
+            genSourceJar,
+            instrumentationMetadata,
+            /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
+    ruleOutputJarsProviderBuilder.setJdeps(javaCompileAction.getOutputDepsProto());
 
     common.setClassPathFragment(
         new ClasspathConfiguredFragment(

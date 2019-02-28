@@ -228,9 +228,9 @@ EOF
 
   # These should now fail.
   bazel query @bar//:bar >& $TEST_log && fail "build should fail"
-  expect_log "no such package '@bar//': The repository could not be resolved"
+  expect_log "no such package '@bar//': The repository '@bar' could not be resolved"
   bazel query @bar//subbar:subbar >& $TEST_log && fail "build should fail"
-  expect_log "no such package '@bar//subbar': The repository could not be resolved"
+  expect_log "no such package '@bar//subbar': The repository '@bar' could not be resolved"
 }
 
 # Test for https://github.com/bazelbuild/bazel/issues/2580

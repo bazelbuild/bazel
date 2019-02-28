@@ -204,17 +204,8 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testImplicitMainRepoRename() throws Exception {
-    helper.setSkylarkSemantics("--incompatible_remap_main_repo");
     helper.parse("workspace(name = 'foo')");
     assertMapping(helper, "@", "@foo", "@");
-  }
-
-  @Test
-  public void testNoImplicitMainRepoRenameWithoutFlag() throws Exception {
-    helper.parse("workspace(name = 'foo')");
-    RepositoryName foo = RepositoryName.create("@foo");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@")))
-        .doesNotContainEntry(foo, RepositoryName.MAIN);
   }
 
   @Test

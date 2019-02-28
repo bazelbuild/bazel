@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
  * Wrapper on a value that controls its accessibility in Starlark based on the value of a
@@ -65,14 +65,14 @@ public class FlagGuardedValue {
   }
 
   /**
-   * Returns an {@link EvalException} with error appropriate to throw when one attempts to
-   * access this guard's protected object when it should be inaccessible in the given semantics.
+   * Returns an {@link EvalException} with error appropriate to throw when one attempts to access
+   * this guard's protected object when it should be inaccessible in the given semantics.
    *
-   * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is true
-   *     given the semantics
+   * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is true given the
+   *     semantics
    */
   public EvalException getEvalExceptionFromAttemptingAccess(
-      Location location, SkylarkSemantics semantics, String symbolDescription) {
+      Location location, StarlarkSemantics semantics, String symbolDescription) {
     Preconditions.checkArgument(!isObjectAccessibleUsingSemantics(semantics),
         "getEvalExceptionFromAttemptingAccess should only be called if the underlying "
             + "object is inaccessible given the semantics");
@@ -93,23 +93,21 @@ public class FlagGuardedValue {
   }
 
   /**
-   * Returns this guard's underlying object. This should be called when appropriate validation
-   * has occurred to ensure that the object is accessible with the given semantics.
+   * Returns this guard's underlying object. This should be called when appropriate validation has
+   * occurred to ensure that the object is accessible with the given semantics.
    *
-   * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is false
-   *     given the semantics
+   * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is false given
+   *     the semantics
    */
-  public Object getObject(SkylarkSemantics semantics) {
+  public Object getObject(StarlarkSemantics semantics) {
     Preconditions.checkArgument(isObjectAccessibleUsingSemantics(semantics),
         "getObject should only be called if the underlying object is accessible given the "
             + "semantics");
     return obj;
   }
 
-  /**
-   * Returns true if this guard's underlying object is accessible under the given semantics.
-   */
-  public boolean isObjectAccessibleUsingSemantics(SkylarkSemantics semantics) {
+  /** Returns true if this guard's underlying object is accessible under the given semantics. */
+  public boolean isObjectAccessibleUsingSemantics(StarlarkSemantics semantics) {
     if (flagType == FlagType.EXPERIMENTAL) {
       return semantics.isFeatureEnabledBasedOnTogglingFlags(flagIdentifier, FlagIdentifier.NONE);
     } else {

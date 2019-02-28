@@ -82,4 +82,10 @@ public interface MetadataHandler extends MetadataProvider {
    * <p>Must be called at most once on any specific instance.
    */
   void discardOutputMetadata();
+
+  /**
+   * Discards output artifact metadata and removes them from other data structures. Use this if an
+   * action can make multiple attempts that are expected to create the same set of output files.
+   */
+  void resetOutputs(Iterable<Artifact> outputs);
 }

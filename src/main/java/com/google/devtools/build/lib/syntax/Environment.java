@@ -350,7 +350,7 @@ public final class Environment implements Freezable, Debuggable {
      * global objects.
      */
     public static GlobalFrame filterOutRestrictedBindings(
-        Mutability mutability, GlobalFrame parent, SkylarkSemantics semantics) {
+        Mutability mutability, GlobalFrame parent, StarlarkSemantics semantics) {
       if (parent == null) {
         return new GlobalFrame(mutability);
       }
@@ -745,7 +745,7 @@ public final class Environment implements Freezable, Debuggable {
   private final Frame dynamicFrame;
 
   /** The semantics options that affect how Skylark code is evaluated. */
-  private final SkylarkSemantics semantics;
+  private final StarlarkSemantics semantics;
 
   private final StarlarkContext starlarkContext;
 
@@ -876,7 +876,7 @@ public final class Environment implements Freezable, Debuggable {
   private Environment(
       GlobalFrame globalFrame,
       LexicalFrame dynamicFrame,
-      SkylarkSemantics semantics,
+      StarlarkSemantics semantics,
       StarlarkContext starlarkContext,
       EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
@@ -905,7 +905,7 @@ public final class Environment implements Freezable, Debuggable {
   public static class Builder {
     private final Mutability mutability;
     @Nullable private GlobalFrame parent;
-    @Nullable private SkylarkSemantics semantics;
+    @Nullable private StarlarkSemantics semantics;
     @Nullable private StarlarkContext starlarkContext;
     @Nullable private EventHandler eventHandler;
     @Nullable private Map<String, Extension> importedExtensions;
@@ -929,13 +929,13 @@ public final class Environment implements Freezable, Debuggable {
       return this;
     }
 
-    public Builder setSemantics(SkylarkSemantics semantics) {
+    public Builder setSemantics(StarlarkSemantics semantics) {
       this.semantics = semantics;
       return this;
     }
 
     public Builder useDefaultSemantics() {
-      this.semantics = SkylarkSemantics.DEFAULT_SEMANTICS;
+      this.semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
       return this;
     }
 
@@ -1184,7 +1184,7 @@ public final class Environment implements Freezable, Debuggable {
     return globalFrame.restrictedBindings;
   }
 
-  public SkylarkSemantics getSemantics() {
+  public StarlarkSemantics getSemantics() {
     return semantics;
   }
 

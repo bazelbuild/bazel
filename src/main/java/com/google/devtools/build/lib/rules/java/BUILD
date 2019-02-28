@@ -13,7 +13,6 @@ java_library(
         "JavaBinary.java",
         "JavaCcLinkParamsProvider.java",
         "JavaConfigurationLoader.java",
-        "JavaHostRuntimeAliasRule.java",
         "JavaImport.java",
         "JavaImportBaseRule.java",
         "JavaInfo.java",

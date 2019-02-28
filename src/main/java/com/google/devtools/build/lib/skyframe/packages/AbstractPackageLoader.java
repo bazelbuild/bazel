@@ -69,7 +69,7 @@ import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -123,7 +123,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final Reporter reporter;
   protected final ConfiguredRuleClassProvider ruleClassProvider;
   private final PackageFactory pkgFactory;
-  protected SkylarkSemantics skylarkSemantics;
+  protected StarlarkSemantics starlarkSemantics;
   protected final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
   private final AtomicReference<PathPackageLocator> pkgLocatorRef;
   protected final ExternalFilesHelper externalFilesHelper;
@@ -140,7 +140,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     private ExternalFileAction externalFileAction;
     protected ExternalFilesHelper externalFilesHelper;
     protected ConfiguredRuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
-    protected SkylarkSemantics skylarkSemantics;
+    protected StarlarkSemantics starlarkSemantics;
     protected Reporter reporter = new Reporter(new EventBus());
     protected Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
@@ -174,13 +174,13 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    public Builder setSkylarkSemantics(SkylarkSemantics semantics) {
-      this.skylarkSemantics = semantics;
+    public Builder setSkylarkSemantics(StarlarkSemantics semantics) {
+      this.starlarkSemantics = semantics;
       return this;
     }
 
     public Builder useDefaultSkylarkSemantics() {
-      this.skylarkSemantics = SkylarkSemantics.DEFAULT_SEMANTICS;
+      this.starlarkSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
       return this;
     }
 
@@ -222,7 +222,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
     /** Throws {@link IllegalArgumentException} if builder args are incomplete/inconsistent. */
     protected void validate() {
-      if (skylarkSemantics == null) {
+      if (starlarkSemantics == null) {
         throw new IllegalArgumentException(
             "must call either setSkylarkSemantics or useDefaultSkylarkSemantics");
       }
@@ -242,7 +242,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   AbstractPackageLoader(Builder builder) {
     this.ruleClassProvider = builder.ruleClassProvider;
-    this.skylarkSemantics = builder.skylarkSemantics;
+    this.starlarkSemantics = builder.starlarkSemantics;
     this.reporter = builder.reporter;
     this.extraSkyFunctions = ImmutableMap.copyOf(builder.extraSkyFunctions);
     this.pkgLocatorRef = builder.pkgLocatorRef;
@@ -254,7 +254,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
     this.preinjectedDiff =
         makePreinjectedDiff(
-            skylarkSemantics,
+            starlarkSemantics,
             builder.pkgLocator,
             ImmutableList.copyOf(builder.extraPrecomputedValues));
     pkgFactory =
@@ -267,7 +267,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   }
 
   private static ImmutableDiff makePreinjectedDiff(
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       PathPackageLocator pkgLocator,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
     final Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
@@ -288,7 +288,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     }
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable, pkgLocator);
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, ConstantRuleVisibility.PRIVATE);
-    PrecomputedValue.SKYLARK_SEMANTICS.set(injectable, skylarkSemantics);
+    PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 

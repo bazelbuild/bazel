@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -1312,7 +1313,7 @@ public final class Attribute implements Comparable<Attribute> {
       List<Map<String, Object>> depMaps = mapper.visitAttributes(dependencies, limiter);
       // For each combination, call compute() on a specialized AttributeMap providing those
       // values.
-      Map<List<Object>, T> valueMap = new HashMap<>(depMaps.size());
+      Map<List<Object>, T> valueMap = Maps.newHashMapWithExpectedSize(depMaps.size());
       for (Map<String, Object> depMap : depMaps) {
         AttributeMap attrMap = mapper.createMapBackedAttributeMap(depMap);
         Object value = compute(attrMap);

@@ -48,6 +48,7 @@ title: Installing Bazel on Windows
 ### Other ways to get Bazel
 
 *   [Install Bazel using the Chocolatey package manager](#install-using-chocolatey)
+*   [Install Bazel using the Scoop package manager](#install-using-scoop)
 *   [Compile Bazel from source](install-compile-source.html)
 
 #### Install using Chocolatey
@@ -65,6 +66,20 @@ title: Installing Bazel on Windows
 See [Chocolatey installation and package maintenance
 guide](https://bazel.build/windows-chocolatey-maintenance.html) for more
 information about the Chocolatey package.
+
+#### Install using Scoop
+
+1.  Install the [Scoop](https://scoop.sh/) package manager using the following PowerShell command:
+
+        iex (new-object net.webclient).downloadstring('https://get.scoop.sh')
+
+2.  Install the Bazel package:
+
+        scoop install bazel
+
+See [Scoop installation and package maintenance
+guide](https://bazel.build/windows-scoop-maintenance.html) for more
+information about the Scoop package.
 
 ### Using Bazel
 

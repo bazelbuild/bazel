@@ -629,6 +629,9 @@ java_library(
         ],
         exclude = ["analysis/util/DefaultBuildOptionsForTesting.java"],
     ),
+    data = [
+        "//tools/jdk:srcs",
+    ],
     resources = [
         "analysis/mock/MOCK_CROSSTOOL",
     ],
@@ -647,6 +650,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-repository",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:bazel/LicenseCheckingModule",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:core-rules",
@@ -692,6 +696,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 
@@ -855,6 +860,7 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:bazel/LicenseCheckingModule",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages",

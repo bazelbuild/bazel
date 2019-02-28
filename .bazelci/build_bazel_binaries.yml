@@ -7,6 +7,9 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    build_flags:
+    - "-c"
+    - "opt"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -14,9 +17,14 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    build_flags:
+    - "-c"
+    - "opt"
   windows:
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
+    - "-c"
+    - "opt"
     build_targets:
     - "//src:bazel"

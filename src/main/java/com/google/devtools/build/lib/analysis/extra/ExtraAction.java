@@ -104,6 +104,11 @@ public final class ExtraAction extends SpawnAction {
   }
 
   @Override
+  protected boolean mayExecuteAsync() {
+    return false;
+  }
+
+  @Override
   public boolean discoversInputs() {
     return shadowedAction.discoversInputs();
   }

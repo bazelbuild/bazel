@@ -122,36 +122,27 @@ class IFStreamImpl : IFStream {
   // If successful, then takes ownership of the HANDLE in 'handle', and returns
   // a new IFStream pointer. Otherwise leaves 'handle' alone and returns
   // nullptr.
-  static IFStream* Create(bazel::windows::AutoHandle* handle,
-                          DWORD max_page_size = 0x100000 /* 1 MB */);
+  static IFStream* Create(HANDLE handle, DWORD page_size = 0x100000 /* 1 MB */);
 
-  bool Get(uint8_t* result) const override;
-  bool Advance() override;
-
- protected:
-  bool PeekN(DWORD n, uint8_t* result) const override;
+  int Get() override;
+  DWORD Peek(DWORD n, uint8_t* out) const override;
 
  private:
-  bazel::windows::AutoHandle handle_;
-  const std::unique_ptr<uint8_t[]> data_;
-  const DWORD max_page_size_;
-  DWORD page1_size_;
-  DWORD page2_size_;
-  DWORD page_end_;
-  DWORD read_pos_;
+  HANDLE handle_;
+  const std::unique_ptr<uint8_t[]> pages_;
+  const DWORD page_size_;
+  DWORD pos_, end_, next_size_;
 
-  IFStreamImpl(bazel::windows::AutoHandle* handle,
-               std::unique_ptr<uint8_t[]>&& data, DWORD data_size,
-               DWORD max_page_size)
+  IFStreamImpl(HANDLE handle, std::unique_ptr<uint8_t[]>&& pages, DWORD n,
+               DWORD page_size)
       : handle_(handle),
-        data_(std::move(data)),
-        max_page_size_(max_page_size),
-        page1_size_(data_size > max_page_size ? max_page_size : data_size),
-        page2_size_(data_size > max_page_size ? data_size - max_page_size : 0),
-        read_pos_(0),
-        page_end_(page1_size_) {}
-
-  bool Page1Active() const { return read_pos_ < max_page_size_; }
+        pages_(std::move(pages)),
+        page_size_(page_size),
+        pos_(0),
+        end_(n < page_size ? n : page_size),
+        next_size_(n < page_size
+                       ? 0
+                       : (n < page_size * 2 ? n - page_size : page_size)) {}
 };
 
 // A lightweight path abstraction that stores a Unicode Windows path.
@@ -1489,83 +1480,69 @@ int RunSubprocess(const Path& test_path,
 //
 // Every octet-sequence matching one of these regexps will be left alone, all
 // other octet-sequences will be replaced by '?' characters.
-bool CdataEscape(const uint8_t* input, const DWORD size,
-                 std::basic_ostream<char>* out) {
-  // We aren't modifying the input, so const_cast is fine.
-  uint8_t* p = const_cast<uint8_t*>(input);
-
-  for (DWORD i = 0; i < size; ++i, ++p) {
-    if (p[0] == ']' && (i + 2 < size) && p[1] == ']' && p[2] == '>') {
+bool CdataEscape(IFStream* in, std::basic_ostream<char>* out) {
+  int c0 = in->Get();
+  uint8_t p[3];
+  for (; c0 < 256; c0 = in->Get()) {
+    if (c0 == ']' && in->Peek(2, p) == 2 && p[0] == ']' && p[1] == '>') {
       *out << "]]>]]<![CDATA[>";
       if (!out->good()) {
         return false;
       }
-      i += 2;
-      p += 2;
-    } else if (*p == 0x9 || *p == 0xA || *p == 0xD ||
-               (*p >= 0x20 && *p <= 0x7F)) {
+      (void)in->Get();
+      (void)in->Get();
+    } else if (c0 == 0x9 || c0 == 0xA || c0 == 0xD ||
+               (c0 >= 0x20 && c0 <= 0x7F)) {
       // Matched legal single-octet sequence.
-      *out << *p;
+      *out << (char)c0;
       if (!out->good()) {
         return false;
       }
-    } else if ((i + 1 < size) && p[0] >= 0xC0 && p[0] <= 0xDF && p[1] >= 0x80 &&
-               p[1] <= 0xBF) {
+    } else if (c0 >= 0xC0 && c0 <= 0xDF && in->Peek(1, p) == 1 &&
+               p[0] >= 0x80 && p[0] <= 0xBF) {
       // Matched legal double-octet sequence. Skip the next octet.
-      *out << p[0] << p[1];
+      *out << (char)c0 << (char)p[0];
       if (!out->good()) {
         return false;
       }
-      i += 1;
-      p += 1;
-    } else if ((i + 2 < size) &&
-               ((p[0] >= 0xE0 && p[0] <= 0xEC && p[1] >= 0x80 && p[1] <= 0xBF &&
-                 p[2] >= 0x80 && p[2] <= 0xBF) ||
-                (p[0] == 0xED && p[1] >= 0x80 && p[1] <= 0x9F && p[2] >= 0x80 &&
-                 p[2] <= 0xBF) ||
-                (p[0] == 0xEE && p[1] >= 0x80 && p[1] <= 0xBF && p[2] >= 0x80 &&
-                 p[2] <= 0xBF) ||
-                (p[0] == 0xEF && p[1] >= 0x80 && p[1] <= 0xBE && p[2] >= 0x80 &&
-                 p[2] <= 0xBF) ||
-                (p[0] == 0xEF && p[1] == 0xBF && p[2] >= 0x80 &&
-                 p[2] <= 0xBD))) {
+      (void)in->Get();
+    } else if (in->Peek(2, p) == 2 &&
+               ((c0 >= 0xE0 && c0 <= 0xEC && p[0] >= 0x80 && p[0] <= 0xBF &&
+                 p[1] >= 0x80 && p[1] <= 0xBF) ||
+                (c0 == 0xED && p[0] >= 0x80 && p[0] <= 0x9F && p[1] >= 0x80 &&
+                 p[1] <= 0xBF) ||
+                (c0 == 0xEE && p[0] >= 0x80 && p[0] <= 0xBF && p[1] >= 0x80 &&
+                 p[1] <= 0xBF) ||
+                (c0 == 0xEF && p[0] >= 0x80 && p[0] <= 0xBE && p[1] >= 0x80 &&
+                 p[1] <= 0xBF) ||
+                (c0 == 0xEF && p[0] == 0xBF && p[1] >= 0x80 && p[1] <= 0xBD))) {
       // Matched legal triple-octet sequence. Skip the next two octets.
-      *out << p[0] << p[1] << p[2];
+      *out << (char)c0 << (char)p[0] << (char)p[1];
       if (!out->good()) {
         return false;
       }
-      i += 2;
-      p += 2;
-    } else if ((i + 3 < size) && p[0] >= 0xF0 && p[0] <= 0xF7 && p[1] >= 0x80 &&
-               p[1] <= 0xBF && p[2] >= 0x80 && p[2] <= 0xBF && p[3] >= 0x80 &&
-               p[3] <= 0xBF) {
+      (void)in->Get();
+      (void)in->Get();
+    } else if (in->Peek(3, p) == 3 && c0 >= 0xF0 && c0 <= 0xF7 &&
+               p[0] >= 0x80 && p[0] <= 0xBF && p[1] >= 0x80 && p[1] <= 0xBF &&
+               p[2] >= 0x80 && p[2] <= 0xBF) {
       // Matched legal quadruple-octet sequence. Skip the next three octets.
-      *out << p[0] << p[1] << p[2] << p[3];
+      *out << (char)c0 << (char)p[0] << (char)p[1] << (char)p[2];
       if (!out->good()) {
         return false;
       }
-      i += 3;
-      p += 3;
+      (void)in->Get();
+      (void)in->Get();
+      (void)in->Get();
     } else {
       // Illegal octet; replace.
-      *out << '?';
+      *out << (char)'?';
       if (!out->good()) {
         return false;
       }
     }
   }
-  return true;
-}
-
-bool CdataEscapeAndAppend(const Path& input, std::ofstream* out_stm) {
-  DWORD size;
-  std::unique_ptr<uint8_t[]> data;
-  if (!ReadCompleteFile(input, &data, &size)) {
-    LogError(__LINE__, input.Get());
-    return false;
-  }
-
-  return CdataEscape(data.get(), size, out_stm);
+  return c0 == IFStream::kIFStreamErrorEOF;
 }
 
 bool GetTestName(std::wstring* result) {
@@ -1673,39 +1650,51 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return false;
   }
 
-  std::ofstream stm(
+  bazel::windows::AutoHandle test_log;
+  if (!OpenExistingFileForRead(test_outerr, &test_log)) {
+    LogError(__LINE__, test_outerr.Get().c_str());
+    return false;
+  }
+
+  std::unique_ptr<IFStream> istm(IFStreamImpl::Create(test_log));
+  if (istm == nullptr) {
+    LogError(__LINE__, test_outerr.Get().c_str());
+    return false;
+  }
+
+  std::ofstream ostm(
       AddUncPrefixMaybe(output).c_str(),
       std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
-  if (!stm.is_open() || !stm.good()) {
+  if (!ostm.is_open() || !ostm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Create XML file stub.
-  stm << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-         "<testsuites>\n"
-         "<testsuite name=\""
-      << acp_test_name << "\" tests=\"1\" failures=\"0\" errors=\"" << errors
-      << "\">\n"
-         "<testcase name=\""
-      << acp_test_name << "\" status=\"run\" duration=\"" << duration.seconds
-      << "\" time=\"" << duration.seconds << "\">" << error_msg
-      << "</testcase>\n"
-         "<system-out><![CDATA[";
-  if (!stm.good()) {
+  ostm << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+          "<testsuites>\n"
+          "<testsuite name=\""
+       << acp_test_name << "\" tests=\"1\" failures=\"0\" errors=\"" << errors
+       << "\">\n"
+          "<testcase name=\""
+       << acp_test_name << "\" status=\"run\" duration=\"" << duration.seconds
+       << "\" time=\"" << duration.seconds << "\">" << error_msg
+       << "</testcase>\n"
+          "<system-out><![CDATA[";
+  if (!ostm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Encode test log to make it embeddable in CDATA.
-  if (!CdataEscapeAndAppend(test_outerr, &stm)) {
+  if (!CdataEscape(istm.get(), &ostm)) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Append CDATA end and closing tags.
-  stm << "]]></system-out>\n</testsuite>\n</testsuites>\n";
-  if (!stm.good()) {
+  ostm << "]]></system-out>\n</testsuite>\n</testsuites>\n";
+  if (!ostm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
@@ -1750,11 +1739,10 @@ Path Path::Dirname() const {
   return result;
 }
 
-IFStream* IFStreamImpl::Create(bazel::windows::AutoHandle* handle,
-                               DWORD max_page_size) {
-  std::unique_ptr<uint8_t[]> data(new uint8_t[max_page_size * 2]);
+IFStream* IFStreamImpl::Create(HANDLE handle, DWORD page_size) {
+  std::unique_ptr<uint8_t[]> data(new uint8_t[page_size * 2]);
   DWORD read;
-  if (!ReadFile(*handle, data.get(), max_page_size * 2, &read, NULL)) {
+  if (!ReadFile(handle, data.get(), page_size * 2, &read, NULL)) {
     DWORD err = GetLastError();
     if (err == ERROR_BROKEN_PIPE) {
       read = 0;
@@ -1763,85 +1751,59 @@ IFStream* IFStreamImpl::Create(bazel::windows::AutoHandle* handle,
       return nullptr;
     }
   }
-  return new IFStreamImpl(handle, std::move(data), read, max_page_size);
+  return new IFStreamImpl(handle, std::move(data), read, page_size);
 }
 
-bool IFStreamImpl::Get(uint8_t* result) const {
-  if (read_pos_ < page_end_) {
-    *result = data_[read_pos_];
-    return true;
-  } else {
-    return false;
+int IFStreamImpl::Get() {
+  if (pos_ == end_) {
+    return kIFStreamErrorEOF;
   }
-}
 
-bool IFStreamImpl::Advance() {
-  if (read_pos_ + 1 < page_end_) {
-    read_pos_++;
-    return true;
+  int result = pages_[pos_];
+  if (pos_ + 1 < end_) {
+    pos_++;
+    return result;
   }
-  const bool page1_was_active = Page1Active();
-  // The new page should have already been loaded when we started reading the
-  // current one (or it was filled by the Create method). Its size should only
-  // be zero if we reached EOF.
-  if ((page1_was_active && page2_size_ == 0) ||
-      (!page1_was_active && page1_size_ == 0)) {
-    return false;
-  }
-  // Overwrite the *active* page, because read_pos_ is about to move out of it
-  // and the current inactive page will be the new active one.
-  if (!ReadFile(handle_,
-                page1_was_active ? data_.get() : (data_.get() + max_page_size_),
-                max_page_size_, page1_was_active ? &page1_size_ : &page2_size_,
-                NULL)) {
+
+  // Overwrite the *active* page: we are about to move off of it.
+  DWORD offs = (pos_ < page_size_) ? 0 : page_size_;
+  DWORD read;
+  if (!ReadFile(handle_, pages_.get() + offs, page_size_, &read, NULL)) {
     DWORD err = GetLastError();
     if (err == ERROR_BROKEN_PIPE) {
       // The stream is reading from a pipe, and there's no more data.
-      if (page1_was_active) {
-        page1_size_ = 0;
-      } else {
-        page2_size_ = 0;
-      }
     } else {
       LogErrorWithValue(__LINE__, "Failed to read from file", err);
-      return false;
+      return kIFStreamErrorIO;
     }
   }
-  page_end_ = page1_was_active ? max_page_size_ + page2_size_ : page1_size_;
-  read_pos_ = page1_was_active ? max_page_size_ : 0;
-  return true;
+  pos_ = (pos_ < page_size_) ? page_size_ : 0;
+  end_ = pos_ + next_size_;
+  next_size_ = read;
+  return result;
 }
 
-bool IFStreamImpl::PeekN(DWORD n, uint8_t* result) const {
-  if (n > 3) {
-    // We only need to support peeking at up to 3 bytes. The theoretical upper
-    // limit is max_page_size_ * 2 - 1, because the buffer can hold at most
-    // max_page_size_ * 2 bytes of data and peeking starts at the next byte.
-    return false;
+DWORD IFStreamImpl::Peek(DWORD n, uint8_t* out) const {
+  if (pos_ == end_) {
+    return 0;
   }
 
-  if (page_end_ - read_pos_ > n) {
-    // The current page has enough data we can peek at.
-    for (DWORD i = 0; i < n; ++i) {
-      result[i] = data_[read_pos_ + 1 + i];
-    }
-    return true;
+  DWORD n1 = end_ - pos_;
+  if (n1 > n) {
+    n1 = n;  // all 'n' bytes are on the current page
   }
-  DWORD required_from_next_page = n - (page_end_ - 1 - read_pos_);
-  // Check that the next page has enough data.
-  if ((Page1Active() && page2_size_ < required_from_next_page) ||
-      (!Page1Active() && page1_size_ < required_from_next_page)) {
-    // Pages are loaded eagerly by Advance(). The only way the next page's size
-    // can be zero is if we reached EOF.
-    return false;
+  memcpy(out, pages_.get() + pos_, n1);
+  if (n1 == n) {
+    return n;
   }
-  for (DWORD i = 0, pos = read_pos_ + 1; i < n; ++i, ++pos) {
-    if (pos == page_end_) {
-      pos = Page1Active() ? max_page_size_ : 0;
-    }
-    result[i] = data_[pos];
+
+  DWORD offs = (pos_ < page_size_) ? page_size_ : 0;
+  DWORD n2 = n - n1;  // how much is left to read
+  if (n2 > next_size_) {
+    n2 = next_size_;  // read no more than the other page's size
   }
-  return true;
+  memcpy(out + n1, pages_.get() + offs, n2);
+  return n1 + n2;
 }
 
 }  // namespace
@@ -2009,13 +1971,11 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
   return TeeImpl::Create(input, output1, output2, result);
 }
 
-bool TestOnly_CdataEncode(const uint8_t* input, const DWORD size,
-                          std::basic_ostream<char>* out_stm) {
-  return CdataEscape(input, size, out_stm);
+bool TestOnly_CdataEncode(IFStream* in_stm, std::basic_ostream<char>* out_stm) {
+  return CdataEscape(in_stm, out_stm);
 }
 
-IFStream* TestOnly_CreateIFStream(bazel::windows::AutoHandle* handle,
-                                  DWORD page_size) {
+IFStream* TestOnly_CreateIFStream(HANDLE handle, DWORD page_size) {
   return IFStreamImpl::Create(handle, page_size);
 }
 

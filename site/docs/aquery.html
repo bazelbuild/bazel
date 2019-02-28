@@ -5,15 +5,16 @@ title: Aquery (Action Graph Query)
 <h1>Aquery (Action Graph Query)</h1>
 
 
-<ul class="toc">
+<ul>
   <li><a href="#overview">Overview</a></li>
   <li><a href="#basic-syntax">Basic Syntax</a></li>
   <li><a href="#functions">Aquery Functions</a></li>
   <li><a href="#options">Options</a></li>
   <li>
-    <a href="#misc">Miscellaneous</a>
+    <a href="#misc">Other Tools and Features</a>
     <ul>
-      <li><a href="#skyframe-state">Querying against the state of Skyframe</a></li>
+      <li><a href="#skyframe-state">Querying Against the State of Skyframe</a></li>
+      <li><a href="#diff-tool">Comparing Aquery Outputs</a></li>
       <li><a href="#aspect-on-aspect">Handling Aspect-on-aspect</a></li>
     </ul>
   </li>
@@ -22,8 +23,6 @@ title: Aquery (Action Graph Query)
 </ul>
 
 <h2 id='overview'>Overview</h2>
-
-<b>Caution</b>: The aquery command is still experimental and its API will change.
 
 <p>
   The <code>aquery</code> command allows you to query for actions in your build graph.
@@ -55,7 +54,7 @@ title: Aquery (Action Graph Query)
 $ bazel aquery 'deps(//some:label)'
 action 'Writing file some_file_name'
   Mnemonic: ...
-  Owner: ...
+  Target: ...
   Configuration: ...
   ActionKey: ...
   Inputs: [...]
@@ -188,7 +187,7 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
   This flag is only available with <code>--output=proto</code> or <code>--output=textproto</code>.
 </p>
 
-<h2 id='misc'>Miscellaneous</h2>
+<h2 id='misc'>Other Tools and Features</h2>
 
 <h3 id="skyframe-state">Querying against the state of Skyframe</h3>
 
@@ -265,6 +264,62 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
   ERROR: Error while parsing '//target_a)': Specifying a build target(s) [//target_a] with --skyframe_state is currently not supported.
 </pre>
 
+<h3 id="diff-tool">Comparing Aquery Outputs</h3>
+
+<p>
+  You can compare the outputs of two different aquery invocations using the <code>aquery_differ</code> tool.
+  For instance: when you make some changes to your rule definition and want to verify that the
+  command lines being run did not change. <code>aquery_differ</code> is the tool for that.
+</p>
+
+<p>
+  The tool is available in the [bazelbuild/bazel](https://github.com/bazelbuild/bazel/tree/master/tools/aquery_differ) repository.
+  To use it, clone the repository to your local machine. An example usage:
+</p>
+
+<pre>
+  $ bazel run //tools/aquery_differ -- \
+  --before=/path/to/before.proto \
+  --after=/path/to/after.proto \
+  --input_type=proto \
+  --attrs=cmdline \
+  --attrs=inputs
+</pre>
+
+<p>
+  The above command returns the difference between the <code>before</code> and <code>after</code> aquery outputs:
+  which actions were present in one but not the other, which actions have different
+  command line/inputs in each aquery output, ...). The result of running the above command would be:
+</p>
+
+<pre>
+  Aquery output 'after' change contains an action that generates the following outputs that aquery output 'before' change doesn't:
+  ...
+  /list of output files/
+  ...
+
+  [cmdline]
+  Difference in the action that generates the following output(s):
+    /path/to/abc.out
+  --- /path/to/before.proto
+  +++ /path/to/after.proto
+  @@ -1,3 +1,3 @@
+    ...
+    /cmdline diff, in unified diff format/
+    ...
+</pre>
+
+<h4>Command options</h4>
+<p><code class='flag'>--before, --after</code>: The aquery output files to be compared</p>
+<p>
+  <code class='flag'>--input_type=(proto|text_proto), default=proto</code>: the format of the input
+  files. We currently support <code>proto</code> and <code>textproto</code> aquery output.
+</p>
+<p>
+  <code class='flag'>--attrs=(cmdline|inputs), default=cmdline</code>: the attributes of actions
+  to be compared.
+</p>
+
 <h3 id="aspect-on-aspect">Aspect-on-Aspect</h3>
 
 <p>
@@ -332,6 +387,5 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
 <h2 id='updates'>Updates</h2>
 
 <p>
-  Aquery is a work in progress, and its API might change in the future.
   Please contact twerth@google.com and leba@google.com for any issue/feature request.
 </p>

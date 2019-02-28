@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.protobuf.CodedOutputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.function.Consumer;
@@ -31,15 +32,13 @@ import java.util.function.Consumer;
  * {@link BuildEvent} protocol buffers to a file.
  */
 public final class BinaryFormatFileTransport extends FileTransport {
-
   public BinaryFormatFileTransport(
-      String path,
+      BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      Consumer<AbruptExitException> exitFunc,
-      ArtifactGroupNamer namer)
-      throws IOException {
-    super(path, options, uploader, exitFunc, namer);
+      Consumer<AbruptExitException> abruptExitCallback,
+      ArtifactGroupNamer namer) {
+    super(outputStream, options, uploader, abruptExitCallback, namer);
   }
 
   @Override

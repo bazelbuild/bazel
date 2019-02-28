@@ -259,6 +259,7 @@ export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 %set_jacoco_metadata%
 %set_jacoco_main_class%
 %set_jacoco_java_runfiles_root%
+%set_java_coverage_new_implementation%
 
 if [[ -n "$JVM_DEBUG_PORT" ]]; then
   JVM_DEBUG_SUSPEND=${DEFAULT_JVM_DEBUG_SUSPEND:-"y"}

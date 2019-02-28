@@ -163,9 +163,14 @@ public class ExecutionTool {
     // independently from each other, for example, to run genrules locally and Java compile action
     // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
     // context class, but also the mnemonic of the action.
+    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     spawnActionContextMaps =
-        builder.getSpawnActionContextMapsBuilder().build(
-            actionContextProviders, request.getOptions(ExecutionOptions.class).testStrategy);
+        builder
+            .getSpawnActionContextMapsBuilder()
+            .build(
+                actionContextProviders,
+                options.testStrategy,
+                options.incompatibleListBasedExecutionStrategySelection);
   }
 
   Executor getExecutor() throws ExecutorInitException {
@@ -368,13 +373,7 @@ public class ExecutionTool {
 
       // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
       // a catastrophic failure. Posting these is consistent with other behavior.
-      env.getEventBus()
-          .post(
-              new ExecutionFinishedEvent(
-                  ImmutableMap.of(),
-                  0L,
-                  skyframeExecutor.getOutputDirtyFilesAndClear(),
-                  skyframeExecutor.getModifiedFilesDuringPreviousBuildAndClear()));
+      env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
 
       env.getEventBus()
           .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));

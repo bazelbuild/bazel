@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.Set;
-import java.util.function.Function;
 
 /** A helper class that computes 'rbuildfiles(<blah>)' via BFS. */
 public class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
@@ -40,34 +39,41 @@ public class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
       PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
   private final SkyQueryEnvironment env;
   private final QueryExpressionContext<Target> context;
-  private final Function<SkyKey, Boolean> rdepFilter;
+  protected final Uniquifier<SkyKey> resultUniquifier;
 
   public RBuildFilesVisitor(
       SkyQueryEnvironment env,
-      Uniquifier<SkyKey> uniquifier,
+      Uniquifier<SkyKey> visitUniquifier,
+      Uniquifier<SkyKey> resultUniquifier,
       QueryExpressionContext<Target> context,
-      Callback<Target> callback,
-      Function<SkyKey, Boolean> rdepFilter) {
-    super(uniquifier, callback, ParallelSkyQueryUtils.VISIT_BATCH_SIZE, PROCESS_RESULTS_BATCH_SIZE);
+      Callback<Target> callback) {
+    super(
+        visitUniquifier,
+        callback,
+        ParallelSkyQueryUtils.VISIT_BATCH_SIZE,
+        PROCESS_RESULTS_BATCH_SIZE);
     this.env = env;
+    this.resultUniquifier = resultUniquifier;
     this.context = context;
-    this.rdepFilter = rdepFilter;
   }
 
   @Override
-  protected Visit getVisitResult(Iterable<SkyKey> values) throws InterruptedException {
+  protected Visit getVisitResult(Iterable<SkyKey> values)
+      throws QueryException, InterruptedException {
     Collection<Iterable<SkyKey>> reverseDeps = env.graph.getReverseDeps(values).values();
     Set<SkyKey> keysToUseForResult = CompactHashSet.create();
     Set<SkyKey> keysToVisitNext = CompactHashSet.create();
     for (SkyKey rdep : Iterables.concat(reverseDeps)) {
       if (rdep.functionName().equals(SkyFunctions.PACKAGE)) {
-        keysToUseForResult.add(rdep);
+        if (resultUniquifier.unique(rdep)) {
+          keysToUseForResult.add(rdep);
+        }
         // Every package has a dep on the external package, so we need to include those edges too.
         if (rdep.equals(EXTERNAL_PACKAGE_KEY)) {
           keysToVisitNext.add(rdep);
         }
-      } else if (rdepFilter.apply(rdep)) {
-        keysToVisitNext.add(rdep);
+      } else {
+        processNonPackageRdepAndDetermineVisitations(rdep, keysToVisitNext, keysToUseForResult);
       }
     }
     return new Visit(keysToUseForResult, keysToVisitNext);
@@ -84,5 +90,18 @@ public class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
   @Override
   protected Iterable<SkyKey> preprocessInitialVisit(Iterable<SkyKey> keys) {
     return keys;
+  }
+
+  protected void processNonPackageRdepAndDetermineVisitations(
+      SkyKey rdep, Set<SkyKey> keysToVisitNext, Set<SkyKey> keysToUseForResult)
+      throws QueryException {
+    // Packages may depend on the existence of subpackages, but these edges aren't
+    // relevant to rbuildfiles. They may also depend on files transitively through
+    // globs, but these cannot be included in load statements and so we don't traverse
+    // through these either.
+    if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)
+        && !rdep.functionName().equals(SkyFunctions.GLOB)) {
+      keysToVisitNext.add(rdep);
+    }
   }
 }

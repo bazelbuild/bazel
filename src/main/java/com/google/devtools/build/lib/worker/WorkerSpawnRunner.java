@@ -121,6 +121,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return actuallyExec(spawn, context);
   }
 
+  @Override
+  public boolean canExec(Spawn spawn) {
+    return Spawns.supportsWorkers(spawn);
+  }
+
   private SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
     if (Iterables.isEmpty(spawn.getToolFiles())) {

@@ -215,8 +215,6 @@ public abstract class PackageFactoryTestBase {
     // Ensure all of the patterns are recorded against this package:
     assertThat(globCache.getKeySet().containsAll(createGlobCacheKeys(includes, excludeDirs)))
         .isTrue();
-    assertThat(globCache.getKeySet().containsAll(createGlobCacheKeys(excludes, excludeDirs)))
-        .isTrue();
     assertThat(pkg.containsErrors()).isFalse();
   }
 

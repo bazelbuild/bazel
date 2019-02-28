@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -313,17 +314,17 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static void addRuntime(RuleContext ruleContext, Runfiles.Builder builder) {
-    BazelPyRuntimeProvider provider = ruleContext.getPrerequisite(
-        ":py_interpreter", Mode.TARGET, BazelPyRuntimeProvider.class);
-    if (provider != null && provider.interpreter() != null) {
-      builder.addArtifact(provider.interpreter());
+    PyRuntimeInfo provider =
+        ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeInfo.PROVIDER);
+    if (provider != null && provider.isInBuild()) {
+      builder.addArtifact(provider.getInterpreter());
       // WARNING: we are adding the all Python runtime files here,
       // and it would fail if the filenames of them contain spaces.
       // Currently, we need to exclude them in py_runtime rules.
       // Possible files in Python runtime which contain spaces in filenames:
       // - https://github.com/pypa/setuptools/blob/master/setuptools/script%20(dev).tmpl
       // - https://github.com/pypa/setuptools/blob/master/setuptools/command/launcher%20manifest.xml
-      builder.addTransitiveArtifacts(provider.files());
+      builder.addTransitiveArtifacts(provider.getFiles());
     }
   }
 
@@ -333,20 +334,20 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     String pythonBinary;
 
-    BazelPyRuntimeProvider provider = ruleContext.getPrerequisite(
-        ":py_interpreter", Mode.TARGET, BazelPyRuntimeProvider.class);
+    PyRuntimeInfo provider =
+        ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeInfo.PROVIDER);
 
     if (provider != null) {
       // make use of py_runtime defined by --python_top
-      if (!provider.interpreterPath().isEmpty()) {
+      if (!provider.isInBuild()) {
         // absolute Python path in py_runtime
-        pythonBinary = provider.interpreterPath();
+        pythonBinary = provider.getInterpreterPath().getPathString();
       } else {
         // checked in Python interpreter in py_runtime
         PathFragment workspaceName =
             PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
         pythonBinary =
-            workspaceName.getRelative(provider.interpreter().getRunfilesPath()).getPathString();
+            workspaceName.getRelative(provider.getInterpreter().getRunfilesPath()).getPathString();
       }
     } else  {
       // make use of the Python interpreter in an absolute path

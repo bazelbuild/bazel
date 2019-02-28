@@ -58,13 +58,11 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         "@bazel_tools//tools/osx/crosstool:osx_archs.bzl",
         "@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl",
         "@bazel_tools//tools/osx/crosstool:wrapped_clang.cc",
-        "@bazel_tools//tools/osx/crosstool:wrapped_clang.tpl",
-        "@bazel_tools//tools/osx/crosstool:wrapped_clang_pp.tpl",
         "@bazel_tools//tools/osx:xcode_locator.m",
     ])
 
     xcode_toolchains = []
-    (xcode_toolchains, xcodeloc_err) = run_xcode_locator(
+    xcode_toolchains = run_xcode_locator(
         repository_ctx,
         paths["@bazel_tools//tools/osx:xcode_locator.m"],
     )
@@ -120,11 +118,6 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         if (xcrun_result.return_code == 0):
             repository_ctx.symlink("wrapped_clang", "wrapped_clang_pp")
         else:
-            # If for some reason wrapped_clang couldn't be built, fall back to
-            # using the bash scripts that don't support dSYM generation. This is to
-            # avoid completely breaking a build. This should be removed after a whole
-            # release cycle to keep from increasing code maintenance, if we haven't
-            # received any issues as requested below.
             error_msg = (
                 "return code {code}, stderr: {err}, stdout: {out}"
             ).format(
@@ -132,25 +125,14 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
                 err = xcrun_result.stderr,
                 out = xcrun_result.stdout,
             )
-            print("wrapped_clang failed to generate. This shouldn't cause " +
-                  "problems, but please file an issue at " +
-                  "https://github.com/bazelbuild/bazel/issues with the following:\n" +
-                  error_msg)
-            repository_ctx.symlink(
-                paths["@bazel_tools//tools/osx/crosstool:wrapped_clang.tpl"],
-                "wrapped_clang",
-            )
-            repository_ctx.symlink(
-                paths["@bazel_tools//tools/osx/crosstool:wrapped_clang_pp.tpl"],
-                "wrapped_clang_pp",
-            )
+            fail("wrapped_clang failed to generate. Please file an issue at " +
+                 "https://github.com/bazelbuild/bazel/issues with the following:\n" +
+                 error_msg)
 
         escaped_include_paths = _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
         escaped_cxx_include_directories = []
         for path in escaped_include_paths:
             escaped_cxx_include_directories.append(("    \"%s\"," % path))
-        if xcodeloc_err:
-            escaped_cxx_include_directories.append("# Error: " + xcodeloc_err + "\n")
         repository_ctx.template(
             "cc_toolchain_config.bzl",
             paths["@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl.tpl"],

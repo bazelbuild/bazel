@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -31,26 +29,13 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 /** Common rule class definitions for Java rules. */
 public class JavaRuleClasses {
 
-  public static final String TOOLCHAIN_TYPE_LABEL = "//tools/jdk:toolchain_type";
-  public static final String RUNTIME_TOOLCHAIN_TYPE_LABEL = "//tools/jdk:runtime_toolchain_type";
-  public static final String JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME =
-      "$java_runtime_toolchain_type";
-  public static final String JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$java_toolchain_type";
   public static final String JAVA_TOOLCHAIN_ATTRIBUTE_NAME = "$java_toolchain";
   public static final String JAVA_RUNTIME_ATTRIBUTE_NAME = "$jvm";
   public static final String HOST_JAVA_RUNTIME_ATTRIBUTE_NAME = "$host_jdk";
 
-  public static Label javaToolchainTypeAttribute(RuleDefinitionEnvironment env) {
-    return env.getToolsLabel(TOOLCHAIN_TYPE_LABEL);
-  }
-
-  public static Label javaRuntimeTypeAttribute(RuleDefinitionEnvironment env) {
-    return env.getToolsLabel(RUNTIME_TOOLCHAIN_TYPE_LABEL);
-  }
-
   /** Common attributes for rules that depend on ijar. */
   public static final class IjarBaseRule implements RuleDefinition {
-    @Override
+
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder.setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE).build();
     }
@@ -75,10 +60,6 @@ public class JavaRuleClasses {
                   .useOutputLicenses()
                   .mandatoryProviders(ToolchainInfo.PROVIDER.id())
                   .value(JavaSemantics.javaToolchainAttribute(env)))
-          .add(
-              attr(JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
-                  .value(javaToolchainTypeAttribute(env)))
-          .addRequiredToolchains(javaToolchainTypeAttribute(env))
           .build();
     }
 
@@ -101,15 +82,6 @@ public class JavaRuleClasses {
                   .value(JavaSemantics.jvmAttribute(env))
                   .mandatoryProviders(ToolchainInfo.PROVIDER.id())
                   .useOutputLicenses())
-          .add(
-              attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
-                  .cfg(HostTransition.INSTANCE)
-                  .value(JavaSemantics.hostJdkAttribute(env))
-                  .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
-          .add(
-              attr(JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
-                  .value(JavaRuleClasses.javaRuntimeTypeAttribute(env)))
-          .addRequiredToolchains(javaRuntimeTypeAttribute(env))
           .build();
     }
 
@@ -117,6 +89,29 @@ public class JavaRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$java_runtime_toolchain_base_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(JavaHostRuntimeBaseRule.class)
+          .build();
+    }
+  }
+
+  /** Common attributes for rules that use the host Java runtime. */
+  public static final class JavaHostRuntimeBaseRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(
+              attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .value(JavaSemantics.hostJdkAttribute(env))
+                  .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$java_host_runtime_toolchain_base_rule")
           .type(RuleClassType.ABSTRACT)
           .build();
     }

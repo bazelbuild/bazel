@@ -110,7 +110,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -138,7 +138,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -292,10 +292,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private CompletionReceiver actionExecutionFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private final AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
-
-  protected int modifiedFiles;
-  protected int outputDirtyFiles;
-  protected int modifiedFilesDuringPreviousBuild;
 
   @VisibleForTesting boolean lastAnalysisDiscarded = false;
 
@@ -508,7 +504,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             skylarkImportLookupFunctionForInlining,
             packageProgress,
             actionOnIOExceptionReadingBuildFile,
-            IncrementalityIntent.INCREMENTAL));
+            tracksStateForIncrementality()
+                ? IncrementalityIntent.INCREMENTAL
+                : IncrementalityIntent.NON_INCREMENTAL));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
@@ -601,7 +599,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected SkyFunction newDirectoryListingStateFunction() {
-    return new DirectoryListingStateFunction(externalFilesHelper);
+    return new DirectoryListingStateFunction(externalFilesHelper, syscalls);
   }
 
   protected SkyFunction newGlobFunction() {
@@ -940,7 +938,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", logger)) {
       lastAnalysisDiscarded = true;
       Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
-          memoizingEvaluator.getGraphMap().entrySet().iterator();
+          memoizingEvaluator.getGraphEntries().iterator();
       while (it.hasNext()) {
         Map.Entry<SkyKey, ? extends NodeEntry> keyAndEntry = it.next();
         NodeEntry entry = keyAndEntry.getValue();
@@ -1045,8 +1043,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  protected void setSkylarkSemantics(SkylarkSemantics skylarkSemantics) {
-    PrecomputedValue.SKYLARK_SEMANTICS.set(injectable(), skylarkSemantics);
+  protected void setSkylarkSemantics(StarlarkSemantics starlarkSemantics) {
+    PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
   public void injectExtraPrecomputedValues(
@@ -1169,16 +1167,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public SkyFunctionEnvironmentForTesting getSkyFunctionEnvironmentForTesting(
       ExtendedEventHandler eventHandler) {
     return new SkyFunctionEnvironmentForTesting(eventHandler, this);
-  }
-
-  /**
-   * Informs user about number of modified files (source and output files).
-   */
-  // Note, that number of modified files in some cases can be bigger than actual number of
-  // modified files for targets in current request. Skyframe may check for modification all files
-  // from previous requests.
-  protected void informAboutNumberOfModifiedFiles() {
-    logger.info(String.format("Found %d modified files from last build", modifiedFiles));
   }
 
   public EventBus getEventBus() {
@@ -1310,7 +1298,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void preparePackageLoading(
       PathPackageLocator pkgLocator,
       PackageCacheOptions packageCacheOptions,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm) {
@@ -1323,7 +1311,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.clientEnv.set(clientEnv);
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
-    setSkylarkSemantics(skylarkSemanticsOptions.toSkylarkSemantics());
+    setSkylarkSemantics(starlarkSemanticsOptions.toSkylarkSemantics());
     setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
@@ -2120,6 +2108,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     invalidateFilesUnderPathForTestingImpl(eventHandler, modifiedFileSet, pathEntry);
   }
 
+  @VisibleForTesting
+  public final void turnOffSyscallCacheForTesting() {
+    syscalls.set(UnixGlob.DEFAULT_SYSCALLS);
+  }
+
   protected abstract void invalidateFilesUnderPathForTestingImpl(
       ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
       throws InterruptedException;
@@ -2407,7 +2400,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -2417,7 +2410,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,
-        skylarkSemanticsOptions,
+        starlarkSemanticsOptions,
         commandId,
         clientEnv,
         tsgm);
@@ -2430,7 +2423,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm)
@@ -2439,7 +2432,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       preparePackageLoading(
           pathPackageLocator,
           packageCacheOptions,
-          skylarkSemanticsOptions,
+          starlarkSemanticsOptions,
           commandId,
           clientEnv,
           tsgm);
@@ -2691,17 +2684,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  public int getOutputDirtyFilesAndClear() {
-    int result = outputDirtyFiles;
-    outputDirtyFiles = 0;
-    return result;
-  }
-
-  public int getModifiedFilesDuringPreviousBuildAndClear() {
-    int result = modifiedFilesDuringPreviousBuild;
-    modifiedFilesDuringPreviousBuild = 0;
-    return result;
-  }
+  public abstract ExecutionFinishedEvent createExecutionFinishedEvent();
 
   private <T extends SkyValue> EvaluationResult<T> evaluate(
       Iterable<? extends SkyKey> roots,

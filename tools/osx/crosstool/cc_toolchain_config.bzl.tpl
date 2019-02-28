@@ -3333,7 +3333,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "arm64-apple-ios",
@@ -3354,7 +3353,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "arm64-apple-tvos",
@@ -3375,7 +3373,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "arm64e-apple-ios",
@@ -3396,7 +3393,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "armv7-apple-ios",
@@ -3417,7 +3413,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "armv7-apple-watchos",
@@ -3438,7 +3433,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "i386-apple-ios",
@@ -3459,7 +3453,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "i386-apple-watchos",
@@ -3480,7 +3473,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "x86_64-apple-ios",
@@ -3501,7 +3493,6 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-headerpad_max_install_names",
                                 "-no-canonical-prefixes",
                                 "-target",
                                 "x86_64-apple-tvos",
@@ -3521,7 +3512,7 @@ def _impl(ctx):
                         ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
-                            flags = ["-headerpad_max_install_names", "-no-canonical-prefixes"],
+                            flags = ["-no-canonical-prefixes"],
                         ),
                     ],
                 ),
@@ -3553,12 +3544,14 @@ def _impl(ctx):
                         ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
-                            flags = ["-headerpad_max_install_names", "-no-canonical-prefixes"],
+                            flags = ["-no-canonical-prefixes"],
                         ),
                     ],
                 ),
             ],
         )
+    else:
+        fail("Unreachable")
 
     output_execpath_flags_feature = feature(
         name = "output_execpath_flags",
@@ -3588,6 +3581,7 @@ def _impl(ctx):
 
     pic_feature = feature(
         name = "pic",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -4250,6 +4244,7 @@ def _impl(ctx):
 
     random_seed_feature = feature(
         name = "random_seed",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -4363,8 +4358,6 @@ def _impl(ctx):
         provides = ["profile"],
     )
 
-    bitcode_embedded_feature = feature(name = "bitcode_embedded")
-
     link_libcpp_feature = feature(
         name = "link_libc++",
         enabled = True,
@@ -4400,7 +4393,7 @@ def _impl(ctx):
         ],
     )
 
-    module_maps_feature = feature(name = "module_maps")
+    module_maps_feature = feature(name = "module_maps", enabled = True)
 
     if (ctx.attr.cpu == "ios_arm64"):
         unfiltered_compile_flags_feature = feature(
@@ -4886,6 +4879,7 @@ def _impl(ctx):
 
     include_paths_feature = feature(
         name = "include_paths",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -5169,8 +5163,6 @@ def _impl(ctx):
         ],
     )
 
-    bitcode_embedded_markers_feature = feature(name = "bitcode_embedded_markers")
-
     dead_strip_feature = feature(
         name = "dead_strip",
         flag_sets = [
@@ -5280,6 +5272,7 @@ def _impl(ctx):
 
     dependency_file_feature = feature(
         name = "dependency_file",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -5304,6 +5297,7 @@ def _impl(ctx):
 
     preprocessor_defines_feature = feature(
         name = "preprocessor_defines",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -5402,6 +5396,88 @@ def _impl(ctx):
         ],
     )
 
+    headerpad_feature = feature(
+        name = "headerpad",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_link_actions + [
+                    ACTION_NAMES.objc_executable,
+                    ACTION_NAMES.objcpp_executable,
+                ],
+                flag_groups = [flag_group(flags = ["-headerpad_max_install_names"])],
+                with_features = [with_feature_set(not_features = [
+                    "bitcode_embedded",
+                    "bitcode_embedded_markers",
+                ])],
+            ),
+        ],
+    )
+
+    if (ctx.attr.cpu == "ios_arm64"
+        or ctx.attr.cpu == "ios_arm64e"
+        or ctx.attr.cpu == "ios_armv7"
+        or ctx.attr.cpu == "tvos_arm64"
+        or ctx.attr.cpu == "watchos_arm64_32"
+        or ctx.attr.cpu == "watchos_armv7k"
+        or ctx.attr.cpu == "darwin_x86_64"):
+        bitcode_embedded_feature = feature(
+            name = "bitcode_embedded",
+            flag_sets = [
+                flag_set(
+                    actions = [
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.objc_compile,
+                        ACTION_NAMES.objcpp_compile,
+                    ],
+                    flag_groups = [flag_group(flags = ["-fembed-bitcode"])],
+                ),
+                flag_set(
+                    actions = all_link_actions + [
+                        ACTION_NAMES.objc_executable,
+                        ACTION_NAMES.objcpp_executable,
+                    ],
+                    flag_groups = [flag_group(flags = [
+                        "-fembed-bitcode",
+                        "-Xlinker",
+                        "-bitcode_verify",
+                        "-Xlinker",
+                        "-bitcode_hide_symbols",
+                        "-Xlinker",
+                        "-bitcode_symbol_map",
+                        "-Xlinker",
+                        "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}",
+                    ])],
+                ),
+            ],
+        )
+
+        bitcode_embedded_markers_feature = feature(
+            name = "bitcode_embedded_markers",
+            flag_sets = [
+                flag_set(
+                    actions = [
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.objc_compile,
+                        ACTION_NAMES.objcpp_compile,
+                    ],
+                    flag_groups = [flag_group(flags = ["-fembed-bitcode-marker"])],
+                ),
+                flag_set(
+                    actions = all_link_actions + [
+                        ACTION_NAMES.objc_executable,
+                        ACTION_NAMES.objcpp_executable,
+                    ],
+                    flag_groups = [flag_group(flags = ["-fembed-bitcode-marker"])],
+                ),
+            ],
+        )
+    else:
+        bitcode_embedded_markers_feature = feature(name = "bitcode_embedded_markers")
+        bitcode_embedded_feature = feature(name = "bitcode_embedded")
+
     if (ctx.attr.cpu == "ios_arm64"
         or ctx.attr.cpu == "ios_arm64e"
         or ctx.attr.cpu == "ios_armv7"
@@ -5461,6 +5537,7 @@ def _impl(ctx):
                 gcc_coverage_map_format_feature,
                 apply_default_compiler_flags_feature,
                 include_system_dirs_feature,
+                headerpad_feature,
                 bitcode_embedded_feature,
                 bitcode_embedded_markers_feature,
                 objc_arc_feature,
@@ -5531,6 +5608,7 @@ def _impl(ctx):
                 gcc_coverage_map_format_feature,
                 apply_default_compiler_flags_feature,
                 include_system_dirs_feature,
+                headerpad_feature,
                 bitcode_embedded_feature,
                 bitcode_embedded_markers_feature,
                 objc_arc_feature,
@@ -5603,6 +5681,7 @@ def _impl(ctx):
                 gcc_coverage_map_format_feature,
                 apply_default_compiler_flags_feature,
                 include_system_dirs_feature,
+                headerpad_feature,
                 bitcode_embedded_feature,
                 bitcode_embedded_markers_feature,
                 objc_arc_feature,

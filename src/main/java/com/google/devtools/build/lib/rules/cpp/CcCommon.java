@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
@@ -211,7 +211,7 @@ public final class CcCommon {
   }
 
   public static void checkLocationWhitelisted(
-      SkylarkSemantics semantics, Location location, String callPath) throws EvalException {
+      StarlarkSemantics semantics, Location location, String callPath) throws EvalException {
     List<String> whitelistedPackagesList = semantics.experimentalCcSkylarkApiEnabledPackages();
     if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {
       throwWhiteListError(location, callPath, whitelistedPackagesList);
@@ -840,6 +840,9 @@ public final class CcCommon {
     }
 
     if (cppConfiguration.forcePic()) {
+      if (unsupportedFeatures.contains(CppRuleClasses.SUPPORTS_PIC)) {
+        throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
+      }
       allRequestedFeaturesBuilder.add(CppRuleClasses.SUPPORTS_PIC);
     }
 

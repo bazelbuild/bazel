@@ -116,17 +116,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
 
-    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
-
     Artifact nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
 
-    helper.createCompileActionWithInstrumentation(
-        classJar,
-        manifestProtoOutput,
-        genSourceJar,
-        outputDepsProto,
-        javaArtifactsBuilder,
-        nativeHeaderOutput);
+    JavaCompileAction javaCompileAction =
+        helper.createCompileActionWithInstrumentation(
+            classJar, manifestProtoOutput, genSourceJar, javaArtifactsBuilder, nativeHeaderOutput);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     Artifact iJar = null;
@@ -136,7 +130,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
             .addOutputJar(classJar, iJar, manifestProtoOutput, ImmutableList.of(srcJar))
-            .setJdeps(outputDepsProto)
+            .setJdeps(javaCompileAction.getOutputDepsProto())
             .setNativeHeaders(nativeHeaderOutput);
 
     GeneratedExtensionRegistryProvider generatedExtensionRegistryProvider = null;

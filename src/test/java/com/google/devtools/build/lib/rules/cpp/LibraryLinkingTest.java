@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +36,7 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
       throws Exception {
     // Strip the first parameters from the argv, which are the dynamic library script
     // (usually tools/cpp/link_dynamic_library.sh), and its arguments.
-    return linkAction.getArguments().subList(6, optionPatterns.length + 6);
+    return linkAction.getArguments().subList(1, optionPatterns.length + 1);
   }
 
   private void assertLinkopts(CppLinkAction linkAction, String... optionPatterns) throws Exception {
@@ -47,6 +48,10 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
 
   @Test
   public void testGeneratedLib() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+
     useConfiguration("--cpu=k8");
     ConfiguredTarget genlib =
         scratchConfiguredTarget(
@@ -80,6 +85,10 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
    */
   @Test
   public void testCcLibraryLinkopts() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+
     scratch.overwriteFile(
         "custom_malloc/BUILD",
         "cc_library(name = 'custom_malloc',",
