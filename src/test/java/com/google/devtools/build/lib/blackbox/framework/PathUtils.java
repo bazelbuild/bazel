@@ -333,4 +333,18 @@ public class PathUtils {
           }
         });
   }
+
+  /**
+   * Returns the string to be used to refer to passed path in the Starlark file or directory.
+   * For Windows, we need to use forward slashes, so on ecan not use the standard Path#toString().
+   *
+   * @param path the path to file
+   * @return the string to use in Starlark file to point to passed path
+   */
+  public static String pathForStarlarkFile(Path path) {
+    if (OS.WINDOWS.equals(OS.getCurrent())) {
+      return path.toString().replace("\\", "/");
+    }
+    return path.toString();
+  }
 }
