@@ -8,10 +8,7 @@ exports_files(["jdeps_modules.golden"])
 md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
-filegroup(
-    name = "libunix",
-    srcs = select({
-        "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
+filegroup(    name = "libunix",    srcs = select({        "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
         "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
         "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],

@@ -1,4 +1,5 @@
 ---
+buildifier: true
 platforms:
   ubuntu1404:
     shell_commands:
