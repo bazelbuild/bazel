@@ -1296,6 +1296,7 @@ java_test(
         "//src/main/protobuf:test_status_java_proto",
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:mockito",
+        "//third_party/allocation_instrumenter",
     ],
 )
 

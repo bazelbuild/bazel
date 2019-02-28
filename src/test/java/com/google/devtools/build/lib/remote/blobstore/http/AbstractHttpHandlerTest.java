@@ -100,8 +100,8 @@ public abstract class AbstractHttpHandlerTest {
   @Test
   public void headersDoIncludeUserAgent() throws Exception {
     URI uri = new URI("http://does.not.exist:8080/foo");
-    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
-    DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */null));
+    DownloadCommand cmd = new DownloadCommand(uri, /* casDownload= */true, /* hash= */"abcdef", new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
