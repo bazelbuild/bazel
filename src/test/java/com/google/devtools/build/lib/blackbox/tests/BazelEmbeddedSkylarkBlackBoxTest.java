@@ -66,17 +66,23 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
         "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
         "pkg_tar(name = \"packed_ext_repo\", srcs = glob([\"*\"]),)");
 
+    System.out.println("\nWORKSPACE: \n" + String.join("\n", PathUtils.readFile(repo.resolve("WORKSPACE"))) + "\n88888888888\n");
+    System.out.println("BUILD: \n" + String.join("\n", PathUtils.readFile(repo.resolve("BUILD"))) + "\n88888888888\n");
+
     Path zipFile = context().getTmpDir().resolve("ext_repo.tar");
     assertThat(Files.exists(zipFile)).isFalse();
 
     context().write("WORKSPACE",
         "load(\"@bazel_tools//tools/build_defs/repo:http.bzl\", \"http_archive\")\n",
         String.format("local_repository(name=\"ext_local\", path=\"%s\",)", pathToString(repo)),
-        String.format("http_archive(name=\"ext\", urls=[\"file://%s\"],)", pathToString(zipFile)));
+        String.format("http_archive(name=\"ext\", urls=[\"file://%s\"],)", zipFile.toString().replace("\\", "/")));
 
     context().write("BUILD", HelperStarlarkTexts.getLoadForRuleWritingTextToFile("@ext"),
         HelperStarlarkTexts.callRuleWritingTextToFile("call_from_main", "main_out.txt",
             HELLO_FROM_MAIN_REPOSITORY));
+
+    System.out.println("\nMAIN WORKSPACE: \n" + String.join("\n", PathUtils.readFile(context().getWorkDir().resolve("WORKSPACE"))) + "\n88888888888\n");
+    System.out.println("MAIN BUILD: \n" + String.join("\n", PathUtils.readFile(context().getWorkDir().resolve("BUILD"))) + "\n88888888888\n");
 
     // first build the archive and copy it into zipFile
     BuilderRunner bazel = context().bazel();
