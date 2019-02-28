@@ -151,10 +151,10 @@ def run_xcode_locator(repository_ctx, allow_failure, xcode_locator_src_label):
             err = xcode_locator_result.stderr,
             out = xcode_locator_result.stdout,
         ).replace("\n", " ")
-        print(error_msg)
         if allow_failure:
             return None
         else:
+            print(error_msg)
             fail(error_msg)
     xcode_toolchains = []
 
