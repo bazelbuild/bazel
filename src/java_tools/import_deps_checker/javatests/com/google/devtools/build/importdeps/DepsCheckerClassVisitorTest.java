@@ -121,6 +121,28 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
     assertThat(collector.isEmpty()).isTrue();
   }
 
+  @Test
+  public void testSafelyHandleModuleInfo() throws IOException {
+    // We don't need to assert anything-- we just need to make sure the tool
+    // can safely handle odd classes like module-info without throwing any
+    // exceptions.
+    // module-info's peculiarity is that it's like java.lang.Object
+    // and doesn't have a superclass.
+    ZipFile zipFile = new ZipFile(libraryModuleInfoJar.toFile());
+    ZipEntry entry = zipFile.getEntry("module-info.class");
+    ClassCache cache = new ClassCache(
+      ImmutableSet.of(),
+      ImmutableSet.of(),
+      ImmutableSet.of(),
+      ImmutableSet.of(),
+      false);
+    try (InputStream classStream = zipFile.getInputStream(entry)) {
+      ClassReader reader = new ClassReader(classStream);
+      DepsCheckerClassVisitor checker = new DepsCheckerClassVisitor(cache, null);
+      reader.accept(checker, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+    }
+  }
+
   private static String constructFullQualifiedMemberName(MissingMember member) {
     return constructFullyQualifiedMemberName(
         member.owner().internalName(), member.memberName(), member.descriptor());

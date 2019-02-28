@@ -53,6 +53,12 @@ java_library(
 )
 
 java_library(
+    name = "testdata_lib_LibraryModuleInfo",
+    srcs = ["LibraryModuleInfo.java", "module-info.java"],
+    javacopts = ["-source 9", "-target 9"],
+)
+
+java_library(
     name = "OneAnnotationValue",
     srcs = ["OneAnnotationValue.java"],
     deps = [":StringAnnotation"],
