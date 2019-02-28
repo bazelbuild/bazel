@@ -91,14 +91,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   @Override
-  public List<SpawnResult> exec(
-      TestRunnerAction action, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
-    TestRunnerSpawn testRunnerSpawn = createTestRunnerSpawn(action, actionExecutionContext);
-    return runAttempts(testRunnerSpawn, actionExecutionContext);
-  }
-
-  protected TestRunnerSpawn createTestRunnerSpawn(
+  public TestRunnerSpawn createTestRunnerSpawn(
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     Path execRoot = actionExecutionContext.getExecRoot();

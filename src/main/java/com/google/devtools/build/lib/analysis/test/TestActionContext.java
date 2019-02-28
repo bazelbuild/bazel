@@ -26,15 +26,12 @@ import java.util.List;
  * A context for the execution of test actions ({@link TestRunnerAction}).
  */
 public interface TestActionContext extends ActionContext {
-
-  /**
-   * Executes the test command, directing standard out / err to {@code outErr}. The status of the
-   * test should be communicated by posting a {@link TestResult} object to the eventbus.
-   *
-   * @return a list of SpawnResults created during execution of the test command, if any
-   */
-  List<SpawnResult> exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
+  TestRunnerSpawn createTestRunnerSpawn(
+      TestRunnerAction testRunnerAction, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
+
+  /** Returns whether test_keep_going is enabled. */
+  boolean isTestKeepGoing();
 
   /**
    * Creates a cached test result.
