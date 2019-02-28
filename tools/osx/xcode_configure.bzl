@@ -87,7 +87,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
 
 VERSION_CONFIG_STUB = "xcode_config(name = 'host_xcodes')"
 
-def run_xcode_locator(repository_ctx, xcode_locator_src_label):
+def run_xcode_locator(repository_ctx, allow_failure, xcode_locator_src_label):
     """Generates xcode-locator from source and runs it.
 
     Builds xcode-locator in the current repository directory.
@@ -100,6 +100,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
 
     Args:
       repository_ctx: The repository context.
+      allow_failure: If a xcode_locator failure is allowed and shouldn't fail the setup
       xcode_locator_src_label: The label of the source file for xcode-locator.
     Returns:
       A list representing installed xcode toolchain information. Each
@@ -151,7 +152,10 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
             out = xcode_locator_result.stdout,
         ).replace("\n", " ")
         print(error_msg)
-        fail(error_msg)
+        if allow_failure:
+            return None
+        else:
+            fail(error_msg)
     xcode_toolchains = []
 
     # xcode_dump is comprised of newlines with different installed xcode versions,
@@ -188,6 +192,7 @@ def _darwin_build_file(repository_ctx):
 
     toolchains = run_xcode_locator(
         repository_ctx,
+        False,
         Label(repository_ctx.attr.xcode_locator),
     )
 

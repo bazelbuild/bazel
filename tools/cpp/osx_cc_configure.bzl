@@ -61,9 +61,9 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         "@bazel_tools//tools/osx:xcode_locator.m",
     ])
 
-    xcode_toolchains = []
     xcode_toolchains = run_xcode_locator(
         repository_ctx,
+        True,
         paths["@bazel_tools//tools/osx:xcode_locator.m"],
     )
     if xcode_toolchains:
