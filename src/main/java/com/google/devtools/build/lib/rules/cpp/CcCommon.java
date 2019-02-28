@@ -848,22 +848,6 @@ public final class CcCommon {
 
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
 
-    // If STATIC_LINK_MSVCRT feature isn't specified by user, we add DYNAMIC_LINK_MSVCRT_* feature
-    // according to compilation mode.
-    // If STATIC_LINK_MSVCRT feature is specified, we add STATIC_LINK_MSVCRT_* feature
-    // according to compilation mode.
-    if (requestedFeatures.contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
-      allRequestedFeaturesBuilder.add(
-          toolchain.getCompilationMode() == CompilationMode.DBG
-              ? CppRuleClasses.STATIC_LINK_MSVCRT_DEBUG
-              : CppRuleClasses.STATIC_LINK_MSVCRT_NO_DEBUG);
-    } else {
-      allRequestedFeaturesBuilder.add(
-          toolchain.getCompilationMode() == CompilationMode.DBG
-              ? CppRuleClasses.DYNAMIC_LINK_MSVCRT_DEBUG
-              : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
-    }
-
     ImmutableList.Builder<String> allFeatures =
         new ImmutableList.Builder<String>()
             .addAll(ImmutableSet.of(toolchain.getCompilationMode().toString()))

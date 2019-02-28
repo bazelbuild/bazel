@@ -324,21 +324,6 @@ public class CppRuleClasses {
   /** A string constant for a feature to copy dynamic libraries to the binary's directory. */
   public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY = "copy_dynamic_libraries_to_binary";
 
-  /** A string constant for a feature to statically link MSVCRT info on Windows. */
-  public static final String STATIC_LINK_MSVCRT = "static_link_msvcrt";
-
-  /** A string constant for a feature to statically link MSVCRT without debug info on Windows. */
-  public static final String STATIC_LINK_MSVCRT_NO_DEBUG = "static_link_msvcrt_no_debug";
-
-  /** A string constant for a feature to dynamically link MSVCRT without debug info on Windows. */
-  public static final String DYNAMIC_LINK_MSVCRT_NO_DEBUG = "dynamic_link_msvcrt_no_debug";
-
-  /** A string constant for a feature to statically link MSVCRT with debug info on Windows. */
-  public static final String STATIC_LINK_MSVCRT_DEBUG = "static_link_msvcrt_debug";
-
-  /** A string constant for a feature to dynamically link MSVCRT with debug info on Windows. */
-  public static final String DYNAMIC_LINK_MSVCRT_DEBUG = "dynamic_link_msvcrt_debug";
-
   /** A string constant for a feature to statically link the C++ runtimes. */
   public static final String STATIC_LINK_CPP_RUNTIMES = "static_link_cpp_runtimes";
 
