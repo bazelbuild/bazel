@@ -341,4 +341,72 @@ EOF
     || fail "Failed to build //a:gen1 without remote cache"
 }
 
+function test_cc_combined_disk_http_cache() {
+  # Test for the combined disk and http cache.
+  # Built items should be pushed to both the disk and http cache.
+  # If an item is missing on disk cache, but present on http cache,
+  # then bazel should copy it from http cache to disk cache on fetch.
+
+  local cache="${TEST_TMPDIR}/cache"
+  local disk_flags="--disk_cache=$cache"
+  local http_flags="--remote_http_cache=http://localhost:${http_port}"
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
+  rm -rf $cache
+  mkdir $cache
+
+  # Build and push to disk and http cache
+  bazel build $disk_flags $http_flags //a:test \
+    || fail "Failed to build //a:test with combined disk http cache"
+  cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
+
+  # Fetch from disk cache
+  bazel clean --expunge
+  bazel build $disk_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "remote cache hit"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  # Fetch from http cache
+  bazel clean --expunge
+  bazel build $http_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from http cache"
+  expect_log "remote cache hit"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+    || fail "HTTP cache generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # Copy from http cache to disk cache
+  bazel clean --expunge
+  bazel build $disk_flags $http_flags //a:test &> $TEST_log \
+    || fail "Failed to copy //a:test from http cache to disk cache"
+  expect_log "remote cache hit"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+    || fail "HTTP cache generated different result"
+
+  # Fetch from disk cache
+  bazel clean --expunge
+  bazel build $disk_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "remote cache hit"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  rm -rf $cache
+}
+
 run_suite "Remote execution and remote cache tests"
