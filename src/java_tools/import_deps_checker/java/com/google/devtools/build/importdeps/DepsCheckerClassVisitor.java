@@ -59,6 +59,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
     checkState(internalName == null, "Cannot reuse this class visitor %s", getClass());
     this.internalName = name;
     if (superName != null) {
+      // module-info and java.lang.Object have null superName
       checkInternalName(superName);
     }
     checkInternalNameArray(interfaces);
