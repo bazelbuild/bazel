@@ -74,8 +74,12 @@ public abstract class AbstractBlackBoxTest {
   }
 
   protected static String pathToString(Path path) {
-    // if (OS.WINDOWS.equals(OS.getCurrent())) return path.toString().replace("/", "\\");
     return path.toString().replace("\\", "/");
+  }
+
+  protected static String pathToURI(Path path) {
+    if (OS.WINDOWS.equals(OS.getCurrent())) return "/" + path.toString().replace("\\", "/");
+    return path.toString();
   }
 
   @Before
