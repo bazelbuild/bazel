@@ -102,18 +102,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       help = "If set to true, enables the APIs required to support the Android Starlark migration.")
   public boolean experimentalEnableAndroidMigrationApis;
 
-  @Option(
-      name = "experimental_enable_repo_mapping",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.NO_OP,
-      deprecationWarning =
-          "This behavior is on by default and the flag is a no-op. You can remove its usage",
-      help =
-          "This flag is a no-op. The use of the `repo_mapping` attribute in repository rules "
-              + "is enabled by default.")
-  public boolean experimentalEnableRepoMapping;
-
   // This flag is declared in StarlarkSemanticsOptions instead of JavaOptions because there is no
   // way to retrieve the java configuration from the Java implementation of
   // java_common.create_provider.
@@ -560,7 +548,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .experimentalBuildSettingApi(experimentalBuildSettingApi)
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
-        .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .experimentalJavaCommonCreateProviderEnabledPackages(
             experimentalJavaCommonCreateProviderEnabledPackages)
         .experimentalPlatformsApi(experimentalPlatformsApi)
