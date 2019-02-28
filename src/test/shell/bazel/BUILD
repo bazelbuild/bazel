@@ -660,7 +660,11 @@ sh_test(
         "//src:embedded_jdk_allmodules_cached",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["block-network"],
+    # TODO remove no_windows tag, thsi is only to speed up the ci
+    tags = [
+        "block-network",
+        "no_windows",
+    ],
 )
 
 sh_test(
