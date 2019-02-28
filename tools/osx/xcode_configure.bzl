@@ -47,6 +47,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     """Returns a string containing an xcode_version build target."""
     build_contents = ""
     decorated_aliases = []
+    error_msg = ""
     for alias in aliases:
         decorated_aliases.append("'%s'" % alias)
     xcodebuild_result = repository_ctx.execute(
@@ -64,8 +65,6 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
             err = xcodebuild_result.stderr,
             out = xcodebuild_result.stdout,
         )
-        print(error_msg)
-        fail(error_msg)
     ios_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "iphoneos")
     tvos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "appletvos")
     macos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "macosx")
@@ -83,6 +82,9 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     if watchos_sdk_version:
         build_contents += "\n  default_watchos_sdk_version = '%s'," % watchos_sdk_version
     build_contents += "\n)\n"
+    if error_msg:
+        build_contents += "\n# Error: " + error_msg.replace("\n", " ") + "\n"
+        print(error_msg)
     return build_contents
 
 VERSION_CONFIG_STUB = "xcode_config(name = 'host_xcodes')"
@@ -102,10 +104,13 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
       repository_ctx: The repository context.
       xcode_locator_src_label: The label of the source file for xcode-locator.
     Returns:
-      A list representing installed xcode toolchain information. Each
-      element of the list is a struct containing information for one installed
-      toolchain. This is an empty list if there was an error building or
-      running xcode-locator.
+      A 2-tuple containing:
+      output: A list representing installed xcode toolchain information. Each
+          element of the list is a struct containing information for one installed
+          toolchain. This is an empty list if there was an error building or
+          running xcode-locator.
+      err: An error string describing the error that occurred when attempting
+          to build and run xcode-locator, or None if the run was successful.
     """
     xcodeloc_src_path = str(repository_ctx.path(xcode_locator_src_label))
     xcrun_result = repository_ctx.execute([
@@ -137,8 +142,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
             err = xcrun_result.stderr,
             out = xcrun_result.stdout,
         )
-        print(error_msg)
-        fail(error_msg)
+        return ([], error_msg.replace("\n", " "))
 
     xcode_locator_result = repository_ctx.execute(["./xcode-locator-bin", "-v"], 30)
     if (xcode_locator_result.return_code != 0):
@@ -149,9 +153,8 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
             code = xcode_locator_result.return_code,
             err = xcode_locator_result.stderr,
             out = xcode_locator_result.stdout,
-        ).replace("\n", " ")
-        print(error_msg)
-        fail(error_msg)
+        )
+        return ([], error_msg.replace("\n", " "))
     xcode_toolchains = []
 
     # xcode_dump is comprised of newlines with different installed xcode versions,
@@ -166,7 +169,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
                 developer_dir = infosplit[2],
             )
             xcode_toolchains.append(toolchain)
-    return xcode_toolchains
+    return (xcode_toolchains, None)
 
 def _darwin_build_file(repository_ctx):
     """Evaluates local system state to create xcode_config and xcode_version targets."""
@@ -186,10 +189,13 @@ def _darwin_build_file(repository_ctx):
         )
         return VERSION_CONFIG_STUB + "\n# Error: " + error_msg.replace("\n", " ") + "\n"
 
-    toolchains = run_xcode_locator(
+    (toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
         Label(repository_ctx.attr.xcode_locator),
     )
+
+    if xcodeloc_err:
+        return VERSION_CONFIG_STUB + "\n# Error: " + xcodeloc_err + "\n"
 
     default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
     default_xcode_target = ""

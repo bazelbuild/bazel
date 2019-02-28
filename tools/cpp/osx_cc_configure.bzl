@@ -62,7 +62,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
     ])
 
     xcode_toolchains = []
-    xcode_toolchains = run_xcode_locator(
+    (xcode_toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
         paths["@bazel_tools//tools/osx:xcode_locator.m"],
     )
@@ -133,6 +133,8 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         escaped_cxx_include_directories = []
         for path in escaped_include_paths:
             escaped_cxx_include_directories.append(("    \"%s\"," % path))
+        if xcodeloc_err:
+            escaped_cxx_include_directories.append("# Error: " + xcodeloc_err + "\n")
         repository_ctx.template(
             "cc_toolchain_config.bzl",
             paths["@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl.tpl"],
