@@ -3620,6 +3620,7 @@ def _impl(ctx):
     )
 
     if ctx.attr.cpu == "armeabi-v7a":
+        # This stub doesn't have a sensible value for this feature
         version_min_feature = feature(name = "version_min")
     elif (ctx.attr.cpu == "ios_i386"
         or ctx.attr.cpu == "ios_x86_64"):
