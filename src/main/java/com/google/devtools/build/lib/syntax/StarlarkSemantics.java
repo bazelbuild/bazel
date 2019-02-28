@@ -236,7 +236,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(false)
-          .incompatibleRemapMainRepo(true)
+          .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRequireFeatureConfigurationForPic(true)
           .incompatibleStricArgumentOrdering(true)

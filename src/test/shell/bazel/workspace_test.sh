@@ -726,7 +726,8 @@ a = 1
 EOF
 
   cd mainrepo
-  bazel query //... &>"$TEST_log" || fail "Expected query to succeed"
+  bazel query --incompatible_remap_main_repo //... &>"$TEST_log" \
+      || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
 }
@@ -753,7 +754,8 @@ EOF
   # the bzl file should be loaded from the main workspace and
   # not as an external repository
   cd mainrepo
-  bazel query @a//... &>"$TEST_log" || fail "Expected query to succeed"
+  bazel query --incompatible_remap_main_repo @a//... &>"$TEST_log" \
+      || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
 
@@ -770,7 +772,9 @@ EOF
   # now that @mainrepo doesn't exist within workspace "a",
   # the query should fail
   cd mainrepo
-  bazel query @a//... &>"$TEST_log" && fail "Failure expected" || true
+  bazel query --incompatible_remap_main_repo \
+      @a//... &>"$TEST_log" \
+      && fail "Failure expected" || true
 }
 
 function test_external_subpacakge() {
