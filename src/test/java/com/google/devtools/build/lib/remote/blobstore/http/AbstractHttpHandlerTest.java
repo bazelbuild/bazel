@@ -106,6 +106,6 @@ public abstract class AbstractHttpHandlerTest {
     ch.writeOneOutbound(cmd, writePromise);
 
     HttpRequest request = ch.readOutbound();
-    assertThat(request.headers().get(HttpHeaderNames.USER_AGENT)).isEqualTo("bazel HEAD");
+    assertThat(request.headers().get(HttpHeaderNames.USER_AGENT)).isEqualTo("bazel/HEAD");
   }
 }
