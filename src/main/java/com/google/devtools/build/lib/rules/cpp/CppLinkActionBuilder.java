@@ -138,7 +138,7 @@ public class CppLinkActionBuilder {
   private boolean isLtoIndexing = false;
   private boolean usePicForLtoBackendActions = false;
   private Iterable<LtoBackendArtifacts> allLtoArtifacts = null;
-  
+
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkActionInputs = NestedSetBuilder.stableOrder();
   private final ImmutableList.Builder<Artifact> linkActionOutputs = ImmutableList.builder();
@@ -646,7 +646,8 @@ public class CppLinkActionBuilder {
 
     boolean needWholeArchive =
         wholeArchive
-            || needWholeArchive(linkingMode, linkType, linkopts, isNativeDeps, cppConfiguration);
+            || needWholeArchive(
+                featureConfiguration, linkingMode, linkType, linkopts, cppConfiguration);
     // Disallow LTO indexing for test targets that link statically, and optionally for any
     // linkstatic target (which can be used to disable LTO indexing for non-testonly cc_binary
     // built due to data dependences for a blaze test invocation). Otherwise this will provoke
@@ -1117,15 +1118,42 @@ public class CppLinkActionBuilder {
 
   /** The default heuristic on whether we need to use whole-archive for the link. */
   private static boolean needWholeArchive(
-      Link.LinkingMode staticness,
+      FeatureConfiguration featureConfiguration,
+      LinkingMode linkingMode,
       LinkTargetType type,
       Collection<String> linkopts,
-      boolean isNativeDeps,
       CppConfiguration cppConfig) {
-    boolean mostlyStatic = (staticness == Link.LinkingMode.STATIC);
     boolean sharedLinkopts =
         type.isDynamicLibrary() || linkopts.contains("-shared") || cppConfig.hasSharedLinkOption();
-    return (isNativeDeps || cppConfig.legacyWholeArchive()) && mostlyStatic && sharedLinkopts;
+    // Fasten your seat belt, the logic below doesn't make perfect sense and it's full of obviously
+    // missed corner cases. The world still stands and depends on this behavior, so ¯\_(ツ)_/¯.
+    if (!sharedLinkopts) {
+      // We are not producing shared library, there is no reason to use --whole-archive with
+      // executable (if the executable doesn't use the symbols, nobody else will, so --whole-archive
+      // is not needed).
+      return false;
+    }
+    if (cppConfig.removeLegacyWholeArchive()) {
+      // --incompatible_remove_legacy_whole_archive has been flipped, no --whole-archive for the
+      // entire build.
+      return false;
+    }
+    if (linkingMode != LinkingMode.STATIC) {
+      // legacy whole archive only applies to static linking mode.
+      return false;
+    }
+    if (featureConfiguration.getRequestedFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
+      // --incompatible_remove_legacy_whole_archive has not been flipped, and this target requested
+      // --whole-archive using features.
+      return true;
+    }
+    if (cppConfig.legacyWholeArchive()) {
+      // --incompatible_remove_legacy_whole_archive has not been flipped, so whether to
+      // use --whole-archive depends on --legacy_whole_archive.
+      return true;
+    }
+    // Hopefully future default.
+    return false;
   }
 
   private static ImmutableSet<Artifact> constructOutputs(

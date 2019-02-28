@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -224,6 +225,66 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 + "-lbar -lqux(?= ).* -ldl -lutil .*");
     assertThat(Joiner.on(" ").join(arguments))
         .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
+  }
+
+  @Test
+  public void testLegacyWholeArchiveHasNoEffectOnDynamicModeDynamicLibraries() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'libfoo.so',",
+        "  srcs = ['foo.cc'],",
+        "  linkshared = 1,",
+        "  linkstatic = 0,",
+        ")");
+    useConfiguration("--legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+  }
+
+  @Test
+  public void testLegacyWholeArchive() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'libfoo.so',",
+        "  srcs = ['foo.cc'],",
+        "  linkshared = 1,",
+        ")");
+    // --incompatible_remove_legacy_whole_archive not flipped, --legacy_whole_archive wins.
+    useConfiguration("--legacy_whole_archive", "--noincompatible_remove_legacy_whole_archive");
+    assertThat(getLibfooArguments()).contains("-Wl,-whole-archive");
+    useConfiguration("--nolegacy_whole_archive", "--noincompatible_remove_legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+
+    // --incompatible_remove_legacy_whole_archive flipped, --legacy_whole_archive ignored.
+    useConfiguration("--legacy_whole_archive", "--incompatible_remove_legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+    useConfiguration("--nolegacy_whole_archive", "--incompatible_remove_legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+
+    // Even when --nolegacy_whole_archive, features can still add the behavior back.
+    useConfiguration(
+        "--nolegacy_whole_archive",
+        "--noincompatible_remove_legacy_whole_archive",
+        "--features=legacy_whole_archive");
+    assertThat(getLibfooArguments()).contains("-Wl,-whole-archive");
+    // Even when --nolegacy_whole_archive, features can still add the behavior, but not when
+    // --incompatible_remove_legacy_whole_archive is flipped.
+    useConfiguration(
+        "--incompatible_remove_legacy_whole_archive", "--features=legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+  }
+
+  private List<String> getLibfooArguments() throws LabelSyntaxException {
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:libfoo.so");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/libfoo.so");
+    return linkAction.getArguments();
   }
 
   @Test
