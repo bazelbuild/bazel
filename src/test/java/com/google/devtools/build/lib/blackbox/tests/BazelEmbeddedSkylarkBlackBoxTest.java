@@ -71,8 +71,8 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
 
     context().write("WORKSPACE",
         "load(\"@bazel_tools//tools/build_defs/repo:http.bzl\", \"http_archive\")\n",
-        String.format("local_repository(name=\"ext_local\", path=\"%s\",)", repo.toString()),
-        String.format("http_archive(name=\"ext\", urls=[\"file://%s\"],)", zipFile.toString()));
+        String.format("local_repository(name=\"ext_local\", path=\"%s\",)", pathToString(repo)),
+        String.format("http_archive(name=\"ext\", urls=[\"file://%s\"],)", pathToString(zipFile)));
 
     context().write("BUILD", HelperStarlarkTexts.getLoadForRuleWritingTextToFile("@ext"),
         HelperStarlarkTexts.callRuleWritingTextToFile("call_from_main", "main_out.txt",

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestEnvironment;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
+import com.google.devtools.build.lib.util.OS;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.After;
@@ -70,6 +71,11 @@ public abstract class AbstractBlackBoxTest {
   @AfterClass
   public static void afterClass() {
     testEnvironment.dispose();
+  }
+
+  protected static String pathToString(Path path) {
+    if (OS.WINDOWS.equals(OS.getCurrent())) return path.toString().replace("/", "\\");
+    return path.toString();
   }
 
   @Before

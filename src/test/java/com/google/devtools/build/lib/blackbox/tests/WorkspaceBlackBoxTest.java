@@ -21,7 +21,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
         .setupRepositoryWithRuleWritingTextToFile(context().getTmpDir(), "b", "bye").toAbsolutePath();
 
     context().write("WORKSPACE",
-        String.format("local_repository(name = \"x\", path = \"%s\",)", repoA.toString()));
+        String.format("local_repository(name = \"x\", path = \"%s\",)", pathToString(repoA)));
     context().bazel().build("@x//:x");
 
     Path xPath = context().resolveBinPath(context().bazel(), "external/x/out");
@@ -31,7 +31,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(lines.get(0)).isEqualTo("hi");
 
     context().write("WORKSPACE",
-        String.format("local_repository(name = \"x\", path = \"%s\",)", repoB.toString()));
+        String.format("local_repository(name = \"x\", path = \"%s\",)", pathToString(repoB)));
     context().bazel().build("@x//:x");
 
     assertThat(Files.exists(xPath)).isTrue();
