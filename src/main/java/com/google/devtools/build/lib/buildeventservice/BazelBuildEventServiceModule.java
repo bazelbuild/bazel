@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -86,5 +87,15 @@ public class BazelBuildEventServiceModule
   @Override
   protected Set<String> whitelistedCommands(BuildEventServiceOptions besOptions) {
     return WHITELISTED_COMMANDS;
+  }
+
+  @Override
+  protected String getInvocationIdPrefix() {
+    if (Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
+      return "";
+    }
+    return besOptions.besResultsUrl.endsWith("/")
+        ? besOptions.besResultsUrl
+        : besOptions.besResultsUrl + "/";
   }
 }

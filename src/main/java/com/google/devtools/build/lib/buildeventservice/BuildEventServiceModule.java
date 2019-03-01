@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
@@ -51,7 +52,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -67,15 +67,19 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
   private OutErr outErr;
   private BuildEventStreamer streamer;
-  private BESOptionsT besOptions;
   private BuildEventProtocolOptions bepOptions;
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
   private ImmutableSet<BuildEventTransport> bepTransports;
+  private String invocationId;
+  private EventHandler cmdLineReporter;
 
-  /** Whether an error in the Build Event Service upload causes the build to fail. */
-  protected boolean errorsShouldFailTheBuild() {
-    return true;
+  protected BESOptionsT besOptions;
+
+  /** Callback used by the transports to report errors and possible exit abruptly. */
+  protected BuildEventServiceAbruptExitCallback getAbruptExitCallback(
+      ModuleEnvironment moduleEnvironment) {
+    return moduleEnvironment::exit;
   }
 
   /** Report errors in the command line and possibly fail the build. */
@@ -105,6 +109,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
   @Override
   public void beforeCommand(CommandEnvironment cmdEnv) {
+    this.invocationId = cmdEnv.getCommandId().toString();
+    this.cmdLineReporter = cmdEnv.getReporter();
     // Reset to null in case afterCommand was not called.
     // TODO(lpino): Remove this statement once {@link BlazeModule#afterCommmand()} is guaranteed
     // to be executed for every invocation.
@@ -192,6 +198,10 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @Override
   public void afterCommand() {
     if (streamer != null) {
+      if (!Strings.isNullOrEmpty(besOptions.besBackend)) {
+        constructAndMaybeReportInvocationIdUrl();
+      }
+
       if (!streamer.isClosed()) {
         // This should not occur, but close with an internal error if a {@link BuildEventStreamer}
         // bug manifests as an unclosed streamer.
@@ -208,31 +218,24 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     }
     this.outErr = null;
     this.bepTransports = null;
+    this.invocationId = null;
+    this.cmdLineReporter = null;
   }
 
-  // TODO(b/115961387): Remove the @Nullable and print one line for the IDs and another optional
-  //  line for the results URL instead. Currently it's not straightforward since
-  //  {@link ExitFunction} (accidentally) depends on the nullability of besResultsUrl.
-  @Nullable
-  private String constructAndReportBesResultsMessage(
-      String invocationId, String buildRequestId, EventHandler reporter) {
-    final String besResultsUrl;
-    if (!Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
-      besResultsUrl =
-          besOptions.besResultsUrl.endsWith("/")
-              ? besOptions.besResultsUrl + invocationId
-              : besOptions.besResultsUrl + "/" + invocationId;
-      reporter.handle(Event.info("Streaming Build Event Protocol to " + besResultsUrl));
-    } else {
-      besResultsUrl = null;
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "Streaming Build Event Protocol to %s build_request_id: %s "
-                      + "invocation_id: %s",
-                  besOptions.besBackend, buildRequestId, invocationId)));
+  private void constructAndMaybeReportInvocationIdUrl() {
+    if (!getInvocationIdPrefix().isEmpty()) {
+      cmdLineReporter.handle(
+          Event.info("Streaming build results to: " + getInvocationIdPrefix() + invocationId));
     }
-    return besResultsUrl;
+  }
+
+  private void constructAndReportIds(String buildRequestId) {
+    cmdLineReporter.handle(
+        Event.info(
+            String.format(
+                "Streaming Build Event Protocol to '%s' with build_request_id: '%s'"
+                    + " and invocation_id: '%s'",
+                besOptions.besBackend, buildRequestId, invocationId)));
   }
 
   @Nullable
@@ -245,9 +248,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       return null;
     }
 
-    String besResultsUrl =
-        constructAndReportBesResultsMessage(
-            cmdEnv.getCommandId().toString(), cmdEnv.getBuildRequestId(), cmdEnv.getReporter());
+    constructAndReportIds(cmdEnv.getBuildRequestId());
 
     final BuildEventServiceClient besClient;
     try {
@@ -279,12 +280,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         .artifactGroupNamer(artifactGroupNamer)
         .bepOptions(bepOptions)
         .clock(cmdEnv.getRuntime().getClock())
-        .exitFunction(
-            ExitFunction.standardExitFunction(
-                cmdEnv.getReporter(),
-                cmdEnv.getBlazeModuleEnvironment(),
-                besResultsUrl,
-                errorsShouldFailTheBuild()))
+        .abruptExitCallback(getAbruptExitCallback(cmdEnv.getBlazeModuleEnvironment()))
         .eventBus(cmdEnv.getEventBus())
         .build();
   }
@@ -294,7 +290,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       Supplier<BuildEventArtifactUploader> uploaderSupplier,
       CountingArtifactGroupNamer artifactGroupNamer) {
     ImmutableSet.Builder<BuildEventTransport> bepTransportsBuilder = new ImmutableSet.Builder<>();
-    Consumer<AbruptExitException> abruptExitCallback = cmdEnv.getBlazeModuleEnvironment()::exit;
 
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
       try {
@@ -311,7 +306,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 bepTextOutputStream,
                 bepOptions,
                 localFileUploader,
-                abruptExitCallback,
+                getAbruptExitCallback(cmdEnv.getBlazeModuleEnvironment()),
                 artifactGroupNamer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
@@ -342,7 +337,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 bepBinaryOutputStream,
                 bepOptions,
                 localFileUploader,
-                abruptExitCallback,
+                getAbruptExitCallback(cmdEnv.getBlazeModuleEnvironment()),
                 artifactGroupNamer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
@@ -372,7 +367,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 bepJsonOutputStream,
                 bepOptions,
                 localFileUploader,
-                abruptExitCallback,
+                getAbruptExitCallback(cmdEnv.getBlazeModuleEnvironment()),
                 artifactGroupNamer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
@@ -391,6 +386,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     BuildEventServiceTransport besTransport =
         createBesTransport(cmdEnv, uploaderSupplier, artifactGroupNamer);
     if (besTransport != null) {
+      constructAndMaybeReportInvocationIdUrl();
       bepTransportsBuilder.add(besTransport);
     }
 
@@ -413,6 +409,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         .map(keyword -> "user_keyword=" + keyword)
         .collect(ImmutableSet.toImmutableSet());
   }
+
+  /** A prefix used when printing the invocation ID in the command line */
+  protected abstract String getInvocationIdPrefix();
 
   // TODO(b/115961387): This method shouldn't exist. It only does because some tests are relying on
   //  the transport creation logic of this module directly.

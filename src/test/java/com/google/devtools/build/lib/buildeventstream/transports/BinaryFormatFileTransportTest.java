@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Progress;
@@ -69,6 +70,7 @@ import org.mockito.MockitoAnnotations;
 public class BinaryFormatFileTransportTest {
   private final BuildEventProtocolOptions defaultOpts =
       Options.getDefaults(BuildEventProtocolOptions.class);
+  private static final BuildEventServiceAbruptExitCallback NO_OP_EXIT_CALLBACK = (e) -> {};
 
   @Rule public TemporaryFolder tmp = new TemporaryFolder();
 
@@ -102,7 +104,7 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            (e) -> {},
+            NO_OP_EXIT_CALLBACK,
             artifactGroupNamer);
     transport.sendBuildEvent(buildEvent);
 
@@ -150,7 +152,7 @@ public class BinaryFormatFileTransportTest {
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            outputStream, defaultOpts, uploader, (e) -> {}, artifactGroupNamer);
+            outputStream, defaultOpts, uploader, NO_OP_EXIT_CALLBACK, artifactGroupNamer);
     transport.sendBuildEvent(event1);
     transport.close().get();
 
@@ -178,7 +180,7 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            (e) -> {},
+            NO_OP_EXIT_CALLBACK,
             artifactGroupNamer);
 
     // Close the stream.
@@ -212,7 +214,7 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            (e) -> {},
+            NO_OP_EXIT_CALLBACK,
             artifactGroupNamer);
 
     transport.sendBuildEvent(buildEvent);
@@ -261,7 +263,7 @@ public class BinaryFormatFileTransportTest {
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            outputStream, defaultOpts, uploader, (e) -> {}, artifactGroupNamer);
+            outputStream, defaultOpts, uploader, NO_OP_EXIT_CALLBACK, artifactGroupNamer);
     transport.sendBuildEvent(event1);
     transport.sendBuildEvent(event2);
     transport.close().get();
@@ -304,7 +306,7 @@ public class BinaryFormatFileTransportTest {
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            outputStream, defaultOpts, uploader, (e) -> {}, artifactGroupNamer);
+            outputStream, defaultOpts, uploader, NO_OP_EXIT_CALLBACK, artifactGroupNamer);
     transport.sendBuildEvent(event1);
     transport.close().get();
 
@@ -342,7 +344,7 @@ public class BinaryFormatFileTransportTest {
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            outputStream, defaultOpts, uploader, (e) -> {}, artifactGroupNamer);
+            outputStream, defaultOpts, uploader, NO_OP_EXIT_CALLBACK, artifactGroupNamer);
     transport.sendBuildEvent(event);
     ListenableFuture<Void> closeFuture = transport.close();
 
