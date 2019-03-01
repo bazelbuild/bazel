@@ -74,6 +74,36 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAllFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  return struct(all_files = toolchain.all_files)",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    SkylarkNestedSet allFiles = (SkylarkNestedSet) r.get("all_files");
+    RuleContext ruleContext = getRuleContext(r);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchain(
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+    assertThat(allFiles.getSet(Artifact.class)).isEqualTo(toolchain.getAllFiles());
+  }
+
+  @Test
   public void testGetToolForAction() throws Exception {
     scratch.file(
         "a/BUILD",

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -360,6 +361,11 @@ public final class CcToolchainProvider extends ToolchainInfo
         .stream()
         .map(PathFragment::getSafePathString)
         .collect(ImmutableList.toImmutableList());
+  }
+
+  @Override
+  public SkylarkNestedSet getAllFilesForStarlark() {
+    return SkylarkNestedSet.of(Artifact.class, getAllFiles());
   }
 
   public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
