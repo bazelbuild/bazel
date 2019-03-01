@@ -17,7 +17,6 @@ java_test(
         exclude = [
             "CcImportBaseConfiguredTargetTest.java",
             "SkylarkCcCommonTestHelper.java",
-            "CcSkylarkApiProviderTest.java",
         ],
     ) + ["proto/CcProtoLibraryTest.java"],
     resources = [

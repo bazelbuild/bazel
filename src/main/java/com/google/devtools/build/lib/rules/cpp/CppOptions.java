@@ -826,7 +826,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_legacy_cc_provider",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {

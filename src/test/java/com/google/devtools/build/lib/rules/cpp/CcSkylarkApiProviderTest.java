@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,11 +31,6 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
   private CcSkylarkApiProvider getApi(String label) throws Exception {
     RuleConfiguredTarget rule = (RuleConfiguredTarget) getConfiguredTarget(label);
     return (CcSkylarkApiProvider) rule.get(CcSkylarkApiProvider.NAME);
-  }
-
-  @Before
-  public final void setConfiguration() throws Exception {
-    useConfiguration("--incompatible_disable_legacy_cc_provider=false");
   }
 
   @Test
