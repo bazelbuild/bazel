@@ -119,7 +119,7 @@ public class BlazeVersionInfo {
   }
 
   /**
-   * Returns the version, if any, or an empty String. The returned version number is easier to
+   * Returns the version, if any, or {@code ""}. The returned version number is easier to
    * process than the version returned by #getReleaseName().
    */
   public String getVersion() {
