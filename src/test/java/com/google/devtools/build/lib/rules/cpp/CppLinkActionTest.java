@@ -19,7 +19,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -96,6 +96,19 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   private final FeatureConfiguration getMockFeatureConfiguration(RuleContext ruleContext)
       throws Exception {
+    CToolchain.FlagGroup flagGroup =
+        CToolchain.FlagGroup.newBuilder().addFlag("-lcpp_standard_library").build();
+    CToolchain.FlagSet flagSet =
+        CToolchain.FlagSet.newBuilder()
+            .addAction("c++-link-executable")
+            .addFlagGroup(flagGroup)
+            .build();
+    CToolchain.Feature linkCppStandardLibrary =
+        CToolchain.Feature.newBuilder()
+            .setName("link_cpp_standard_library")
+            .setEnabled(true)
+            .addFlagSet(flagSet)
+            .build();
     ImmutableList<CToolchain.Feature> features =
         new ImmutableList.Builder<CToolchain.Feature>()
             .addAll(
@@ -106,6 +119,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     /* supportsEmbeddedRuntimes= */ true,
                     /* supportsInterfaceSharedLibraries= */ false))
             .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
+            .add(linkCppStandardLibrary)
             .build();
 
     ImmutableList<CToolchain.ActionConfig> actionConfigs =
@@ -119,6 +133,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     return CcToolchainFeaturesTest.buildFeatures(ruleContext, features, actionConfigs)
         .getFeatureConfiguration(
             ImmutableSet.of(
+                "link_cpp_standard_library",
                 Link.LinkTargetType.EXECUTABLE.getActionName(),
                 Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
                 Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
@@ -213,6 +228,66 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLegacyWholeArchiveHasNoEffectOnDynamicModeDynamicLibraries() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'libfoo.so',",
+        "  srcs = ['foo.cc'],",
+        "  linkshared = 1,",
+        "  linkstatic = 0,",
+        ")");
+    useConfiguration("--legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+  }
+
+  @Test
+  public void testLegacyWholeArchive() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'libfoo.so',",
+        "  srcs = ['foo.cc'],",
+        "  linkshared = 1,",
+        ")");
+    // --incompatible_remove_legacy_whole_archive not flipped, --legacy_whole_archive wins.
+    useConfiguration("--legacy_whole_archive", "--noincompatible_remove_legacy_whole_archive");
+    assertThat(getLibfooArguments()).contains("-Wl,-whole-archive");
+    useConfiguration("--nolegacy_whole_archive", "--noincompatible_remove_legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+
+    // --incompatible_remove_legacy_whole_archive flipped, --legacy_whole_archive ignored.
+    useConfiguration("--legacy_whole_archive", "--incompatible_remove_legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+    useConfiguration("--nolegacy_whole_archive", "--incompatible_remove_legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+
+    // Even when --nolegacy_whole_archive, features can still add the behavior back.
+    useConfiguration(
+        "--nolegacy_whole_archive",
+        "--noincompatible_remove_legacy_whole_archive",
+        "--features=legacy_whole_archive");
+    assertThat(getLibfooArguments()).contains("-Wl,-whole-archive");
+    // Even when --nolegacy_whole_archive, features can still add the behavior, but not when
+    // --incompatible_remove_legacy_whole_archive is flipped.
+    useConfiguration(
+        "--incompatible_remove_legacy_whole_archive", "--features=legacy_whole_archive");
+    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
+  }
+
+  private List<String> getLibfooArguments() throws LabelSyntaxException {
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:libfoo.so");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/libfoo.so");
+    return linkAction.getArguments();
+  }
+
+  @Test
   public void testExposesRuntimeLibrarySearchDirectoriesVariable() throws Exception {
     scratch.file(
         "x/BUILD",
@@ -245,10 +320,17 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testCompilesTestSourcesIntoDynamicLibrary() throws Exception {
     if (OS.getCurrent() == OS.WINDOWS) {
       // Skip the test on Windows.
-      // TODO(bazel-team): maybe we should move that test that doesn't work with MSVC toolchain to
-      // its own suite with a TestSpec?
+      // TODO(#7524): This test should work on Windows just fine, investigate and fix.
       return;
     }
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_PIC_FEATURE,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
+
     scratch.file(
         "x/BUILD",
         "cc_test(name = 'a', srcs = ['a.cc'])",
@@ -257,17 +339,15 @@ public class CppLinkActionTest extends BuildViewTestCase {
     useConfiguration("--experimental_link_compile_output_separately", "--force_pic");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    String cpu = CrosstoolConfigurationHelper.defaultCpu();
     CppLinkAction linkAction =
         (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
     assertThat(artifactsToStrings(linkAction.getInputs()))
-        .contains("bin _solib_" + cpu + "/libx_Sliba.ifso");
+        .contains("bin _solib_k8/libx_Sliba.ifso");
     assertThat(linkAction.getArguments())
-        .contains(
-            getBinArtifactWithNoOwner("_solib_" + cpu + "/libx_Sliba.ifso").getExecPathString());
+        .contains(getBinArtifactWithNoOwner("_solib_k8/libx_Sliba.ifso").getExecPathString());
     RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .contains("bin _solib_" + cpu + "/libx_Sliba.so");
+        .contains("bin _solib_k8/libx_Sliba.so");
 
     configuredTarget = getConfiguredTarget("//x:b");
     linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b");
@@ -278,33 +358,36 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompilesDynamicModeTestSourcesWithoutFeatureIntoDynamicLibrary()
-      throws Exception {
+  public void testCompilesDynamicModeTestSourcesWithFeatureIntoDynamicLibrary() throws Exception {
     if (OS.getCurrent() == OS.WINDOWS) {
       // Skip the test on Windows.
-      // TODO(bazel-team): maybe we should move that test that doesn't work with MSVC toolchain to
-      // its own suite with a TestSpec?
+      // TODO(#7524): This test should work on Windows just fine, investigate and fix.
       return;
     }
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_PIC_FEATURE,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
     scratch.file(
         "x/BUILD",
-        "cc_test(name='a', srcs=['a.cc'], features=['-static_link_test_srcs'])",
+        "cc_test(name='a', srcs=['a.cc'], features=['dynamic_link_test_srcs'])",
         "cc_binary(name='b', srcs=['a.cc'])",
-        "cc_test(name='c', srcs=['a.cc'], features=['-static_link_test_srcs'], linkstatic=1)");
+        "cc_test(name='c', srcs=['a.cc'], features=['dynamic_link_test_srcs'], linkstatic=1)");
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    String cpu = CrosstoolConfigurationHelper.defaultCpu();
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
     assertThat(artifactsToStrings(linkAction.getInputs()))
-        .contains("bin _solib_" + cpu + "/libx_Sliba.ifso");
+        .contains("bin _solib_k8/libx_Sliba.ifso");
     assertThat(linkAction.getArguments())
-        .contains(
-            getBinArtifactWithNoOwner("_solib_" + cpu + "/libx_Sliba.ifso").getExecPathString());
+        .contains(getBinArtifactWithNoOwner("_solib_k8/libx_Sliba.ifso").getExecPathString());
     RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .contains("bin _solib_" + cpu + "/libx_Sliba.so");
+        .contains("bin _solib_k8/libx_Sliba.so");
 
     configuredTarget = getConfiguredTarget("//x:b");
     linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b");
@@ -326,20 +409,24 @@ public class CppLinkActionTest extends BuildViewTestCase {
       throws Exception {
     if (OS.getCurrent() == OS.WINDOWS) {
       // Skip the test on Windows.
-      // TODO(bazel-team): maybe we should move that test that doesn't work with MSVC toolchain to
-      // its own suite with a TestSpec?
+      // TODO(#7524): This test should work on Windows just fine, investigate and fix.
       return;
     }
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
+            MockCcSupport.SUPPORTS_PIC_FEATURE);
     scratch.file(
         "x/BUILD", "cc_binary(name = 'a', srcs = ['a.cc'], features = ['-static_link_test_srcs'])");
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic", "--dynamic_mode=default");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    String cpu = CrosstoolConfigurationHelper.defaultCpu();
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
     assertThat(artifactsToStrings(linkAction.getInputs()))
-        .doesNotContain("bin _solib_" + cpu + "/libx_Sliba.ifso");
+        .doesNotContain("bin _solib_k8/libx_Sliba.ifso");
     assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/a/a.pic.o");
     RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
@@ -664,8 +751,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
-            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
-            "supports_interface_shared_objects: false");
+            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
     useConfiguration();
 
     scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
@@ -687,7 +774,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
                 ruleContext,
-                "supports_interface_shared_objects: true ",
+                MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
                 "feature {",
                 "   name: 'build_interface_libraries'",
                 "   flag_set {",
@@ -850,64 +937,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinksTreeArtifactLibraryForDeps() throws Exception {
-    // This test only makes sense if start/end lib archives are supported.
-    analysisMock.ccSupport().setupCrosstool(mockToolsConfig, "supports_start_end_lib: true");
-    useConfiguration("--start_end_lib");
-    RuleContext ruleContext = createDummyRuleContext();
-
-    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
-
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
-
-    ArtifactExpander expander =
-        new ArtifactExpander() {
-          @Override
-          public void expand(Artifact artifact, Collection<? super Artifact> output) {
-            if (artifact.equals(testTreeArtifact)) {
-              output.add(library0);
-              output.add(library1);
-            }
-          };
-        };
-
-    Artifact archiveFile = scratchArtifact("library.a");
-
-    CppLinkActionBuilder builder =
-        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
-            .setLibraryIdentifier("foo")
-            .addLibrary(
-                LinkerInputs.newInputLibrary(
-                    archiveFile,
-                    ArtifactCategory.STATIC_LIBRARY,
-                    null,
-                    ImmutableList.<Artifact>of(testTreeArtifact),
-                    new LtoCompilationContext(ImmutableMap.of()),
-                    null,
-                    /* mustKeepDebug= */ false));
-
-    CppLinkAction linkAction = builder.build();
-
-    Iterable<String> treeArtifactsPaths = ImmutableList.of(testTreeArtifact.getExecPathString());
-    Iterable<String> treeFileArtifactsPaths =
-        ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
-
-    // Should only reference the tree artifact.
-    verifyArguments(
-        linkAction.getLinkCommandLine().getRawLinkArgv(),
-        treeArtifactsPaths,
-        treeFileArtifactsPaths);
-    verifyArguments(linkAction.getArguments(), treeArtifactsPaths, treeFileArtifactsPaths);
-
-    // Should only reference tree file artifacts.
-    verifyArguments(
-        linkAction.getLinkCommandLine().getRawLinkArgv(expander),
-        treeFileArtifactsPaths,
-        treeArtifactsPaths);
-  }
-
-  @Test
   public void testStaticLinking() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
 
@@ -1011,7 +1040,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testLinkoptsComeAfterLinkerInputs() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
 
-    String solibPrefix = "_solib_" + CrosstoolConfigurationHelper.defaultCpu();
+    String solibPrefix = "_solib_k8";
     Iterable<LibraryToLink> linkerInputs =
         LinkerInputs.opaqueLibrariesToLink(
             ArtifactCategory.DYNAMIC_LIBRARY,
@@ -1067,6 +1096,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(linkCommandLine).contains("output/path.a");
     assertThat(linkCommandLine).contains("path.a-2.params");
 
-    assertThat(result.second).contains("-lstdc++");
+    assertThat(result.second).contains("-lcpp_standard_library");
   }
 }

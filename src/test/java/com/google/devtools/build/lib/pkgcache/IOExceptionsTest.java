@@ -60,7 +60,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   @Before
   public final void initializeVisitor() throws Exception {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE, loadingMock.getDefaultsPackageContent());
+    setUpSkyframe(ConstantRuleVisibility.PRIVATE);
   }
 
   private boolean visitTransitively(Label label) throws InterruptedException {

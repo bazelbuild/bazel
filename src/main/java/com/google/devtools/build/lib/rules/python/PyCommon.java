@@ -57,6 +57,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
@@ -70,17 +71,15 @@ public final class PyCommon {
    *
    * <p>It is expected that both attributes are defined, string-typed, and default to {@link
    * PythonVersion#_INTERNAL_SENTINEL}. The returned version is the value of {@code python_version}
-   * if it is not the sentinel, then {@code default_python_version} if it is not the sentinel, then
-   * finally {@code default}. In all cases the return value is a target version value (either {@code
-   * PY2} or {@code PY3}).
+   * if it is not the sentinel, then {@code default_python_version} if it is not the sentinel,
+   * otherwise null (when both attributes are sentinels). In all cases the return value is either a
+   * target version value ({@code PY2} or {@code PY3}) or null.
    *
    * @throws IllegalArgumentException if the attributes are not present, not string-typed, or not
-   *     parsable as target {@link PythonVersion} values or as the sentinel value; or if {@code
-   *     default} is not a target version value
+   *     parsable as target {@link PythonVersion} values or as the sentinel value
    */
-  public static PythonVersion readPythonVersionFromAttributes(
-      AttributeMap attrs, PythonVersion defaultVersion) {
-    Preconditions.checkArgument(defaultVersion.isTargetValue());
+  @Nullable
+  public static PythonVersion readPythonVersionFromAttributes(AttributeMap attrs) {
     PythonVersion pythonVersionAttr =
         PythonVersion.parseTargetOrSentinelValue(attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING));
     PythonVersion defaultPythonVersionAttr =
@@ -91,7 +90,7 @@ public final class PyCommon {
     } else if (defaultPythonVersionAttr != PythonVersion._INTERNAL_SENTINEL) {
       return defaultPythonVersionAttr;
     } else {
-      return defaultVersion;
+      return null;
     }
   }
 
@@ -158,7 +157,7 @@ public final class PyCommon {
    *
    * <p>Null if no 2to3 conversion is required.
    */
-  private final Map<PathFragment, Artifact> convertedFiles;
+  @Nullable private final Map<PathFragment, Artifact> convertedFiles;
 
   private Artifact executable = null;
 
@@ -186,6 +185,7 @@ public final class PyCommon {
     validateTargetPythonVersionAttr(DEFAULT_PYTHON_VERSION_ATTRIBUTE);
     validateTargetPythonVersionAttr(PYTHON_VERSION_ATTRIBUTE);
     validateOldVersionAttrNotUsedIfDisabled();
+    validateLegacyProviderNotUsedIfDisabled();
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -233,7 +233,8 @@ public final class PyCommon {
         builder.addTransitive(PyProviderUtils.getTransitiveSources(dep));
       } catch (EvalException e) {
         // Either the provider type or field type is bad.
-        ruleContext.ruleError(String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+        ruleContext.attributeError(
+            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
   }
@@ -277,15 +278,16 @@ public final class PyCommon {
       try {
         NestedSet<String> imports = PyProviderUtils.getImports(dep);
         if (!builder.getOrder().isCompatible(imports.getOrder())) {
-          // TODO(brandjon): We should make order an invariant of the Python provider. Then once we
-          /// remove PythonImportsProvider we can move this check into PyProvider/PyStructUtils.
+          // TODO(brandjon): We should make order an invariant of the Python provider, and move this
+          // check into PyInfo/PyStructUtils.
           ruleContext.ruleError(
               getOrderErrorMessage(PyStructUtils.IMPORTS, builder.getOrder(), imports.getOrder()));
         } else {
           builder.addTransitive(imports);
         }
       } catch (EvalException e) {
-        ruleContext.ruleError(String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+        ruleContext.attributeError(
+            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
     return builder.build();
@@ -307,7 +309,8 @@ public final class PyCommon {
           return true;
         }
       } catch (EvalException e) {
-        ruleContext.ruleError(String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+        ruleContext.attributeError(
+            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
     return false;
@@ -328,7 +331,8 @@ public final class PyCommon {
           return true;
         }
       } catch (EvalException e) {
-        ruleContext.ruleError(String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+        ruleContext.attributeError(
+            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
     return false;
@@ -340,6 +344,7 @@ public final class PyCommon {
    */
   // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
   // should be removed / factored away into PythonSemantics.
+  @Nullable
   private static Map<PathFragment, Artifact> makeAndInitConvertedFiles(
       RuleContext ruleContext, PythonVersion version, PythonVersion sourcesVersion) {
     if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {
@@ -356,7 +361,7 @@ public final class PyCommon {
 
   /**
    * Under the old version semantics ({@code
-   * --experimental_allow_python_version_transitions=false}), checks that the {@code srcs_version}
+   * --incompatible_allow_python_version_transitions=false}), checks that the {@code srcs_version}
    * attribute is compatible with the Python version as determined by the configuration.
    *
    * <p>A failure is reported as a rule error.
@@ -433,12 +438,33 @@ public final class PyCommon {
       ruleContext.attributeError(
           DEFAULT_PYTHON_VERSION_ATTRIBUTE,
           "the 'default_python_version' attribute is disabled by the "
-              + "'--experimental_remove_old_python_version_api' flag");
+              + "'--incompatible_remove_old_python_version_api' flag");
     }
   }
 
   /**
-   * Under the new version semantics ({@code --experimental_allow_python_version_transitions=true}),
+   * Reports an attribute error if a target in {@code deps} passes the legacy "py" provider but this
+   * is disallowed by the configuration.
+   */
+  private void validateLegacyProviderNotUsedIfDisabled() {
+    if (!ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider()) {
+      return;
+    }
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+      if (PyProviderUtils.hasLegacyProvider(dep)) {
+        ruleContext.attributeError(
+            "deps",
+            String.format(
+                "In dep '%s': The legacy 'py' provider is disallowed. Migrate to the PyInfo "
+                    + "provider instead. You can temporarily disable this failure with "
+                    + "--incompatible_disallow_legacy_py_provider=false.",
+                dep.getLabel()));
+      }
+    }
+  }
+
+  /**
+   * Under the new version semantics ({@code --incompatible_allow_python_version_transitions=true}),
    * if the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
    * the executable.
@@ -457,14 +483,16 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
       return false;
     }
-    // TODO(brandjon): Add link to documentation explaining the error and use of the aspect.
+    String errorTemplate =
+        "This target is being built for Python %s but (transitively) includes Python %s-only "
+            + "sources. You can get diagnostic information about which dependencies introduce this "
+            + "version requirement by running the `find_requirements` aspect. For more info see "
+            + "the documentation for the `srcs_version` attribute.";
     String error = null;
     if (version == PythonVersion.PY2 && hasPy3OnlySources) {
-      error =
-          "target is being built for Python 2 but (transitively) includes Python 3-only sources";
+      error = String.format(errorTemplate, "2", "3");
     } else if (version == PythonVersion.PY3 && hasPy2OnlySources) {
-      error =
-          "target is being built for Python 3 but (transitively) includes Python 2-only sources";
+      error = String.format(errorTemplate, "3", "2");
     }
     if (error == null) {
       return false;
@@ -558,9 +586,17 @@ public final class PyCommon {
   }
 
   public void addCommonTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder,
-      NestedSet<Artifact> filesToBuild,
-      NestedSet<String> imports) {
+      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
+
+    boolean createLegacyPyProvider =
+        !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
+    PyProviderUtils.builder(createLegacyPyProvider)
+        .setTransitiveSources(transitivePythonSources)
+        .setUsesSharedLibraries(usesSharedLibraries)
+        .setImports(imports)
+        .setHasPy2OnlySources(hasPy2OnlySources)
+        .setHasPy3OnlySources(hasPy3OnlySources)
+        .buildAndAddToTarget(builder);
 
     builder
         .addNativeDeclaredProvider(
@@ -570,15 +606,6 @@ public final class PyCommon {
                 METADATA_COLLECTOR,
                 filesToBuild,
                 /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
-        .addSkylarkTransitiveInfo(
-            PyStructUtils.PROVIDER_NAME,
-            PyStructUtils.builder()
-                .setTransitiveSources(transitivePythonSources)
-                .setUsesSharedLibraries(usesSharedLibraries)
-                .setImports(imports)
-                .setHasPy2OnlySources(hasPy2OnlySources)
-                .setHasPy3OnlySources(hasPy3OnlySources)
-                .build())
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, transitivePythonSources)
@@ -734,19 +761,13 @@ public final class PyCommon {
    * trigger an execution-time failure. See {@link
    * #maybeCreateFailActionDueToTransitiveSourcesVersion}.
    */
-  public Artifact createExecutable(
-      CcInfo ccInfo, NestedSet<String> givenImports, Runfiles.Builder defaultRunfilesBuilder)
+  public Artifact createExecutable(CcInfo ccInfo, Runfiles.Builder defaultRunfilesBuilder)
       throws InterruptedException, RuleErrorException {
     boolean failed = maybeCreateFailActionDueToTransitiveSourcesVersion();
     if (failed) {
       return executable;
     } else {
-      // TODO(#7054): We pass imports as an arg instead of taking them from the PyCommon field
-      // because the imports logic is a little inconsistent, and passing it explicitly may help
-      // avoid creating bugs that make the situation worse. We can eliminate this arg when we
-      // straighten up the other imports logic.
-      return semantics.createExecutable(
-          ruleContext, this, ccInfo, givenImports, defaultRunfilesBuilder);
+      return semantics.createExecutable(ruleContext, this, ccInfo, defaultRunfilesBuilder);
     }
   }
 

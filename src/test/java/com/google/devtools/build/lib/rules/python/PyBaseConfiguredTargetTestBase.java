@@ -57,7 +57,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void goodSrcsVersionValue() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
         ruleName + "(",
         "    name = 'foo',",
         "    srcs_version = 'PY2',",
@@ -75,7 +76,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     // PyExecutableConfiguredTargetTestBase. Note that under the new semantics py_binary and
     // py_library ignore the version flag, so those tests use the attribute to set the version
     // instead.
-    useConfiguration("--experimental_allow_python_version_transitions=false", "--force_python=PY3");
+    useConfiguration("--incompatible_allow_python_version_transitions=false", "--force_python=PY3");
     checkError("pkg", "foo",
         // error:
         "'//pkg:foo' can only be used with Python 2",
@@ -89,7 +90,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   @Test
   public void versionIs2IfUnspecified() throws Exception {
     ensureDefaultIsPY2();
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD", //
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -104,8 +106,9 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     // would only make sense for py_library; see PyLibraryConfiguredTargetTest for the analogous
     // test.
     ensureDefaultIsPY2();
-    useConfiguration("--experimental_allow_python_version_transitions=false", "--force_python=PY3");
-    scratch.file("pkg/BUILD",
+    useConfiguration("--incompatible_allow_python_version_transitions=false", "--force_python=PY3");
+    scratch.file(
+        "pkg/BUILD", //
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -125,7 +128,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void srcsPackageNameCannotHaveHyphen() throws Exception {
-    scratch.file("pkg-hyphenated/BUILD",
+    scratch.file(
+        "pkg-hyphenated/BUILD", //
         "exports_files(['bar.py'])");
     checkError("otherpkg", "foo",
         // error:
@@ -134,5 +138,135 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'])");
+  }
+
+  @Test
+  public void producesBothModernAndLegacyProviders_WithoutIncompatibleFlag() throws Exception {
+    useConfiguration("--incompatible_disallow_legacy_py_provider=false");
+    scratch.file(
+        "pkg/BUILD", //
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'])");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
+    assertThat(target.get(PyStructUtils.PROVIDER_NAME)).isNotNull();
+  }
+
+  @Test
+  public void producesOnlyModernProvider_WithIncompatibleFlag() throws Exception {
+    useConfiguration("--incompatible_disallow_legacy_py_provider=true");
+    scratch.file(
+        "pkg/BUILD", //
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'])");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
+    assertThat(target.get(PyStructUtils.PROVIDER_NAME)).isNull();
+  }
+
+  @Test
+  public void consumesLegacyProvider_WithoutIncompatibleFlag() throws Exception {
+    useConfiguration("--incompatible_disallow_legacy_py_provider=false");
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return struct(py=struct(transitive_sources=depset([])))",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        ")");
+    scratch.file(
+        "pkg/BUILD",
+        "load(':rules.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'dep',",
+        ")",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    deps = [':dep'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void rejectsLegacyProvider_WithIncompatibleFlag() throws Exception {
+    useConfiguration("--incompatible_disallow_legacy_py_provider=true");
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return struct(py=struct(transitive_sources=depset([])))",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        ")");
+    checkError(
+        "pkg",
+        "foo",
+        // error:
+        "In dep '//pkg:dep': The legacy 'py' provider is disallowed.",
+        // build file:
+        "load(':rules.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'dep',",
+        ")",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    deps = [':dep'],",
+        ")");
+  }
+
+  @Test
+  public void consumesModernProvider() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return [PyInfo(transitive_sources=depset([]))]",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        ")");
+    scratch.file(
+        "pkg/BUILD",
+        "load(':rules.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'dep',",
+        ")",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    deps = [':dep'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void requiresProvider() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return []",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        ")");
+    checkError(
+        "pkg",
+        "foo",
+        // error:
+        "'//pkg:dep' does not have mandatory providers",
+        // build file:
+        "load(':rules.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'dep',",
+        ")",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    deps = [':dep'],",
+        ")");
   }
 }

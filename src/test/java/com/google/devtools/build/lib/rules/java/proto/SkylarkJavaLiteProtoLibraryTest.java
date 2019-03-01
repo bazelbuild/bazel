@@ -16,16 +16,12 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.Artifact.ROOT_RELATIVE_PATH_STRING;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimaps;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -93,9 +89,6 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
       scratch.file(RULE_DIRECTORY + "/" + file.getName(), Files.readAllBytes(file.toPath()));
     }
     scratch.file(RULE_DIRECTORY + "/BUILD", "exports_files(['java_lite_proto_library.bzl'])");
-    scratch.file(
-        "tools/jdk/build_defs.bzl",
-        Files.readAllBytes(Runfiles.location("tools/jdk/build_defs.bzl").toPath()));
     invalidatePackages();
   }
 
@@ -291,37 +284,6 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         .containsExactly("javalite_runtime.pro_valid");
   }
 
-  /** Protobufs should always be compiled with the default and proto javacopts. */
-  @Test
-  public void testJavacOpts() throws Exception {
-    ConfiguredTarget rule =
-        scratchConfiguredTarget(
-            "x",
-            "lite_pb2",
-            "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-            "      'java_lite_proto_library')",
-            "java_lite_proto_library(name = 'lite_pb2', deps = [':proto_lib'])",
-            "proto_library(name = 'proto_lib',",
-            "              srcs = ['input1.proto', 'input2.proto'])");
-    JavaCompilationArgsProvider compilationArgs =
-        getProvider(JavaCompilationArgsProvider.class, rule);
-    assertThat(compilationArgs.getInstrumentationMetadata()).isEmpty();
-
-    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class, rule);
-    assertThat(sourceJarsProvider).isNotNull();
-    assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-        .containsExactly("x/proto_lib-lite-src.jar");
-
-    ImmutableListMultimap<String, Artifact> runtimeJars =
-        Multimaps.index(compilationArgs.getRuntimeJars(), ROOT_RELATIVE_PATH_STRING);
-
-    Artifact jar = Iterables.getOnlyElement(runtimeJars.get("x/libproto_lib-lite.jar"));
-    JavaCompileAction action = (JavaCompileAction) getGeneratingAction(jar);
-
-    List<String> commandLine = ImmutableList.copyOf((Iterable<String>) getJavacArguments(action));
-    assertThat(commandLine).contains("-protoMarkerForTest");
-  }
-
   @Test
   public void testExperimentalProtoExtraActions() throws Exception {
     scratch.file(
@@ -459,7 +421,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
           getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:foo_lite_pb2"));
       assertThat(sourceJarsProvider).isNotNull();
       assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/foo-lite-src.jar");
+          .containsExactly("x/libfoo-lite-src.jar");
     }
 
     {
@@ -475,7 +437,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
           getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:bar_lite_pb2"));
       assertThat(sourceJarsProvider).isNotNull();
       assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/bar-lite-src.jar");
+          .containsExactly("x/libbar-lite-src.jar");
     }
   }
 

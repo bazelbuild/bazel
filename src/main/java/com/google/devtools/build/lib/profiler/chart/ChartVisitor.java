@@ -20,20 +20,11 @@ package com.google.devtools.build.lib.profiler.chart;
 public interface ChartVisitor {
 
   /**
-   * Visits a {@link Chart} object before its children, i.e., rows and bars, are
-   * visited.
+   * Visits a {@link Chart} object before its children, i.e., rows and bars, are visited.
    *
    * @param chart the {@link Chart} to visit
    */
   void visit(Chart chart);
-
-  /**
-   * Visits a {@link Chart} object after its children, i.e., rows and bars, are
-   * visited.
-   *
-   * @param chart the {@link Chart} to visit
-   */
-  void endVisit(Chart chart);
 
   /**
    * Visits a {@link ChartRow} object.
@@ -62,4 +53,11 @@ public interface ChartVisitor {
    * @param chartLine the {@link ChartLine} to visit
    */
   void visit(ChartLine chartLine);
+
+  /**
+   * Visits a {@link Chart} object after its children, i.e., rows and bars, are visited.
+   *
+   * @param chart the {@link Chart} to visit
+   */
+  void endVisit(Chart chart);
 }

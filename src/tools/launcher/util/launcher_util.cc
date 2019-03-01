@@ -128,7 +128,8 @@ wstring GetBinaryPathWithExtension(const wstring& binary) {
   return GetBinaryPathWithoutExtension(binary) + L".exe";
 }
 
-wstring GetEscapedArgument(const wstring& argument, bool escape_backslash) {
+static wstring GetEscapedArgument(const wstring& argument,
+                                  bool escape_backslash) {
   wstring escaped_arg;
   // escaped_arg will be at least this long
   escaped_arg.reserve(argument.size());
@@ -163,6 +164,105 @@ wstring GetEscapedArgument(const wstring& argument, bool escape_backslash) {
     escaped_arg += L'\"';
   }
   return escaped_arg;
+}
+
+std::wstring BashEscapeArg(const std::wstring& arg) {
+  return GetEscapedArgument(arg, /* escape_backslash */ true);
+}
+
+// Escape arguments for CreateProcessW.
+//
+// This algorithm is based on information found in
+// http://daviddeley.com/autohotkey/parameters/parameters.htm
+//
+// The following source specifies a similar algorithm:
+// https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/everyone-quotes-command-line-arguments-the-wrong-way/
+// unfortunately I found this algorithm only after creating the one below, but
+// fortunately they seem to do the same.
+std::wstring WindowsEscapeArg2(const std::wstring& s) {
+  if (s.empty()) {
+    return L"\"\"";
+  } else {
+    bool needs_escaping = false;
+    for (const auto& c : s) {
+      if (c == ' ' || c == '"') {
+        needs_escaping = true;
+        break;
+      }
+    }
+    if (!needs_escaping) {
+      return s;
+    }
+  }
+
+  std::wostringstream result;
+  result << L'"';
+  int start = 0;
+  for (int i = 0; i < s.size(); ++i) {
+    char c = s[i];
+    if (c == '"' || c == '\\') {
+      // Copy the segment since the last special character.
+      if (start >= 0) {
+        result << s.substr(start, i - start);
+        start = -1;
+      }
+
+      // Handle the current special character.
+      if (c == '"') {
+        // This is a quote character. Escape it with a single backslash.
+        result << L"\\\"";
+      } else {
+        // This is a backslash (or the first one in a run of backslashes).
+        // Whether we escape it depends on whether the run ends with a quote.
+        int run_len = 1;
+        int j = i + 1;
+        while (j < s.size() && s[j] == '\\') {
+          run_len++;
+          j++;
+        }
+        if (j == s.size()) {
+          // The run of backslashes goes to the end.
+          // We have to escape every backslash with another backslash.
+          for (int k = 0; k < run_len * 2; ++k) {
+            result << L'\\';
+          }
+          break;
+        } else if (j < s.size() && s[j] == '"') {
+          // The run of backslashes is terminated by a quote.
+          // We have to escape every backslash with another backslash, and
+          // escape the quote with one backslash.
+          for (int k = 0; k < run_len * 2; ++k) {
+            result << L'\\';
+          }
+          result << L"\\\"";
+          i += run_len;  // 'i' is also increased in the loop iteration step
+        } else {
+          // No quote found. Each backslash counts for itself, they must not be
+          // escaped.
+          for (int k = 0; k < run_len; ++k) {
+            result << L'\\';
+          }
+          i += run_len - 1;  // 'i' is also increased in the loop iteration step
+        }
+      }
+    } else {
+      // This is not a special character. Start the segment if necessary.
+      if (start < 0) {
+        start = i;
+      }
+    }
+  }
+  // Save final segment after the last special character.
+  if (start != -1) {
+    result << s.substr(start);
+  }
+  result << L'"';
+  return result.str();
+}
+
+std::wstring WindowsEscapeArg(const std::wstring& arg) {
+  // TODO(laszlocsomor): use WindowsEscapeArg2 instead.
+  return GetEscapedArgument(arg, /* escape_backslash */ false);
 }
 
 // An environment variable has a maximum size limit of 32,767 characters

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 
@@ -74,11 +74,7 @@ public final class ParamDescriptor {
     this.flagResponsibleForDisable = flagResponsibleForDisable;
   }
 
-  /**
-   * Returns a {@link ParamDescriptor} representing the given raw {@link Param} annotation and the
-   * given semantics.
-   */
-  public static ParamDescriptor of(Param param, SkylarkSemantics skylarkSemantics) {
+  static ParamDescriptor of(Param param, StarlarkSemantics starlarkSemantics) {
     ImmutableList<ParamTypeDescriptor> allowedTypes =
         Arrays.stream(param.allowedTypes())
             .map(ParamTypeDescriptor::of)
@@ -88,7 +84,7 @@ public final class ParamDescriptor {
     boolean noneable = param.noneable();
 
     boolean isParamEnabledWithCurrentSemantics =
-        skylarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
+        starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
             param.enableOnlyWithFlag(), param.disableWithFlag());
 
     String valueOverride = null;

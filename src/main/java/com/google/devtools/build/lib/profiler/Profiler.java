@@ -424,7 +424,6 @@ public final class Profiler {
             // CRITICAL_PATH corresponds to writing the file.
             && type != ProfilerTask.CRITICAL_PATH
             && type != ProfilerTask.SKYFUNCTION
-            && type != ProfilerTask.ACTION_EXECUTE
             && type != ProfilerTask.ACTION_COMPLETE
             && !type.isStarlark();
       }
@@ -721,6 +720,10 @@ public final class Profiler {
     }
   }
 
+  private boolean shouldProfile(long startTime, ProfilerTask type) {
+    return isActive() && startTime > 0 && isProfiling(type);
+  }
+
   /**
    * Used externally to submit simple task (one that does not have any subtasks). Depending on the
    * minDuration attribute of the task type, task may be just aggregated into the parent task and
@@ -731,7 +734,7 @@ public final class Profiler {
    * @param description task description. May be stored until the end of the build.
    */
   public void logSimpleTask(long startTime, ProfilerTask type, String description) {
-    if (isActive() && isProfiling(type)) {
+    if (shouldProfile(startTime, type)) {
       logTask(startTime, clock.nanoTime() - startTime, type, description);
     }
   }
@@ -750,7 +753,7 @@ public final class Profiler {
    */
   public void logSimpleTask(
       long startTimeNanos, long stopTimeNanos, ProfilerTask type, String description) {
-    if (isActive() && isProfiling(type)) {
+    if (shouldProfile(startTimeNanos, type)) {
       logTask(startTimeNanos, stopTimeNanos - startTimeNanos, type, description);
     }
   }
@@ -767,7 +770,7 @@ public final class Profiler {
    */
   public void logSimpleTaskDuration(
       long startTimeNanos, Duration duration, ProfilerTask type, String description) {
-    if (isActive() && isProfiling(type)) {
+    if (shouldProfile(startTimeNanos, type)) {
       logTask(startTimeNanos, duration.toNanos(), type, description);
     }
   }

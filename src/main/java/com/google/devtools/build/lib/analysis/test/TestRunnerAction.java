@@ -31,15 +31,22 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -263,6 +270,9 @@ public class TestRunnerAction extends AbstractAction
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
+      if (resolvedPaths.getTestStderr().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_STDERR, resolvedPaths.getTestStderr()));
+      }
       if (resolvedPaths.getXmlOutputPath().exists()) {
         builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
       }
@@ -739,12 +749,84 @@ public class TestRunnerAction extends AbstractAction
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     TestActionContext context = actionExecutionContext.getContext(TestActionContext.class);
+    return execute(actionExecutionContext, context);
+  }
+
+  @VisibleForTesting
+  public ActionResult execute(
+      ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
+      throws ActionExecutionException, InterruptedException {
     try {
-      return ActionResult.create(context.exec(this, actionExecutionContext));
+      TestRunnerSpawn testRunnerSpawn =
+          testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
+      return ActionResult.create(
+          runAttempts(
+              testRunnerSpawn, actionExecutionContext, testActionContext.isTestKeepGoing()));
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);
     } finally {
       unconditionalExecution = null;
+    }
+  }
+
+  private List<SpawnResult> runAttempts(
+      TestRunnerSpawn testRunnerSpawn,
+      ActionExecutionContext actionExecutionContext,
+      boolean keepGoing)
+      throws ExecException, InterruptedException {
+    List<SpawnResult> spawnResults = new ArrayList<>();
+    runAttempts(
+        testRunnerSpawn, actionExecutionContext, keepGoing, spawnResults, new ArrayList<>());
+    return spawnResults;
+  }
+
+  private void runAttempts(
+      TestRunnerSpawn testRunnerSpawn,
+      ActionExecutionContext actionExecutionContext,
+      boolean keepGoing,
+      List<SpawnResult> spawnResults,
+      List<FailedAttemptResult> failedAttempts)
+      throws ExecException, InterruptedException {
+    try {
+      TestAttemptResult testProcessResult = testRunnerSpawn.execute();
+      spawnResults.addAll(testProcessResult.spawnResults());
+      int maxAttempts = testRunnerSpawn.getMaxAttempts(testProcessResult);
+      // Failed test retry loop.
+      for (int attempt = 1; attempt < maxAttempts && !testProcessResult.hasPassed(); attempt++) {
+        failedAttempts.add(
+            testRunnerSpawn.finalizeFailedTestAttempt(
+                testProcessResult, failedAttempts.size() + 1));
+
+        testProcessResult = testRunnerSpawn.execute();
+        spawnResults.addAll(testProcessResult.spawnResults());
+      }
+
+      TestRunnerSpawn fallbackRunner;
+      if (!testProcessResult.hasPassed()
+          && (fallbackRunner = testRunnerSpawn.getFallbackRunner()) != null) {
+        // All attempts failed and fallback is enabled.
+        failedAttempts.add(
+            testRunnerSpawn.finalizeFailedTestAttempt(
+                testProcessResult, failedAttempts.size() + 1));
+        runAttempts(
+            fallbackRunner, actionExecutionContext, keepGoing, spawnResults, failedAttempts);
+      } else {
+        testRunnerSpawn.finalizeTest(testProcessResult, failedAttempts);
+
+        if (!keepGoing && !testProcessResult.hasPassed()) {
+          throw new TestExecException("Test failed: aborting");
+        }
+      }
+    } catch (IOException e) {
+      // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
+      // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
+      StringBuilder sb = new StringBuilder();
+      sb.append("Caught I/O exception: ").append(e.getMessage());
+      for (Object s : e.getStackTrace()) {
+        sb.append("\n\t").append(s);
+      }
+      actionExecutionContext.getEventHandler().handle(Event.error(sb.toString()));
+      throw new EnvironmentalExecException("unexpected I/O exception", e);
     }
   }
 
@@ -869,6 +951,10 @@ public class TestRunnerAction extends AbstractAction
     /** @return path to the optionally created XML output file created by the test. */
     public Path getXmlOutputPath() {
       return getPath(xmlOutputPath);
+    }
+
+    public Path getCoverageDataPath() {
+      return getPath(getCoverageData().getExecPath());
     }
   }
 }

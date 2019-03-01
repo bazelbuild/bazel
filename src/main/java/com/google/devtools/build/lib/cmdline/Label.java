@@ -69,8 +69,6 @@ public final class Label
       ImmutableSet.of(
           // Used for select
           PathFragment.create("conditions"),
-          // dependencies that are a function of the configuration
-          PathFragment.create("tools/defaults"),
           // Visibility is labels aren't actually targets
           PathFragment.create("visibility"),
           // There is only one //external package
@@ -245,7 +243,7 @@ public final class Label
    *
    * <p>It would be cleaner to use the TargetPatternEvaluator for this resolution, but that is not
    * possible, because it is sometimes necessary to resolve a relative label before the package path
-   * is setup; in particular, before the tools/defaults package is created.
+   * is setup (maybe not anymore...)
    *
    * @throws LabelSyntaxException if the resulting label is not valid
    */
@@ -531,7 +529,8 @@ public final class Label
               + "then the following remapping will take place:<br>"
               + "<pre class=language-python>\n"
               + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
-              + "Label(\"@remapped//wiz:quux\")",
+              + "Label(\"@remapped//wiz:quux\")\n"
+              + "</pre>",
       parameters = {
         @Param(
             name = "relName",

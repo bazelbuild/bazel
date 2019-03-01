@@ -30,7 +30,7 @@ public abstract class FilesetEntryKey implements SkyKey {
   abstract FilesetTraversalParams params();
 
   @Override
-  public Object argument() {
+  public FilesetTraversalParams argument() {
     return params();
   }
 
@@ -43,7 +43,7 @@ public abstract class FilesetEntryKey implements SkyKey {
     return INTERNER.intern(new AutoValue_FilesetEntryKey(param));
   }
 
-  public static ImmutableList<SkyKey> keys(Iterable<FilesetTraversalParams> params) {
+  public static ImmutableList<FilesetEntryKey> keys(Iterable<FilesetTraversalParams> params) {
     return StreamSupport.stream(params.spliterator(), /*parallel=*/ false)
         .map(FilesetEntryKey::key)
         .collect(ImmutableList.toImmutableList());

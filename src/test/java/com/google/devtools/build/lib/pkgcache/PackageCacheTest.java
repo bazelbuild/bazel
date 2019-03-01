@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -124,7 +124,7 @@ public class PackageCacheTest extends FoundationTestCase {
   }
 
   private void setUpSkyframe(
-      PackageCacheOptions packageCacheOptions, SkylarkSemanticsOptions skylarkSemanticsOptions) {
+      PackageCacheOptions packageCacheOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
@@ -143,8 +143,7 @@ public class PackageCacheTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
-        skylarkSemanticsOptions,
-        analysisMock.getDefaultsPackageContent(),
+        starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -155,7 +154,7 @@ public class PackageCacheTest extends FoundationTestCase {
 
   private OptionsParser parse(String... options) throws Exception {
     OptionsParser parser =
-        OptionsParser.newOptionsParser(PackageCacheOptions.class, SkylarkSemanticsOptions.class);
+        OptionsParser.newOptionsParser(PackageCacheOptions.class, StarlarkSemanticsOptions.class);
     parser.parse("--default_visibility=public");
     parser.parse(options);
 
@@ -173,8 +172,9 @@ public class PackageCacheTest extends FoundationTestCase {
     return parse(options).getOptions(PackageCacheOptions.class);
   }
 
-  private SkylarkSemanticsOptions parseSkylarkSemanticsOptions(String... options) throws Exception {
-    return parse(options).getOptions(SkylarkSemanticsOptions.class);
+  private StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+      throws Exception {
+    return parse(options).getOptions(StarlarkSemanticsOptions.class);
   }
 
   protected void setOptions(String... options) throws Exception {

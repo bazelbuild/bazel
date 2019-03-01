@@ -278,7 +278,7 @@ if [ $# -gt 0 ]; then
   # test with that framework (use Bazel's environment variable instead).
   TESTS=($(for i in $@; do echo $i; done | grep ^test_ || true))
   if (( ${#TESTS[@]} == 0 )); then
-    echo "WARNING: Arguments do not specifies tests!" >&2
+    echo "WARNING: Arguments do not specify tests!" >&2
   fi
 fi
 # TESTBRIDGE_TEST_ONLY contains the value of --test_filter, if any. We want to

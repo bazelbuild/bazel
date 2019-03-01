@@ -42,7 +42,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
    *
    * <p>This serves as a drop-in replacement for {@link #getConfiguredTarget} that will also catch
    * unexpected deferred failures (e.g. {@code srcs_versions} validation failures) in {@code
-   * py_binary} and {@code py_library} targets.
+   * py_binary} and {@code py_test} targets.
    */
   protected ConfiguredTarget getOkPyTarget(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
@@ -63,7 +63,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   /**
    * Gets the configured target for an executable Python rule (generally {@code py_binary} or {@code
-   * py_library}) and asserts that it produces a deferred error via {@link FailAction}.
+   * py_test}) and asserts that it produces a deferred error via {@link FailAction}.
    *
    * @return the deferred error string
    */
@@ -107,7 +107,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     }
   }
 
-  private String join(String... lines) {
+  private static String join(String... lines) {
     return String.join("\n", lines);
   }
 
@@ -131,7 +131,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void oldVersionAttr_UnknownValue() throws Exception {
-    useConfiguration("--experimental_remove_old_python_version_api=false");
+    useConfiguration("--incompatible_remove_old_python_version_api=false");
     checkError(
         "pkg",
         "foo",
@@ -156,7 +156,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void oldVersionAttr_BadValue() throws Exception {
-    useConfiguration("--experimental_remove_old_python_version_api=false");
+    useConfiguration("--incompatible_remove_old_python_version_api=false");
     checkError(
         "pkg",
         "foo",
@@ -181,7 +181,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void oldVersionAttr_GoodValue() throws Exception {
-    useConfiguration("--experimental_remove_old_python_version_api=false");
+    useConfiguration("--incompatible_remove_old_python_version_api=false");
     scratch.file("pkg/BUILD", ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
     getOkPyTarget("//pkg:foo");
     assertNoEvents();
@@ -196,13 +196,13 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void cannotUseOldVersionAttrWithRemovalFlag() throws Exception {
-    useConfiguration("--experimental_remove_old_python_version_api=true");
+    useConfiguration("--incompatible_remove_old_python_version_api=true");
     checkError(
         "pkg",
         "foo",
         // error:
         "the 'default_python_version' attribute is disabled by the "
-            + "'--experimental_remove_old_python_version_api' flag",
+            + "'--incompatible_remove_old_python_version_api' flag",
         // build file:
         ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
   }
@@ -216,7 +216,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
    */
   @Test
   public void canCopyTargetWhenOldAttrDisallowed() throws Exception {
-    useConfiguration("--experimental_remove_old_python_version_api=true");
+    useConfiguration("--incompatible_remove_old_python_version_api=true");
     scratch.file(
         "pkg/rules.bzl",
         "def copy_target(rulefunc, src, dest):",
@@ -243,6 +243,46 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
+  public void py3IsDefaultFlag_SetsDefaultPythonVersion() throws Exception {
+    scratch.file( //
+        "pkg/BUILD", //
+        ruleName + "(", //
+        "    name = 'foo',", //
+        "    srcs = ['foo.py'],", //
+        ")");
+    // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo",
+        PythonVersion.PY2,
+        "--incompatible_allow_python_version_transitions=true",
+        "--incompatible_py3_is_default=false");
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo",
+        PythonVersion.PY3,
+        "--incompatible_allow_python_version_transitions=true",
+        "--incompatible_py3_is_default=true",
+        // Keep the host Python as PY2, because we don't want to drag any implicit dependencies on
+        // tools into PY3 for this test. (Doing so may require setting extra options to get it to
+        // pass analysis.)
+        "--host_force_python=PY2");
+  }
+
+  @Test
+  public void py3IsDefaultFlag_DoesntOverrideExplicitVersion() throws Exception {
+    scratch.file("pkg/BUILD", ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
+    // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo",
+        PythonVersion.PY2,
+        "--incompatible_allow_python_version_transitions=true",
+        "--incompatible_py3_is_default=true",
+        // Keep the host Python as PY2, because we don't want to drag any implicit dependencies on
+        // tools into PY3 for this test. (Doing so may require setting extra options to get it to
+        // pass analysis.)
+        "--host_force_python=PY2");
+  }
+
+  @Test
   public void newVersionAttrTakesPrecedenceOverOld() throws Exception {
     scratch.file(
         "pkg/BUILD",
@@ -253,7 +293,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "    python_version = 'PY3',",
         ")");
     assertPythonVersionIs_UnderNewConfig(
-        "//pkg:foo", PythonVersion.PY3, "--experimental_remove_old_python_version_api=false");
+        "//pkg:foo", PythonVersion.PY3, "--incompatible_remove_old_python_version_api=false");
   }
 
   @Test
@@ -264,8 +304,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo",
         PythonVersion.PY3,
-        new String[] {"--experimental_allow_python_version_transitions=false"},
-        new String[] {"--experimental_allow_python_version_transitions=true"});
+        new String[] {"--incompatible_allow_python_version_transitions=false"},
+        new String[] {"--incompatible_allow_python_version_transitions=true"});
   }
 
   @Test
@@ -276,8 +316,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo",
         PythonVersion.PY2,
-        new String[] {"--experimental_allow_python_version_transitions=false"},
-        new String[] {"--experimental_allow_python_version_transitions=true"});
+        new String[] {"--incompatible_allow_python_version_transitions=false"},
+        new String[] {"--incompatible_allow_python_version_transitions=true"});
   }
 
   @Test
@@ -287,7 +327,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
         PythonVersion.PY3,
-        "--experimental_allow_python_version_transitions=false",
+        "--incompatible_allow_python_version_transitions=false",
         "--force_python=PY3");
   }
 
@@ -298,7 +338,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
         PythonVersion.PY2,
-        "--experimental_allow_python_version_transitions=false",
+        "--incompatible_allow_python_version_transitions=false",
         "--force_python=PY2");
   }
 
@@ -312,12 +352,12 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "//pkg:foo",
         PythonVersion.PY3,
         new String[] {
-          "--experimental_allow_python_version_transitions=true",
-          "--experimental_remove_old_python_version_api=false",
+          "--incompatible_allow_python_version_transitions=true",
+          "--incompatible_remove_old_python_version_api=false",
           "--force_python=PY2"
         },
         new String[] {
-          "--experimental_allow_python_version_transitions=true", "--python_version=PY2"
+          "--incompatible_allow_python_version_transitions=true", "--python_version=PY2"
         });
   }
 
@@ -331,12 +371,12 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "//pkg:foo",
         PythonVersion.PY2,
         new String[] {
-          "--experimental_allow_python_version_transitions=true",
-          "--experimental_remove_old_python_version_api=false",
+          "--incompatible_allow_python_version_transitions=true",
+          "--incompatible_remove_old_python_version_api=false",
           "--force_python=PY3"
         },
         new String[] {
-          "--experimental_allow_python_version_transitions=true", "--python_version=PY3"
+          "--incompatible_allow_python_version_transitions=true", "--python_version=PY3"
         });
   }
 
@@ -350,13 +390,13 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo_v2",
         PythonVersion.PY2,
-        new String[] {"--experimental_allow_python_version_transitions=false"},
-        new String[] {"--experimental_allow_python_version_transitions=true"});
+        new String[] {"--incompatible_allow_python_version_transitions=false"},
+        new String[] {"--incompatible_allow_python_version_transitions=true"});
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo_v3",
         PythonVersion.PY3,
-        new String[] {"--experimental_allow_python_version_transitions=false"},
-        new String[] {"--experimental_allow_python_version_transitions=true"});
+        new String[] {"--incompatible_allow_python_version_transitions=false"},
+        new String[] {"--incompatible_allow_python_version_transitions=true"});
   }
 
   @Test
@@ -387,7 +427,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void incompatibleSrcsVersion_OldSemantics() throws Exception {
-    useConfiguration("--experimental_allow_python_version_transitions=false");
+    useConfiguration("--incompatible_allow_python_version_transitions=false");
     checkError(
         "pkg",
         "foo",
@@ -404,7 +444,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   @Test
   public void incompatibleSrcsVersion_NewSemantics() throws Exception {
     reporter.removeHandler(failFastHandler); // We assert below that we don't fail at analysis.
-    useConfiguration("--experimental_allow_python_version_transitions=true");
+    useConfiguration("--incompatible_allow_python_version_transitions=true");
     scratch.file(
         "pkg/BUILD",
         // build file:
@@ -425,7 +465,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     ensureDefaultIsPY2(); // When changed to PY3, flip srcs_version below to be PY2ONLY.
 
     // This test doesn't care whether we use old and new semantics, but it affects how we assert.
-    useConfiguration("--experimental_allow_python_version_transitions=false");
+    useConfiguration("--incompatible_allow_python_version_transitions=false");
 
     // Fails because default_python_version is PY2 by default, so the config is set to PY2
     // regardless of srcs_version.

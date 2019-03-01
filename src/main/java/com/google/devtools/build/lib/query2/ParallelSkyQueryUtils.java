@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
-import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
@@ -54,7 +52,7 @@ import javax.annotation.Nullable;
 public class ParallelSkyQueryUtils {
 
   /** The maximum number of keys to visit at once. */
-  @VisibleForTesting static final int VISIT_BATCH_SIZE = 10000;
+  @VisibleForTesting public static final int VISIT_BATCH_SIZE = 10000;
 
   private ParallelSkyQueryUtils() {
   }
@@ -167,20 +165,13 @@ public class ParallelSkyQueryUtils {
       Collection<PathFragment> fileIdentifiers,
       QueryExpressionContext<Target> context,
       Callback<Target> callback) throws QueryException, InterruptedException {
-    Uniquifier<SkyKey> keyUniquifier = env.createSkyKeyUniquifier();
     RBuildFilesVisitor visitor =
         new RBuildFilesVisitor(
             env,
-            keyUniquifier,
+            /*visitUniquifier=*/ env.createSkyKeyUniquifier(),
+            /*resultUniquifier=*/ env.createSkyKeyUniquifier(),
             context,
-            callback,
-            /*rdepFilter=*/ rdep ->
-                // Packages may depend on the existence of subpackages, but these edges aren't
-                // relevant to rbuildfiles. They may also depend on files transitively through
-                // globs, but these cannot be included in load statements and so we don't traverse
-                // through these either.
-                !rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)
-                    && !rdep.functionName().equals(SkyFunctions.GLOB));
+            callback);
     visitor.visitAndWaitForCompletion(env.getFileStateKeysForFileFragments(fileIdentifiers));
   }
 

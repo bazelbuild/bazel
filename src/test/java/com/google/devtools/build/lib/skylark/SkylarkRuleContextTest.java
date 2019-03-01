@@ -492,7 +492,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     TransitiveInfoCollection tic1 = (TransitiveInfoCollection) ((SkylarkList) result).get(0);
     assertThat(JavaInfo.getProvider(JavaSourceJarsProvider.class, tic1)).isNotNull();
     // Check an unimplemented provider too
-    assertThat(PyProviderUtils.hasProvider(tic1)).isFalse();
+    assertThat(PyProviderUtils.hasLegacyProvider(tic1)).isFalse();
   }
 
   @Test

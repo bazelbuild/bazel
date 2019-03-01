@@ -144,6 +144,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
     return value;
   }
 
+  public ArtifactPathResolver getArtifactPathResolver() {
+    return artifactPathResolver;
+  }
+
   @Nullable
   private FileArtifactValue getInputFileArtifactValue(Artifact input) {
     if (isKnownOutput(input)) {
@@ -504,6 +508,16 @@ public final class ActionMetadataHandler implements MetadataHandler {
     Preconditions.checkState(omittedOutputs.isEmpty(),
         "Artifacts cannot be marked omitted before action execution: %s", omittedOutputs);
     store.clear();
+  }
+
+  @Override
+  public void resetOutputs(Iterable<Artifact> outputs) {
+    Preconditions.checkState(
+        executionMode.get(), "resetOutputs() should only be called from within a running action.");
+    for (Artifact output : outputs) {
+      omittedOutputs.remove(output);
+      store.remove(output);
+    }
   }
 
   OutputStore getOutputStore() {

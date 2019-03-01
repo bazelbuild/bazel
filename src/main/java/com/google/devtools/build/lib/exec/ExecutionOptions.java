@@ -24,10 +24,12 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
-import com.google.devtools.common.options.Converters.AssignmentConverter;
+import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -56,8 +58,21 @@ public class ExecutionOptions extends OptionsBase {
   public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
 
   @Option(
+      name = "incompatible_list_based_execution_strategy_selection",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "See https://github.com/bazelbuild/bazel/issues/7480")
+  public boolean incompatibleListBasedExecutionStrategySelection;
+
+  @Option(
       name = "spawn_strategy",
       defaultValue = "",
+      converter = CommaSeparatedNonEmptyOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -65,23 +80,24 @@ public class ExecutionOptions extends OptionsBase {
               + "'standalone' means run all of them locally without any kind of sandboxing. "
               + "'sandboxed' means to run them in a sandboxed environment with limited privileges "
               + "(details depend on platform support).")
-  public String spawnStrategy;
+  public List<String> spawnStrategy;
 
   @Option(
       name = "genrule_strategy",
       defaultValue = "",
+      converter = CommaSeparatedNonEmptyOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify how to execute genrules. This flag will be phased out. Instead, use "
               + "--spawn_strategy=<value> to control all actions or --strategy=Genrule=<value> "
               + "to control genrules only.")
-  public String genruleStrategy;
+  public List<String> genruleStrategy;
 
   @Option(
       name = "strategy",
       allowMultiple = true,
-      converter = AssignmentConverter.class,
+      converter = AssignmentToListOfValuesConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -89,7 +105,7 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how to distribute compilation of other spawn actions. "
               + "Example: 'Javac=local' means to spawn Java compilation locally. "
               + "'JavaIjar=sandboxed' means to spawn Java Ijar actions in a sandbox. ")
-  public List<Map.Entry<String, String>> strategy;
+  public List<Map.Entry<String, List<String>>> strategy;
 
   @Option(
       name = "strategy_regexp",
@@ -109,7 +125,7 @@ public class ExecutionOptions extends OptionsBase {
               + "Example: --strategy_regexp='Compiling.*/bar=local "
               + " --strategy_regexp=Compiling=sandboxed will run 'Compiling //foo/bar/baz' with "
               + "the 'local' strategy, but reversing the order would run it with 'sandboxed'. ")
-  public List<Map.Entry<RegexFilter, String>> strategyByRegexp;
+  public List<Map.Entry<RegexFilter, List<String>>> strategyByRegexp;
 
   @Option(
       name = "materialize_param_files",
@@ -416,14 +432,14 @@ public class ExecutionOptions extends OptionsBase {
   public String executionLogFile;
 
   @Option(
-    name = "experimental_split_xml_generation",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-    effectTags = {OptionEffectTag.EXECUTION},
-    help = "If this flag is set, and a test action does not generate a test.xml file, then "
-        + "Bazel uses a separate action to generate a dummy test.xml file containing the test log. "
-        + "Otherwise, Bazel generates the test.xml as part of the test action."
-  )
+      name = "experimental_split_xml_generation",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set, and a test action does not generate a test.xml file, then "
+              + "Bazel uses a separate action to generate a dummy test.xml file containing the "
+              + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
 
   /** Converter for the --flaky_test_attempts option. */

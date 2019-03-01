@@ -128,6 +128,20 @@ public class RuleFactory {
     AttributesAndLocation generator =
         generatorAttributesForMacros(attributeValues, env, location, label);
     try {
+      // Examines --check_third_party_targets_have_licenses and
+      // --incompatible_disable_third_party_license_checking to see if we should check third_party
+      // targets for license existence. The latter flag overrides the former.
+      //
+      // Note that *both* flags are overridable by RuleClass.ThirdPartyLicenseEnforcementPolicy
+      // (which is checked in RuleClass). This lets Bazel and Blaze migrate away from license logic
+      // on independent timelines. See --incompatible_disable_third_party_license_checking comments
+      // for details.
+      boolean checkThirdPartyLicenses;
+      if (env == null || env.getSemantics().incompatibleDisableThirdPartyLicenseChecking()) {
+        checkThirdPartyLicenses = false;
+      } else {
+        checkThirdPartyLicenses = env.getSemantics().checkThirdPartyTargetsHaveLicenses();
+      }
       return ruleClass.createRule(
           pkgBuilder,
           label,
@@ -135,7 +149,8 @@ public class RuleFactory {
           eventHandler,
           ast,
           generator.location,
-          attributeContainer);
+          attributeContainer,
+          checkThirdPartyLicenses);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }

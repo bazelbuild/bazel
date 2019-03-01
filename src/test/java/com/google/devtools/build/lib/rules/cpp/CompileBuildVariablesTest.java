@@ -20,6 +20,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -69,7 +70,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   @Test
   public void testPresenceOfLegacyCompileFlags() throws Exception {
     AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, "cxx_flag: '-foo'");
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
 
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
@@ -124,7 +125,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "unfiltered_cxx_flag: '--i_ll_live_forever'");
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
 
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
@@ -186,8 +187,91 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPresenceOfIsUsingFissionVariable() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
+    useConfiguration("--fission=yes");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    assertThat(
+            variables.getStringVariable(CompileBuildVariables.IS_USING_FISSION.getVariableName()))
+        .isNotNull();
+  }
+
+  @Test
+  public void testPresenceOfIsUsingFissionAndPerDebugObjectFileVariablesWithThinlto()
+      throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "feature {",
+            "  name: 'fission_flags_for_lto_backend'",
+            "  enabled: true",
+            "  flag_set {",
+            "    action: 'lto-backend'",
+            "    flag_group {",
+            "      expand_if_all_available: 'is_using_fission'",
+            "      flag: '-<IS_USING_FISSION>'",
+            "    }",
+            "    flag_group {",
+            "      expand_if_all_available: 'per_object_debug_info_file'",
+            "      flag: '-<PER_OBJECT_DEBUG_INFO_FILE>'",
+            "    }",
+            "  }",
+            "}",
+            MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION,
+            MockCcSupport.SUPPORTS_START_END_LIB_FEATURE,
+            MockCcSupport.THIN_LTO_CONFIGURATION,
+            MockCcSupport.HOST_AND_NONHOST_CONFIGURATION);
+    useConfiguration("--fission=yes", "--features=thin_lto");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+
+    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//x:bin");
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            target.getActions().stream()
+                .filter(a -> a.getMnemonic().equals("CcLtoBackendCompile"))
+                .findFirst()
+                .get();
+    CppCompileAction bitcodeAction =
+        (CppCompileAction)
+            target.getActions().stream()
+                .filter(a -> a.getMnemonic().equals("CppCompile"))
+                .findFirst()
+                .get();
+
+    // We don't pass per_object_debug_info_file to bitcode compiles
+    assertThat(
+            bitcodeAction
+                .getCompileCommandLine()
+                .getVariables()
+                .isAvailable(CompileBuildVariables.IS_USING_FISSION.getVariableName()))
+        .isTrue();
+    assertThat(
+            bitcodeAction
+                .getCompileCommandLine()
+                .getVariables()
+                .isAvailable(CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName()))
+        .isFalse();
+
+    // We do pass per_object_debug_info_file to backend compiles
+    assertThat(backendAction.getArguments()).contains("-<PER_OBJECT_DEBUG_INFO_FILE>");
+    assertThat(backendAction.getArguments()).contains("-<IS_USING_FISSION>");
+  }
+
+  @Test
   public void testPresenceOfPerObjectDebugFileBuildVariableUsingLegacyFields() throws Exception {
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, "supports_fission: true");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
     useConfiguration("--fission=yes");
 
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");

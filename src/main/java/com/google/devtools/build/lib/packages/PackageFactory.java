@@ -20,15 +20,15 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -36,10 +36,12 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
@@ -48,19 +50,25 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.IntegerLiteral;
+import com.google.devtools.build.lib.syntax.ListLiteral;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -72,14 +80,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -291,7 +298,7 @@ public final class PackageFactory {
     @Override
     public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
         throws BadGlobException {
-      for (String pattern : Iterables.concat(includes, excludes)) {
+      for (String pattern : includes) {
         @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError = globCache.getGlobUnsortedAsync(pattern, excludeDirs);
       }
@@ -333,7 +340,7 @@ public final class PackageFactory {
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
 
-  private final ThreadPoolExecutor threadPool;
+  private ForkJoinPool executor;
 
   private int maxDirectoriesToEagerlyVisitInGlobbing;
 
@@ -388,16 +395,7 @@ public final class PackageFactory {
     this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
-    threadPool =
-        new ThreadPoolExecutor(
-            100,
-            Integer.MAX_VALUE,
-            15L,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>(),
-            new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").setDaemon(true).build());
-    // Do not consume threads when not in use.
-    threadPool.allowCoreThreadTimeOut(true);
+    setGlobbingThreads(100);
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
     this.packageArguments = createPackageArguments();
     this.nativeModule = newNativeModule();
@@ -416,13 +414,17 @@ public final class PackageFactory {
    * Sets the max number of threads to use for globbing.
    */
   public void setGlobbingThreads(int globbingThreads) {
-    threadPool.setCorePoolSize(globbingThreads);
+    if (executor == null || executor.getParallelism() != globbingThreads) {
+      executor = NamedForkJoinPool.newNamedPool("globbing pool", globbingThreads);
+    }
   }
 
   /**
    * Sets the number of directories to eagerly traverse on the first glob for a given package, in
    * order to warm the filesystem. -1 means do no eager traversal. See {@code
-   * PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
+   * PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}. -2 means do the eager traversal
+   * using the regular globbing infrastructure, i.e. sharing the globbing threads and caching the
+   * actual glob results.
    */
   public void setMaxDirectoriesToEagerlyVisitInGlobbing(
       int maxDirectoriesToEagerlyVisitInGlobbing) {
@@ -734,7 +736,25 @@ public final class PackageFactory {
               String.format("licenses for exported file '%s' declared twice",
                   inputFile.getName()));
         }
-        if (license == null && !pkgBuilder.getDefaultLicense().isSpecified()
+
+        // See if we should check third-party licenses: first checking for any hard-coded policy,
+        // then falling back to user-settable flags.
+        boolean checkLicenses;
+        if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
+            == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
+          checkLicenses = true;
+        } else if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
+            == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
+          checkLicenses = false;
+        } else {
+          checkLicenses =
+              env.getSemantics().checkThirdPartyTargetsHaveLicenses()
+                  && !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
+        }
+
+        if (checkLicenses
+            && license == null
+            && !pkgBuilder.getDefaultLicense().isSpecified()
             && RuleClass.isThirdPartyPackage(pkgBuilder.getPackageIdentifier())) {
           throw new EvalException(ast.getLocation(),
               "third-party file '" + inputFile.getName() + "' lacks a license declaration "
@@ -999,13 +1019,14 @@ public final class PackageFactory {
       return null;
     }
 
-    if (val instanceof SkylarkValue) {
-      return val;
+    if (val instanceof License) {
+      // License is deprecated as a Starlark type, so omit this type from Starlark values
+      // to avoid exposing these objects, even though they are technically SkylarkValue.
+      return null;
     }
 
-    if (val instanceof License) {
-      // TODO(bazel-team): convert License.getLicenseTypes() to a list of strings.
-      return null;
+    if (val instanceof SkylarkValue) {
+      return val;
     }
 
     if (val instanceof BuildType.SelectorList) {
@@ -1236,7 +1257,7 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       Globber globber)
       throws InterruptedException {
     StoredEventHandler localReporterForParsing = new StoredEventHandler();
@@ -1260,7 +1281,7 @@ public final class PackageFactory {
         imports,
         skylarkFileDependencies,
         defaultVisibility,
-        skylarkSemantics,
+        starlarkSemantics,
         globber);
   }
 
@@ -1287,7 +1308,7 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       Globber globber)
       throws InterruptedException {
     try {
@@ -1302,7 +1323,7 @@ public final class PackageFactory {
           astParseResult.allEvents,
           astParseResult.allPosts,
           defaultVisibility,
-          skylarkSemantics,
+          starlarkSemantics,
           imports,
           skylarkFileDependencies,
           repositoryMapping);
@@ -1347,7 +1368,7 @@ public final class PackageFactory {
         buildFile,
         locator,
         eventHandler,
-        SkylarkSemantics.DEFAULT_SEMANTICS);
+        StarlarkSemantics.DEFAULT_SEMANTICS);
   }
 
   /**
@@ -1361,7 +1382,7 @@ public final class PackageFactory {
       RootedPath buildFile,
       CachingPackageLocator locator,
       ExtendedEventHandler eventHandler,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws NoSuchPackageException, InterruptedException {
     String error =
         LabelValidator.validatePackageName(packageId.getPackageFragment().getPathString());
@@ -1411,7 +1432,7 @@ public final class PackageFactory {
             packageId,
             locator,
             syscalls,
-            threadPool,
+            executor,
             maxDirectoriesToEagerlyVisitInGlobbing));
   }
 
@@ -1435,7 +1456,7 @@ public final class PackageFactory {
             packageId,
             locator,
             syscalls,
-            threadPool,
+            executor,
             maxDirectoriesToEagerlyVisitInGlobbing),
         /*sort=*/ false);
   }
@@ -1550,8 +1571,10 @@ public final class PackageFactory {
           "error getting package_name or repository_name functions from the native module",
           exception);
     }
+    if (!pkgEnv.getSemantics().incompatibleDisallowNativeInBuildFile()) {
+      pkgEnv.setup("native", nativeModule);
+    }
     pkgEnv
-        .setup("native", nativeModule)
         .setup("distribs", newDistribsFunction.apply(context))
         .setup("glob", newGlobFunction.apply(context))
         .setup("licenses", newLicensesFunction.apply(context))
@@ -1574,12 +1597,12 @@ public final class PackageFactory {
   }
 
   /**
-   * Called by a caller of {@link #createPackageFromAst} after this caller has fully
-   * loaded the package.
+   * Called by a caller of {@link #createPackageFromAst} after this caller has fully loaded the
+   * package.
    */
   public void afterDoneLoadingPackage(
-      Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeNanos) {
-    packageBuilderHelper.onLoadingComplete(pkg, skylarkSemantics, loadTimeNanos);
+      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
+    packageBuilderHelper.onLoadingComplete(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**
@@ -1607,7 +1630,7 @@ public final class PackageFactory {
       Iterable<Event> pastEvents,
       Iterable<Postable> pastPosts,
       RuleVisibility defaultVisibility,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
@@ -1618,11 +1641,14 @@ public final class PackageFactory {
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
       BazelStarlarkContext starlarkContext =
-          new BazelStarlarkContext(ruleClassProvider.getToolsRepository(), repositoryMapping);
+          new BazelStarlarkContext(
+              ruleClassProvider.getToolsRepository(),
+              repositoryMapping,
+              new SymbolGenerator<>(packageId));
       Environment pkgEnv =
           Environment.builder(mutability)
               .setGlobals(BazelLibrary.GLOBALS)
-              .setSemantics(skylarkSemantics)
+              .setSemantics(starlarkSemantics)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
               .setStarlarkContext(starlarkContext)
@@ -1657,6 +1683,20 @@ public final class PackageFactory {
         pkgBuilder.setContainsErrors();
       }
 
+      pkgBuilder.setThirdPartyLicenceExistencePolicy(
+          ruleClassProvider.getThirdPartyLicenseExistencePolicy());
+
+      if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
+        GlobPatternExtractor extractor = new GlobPatternExtractor();
+        extractor.visit(buildFileAST);
+        try {
+          globber.runAsync(extractor.getIncludeDirectoriesPatterns(), ImmutableList.of(), false);
+          globber.runAsync(extractor.getExcludeDirectoriesPatterns(), ImmutableList.of(), true);
+        } catch (BadGlobException | InterruptedException e) {
+          // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
+        }
+      }
+
       // TODO(bazel-team): (2009) the invariant "if errors are reported, mark the package
       // as containing errors" is strewn all over this class.  Refactor to use an
       // event sensor--and see if we can simplify the calling code in
@@ -1669,6 +1709,66 @@ public final class PackageFactory {
     pkgBuilder.addPosts(eventHandler.getPosts());
     pkgBuilder.addEvents(eventHandler.getEvents());
     return pkgBuilder;
+  }
+
+  /**
+   * A GlobPatternExtractor visits a syntax tree, tries to extract glob() patterns from it, and
+   * eagerly instructs a {@link Globber} to fetch them asynchronously. That way, the glob results
+   * are readily available when required in the actual execution of the syntax tree. The starlark
+   * code itself is later executed sequentially and having costly globs, especially slow on
+   * networked file systems, executed sequentially in them can be very time consuming.
+   */
+  @VisibleForTesting
+  static class GlobPatternExtractor extends SyntaxTreeVisitor {
+    private final Set<String> includeDirectoriesPatterns = new HashSet<>();
+    private final Set<String> excludeDirectoriesPatterns = new HashSet<>();
+
+    @Override
+    public void visit(FuncallExpression node) {
+      super.visit(node);
+      Expression function = node.getFunction();
+      if (!(function instanceof Identifier)) {
+        return;
+      }
+      if (!((Identifier) function).getName().equals("glob")) {
+        return;
+      }
+
+      boolean excludeDirectories = true; // excluded by default.
+      List<String> globStrings = new ArrayList<>();
+      for (Passed arg : node.getArguments()) {
+        if (arg.getIdentifier() != null
+            && arg.getIdentifier().getName().equals("exclude_directories")) {
+          if (arg.getValue() instanceof IntegerLiteral) {
+            excludeDirectories = ((IntegerLiteral) arg.getValue()).getValue() != 0;
+          }
+          continue;
+        }
+        if (arg.getIdentifier() == null || arg.getIdentifier().getName().equals("include")) {
+          if (arg.getValue() instanceof ListLiteral) {
+            ListLiteral list = (ListLiteral) arg.getValue();
+            for (Expression elem : list.getElements()) {
+              if (elem instanceof StringLiteral) {
+                globStrings.add(((StringLiteral) elem).getValue());
+              }
+            }
+          }
+        }
+      }
+      if (excludeDirectories) {
+        excludeDirectoriesPatterns.addAll(globStrings);
+      } else {
+        includeDirectoriesPatterns.addAll(globStrings);
+      }
+    }
+
+    List<String> getIncludeDirectoriesPatterns() {
+      return ImmutableList.copyOf(includeDirectoriesPatterns);
+    }
+
+    List<String> getExcludeDirectoriesPatterns() {
+      return ImmutableList.copyOf(excludeDirectoriesPatterns);
+    }
   }
 
   // Reports an error and returns false iff package identifier was illegal.

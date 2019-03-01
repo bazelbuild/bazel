@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -41,7 +42,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE_LOOKUP);
 
   private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
-      SkyFunctions.isSkyFunction(SkyFunctions.WORKSPACE_FILE);
+      SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
 
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
@@ -117,9 +118,13 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
                     + fileLabel
                     + "'.\n"
                     + "It usually happens when the repository is not defined prior to being used.\n"
-                    + "Maybe repository '"
+                    + "This could either mean you have to add the '"
+                    + fileLabel.getWorkspaceName()
+                    + "' repository with a statement like `http_archive` in your WORKSPACE file"
+                    + " (note that transitive dependencies are not added automatically), or"
+                    + " the repository '"
                     + repositoryName
-                    + "' was defined later in your WORKSPACE file?"));
+                    + "' was defined too late in your WORKSPACE file."));
         return true;
       } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
         eventHandler.handle(

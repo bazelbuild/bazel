@@ -79,7 +79,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
     } else if (arg instanceof Artifact) {
       return ((Artifact) arg).getOwner();
     } else if (arg instanceof ActionLookupData) {
-      return ((ActionLookupData) arg).getLabelForErrors();
+      return ((ActionLookupData) arg).getLabel();
     } else if (arg instanceof TargetCompletionKey
         && key.functionName().equals(SkyFunctions.TARGET_COMPLETION)) {
       return ((TargetCompletionKey) arg).configuredTargetKey().getLabel();

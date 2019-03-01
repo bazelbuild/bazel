@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibrar
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuntimeRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
@@ -82,11 +81,16 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
+import com.google.devtools.build.lib.rules.python.PyInfo;
+import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
+import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -183,6 +187,9 @@ public class BazelRuleClassProvider {
   public static ConfiguredRuleClassProvider create() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(TOOLS_REPOSITORY);
+    // TODO(gregce): uncomment the below line in the same change that retires
+    // --incompatible_disable_third_party_license_checking. See the flag's comments for details.
+    // builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
     setup(builder);
     return builder.build();
   }
@@ -228,7 +235,9 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(new ProtoConfiguration.Loader());
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
-          builder.addSkylarkAccessibleTopLevels(ProtoInfo.SKYLARK_NAME, ProtoInfo.PROVIDER);
+
+          ProtoBootstrap bootstrap = new ProtoBootstrap(ProtoInfo.PROVIDER);
+          builder.addSkylarkBootstrap(bootstrap);
         }
 
         @Override
@@ -341,7 +350,9 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyLibraryRule());
           builder.addRuleDefinition(new BazelPyBinaryRule());
           builder.addRuleDefinition(new BazelPyTestRule());
-          builder.addRuleDefinition(new BazelPyRuntimeRule());
+          builder.addRuleDefinition(new PyRuntimeRule());
+
+          builder.addSkylarkBootstrap(new PyBootstrap(PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER));
         }
 
         @Override

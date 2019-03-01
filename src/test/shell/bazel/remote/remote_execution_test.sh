@@ -119,6 +119,36 @@ EOF
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --test_output=errors \
+      --noexperimental_split_xml_generation \
+      //a:test >& $TEST_log \
+      || fail "Failed to run //a:test with remote execution"
+}
+
+function test_cc_test_split_xml() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_test(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --test_output=errors \
+      --experimental_split_xml_generation \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
 }
@@ -248,58 +278,20 @@ function is_file_uploaded() {
   if [ -e "$cas_path/${h:0:64}" ]; then return 0; else return 1; fi
 }
 
-function test_failing_cc_test_grpc_cache() {
+function test_failed_test_outputs_not_uploaded() {
+  # Test that outputs of a failed test/action are not uploaded to the remote
+  # cache. This is a regression test for https://github.com/bazelbuild/bazel/issues/7232
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
 cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
+  name = 'test',
+  srcs = [ 'test.cc' ],
 )
 EOF
   cat > a/test.cc <<EOF
 #include <iostream>
 int main() { std::cout << "Fail me!" << std::endl; return 1; }
-EOF
-  bazel test \
-      --remote_cache=localhost:${worker_port} \
-      --test_output=errors \
-      //a:test >& $TEST_log \
-      && fail "Expected test failure" || true
-   $(is_file_uploaded bazel-testlogs/a/test/test.log) \
-     || fail "Expected test log to be uploaded to remote execution"
-   $(is_file_uploaded bazel-testlogs/a/test/test.xml) \
-     || fail "Expected test xml to be uploaded to remote execution"
-}
-
-function test_failing_cc_test_remote_spawn_cache() {
-  mkdir -p a
-  cat > a/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
-)
-EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Fail me!" << std::endl; return 1; }
-EOF
-  bazel test \
-      --remote_cache=localhost:${worker_port} \
-      --test_output=errors \
-      //a:test >& $TEST_log \
-      && fail "Expected test failure" || true
-   $(is_file_uploaded bazel-testlogs/a/test/test.log) \
-     || fail "Expected test log to be uploaded to remote execution"
-   $(is_file_uploaded bazel-testlogs/a/test/test.xml) \
-     || fail "Expected test xml to be uploaded to remote execution"
-  # Check that logs are uploaded regardless of the spawn being cacheable.
-  # Re-running a changed test that failed once renders the test spawn uncacheable.
-  rm -f a/test.cc
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Fail me again!" << std::endl; return 1; }
 EOF
   bazel test \
       --remote_cache=localhost:${worker_port} \

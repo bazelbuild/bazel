@@ -45,7 +45,7 @@ public class FileStateFunction implements SkyFunction {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
 
     try {
-      externalFilesHelper.maybeHandleExternalFile(rootedPath, env);
+      externalFilesHelper.maybeHandleExternalFile(rootedPath, false, env);
       if (env.valuesMissing()) {
         return null;
       }

@@ -213,6 +213,7 @@ public class SkylarkRepositoryContext
     try {
       checkInOutputDirectory(p);
       makeDirectories(p.getPath());
+      p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
         stream.write(content.getBytes(StandardCharsets.UTF_8));
       }
@@ -251,6 +252,7 @@ public class SkylarkRepositoryContext
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }
+      p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
         stream.write(tpl.getBytes(StandardCharsets.UTF_8));
       }
@@ -359,12 +361,28 @@ public class SkylarkRepositoryContext
     return null;
   }
 
+  private void warnAboutSha256Error(List<URL> urls, String sha256) {
+    // Inform the user immediately, even though the file will still be downloaded.
+    // This cannot be done by a regular error event, as all regular events are recorded
+    // and only shown once the execution of the repository rule is finished.
+    // So we have to provide the information as update on the progress
+    String url = "(unknown)";
+    if (urls.size() > 0) {
+      url = urls.get(0).toString();
+    }
+    reportProgress("Will fail after download of " + url + ". Invalid SHA256 '" + sha256 + "'");
+  }
+
   @Override
   public StructImpl download(
       Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    validateSha256(sha256);
     List<URL> urls = getUrls(url);
+    RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
+    if (sha256Validation != null) {
+      warnAboutSha256Error(urls, sha256);
+      sha256 = "";
+    }
     SkylarkPath outputPath = getPath("download()", output);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadEvent(
@@ -381,7 +399,8 @@ public class SkylarkRepositoryContext
               Optional.<String>absent(),
               outputPath.getPath(),
               env.getListener(),
-              osObject.getEnvironmentVariables());
+              osObject.getEnvironmentVariables(),
+              getName());
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
@@ -390,6 +409,9 @@ public class SkylarkRepositoryContext
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+    if (sha256Validation != null) {
+      throw sha256Validation;
     }
     String finalSha256;
     try {
@@ -405,11 +427,40 @@ public class SkylarkRepositoryContext
   }
 
   @Override
+  public void extract(Object archive, Object output, String stripPrefix, Location location)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    SkylarkPath archivePath = getPath("extract()", archive);
+    SkylarkPath outputPath = getPath("extract()", output);
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExtractEvent(
+            archive.toString(),
+            output.toString(),
+            stripPrefix,
+            rule.getLabel().toString(),
+            location);
+    env.getListener().post(w);
+
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setTargetKind(rule.getTargetKind())
+            .setTargetName(rule.getName())
+            .setArchivePath(archivePath.getPath())
+            .setRepositoryPath(outputPath.getPath())
+            .setPrefix(stripPrefix)
+            .build());
+  }
+
+  @Override
   public StructImpl downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    validateSha256(sha256);
     List<URL> urls = getUrls(url);
+    RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
+    if (sha256Validation != null) {
+      warnAboutSha256Error(urls, sha256);
+      sha256 = "";
+    }
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadAndExtractEvent(
@@ -420,7 +471,6 @@ public class SkylarkRepositoryContext
             stripPrefix,
             rule.getLabel().toString(),
             location);
-    env.getListener().post(w);
 
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
@@ -436,13 +486,20 @@ public class SkylarkRepositoryContext
               Optional.of(type),
               outputPath.getPath(),
               env.getListener(),
-              osObject.getEnvironmentVariables());
+              osObject.getEnvironmentVariables(),
+              getName());
     } catch (InterruptedException e) {
+      env.getListener().post(w);
       throw new RepositoryFunctionException(
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
+      env.getListener().post(w);
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+    if (sha256Validation != null) {
+      throw sha256Validation;
+    }
+    env.getListener().post(w);
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
             .setTargetKind(rule.getTargetKind())
@@ -482,11 +539,20 @@ public class SkylarkRepositoryContext
     return RepositoryCache.getChecksum(KeyType.SHA256, path);
   }
 
-  private static void validateSha256(String sha256) throws RepositoryFunctionException {
+  private RepositoryFunctionException validateSha256(String sha256, Location loc) {
     if (!sha256.isEmpty() && !KeyType.SHA256.isValid(sha256)) {
-      throw new RepositoryFunctionException(
-          new IOException("Invalid SHA256 checksum"), Transience.TRANSIENT);
+      return new RepositoryFunctionException(
+          new EvalException(
+              loc,
+              "Definition of repository "
+                  + rule.getName()
+                  + ": Syntactically invalid SHA256 checksum: '"
+                  + sha256
+                  + "' at "
+                  + rule.getLocation()),
+          Transience.PERSISTENT);
     }
+    return null;
   }
 
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {

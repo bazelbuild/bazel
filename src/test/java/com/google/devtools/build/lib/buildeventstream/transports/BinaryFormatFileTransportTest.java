@@ -41,9 +41,12 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -74,18 +77,20 @@ public class BinaryFormatFileTransportTest {
   @Mock public ArtifactGroupNamer artifactGroupNamer;
 
   @Before
-  public void initMocks() {
+  public void setUp() {
     MockitoAnnotations.initMocks(this);
   }
 
   @After
-  public void validateMocks() {
+  public void tearDown() {
     Mockito.validateMockitoUsage();
   }
 
   @Test
   public void testCreatesFileAndWritesProtoBinaryFormat() throws Exception {
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
 
     BuildEventStreamProtos.BuildEvent started =
         BuildEventStreamProtos.BuildEvent.newBuilder()
@@ -94,50 +99,30 @@ public class BinaryFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+            outputStream,
+            defaultOpts,
+            new LocalFilesArtifactUploader(),
+            (e) -> {},
+            artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =
         BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(progress);
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent completed =
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setCompleted(TargetComplete.newBuilder().setSuccess(true))
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(completed);
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
 
     transport.close().get();
     try (InputStream in = new FileInputStream(output)) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(progress);
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(completed);
-      assertThat(in.available()).isEqualTo(0);
-    }
-  }
-
-  @Test
-  public void testFileDoesNotExist() throws Exception {
-    // Get a file that doesn't exist by creating a new file and immediately deleting it.
-    File output = tmp.newFile();
-    String path = output.getAbsolutePath();
-    assertThat(output.delete()).isTrue();
-
-    BuildEventStreamProtos.BuildEvent started =
-        BuildEventStreamProtos.BuildEvent.newBuilder()
-            .setStarted(BuildStarted.newBuilder().setCommand("build"))
-            .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
-    BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(
-            path, defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
-
-    transport.close().get();
-    try (InputStream in = new FileInputStream(output)) {
-      assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
       assertThat(in.available()).isEqualTo(0);
     }
   }
@@ -161,9 +146,12 @@ public class BinaryFormatFileTransportTest {
             });
 
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
-    transport.sendBuildEvent(event1, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream, defaultOpts, uploader, (e) -> {}, artifactGroupNamer);
+    transport.sendBuildEvent(event1);
     transport.close().get();
 
     assertThat(transport.writer.pendingWrites).isEmpty();
@@ -176,6 +164,8 @@ public class BinaryFormatFileTransportTest {
   @Test
   public void testWriteWhenFileClosed() throws Exception {
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
 
     BuildEventStreamProtos.BuildEvent started =
         BuildEventStreamProtos.BuildEvent.newBuilder()
@@ -185,14 +175,18 @@ public class BinaryFormatFileTransportTest {
 
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
+            outputStream,
+            defaultOpts,
+            new LocalFilesArtifactUploader(),
+            (e) -> {},
+            artifactGroupNamer);
 
     // Close the stream.
     transport.writer.out.close();
     assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
 
     // This should not throw an exception.
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
     transport.close().get();
 
     // Also, nothing should have been written to the file
@@ -204,6 +198,8 @@ public class BinaryFormatFileTransportTest {
   @Test
   public void testWriteWhenTransportClosed() throws Exception {
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
 
     BuildEventStreamProtos.BuildEvent started =
         BuildEventStreamProtos.BuildEvent.newBuilder()
@@ -213,13 +209,17 @@ public class BinaryFormatFileTransportTest {
 
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
+            outputStream,
+            defaultOpts,
+            new LocalFilesArtifactUploader(),
+            (e) -> {},
+            artifactGroupNamer);
 
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
     Future<Void> closeFuture = transport.close();
     closeFuture.get();
     // This should not throw an exception, but also not perform any write.
-    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+    transport.sendBuildEvent(buildEvent);
 
     assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
 
@@ -257,10 +257,13 @@ public class BinaryFormatFileTransportTest {
       }
     });
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
-    transport.sendBuildEvent(event1, artifactGroupNamer);
-    transport.sendBuildEvent(event2, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream, defaultOpts, uploader, (e) -> {}, artifactGroupNamer);
+    transport.sendBuildEvent(event1);
+    transport.sendBuildEvent(event2);
     transport.close().get();
 
     assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
@@ -297,9 +300,12 @@ public class BinaryFormatFileTransportTest {
               }
             });
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
-    transport.sendBuildEvent(event1, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream, defaultOpts, uploader, (e) -> {}, artifactGroupNamer);
+    transport.sendBuildEvent(event1);
     transport.close().get();
 
     assertThat(transport.writer.pendingWrites).isEmpty();
@@ -332,9 +338,12 @@ public class BinaryFormatFileTransportTest {
     });
 
     File output = tmp.newFile();
+    BufferedOutputStream outputStream =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
-    transport.sendBuildEvent(event, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream, defaultOpts, uploader, (e) -> {}, artifactGroupNamer);
+    transport.sendBuildEvent(event);
     ListenableFuture<Void> closeFuture = transport.close();
 
     upload.set(PathConverter.NO_CONVERSION);

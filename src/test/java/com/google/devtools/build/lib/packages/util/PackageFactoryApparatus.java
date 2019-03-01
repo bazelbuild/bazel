@@ -30,11 +30,11 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -101,13 +101,13 @@ public class PackageFactoryApparatus {
       String skylarkOption)
       throws Exception {
 
-    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
     parser.parse(
         skylarkOption == null
             ? ImmutableList.<String>of()
             : ImmutableList.<String>of(skylarkOption));
-    SkylarkSemantics semantics =
-        parser.getOptions(SkylarkSemanticsOptions.class).toSkylarkSemantics();
+    StarlarkSemantics semantics =
+        parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
 
     try {
       Package externalPkg =
@@ -176,7 +176,7 @@ public class PackageFactoryApparatus {
             ImmutableList.<Event>of(),
             ImmutableList.<Postable>of(),
             ConstantRuleVisibility.PUBLIC,
-            SkylarkSemantics.DEFAULT_SEMANTICS,
+            StarlarkSemantics.DEFAULT_SEMANTICS,
             ImmutableMap.<String, Extension>of(),
             ImmutableList.<Label>of(),
             /*repositoryMapping=*/ ImmutableMap.of());

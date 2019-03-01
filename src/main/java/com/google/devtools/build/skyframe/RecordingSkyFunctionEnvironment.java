@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -282,5 +283,10 @@ public class RecordingSkyFunctionEnvironment implements Environment {
   @Override
   public void injectVersionForNonHermeticFunction(Version version) {
     delegate.injectVersionForNonHermeticFunction(version);
+  }
+
+  @Override
+  public void dependOnFuture(ListenableFuture<?> future) {
+    delegate.dependOnFuture(future);
   }
 }

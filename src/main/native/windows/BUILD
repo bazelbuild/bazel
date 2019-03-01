@@ -35,6 +35,7 @@ cc_library(
     srcs = ["util.cc"],
     hdrs = ["util.h"],
     visibility = [
+        "//src/tools/launcher/util:__pkg__",
         "//tools/test:__pkg__",
     ],
 )

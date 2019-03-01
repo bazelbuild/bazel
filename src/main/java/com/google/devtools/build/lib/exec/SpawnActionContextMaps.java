@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -45,8 +45,10 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * Container for looking up the {@link ActionContext} to use for a given action.
@@ -65,51 +67,55 @@ public final class SpawnActionContextMaps {
   public abstract static class RegexFilterSpawnActionContext {
     public abstract RegexFilter regexFilter();
 
-    public abstract SpawnActionContext spawnActionContext();
+    public abstract ImmutableList<SpawnActionContext> spawnActionContext();
   }
 
-  private final ImmutableSortedMap<String, SpawnActionContext> spawnStrategyMnemonicMap;
+  private final ImmutableSortedMap<String, List<SpawnActionContext>> mnemonicToSpawnStrategiesMap;
   private final ImmutableList<ActionContext> strategies;
   private final ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList;
+  private final boolean listBasedExecutionStrategySelection;
 
   private SpawnActionContextMaps(
-      ImmutableSortedMap<String, SpawnActionContext> spawnStrategyMnemonicMap,
+      ImmutableSortedMap<String, List<SpawnActionContext>> mnemonicToSpawnStrategiesMap,
       ImmutableList<ActionContext> strategies,
-      ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList) {
-    this.spawnStrategyMnemonicMap = spawnStrategyMnemonicMap;
+      ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList,
+      boolean listBasedExecutionStrategySelection) {
+    this.mnemonicToSpawnStrategiesMap = mnemonicToSpawnStrategiesMap;
     this.strategies = strategies;
     this.spawnStrategyRegexList = spawnStrategyRegexList;
+    this.listBasedExecutionStrategySelection = listBasedExecutionStrategySelection;
   }
 
   /**
-   * Returns the appropriate {@link ActionContext} to execute the given {@link Spawn} with.
+   * Returns a list of appropriate {@link ActionContext}s to execute the given {@link Spawn} with.
    *
    * <p>If the reason for selecting the context is worth mentioning to the user, logs a message
    * using the given {@link Reporter}.
    */
-  public SpawnActionContext getSpawnActionContext(Spawn spawn, EventHandler reporter) {
+  List<SpawnActionContext> getSpawnActionContexts(Spawn spawn, EventHandler reporter) {
     Preconditions.checkNotNull(spawn);
     if (!spawnStrategyRegexList.isEmpty() && spawn.getResourceOwner() != null) {
       String description = spawn.getResourceOwner().getProgressMessage();
       if (description != null) {
         for (RegexFilterSpawnActionContext entry : spawnStrategyRegexList) {
           if (entry.regexFilter().isIncluded(description) && entry.spawnActionContext() != null) {
-            reporter.handle(Event.progress(
-                description + " with context " + entry.spawnActionContext().toString()));
+            reporter.handle(
+                Event.progress(
+                    description + " with context " + entry.spawnActionContext().toString()));
             return entry.spawnActionContext();
           }
         }
       }
     }
-    SpawnActionContext context = spawnStrategyMnemonicMap.get(spawn.getMnemonic());
+    List<SpawnActionContext> context = mnemonicToSpawnStrategiesMap.get(spawn.getMnemonic());
     if (context != null) {
       return context;
     }
-    return Preconditions.checkNotNull(spawnStrategyMnemonicMap.get(""));
+    return Preconditions.checkNotNull(mnemonicToSpawnStrategiesMap.get(""));
   }
 
   /** Returns a map from action context class to its instantiated context object. */
-  public ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap() {
+  ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap() {
     Map<Class<? extends ActionContext>, ActionContext> contextMap = new HashMap<>();
     for (ActionContext context : strategies) {
       ExecutionStrategy annotation = context.getClass().getAnnotation(ExecutionStrategy.class);
@@ -118,18 +124,20 @@ public final class SpawnActionContextMaps {
       }
       contextMap.put(context.getClass(), context);
     }
-    contextMap.put(SpawnActionContext.class, new ProxySpawnActionContext(this));
+    contextMap.put(
+        SpawnActionContext.class,
+        new ProxySpawnActionContext(this, listBasedExecutionStrategySelection));
     return ImmutableMap.copyOf(contextMap);
   }
 
   /** Returns a list of all referenced {@link ActionContext} instances. */
-  public ImmutableList<ActionContext> allContexts() {
+  ImmutableList<ActionContext> allContexts() {
     // We need to keep only the last occurrences of the entries in contextImplementations
     // (so we respect insertion order but also instantiate them only once).
     LinkedHashSet<ActionContext> allContexts = new LinkedHashSet<>();
     allContexts.addAll(strategies);
-    allContexts.addAll(spawnStrategyMnemonicMap.values());
-    spawnStrategyRegexList.forEach(x -> allContexts.add(x.spawnActionContext()));
+    mnemonicToSpawnStrategiesMap.values().forEach(allContexts::addAll);
+    spawnStrategyRegexList.forEach(x -> allContexts.addAll(x.spawnActionContext()));
     return ImmutableList.copyOf(allContexts);
   }
 
@@ -138,13 +146,17 @@ public final class SpawnActionContextMaps {
    *
    * <p>Prints out debug information about the mappings.
    */
-  public void debugPrintSpawnActionContextMaps(Reporter reporter) {
-    for (Map.Entry<String, SpawnActionContext> entry : spawnStrategyMnemonicMap.entrySet()) {
+  void debugPrintSpawnActionContextMaps(Reporter reporter) {
+    for (Entry<String, List<SpawnActionContext>> entry : mnemonicToSpawnStrategiesMap.entrySet()) {
+      List<String> strategyNames =
+          entry.getValue().stream()
+              .map(spawnActionContext -> spawnActionContext.getClass().getSimpleName())
+              .collect(Collectors.toList());
       reporter.handle(
           Event.info(
               String.format(
-                  "SpawnActionContextMap: \"%s\" = %s",
-                  entry.getKey(), entry.getValue().getClass().getSimpleName())));
+                  "SpawnActionContextMap: \"%s\" = [%s]",
+                  entry.getKey(), Joiner.on(", ").join(strategyNames))));
     }
 
     ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap = contextMap();
@@ -173,13 +185,13 @@ public final class SpawnActionContextMaps {
 
   @VisibleForTesting
   public static SpawnActionContextMaps createStub(
-      List<ActionContext> strategies, Map<String, SpawnActionContext> spawnStrategyMnemonicMap) {
+      List<ActionContext> strategies,
+      Map<String, List<SpawnActionContext>> spawnStrategyMnemonicMap) {
     return new SpawnActionContextMaps(
-        ImmutableSortedMap.<String, SpawnActionContext>orderedBy(String.CASE_INSENSITIVE_ORDER)
-            .putAll(spawnStrategyMnemonicMap)
-            .build(),
+        ImmutableSortedMap.copyOf(spawnStrategyMnemonicMap, String.CASE_INSENSITIVE_ORDER),
         ImmutableList.copyOf(strategies),
-        ImmutableList.of());
+        ImmutableList.of(),
+        false);
   }
 
   /** A stored entry for a {@link RegexFilter} to {@code strategy} mapping. */
@@ -187,13 +199,13 @@ public final class SpawnActionContextMaps {
   public abstract static class RegexFilterStrategy {
     public abstract RegexFilter regexFilter();
 
-    public abstract String strategy();
+    public abstract ImmutableList<String> strategy();
   }
 
   /** Builder for {@code SpawnActionContextMaps}. */
   public static final class Builder {
-    private ImmutableListMultimap.Builder<String, String> strategyByMnemonicMapBuilder =
-        ImmutableListMultimap.builder();
+    private final LinkedHashMultimap<String, String> strategyByMnemonicMap =
+        LinkedHashMultimap.create();
     private ImmutableListMultimap.Builder<Class<? extends ActionContext>, String>
         strategyByContextMapBuilder = ImmutableListMultimap.builder();
 
@@ -206,17 +218,17 @@ public final class SpawnActionContextMaps {
      * <p>If a spawn action is executed whose mnemonic maps to the empty string or is not present in
      * the map at all, the choice of the implementation is left to Blaze.
      *
-     * <p>Matching on mnemonics is done case-insensitively so it is recommended that any
-     * module makes sure that no two strategies refer to the same mnemonic.  If they do, Blaze
-     * will pick the last one added.
+     * <p>Matching on mnemonics is done case-insensitively so it is recommended that any module
+     * makes sure that no two strategies refer to the same mnemonic. If they do, Blaze will pick the
+     * last one added.
      */
-    public ImmutableMultimap.Builder<String, String> strategyByMnemonicMap() {
-      return strategyByMnemonicMapBuilder;
+    public LinkedHashMultimap<String, String> strategyByMnemonicMap() {
+      return strategyByMnemonicMap;
     }
 
     /**
-     * Returns a builder modules can use to associate {@link ActionContext} classes with
-     * strategy names.
+     * Returns a builder modules can use to associate {@link ActionContext} classes with strategy
+     * names.
      */
     public ImmutableMultimap.Builder<Class<? extends ActionContext>, String>
         strategyByContextMap() {
@@ -224,43 +236,53 @@ public final class SpawnActionContextMaps {
     }
 
     /** Adds a mapping from the given {@link RegexFilter} to a {@code strategy}. */
-    public void addStrategyByRegexp(RegexFilter regexFilter, String strategy) {
+    public void addStrategyByRegexp(RegexFilter regexFilter, List<String> strategy) {
       strategyByRegexpBuilder.add(
-          new AutoValue_SpawnActionContextMaps_RegexFilterStrategy(regexFilter, strategy));
+          new AutoValue_SpawnActionContextMaps_RegexFilterStrategy(
+              regexFilter, ImmutableList.copyOf(strategy)));
     }
 
     /** Builds a {@link SpawnActionContextMaps} instance. */
     public SpawnActionContextMaps build(
-        ImmutableList<ActionContextProvider> actionContextProviders, String testStrategyValue)
+        ImmutableList<ActionContextProvider> actionContextProviders,
+        String testStrategyValue,
+        boolean listBasedExecutionStrategySelection)
         throws ExecutorInitException {
       StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 
-      ImmutableSortedMap.Builder<String, SpawnActionContext> spawnStrategyMap =
+      ImmutableSortedMap.Builder<String, List<SpawnActionContext>> spawnStrategyMap =
           ImmutableSortedMap.orderedBy(String.CASE_INSENSITIVE_ORDER);
       ImmutableList.Builder<ActionContext> strategies = ImmutableList.builder();
       ImmutableList.Builder<RegexFilterSpawnActionContext> spawnStrategyRegexList =
           ImmutableList.builder();
 
-      ImmutableListMultimap<String, String> multimap = strategyByMnemonicMapBuilder.build();
-      for (String mnemonic : multimap.keySet()) {
-        String strategy = Iterables.getLast(multimap.get(mnemonic));
-        if (strategy.isEmpty() && !mnemonic.isEmpty()) {
-          // If strategy is set to the empty value, and we're not looking at the empty mnemonic,
-          // then don't create a per-mnemonic entry for this case at all. At runtime, we'll fall
-          // back to the setting for the empty mnemonic, which may or may not be the setting for
-          // the "" strategy (the default strategy), but may be overridden to a specific one.
-          continue;
+      for (String mnemonic : strategyByMnemonicMap.keySet()) {
+        ImmutableList.Builder<SpawnActionContext> contexts = ImmutableList.builder();
+        Set<String> strategiesForMnemonic = strategyByMnemonicMap.get(mnemonic);
+        if (strategiesForMnemonic.size() > 1 && !listBasedExecutionStrategySelection) {
+          String flagName =
+              mnemonic.isEmpty() ? "--spawn_strategy=" : ("--strategy=" + mnemonic + "=");
+          throw new ExecutorInitException(
+              "Flag "
+                  + flagName
+                  + Joiner.on(',').join(strategiesForMnemonic)
+                  + " contains a list of strategies to use, but "
+                  + "--incompatible_list_based_execution_strategy_selection was not enabled.",
+              ExitCode.COMMAND_LINE_ERROR);
         }
-        SpawnActionContext context =
-            strategyConverter.getStrategy(SpawnActionContext.class, strategy);
-        if (context == null) {
-          String strategyOrNull = Strings.emptyToNull(strategy);
-          throw makeExceptionForInvalidStrategyValue(
-              strategy,
-              Joiner.on(' ').skipNulls().join(strategyOrNull, "spawn"),
-              strategyConverter.getValidValues(SpawnActionContext.class));
+        for (String strategy : strategiesForMnemonic) {
+          SpawnActionContext context =
+              strategyConverter.getStrategy(SpawnActionContext.class, strategy);
+          if (context == null) {
+            String strategyOrNull = Strings.emptyToNull(strategy);
+            throw makeExceptionForInvalidStrategyValue(
+                strategy,
+                Joiner.on(' ').skipNulls().join(strategyOrNull, "spawn"),
+                strategyConverter.getValidValues(SpawnActionContext.class));
+          }
+          contexts.add(context);
         }
-        spawnStrategyMap.put(mnemonic, context);
+        spawnStrategyMap.put(mnemonic, contexts.build());
       }
 
       Set<ActionContext> seenContext = new HashSet<>();
@@ -281,19 +303,33 @@ public final class SpawnActionContextMaps {
       }
 
       for (RegexFilterStrategy entry : strategyByRegexpBuilder.build()) {
-        SpawnActionContext context =
-            strategyConverter.getStrategy(SpawnActionContext.class, entry.strategy());
-        if (context == null) {
-          String strategy = Strings.emptyToNull(entry.strategy().toString());
-          throw makeExceptionForInvalidStrategyValue(
-              entry.regexFilter().toString(),
-              Joiner.on(' ').skipNulls().join(strategy, "spawn"),
-              strategyConverter.getValidValues(SpawnActionContext.class));
+        ImmutableList.Builder<SpawnActionContext> contexts = ImmutableList.builder();
+        List<String> strategiesForRegex = entry.strategy();
+        if (strategiesForRegex.size() > 1 && !listBasedExecutionStrategySelection) {
+          throw new ExecutorInitException(
+              "Flag --strategy_regexp="
+                  + entry.regexFilter().toString()
+                  + "="
+                  + Joiner.on(',').join(strategiesForRegex)
+                  + " contains a list of strategies to use, but "
+                  + "--incompatible_list_based_execution_strategy_selection was not enabled.",
+              ExitCode.COMMAND_LINE_ERROR);
         }
-
+        for (String strategy : strategiesForRegex) {
+          SpawnActionContext context =
+              strategyConverter.getStrategy(SpawnActionContext.class, strategy);
+          if (context == null) {
+            strategy = Strings.emptyToNull(strategy);
+            throw makeExceptionForInvalidStrategyValue(
+                entry.regexFilter().toString(),
+                Joiner.on(' ').skipNulls().join(strategy, "spawn"),
+                strategyConverter.getValidValues(SpawnActionContext.class));
+          }
+          contexts.add(context);
+        }
         spawnStrategyRegexList.add(
             new AutoValue_SpawnActionContextMaps_RegexFilterSpawnActionContext(
-                entry.regexFilter(), context));
+                entry.regexFilter(), contexts.build()));
       }
 
       ActionContext context =
@@ -305,7 +341,10 @@ public final class SpawnActionContextMaps {
       strategies.add(context);
 
       return new SpawnActionContextMaps(
-          spawnStrategyMap.build(), strategies.build(), spawnStrategyRegexList.build());
+          spawnStrategyMap.build(),
+          strategies.build(),
+          spawnStrategyRegexList.build(),
+          listBasedExecutionStrategySelection);
     }
   }
 
@@ -355,5 +394,4 @@ public final class SpawnActionContextMaps {
       return marker != null ? marker.name() : context.getSimpleName();
     }
   }
-
 }

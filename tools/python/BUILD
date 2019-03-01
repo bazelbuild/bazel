@@ -74,3 +74,15 @@ config_setting(
     flag_values = {":python_version": "PY3"},
     visibility = ["//visibility:public"],
 )
+
+# The toolchain type for Python rules. Provides a Python 2 and/or Python 3
+# runtime.
+toolchain_type(name = "toolchain_type")
+
+# A constraint_setting to use for constraints related to the location of the
+# system Python 2 interpreter on a platform.
+constraint_setting(name = "py2_interpreter_path")
+
+# A constraint_setting to use for constraints related to the location of the
+# system Python 3 interpreter on a platform.
+constraint_setting(name = "py3_interpreter_path")

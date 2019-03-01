@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
@@ -28,4 +29,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + "specifics of C++ actions through features and action configs. It is used to "
             + "configure the C++ toolchain, and later on for command line construction. "
             + "Replaces the functionality of CROSSTOOL file.")
-public interface CcToolchainConfigInfoApi extends StructApi {}
+public interface CcToolchainConfigInfoApi extends StructApi {
+  @SkylarkCallable(
+      name = "proto",
+      doc = "Returns CToolchain text proto from the CcToolchainConfigInfo data.",
+      structField = true)
+  String getProto();
+}

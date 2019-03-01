@@ -62,6 +62,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   public final void setUpAqueryOptions() {
     this.options = new AqueryOptions();
     options.aspectDeps = Mode.OFF;
+    options.includeArtifacts = true;
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
@@ -361,6 +362,25 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   }
 
   @Test
+  public void test_includeArtifacts_disabled() throws Exception {
+    options.includeArtifacts = false;
+
+    writeFile("test/BUILD", "java_library(name='foo', srcs=['foo.java'])");
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:foo)", AqueryActionFilter.emptyInstance());
+    Action javaCompileAction =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getActionsList().stream()
+                .filter(x -> x.getMnemonic().equals("Javac"))
+                .collect(Collectors.toList()));
+
+    assertThat(javaCompileAction.getInputDepSetIdsList()).isEmpty();
+    assertThat(javaCompileAction.getOutputIdsList()).isEmpty();
+    assertThat(actionGraphContainer.getDepSetOfFilesList()).isEmpty();
+    assertThat(actionGraphContainer.getArtifactsList()).isEmpty();
+  }
+
+  @Test
   public void test_includeParamFile_subsetOfCmdlineArgs() throws Exception {
     if (OS.getCurrent() == OS.DARWIN) {
       return;
@@ -498,13 +518,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
             .filter(action -> action.getMnemonic().equals("CppCompileActionTemplate"))
             .collect(Collectors.toList());
 
-    // Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
-    // while Linux has both PIC and non-PIC CppCompileActionTemplates
-    int expectedActionsCount =
-        (OS.getCurrent() == OS.DARWIN || OS.getCurrent() == OS.WINDOWS) ? 1 : 2;
-
     // Verify that we have the appropriate number of CppCompileActionTemplates.
-    assertThat(cppCompileActionTemplates).hasSize(expectedActionsCount);
+    assertThat(cppCompileActionTemplates).hasSize(1);
   }
 
   @Test

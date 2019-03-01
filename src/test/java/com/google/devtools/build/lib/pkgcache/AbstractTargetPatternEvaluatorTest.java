@@ -101,7 +101,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
 
   @Before
   public final void initializeParser() throws Exception {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE, loadingMock.getDefaultsPackageContent());
+    setUpSkyframe(ConstantRuleVisibility.PRIVATE);
     parser = skyframeExecutor.newTargetPatternEvaluator();
     parsingListener = new RecordingParsingListener(reporter);
   }

@@ -134,15 +134,16 @@ public class BaseFunctionTest extends EvaluationTestCase {
   @SuppressWarnings("unchecked")
   @Test
   public void testKwParam() throws Exception {
-    eval("def foo(a, b, c=3, d=4, g=7, h=8, *args, **kwargs):\n"
-        + "  return (a, b, c, d, g, h, args, kwargs)\n"
-        + "v1 = foo(1, 2)\n"
-        + "v2 = foo(1, *['x', 'y', 'z', 't'], h=9, i=0)\n"
-        + "v3 = foo(1, *[2, 3, 4, 5, 6, 7, 8], i=0)\n"
-        + "def bar(**kwargs):\n"
-        + "  return kwargs\n"
-        + "b1 = bar(name='foo', type='jpg', version=42)\n"
-        + "b2 = bar()\n");
+    eval(
+        "def foo(a, b, c=3, d=4, g=7, h=8, *args, **kwargs):\n"
+            + "  return (a, b, c, d, g, h, args, kwargs)\n"
+            + "v1 = foo(1, 2)\n"
+            + "v2 = foo(1, h=9, i=0, *['x', 'y', 'z', 't'])\n"
+            + "v3 = foo(1, i=0, *[2, 3, 4, 5, 6, 7, 8])\n"
+            + "def bar(**kwargs):\n"
+            + "  return kwargs\n"
+            + "b1 = bar(name='foo', type='jpg', version=42)\n"
+            + "b2 = bar()\n");
 
     assertThat(Printer.repr(lookup("v1")))
         .isEqualTo("(1, 2, 3, 4, 7, 8, (), {})");

@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -46,14 +46,12 @@ import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.Inval
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionValue;
-import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -509,8 +507,7 @@ public class ToolchainResolver {
      * Finishes preparing the {@link ToolchainContext} by finding the specific toolchain providers
      * to be used for each toolchain type.
      */
-    public ToolchainContext load(
-        OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap) {
+    public ToolchainContext load(Iterable<ConfiguredTargetAndData> toolchainTargets) {
 
       ToolchainContext.Builder toolchainContext =
           ToolchainContext.builder()
@@ -520,40 +517,34 @@ public class ToolchainResolver {
               .setRequiredToolchainTypes(requiredToolchainTypes())
               .setResolvedToolchainLabels(resolvedToolchainLabels());
 
-      // Find the prerequisites associated with PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR.
-      Optional<Attribute> toolchainAttribute =
-          prerequisiteMap.keys().stream()
-              .filter(Objects::nonNull)
-              .filter(
-                  attribute ->
-                      attribute.getName().equals(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR))
-              .findFirst();
       ImmutableMap.Builder<ToolchainTypeInfo, ToolchainInfo> toolchains =
           new ImmutableMap.Builder<>();
       ImmutableList.Builder<TemplateVariableInfo> templateVariableProviders =
           new ImmutableList.Builder<>();
-      if (toolchainAttribute.isPresent()) {
-        for (ConfiguredTargetAndData target : prerequisiteMap.get(toolchainAttribute.get())) {
-          Label discoveredLabel = target.getTarget().getLabel();
-          ToolchainTypeInfo toolchainType =
-              toolchainTypeToResolved().inverse().get(discoveredLabel);
+      for (ConfiguredTargetAndData target : toolchainTargets) {
+        Label discoveredLabel;
+        // Aliases are in toolchainTypeToResolved by the original alias label, not via the final
+        // target's label.
+        if (target.getConfiguredTarget() instanceof AliasConfiguredTarget) {
+          discoveredLabel =
+              ((AliasConfiguredTarget) target.getConfiguredTarget()).getOriginalLabel();
+        } else {
+          discoveredLabel = target.getConfiguredTarget().getLabel();
+        }
+        ToolchainTypeInfo toolchainType = toolchainTypeToResolved().inverse().get(discoveredLabel);
+        ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target.getConfiguredTarget());
 
-          // If the toolchainType hadn't been resolved to an actual toolchain, resolution would have
-          // failed with an error much earlier. This null check is just for safety.
-          if (toolchainType != null) {
-            ToolchainInfo toolchainInfo =
-                PlatformProviderUtils.toolchain(target.getConfiguredTarget());
-            if (toolchainInfo != null) {
-              toolchains.put(toolchainType, toolchainInfo);
-            }
-          }
+        // If the toolchainType hadn't been resolved to an actual toolchain, resolution would have
+        // failed with an error much earlier. This null check is just for safety.
+        if (toolchainType != null && toolchainInfo != null) {
+          toolchains.put(toolchainType, toolchainInfo);
+        }
 
-          // Find any template variables present for this toolchain.
-          TemplateVariableInfo templateVariableInfo =
-              target.getConfiguredTarget().get(TemplateVariableInfo.PROVIDER);
-          if (templateVariableInfo != null) {
-            templateVariableProviders.add(templateVariableInfo);
-          }
+        // Find any template variables present for this toolchain.
+        TemplateVariableInfo templateVariableInfo =
+            target.getConfiguredTarget().get(TemplateVariableInfo.PROVIDER);
+        if (templateVariableInfo != null) {
+          templateVariableProviders.add(templateVariableInfo);
         }
       }
 

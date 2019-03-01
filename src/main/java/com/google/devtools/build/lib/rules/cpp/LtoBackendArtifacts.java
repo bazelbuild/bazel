@@ -17,18 +17,18 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * LtoBackendArtifacts represents a set of artifacts for a single ThinLTO backend compile.
@@ -51,7 +51,6 @@ import java.util.Map;
  *   <li>4. Backend link (once). This is the traditional link, and produces the final executable.
  * </ul>
  */
-@AutoCodec
 public final class LtoBackendArtifacts {
 
   // A file containing mapping of symbol => bitcode file containing the symbol.
@@ -71,26 +70,12 @@ public final class LtoBackendArtifacts {
   // The corresponding dwoFile if fission is used.
   private Artifact dwoFile;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  LtoBackendArtifacts(
-      Artifact index,
-      Artifact bitcodeFile,
-      Artifact imports,
-      Artifact objectFile,
-      Artifact dwoFile) {
-    this.index = index;
-    this.bitcodeFile = bitcodeFile;
-    this.imports = imports;
-    this.objectFile = objectFile;
-    this.dwoFile = dwoFile;
-  }
-
   LtoBackendArtifacts(
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
       Map<PathFragment, Artifact> allBitCodeFiles,
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      RepositoryName repositoryName,
       BuildConfiguration configuration,
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
@@ -102,14 +87,24 @@ public final class LtoBackendArtifacts {
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
 
-    objectFile = linkArtifactFactory.create(ruleContext, configuration, obj);
-    imports = linkArtifactFactory.create(
-        ruleContext, configuration, FileSystemUtils.appendExtension(obj, ".imports"));
-    index = linkArtifactFactory.create(
-        ruleContext, configuration, FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
+    objectFile =
+        linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
+    imports =
+        linkArtifactFactory.create(
+            actionConstructionContext,
+            repositoryName,
+            configuration,
+            FileSystemUtils.appendExtension(obj, ".imports"));
+    index =
+        linkArtifactFactory.create(
+            actionConstructionContext,
+            repositoryName,
+            configuration,
+            FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
 
     scheduleLtoBackendAction(
-        ruleContext,
+        actionConstructionContext,
+        repositoryName,
         featureConfiguration,
         ccToolchain,
         fdoContext,
@@ -125,7 +120,8 @@ public final class LtoBackendArtifacts {
   public LtoBackendArtifacts(
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      RepositoryName repositoryName,
       BuildConfiguration configuration,
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
@@ -137,12 +133,14 @@ public final class LtoBackendArtifacts {
     this.bitcodeFile = bitcodeFile;
 
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
-    objectFile = linkArtifactFactory.create(ruleContext, configuration, obj);
+    objectFile =
+        linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;
     index = null;
 
     scheduleLtoBackendAction(
-        ruleContext,
+        actionConstructionContext,
+        repositoryName,
         featureConfiguration,
         ccToolchain,
         fdoContext,
@@ -158,7 +156,7 @@ public final class LtoBackendArtifacts {
     return objectFile;
   }
 
-  public Artifact getBitcodeFile() {
+  Artifact getBitcodeFile() {
     return bitcodeFile;
   }
 
@@ -166,7 +164,7 @@ public final class LtoBackendArtifacts {
     return dwoFile;
   }
 
-  public void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
+  void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
     // For objects from linkstatic libraries, we may not be including them in the LTO indexing
     // step when linked into a test, but rather will use shared non-LTO backends for better
     // scalability when running large numbers of tests.
@@ -178,7 +176,8 @@ public final class LtoBackendArtifacts {
   }
 
   private void scheduleLtoBackendAction(
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      RepositoryName repositoryName,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
@@ -236,16 +235,19 @@ public final class LtoBackendArtifacts {
     if (generateDwo) {
       dwoFile =
           linkArtifactFactory.create(
-              ruleContext,
+              actionConstructionContext,
+              repositoryName,
               configuration,
               FileSystemUtils.replaceExtension(objectFile.getRootRelativePath(), ".dwo"));
       builder.addOutput(dwoFile);
       buildVariablesBuilder.addStringVariable(
-          "per_object_debug_info_file", dwoFile.getExecPathString());
+          CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
+          dwoFile.getExecPathString());
+      buildVariablesBuilder.addStringVariable(
+          CompileBuildVariables.IS_USING_FISSION.getVariableName(), "");
     }
 
-    List<String> execArgs = new ArrayList<>();
-    execArgs.addAll(commandLine);
+    List<String> execArgs = new ArrayList<>(commandLine);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
     // Feature options should go after --copt for consistency with compile actions.
     execArgs.addAll(
@@ -259,7 +261,7 @@ public final class LtoBackendArtifacts {
     }
     builder.addExecutableArguments(execArgs);
 
-    ruleContext.registerAction(builder.build(ruleContext));
+    actionConstructionContext.registerAction(builder.build(actionConstructionContext));
   }
 
   /**
@@ -286,5 +288,26 @@ public final class LtoBackendArtifacts {
     Artifact profile = branchFdoProfile.getProfileArtifact();
     buildVariables.addStringVariable("fdo_profile_path", profile.getExecPathString());
     builder.addInput(branchFdoProfile.getProfileArtifact());
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof LtoBackendArtifacts)) {
+      return false;
+    }
+    LtoBackendArtifacts that = (LtoBackendArtifacts) o;
+    return Objects.equals(index, that.index)
+        && bitcodeFile.equals(that.bitcodeFile)
+        && Objects.equals(imports, that.imports)
+        && objectFile.equals(that.objectFile)
+        && Objects.equals(dwoFile, that.dwoFile);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(index, bitcodeFile, imports, objectFile, dwoFile);
   }
 }

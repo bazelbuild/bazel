@@ -146,6 +146,16 @@ public final class Fingerprint implements Consumer<String> {
     return this;
   }
 
+  /** Updates the digest with the signed varint representation of input. */
+  Fingerprint addSInt(int input) {
+    try {
+      codedOut.writeSInt32NoTag(input);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    return this;
+  }
+
   /** Updates the digest with the varint representation of a long value. */
   public Fingerprint addLong(long input) {
     try {

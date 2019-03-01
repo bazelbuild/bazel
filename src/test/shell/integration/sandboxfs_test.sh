@@ -100,21 +100,34 @@ function test_explicit_sandboxfs_not_found() {
   expect_log "Failed to initialize sandbox: .*Cannot run .*/non-existent/"
 }
 
+# Runs a build of the given target using a fake sandboxfs that captures its
+# activity and dumps it to the given log file.
+function build_with_fake_sandboxfs() {
+  local log="${1}"; shift
+
+  create_fake_sandboxfs fake-sandboxfs.sh "${log}"
+
+  local ret=0
+  bazel build \
+    "${DISABLE_SANDBOX_ARGS[@]}" \
+    --experimental_use_sandboxfs \
+    --experimental_sandboxfs_path="$(pwd)/fake-sandboxfs.sh" \
+    "${@}" >"${TEST_log}" 2>&1 || ret="${?}"
+
+  # Dump fake sandboxfs' log for debugging.
+  sed -e 's,^,SANDBOXFS: ,' log >>"${TEST_log}"
+
+  return "${ret}"
+}
+
 function test_mount_unmount() {
-  create_fake_sandboxfs fake-sandboxfs.sh "$(pwd)/log"
   create_hello_package
 
   local output_base="$(bazel info output_base)"
   local sandbox_base="${output_base}/sandbox"
 
-  bazel build \
-    "${DISABLE_SANDBOX_ARGS[@]}" \
-    --experimental_use_sandboxfs \
-    --experimental_sandboxfs_path="$(pwd)/fake-sandboxfs.sh" \
-    //hello >"${TEST_log}" 2>&1 || fail "Build should have succeeded"
-
-  # Dump fake sandboxfs' log for debugging.
-  sed -e 's,^,SANDBOXFS: ,' log >>"${TEST_log}"
+  build_with_fake_sandboxfs "$(pwd)/log" //hello \
+    || fail "Build should have succeeded"
 
   grep -q "ARGS: .*${sandbox_base}/sandboxfs" log \
     || fail "Cannot find expected mount point in sandboxfs mount call"
@@ -123,20 +136,7 @@ function test_mount_unmount() {
 }
 
 function test_debug_lifecycle() {
-  create_fake_sandboxfs fake-sandboxfs.sh "$(pwd)/log"
   create_hello_package
-
-  function build() {
-    bazel build \
-      "${DISABLE_SANDBOX_ARGS[@]}" \
-      --experimental_use_sandboxfs \
-      --experimental_sandboxfs_path="$(pwd)/fake-sandboxfs.sh" \
-      "${@}" \
-      //hello >"${TEST_log}" 2>&1 || fail "Build should have succeeded"
-
-      # Dump fake sandboxfs' log for debugging.
-      sed -e 's,^,SANDBOXFS: ,' log >>"${TEST_log}"
-  }
 
   function sandboxfs_pid() {
     case "$(uname)" in
@@ -157,7 +157,7 @@ function test_debug_lifecycle() {
   }
 
   # Want sandboxfs to be left mounted after a build with debugging on.
-  build --sandbox_debug
+  build_with_fake_sandboxfs "$(pwd)/log" --sandbox_debug //hello
   grep -q "ARGS:" log || fail "sandboxfs was not run"
   grep -q "Terminated" log \
     && fail "sandboxfs process was terminated but should not have been"
@@ -165,15 +165,35 @@ function test_debug_lifecycle() {
   [[ -n "${pid1}" ]] || fail "sandboxfs process not found in process table"
 
   # Want sandboxfs to be restarted if the previous build had debugging on.
-  build --sandbox_debug
+  build_with_fake_sandboxfs "$(pwd)/log" --sandbox_debug //hello
   local pid2="$(sandboxfs_pid)"
   [[ -n "${pid2}" ]] || fail "sandboxfs process not found in process table"
   [[ "${pid1}" -ne "${pid2}" ]] || fail "sandboxfs was not restarted"
 
   # Want build to finish successfully and to clear the mount point.
-  build --nosandbox_debug
+  build_with_fake_sandboxfs "$(pwd)/log" --nosandbox_debug //hello
   local pid3="$(sandboxfs_pid)"
   [[ -z "${pid3}" ]] || fail "sandboxfs was not terminated"
+}
+
+function test_always_unmounted_on_exit() {
+  create_hello_package
+
+  # Want sandboxfs to be left mounted after a build with debugging on.
+  build_with_fake_sandboxfs "$(pwd)/log" --sandbox_debug //hello
+  grep -q "ARGS:" log || fail "sandboxfs was not run"
+  grep -q "Terminated" log \
+    && fail "sandboxfs process was terminated but should not have been"
+
+  # Want Bazel to unmount the sandboxfs instance on exit no matter what.
+  #
+  # Note that we do not even tell Bazel where the sandboxfs binary lives
+  # but we expect changes to the log of the currently-running sandboxfs
+  # binary.  This is intentional to verify that the already-mounted
+  # instance is the one shut down.
+  bazel shutdown
+  grep -q "Terminated" log \
+    || fail "sandboxfs process was not terminated but should have been"
 }
 
 run_suite "sandboxfs-based sandboxing tests"

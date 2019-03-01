@@ -17,6 +17,7 @@
 #include <linux/magic.h>
 #include <pwd.h>
 #include <signal.h>
+#include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  // strerror
@@ -165,7 +166,12 @@ string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
   string javahome = GetEnv("JAVA_HOME");
   if (!javahome.empty()) {
-    return javahome;
+    string javac = blaze_util::JoinPath(javahome, "bin/javac");
+    if (access(javac.c_str(), X_OK) == 0) {
+      return javahome;
+    }
+    BAZEL_LOG(WARNING)
+        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
   }
 
   // which javac
@@ -205,6 +211,11 @@ static bool GetStartTime(const string& pid, string* start_time) {
   // unique.
   *start_time = stat_entries[21];
   return true;
+}
+
+int ConfigureDaemonProcess(posix_spawnattr_t* attrp) {
+  // No interesting platform-specific details to configure on this platform.
+  return 0;
 }
 
 void WriteSystemSpecificProcessIdentifier(

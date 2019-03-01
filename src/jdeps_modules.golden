@@ -8,7 +8,6 @@ java.naming
 java.security.jgss
 java.sql
 java.xml
-java.xml.bind
 jdk.compiler
 jdk.management
 jdk.sctp

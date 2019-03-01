@@ -28,11 +28,11 @@ namespace blaze {
 
 class OptionProcessorTest : public ::testing::Test {
  protected:
-  OptionProcessorTest() :
-      workspace_(
-          blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "testdir")),
-      cwd_("cwd"),
-      workspace_layout_(new WorkspaceLayout()) {}
+  OptionProcessorTest()
+      : workspace_(
+            blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "testdir")),
+        cwd_("cwd"),
+        workspace_layout_(new WorkspaceLayout()) {}
 
   ~OptionProcessorTest() override {}
 
@@ -98,21 +98,32 @@ class OptionProcessorTest : public ::testing::Test {
 };
 
 TEST_F(OptionProcessorTest, CanParseOptions) {
-  const std::vector<std::string> args =
-      {"bazel",
-       "--host_jvm_args=MyParam", "--nobatch",
-       "command",
-       "--flag", "//my:target", "--flag2=42"};
+  const std::vector<std::string> args = {"bazel",     "--host_jvm_args=MyParam",
+                                         "--nobatch", "command",
+                                         "--flag",    "//my:target",
+                                         "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
             option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-                << error;
+      << error;
 
   ASSERT_EQ("", error);
+#if defined(_WIN32) || defined(__CYGWIN__)
+  ASSERT_EQ(size_t(2),
+            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
+  const std::string win_unix_root("-Dbazel.windows_unix_root=");
+  const std::string host_jvm_args_0 =
+      option_processor_->GetParsedStartupOptions()->host_jvm_args[0];
+  EXPECT_EQ(host_jvm_args_0.find(win_unix_root), 0) << host_jvm_args_0;
+  EXPECT_GT(host_jvm_args_0.size(), win_unix_root.size());
+  EXPECT_EQ("MyParam",
+            option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+#else   // ! (defined(_WIN32) || defined(__CYGWIN__))
   ASSERT_EQ(size_t(1),
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
   EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
 
   EXPECT_EQ("command", option_processor_->GetCommand());
@@ -122,21 +133,32 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
 }
 
 TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
-  const std::vector<std::string> args =
-      {"bazel",
-       "--host_jvm_args=MyParam", "--nobatch",
-       "help",
-       "--flag", "//my:target", "--flag2=42"};
+  const std::vector<std::string> args = {"bazel",     "--host_jvm_args=MyParam",
+                                         "--nobatch", "help",
+                                         "--flag",    "//my:target",
+                                         "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
             option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-                << error;
+      << error;
 
   ASSERT_EQ("", error);
+#if defined(_WIN32) || defined(__CYGWIN__)
+  ASSERT_EQ(size_t(2),
+            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
+  const std::string win_unix_root("-Dbazel.windows_unix_root=");
+  const std::string host_jvm_args_0 =
+      option_processor_->GetParsedStartupOptions()->host_jvm_args[0];
+  EXPECT_EQ(host_jvm_args_0.find(win_unix_root), 0) << host_jvm_args_0;
+  EXPECT_GT(host_jvm_args_0.size(), win_unix_root.size());
+  EXPECT_EQ("MyParam",
+            option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+#else   // ! (defined(_WIN32) || defined(__CYGWIN__))
   ASSERT_EQ(size_t(1),
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
   EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
 
   EXPECT_EQ("help", option_processor_->GetCommand());
@@ -181,12 +203,26 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
                 << error;
   ASSERT_EQ("", error);
 
+#if defined(_WIN32) || defined(__CYGWIN__)
+  ASSERT_EQ(size_t(3),
+            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
+  const std::string win_unix_root("-Dbazel.windows_unix_root=");
+  const std::string host_jvm_args_0 =
+      option_processor_->GetParsedStartupOptions()->host_jvm_args[0];
+  EXPECT_EQ(host_jvm_args_0.find(win_unix_root), 0) << host_jvm_args_0;
+  EXPECT_GT(host_jvm_args_0.size(), win_unix_root.size());
+  EXPECT_EQ("MyParam",
+            option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+  EXPECT_EQ("42",
+            option_processor_->GetParsedStartupOptions()->host_jvm_args[2]);
+#else   // ! (defined(_WIN32) || defined(__CYGWIN__))
   ASSERT_EQ(size_t(2),
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
   EXPECT_EQ("42",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
   EXPECT_EQ("", option_processor_->GetCommand());
 

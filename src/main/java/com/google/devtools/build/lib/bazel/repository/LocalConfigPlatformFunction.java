@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +52,8 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData)
+      Map<String, String> markerData,
+      SkyKey key)
       throws RepositoryFunctionException {
 
     CPU hostCpu = CPU.getCurrent();
@@ -116,7 +118,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   private static String workspaceFileContent(String repositoryName) {
     return format(
         ImmutableList.of(
-            "# DO NOT EDIT: automatically generated WORKSPACE file for local_config_platforms",
+            "# DO NOT EDIT: automatically generated WORKSPACE file for local_config_platform",
             "workspace(name = \"%s\")"),
         repositoryName);
   }
@@ -124,7 +126,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   private static String buildFileContent(String repositoryName) {
     return format(
         ImmutableList.of(
-            "# DO NOT EDIT: automatically generated BUILD file for local_config_platforms",
+            "# DO NOT EDIT: automatically generated BUILD file for local_config_platform",
             "load(':constraints.bzl', 'HOST_CONSTRAINTS')",
             "platform(name = 'host',",
             "  # Auto-detected host platform constraints.",
@@ -136,7 +138,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   private static String constraintFileContent(CPU hostCpu, OS hostOs) {
     List<String> contents = new ArrayList<>();
     contents.add(
-        "# DO NOT EDIT: automatically generated constraints list for local_config_platforms");
+        "# DO NOT EDIT: automatically generated constraints list for local_config_platform");
     contents.add("# Auto-detected host platform constraints.");
     contents.add("HOST_CONSTRAINTS = [");
 

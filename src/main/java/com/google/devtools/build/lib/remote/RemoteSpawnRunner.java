@@ -279,6 +279,11 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
+  @Override
+  public boolean canExec(Spawn spawn) {
+    return Spawns.mayBeExecutedRemotely(spawn);
+  }
+
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
     if (!executionOptions.materializeParamFiles) {
       return;
@@ -528,20 +533,23 @@ class RemoteSpawnRunner implements SpawnRunner {
     Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);
     SpawnResult result = execLocally(spawn, context);
     Map<Path, Long> ctimesAfter = getInputCtimes(inputMap);
+    uploadLocalResults =
+        uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
+    if (!uploadLocalResults) {
+      return result;
+    }
+
     for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
       // Skip uploading to remote cache, because an input was modified during execution.
       if (!ctimesAfter.get(e.getKey()).equals(e.getValue())) {
         return result;
       }
     }
-    if (!uploadLocalResults) {
-      return result;
-    }
-    boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
+
     Collection<Path> outputFiles = resolveActionInputs(execRoot, spawn.getOutputFiles());
     try (SilentCloseable c = Profiler.instance().profile("Remote.upload")) {
       remoteCache.upload(
-          actionKey, action, command, execRoot, outputFiles, context.getFileOutErr(), uploadAction);
+          actionKey, action, command, execRoot, outputFiles, context.getFileOutErr());
     } catch (IOException e) {
       if (verboseFailures) {
         report(Event.debug("Upload to remote cache failed: " + e.getMessage()));

@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import org.junit.Before;
@@ -40,23 +38,6 @@ public class SkylarkFileHelperTest extends SkylarkTestCase {
         "  srcs = ['a.txt', 'b.img'],",
         "  tools = ['t.exe'],",
         "  outs = ['c.txt'])");
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testFilterPasses() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result =
-        evalRuleContextCode(ruleContext, "FileType(['.img']).filter(ruleContext.files.srcs)");
-    assertThat(ActionsTestUtil.baseNamesOf((Iterable<Artifact>) result)).isEqualTo("b.img");
-  }
-
-  @Test
-  public void testFilterFiltersFilesOut() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result =
-        evalRuleContextCode(ruleContext, "FileType(['.xyz']).filter(ruleContext.files.srcs)");
-    assertThat(((Iterable<?>) result)).isEmpty();
   }
 
   @Test

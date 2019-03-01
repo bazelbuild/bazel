@@ -239,8 +239,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             any(Collection.class),
-            any(FileOutErr.class),
-            any(Boolean.class));
+            any(FileOutErr.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();
@@ -279,8 +278,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     entry.store(result);
     verify(remoteCache)
         .upload(
@@ -289,8 +287,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
@@ -326,9 +323,8 @@ public class RemoteSpawnCacheTest {
   }
 
   @Test
-  public void noCacheSpawnsNoResultStore() throws Exception {
-    // Only successful action results are uploaded to the remote cache. The artifacts, however,
-    // are uploaded regardless.
+  public void failedActionsAreNotUploaded() throws Exception {
+    // Only successful action results are uploaded to the remote cache.
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     verify(remoteCache).getCachedActionResult(any(ActionKey.class));
     assertThat(entry.hasResult()).isFalse();
@@ -340,15 +336,14 @@ public class RemoteSpawnCacheTest {
             .build();
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
     entry.store(result);
-    verify(remoteCache)
+    verify(remoteCache, never())
         .upload(
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(false));
+            eq(outErr));
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
@@ -373,8 +368,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
 
     entry.store(result);
     verify(remoteCache)
@@ -384,8 +378,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
@@ -428,8 +421,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     entry.store(result);
     verify(remoteCache)
         .upload(
@@ -438,8 +430,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
@@ -498,8 +489,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     entry.store(result);
     verify(remoteCache)
         .upload(
@@ -508,8 +498,7 @@ public class RemoteSpawnCacheTest {
             any(Command.class),
             any(Path.class),
             eq(outputFiles),
-            eq(outErr),
-            eq(true));
+            eq(outErr));
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.

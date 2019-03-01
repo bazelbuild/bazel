@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -24,6 +27,45 @@ import org.junit.runners.JUnit4;
 /** Tests of {@link DeclaredToolchainInfo}. */
 @RunWith(JUnit4.class)
 public class DeclaredToolchainInfoTest extends BuildViewTestCase {
+
+  @Test
+  public void toolchainInfo_overlappingConstraintsError() throws Exception {
+    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(makeLabel("//constraint:complex"));
+
+    DeclaredToolchainInfo.Builder builder = DeclaredToolchainInfo.builder();
+
+    builder.addExecConstraints(
+        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1")));
+    builder.addExecConstraints(
+        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value2")));
+
+    builder.addTargetConstraints(
+        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value3")));
+    builder.addTargetConstraints(
+        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value4")));
+    builder.addTargetConstraints(
+        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value5")));
+
+    DeclaredToolchainInfo.DuplicateConstraintException exception =
+        assertThrows(
+            DeclaredToolchainInfo.DuplicateConstraintException.class, () -> builder.build());
+    assertThat(exception.execConstraintsException()).isNotNull();
+    assertThat(exception.execConstraintsException())
+        .hasMessageThat()
+        .contains(
+            "Duplicate constraint values detected: "
+                + "constraint_setting //constraint:basic has "
+                + "[//constraint:value1, //constraint:value2]");
+    assertThat(exception.targetConstraintsException()).isNotNull();
+    assertThat(exception.targetConstraintsException())
+        .hasMessageThat()
+        .contains(
+            "Duplicate constraint values detected: "
+                + "constraint_setting //constraint:complex has "
+                + "[//constraint:value3, //constraint:value4, //constraint:value5]");
+  }
 
   @Test
   public void toolchainInfo_equalsTester() throws Exception {
@@ -37,37 +79,42 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
-                ImmutableList.of(constraint1),
-                ImmutableList.of(constraint2),
-                makeLabel("//toolchain:toolchain1")),
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
-                ImmutableList.of(constraint1),
-                ImmutableList.of(constraint2),
-                makeLabel("//toolchain:toolchain1")))
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")))
+                .addExecConstraints(ImmutableList.of(constraint1))
+                .addTargetConstraints(ImmutableList.of(constraint2))
+                .toolchainLabel(makeLabel("//toolchain:toolchain1"))
+                .build(),
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")))
+                .addExecConstraints(ImmutableList.of(constraint1))
+                .addTargetConstraints(ImmutableList.of(constraint2))
+                .toolchainLabel(makeLabel("//toolchain:toolchain1"))
+                .build())
         .addEqualityGroup(
             // Different type.
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc2")),
-                ImmutableList.of(constraint1),
-                ImmutableList.of(constraint2),
-                makeLabel("//toolchain:toolchain1")))
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc2")))
+                .addExecConstraints(ImmutableList.of(constraint1))
+                .addTargetConstraints(ImmutableList.of(constraint2))
+                .toolchainLabel(makeLabel("//toolchain:toolchain1"))
+                .build())
         .addEqualityGroup(
             // Different constraints.
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
-                ImmutableList.of(constraint2),
-                ImmutableList.of(constraint1),
-                makeLabel("//toolchain:toolchain1")))
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")))
+                .addExecConstraints(ImmutableList.of(constraint2))
+                .addTargetConstraints(ImmutableList.of(constraint1))
+                .toolchainLabel(makeLabel("//toolchain:toolchain1"))
+                .build())
         .addEqualityGroup(
             // Different toolchain label.
-            DeclaredToolchainInfo.create(
-                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
-                ImmutableList.of(constraint1),
-                ImmutableList.of(constraint2),
-                makeLabel("//toolchain:toolchain2")))
+            DeclaredToolchainInfo.builder()
+                .toolchainType(ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")))
+                .addExecConstraints(ImmutableList.of(constraint1))
+                .addTargetConstraints(ImmutableList.of(constraint2))
+                .toolchainLabel(makeLabel("//toolchain:toolchain2"))
+                .build())
         .testEquals();
   }
 }

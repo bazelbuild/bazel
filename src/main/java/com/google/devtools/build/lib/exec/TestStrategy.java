@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,7 +49,6 @@ import com.google.devtools.common.options.EnumConverter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -128,9 +125,9 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   @Override
-  public abstract List<SpawnResult> exec(
-      TestRunnerAction action, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException;
+  public final boolean isTestKeepGoing() {
+    return executionOptions.testKeepGoing;
+  }
 
   /**
    * Generates a command line to run for the test action, taking into account coverage and {@code
@@ -425,26 +422,6 @@ public abstract class TestStrategy implements TestActionContext {
 
     actionExecutionContext.getEventHandler()
         .handle(Event.progress(testAction.getProgressMessage()));
-  }
-
-  /** In rare cases, we might write something to stderr. Append it to the real test.log. */
-  protected static void appendStderr(Path stdOut, Path stdErr) throws IOException {
-    FileStatus stat = stdErr.statNullable();
-    if (stat != null) {
-      try {
-        if (stat.getSize() > 0) {
-          if (stdOut.exists()) {
-            stdOut.setWritable(true);
-          }
-          try (OutputStream out = stdOut.getOutputStream(true);
-              InputStream in = stdErr.getInputStream()) {
-            ByteStreams.copy(in, out);
-          }
-        }
-      } finally {
-        stdErr.delete();
-      }
-    }
   }
 
   /** Implements the --test_output=streamed option. */

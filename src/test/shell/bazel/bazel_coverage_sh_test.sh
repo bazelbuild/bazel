@@ -132,7 +132,7 @@ EOF
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
   cat <<EOF > result.dat
-SF:com/google/orange/orangeBin.java
+SF:java/com/google/orange/orangeBin.java
 FN:3,com/google/orange/orangeBin::<init> ()V
 FN:5,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
 FNDA:0,com/google/orange/orangeBin::<init> ()V
@@ -146,7 +146,7 @@ DA:7,1
 LH:3
 LF:4
 end_of_record
-SF:com/google/orange/orangeLib.java
+SF:java/com/google/orange/orangeLib.java
 FN:3,com/google/orange/orangeLib::<init> ()V
 FN:6,com/google/orange/orangeLib::print ()V
 FNDA:1,com/google/orange/orangeLib::<init> ()V
@@ -283,10 +283,6 @@ FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcES
 FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
 FNF:4
 FNH:4
-BA:11,2
-BA:18,2
-BRF:2
-BRH:2
 DA:11,1
 DA:12,1
 DA:14,1
@@ -302,13 +298,6 @@ FN:8,main
 FNDA:1,main
 FNF:1
 FNH:1
-BA:9,2
-BA:10,2
-BA:11,2
-BA:12,0
-BA:14,2
-BRF:5
-BRH:4
 DA:8,1
 DA:9,2
 DA:10,2
@@ -481,10 +470,6 @@ FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcES
 FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
 FNF:4
 FNH:4
-BA:11,2
-BA:18,2
-BRF:2
-BRH:2
 DA:11,1
 DA:12,1
 DA:14,1
@@ -501,13 +486,6 @@ FN:8,main
 FNDA:1,main
 FNF:1
 FNH:1
-BA:9,2
-BA:10,2
-BA:11,2
-BA:12,0
-BA:14,2
-BRF:5
-BRH:4
 DA:8,1
 DA:9,2
 DA:10,2
@@ -523,7 +501,7 @@ end_of_record"
 
   ############# Assert Java code coverage results
 
-  local coverage_result_orange_bin="SF:com/google/orange/orangeBin.java
+  local coverage_result_orange_bin="SF:java/com/google/orange/orangeBin.java
 FN:2,com/google/orange/orangeBin::<init> ()V
 FN:4,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
 FNDA:0,com/google/orange/orangeBin::<init> ()V
@@ -539,7 +517,7 @@ LF:4
 end_of_record"
   assert_coverage_result "$coverage_result_orange_bin" "$coverage_file_path"
 
-  local coverage_result_orange_lib="SF:com/google/orange/orangeLib.java
+  local coverage_result_orange_lib="SF:java/com/google/orange/orangeLib.java
 FN:2,com/google/orange/orangeLib::<init> ()V
 FN:4,com/google/orange/orangeLib::print ()V
 FNDA:1,com/google/orange/orangeLib::<init> ()V

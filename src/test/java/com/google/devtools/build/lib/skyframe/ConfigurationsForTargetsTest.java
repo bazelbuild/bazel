@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -128,9 +130,9 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
      * deps of given target.
      */
     static class Value implements SkyValue {
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depMap;
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap;
 
-      Value(OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depMap) {
+      Value(OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap) {
         this.depMap = depMap;
       }
     }
@@ -139,7 +141,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws EvalException, InterruptedException {
       try {
-        OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depMap =
+        OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
             ConfiguredTargetFunction.computeDependencies(
                 env,
                 new SkyframeDependencyResolver(env),
@@ -224,8 +226,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
   }
 
   /** Returns the configured deps for a given target. */
-  private Multimap<Attribute, ConfiguredTargetAndData> getConfiguredDeps(ConfiguredTarget target)
-      throws Exception {
+  private Multimap<DependencyKind, ConfiguredTargetAndData> getConfiguredDeps(
+      ConfiguredTarget target) throws Exception {
     String targetLabel = AliasProvider.getDependencyLabel(target).toString();
     SkyKey key = ComputeDependenciesFunction.key(getTarget(targetLabel), getConfiguration(target));
     // Must re-enable analysis for Skyframe functions that create configured targets.
@@ -257,12 +259,13 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
   protected List<ConfiguredTarget> getConfiguredDeps(ConfiguredTarget target, String attrName)
       throws Exception {
     String targetLabel = AliasProvider.getDependencyLabel(target).toString();
-    Multimap<Attribute, ConfiguredTargetAndData> allDeps = getConfiguredDeps(target);
-    for (Attribute attribute : allDeps.keySet()) {
+    Multimap<DependencyKind, ConfiguredTargetAndData> allDeps = getConfiguredDeps(target);
+    for (DependencyKind kind : allDeps.keySet()) {
+      Attribute attribute = kind.getAttribute();
       if (attribute.getName().equals(attrName)) {
         return ImmutableList.copyOf(
             Collections2.transform(
-                allDeps.get(attribute), ConfiguredTargetAndData::getConfiguredTarget));
+                allDeps.get(kind), ConfiguredTargetAndData::getConfiguredTarget));
       }
     }
     throw new AssertionError(
@@ -342,6 +345,12 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       return;
     }
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain= */ false,
+            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
     scratch.file(
         "java/a/BUILD",
         "cc_library(name = 'lib', srcs = ['lib.cc'])",

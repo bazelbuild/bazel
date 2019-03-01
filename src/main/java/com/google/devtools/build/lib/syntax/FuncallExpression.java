@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -59,9 +59,9 @@ public final class FuncallExpression extends Expression {
    */
   private static final class MethodDescriptorKey {
     private final Class<?> clazz;
-    private final SkylarkSemantics semantics;
+    private final StarlarkSemantics semantics;
 
-    private MethodDescriptorKey(Class<?> clazz, SkylarkSemantics semantics) {
+    private MethodDescriptorKey(Class<?> clazz, StarlarkSemantics semantics) {
       this.clazz = clazz;
       this.semantics = semantics;
     }
@@ -70,7 +70,7 @@ public final class FuncallExpression extends Expression {
       return clazz;
     }
 
-    public SkylarkSemantics getSemantics() {
+    public StarlarkSemantics getSemantics() {
       return semantics;
     }
 
@@ -99,7 +99,7 @@ public final class FuncallExpression extends Expression {
                 @Override
                 public Optional<MethodDescriptor> load(MethodDescriptorKey key) throws Exception {
                   Class<?> keyClass = key.getClazz();
-                  SkylarkSemantics semantics = key.getSemantics();
+                  StarlarkSemantics semantics = key.getSemantics();
                   MethodDescriptor returnValue = null;
                   for (Method method : sortMethodArrayByMethodName(keyClass.getMethods())) {
                     // Synthetic methods lead to false multiple matches
@@ -133,7 +133,7 @@ public final class FuncallExpression extends Expression {
                     public Map<String, MethodDescriptor> load(MethodDescriptorKey key)
                         throws Exception {
                       Class<?> keyClass = key.getClazz();
-                      SkylarkSemantics semantics = key.getSemantics();
+                      StarlarkSemantics semantics = key.getSemantics();
                       ImmutableMap.Builder<String, MethodDescriptor> methodMap =
                           ImmutableMap.builder();
                       for (Method method : sortMethodArrayByMethodName(keyClass.getMethods())) {
@@ -311,16 +311,16 @@ public final class FuncallExpression extends Expression {
   /**
    * Returns the Skylark callable Method of objClass with structField=true and the given name.
    *
-   * @deprecated use {@link #getStructField(SkylarkSemantics, Class, String)} instead
+   * @deprecated use {@link #getStructField(StarlarkSemantics, Class, String)} instead
    */
   @Deprecated
   public static MethodDescriptor getStructField(Class<?> objClass, String methodName) {
-    return getStructField(SkylarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
+    return getStructField(StarlarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
   }
 
   /** Returns the Skylark callable Method of objClass with structField=true and the given name. */
   public static MethodDescriptor getStructField(
-      SkylarkSemantics semantics, Class<?> objClass, String methodName) {
+      StarlarkSemantics semantics, Class<?> objClass, String methodName) {
     try {
       return fieldCache
           .get(new MethodDescriptorKey(getClassOrProxyClass(objClass), semantics))
@@ -333,15 +333,15 @@ public final class FuncallExpression extends Expression {
   /**
    * Returns the list of names of Skylark callable Methods of objClass with structField=true.
    *
-   * @deprecated use {@link #getStructFieldNames(SkylarkSemantics, Class)} instead
+   * @deprecated use {@link #getStructFieldNames(StarlarkSemantics, Class)} instead
    */
   @Deprecated
   public static Set<String> getStructFieldNames(Class<?> objClass) {
-    return getStructFieldNames(SkylarkSemantics.DEFAULT_SEMANTICS, objClass);
+    return getStructFieldNames(StarlarkSemantics.DEFAULT_SEMANTICS, objClass);
   }
 
   /** Returns the list of names of Skylark callable Methods of objClass with structField=true. */
-  public static Set<String> getStructFieldNames(SkylarkSemantics semantics, Class<?> objClass) {
+  public static Set<String> getStructFieldNames(StarlarkSemantics semantics, Class<?> objClass) {
     try {
       return fieldCache
           .get(new MethodDescriptorKey(getClassOrProxyClass(objClass), semantics))
@@ -354,16 +354,16 @@ public final class FuncallExpression extends Expression {
   /**
    * Returns the list of Skylark callable Methods of objClass with the given name.
    *
-   * @deprecated use {@link #getMethods(SkylarkSemantics, Class, String)} instead
+   * @deprecated use {@link #getMethods(StarlarkSemantics, Class, String)} instead
    */
   @Deprecated
   public static MethodDescriptor getMethod(Class<?> objClass, String methodName) {
-    return getMethod(SkylarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
+    return getMethod(StarlarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
   }
 
   /** Returns the list of Skylark callable Methods of objClass with the given name. */
   public static MethodDescriptor getMethod(
-      SkylarkSemantics semantics, Class<?> objClass, String methodName) {
+      StarlarkSemantics semantics, Class<?> objClass, String methodName) {
     try {
       return methodCache
           .get(new MethodDescriptorKey(getClassOrProxyClass(objClass), semantics))
@@ -377,18 +377,18 @@ public final class FuncallExpression extends Expression {
    * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
    * objClass}.
    *
-   * @deprecated use {@link #getMethodNames(SkylarkSemantics, Class)} instead
+   * @deprecated use {@link #getMethodNames(StarlarkSemantics, Class)} instead
    */
   @Deprecated
   public static Set<String> getMethodNames(Class<?> objClass) {
-    return getMethodNames(SkylarkSemantics.DEFAULT_SEMANTICS, objClass);
+    return getMethodNames(StarlarkSemantics.DEFAULT_SEMANTICS, objClass);
   }
 
   /**
    * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
    * objClass}.
    */
-  public static Set<String> getMethodNames(SkylarkSemantics semantics, Class<?> objClass) {
+  public static Set<String> getMethodNames(StarlarkSemantics semantics, Class<?> objClass) {
     try {
       return methodCache
           .get(new MethodDescriptorKey(getClassOrProxyClass(objClass), semantics))
@@ -402,7 +402,7 @@ public final class FuncallExpression extends Expression {
    * Returns true if the given class has a method annotated with {@link SkylarkCallable} with {@link
    * SkylarkCallable#selfCall()} set to true.
    */
-  public static boolean hasSelfCallMethod(SkylarkSemantics semantics, Class<?> objClass) {
+  public static boolean hasSelfCallMethod(StarlarkSemantics semantics, Class<?> objClass) {
     try {
       return selfCallCache.get(new MethodDescriptorKey(objClass, semantics)).isPresent();
     } catch (ExecutionException e) {
@@ -418,7 +418,7 @@ public final class FuncallExpression extends Expression {
    * @throws IllegalStateException if no such method exists for the object
    */
   public static MethodDescriptor getSelfCallMethodDescriptor(
-      SkylarkSemantics semantics, Object obj) {
+      StarlarkSemantics semantics, Object obj) {
     try {
       Optional<MethodDescriptor> selfCallDescriptor =
           selfCallCache.get(new MethodDescriptorKey(obj.getClass(), semantics));
@@ -647,7 +647,7 @@ public final class FuncallExpression extends Expression {
         String.format(
             "unexpected keyword%s %s",
             unexpectedKeywords.size() > 1 ? "s" : "",
-            Joiner.on(", ").join(Iterables.transform(unexpectedKeywords, s -> "'" + s + "'"))),
+            Joiner.on(",").join(Iterables.transform(unexpectedKeywords, s -> "'" + s + "'"))),
         method,
         objClass);
   }

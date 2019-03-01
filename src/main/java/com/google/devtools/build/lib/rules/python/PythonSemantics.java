@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import java.util.Collection;
@@ -81,7 +80,6 @@ public interface PythonSemantics {
       RuleContext ruleContext,
       PyCommon common,
       CcInfo ccInfo,
-      NestedSet<String> imports,
       Runfiles.Builder runfilesBuilder)
       throws InterruptedException, RuleErrorException;
 

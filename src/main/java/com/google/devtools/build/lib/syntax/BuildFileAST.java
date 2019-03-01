@@ -71,13 +71,23 @@ public class BuildFileAST extends ASTNode {
       ParseResult result,
       String contentHashCode,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      EventHandler eventHandler) {
-    ImmutableList<Statement> statements =
-        ImmutableList.<Statement>builder()
-            .addAll(preludeStatements)
-            .addAll(result.statements)
-            .build();
+      EventHandler eventHandler,
+      boolean allowImportInternal) {
+    ImmutableList.Builder<Statement> statementsbuilder =
+        ImmutableList.<Statement>builder().addAll(preludeStatements);
 
+    if (allowImportInternal) {
+      for (Statement stmt : result.statements) {
+        if (stmt instanceof LoadStatement) {
+          statementsbuilder.add(LoadStatement.allowLoadingOfInternalSymbols((LoadStatement) stmt));
+        } else {
+          statementsbuilder.add(stmt);
+        }
+      }
+    } else {
+      statementsbuilder.addAll(result.statements);
+    }
+    ImmutableList<Statement> statements = statementsbuilder.build();
     boolean containsErrors = result.containsErrors;
     Pair<Boolean, ImmutableList<SkylarkImport>> skylarkImports =
         fetchLoads(statements, repositoryMapping, eventHandler);
@@ -89,6 +99,16 @@ public class BuildFileAST extends ASTNode {
         result.location,
         ImmutableList.copyOf(result.comments),
         skylarkImports.second);
+  }
+
+  private static BuildFileAST create(
+      List<Statement> preludeStatements,
+      ParseResult result,
+      String contentHashCode,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      EventHandler eventHandler) {
+    return create(
+        preludeStatements, result, contentHashCode, repositoryMapping, eventHandler, false);
   }
 
   /**
@@ -276,6 +296,27 @@ public class BuildFileAST extends ASTNode {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
             preludeStatements, result, /* contentHashCode= */ null, repositoryMapping, eventHandler)
+        .validateBuildFile(eventHandler);
+  }
+
+  /**
+   * Parse the specified build file, returning its AST. All load statements parsed that way will be
+   * exempt from visibility restrictions. All errors during scanning or parsing will be reported to
+   * the reporter.
+   */
+  public static BuildFileAST parseVirtualBuildFile(
+      ParserInputSource input,
+      List<Statement> preludeStatements,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      EventHandler eventHandler) {
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+    return create(
+            preludeStatements,
+            result,
+            /* contentHashCode= */ null,
+            repositoryMapping,
+            eventHandler,
+            true)
         .validateBuildFile(eventHandler);
   }
 

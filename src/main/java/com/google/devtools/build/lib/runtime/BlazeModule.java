@@ -19,7 +19,9 @@ import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -244,6 +246,22 @@ public abstract class BlazeModule {
   public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
     return null;
   }
+
+  /**
+   * Called after Bazel analyzes the build's top-level targets. This is called once per build if
+   * --analyze is enabled. Modules can override this to perform extra checks on analysis results.
+   *
+   * @param env the command environment
+   * @param request the build request
+   * @param buildOptions the build's top-level options
+   * @param configuredTargets the build's requested top-level targets as {@link ConfiguredTarget}s
+   */
+  public void afterAnalysis(
+      CommandEnvironment env,
+      BuildRequest request,
+      BuildOptions buildOptions,
+      Iterable<ConfiguredTarget> configuredTargets)
+      throws InterruptedException, ViewCreationFailedException {}
 
   /**
    * Called when Bazel initializes the action execution subsystem. This is called once per build if

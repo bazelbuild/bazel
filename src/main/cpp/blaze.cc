@@ -34,12 +34,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <grpc++/channel.h>
-#include <grpc++/client_context.h>
-#include <grpc++/create_channel.h>
-#include <grpc++/security/credentials.h>
 #include <grpc/grpc.h>
 #include <grpc/support/log.h>
+#include <grpcpp/channel.h>
+#include <grpcpp/client_context.h>
+#include <grpcpp/create_channel.h>
+#include <grpcpp/security/credentials.h>
 
 #include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
@@ -74,6 +74,8 @@
 #include "src/main/protobuf/command_server.grpc.pb.h"
 
 using blaze_util::GetLastErrorString;
+
+extern char** environ;
 
 namespace blaze {
 
@@ -683,6 +685,8 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
                         BlazeServerStartup **server_startup) {
   vector<string> jvm_args_vector = GetArgumentArray(workspace_layout);
   string argument_string = GetArgumentString(jvm_args_vector);
+  const string binaries_dir =
+      GetEmbeddedBinariesRoot(globals->options->install_base);
   string server_dir =
       blaze_util::JoinPath(globals->options->output_base, "server");
   // Write the cmdline argument string to the server dir. If we get to this
@@ -706,7 +710,7 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 
   return ExecuteDaemon(exe, jvm_args_vector, PrepareEnvironmentForJvm(),
                        globals->jvm_log_file, globals->jvm_log_file_append,
-                       server_dir, server_startup);
+                       binaries_dir, server_dir, server_startup);
 }
 
 // Replace this process with blaze in standalone/batch mode.
@@ -1416,23 +1420,24 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
 static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   map<string, EnvVarValue> result;
 
-  // We need to disable HTTP proxies for local (gRPC-based) communication
-  // between the client and server. gRPC currently only checks http_proxy, but
-  // HTTP_PROXY could also be used to specify a proxy, so we check for both.
-  if (!blaze::GetEnv("http_proxy").empty() ||
-      !blaze::GetEnv("HTTP_PROXY").empty()) {
-    BAZEL_LOG(WARNING)
-        << "detected http_proxy set in env, setting no_proxy for localhost.";
-
-    // Disable HTTP proxies for localhost and any localhost-like address,
-    // in case we (or gRPC, etc.) ever use one of these addresses.
-    std::string localhost_addresses = "localhost,127.0.0.1,0:0:0:0:0:0:0:1,::1";
-    result["no_proxy"] = EnvVarValue(EnvVarAction::SET, localhost_addresses);
-    result["NO_PROXY"] = EnvVarValue(EnvVarAction::SET, localhost_addresses);
-
-    // Set no_proxy for the client, as well.
-    blaze::SetEnv("no_proxy", localhost_addresses);
-    blaze::SetEnv("NO_PROXY", localhost_addresses);
+  // Make sure all existing environment variables appear as part of the
+  // resulting map unless they are overridden below by UNSET values.
+  //
+  // Even though the map we return is intended to represent a "delta" of
+  // environment variables to modify the current process, we may actually use
+  // such map to configure a process from scratch (via interfaces like execvpe
+  // or posix_spawn), so we need to inherit any untouched variables.
+  for (char** entry = environ; *entry != NULL; entry++) {
+    const std::string var_value = *entry;
+    std::string::size_type equals = var_value.find('=');
+    if (equals == std::string::npos) {
+      // Ignore possibly-bad environment. We don't control what we see in this
+      // global variable, so it could be invalid.
+      continue;
+    }
+    const std::string var = var_value.substr(0, equals);
+    const std::string value = var_value.substr(equals + 1);
+    result[var] = EnvVarValue(EnvVarAction::SET, value);
   }
 
   if (!blaze::GetEnv("LD_ASSUME_KERNEL").empty()) {
@@ -1537,10 +1542,12 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // Must be done before command line parsing.
   ComputeWorkspace(workspace_layout);
 
+#if defined(_WIN32) || defined(__CYGWIN__)
   // Must be done before command line parsing.
   // ParseOptions already populate --client_env, so detect bash before it
   // happens.
   DetectBashOrDie();
+#endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
   ParseOptions(argc, argv);
@@ -1598,6 +1605,19 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
 static void null_grpc_log_function(gpr_log_func_args *args) {}
 
+// There might be a mismatch between std::string and the string type returned
+// from protos. This function is the safe way to compare such strings.
+template <typename StringTypeA, typename StringTypeB>
+static bool ProtoStringEqual(const StringTypeA &cookieA,
+                             const StringTypeB &cookieB) {
+  // use strncmp insted of strcmp to deal with null bytes in the cookie.
+  auto cookie_length = cookieA.size();
+  if (cookie_length != cookieB.size()) {
+    return false;
+  }
+  return memcmp(cookieA.c_str(), cookieB.c_str(), cookie_length) == 0;
+}
+
 GrpcBlazeServer::GrpcBlazeServer(int connect_timeout_secs) {
   connected_ = false;
   connect_timeout_secs_ = connect_timeout_secs;
@@ -1630,7 +1650,7 @@ bool GrpcBlazeServer::TryConnect(
                   << connect_timeout_secs_ << " secs)...";
   grpc::Status status = client->Ping(&context, request, &response);
 
-  if (!status.ok() || response.cookie() != response_cookie_) {
+  if (!status.ok() || !ProtoStringEqual(response.cookie(), response_cookie_)) {
     BAZEL_LOG(INFO) << "Connection to server failed: "
                     << status.error_message().c_str();
     return false;
@@ -1680,8 +1700,13 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
-  std::shared_ptr<grpc::Channel> channel(
-      grpc::CreateChannel(port, grpc::InsecureChannelCredentials()));
+  grpc::ChannelArguments channel_args;
+  // Bazel client and server always run on the same machine and communicate
+  // locally over gRPC; so we want to ignore any configured proxies when setting
+  // up a gRPC channel to the server.
+  channel_args.SetInt(GRPC_ARG_ENABLE_HTTP_PROXY, 0);
+  std::shared_ptr<grpc::Channel> channel(grpc::CreateCustomChannel(
+      port, grpc::InsecureChannelCredentials(), channel_args));
   std::unique_ptr<CommandServer::Stub> client(
       CommandServer::NewStub(channel));
 
@@ -1907,7 +1932,7 @@ unsigned int GrpcBlazeServer::Communicate() {
       finished_warning_emitted = true;
     }
 
-    if (response.cookie() != response_cookie_) {
+    if (!ProtoStringEqual(response.cookie(), response_cookie_)) {
       BAZEL_LOG(USER) << "\nServer response cookie invalid, exiting";
       return blaze_exit_code::INTERNAL_ERROR;
     }

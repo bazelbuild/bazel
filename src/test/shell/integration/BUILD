@@ -36,6 +36,16 @@ sh_test(
 )
 
 sh_test(
+    name = "execution_strategies_test",
+    size = "medium",
+    srcs = ["execution_strategies_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "runfiles_test",
     size = "medium",
     srcs = ["runfiles_test.sh"],
@@ -62,6 +72,16 @@ sh_test(
     name = "python_test",
     size = "medium",
     srcs = ["python_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "aspect_test",
+    size = "medium",
+    srcs = ["aspect_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -205,6 +225,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 5,
     tags = ["no_windows"],
 )
 
@@ -560,6 +581,13 @@ sh_test(
     srcs = ["bazel_java_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "jvm_flags_escaping_test",
+    srcs = ["jvm_flags_escaping_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 ########################################################################

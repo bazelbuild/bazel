@@ -123,3 +123,19 @@ filegroup(
     srcs = ["@bazel_toolchains//configs/debian8_clang/0.2.0/bazel_0.9.0:empty"],
     visibility = ["//visibility:public"],
 )
+
+platform(
+    name = "rbe_ubuntu1604_with_network_and_privileged",
+    parents = ["@bazel_toolchains//configs/ubuntu16_04_clang/1.1:rbe_ubuntu1604"],
+    remote_execution_properties = """
+        {PARENT_REMOTE_EXECUTION_PROPERTIES}
+        properties: {
+          name: "dockerNetwork"
+          value: "standard"
+        }
+        properties: {
+          name: "dockerPrivileged"
+          value: "true"
+        }
+        """,
+)

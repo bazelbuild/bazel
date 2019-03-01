@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.Callables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -255,6 +256,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       // cache data for the execute(...) method.
       env.getValue(actionDepKey);
       return null;
+    }
+
+    @Override
+    public ImmutableGraph<SkyKey> getSkyframeDependenciesForRewinding(SkyKey self) {
+      throw new UnsupportedOperationException();
     }
   }
 
@@ -811,6 +817,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
           public Object establishSkyframeDependencies(Environment env) throws ExceptionBase {
             assertThat(env.valuesMissing()).isFalse();
             return null;
+          }
+
+          @Override
+          public ImmutableGraph<SkyKey> getSkyframeDependenciesForRewinding(SkyKey self) {
+            throw new UnsupportedOperationException();
           }
 
           @Override

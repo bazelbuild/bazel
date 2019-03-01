@@ -97,8 +97,6 @@ public class CleanCommandRecommendsAsyncTest {
                   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
                     // We must add these options so that the defaults package can be created.
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
-                    // Need to have some defaults values to satisfy DefaultsPackage.getContent()
-                    // TODO(dbabkin): remove when DefaultsPackage been deprecated b/792390529
                     builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
                     // The tools repository is needed for createGlobals
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);

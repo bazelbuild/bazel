@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -40,19 +41,23 @@ public interface BazelCcModuleApi<
         CcCompilationOutputsT extends CcCompilationOutputsApi,
         LinkingInfoT extends LinkingInfoApi,
         LinkingContextT extends CcLinkingContextApi,
-        LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
-        CcToolchainVariablesT extends CcToolchainVariablesApi>
+        LibraryToLinkT extends LibraryToLinkApi,
+        CcToolchainVariablesT extends CcToolchainVariablesApi,
+        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi>
     extends CcModuleApi<
         CcToolchainProviderT,
         FeatureConfigurationT,
         CcCompilationContextT,
         LinkingContextT,
-        LibraryToLinkWrapperT,
-        CcToolchainVariablesT> {
+        LibraryToLinkT,
+        CcToolchainVariablesT,
+        SkylarkRuleContextT,
+        CcToolchainConfigInfoT> {
 
   @SkylarkCallable(
       name = "compile",
       documented = false,
+      useLocation = true,
       parameters = {
         @Param(
             name = "ctx",
@@ -124,7 +129,8 @@ public interface BazelCcModuleApi<
       SkylarkList<FileT> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
-      SkylarkList<CcCompilationContextT> ccCompilationContexts)
+      SkylarkList<CcCompilationContextT> ccCompilationContexts,
+      Location location)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

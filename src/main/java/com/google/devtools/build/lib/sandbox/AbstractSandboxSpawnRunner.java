@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -76,6 +77,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     } catch (IOException e) {
       throw new UserExecException("I/O exception during sandboxed execution", e);
     }
+  }
+
+  @Override
+  public boolean canExec(Spawn spawn) {
+    return Spawns.mayBeSandboxed(spawn);
   }
 
   // TODO(laszlocsomor): refactor this class to make `actuallyExec`'s contract clearer: the caller

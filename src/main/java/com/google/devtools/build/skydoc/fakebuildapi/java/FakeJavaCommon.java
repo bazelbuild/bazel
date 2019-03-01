@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import javax.annotation.Nullable;
 
@@ -52,6 +53,7 @@ public class FakeJavaCommon
       SkylarkList<FileApi> sourceJars,
       SkylarkList<FileApi> sourceFiles,
       FileApi outputJar,
+      Object outputSourceJar,
       SkylarkList<String> javacOpts,
       SkylarkList<FakeJavaInfo> deps,
       SkylarkList<FakeJavaInfo> exports,
@@ -75,7 +77,8 @@ public class FakeJavaCommon
       FileApi jar,
       Object targetLabel,
       Object javaToolchain,
-      Location location)
+      Location location,
+      StarlarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -86,7 +89,8 @@ public class FakeJavaCommon
       FileApi jar,
       Label targetLabel,
       Object javaToolchain,
-      Location location)
+      Location location,
+      StarlarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -99,14 +103,19 @@ public class FakeJavaCommon
       SkylarkList<FileApi> sourceJars,
       Object javaToolchain,
       Object hostJavabase,
-      Location location)
+      Location location,
+      StarlarkSemantics semantics)
       throws EvalException {
     return null;
   }
 
   @Override
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContextApi skylarkRuleContext, String javaToolchainAttr, Location loc)
+      Object skylarkRuleContext,
+      Object javaToolchainAttr,
+      Object javaToolchain,
+      Location loc,
+      StarlarkSemantics semantics)
       throws EvalException {
     return ImmutableList.of();
   }
@@ -129,5 +138,10 @@ public class FakeJavaCommon
   @Override
   public ProviderApi getJavaRuntimeProvider() {
     return new FakeProviderApi();
+  }
+
+  @Override
+  public boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
+    return false;
   }
 }

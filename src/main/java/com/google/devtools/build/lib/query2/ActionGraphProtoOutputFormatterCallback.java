@@ -65,7 +65,10 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
     this.actionFilters = actionFilters;
     this.actionGraphDump =
         new ActionGraphDump(
-            options.includeCommandline, this.actionFilters, options.includeParamFiles);
+            options.includeCommandline,
+            options.includeArtifacts,
+            this.actionFilters,
+            options.includeParamFiles);
   }
 
   @Override

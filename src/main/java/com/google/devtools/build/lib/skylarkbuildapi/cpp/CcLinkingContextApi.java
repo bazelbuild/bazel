@@ -37,5 +37,5 @@ public interface CcLinkingContextApi {
       name = "libraries_to_link",
       doc = "Returns the list of <code>LibraryToLink</code>.",
       structField = true)
-  SkylarkList<LibraryToLinkWrapperApi> getSkylarkLibrariesToLink();
+  SkylarkList<LibraryToLinkApi> getSkylarkLibrariesToLink();
 }

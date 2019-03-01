@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -101,7 +101,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
               .put(
                   SkyFunctions.DIRECTORY_LISTING_STATE,
-                  new DirectoryListingStateFunction(externalFilesHelper))
+                  new DirectoryListingStateFunction(
+                      externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)))
               .put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction())
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
               .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
@@ -135,12 +136,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     @Override
     protected ConfiguredRuleClassProvider getDefaultRuleClassProvider() {
       return DEFAULT_RULE_CLASS_PROVIDER;
-    }
-
-    @Override
-    protected String getDefaultDefaultPackageContents() {
-      return DEFAULT_RULE_CLASS_PROVIDER.getDefaultsPackageContent(
-          InvocationPolicy.getDefaultInstance());
     }
 
     Builder setFetchForTesting() {

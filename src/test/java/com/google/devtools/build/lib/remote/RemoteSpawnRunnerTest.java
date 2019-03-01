@@ -220,8 +220,7 @@ public class RemoteSpawnRunnerTest {
             any(Command.class),
             any(Path.class),
             any(Collection.class),
-            any(FileOutErr.class),
-            any(Boolean.class));
+            any(FileOutErr.class));
     verifyZeroInteractions(localRunner);
   }
 
@@ -276,9 +275,8 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void failedActionShouldOnlyUploadOutputs() throws Exception {
-    // Test that the outputs of a failed locally executed action are uploaded to a remote cache,
-    // but the action result itself is not.
+  public void failedLocalActionShouldNotBeUploaded() throws Exception {
+    // Test that the outputs of a locally executed action that failed are not uploaded.
 
     options.remoteUploadLocalResults = true;
 
@@ -319,16 +317,15 @@ public class RemoteSpawnRunnerTest {
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
-            eq(true));
-    verify(cache)
+            /* uploadLocalResults= */ eq(true));
+    verify(cache, never())
         .upload(
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
             any(Path.class),
             any(Collection.class),
-            any(FileOutErr.class),
-            eq(false));
+            any(FileOutErr.class));
   }
 
   @Test
@@ -405,8 +402,7 @@ public class RemoteSpawnRunnerTest {
             any(Command.class),
             any(Path.class),
             any(Collection.class),
-            any(FileOutErr.class),
-            eq(true));
+            any(FileOutErr.class));
 
     SpawnResult res =
         new SpawnResult.Builder()

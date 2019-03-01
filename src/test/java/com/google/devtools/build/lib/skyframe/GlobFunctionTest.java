@@ -36,12 +36,13 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -136,7 +137,7 @@ public abstract class GlobFunctionTest {
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.SKYLARK_SEMANTICS.set(differencer, SkylarkSemantics.DEFAULT_SEMANTICS);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.<RootedPath>absent());
 
@@ -162,7 +163,8 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(SkyFunctions.GLOB, new GlobFunction(alwaysUseDirListing()));
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(externalFilesHelper));
+        new DirectoryListingStateFunction(
+            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
@@ -182,13 +184,14 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(externalFilesHelper));
+        new DirectoryListingStateFunction(
+            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
 
     AnalysisMock analysisMock = AnalysisMock.get();
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
-        SkyFunctions.WORKSPACE_FILE,
+        WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock
@@ -405,10 +408,6 @@ public abstract class GlobFunctionTest {
     assertGlobMatches(false, pattern, expecteds);
   }
 
-  private void assertGlobWithoutDirsMatches(String pattern, String... expecteds) throws Exception {
-    assertGlobMatches(true, pattern, expecteds);
-  }
-
   private void assertGlobMatches(boolean excludeDirs, String pattern, String... expecteds)
       throws Exception {
     // The order requirement is not strictly necessary -- a change to GlobFunction semantics that
@@ -420,7 +419,12 @@ public abstract class GlobFunctionTest {
     assertThat(
             Iterables.transform(
                 runGlob(excludeDirs, pattern).getMatches(), Functions.toStringFunction()))
-        .containsExactlyElementsIn(ImmutableList.copyOf(expecteds)).inOrder();
+        .containsExactlyElementsIn(ImmutableList.copyOf(expecteds))
+        .inOrder();
+  }
+
+  private void assertGlobWithoutDirsMatches(String pattern, String... expecteds) throws Exception {
+    assertGlobMatches(true, pattern, expecteds);
   }
 
   private void assertGlobsEqual(String pattern1, String pattern2) throws Exception {
@@ -656,7 +660,12 @@ public abstract class GlobFunctionTest {
     RootedPath pkgRootedPath = RootedPath.toRootedPath(Root.fromPath(root), pkgPath);
     FileStateValue pkgDirFileStateValue = FileStateValue.create(pkgRootedPath, null);
     FileValue pkgDirValue =
-        FileValue.value(pkgRootedPath, pkgDirFileStateValue, pkgRootedPath, pkgDirFileStateValue);
+        FileValue.value(
+            ImmutableList.of(pkgRootedPath),
+            pkgRootedPath,
+            pkgDirFileStateValue,
+            pkgRootedPath,
+            pkgDirFileStateValue);
     differencer.inject(ImmutableMap.of(FileValue.key(pkgRootedPath), pkgDirValue));
     String expectedMessage = "/root/workspace/pkg is no longer an existing directory";
     SkyKey skyKey =

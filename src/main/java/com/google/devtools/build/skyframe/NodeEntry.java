@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import java.math.BigInteger;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -224,16 +225,6 @@ public interface NodeEntry extends ThinNodeEntry {
   Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted();
 
   /**
-   * Tell this node that one of its dependencies is now done. Callers must check the return value,
-   * and if true, they must re-schedule this node for evaluation. Equivalent to
-   * {@code #signalDep(Long.MAX_VALUE)}. Since this entry was last evaluated at a version less than
-   * {@link Long#MAX_VALUE}, informing this entry that a child of it has version
-   * {@link Long#MAX_VALUE} will force it to re-evaluate.
-   */
-  @ThreadSafe
-  boolean signalDep();
-
-  /**
    * Tell this entry that one of its dependencies is now done. Callers must check the return value,
    * and if true, they must re-schedule this node for evaluation.
    *
@@ -309,7 +300,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */
   @ThreadSafe
-  Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
+  List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
 
   /**
    * Returns all deps of a node that has not yet finished evaluating. In other words, if a node has
@@ -435,7 +426,9 @@ public interface NodeEntry extends ThinNodeEntry {
    * checking.
    */
   @ThreadSafe
-  void addTemporaryDirectDepsGroupToDirtyEntry(Collection<SkyKey> group);
+  void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group);
+
+  void addExternalDep();
 
   /**
    * Returns true if the node is ready to be evaluated, i.e., it has been signaled exactly as many

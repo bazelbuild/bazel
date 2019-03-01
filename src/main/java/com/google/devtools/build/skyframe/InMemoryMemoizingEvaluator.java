@@ -200,7 +200,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
                             evaluationContext.getNumThreads(), "skyframe-evaluator")
                     : evaluationContext.getExecutorService(),
                 new SimpleCycleDetector(),
-                EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
+                EvaluationVersionBehavior.GRAPH_VERSION);
         result = evaluator.eval(roots);
       }
       return EvaluationResult.<T>builder()
@@ -225,26 +225,32 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       SkyValue newValue = entry.getValue();
       NodeEntry prevEntry = graph.get(null, Reason.OTHER, key);
       if (prevEntry != null && prevEntry.isDone()) {
-        try {
-          Iterable<SkyKey> directDeps = prevEntry.getDirectDeps();
-          if (Iterables.isEmpty(directDeps)) {
-            if (newValue.equals(prevEntry.getValue())
-                && !valuesToDirty.contains(key)
-                && !valuesToDelete.contains(key)) {
+        if (keepEdges) {
+          try {
+            Iterable<SkyKey> directDeps = prevEntry.getDirectDeps();
+            if (Iterables.isEmpty(directDeps)) {
+              if (newValue.equals(prevEntry.getValue())
+                  && !valuesToDirty.contains(key)
+                  && !valuesToDelete.contains(key)) {
+                it.remove();
+              }
+            } else {
+              // Rare situation of an injected dep that depends on another node. Usually the dep is
+              // the error transience node. When working with external repositories, it can also be
+              // an external workspace file. Don't bother injecting it, just invalidate it.
+              // We'll wastefully evaluate the node freshly during evaluation, but this happens very
+              // rarely.
+              valuesToDirty.add(key);
               it.remove();
             }
-          } else {
-            // Rare situation of an injected dep that depends on another node. Usually the dep is
-            // the error transience node. When working with external repositories, it can also be an
-            // external workspace file. Don't bother injecting it, just invalidate it.
-            // We'll wastefully evaluate the node freshly during evaluation, but this happens very
-            // rarely.
-            valuesToDirty.add(key);
-            it.remove();
+          } catch (InterruptedException e) {
+            throw new IllegalStateException(
+                "InMemoryGraph does not throw: " + entry + ", " + prevEntry, e);
           }
-        } catch (InterruptedException e) {
-          throw new IllegalStateException(
-              "InMemoryGraph does not throw: " + entry + ", " + prevEntry, e);
+        } else {
+          // No incrementality. Just delete the old value from the graph. The new value is about to
+          // be injected.
+          graph.remove(key);
         }
       }
     }
@@ -289,8 +295,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getGraphMap() {
-    return graph.getAllValuesMutable();
+  public Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> getGraphEntries() {
+    return graph.getAllValuesMutable().entrySet();
   }
 
   @Override

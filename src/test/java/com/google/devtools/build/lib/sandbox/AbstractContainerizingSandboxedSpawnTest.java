@@ -27,6 +27,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -92,5 +95,68 @@ public class AbstractContainerizingSandboxedSpawnTest {
     assertThat(outputsDir.getRelative("very/output.dir/test.txt").isFile(Symlinks.NOFOLLOW))
         .isTrue();
     assertThat(outputsDir.getRelative("uncreated/output.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
+  }
+
+  /** Watches a logger for file copy warnings (instead of moves) and counts them. */
+  private static class FileCopyWarningTracker extends Handler {
+    int warningsCounter = 0;
+
+    @Override
+    public void publish(LogRecord record) {
+      if (record.getMessage().contains("different file systems")) {
+        warningsCounter++;
+      }
+    }
+
+    @Override
+    public void flush() {}
+
+    @Override
+    public void close() {}
+  }
+
+  @Test
+  public void testMoveOutputs_WarnOnceIfCopyHappened() throws Exception {
+    class MultipleDeviceFS extends InMemoryFileSystem {
+      @Override
+      public void renameTo(Path source, Path target) throws IOException {
+        throw new IOException("EXDEV");
+      }
+    }
+    FileSystem fileSystem = new MultipleDeviceFS();
+    Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
+    testRoot.createDirectoryAndParents();
+
+    FileCopyWarningTracker tracker = new FileCopyWarningTracker();
+    Logger logger = Logger.getLogger(AbstractContainerizingSandboxedSpawn.class.getName());
+    logger.setUseParentHandlers(false);
+    logger.addHandler(tracker);
+
+    Path execRoot = testRoot.getRelative("execroot");
+    execRoot.createDirectory();
+
+    Path outputFile1 = execRoot.getRelative("very/output1.txt");
+    Path outputFile2 = execRoot.getRelative("much/output2.txt");
+
+    ImmutableSet<PathFragment> outputs =
+        ImmutableSet.of(outputFile1.relativeTo(execRoot), outputFile2.relativeTo(execRoot));
+    for (PathFragment path : outputs) {
+      execRoot.getRelative(path).getParentDirectory().createDirectoryAndParents();
+    }
+
+    FileSystemUtils.createEmptyFile(outputFile1);
+    FileSystemUtils.createEmptyFile(outputFile2);
+
+    Path outputsDir = testRoot.getRelative("outputs");
+    outputsDir.createDirectory();
+    outputsDir.getRelative("very").createDirectory();
+    outputsDir.getRelative("much").createDirectory();
+    AbstractContainerizingSandboxedSpawn.moveOutputs(
+        SandboxOutputs.create(outputs, ImmutableSet.of()), execRoot, outputsDir);
+
+    assertThat(outputsDir.getRelative("very/output1.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(outputsDir.getRelative("much/output2.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
+
+    assertThat(tracker.warningsCounter).isEqualTo(1);
   }
 }

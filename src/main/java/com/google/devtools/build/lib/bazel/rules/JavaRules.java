@@ -30,12 +30,12 @@ import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
-import com.google.devtools.build.lib.rules.java.JavaHostRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaHostRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
@@ -70,6 +70,7 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new IjarBaseRule());
     builder.addRuleDefinition(new JavaToolchainBaseRule());
     builder.addRuleDefinition(new JavaRuntimeBaseRule());
+    builder.addRuleDefinition(new JavaHostRuntimeBaseRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
     builder.addRuleDefinition(new ProguardLibraryRule());
     builder.addRuleDefinition(new JavaImportBaseRule());
@@ -83,7 +84,6 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new JavaPackageConfigurationRule());
     builder.addRuleDefinition(new JavaRuntimeRule());
     builder.addRuleDefinition(new JavaRuntimeAliasRule());
-    builder.addRuleDefinition(new JavaHostRuntimeAliasRule());
     builder.addRuleDefinition(new JavaToolchainAliasRule());
 
     builder.addRuleDefinition(new ExtraActionRule());
@@ -99,10 +99,6 @@ public class JavaRules implements RuleSet {
     try {
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
-      builder.addWorkspaceFileSuffix(
-          "register_toolchains('@bazel_tools//tools/jdk:dummy_java_toolchain')\n");
-      builder.addWorkspaceFileSuffix(
-          "register_toolchains('@bazel_tools//tools/jdk:dummy_java_runtime_toolchain')\n");
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }

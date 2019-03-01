@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.skylark.SkylarkDocUtils;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
 import java.io.IOException;
@@ -38,6 +40,9 @@ public final class SkylarkDocumentationProcessor {
       ImmutableList.<SkylarkModuleCategory>of(
           SkylarkModuleCategory.NONE, SkylarkModuleCategory.TOP_LEVEL_TYPE);
 
+  // Common prefix of packages that may contain Skylark modules.
+  @VisibleForTesting static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
+
   private SkylarkDocumentationProcessor() {}
 
   /**
@@ -47,7 +52,8 @@ public final class SkylarkDocumentationProcessor {
       throws IOException, ClassPathException {
     parseOptions(args);
 
-    Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
+    Map<String, SkylarkModuleDoc> modules =
+        SkylarkDocumentationCollector.collectModules(Classpath.findClasses(MODULES_PACKAGE_PREFIX));
 
     // Generate the top level module first in the doc
     SkylarkModuleDoc topLevelModule = modules.remove(

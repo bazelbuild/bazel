@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -82,6 +82,8 @@ public enum CompileBuildVariables {
   GCOV_GCNO_FILE("gcov_gcno_file"),
   /** Variable for the LTO indexing bitcode file. */
   LTO_INDEXING_BITCODE_FILE("lto_indexing_bitcode_file"),
+  /** Variable marking fission is used. */
+  IS_USING_FISSION("is_using_fission"),
   /** Variable for the per object debug info file. */
   PER_OBJECT_DEBUG_INFO_FILE("per_object_debug_info_file"),
   /** Variable present when the output is compiled as position independent. */
@@ -106,12 +108,13 @@ public enum CompileBuildVariables {
   }
 
   public static CcToolchainVariables setupVariablesOrReportRuleError(
-      RuleContext ruleContext,
+      RuleErrorConsumer ruleErrorConsumer,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
       String sourceFile,
       String outputFile,
       String gcnoFile,
+      boolean isUsingFission,
       String dwoFile,
       String ltoIndexingFile,
       ImmutableList<String> includes,
@@ -135,6 +138,7 @@ public enum CompileBuildVariables {
           sourceFile,
           outputFile,
           gcnoFile,
+          isUsingFission,
           dwoFile,
           ltoIndexingFile,
           includes,
@@ -156,7 +160,7 @@ public enum CompileBuildVariables {
               || CppFileTypes.CPP_MODULE_MAP.matches(sourceFile)
               || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFile));
     } catch (EvalException e) {
-      ruleContext.ruleError(e.getMessage());
+      ruleErrorConsumer.ruleError(e.getMessage());
       return CcToolchainVariables.EMPTY;
     }
   }
@@ -169,6 +173,7 @@ public enum CompileBuildVariables {
       // updated.
       String outputFile,
       String gcnoFile,
+      boolean isUsingFission,
       String dwoFile,
       String ltoIndexingFile,
       ImmutableList<String> includes,
@@ -292,6 +297,9 @@ public enum CompileBuildVariables {
       buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
     }
 
+    if (isUsingFission) {
+      buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
+    }
     if (dwoFile != null) {
       buildVariables.addStringVariable(PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
     }

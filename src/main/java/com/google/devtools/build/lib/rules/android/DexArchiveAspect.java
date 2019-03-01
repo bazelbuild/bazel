@@ -160,6 +160,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                             Label.parseAbsoluteUnchecked(
                                 toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
             .requiresConfigurationFragments(AndroidConfiguration.class)
+            .requireAspectsWithProviders(
+                ImmutableList.of(ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))))
             .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
@@ -261,12 +263,25 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       // These are all transitive hjars of dependencies and hjar of the jar itself
       NestedSet<Artifact> compileTimeClasspath =
           getJavaCompilationArgsProvider(base, ruleContext).getTransitiveCompileTimeJars();
+      ImmutableSet.Builder<Artifact> jars = ImmutableSet.builder();
+      jars.addAll(javaInfo.getDirectRuntimeJars());
+
+      // If the target is an android_library, it may be a Starlark android_library in which case
+      // get the R.jar from the AndroidIdeInfoProvider.
+      if (isAndroidLibrary(ruleContext)) {
+        Artifact rJar = getAndroidLibraryRJar(base);
+        if (rJar != null) {
+          // TODO(b/124540821): Disable R.jar desugaring (with a flag).
+          jars.add(rJar);
+        }
+      }
+
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       ImmutableList<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
 
-
-      boolean basenameClash = checkBasenameClash(javaInfo.getDirectRuntimeJars());
-      for (Artifact jar : javaInfo.getDirectRuntimeJars()) {
+      ImmutableSet<Artifact> jarsToProcess = jars.build();
+      boolean basenameClash = checkBasenameClash(jarsToProcess);
+      for (Artifact jar : jarsToProcess) {
         Artifact desugared =
             createDesugarAction(
                 ruleContext, basenameClash, jar, bootclasspath, compileTimeClasspath);
@@ -290,13 +305,30 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
               .stream()
               .map(OutputJar::getClassJar)
               .collect(toImmutableList());
+        } else {
+          JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+          if (javaInfo != null) {
+            return javaInfo.getDirectRuntimeJars();
+          }
         }
       }
     } else {
+      ImmutableSet.Builder<Artifact> jars = ImmutableSet.builder();
       JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
       if (javaInfo != null) {
-        return javaInfo.getDirectRuntimeJars();
+        jars.addAll(javaInfo.getDirectRuntimeJars());
       }
+
+      // The Starlark android_library does not put the R.jar file in the direct runtime deps of the
+      // JavaInfo, it can only be retrieved from the AndroidIdeInfoProvider.
+      if (isAndroidLibrary(ruleContext)) {
+        Artifact rJar = getAndroidLibraryRJar(base);
+        if (rJar != null) {
+          jars.add(rJar);
+        }
+      }
+
+      return jars.build();
     }
     return null;
   }
@@ -311,8 +343,21 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return isProtoLibrary(ruleContext) ? base.getProvider(JavaCompilationArgsProvider.class) : null;
   }
 
+  private static boolean isAndroidLibrary(RuleContext ruleContext) {
+    return "android_library".equals(ruleContext.getRule().getRuleClass());
+  }
+
   private static boolean isProtoLibrary(RuleContext ruleContext) {
     return "proto_library".equals(ruleContext.getRule().getRuleClass());
+  }
+
+  private static Artifact getAndroidLibraryRJar(ConfiguredTarget base) {
+    AndroidIdeInfoProvider provider =
+        (AndroidIdeInfoProvider) base.get(AndroidIdeInfoProvider.PROVIDER.getKey());
+    if (provider != null && provider.getResourceJar() != null) {
+      return provider.getResourceJar().getClassJar();
+    }
+    return null;
   }
 
   private static boolean checkBasenameClash(Iterable<Artifact> artifacts) {

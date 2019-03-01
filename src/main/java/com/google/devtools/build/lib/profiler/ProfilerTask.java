@@ -31,7 +31,7 @@ public enum ProfilerTask {
   __ACTION_BUILDER("parallel builder completion queue", 0xCC3399), // unused
   __ACTION_SUBMIT("execution queue submission", 0xCC3399), // unused
   ACTION_CHECK("action dependency checking", 10000000, 0x999933, 0, false),
-  ACTION_EXECUTE("action execution", 0x99CCFF),
+  __ACTION_EXECUTE("action execution", 0x99CCFF), // unused
   ACTION_LOCK("action resource lock", 10000000, 0xCC9933, 0, false),
   ACTION_RELEASE("action resource release", 10000000, 0x006666, 0, false),
   __ACTION_GRAPH("action graph dependency", 0x3399FF), // unused

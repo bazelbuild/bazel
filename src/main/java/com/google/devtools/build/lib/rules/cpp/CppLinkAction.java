@@ -43,8 +43,9 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
-import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -76,25 +77,30 @@ public final class CppLinkAction extends AbstractAction
    * artifact creation away.
    */
   public interface LinkArtifactFactory {
-    /**
-     * Create an artifact at the specified root-relative path in the bin directory.
-     */
-    Artifact create(RuleContext ruleContext, BuildConfiguration configuration,
-                    PathFragment rootRelativePath);
+    /** Create an artifact at the specified root-relative path in the bin directory. */
+    Artifact create(
+        ActionConstructionContext actionConstructionContext,
+        RepositoryName repositoryName,
+        BuildConfiguration configuration,
+        PathFragment rootRelativePath);
   }
 
   /**
    * An implementation of {@link LinkArtifactFactory} that can only create artifacts in the package
    * directory.
    */
-  public static final LinkArtifactFactory DEFAULT_ARTIFACT_FACTORY = new LinkArtifactFactory() {
-    @Override
-    public Artifact create(RuleContext ruleContext, BuildConfiguration configuration,
-                           PathFragment rootRelativePath) {
-      return ruleContext.getDerivedArtifact(
-          rootRelativePath, configuration.getBinDirectory(ruleContext.getRule().getRepository()));
-    }
-  };
+  public static final LinkArtifactFactory DEFAULT_ARTIFACT_FACTORY =
+      new LinkArtifactFactory() {
+        @Override
+        public Artifact create(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfiguration configuration,
+            PathFragment rootRelativePath) {
+          return actionConstructionContext.getDerivedArtifact(
+              rootRelativePath, configuration.getBinDirectory(repositoryName));
+        }
+      };
 
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
   private static final String FAKE_LINK_GUID = "da36f819-5a15-43a9-8a45-e01b60e10c8b";

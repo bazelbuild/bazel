@@ -459,14 +459,13 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
       Preconditions.checkNotNull(parentEntry, "%s %s", errorKey, parent);
-      errorKey = parent;
       SkyFunction factory = evaluatorContext.getSkyFunctions().get(parent.functionName());
       if (parentEntry.isDirty()) {
         switch (parentEntry.getDirtyState()) {
           case CHECK_DEPENDENCIES:
             // If this value's child was bubbled up to, it did not signal this value, and so we must
             // manually make it ready to build.
-            parentEntry.signalDep();
+            parentEntry.signalDep(evaluatorContext.getGraphVersion(), errorKey);
             // Fall through to NEEDS_REBUILDING, since state is now NEEDS_REBUILDING.
           case NEEDS_REBUILDING:
             maybeMarkRebuilding(parentEntry);
@@ -481,6 +480,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
         }
       }
+      errorKey = parent;
       SkyFunctionEnvironment env =
           new SkyFunctionEnvironment(
               parent,
@@ -541,14 +541,15 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   }
 
   private void replay(ValueWithMetadata valueWithMetadata) {
-    // TODO(bazel-team): Verify that message replay is fast and works in failure
-    // modes [skyframe-core]
+    // Replaying actions is done on a small number of nodes, but potentially over a large dependency
+    // graph. Under those conditions, using the regular NestedSet flattening with .toCollection()
+    // is more efficient than using NestedSetVisitor's custom traversal logic.
     evaluatorContext
         .getReplayingNestedSetPostableVisitor()
-        .visit(valueWithMetadata.getTransitivePostables());
+        .visit(valueWithMetadata.getTransitivePostables().toCollection());
     evaluatorContext
         .getReplayingNestedSetEventVisitor()
-        .visit(valueWithMetadata.getTransitiveEvents());
+        .visit(valueWithMetadata.getTransitiveEvents().toCollection());
   }
 
   abstract <T extends SkyValue> EvaluationResult<T> constructResultExceptionally(
@@ -670,19 +671,18 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Preconditions.checkState(
           newState != DependencyState.ALREADY_EVALUATING, "%s %s", key, prevEntry);
       if (prevEntry.isDirty()) {
+        // Get the node in the state where it is able to accept a value.
         Preconditions.checkState(
             newState == DependencyState.NEEDS_SCHEDULING, "%s %s", key, prevEntry);
-        // There was an existing entry for this key in the graph.
-        // Get the node in the state where it is able to accept a value.
-
-        // Check that the previous node has no dependencies. Overwriting a value with deps with an
-        // injected value (which is by definition deps-free) needs a little additional bookkeeping
-        // (removing reverse deps from the dependencies), but more importantly it's something that
-        // we want to avoid, because it indicates confusion of input values and derived values.
+        // If there was a node in the graph before, check that the previous node has no
+        // dependencies. Overwriting a value with deps with an injected value (which is by
+        // definition deps-free) needs a little additional bookkeeping (removing reverse deps from
+        // the dependencies), but more importantly it's something that we want to avoid, because it
+        // indicates confusion of input values and derived values.
         Preconditions.checkState(
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
-        prevEntry.markRebuilding();
       }
+      prevEntry.markRebuilding();
       prevEntry.setValue(
           value,
           version,

@@ -120,7 +120,7 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    * are dynamically discovered from the previous execution of the Action, and so before the initial
    * execution, this method will return false in those cases.
    *
-   * <p>Any builder <em>must</em> unconditionally execute an Action for which inputsKnown() returns
+   * <p>Any builder <em>must</em> unconditionally execute an Action for which this method returns
    * false, regardless of all other inferences made by its dependency analysis. In addition, all
    * prerequisites mentioned in the (possibly incomplete) value returned by getInputs must also be
    * built first, as usual.
@@ -128,9 +128,7 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   @ThreadSafe
   boolean inputsDiscovered();
 
-  /**
-   * Returns true iff inputsKnown() may ever return false.
-   */
+  /** Returns true iff {@link #inputsDiscovered()} may ever return false. */
   @ThreadSafe
   boolean discoversInputs();
 

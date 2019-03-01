@@ -326,10 +326,6 @@ class StartupOptions {
   std::string default_server_javabase_;
   // Contains the collection of startup flags that Bazel accepts.
   std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
-
-#if defined(_WIN32) || defined(__CYGWIN__)
-  static std::string WindowsUnixRoot(const std::string &bazel_sh);
-#endif
 };
 
 }  // namespace blaze

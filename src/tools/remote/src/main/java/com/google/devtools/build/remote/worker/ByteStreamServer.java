@@ -47,7 +47,8 @@ final class ByteStreamServer extends ByteStreamImplBase {
   private final Path workPath;
   private final DigestUtil digestUtil;
 
-  static @Nullable Digest parseDigestFromResourceName(String resourceName) {
+  @Nullable
+  static Digest parseDigestFromResourceName(String resourceName) {
     try {
       String[] tokens = resourceName.split("/");
       if (tokens.length < 2) {

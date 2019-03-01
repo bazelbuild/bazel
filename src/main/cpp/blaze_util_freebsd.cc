@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
+#include <spawn.h>
 #include <string.h>  // strerror
 #include <sys/mount.h>
 #include <sys/param.h>
@@ -141,7 +142,22 @@ bool IsSharedLibrary(const string &filename) {
 string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
   string javahome = GetEnv("JAVA_HOME");
-  return !javahome.empty() ? javahome : "/usr/local/openjdk8";
+
+  if (!javahome.empty()) {
+    string javac = blaze_util::JoinPath(javahome, "bin/javac");
+    if (access(javac.c_str(), X_OK) == 0) {
+      return javahome;
+    }
+    BAZEL_LOG(WARNING)
+        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+  }
+
+  return "/usr/local/openjdk8";
+}
+
+int ConfigureDaemonProcess(posix_spawnattr_t* attrp) {
+  // No interesting platform-specific details to configure on this platform.
+  return 0;
 }
 
 void WriteSystemSpecificProcessIdentifier(

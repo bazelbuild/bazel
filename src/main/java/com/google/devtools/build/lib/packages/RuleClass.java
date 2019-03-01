@@ -28,6 +28,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -644,8 +646,10 @@ public class RuleClass {
     private boolean workspaceOnly = false;
     private boolean isExecutableSkylark = false;
     private boolean isAnalysisTest = false;
+    private boolean hasAnalysisTestTransition = false;
     private boolean isConfigMatcher = false;
     private boolean hasFunctionTransitionWhitelist = false;
+    private boolean ignorePackageLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private RuleTransitionFactory transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
@@ -667,6 +671,31 @@ public class RuleClass {
         new ConfigurationFragmentPolicy.Builder();
 
     private boolean supportsConstraintChecking = true;
+
+    /**
+     * The policy on whether Bazel should enforce that third_party rules declare <code>licenses().
+     * </code>. This is only intended for the migration of <a
+     * href="https://github.com/bazelbuild/bazel/issues/7444">GitHub #7444</a>. Our final end state
+     * is to have no license-related logic whatsoever. But that's going to take some time.
+     */
+    public enum ThirdPartyLicenseExistencePolicy {
+      /**
+       * Always do this check, overriding whatever {@link
+       * StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says.
+       */
+      ALWAYS_CHECK,
+
+      /**
+       * Never do this check, overriding whatever {@link
+       * StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says.
+       */
+      NEVER_CHECK,
+
+      /** Do whatever {@link StarlarkSemanticsOptions#checkThirdPartyTargetsHaveLicenses} says. */
+      USER_CONTROLLABLE
+    }
+
+    private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
@@ -806,7 +835,9 @@ public class RuleClass {
           workspaceOnly,
           isExecutableSkylark,
           isAnalysisTest,
+          hasAnalysisTestTransition,
           hasFunctionTransitionWhitelist,
+          ignorePackageLicenses,
           implicitOutputsFunction,
           isConfigMatcher,
           transitionFactory,
@@ -821,6 +852,7 @@ public class RuleClass {
           ruleDefinitionEnvironmentHashCode,
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
+          thirdPartyLicenseExistencePolicy,
           requiredToolchains,
           supportsPlatforms,
           executionPlatformConstraintsAllowed,
@@ -1021,6 +1053,11 @@ public class RuleClass {
       return this;
     }
 
+    public Builder setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
+      this.thirdPartyLicenseExistencePolicy = policy;
+      return this;
+    }
+
     public Builder setValidityPredicate(PredicateWithMessage<Rule> predicate) {
       this.validityPredicate = predicate;
       return this;
@@ -1192,12 +1229,35 @@ public class RuleClass {
     }
 
     /**
+     * This rule class has at least one attribute with an analysis test transition. (A
+     * starlark-defined transition using analysis_test_transition()).
+     */
+    public Builder setHasAnalysisTestTransition() {
+      this.hasAnalysisTestTransition = true;
+      return this;
+    }
+
+    public boolean hasAnalysisTestTransition() {
+      return this.hasAnalysisTestTransition;
+    }
+
+    /**
      * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
      * rules.
      */
     public <TYPE> Builder setHasFunctionTransitionWhitelist() {
       this.hasFunctionTransitionWhitelist = true;
       return this;
+    }
+
+    /** This rule class ignores package-level licenses. */
+    public Builder setIgnorePackageLicenses() {
+      this.ignorePackageLicenses = true;
+      return this;
+    }
+
+    public boolean ignorePackageLicenses() {
+      return this.ignorePackageLicenses;
     }
 
     public RuleClassType getType() {
@@ -1377,8 +1437,10 @@ public class RuleClass {
   private final boolean workspaceOnly;
   private final boolean isExecutableSkylark;
   private final boolean isAnalysisTest;
+  private final boolean hasAnalysisTestTransition;
   private final boolean isConfigMatcher;
   private final boolean hasFunctionTransitionWhitelist;
+  private final boolean ignorePackageLicenses;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -1467,6 +1529,8 @@ public class RuleClass {
    */
   private final boolean supportsConstraintChecking;
 
+  private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
+
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean supportsPlatforms;
   private final ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed;
@@ -1505,7 +1569,9 @@ public class RuleClass {
       boolean workspaceOnly,
       boolean isExecutableSkylark,
       boolean isAnalysisTest,
+      boolean hasAnalysisTestTransition,
       boolean hasFunctionTransitionWhitelist,
+      boolean ignorePackageLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
       boolean isConfigMatcher,
       RuleTransitionFactory transitionFactory,
@@ -1520,6 +1586,7 @@ public class RuleClass {
       String ruleDefinitionEnvironmentHashCode,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
+      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       Set<Label> requiredToolchains,
       boolean supportsPlatforms,
       ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
@@ -1554,9 +1621,12 @@ public class RuleClass {
     this.workspaceOnly = workspaceOnly;
     this.isExecutableSkylark = isExecutableSkylark;
     this.isAnalysisTest = isAnalysisTest;
+    this.hasAnalysisTestTransition = hasAnalysisTestTransition;
     this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
+    this.ignorePackageLicenses = ignorePackageLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
+    this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.supportsPlatforms = supportsPlatforms;
     this.executionPlatformConstraintsAllowed = executionPlatformConstraintsAllowed;
@@ -1790,7 +1860,8 @@ public class RuleClass {
       EventHandler eventHandler,
       @Nullable FuncallExpression ast,
       Location location,
-      AttributeContainer attributeContainer)
+      AttributeContainer attributeContainer,
+      boolean checkThirdPartyRulesHaveLicenses)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
@@ -1800,7 +1871,19 @@ public class RuleClass {
       populateAttributeLocations(rule, ast);
     }
     checkForDuplicateLabels(rule, eventHandler);
-    checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
+
+    boolean actuallyCheckLicense;
+    if (thirdPartyLicenseExistencePolicy == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
+      actuallyCheckLicense = true;
+    } else if (thirdPartyLicenseExistencePolicy == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
+      actuallyCheckLicense = false;
+    } else {
+      actuallyCheckLicense = checkThirdPartyRulesHaveLicenses;
+    }
+
+    if (actuallyCheckLicense) {
+      checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
+    }
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
     rule.checkValidityPredicate(eventHandler);
     rule.checkForNullLabels();
@@ -1846,7 +1929,11 @@ public class RuleClass {
       throws InterruptedException, CannotPrecomputeDefaultsException {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
-            rule, pkgBuilder.getRepositoryMapping(), attributeValues, eventHandler);
+            rule,
+            pkgBuilder.getRepositoryMapping(),
+            attributeValues,
+            pkgBuilder.getListInterner(),
+            eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
@@ -1867,6 +1954,7 @@ public class RuleClass {
       Rule rule,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       AttributeValues<T> attributeValues,
+      Interner<ImmutableList<?>> listInterner,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -1893,7 +1981,7 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping);
+              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2066,6 +2154,10 @@ public class RuleClass {
    */
   private static void checkThirdPartyRuleHasLicense(Rule rule,
       Package.Builder pkgBuilder, EventHandler eventHandler) {
+    if (rule.getRuleClassObject().ignorePackageLicenses()) {
+      // A package license is sufficient; ignore rules that don't include it.
+      return;
+    }
     if (isThirdPartyPackage(rule.getLabel().getPackageIdentifier())) {
       License license = rule.getLicense();
       if (license == null) {
@@ -2138,7 +2230,9 @@ public class RuleClass {
    */
   private static Object getAttributeNoncomputedDefaultValue(Attribute attr,
       Package.Builder pkgBuilder) {
-    if (attr.getName().equals("licenses")) {
+    // Starlark rules may define their own "licenses" attributes with different types -
+    // we shouldn't trigger the special "licenses" on those cases.
+    if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
       return pkgBuilder.getDefaultLicense();
     }
     if (attr.getName().equals("distribs")) {
@@ -2193,7 +2287,8 @@ public class RuleClass {
       Rule rule,
       Attribute attr,
       Object buildLangValue,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      Interner<ImmutableList<?>> listInterner)
       throws ConversionException {
     LabelConversionContext context = new LabelConversionContext(rule.getLabel(), repositoryMapping);
     Object converted =
@@ -2214,7 +2309,10 @@ public class RuleClass {
         List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
         converted = Ordering.natural().sortedCopy(list);
       }
-      converted = ImmutableList.copyOf((List<?>) converted);
+      // It's common for multiple rule instances in the same package to have the same value for some
+      // attributes. As a concrete example, consider a package having several 'java_test' instances,
+      // each with the same exact 'tags' attribute value.
+      converted = listInterner.intern(ImmutableList.copyOf((List<?>) converted));
     }
 
     return converted;
@@ -2392,10 +2490,23 @@ public class RuleClass {
   }
 
   /**
+   * Returns true if this rule class has at least one attribute with an analysis test transition. (A
+   * starlark-defined transition using analysis_test_transition()).
+   */
+  public boolean hasAnalysisTestTransition() {
+    return hasAnalysisTestTransition;
+  }
+
+  /**
    * Returns true if this rule class has the _whitelist_function_transition attribute.
    */
   public boolean hasFunctionTransitionWhitelist() {
     return hasFunctionTransitionWhitelist;
+  }
+
+  /** Returns true if this rule class should ignore package-level licenses. */
+  public boolean ignorePackageLicenses() {
+    return ignorePackageLicenses;
   }
 
   public ImmutableSet<Label> getRequiredToolchains() {

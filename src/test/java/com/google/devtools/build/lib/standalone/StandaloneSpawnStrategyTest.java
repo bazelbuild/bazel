@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -137,17 +136,19 @@ public class StandaloneSpawnStrategyTest {
             optionsParser,
             SpawnActionContextMaps.createStub(
                 ImmutableList.of(),
-                ImmutableMap.<String, SpawnActionContext>of(
+                ImmutableMap.of(
                     "",
-                    new StandaloneSpawnStrategy(
-                        execRoot,
-                        new LocalSpawnRunner(
+                    ImmutableList.of(
+                        new StandaloneSpawnStrategy(
                             execRoot,
-                            localExecutionOptions,
-                            resourceManager,
-                            LocalEnvProvider.UNMODIFIED,
-                            BinTools.forIntegrationTesting(directories, ImmutableList.of()))))),
-            ImmutableList.<ActionContextProvider>of());
+                            new LocalSpawnRunner(
+                                execRoot,
+                                localExecutionOptions,
+                                resourceManager,
+                                LocalEnvProvider.UNMODIFIED,
+                                BinTools.forIntegrationTesting(
+                                    directories, ImmutableList.of())))))),
+            ImmutableList.of());
 
     executor.getExecRoot().createDirectoryAndParents();
   }
@@ -193,7 +194,7 @@ public class StandaloneSpawnStrategyTest {
         null,
         outErr,
         executor.getEventHandler(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         ImmutableMap.of(),
         SIMPLE_ARTIFACT_EXPANDER,
         /*actionFileSystem=*/ null,

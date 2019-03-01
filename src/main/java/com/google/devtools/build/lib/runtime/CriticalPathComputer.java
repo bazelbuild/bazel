@@ -302,8 +302,9 @@ public class CriticalPathComputer {
   @AllowConcurrentEvents
   public void actionComplete(ActionCompletionEvent event) {
     Action action = event.getAction();
-    CriticalPathComponent component = Preconditions.checkNotNull(
-        outputArtifactToComponent.get(action.getPrimaryOutput()));
+    CriticalPathComponent component =
+        Preconditions.checkNotNull(
+            outputArtifactToComponent.get(action.getPrimaryOutput()), action);
     finalizeActionStat(event.getRelativeActionStartTime(), action, component);
   }
 

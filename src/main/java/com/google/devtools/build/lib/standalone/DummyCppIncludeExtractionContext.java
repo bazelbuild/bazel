@@ -13,15 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import java.io.IOException;
 
 /**
  * An IncludeExtractionContext that does nothing. Since local execution does not need to discover
@@ -33,18 +28,6 @@ class DummyCppIncludeExtractionContext implements CppIncludeExtractionContext {
 
   public DummyCppIncludeExtractionContext(CommandEnvironment env) {
     this.env = env;
-  }
-
-  @Override
-  public void extractIncludes(
-      ActionExecutionContext actionExecutionContext,
-      Action resourceOwner,
-      Artifact primaryInput,
-      Artifact primaryOutput,
-      Artifact grepIncludes)
-      throws IOException {
-    FileSystemUtils.writeContent(
-        actionExecutionContext.getInputPath(primaryOutput), new byte[] {});
   }
 
   @Override

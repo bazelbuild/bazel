@@ -154,6 +154,7 @@ int ExecuteDaemon(const std::string& exe,
                   const std::map<std::string, EnvVarValue>& env,
                   const std::string& daemon_output,
                   const bool daemon_output_append,
+                  const std::string& binaries_dir,
                   const std::string& server_dir,
                   BlazeServerStartup** server_startup);
 
@@ -260,7 +261,10 @@ bool UnlimitResources();
 // raised; false otherwise.
 bool UnlimitCoredumps();
 
+#if defined(_WIN32) || defined(__CYGWIN__)
+std::string DetectBashAndExportBazelSh();
 void DetectBashOrDie();
+#endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
 // This function has no effect on Unix platforms.
 // On Windows, this function looks into PATH to find python.exe, if python

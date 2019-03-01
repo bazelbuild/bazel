@@ -1,3 +1,293 @@
+## Release 0.23.0 (2019-02-26)
+
+```
+Baseline: 441fd75d0047f8a998d784c557736ab9075db893
+
+Cherry picks:
+
+   + 6ca7763669728253606578a56a205bca3ea883e9:
+     Fix a typo
+   + 2310b1c2c8b2f32db238f667747e7d5672480f4a:
+     Ignore SIGCHLD in test setup script
+   + f9eb1b56706f91063e9d080b850fa56964e77324:
+     Complete channel initialization in the event loop
+```
+
+Incompatible changes:
+
+  - //src:bazel uses the minimal embedded JDK, if you want to
+    avoid the extra steps of minimizing the JDK, use //src:bazel-dev
+    instead.
+  - //src:bazel uses the minimal embedded JDK, if you want to
+    avoid the extra steps of building bazel with the minimized JDK,
+    use //src:bazel-dev
+    instead.
+  - The default value of --host_platform and --platforms will be
+      changed to not be dependent on the configuration. This means
+    that setting
+      --cpu or --host_cpu will not affect the target or host platform.
+  - Toolchain resolution for cc rules is now enabled via an
+    incompatible flag, --incompatible_enable_cc_toolchain_resolution.
+    The previous
+    flag, --enabled_toolchain_types, is deprecated and will be
+    removed.
+  - java_(mutable_|)proto_library: removed strict_deps attribute.
+  - Python rules will soon reject the legacy "py" struct provider
+    (preview by enabling --incompatible_disallow_legacy_py_provider).
+    Upgrade rules to use PyInfo instead. See
+    [#7298](https://github.com/bazelbuild/bazel/issues/7298).
+  - java_(mutable_|)proto_library: removed strict_deps attribute.
+  - Two changes to native Python rules: 1) `default_python_version`
+    and `--force_python` are deprecated; use `python_version` and
+    `--python_version` respectively instead. You can preview the
+    removal of the deprecated names with
+    --incompatible_remove_old_python_version_api. See
+    [#7308](https://github.com/bazelbuild/bazel/issues/7308). 2) The
+    version flag will no longer override the declared version of a
+    `py_binary` or `py_test` target. You can preview this new
+    behavior with --incompatible_allow_python_version_transitions.
+    See [#7307](https://github.com/bazelbuild/bazel/issues/7307).
+
+Important changes:
+
+  - There is a new flag available
+    `--experimental_java_common_create_provider_enabled_packages`
+    that acts as a whitelist for usages of
+    `java_common.create_provider`. The constructor will be deprecated
+    in Bazel 0.23.
+  - [#7024] Allow chaining of the same function type in aquery.
+  - Introduces --local_{ram,cpu}_resources, which will take the place
+    of --local_resources.
+  - [#6930] Add documentation for the aquery command.
+  - Incompatible flag `--incompatible_dont_emit_static_libgcc` has
+    been flipped (https://github.com/bazelbuild/bazel/issues/6825)
+  - Incompatible flag `--incompatible_linkopts_in_user_link_flags`
+    has been flipped (https://github.com/bazelbuild/bazel/issues/6826)
+  - Flag --incompatible_range_type is removed.
+  - Flag --incompatible_disallow_slash_operator is removed.
+  - Flag --incompatible_disallow_conflicting_providers is removed.
+  - `--incompatible_disallow_data_transition` is now enabled by
+    default
+  - Allow inclusion of param files in aquery output
+  - [#6985] Add test to verify aquery's behavior for Cpp action
+    templates.
+  - --incompatible_require_feature_configuration_for_pic was flipped
+    (https://github.com/bazelbuild/bazel/issues/7007).
+  - Also ignore module-info.class in multi-version Jars
+  - objc_framework has been deleted. Please refer to
+    apple_dynamic_framework_import and apple_static_framework_import
+    rules available in
+    [rules_apple](https://github.com/bazelbuild/rules_apple/blob/maste
+    r/doc/rules-general.md)
+  - --test_sharding_strategy=experimental_heuristic is no more
+  - objc_bundle_library has been removed. Please migrate to
+    rules_apple's
+    [apple_resource_bundle](https://github.com/bazelbuild/rules_apple/
+    blob/master/doc/rules-resources.md#apple_resource_bundle).
+  - You can now use the attribute `aapt_version` or the flag
+    `--android_aapt` to pick the aapt version for android_local_test
+    tests
+  - In --keep_going mode, Bazel now correctly returns a non-zero exit
+    code when encountering a package loading error during target
+    pattern parsing of patterns like "//foo:all" and "//foo/...".
+  - The default value for --incompatible_strict_action_env has been
+    flipped to 'false' again, as we discovered breakages for local
+    execution users. We'll need some more time to figure out the best
+    way to make this work for local and remote execution. Follow
+    https://github.com/bazelbuild/bazel/issues/7026 for more details.
+  - Locally-executed spawns tagged "no-cache" no longer upload their
+    outputs to the remote cache.
+  - Introduces --host_compiler flag to allow setting a compiler for
+    host compilation when --host_crosstool_top is specified.
+  - --incompatible_expand_directories is enabled by default
+  - [aquery] Handle the case of aspect-on-aspect.
+  - Fixed a longstanding bug in the http remote cache where the value
+    passed to
+    --remote_timeout would be interpreted as milliseconds instead of
+    seconds.
+  - Enable --incompatible_use_jdk10_as_host_javabase by default, see
+    https://github.com/bazelbuild/bazel/issues/6661
+  - Add --incompatible_use_jdk11_as_host_javabase: makes JDK 11 the
+    default --host_javabase for remote jdk
+    (https://github.com/bazelbuild/bazel/issues/7219)
+  - Highlight TreeArtifact in aquery text output.
+  - Locally-executed spawns tagged "no-cache" no longer upload their
+    outputs to the remote cache.
+  - java_common APIs now accept JavaToolchainInfo and JavaRuntimeInfo
+    instead of configured targets for java_toolchain and java_runtime
+  - cc_common.create_cc_toolchain_config_info is stable and available
+    for production use
+  - incompatible_use_toolchain_providers_in_java_common: pass
+    JavaToolchainInfo and JavaRuntimeInfo providers to java_common
+    APIs instead of configured targets
+    (https://github.com/bazelbuild/bazel/issues/7186)
+  - --incompatible_strict_argument_ordering is enabled by default.
+  - Bazel now supports reading cache hits from a repository cache,
+    even if it doesn't have write access to the cache.
+  - Adding arm64e to OSX CROSSTOOL.
+  - Ignore package-level licenses on config_setting.
+  - Add an optional output_source_jar parameter to java_common.compile
+  - --incompatible_disable_objc_provider_resources is now enabled by
+    default. This disables ObjcProvider's fields related to resource
+    processing.
+  - Explicitly set https.protocols and exclude TLSv1.3.
+  - Bazel now validates that JAVA_HOME points to a valid JDK and
+    falls back to auto-detection by looking up the path of `javac`.
+  - Upgrade the embedded JDK version to 11.0.2.
+  - Added --incompatible_disable_crosstool_file
+    (https://github.com/bazelbuild/bazel/issues/7320)
+  - --incompatible_disable_objc_provider_resources is now enabled by
+    default. This disables ObjcProvider's fields related to resource
+    processing.
+  - --incompatible_disable_tools_defaults_package has been flipped.
+  - For tests that do not generate a test.xml, Bazel now uses a
+    separate action to generate one; this results in minor
+    differences in the generated test.xml, and makes the generation
+    more reliable overall.
+  - incompatible_generate_javacommon_source_jar: java_common.compile
+    now always generates a source jar, see
+    https://github.com/bazelbuild/bazel/issues/5824.
+  - New incompatible flag
+    --incompatible_disallow_struct_provider_syntax removes the
+    ability for rule implementation functions to return struct. Such
+    functions should return a list of providers instead. Migration
+    tracking: https://github.com/bazelbuild/bazel/issues/7347
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Ed Schouten, erenon, George Gensure, Greg Estren, Igal Tabachnik, Ittai Zeidman, Jannis Andrija Schnitzer, John Millikin, Keith Smiley, Kelly Campbell, Max Vorobev, nicolov, Robin Nabel.
+
+## Release 0.22.0 (2019-01-28)
+
+```
+Baseline: deb028e3fb30b4e2953df16f35ab1f55a08ea8fa
+
+Cherry picks:
+
+   + a3a5975dca3ad04c19dc7d063fcf490a8cd612fd:
+     Fix a race condition in remote cache
+   + b8d0e1b05c225a4b943ce498194d069d18093d9a:
+     Use a new GitHub token and KMS key for the release process.
+   + 3759e3895503aa2bbd6943c5b568b8c050b9448f:
+     remote: fix unexpected IO error (not a directory)
+   + 4473bb1a9ec4282aa8497b86580d68e82415df4a:
+     Fix a race condition in Bazel's Windows process management.
+   + 9137fb940886aa516f32ca8a36feccedb545c99b:
+     undo flag flip of --incompatible_strict_action_env
+   + 12ab12e80ad1c9a3510aa4bbfdf3fddafc0bca00:
+     Revert "Enabling Bazel to generate input symlinks as defined by
+     RE AP?
+   + 6345c747d8cb1819e70c853becadbf8a989decf1:
+     Automated rollback of commit
+     30536baa4a410d8c0a7adab5cd58cd8a2ac7e46c.
+```
+
+
+
+The Bazel team is happy to announce a new release of Bazel,
+[Bazel 0.22.0](https://github.com/bazelbuild/bazel/releases/tag/0.22.0).
+
+Baseline: deb028e3fb30b4e2953df16f35ab1f55a08ea8fa
+
+### Breaking changes
+
+- [`--incompatible_string_is_not_iterable`](https://github.com/bazelbuild/bazel/issues/5830)
+
+### Upcoming changes
+
+This release is a [migration window for the following changes](https://github.com/bazelbuild/bazel/labels/migration-0.22).
+
+- [`--incompatible_disallow_data_transition`](https://github.com/bazelbuild/bazel/issues/6153)
+- [`--incompatible_dont_emit_static_libgcc`](https://github.com/bazelbuild/bazel/issues/6825)
+- [`--incompatible_linkopts_in_user_link_flags`](https://github.com/bazelbuild/bazel/issues/6826)
+- [`--incompatible_disable_legacy_crosstool_fields`](https://github.com/bazelbuild/bazel/issues/6861)
+- [`--incompatible_use_aapt2_by_default`](https://github.com/bazelbuild/bazel/issues/6907)
+- [`--incompatible_disable_runtimes_filegroups`](https://github.com/bazelbuild/bazel/issues/6942)
+- [`--incompatible_disable_legacy_cc_provider`](https://github.com/bazelbuild/bazel/issues/7036)
+- [`--incompatible_require_feature_configuration_for_pic`](https://github.com/bazelbuild/bazel/issues/7007)
+- [`--incompatible_disable_expand_if_all_available_in_flag_set`](https://github.com/bazelbuild/bazel/issues/7008)
+- [`--incompatible_disable_legacy_proto_provider`](https://github.com/bazelbuild/bazel/issues/7152)
+- [`--incompatible_disable_proto_source_root`](https://github.com/bazelbuild/bazel/issues/7153)
+
+### General Changes
+
+- https://docs.bazel.build now supports versioned
+  documentation. Use the selector at the top of the navigation bar
+  to switch between documentation for different Bazel releases.
+
+- set `projectId` in all `PublishBuildToolEventStreamRequest`
+
+### Android
+
+- mobile-install now works with aapt2. Try it out with `bazel
+  mobile-install --android_aapt=aapt2 //my:target`
+
+- Fixed issues with mobile-install v1 when deploying to Android 9 Pie
+  devices. https://github.com/bazelbuild/bazel/issues/6814
+
+- Fixed issue where error messages from Android manifest merging
+  actions were not fully propagated.
+
+- New incompatible change flag `--incompatible_use_aapt2_by_default`
+  for defaulting to aapt2 in Android builds has been added. To build with
+  aapt2 today, pass the flag
+  `--incompatible_use_aapt2_by_default=true` or
+  `--android_aapt=aapt2`, or set the `aapt_version`  to `aapt2` on
+  your `android_binary` or `android_local_test` target.
+
+- Fixed mobile-install v1 error when installing an app with native
+  libraries onto an Android 9 (Pie) device. See
+  https://github.com/bazelbuild/examples/issues/77
+
+- Fixed a mobile-install bug where `arm64-v8a` libraries were not
+  deployed correctly on `arm64` devices. This was done by enabling
+  incremental native lib deployment by default. A previously
+  undocumented `--android_incremental_native_libs` flag is removed,
+  and is now the regular behavior. See
+  https://github.com/bazelbuild/bazel/issues/2239
+
+### Apple
+
+- The `objc_bundle` rule has been removed. Please migrate to rules_apple's
+  [apple_bundle_import](https://github.com/bazelbuild/rules_apple/bl
+  ob/master/doc/rules-resources.md#apple_bundle_import).
+
+- The `apple_stub_binary` rule has been deleted.
+
+- The `--xbinary_fdo` option that passes xbinary profiles has been added.
+
+### C++
+
+- `cc_toolchain.(static|dynamic)_runtime_libs` attributes are now optional
+
+### Packaging
+
+- `build_tar.py` in `tools/build_defs/pkg` now supports a JSON manifest
+  that can be used to add paths that have symbols that can't be
+  specified via the command line
+
+### Query
+
+- Filtering of inputs, outputs, and mnemonic filtering have been added to
+  aquery.
+
+- The aquery and cquery query2 tests have been open-sourced.
+
+- The Bazel query how-to recommends ":*" instead of ":all", because "all" might
+  be the name of a target.
+
+### Testing
+
+- The `--runs_per_test` has been placed in the TESTING documentation category.
+
+- A a clarifying message has been added to test case summary output when all
+  test cases pass but the target fails.
+
+### Contributors
+
+This release contains contributions from many people at Google, as well as
+Benjamin Peterson, Dave Lee, George Gensure, Gert van Dijk, Gustavo Storti
+Salibi, Keith Smiley, Loo Rong Jie, Lukasz Tekieli, Mikhail Mazurskiy, Thi,
+Travis Cline, Vladimir Chebotarev, and Yannic.
+
 ## Release 0.21.0 (2018-12-19)
 
 ```

@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.SpawnCache;
+import com.google.devtools.build.lib.remote.RemoteModule;
+import com.google.devtools.build.lib.remote.RemoteOptions;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
@@ -28,8 +30,11 @@ import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /** Module which registers the strategy options for Bazel. */
@@ -37,7 +42,7 @@ public class BazelStrategyModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(ExecutionOptions.class)
+        ? ImmutableList.of(ExecutionOptions.class, RemoteOptions.class)
         : ImmutableList.of();
   }
 
@@ -45,29 +50,47 @@ public class BazelStrategyModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     builder.addActionContext(new WriteAdbArgsActionContext(env.getClientEnv().get("HOME")));
     ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
 
-    // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
-    builder.addStrategyByMnemonic("Javac", "worker");
-    builder.addStrategyByMnemonic("Closure", "worker");
-    builder.addStrategyByMnemonic("DexBuilder", "worker");
+    List<String> spawnStrategies = new ArrayList<>(options.spawnStrategy);
+
+    if (options.incompatibleListBasedExecutionStrategySelection) {
+      if (spawnStrategies.isEmpty()) {
+        if (RemoteModule.shouldEnableRemoteExecution(remoteOptions)) {
+          spawnStrategies.add("remote");
+        }
+        spawnStrategies.add("worker");
+        // Sandboxing is not yet available on Windows.
+        if (OS.getCurrent() != OS.WINDOWS) {
+          spawnStrategies.add("sandboxed");
+        }
+        spawnStrategies.add("local");
+      }
+    } else {
+      // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
+      builder.addStrategyByMnemonic("Javac", ImmutableList.of("worker"));
+      builder.addStrategyByMnemonic("Closure", ImmutableList.of("worker"));
+      builder.addStrategyByMnemonic("DexBuilder", ImmutableList.of("worker"));
+
+      // The --spawn_strategy= flag is a bit special: If it's set to the empty string, we actually
+      // have to pass a literal empty string to the builder to trigger the "use the strategy that
+      // was registered last" behavior. Otherwise we would have no default strategy at all and Bazel
+      // would crash.
+      if (spawnStrategies.isEmpty()) {
+        spawnStrategies = ImmutableList.of("");
+      }
+    }
 
     // Allow genrule_strategy to also be overridden by --strategy= flags.
     builder.addStrategyByMnemonic("Genrule", options.genruleStrategy);
 
-    for (Map.Entry<String, String> strategy : options.strategy) {
-      String strategyName = strategy.getValue();
-      // TODO(philwo) - remove this when the standalone / local mess is cleaned up.
-      // Some flag expansions use "local" as the strategy name, but the strategy is now called
-      // "standalone", so we'll translate it here.
-      if (strategyName.equals("local")) {
-        strategyName = "standalone";
-      }
-      builder.addStrategyByMnemonic(strategy.getKey(), strategyName);
+    for (Map.Entry<String, List<String>> strategy : options.strategy) {
+      builder.addStrategyByMnemonic(strategy.getKey(), strategy.getValue());
     }
 
-    builder.addStrategyByMnemonic("", options.spawnStrategy);
+    builder.addStrategyByMnemonic("", spawnStrategies);
 
-    for (Map.Entry<RegexFilter, String> entry : options.strategyByRegexp) {
+    for (Map.Entry<RegexFilter, List<String>> entry : options.strategyByRegexp) {
       builder.addStrategyByRegexp(entry.getKey(), entry.getValue());
     }
 

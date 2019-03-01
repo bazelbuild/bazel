@@ -285,6 +285,11 @@ public class CppRuleClasses {
    */
   public static final String ENABLE_FDO_THINLTO = "enable_fdo_thinlto";
 
+  /*
+   * A string constant for enabling ThinLTO for XFDO implicitly.
+   */
+  public static final String ENABLE_XFDO_THINLTO = "enable_xbinaryfdo_thinlto";
+
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
    * with ThinLTO.
@@ -406,6 +411,9 @@ public class CppRuleClasses {
    * runtime.
    */
   public static final String SUPPORTS_DYNAMIC_LINKER = "supports_dynamic_linker";
+
+  /** A feature marking that the target needs to link its deps in --whole-archive block. */
+  public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {

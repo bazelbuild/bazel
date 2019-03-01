@@ -16,16 +16,18 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -48,8 +50,9 @@ public class BazelCcModule extends CcModule
         CcCompilationOutputs,
         LinkingInfo,
         CcLinkingContext,
-        LibraryToLinkWrapper,
-        CcToolchainVariables> {
+        LibraryToLink,
+        CcToolchainVariables,
+        CcToolchainConfigInfo> {
 
   @Override
   public CompilationInfo compile(
@@ -60,7 +63,8 @@ public class BazelCcModule extends CcModule
       SkylarkList<Artifact> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
-      SkylarkList<CcCompilationContext> ccCompilationContexts)
+      SkylarkList<CcCompilationContext> ccCompilationContexts,
+      Location location)
       throws EvalException, InterruptedException {
     return BazelCcModule.compile(
         BazelCppSemantics.INSTANCE,
@@ -76,7 +80,8 @@ public class BazelCcModule extends CcModule
         /* skylarkAdditionalCompilationInputs= */ Runtime.NONE,
         /* skylarkAdditionalIncludeScanningRoots= */ Runtime.NONE,
         ccCompilationContexts,
-        /* purpose= */ Runtime.NONE);
+        /* purpose= */ Runtime.NONE,
+        location);
   }
 
   @Override

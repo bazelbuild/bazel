@@ -433,7 +433,9 @@ public final class CppToolchainInfo {
       toolchain = removeSpecialFeatureFromToolchain(toolchain);
 
       CppPlatform platform =
-          toolchain.getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX;
+          toolchain.getTargetLibc().equals(CppActionConfigs.MACOS_TARGET_LIBC)
+              ? CppPlatform.MAC
+              : CppPlatform.LINUX;
 
       toolchainBuilder.addAllActionConfig(
           CppActionConfigs.getLegacyActionConfigs(

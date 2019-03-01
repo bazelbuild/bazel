@@ -279,7 +279,7 @@ public class LocalSpawnRunnerTest {
 
   private FileSystem setupEnvironmentForFakeExecution() {
     // Prevent any subprocess execution at all.
-    SubprocessBuilder.setSubprocessFactory(new SubprocessInterceptor());
+    SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
     return new InMemoryFileSystem();
@@ -292,7 +292,7 @@ public class LocalSpawnRunnerTest {
    */
   @Before
   public final void setupEnvironmentForRealExecution() {
-    SubprocessBuilder.setSubprocessFactory(JavaSubprocessFactory.INSTANCE);
+    SubprocessBuilder.setDefaultSubprocessFactory(JavaSubprocessFactory.INSTANCE);
     resourceManager.setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
   }
 
@@ -308,7 +308,7 @@ public class LocalSpawnRunnerTest {
     SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
@@ -364,7 +364,7 @@ public class LocalSpawnRunnerTest {
 
     SubprocessFactory factory = mock(SubprocessFactory.class);
     when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
@@ -414,7 +414,7 @@ public class LocalSpawnRunnerTest {
     SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
@@ -460,7 +460,7 @@ public class LocalSpawnRunnerTest {
     SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(3));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner =
@@ -508,7 +508,7 @@ public class LocalSpawnRunnerTest {
     SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenThrow(new IOException("I'm sorry, Dave"));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner =
@@ -595,7 +595,7 @@ public class LocalSpawnRunnerTest {
         }
       }
     });
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner =
@@ -627,7 +627,7 @@ public class LocalSpawnRunnerTest {
 
     SubprocessFactory factory = mock(SubprocessFactory.class);
     when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner =
@@ -654,7 +654,7 @@ public class LocalSpawnRunnerTest {
 
     SubprocessFactory factory = mock(SubprocessFactory.class);
     when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner =
@@ -684,7 +684,7 @@ public class LocalSpawnRunnerTest {
 
     SubprocessFactory factory = mock(SubprocessFactory.class);
     when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
     LocalEnvProvider localEnvProvider = mock(LocalEnvProvider.class);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
@@ -723,7 +723,7 @@ public class LocalSpawnRunnerTest {
     SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 654;
@@ -973,7 +973,7 @@ public class LocalSpawnRunnerTest {
     SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(

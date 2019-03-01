@@ -758,19 +758,26 @@ bool MakeDirectoriesW(const wstring& path, unsigned int mode) {
   if (path.empty()) {
     return false;
   }
-  if (IsRootDirectoryW(path) || IsDirectoryW(path)) {
-    return true;
-  }
-  wstring parent = SplitPathW(path).first;
-  if (parent.empty()) {
-    // Since `path` is not a root directory, there should have been at least one
-    // directory above it.
+  std::wstring abs_path;
+  std::string error;
+  if (!AsAbsoluteWindowsPath(path, &abs_path, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "MakeDirectoriesW(" << blaze_util::WstringToString(path)
+        << "): " << error;
+  }
+  if (IsRootDirectoryW(abs_path) || IsDirectoryW(abs_path)) {
+    return true;
+  }
+  wstring parent = SplitPathW(abs_path).first;
+  if (parent.empty()) {
+    // Since `abs_path` is not a root directory, there should have been at least
+    // one directory above it.
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "MakeDirectoriesW(" << blaze_util::WstringToString(abs_path)
         << ") could not find dirname: " << GetLastErrorString();
   }
   return MakeDirectoriesW(parent, mode) &&
-         ::CreateDirectoryW(path.c_str(), NULL) == TRUE;
+         ::CreateDirectoryW(abs_path.c_str(), NULL) == TRUE;
 }
 
 bool MakeDirectories(const string& path, unsigned int mode) {

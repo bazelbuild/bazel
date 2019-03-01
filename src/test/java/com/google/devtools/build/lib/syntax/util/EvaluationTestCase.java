@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -66,7 +67,9 @@ public class EvaluationTestCase {
   public Environment newBuildEnvironment() {
     BazelStarlarkContext context =
         new BazelStarlarkContext(
-            TestConstants.TOOLS_REPOSITORY, /* repoMapping= */ ImmutableMap.of());
+            TestConstants.TOOLS_REPOSITORY,
+            /* repoMapping= */ ImmutableMap.of(),
+            new SymbolGenerator<>(new Object()));
     Environment env =
         Environment.builder(mutability)
             .useDefaultSemantics()

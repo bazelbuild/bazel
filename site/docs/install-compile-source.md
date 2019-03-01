@@ -98,6 +98,10 @@ Bazel binary, without an embedded JDK. You can copy it anywhere or use it
 in-place. For convenience we recommend copying this binary to a directory that's
 on your `PATH` (such as `/usr/local/bin` on Linux).
 
+To build the `bazel` binary in a reproducible way, also set
+[`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/specs/source-date-epoch/)
+in the `compile.sh` step.
+
 <h3 id="bootstrap-windows">2. Bootstrap Bazel on Windows</h3>
 
 ([Scroll up](#bootstrap-unix) for instructions for Linux, macOS, and other

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.util.StringUtil;
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -24,14 +26,20 @@ import javax.annotation.Nullable;
  * <p>The receiver can tolerate such inconsistencies, or throw hard if they are unexpected.
  */
 public interface GraphInconsistencyReceiver {
+  /**
+   * How many child {@link SkyKey}s {@link #listChildren} will show for bulk inconsistency events.
+   */
+  int LOGGED_CHILDREN_LIMIT = 50;
+
   void noteInconsistencyAndMaybeThrow(
-      SkyKey key, @Nullable SkyKey otherKey, Inconsistency inconsistency);
+      SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency);
 
   /** The type of inconsistency detected. */
   enum Inconsistency {
     RESET_REQUESTED,
     CHILD_MISSING_FOR_DIRTY_NODE, // TODO(mschaller): put "parent" before "child" for consistency
     PARENT_FORCE_REBUILD_OF_CHILD,
+    PARENT_FORCE_REBUILD_OF_MISSING_CHILD,
     BUILDING_PARENT_FOUND_UNDONE_CHILD,
     ALREADY_DECLARED_CHILD_MISSING
   }
@@ -42,4 +50,9 @@ public interface GraphInconsistencyReceiver {
         throw new IllegalStateException(
             "Unexpected inconsistency: " + key + ", " + otherKey + ", " + inconsistency);
       };
+
+  static String listChildren(Collection<SkyKey> children) {
+    return StringUtil.listItemsWithLimit(new StringBuilder(), LOGGED_CHILDREN_LIMIT, children)
+        .toString();
+  }
 }

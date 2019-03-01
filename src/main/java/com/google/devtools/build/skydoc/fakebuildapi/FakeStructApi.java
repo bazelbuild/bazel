@@ -64,7 +64,7 @@ public class FakeStructApi implements StructApi, ClassObject {
 
   @Override
   public ImmutableCollection<String> getFieldNames() throws EvalException {
-    return ImmutableList.of();
+    return ImmutableList.copyOf(objects.keySet());
   }
 
   @Nullable

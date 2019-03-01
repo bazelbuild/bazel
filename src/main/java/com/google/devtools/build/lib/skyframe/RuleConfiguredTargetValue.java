@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.math.BigInteger;
 import javax.annotation.Nullable;
 
 /** A configured target in the context of a Skyframe graph. */
@@ -50,12 +51,17 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
   // Transitive packages are not serialized.
   @AutoCodec.Instantiator
   RuleConfiguredTargetValue(RuleConfiguredTarget configuredTarget) {
-    this(configuredTarget, /*transitivePackagesForPackageRootResolution=*/ null);
+    this(
+        configuredTarget,
+        /*transitivePackagesForPackageRootResolution=*/ null,
+        /*nonceVersion=*/ null);
   }
 
   RuleConfiguredTargetValue(
       RuleConfiguredTarget configuredTarget,
-      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
+      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution,
+      @Nullable BigInteger nonceVersion) {
+    super(nonceVersion);
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
     this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
     // These are specifically *not* copied to save memory.
@@ -89,7 +95,6 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
   @Override
   public void clear(boolean clearEverything) {
     Preconditions.checkNotNull(configuredTarget);
-    Preconditions.checkNotNull(transitivePackagesForPackageRootResolution);
     if (clearEverything) {
       configuredTarget = null;
     }

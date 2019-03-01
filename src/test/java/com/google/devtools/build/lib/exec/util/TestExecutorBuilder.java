@@ -53,7 +53,7 @@ public class TestExecutorBuilder {
   private Reporter reporter = new Reporter(bus);
   private OptionsParser optionsParser = OptionsParser.newOptionsParser(DEFAULT_OPTIONS);
   private List<ActionContext> strategies = new ArrayList<>();
-  private Map<String, SpawnActionContext> spawnStrategyMap =
+  private final Map<String, List<SpawnActionContext>> spawnStrategyMap =
       new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
   public TestExecutorBuilder(
@@ -96,7 +96,7 @@ public class TestExecutorBuilder {
   }
 
   public TestExecutorBuilder setExecution(String mnemonic, SpawnActionContext strategy) {
-    spawnStrategyMap.put(mnemonic, strategy);
+    spawnStrategyMap.put(mnemonic, ImmutableList.of(strategy));
     strategies.add(strategy);
     return this;
   }
@@ -110,6 +110,6 @@ public class TestExecutorBuilder {
         BlazeClock.instance(),
         optionsParser,
         SpawnActionContextMaps.createStub(strategies, spawnStrategyMap),
-        ImmutableList.<ActionContextProvider>of());
+        ImmutableList.of());
   }
 }

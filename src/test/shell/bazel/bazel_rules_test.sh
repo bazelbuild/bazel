@@ -107,7 +107,7 @@ function test_extra_action() {
   # The workspace name is initialized in testenv.sh; use that var rather than
   # hardcoding it here. The extra sed pass is so we can selectively expand that
   # one var while keeping the rest of the heredoc literal.
-  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > mypkg/echoer.sh << 'EOF'
+  sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > mypkg/echoer.sh << 'EOF'
 #!/bin/bash
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
@@ -293,50 +293,34 @@ EOF
 
 function test_genrule_default_env() {
   mkdir -p pkg
-  cat <<'EOF' >pkg/BUILD
+  cat >pkg/BUILD  <<'EOF'
 genrule(
     name = "test",
     outs = ["test.out"],
-    cmd = select({
-        "@bazel_tools//src/conditions:windows":
-            "(echo \"PATH=$$PATH\"; echo \"TMPDIR=$$TMP\") > $@",
-        "//conditions:default":
-            "(echo \"PATH=$$PATH\"; echo \"TMPDIR=$$TMPDIR\") > $@",
-    }),
+    cmd = "env > $@",
 )
 EOF
-  local old_path="${PATH}"
+
   local new_tmpdir="$(mktemp -d "${TEST_TMPDIR}/newfancytmpdirXXXXXX")"
-  [ -d "${new_tmpdir}" ] || \
-    fail "Could not create new temporary directory ${new_tmpdir}"
   if $is_windows; then
-    export PATH="$PATH_TO_BAZEL_WRAPPER;/bin;/usr/bin;/random/path;${old_path}"
-    local old_tmpdir="${TMP:-}"
-    export TMP="${new_tmpdir}"
-  else
-    export PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
-    local old_tmpdir="${TMPDIR:-}"
-    export TMPDIR="${new_tmpdir}"
-  fi
-  bazel build //pkg:test --spawn_strategy=standalone --action_env=PATH \
-    || fail "Failed to build //pkg:test"
-  if $is_windows; then
-    local -r EXPECTED_PATH="$PATH_TO_BAZEL_WRAPPER:.*/random/path"
+    PATH="/random/path:$PATH" TMP="${new_tmpdir}" \
+      bazel build //pkg:test --spawn_strategy=standalone --action_env=PATH \
+      &> $TEST_log || fail "Failed to build //pkg:test"
+
+    # Test that Bazel respects the client environment's TMP.
     # new_tmpdir is based on $TEST_TMPDIR which is not Unix-style -- convert it.
-    local -r EXPECTED_TMP="$(cygpath -u "$new_tmpdir")"
+    assert_contains "TMP=$(cygpath -u "${new_tmpdir}")" bazel-genfiles/pkg/test.out
   else
-    local -r EXPECTED_PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
-    local -r EXPECTED_TMP="$new_tmpdir"
+    PATH="/random/path:$PATH" TMPDIR="${new_tmpdir}" \
+      bazel build //pkg:test --spawn_strategy=standalone --action_env=PATH \
+      &> $TEST_log || fail "Failed to build //pkg:test"
+
+    # Test that Bazel respects the client environment's TMPDIR.
+    assert_contains "TMPDIR=${new_tmpdir}" bazel-genfiles/pkg/test.out
   fi
-  assert_contains "PATH=$EXPECTED_PATH" bazel-genfiles/pkg/test.out
-  # Bazel respects the client environment's TMPDIR.
-  assert_contains "TMPDIR=${EXPECTED_TMP}$" bazel-genfiles/pkg/test.out
-  if $is_windows; then
-    export TMP="${old_tmpdir}"
-  else
-    export TMPDIR="${old_tmpdir}"
-  fi
-  export PATH="${old_path}"
+
+  # Test that Bazel passed through the PATH from --action_env.
+  assert_contains "PATH=/random/path" bazel-genfiles/pkg/test.out
 }
 
 function test_genrule_remote() {

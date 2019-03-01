@@ -187,6 +187,94 @@ EOF
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
+function test_toolchain_alias_use_in_rule {
+  write_test_toolchain
+  write_test_rule
+
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchain.
+filegroup(name = 'dep_rule_test_toolchain')
+test_toolchain(
+    name = 'test_toolchain_impl_1',
+    extra_label = ':dep_rule_test_toolchain',
+    extra_str = 'foo from test_toolchain',
+    visibility = ['//visibility:public'])
+alias(
+    name = 'test_toolchain_impl_1_alias',
+    actual = ':test_toolchain_impl_1',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchain.
+toolchain(
+    name = 'test_toolchain_1',
+    toolchain_type = '//toolchain:test_toolchain',
+    exec_compatible_with = [],
+    target_compatible_with = [],
+    toolchain = ':test_toolchain_impl_1_alias',
+    visibility = ['//visibility:public'])
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build --extra_toolchains=//:test_toolchain_1 //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
+function test_toolchain_alias_chain_use_in_rule {
+  write_test_toolchain
+  write_test_rule
+
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchain.
+filegroup(name = 'dep_rule_test_toolchain')
+test_toolchain(
+    name = 'test_toolchain_impl_1',
+    extra_label = ':dep_rule_test_toolchain',
+    extra_str = 'foo from test_toolchain',
+    visibility = ['//visibility:public'])
+alias(
+    name = 'test_toolchain_impl_1_alias_alpha',
+    actual = ':test_toolchain_impl_1',
+    visibility = ['//visibility:public'])
+alias(
+    name = 'test_toolchain_impl_1_alias_beta',
+    actual = ':test_toolchain_impl_1_alias_alpha',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchain.
+toolchain(
+    name = 'test_toolchain_1',
+    toolchain_type = '//toolchain:test_toolchain',
+    exec_compatible_with = [],
+    target_compatible_with = [],
+    toolchain = ':test_toolchain_impl_1_alias_beta',
+    visibility = ['//visibility:public'])
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build --extra_toolchains=//:test_toolchain_1 //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
 function test_toolchain_use_in_rule_missing {
   write_test_toolchain
   write_test_rule
@@ -656,7 +744,7 @@ use_toolchain(
 EOF
 
   bazel build //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //demo:use: no such target '//toolchain:does_not_exist': target 'does_not_exist' not declared in package 'toolchain'"
+  expect_log "Target '//demo:use' depends on toolchain '//toolchain:does_not_exist', which cannot be found: no such target '//toolchain:does_not_exist': target 'does_not_exist' not declared in package 'toolchain'"
 }
 
 
@@ -1185,6 +1273,59 @@ EOF
   bazel build //:upper_lib &> $TEST_log && fail "Build succeeded unexpectedly"
   expect_not_log "java.lang.IllegalStateException"
   expect_log "Misconfigured toolchains: //:upper_toolchain is declared as a toolchain but has inappropriate dependencies"
+}
+
+function test_platform_duplicate_constraint_error() {
+  # Write a platform with duplicate constraint values for the same setting.
+  mkdir -p platform
+  cat >> platform/BUILD <<EOF
+constraint_setting(name = 'foo')
+constraint_value(name = 'val1', constraint_setting = ':foo')
+constraint_value(name = 'val2', constraint_setting = ':foo')
+platform(
+    name = 'test',
+    constraint_values = [
+        ':val1',
+        ':val2',
+    ],
+)
+EOF
+
+  bazel build //platform:test &> $TEST_log && fail "Build failure expected"
+  expect_log "Duplicate constraint values detected"
+}
+
+function test_toolchain_duplicate_constraint_error() {
+  # Write a toolchain with duplicate constraint values for the same setting.
+  mkdir -p toolchain
+  cat >> toolchain/BUILD <<EOF
+constraint_setting(name = 'foo')
+constraint_value(name = 'val1', constraint_setting = ':foo')
+constraint_value(name = 'val2', constraint_setting = ':foo')
+constraint_setting(name = 'bar')
+constraint_value(name = 'val3', constraint_setting = ':bar')
+constraint_value(name = 'val4', constraint_setting = ':bar')
+toolchain_type(name = 'toolchain_type')
+filegroup(name = 'toolchain')
+toolchain(
+    name = 'test',
+    toolchain_type = ':toolchain_type',
+    exec_compatible_with = [
+        ':val1',
+        ':val2',
+    ],
+    target_compatible_with = [
+        ':val3',
+        ':val4',
+    ],
+    toolchain = ':toolchain',
+)
+EOF
+
+  bazel build //toolchain:test &> $TEST_log && fail "Build failure expected"
+  expect_not_log "java.lang.IllegalArgumentException"
+  expect_log "in exec_compatible_with attribute of toolchain rule //toolchain:test: Duplicate constraint values detected: constraint_setting //toolchain:foo has \[//toolchain:val1, //toolchain:val2\]"
+  expect_log "in target_compatible_with attribute of toolchain rule //toolchain:test: Duplicate constraint values detected: constraint_setting //toolchain:bar has \[//toolchain:val3, //toolchain:val4\]"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

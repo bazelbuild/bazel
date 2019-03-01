@@ -174,9 +174,6 @@ FN:3,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
 FNH:1
-BA:4,2
-BRF:1
-BRH:1
 DA:3,1
 DA:4,1
 DA:5,1
@@ -322,10 +319,6 @@ FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcES
 FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
 FNF:4
 FNH:4
-BA:11,2
-BA:19,2
-BRF:2
-BRH:2
 DA:11,1
 DA:12,1
 DA:14,1
@@ -438,10 +431,6 @@ FNDA:1,_Z1ab
 FNDA:1,_Z41__static_initialization_and_destruction_0ii
 FNF:3
 FNH:3
-BA:6,2
-BA:13,2
-BRF:2
-BRH:2
 DA:5,1
 DA:6,1
 DA:7,1
@@ -457,9 +446,6 @@ FN:1,_Z1bi
 FNDA:1,_Z1bi
 FNF:1
 FNH:1
-BA:2,2
-BRF:1
-BRH:1
 DA:1,1
 DA:2,1
 DA:3,1
@@ -563,10 +549,6 @@ FNDA:1,_Z1ab
 FNDA:1,_Z41__static_initialization_and_destruction_0ii
 FNF:3
 FNH:3
-BA:6,2
-BA:13,2
-BRF:2
-BRH:2
 DA:5,1
 DA:6,1
 DA:7,1
@@ -582,9 +564,6 @@ FN:1,_Z1bi
 FNDA:1,_Z1bi
 FNF:1
 FNH:1
-BA:2,2
-BRF:1
-BRH:1
 DA:1,1
 DA:2,1
 DA:3,1
@@ -714,9 +693,6 @@ FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
 FNH:1
-BA:5,2
-BRF:1
-BRH:1
 DA:4,1
 DA:5,1
 DA:6,1
@@ -731,10 +707,6 @@ FNDA:1,_Z7b_for_ai
 FNDA:1,_Z7b_for_ci
 FNF:2
 FNH:2
-BA:3,2
-BA:12,2
-BRF:2
-BRH:2
 DA:2,1
 DA:3,1
 DA:4,1
@@ -751,9 +723,6 @@ FN:4,_Z1cb
 FNDA:1,_Z1cb
 FNF:1
 FNH:1
-BA:5,2
-BRF:1
-BRH:1
 DA:4,1
 DA:5,1
 DA:6,0
@@ -891,9 +860,6 @@ FNDA:2,_Z10a_redirectv
 FNDA:1,_Z1ab
 FNF:2
 FNH:2
-BA:5,2
-BRF:1
-BRH:1
 DA:4,1
 DA:5,1
 DA:6,1
@@ -912,10 +878,6 @@ FNDA:1,_Z7b_for_ci
 FNDA:3,_Z9b_for_allv
 FNF:3
 FNH:3
-BA:3,2
-BA:12,2
-BRF:2
-BRH:2
 DA:2,1
 DA:3,1
 DA:4,1
@@ -936,9 +898,6 @@ FNDA:1,_Z10c_redirectv
 FNDA:1,_Z1cb
 FNF:2
 FNH:2
-BA:5,2
-BRF:1
-BRH:1
 DA:4,1
 DA:5,1
 DA:6,0

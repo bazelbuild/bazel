@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -49,6 +50,9 @@ public class ContainingPackageLookupFunction implements SkyFunction {
       return env.getValue(ContainingPackageLookupValue.key(correctPackageIdentifier));
     }
 
+    if (ErrorReason.REPOSITORY_NOT_FOUND.equals(pkgLookupValue.getErrorReason())) {
+      return new ContainingPackageLookupValue.NoContainingPackage(pkgLookupValue.getErrorMsg());
+    }
     PathFragment parentDir = dir.getPackageFragment().getParentDirectory();
     if (parentDir == null) {
       return ContainingPackageLookupValue.NONE;

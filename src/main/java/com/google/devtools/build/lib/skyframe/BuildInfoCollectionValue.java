@@ -34,7 +34,7 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
   private final BuildInfoCollection collection;
 
   BuildInfoCollectionValue(BuildInfoCollection collection, GeneratingActions generatingActions) {
-    super(generatingActions);
+    super(generatingActions, /*nonceVersion=*/ null);
     this.collection = collection;
   }
 

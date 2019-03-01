@@ -106,7 +106,7 @@ public final class ExtraLinkTimeLibraries {
   public BuildLibraryOutput buildLibraries(
       RuleContext ruleContext, boolean staticMode, boolean forDynamicLibrary)
       throws InterruptedException, RuleErrorException {
-    NestedSetBuilder<LibraryToLinkWrapper> librariesToLink = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<LibraryToLink> librariesToLink = NestedSetBuilder.linkOrder();
     NestedSetBuilder<Artifact> runtimeLibraries = NestedSetBuilder.linkOrder();
     for (ExtraLinkTimeLibrary extraLibrary : getExtraLibraries()) {
       BuildLibraryOutput buildLibraryOutput =

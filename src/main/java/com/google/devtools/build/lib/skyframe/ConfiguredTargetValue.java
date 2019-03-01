@@ -70,4 +70,9 @@ public interface ConfiguredTargetValue extends NotComparableSkyValue {
    * called.
    */
   void clear(boolean clearEverything);
+
+  @Override
+  default boolean mustBeReferenceComparedOnRecomputation() {
+    return true;
+  }
 }

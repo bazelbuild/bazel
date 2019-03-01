@@ -105,7 +105,7 @@ public final class RemoteWorker {
       value = System.getProperty("bazel.DigestFunction", "SHA256");
       hashFunction = new DigestFunctionConverter().convert(value);
     } catch (OptionsParsingException e) {
-      throw new Error("The specified hash function '" + value + "' is not supported.");
+      throw new Error("The specified hash function '" + value + "' is not supported.", e);
     }
     return new JavaIoFileSystem(hashFunction);
   }
@@ -277,7 +277,8 @@ public final class RemoteWorker {
 
     final Server server = worker.startServer();
 
-    EventLoopGroup bossGroup = null, workerGroup = null;
+    EventLoopGroup bossGroup = null;
+    EventLoopGroup workerGroup = null;
     Channel ch = null;
     if (remoteWorkerOptions.httpListenPort != 0) {
       // Configure the server.

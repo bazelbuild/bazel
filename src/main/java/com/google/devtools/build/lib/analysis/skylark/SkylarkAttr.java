@@ -278,6 +278,13 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         if (starlarkDefinedTransition.isForAnalysisTesting()) {
           builder.hasAnalysisTestTransition();
         } else {
+          if (!env.getSemantics().experimentalStarlarkConfigTransitions()) {
+            throw new EvalException(
+                ast.getLocation(),
+                "Starlark-defined transitions on rule attributes is experimental and disabled by "
+                    + "default. This API is in development and subject to change at any time. Use "
+                    + "--experimental_starlark_config_transitions to use this experimental API.");
+          }
           builder.hasStarlarkDefinedTransition();
         }
         builder.cfg(new StarlarkAttributeTransitionProvider(starlarkDefinedTransition));

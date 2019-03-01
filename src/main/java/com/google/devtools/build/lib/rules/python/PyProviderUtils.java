@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -36,17 +37,30 @@ public class PyProviderUtils {
   // Disable construction.
   private PyProviderUtils() {}
 
-  /** Returns whether a given target has the py provider. */
-  public static boolean hasProvider(TransitiveInfoCollection target) {
+  /** Returns whether a given target has the {@code PyInfo} provider. */
+  public static boolean hasModernProvider(TransitiveInfoCollection target) {
+    return target.get(PyInfo.PROVIDER) != null;
+  }
+
+  /**
+   * Returns the {@code PyInfo} provider from the given target info, or null if the provider is not
+   * present.
+   */
+  public static PyInfo getModernProvider(TransitiveInfoCollection target) {
+    return target.get(PyInfo.PROVIDER);
+  }
+
+  /** Returns whether a given target has the legacy "py" provider. */
+  public static boolean hasLegacyProvider(TransitiveInfoCollection target) {
     return target.get(PyStructUtils.PROVIDER_NAME) != null;
   }
 
   /**
-   * Returns the struct representing the py provider, from the given target info.
+   * Returns the struct representing the legacy "py" provider, from the given target info.
    *
    * @throws EvalException if the provider does not exist or has the wrong type.
    */
-  public static StructImpl getProvider(TransitiveInfoCollection target) throws EvalException {
+  public static StructImpl getLegacyProvider(TransitiveInfoCollection target) throws EvalException {
     Object info = target.get(PyStructUtils.PROVIDER_NAME);
     if (info == null) {
       throw new EvalException(/*location=*/ null, "Target does not have 'py' provider");
@@ -71,8 +85,10 @@ public class PyProviderUtils {
   // the relevant rules.
   public static NestedSet<Artifact> getTransitiveSources(TransitiveInfoCollection target)
       throws EvalException {
-    if (hasProvider(target)) {
-      return PyStructUtils.getTransitiveSources(getProvider(target));
+    if (hasModernProvider(target)) {
+      return getModernProvider(target).getTransitiveSources().getSet(Artifact.class);
+    } else if (hasLegacyProvider(target)) {
+      return PyStructUtils.getTransitiveSources(getLegacyProvider(target));
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
       return NestedSetBuilder.<Artifact>compileOrder()
@@ -92,8 +108,10 @@ public class PyProviderUtils {
    */
   public static boolean getUsesSharedLibraries(TransitiveInfoCollection target)
       throws EvalException {
-    if (hasProvider(target)) {
-      return PyStructUtils.getUsesSharedLibraries(getProvider(target));
+    if (hasModernProvider(target)) {
+      return getModernProvider(target).getUsesSharedLibraries();
+    } else if (hasLegacyProvider(target)) {
+      return PyStructUtils.getUsesSharedLibraries(getLegacyProvider(target));
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
       return FileType.contains(files, CppFileTypes.SHARED_LIBRARY);
@@ -103,18 +121,16 @@ public class PyProviderUtils {
   /**
    * Returns the transitive import paths of a target.
    *
-   * <p>Imports are not currently propagated correctly (#7054). Currently the behavior is to return
-   * the imports contained in the target's {@link PythonImportsProvider}, ignoring the py provider,
-   * or no imports if there is no {@code PythonImportsProvider}. When #7054 is fixed, we'll instead
-   * return the imports specified by the py provider, or those from {@code PythonImportsProvider} if
-   * the py provider is not present, with an eventual goal of removing {@code
-   * PythonImportsProvider}.
+   * <p>If the target has a py provider, the value from that provider is used. Otherwise, we default
+   * to an empty set.
+   *
+   * @throws EvalException if the legacy struct provider is present but malformed
    */
-  // TODO(#7054) Implement the above change.
   public static NestedSet<String> getImports(TransitiveInfoCollection target) throws EvalException {
-    PythonImportsProvider importsProvider = target.getProvider(PythonImportsProvider.class);
-    if (importsProvider != null) {
-      return importsProvider.getTransitivePythonImports();
+    if (hasModernProvider(target)) {
+      return getModernProvider(target).getImports().getSet(String.class);
+    } else if (hasLegacyProvider(target)) {
+      return PyStructUtils.getImports(getLegacyProvider(target));
     } else {
       return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
     }
@@ -127,8 +143,10 @@ public class PyProviderUtils {
    * to false.
    */
   public static boolean getHasPy2OnlySources(TransitiveInfoCollection target) throws EvalException {
-    if (hasProvider(target)) {
-      return PyStructUtils.getHasPy2OnlySources(getProvider(target));
+    if (hasModernProvider(target)) {
+      return getModernProvider(target).getHasPy2OnlySources();
+    } else if (hasLegacyProvider(target)) {
+      return PyStructUtils.getHasPy2OnlySources(getLegacyProvider(target));
     } else {
       return false;
     }
@@ -141,10 +159,74 @@ public class PyProviderUtils {
    * to false.
    */
   public static boolean getHasPy3OnlySources(TransitiveInfoCollection target) throws EvalException {
-    if (hasProvider(target)) {
-      return PyStructUtils.getHasPy3OnlySources(getProvider(target));
+    if (hasModernProvider(target)) {
+      return getModernProvider(target).getHasPy3OnlySources();
+    } else if (hasLegacyProvider(target)) {
+      return PyStructUtils.getHasPy3OnlySources(getLegacyProvider(target));
     } else {
       return false;
+    }
+  }
+
+  /**
+   * Returns a builder to construct the legacy and/or modern Python providers and add them to a
+   * configured target.
+   *
+   * <p>If {@code createLegacy} is false, only the modern {@code PyInfo} provider is produced.
+   * Otherwise both {@code PyInfo} and the "py" provider are produced.
+   */
+  public static Builder builder(boolean createLegacy) {
+    return new Builder(createLegacy);
+  }
+
+  /** A builder to add both the legacy and modern providers to a configured target. */
+  public static class Builder {
+    private final PyInfo.Builder modernBuilder = PyInfo.builder();
+    private final PyStructUtils.Builder legacyBuilder = PyStructUtils.builder();
+    private final boolean createLegacy;
+
+    // Use the static builder() method instead.
+    private Builder(boolean createLegacy) {
+      this.createLegacy = createLegacy;
+    }
+
+    public Builder setTransitiveSources(NestedSet<Artifact> transitiveSources) {
+      modernBuilder.setTransitiveSources(transitiveSources);
+      legacyBuilder.setTransitiveSources(transitiveSources);
+      return this;
+    }
+
+    public Builder setUsesSharedLibraries(boolean usesSharedLibraries) {
+      modernBuilder.setUsesSharedLibraries(usesSharedLibraries);
+      legacyBuilder.setUsesSharedLibraries(usesSharedLibraries);
+      return this;
+    }
+
+    public Builder setImports(NestedSet<String> imports) {
+      modernBuilder.setImports(imports);
+      legacyBuilder.setImports(imports);
+      return this;
+    }
+
+    public Builder setHasPy2OnlySources(boolean hasPy2OnlySources) {
+      modernBuilder.setHasPy2OnlySources(hasPy2OnlySources);
+      legacyBuilder.setHasPy2OnlySources(hasPy2OnlySources);
+      return this;
+    }
+
+    public Builder setHasPy3OnlySources(boolean hasPy3OnlySources) {
+      modernBuilder.setHasPy3OnlySources(hasPy3OnlySources);
+      legacyBuilder.setHasPy3OnlySources(hasPy3OnlySources);
+      return this;
+    }
+
+    public RuleConfiguredTargetBuilder buildAndAddToTarget(
+        RuleConfiguredTargetBuilder targetBuilder) {
+      targetBuilder.addNativeDeclaredProvider(modernBuilder.build());
+      if (createLegacy) {
+        targetBuilder.addSkylarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
+      }
+      return targetBuilder;
     }
   }
 }

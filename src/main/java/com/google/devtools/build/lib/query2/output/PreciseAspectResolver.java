@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -54,21 +54,22 @@ public class PreciseAspectResolver implements AspectResolver {
       DependencyFilter dependencyFilter) throws InterruptedException {
     Multimap<Attribute, Label> result = LinkedListMultimap.create();
     if (target instanceof Rule) {
+      Rule rule = (Rule) target;
       Multimap<Attribute, Label> transitions =
-          ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
-      for (Map.Entry<Attribute, Label> entry : transitions.entries()) {
-        Target toTarget;
-        try {
-          toTarget = packageProvider.getTarget(eventHandler, entry.getValue());
-          result.putAll(
-              AspectDefinition.visitAspectsIfRequired(
-                  target,
-                  entry.getKey(),
-                  toTarget,
-                  dependencyFilter));
-        } catch (NoSuchThingException e) {
-          // Do nothing. One of target direct deps has an error. The dependency on the BUILD file
-          // (or one of the files included in it) will be reported in the query result of :BUILD.
+          rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
+      for (Attribute attribute : transitions.keySet()) {
+        ImmutableList<Aspect> aspects = attribute.getAspects(rule);
+        for (Label toLabel : transitions.get(attribute)) {
+          Target toTarget;
+          try {
+            toTarget = packageProvider.getTarget(eventHandler, toLabel);
+            result.putAll(
+                AspectDefinition.visitAspectsIfRequired(
+                    target, aspects, toTarget, dependencyFilter));
+          } catch (NoSuchThingException e) {
+            // Do nothing. One of target direct deps has an error. The dependency on the BUILD file
+            // (or one of the files included in it) will be reported in the query result of :BUILD.
+          }
         }
       }
     }

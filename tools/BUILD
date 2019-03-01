@@ -8,11 +8,11 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/android:srcs",
+        "//tools/aquery_differ:srcs",
         "//tools/bash:srcs",
         "//tools/buildstamp:srcs",
         "//tools/build_defs:srcs",
         "//tools/build_rules:srcs",
-        "//tools/cmd_line_differ:srcs",
         "//tools/coverage:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
@@ -71,9 +71,9 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         "//tools/android:all_windows_tests",
+        "//tools/aquery_differ:aquery_differ_test",
         "//tools/bash:all_windows_tests",
         "//tools/build_defs:all_windows_tests",
-        "//tools/cmd_line_differ:cmd_line_differ_test",
         "//tools/cpp/runfiles:all_windows_tests",
         "//tools/java:all_windows_tests",
         "//tools/jdk:all_windows_tests",

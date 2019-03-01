@@ -40,6 +40,12 @@ public abstract class Link {
       CppFileTypes.VERSIONED_SHARED_LIBRARY,
       CppFileTypes.INTERFACE_SHARED_LIBRARY);
 
+  public static final FileTypeSet ONLY_SHARED_LIBRARY_FILETYPES =
+      FileTypeSet.of(CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY);
+
+  public static final FileTypeSet ONLY_INTERFACE_LIBRARY_FILETYPES =
+      FileTypeSet.of(CppFileTypes.INTERFACE_SHARED_LIBRARY);
+
   public static final FileTypeSet ARCHIVE_LIBRARY_FILETYPES = FileTypeSet.of(
       CppFileTypes.ARCHIVE,
       CppFileTypes.PIC_ARCHIVE,

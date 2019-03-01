@@ -191,17 +191,14 @@ public final class JavaCompilationHelper {
    * @param manifestProtoOutput the output artifact for the manifest proto emitted from JavaBuilder
    * @param gensrcOutputJar the generated sources jar Artifact to create with the Action (null if no
    *     sources will be generated).
-   * @param outputDepsProto the compiler-generated jdeps file to create with the Action (null if not
-   *     requested)
    * @param instrumentationMetadataJar metadata file (null if no instrumentation is needed or if
    *     --experimental_java_coverage is true).
    * @param nativeHeaderOutput an archive of generated native header files.
    */
-  public void createCompileAction(
+  public JavaCompileAction createCompileAction(
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcOutputJar,
-      @Nullable Artifact outputDepsProto,
       @Nullable Artifact instrumentationMetadataJar,
       @Nullable Artifact nativeHeaderOutput) {
 
@@ -242,7 +239,7 @@ public final class JavaCompilationHelper {
     builder.setNativeHeaderOutput(nativeHeaderOutput);
     builder.setManifestProtoOutput(manifestProtoOutput);
     builder.setGensrcOutputJar(gensrcOutputJar);
-    builder.setOutputDepsProto(outputDepsProto);
+    builder.setOutputDepsProto(getOutputDepsProtoPath(outputJar));
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
     builder.setMetadata(instrumentationMetadataJar);
     builder.setInstrumentationJars(jacocoInstrumentation);
@@ -264,7 +261,7 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? ruleContext.getLabel() : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
-    builder.build(ruleContext, semantics);
+    return builder.build(ruleContext, semantics);
   }
 
   private ImmutableMap<String, String> getExecutionInfo() {
@@ -327,22 +324,19 @@ public final class JavaCompilationHelper {
    * @param outputJar the class jar Artifact to create with the Action
    * @param manifestProtoOutput the output artifact for the manifest proto emitted from JavaBuilder
    * @param gensrcJar the generated sources jar Artifact to create with the Action
-   * @param outputDepsProto the compiler-generated jdeps file to create with the Action
    * @param javaArtifactsBuilder the build to store the instrumentation metadata in
    * @param nativeHeaderOutput an archive of generated native header files.
    */
-  public void createCompileActionWithInstrumentation(
+  public JavaCompileAction createCompileActionWithInstrumentation(
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcJar,
-      @Nullable Artifact outputDepsProto,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       @Nullable Artifact nativeHeaderOutput) {
-    createCompileAction(
+    return createCompileAction(
         outputJar,
         manifestProtoOutput,
         gensrcJar,
-        outputDepsProto,
         createInstrumentationMetadata(outputJar, javaArtifactsBuilder),
         nativeHeaderOutput);
   }
@@ -374,9 +368,11 @@ public final class JavaCompilationHelper {
 
   private boolean shouldInstrumentJar() {
     // TODO(bazel-team): What about source jars?
+    RuleContext ruleContext = getRuleContext();
     return getConfiguration().isCodeCoverageEnabled()
         && attributes.hasSourceFiles()
-        && InstrumentedFilesCollector.shouldIncludeLocalSources(getRuleContext());
+        && InstrumentedFilesCollector.shouldIncludeLocalSources(
+            ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
   }
 
   private boolean shouldUseHeaderCompilation() {
@@ -449,6 +445,8 @@ public final class JavaCompilationHelper {
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
+    builder.setReduceClasspath(
+        getJavaConfiguration().getReduceJavaClasspath() != JavaClasspathMode.OFF);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());
@@ -564,26 +562,17 @@ public final class JavaCompilationHelper {
   }
 
   /**
-   * Creates the jdeps file artifact if needed. Returns null if the target can't emit dependency
+   * Creates the jdeps file path if needed. Returns null if the target can't emit dependency
    * information (i.e there is no compilation step, the target acts as an alias).
    *
    * @param outputJar output jar artifact used to derive the name
    * @return the jdeps file artifact or null if the target can't generate such a file
    */
-  public Artifact createOutputDepsProtoArtifact(
-      Artifact outputJar, JavaCompilationArtifacts.Builder builder) {
+  public PathFragment getOutputDepsProtoPath(Artifact outputJar) {
     if (!generatesOutputDeps()) {
       return null;
     }
-
-    Artifact outputDepsProtoArtifact =
-        getRuleContext()
-            .getDerivedArtifact(
-                FileSystemUtils.replaceExtension(outputJar.getRootRelativePath(), ".jdeps"),
-                outputJar.getRoot());
-
-    builder.setCompileTimeDependencies(outputDepsProtoArtifact);
-    return outputDepsProtoArtifact;
+    return FileSystemUtils.replaceExtension(outputJar.getExecPath(), ".jdeps");
   }
 
   /**
@@ -675,7 +664,7 @@ public final class JavaCompilationHelper {
         ruleContext,
         ruleContext,
         semantics,
-        attributes.getSourceFiles(),
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
         resourceJars.build(),
         outputJar,
         javaToolchainProvider,
@@ -690,7 +679,11 @@ public final class JavaCompilationHelper {
       resourceJars.add(gensrcJar);
     }
     SingleJarActionBuilder.createSourceJarAction(
-        ruleContext, semantics, attributes.getSourceFiles(), resourceJars.build(), outputJar);
+        ruleContext,
+        semantics,
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
+        resourceJars.build(),
+        outputJar);
   }
 
   /**

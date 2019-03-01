@@ -74,17 +74,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns a {@link Map} of execution info, which will be used in later processing to construct
-   * the actual command line that will be executed.
-   *
-   * <p>GenRule implementations can override this method to include additional specific information
-   * needed.
-   */
-  protected Map<String, String> getExtraExecutionInfo(RuleContext ruleContext, String command) {
-    return ImmutableMap.of();
-  }
-
-  /**
    * Returns {@code true} if the rule should be stamped.
    *
    * <p>Genrule implementations can set this based on the rule context, including by defining their
@@ -191,7 +180,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       executionInfo.put("local", "");
     }
 
-    executionInfo.putAll(getExtraExecutionInfo(ruleContext, baseCommand));
     ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, GenRuleAction.MNEMONIC);
 
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();

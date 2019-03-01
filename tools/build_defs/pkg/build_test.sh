@@ -155,13 +155,13 @@ function test_tar() {
   check_eq "./
 ./not-etc/
 ./not-etc/mapped-filename.conf" "$(get_tar_listing test-tar-files_dict.tar)"
-  check_eq "drwxr-xr-x 0/0               0 1970-01-01 00:00 ./
--rwxrwxrwx 0/0               0 1970-01-01 00:00 ./a
--rwxrwxrwx 0/0               0 1970-01-01 00:00 ./b" \
+  check_eq "drwxr-xr-x 0/0               0 2000-01-01 00:00 ./
+-rwxrwxrwx 0/0               0 2000-01-01 00:00 ./a
+-rwxrwxrwx 0/0               0 2000-01-01 00:00 ./b" \
       "$(get_tar_verbose_listing test-tar-empty_files.tar)"
-  check_eq "drwxr-xr-x 0/0               0 1970-01-01 00:00 ./
-drwxrwxrwx 0/0               0 1970-01-01 00:00 ./tmp/
-drwxrwxrwx 0/0               0 1970-01-01 00:00 ./pmt/" \
+  check_eq "drwxr-xr-x 0/0               0 2000-01-01 00:00 ./
+drwxrwxrwx 0/0               0 2000-01-01 00:00 ./tmp/
+drwxrwxrwx 0/0               0 2000-01-01 00:00 ./pmt/" \
       "$(get_tar_verbose_listing test-tar-empty_dirs.tar)"
 }
 

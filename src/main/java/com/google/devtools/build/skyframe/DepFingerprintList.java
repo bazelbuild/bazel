@@ -17,6 +17,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.Iterator;
 import javax.annotation.Nullable;
 
@@ -55,6 +56,11 @@ public class DepFingerprintList implements Iterable<BigInteger> {
     return Iterators.forArray(fingerprints);
   }
 
+  @Override
+  public String toString() {
+    return "DepFingerprintList{" + Arrays.toString(fingerprints) + "}";
+  }
+
   private static class NoDepGroupsFingerprintMarker extends DepFingerprintList {
     private NoDepGroupsFingerprintMarker() {
       super(null);
@@ -68,6 +74,11 @@ public class DepFingerprintList implements Iterable<BigInteger> {
     @Override
     public Iterator<BigInteger> iterator() {
       throw new UnsupportedOperationException("No dep groups fingerprint");
+    }
+
+    @Override
+    public String toString() {
+      return "NoDepGroupsFingerprintMarker";
     }
   }
 

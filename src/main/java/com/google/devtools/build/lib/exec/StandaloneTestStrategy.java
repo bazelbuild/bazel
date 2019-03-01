@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -52,6 +53,8 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,7 +91,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   @Override
-  public List<SpawnResult> exec(
+  public TestRunnerSpawn createTestRunnerSpawn(
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     Path execRoot = actionExecutionContext.getExecRoot();
@@ -134,76 +137,16 @@ public class StandaloneTestStrategy extends TestStrategy {
             /*tools=*/ ImmutableList.<Artifact>of(),
             ImmutableList.copyOf(action.getSpawnOutputs()),
             localResourceUsage);
-
-    TestResultData.Builder dataBuilder = TestResultData.newBuilder();
-
-    try {
-      int maxAttempts = getTestAttempts(action);
-      StandaloneTestResult standaloneTestResult =
-          executeTestAttempt(
-              action,
-              spawn,
-              actionExecutionContext,
-              execRoot,
-              coverageDir,
-              tmpDir,
-              workingDirectory);
-      int attempt;
-      for (attempt = 1;
-          standaloneTestResult.testResultData().getStatus() != BlazeTestStatus.PASSED
-              && attempt < maxAttempts;
-          attempt++) {
-        processFailedTestAttempt(
-            attempt, actionExecutionContext, action, dataBuilder, standaloneTestResult);
-        standaloneTestResult =
-            executeTestAttempt(
-                action,
-                spawn,
-                actionExecutionContext,
-                execRoot,
-                coverageDir,
-                tmpDir,
-                workingDirectory);
-      }
-      processLastTestAttempt(attempt, dataBuilder, standaloneTestResult.testResultData());
-      ImmutableList<Pair<String, Path>> testOutputs =
-          action.getTestOutputsMapping(actionExecutionContext.getPathResolver(), execRoot);
-      actionExecutionContext
-          .getEventHandler()
-          .post(
-              TestAttempt.forExecutedTestResult(
-                  action,
-                  standaloneTestResult.testResultData(),
-                  attempt,
-                  testOutputs,
-                  standaloneTestResult.executionInfo(),
-                  true));
-      finalizeTest(actionExecutionContext, action, dataBuilder.build());
-
-      // TODO(b/62588075): Should we accumulate SpawnResults across test attempts instead of only
-      // returning the last list?
-      return standaloneTestResult.spawnResults();
-    } catch (IOException e) {
-      // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-      // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-      StringBuilder sb = new StringBuilder();
-      sb.append("Caught I/O exception: ").append(e.getMessage());
-      for (Object s : e.getStackTrace()) {
-        sb.append("\n\t").append(s);
-      }
-      actionExecutionContext.getEventHandler().handle(Event.error(sb.toString()));
-      throw new EnvironmentalExecException("unexpected I/O exception", e);
-    }
+    return new StandaloneTestRunnerSpawn(
+        action, actionExecutionContext, spawn, tmpDir, coverageDir, workingDirectory, execRoot);
   }
 
-  private void processFailedTestAttempt(
+  private StandaloneFailedAttemptResult processFailedTestAttempt(
       int attempt,
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
-      TestResultData.Builder dataBuilder,
       StandaloneTestResult result)
       throws IOException {
-    ImmutableList.Builder<Pair<String, Path>> testOutputsBuilder = new ImmutableList.Builder<>();
     // Rename outputs
     String namePrefix =
         FileSystemUtils.removeExtension(action.getTestLog().getExecPath().getBaseName());
@@ -215,6 +158,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     // Get the normal test output paths, and then update them to use "attempt_N" names, and
     // attemptDir, before adding them to the outputs.
+    ImmutableList.Builder<Pair<String, Path>> testOutputsBuilder = new ImmutableList.Builder<>();
     ImmutableList<Pair<String, Path>> testOutputs =
         action.getTestOutputsMapping(actionExecutionContext.getPathResolver(),
             actionExecutionContext.getExecRoot());
@@ -245,11 +189,14 @@ public class StandaloneTestStrategy extends TestStrategy {
       testOutputsBuilder.add(Pair.of(testOutput.getFirst(), destinationPath));
     }
 
-    // Add the test log to the output
-    TestResultData data = result.testResultData();
+    TestResultData.Builder dataBuilder = result.testResultDataBuilder();
+
+    // We add the test log as a failed log here - we know this attempt failed, and we need to keep
+    // this information around for computing the test summary.
     dataBuilder.addFailedLogs(testLog.toString());
-    dataBuilder.addTestTimes(data.getTestTimes(0));
-    dataBuilder.addAllTestProcessTimes(data.getTestProcessTimesList());
+
+    // Add the test log to the output
+    TestResultData data = dataBuilder.build();
     actionExecutionContext
         .getEventHandler()
         .post(
@@ -261,31 +208,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 result.executionInfo(),
                 false));
     processTestOutput(actionExecutionContext, new TestResult(action, data, false), testLog);
-  }
-
-  private void processLastTestAttempt(
-      int attempt, TestResultData.Builder dataBuilder, TestResultData data) {
-    dataBuilder.setHasCoverage(data.getHasCoverage());
-    dataBuilder.setRemotelyCached(data.getRemotelyCached());
-    dataBuilder.setIsRemoteStrategy(data.getIsRemoteStrategy());
-    dataBuilder.setStatus(
-        data.getStatus() == BlazeTestStatus.PASSED && attempt > 1
-            ? BlazeTestStatus.FLAKY
-            : data.getStatus());
-    dataBuilder.setTestPassed(data.getTestPassed());
-    for (int i = 0; i < data.getFailedLogsCount(); i++) {
-      dataBuilder.addFailedLogs(data.getFailedLogs(i));
-    }
-    if (data.getTestPassed()) {
-      dataBuilder.setPassedLog(data.getPassedLog());
-    }
-    dataBuilder.addTestTimes(data.getTestTimes(0));
-    dataBuilder.addAllTestProcessTimes(data.getTestProcessTimesList());
-    dataBuilder.setStartTimeMillisEpoch(data.getStartTimeMillisEpoch());
-    dataBuilder.setRunDurationMillis(data.getRunDurationMillis());
-    if (data.hasTestCase()) {
-      dataBuilder.setTestCase(data.getTestCase());
-    }
+    return new StandaloneFailedAttemptResult(data);
   }
 
   private Map<String, String> setupEnvironment(
@@ -318,6 +241,16 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     Closeable streamed = null;
     Path testLogPath = actionExecutionContext.getInputPath(action.getTestLog());
+    // We have two protos to represent test attempts:
+    // 1. com.google.devtools.build.lib.view.test.TestStatus.TestResultData represents both failed
+    //    attempts and finished tests. Bazel stores this to disk to persist cached test result
+    //    information across server restarts.
+    // 2. com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult
+    //    represents only individual attempts (failed or not). Bazel reports this as an event to the
+    //    Build Event Protocol, but never saves it to disk.
+    //
+    // The TestResult proto is always constructed from a TestResultData instance, either one that is
+    // created right here, or one that is read back from disk.
     TestResultData.Builder builder = TestResultData.newBuilder();
 
     long startTime = actionExecutionContext.getClock().currentTimeMillis();
@@ -416,11 +349,34 @@ public class StandaloneTestStrategy extends TestStrategy {
 
       return StandaloneTestResult.builder()
           .setSpawnResults(spawnResults)
-          .setTestResultData(builder.build())
+          // We return the TestResultData.Builder rather than the finished TestResultData instance,
+          // as we may have to rename the output files in case the test needs to be rerun (if it
+          // failed here _and_ is marked flaky _and_ the number of flaky attempts is larger than 1).
+          .setTestResultDataBuilder(builder)
           .setExecutionInfo(executionInfo.build())
           .build();
     } catch (IOException e) {
       throw new TestExecException(e.getMessage());
+    }
+  }
+
+  /** In rare cases, we might write something to stderr. Append it to the real test.log. */
+  protected static void appendStderr(Path stdOut, Path stdErr) throws IOException {
+    FileStatus stat = stdErr.statNullable();
+    if (stat != null) {
+      try {
+        if (stat.getSize() > 0) {
+          if (stdOut.exists()) {
+            stdOut.setWritable(true);
+          }
+          try (OutputStream out = stdOut.getOutputStream(true);
+              InputStream in = stdErr.getInputStream()) {
+            ByteStreams.copy(in, out);
+          }
+        }
+      } finally {
+        stdErr.delete();
+      }
     }
   }
 
@@ -522,8 +478,34 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private final void finalizeTest(
-      ActionExecutionContext actionExecutionContext, TestRunnerAction action, TestResultData data)
+      TestRunnerAction action,
+      ActionExecutionContext actionExecutionContext,
+      StandaloneTestResult standaloneTestResult,
+      List<FailedAttemptResult> failedAttempts)
       throws IOException, ExecException {
+    TestResultData.Builder dataBuilder = standaloneTestResult.testResultDataBuilder();
+    for (FailedAttemptResult failedAttempt : failedAttempts) {
+      TestResultData failedAttemptData =
+          ((StandaloneFailedAttemptResult) failedAttempt).testResultData;
+      dataBuilder.addAllFailedLogs(failedAttemptData.getFailedLogsList());
+      dataBuilder.addTestTimes(failedAttemptData.getTestTimes(0));
+      dataBuilder.addAllTestProcessTimes(failedAttemptData.getTestProcessTimesList());
+    }
+    ImmutableList<Pair<String, Path>> testOutputs =
+        action.getTestOutputsMapping(
+            actionExecutionContext.getPathResolver(), actionExecutionContext.getExecRoot());
+    TestResultData data = dataBuilder.build();
+    int attempt = failedAttempts.size() + 1;
+    actionExecutionContext
+        .getEventHandler()
+        .post(
+            TestAttempt.forExecutedTestResult(
+                action, data, attempt, testOutputs, standaloneTestResult.executionInfo(), true));
+
+    if (dataBuilder.getStatus() == BlazeTestStatus.PASSED && !failedAttempts.isEmpty()) {
+      dataBuilder.setStatus(BlazeTestStatus.FLAKY);
+    }
+    data = dataBuilder.build();
     TestResult result = new TestResult(action, data, false);
     postTestResult(actionExecutionContext, result);
 
@@ -544,5 +526,71 @@ public class StandaloneTestStrategy extends TestStrategy {
   public TestResult newCachedTestResult(
       Path execRoot, TestRunnerAction action, TestResultData data) {
     return new TestResult(action, data, /*cached*/ true, execRoot);
+  }
+
+  private final class StandaloneFailedAttemptResult implements FailedAttemptResult {
+    private final TestResultData testResultData;
+
+    StandaloneFailedAttemptResult(TestResultData testResultData) {
+      this.testResultData = testResultData;
+    }
+  }
+
+  private final class StandaloneTestRunnerSpawn implements TestRunnerSpawn {
+    private final TestRunnerAction testAction;
+    private final ActionExecutionContext actionExecutionContext;
+    private final Spawn spawn;
+    private final Path tmpDir;
+    private final Path coverageDir;
+    private final Path workingDirectory;
+    private final Path execRoot;
+
+    StandaloneTestRunnerSpawn(
+        TestRunnerAction testAction,
+        ActionExecutionContext actionExecutionContext,
+        Spawn spawn,
+        Path tmpDir,
+        Path coverageDir,
+        Path workingDirectory,
+        Path execRoot) {
+      this.testAction = testAction;
+      this.actionExecutionContext = actionExecutionContext;
+      this.spawn = spawn;
+      this.tmpDir = tmpDir;
+      this.coverageDir = coverageDir;
+      this.workingDirectory = workingDirectory;
+      this.execRoot = execRoot;
+    }
+
+    public StandaloneTestResult execute() throws InterruptedException, IOException, ExecException {
+      return executeTestAttempt(
+          testAction,
+          spawn,
+          actionExecutionContext,
+          execRoot,
+          coverageDir,
+          tmpDir,
+          workingDirectory);
+    }
+
+    @Override
+    public int getMaxAttempts(TestAttemptResult firstTestAttemptResult) {
+      return getTestAttempts(testAction);
+    }
+
+    @Override
+    public FailedAttemptResult finalizeFailedTestAttempt(
+        TestAttemptResult testAttemptResult, int attempt) throws IOException {
+      return processFailedTestAttempt(
+          attempt, actionExecutionContext, testAction, (StandaloneTestResult) testAttemptResult);
+    }
+
+    @Override
+    public void finalizeTest(
+        TestAttemptResult finalResult, List<FailedAttemptResult> failedAttempts)
+        throws IOException, ExecException {
+      StandaloneTestStrategy.this.finalizeTest(
+          testAction, actionExecutionContext, (StandaloneTestResult) finalResult, failedAttempts);
+    }
   }
 }

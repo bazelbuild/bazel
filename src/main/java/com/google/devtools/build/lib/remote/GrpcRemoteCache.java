@@ -66,6 +66,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
@@ -254,7 +255,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }
     resourceName += "blobs/" + digestUtil.toString(digest);
 
-    HashingOutputStream hashOut = digestUtil.newHashingOutputStream(out);
+    @Nullable
+    HashingOutputStream hashOut =
+        options.remoteVerifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
     SettableFuture<Void> outerF = SettableFuture.create();
     bsAsyncStub()
         .read(
@@ -263,7 +266,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
               @Override
               public void onNext(ReadResponse readResponse) {
                 try {
-                  readResponse.getData().writeTo(hashOut);
+                  readResponse.getData().writeTo(hashOut != null ? hashOut : out);
                 } catch (IOException e) {
                   outerF.setException(e);
                   // Cancel the call.
@@ -285,7 +288,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
               @Override
               public void onCompleted() {
                 try {
-                  verifyContents(digest, hashOut);
+                  if (hashOut != null) {
+                    verifyContents(digest, hashOut);
+                  }
                   out.flush();
                   outerF.set(null);
                 } catch (IOException e) {
@@ -303,14 +308,10 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       Command command,
       Path execRoot,
       Collection<Path> files,
-      FileOutErr outErr,
-      boolean uploadAction)
+      FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
-    upload(execRoot, actionKey, action, command, files, outErr, uploadAction, result);
-    if (!uploadAction) {
-      return;
-    }
+    upload(execRoot, actionKey, action, command, files, outErr, result);
     try {
       retrier.execute(
           () ->
@@ -333,7 +334,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       Command command,
       Collection<Path> files,
       FileOutErr outErr,
-      boolean uploadAction,
       ActionResult.Builder result)
       throws ExecException, IOException, InterruptedException {
     UploadManifest manifest =
@@ -344,9 +344,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
             options.incompatibleRemoteSymlinks,
             options.allowSymlinkUpload);
     manifest.addFiles(files);
-    if (uploadAction) {
-      manifest.addAction(actionKey, action, command);
-    }
+    manifest.addAction(actionKey, action, command);
 
     List<Chunker> filesToUpload = new ArrayList<>();
 

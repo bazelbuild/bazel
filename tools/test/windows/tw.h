@@ -19,6 +19,7 @@
 #include <windows.h>
 
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -111,6 +112,37 @@ class Tee {
   Tee& operator=(const Tee&) = delete;
 };
 
+// Buffered input stream (based on a HANDLE) with peek-ahead support.
+class IFStream {
+ public:
+  enum {
+    kIFStreamErrorEOF = 256,
+    kIFStreamErrorIO = 257,
+  };
+
+  virtual ~IFStream() {}
+
+  // Reads one byte from the stream, and moves the cursor ahead.
+  // Returns:
+  //   0..255: success, the value of the read byte
+  //   256 (kIFStreamErrorEOF): failure, EOF was reached
+  //   257 (kIFStreamErrorIO): failure, I/O error
+  virtual int Get() = 0;
+
+  // Peeks at 'n' bytes starting at the current cursor position.
+  // Writes into 'out' the 0..'n' successfully peeked bytes.
+  // Returns:
+  //   0..n: the number of successfully peeked bytes
+  virtual DWORD Peek(DWORD n, uint8_t* out) const = 0;
+
+ protected:
+  IFStream() {}
+
+ private:
+  IFStream(const IFStream&) = delete;
+  IFStream& operator=(const IFStream&) = delete;
+};
+
 // The main function of the test wrapper.
 int TestWrapperMain(int argc, wchar_t** argv);
 
@@ -162,11 +194,9 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
                         bazel::windows::AutoHandle* output2,
                         std::unique_ptr<Tee>* result);
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
-                                std::vector<DWORD>* cdata_end_locations);
+bool TestOnly_CdataEncode(IFStream* in_stm, std::basic_ostream<char>* out_stm);
 
-bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
-                                   const std::wstring& abs_output);
+IFStream* TestOnly_CreateIFStream(HANDLE handle, DWORD page_size);
 
 }  // namespace testing
 

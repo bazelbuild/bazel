@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -66,10 +64,8 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     }
     Label selectedCcToolchain = toolchains.get(key);
     CcToolchainProvider ccToolchainProvider;
-    PlatformConfiguration platformConfig =
-        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-    if (platformConfig.isToolchainTypeEnabled(
-        CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+
+    if (CppHelper.useToolchainResolution(ruleContext)) {
       // This is a platforms build (and the user requested to build this suite explicitly).
       // Cc_toolchains provide CcToolchainInfo already. Let's select the CcToolchainProvider from
       // toolchains and provide it here as well.

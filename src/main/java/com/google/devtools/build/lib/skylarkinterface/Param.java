@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkinterface;
 
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -139,7 +139,7 @@ public @interface Param {
    * <p>Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
    * non-NONE.
    */
-  SkylarkSemantics.FlagIdentifier enableOnlyWithFlag() default FlagIdentifier.NONE;
+  StarlarkSemantics.FlagIdentifier enableOnlyWithFlag() default FlagIdentifier.NONE;
 
   /**
    * If not NONE, the annotated parameter will only be present if the given semantic flag is false.
@@ -149,7 +149,7 @@ public @interface Param {
    * <p>Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
    * non-NONE.
    */
-  SkylarkSemantics.FlagIdentifier disableWithFlag() default FlagIdentifier.NONE;
+  StarlarkSemantics.FlagIdentifier disableWithFlag() default FlagIdentifier.NONE;
 
   /**
    * Value for the parameter when the parameter is "disabled" based on semantic flags. (When the

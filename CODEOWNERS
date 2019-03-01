@@ -29,9 +29,9 @@ android/ @ahumesky @jin
 
 # Apple
 
-/src/objc_tools/ @allevato @davidgoldman @dierksen @dmaclach @sergiocampama @kelvinchan-google @reinhillman thomasv@google.com
+/src/objc_tools/ @allevato @davidgoldman @dmaclach @sergiocampama @kelvinchan-google @reinhillman @thomasvl
 
-/src/test/shell/bazel/apple/ @allevato @davidgoldman @dierksen @dmaclach @sergiocampama @kelvinchan-google @reinhillman thomasv@google.com
+/src/test/shell/bazel/apple/ @allevato @davidgoldman @dmaclach @sergiocampama @kelvinchan-google @reinhillman @thomasvl
 
 # Documentation
 

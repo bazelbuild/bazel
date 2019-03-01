@@ -18,10 +18,10 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "auto_configure_fail",
     "auto_configure_warning",
-    "build_flags",
     "escape_string",
     "execute",
     "get_env_var",
+    "get_starlark_list",
     "is_cc_configure_debug",
     "resolve_labels",
 )
@@ -31,8 +31,8 @@ def _auto_configure_warning_maybe(repository_ctx, msg):
     if is_cc_configure_debug(repository_ctx):
         auto_configure_warning(msg)
 
-def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = False):
-    """Return the content of msys crosstool."""
+def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False):
+    """Return the content of msys cc toolchain rule."""
     bazel_sh = get_env_var(repository_ctx, "BAZEL_SH", "", False).replace("\\", "/").lower()
     tokens = bazel_sh.rsplit("/", 1)
     msys_root = ""
@@ -50,54 +50,22 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
             tool_path[tool] = tool_bin_path + "/" + tool
         else:
             tool_path[tool] = "msys_gcc_installation_error.bat"
-
-    return (((
-                '   abi_version: "local"\n' +
-                '   abi_libc_version: "local"\n' +
-                '   builtin_sysroot: ""\n' +
-                '   compiler: "msys-gcc"\n' +
-                '   host_system_name: "local"\n' +
-                "   needsPic: false\n" +
-                '   target_libc: "msys"\n' +
-                '   target_cpu: "x64_windows"\n' +
-                '   target_system_name: "local"\n'
-            ) if not use_mingw else "") +
-            '   tool_path { name: "ar" path: "%s" }\n' % tool_path["ar"] +
-            '   tool_path { name: "compat-ld" path: "%s" }\n' % tool_path["ld"] +
-            '   tool_path { name: "cpp" path: "%s" }\n' % tool_path["cpp"] +
-            '   tool_path { name: "dwp" path: "%s" }\n' % tool_path["dwp"] +
-            '   tool_path { name: "gcc" path: "%s" }\n' % tool_path["gcc"] +
-            '   tool_path { name: "gcov" path: "%s" }\n' % tool_path["gcov"] +
-            '   tool_path { name: "ld" path: "%s" }\n' % tool_path["ld"] +
-            '   tool_path { name: "nm" path: "%s" }\n' % tool_path["nm"] +
-            '   tool_path { name: "objcopy" path: "%s" }\n' % tool_path["objcopy"] +
-            '   tool_path { name: "objdump" path: "%s" }\n' % tool_path["objdump"] +
-            '   tool_path { name: "strip" path: "%s" }\n' % tool_path["strip"] +
-            (('  cxx_builtin_include_directory: "%s/"\n' % tool_path_prefix) if msys_root else "") +
-            '   artifact_name_pattern { category_name: "executable" prefix: "" extension: ".exe"}\n' +
-            '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }\n' +
-            '   feature { name: "copy_dynamic_libraries_to_binary" }\n' +
-            "   feature {\n" +
-            "     name: 'gcc_env'\n" +
-            "     enabled: true\n" +
-            "     env_set {\n" +
-            '       action: "c-compile"\n' +
-            '       action: "c++-compile"\n' +
-            '       action: "c++-module-compile"\n' +
-            '       action: "c++-module-codegen"\n' +
-            '       action: "c++-header-parsing"\n' +
-            '       action: "assemble"\n' +
-            '       action: "preprocess-assemble"\n' +
-            '       action: "c++-link-executable"\n' +
-            '       action: "c++-link-dynamic-library"\n' +
-            '       action: "c++-link-nodeps-dynamic-library"\n' +
-            '       action: "c++-link-static-library"\n' +
-            "       env_entry {\n" +
-            '         key: "PATH"\n' +
-            '         value: "%s"\n' % tool_bin_path +
-            "       }\n" +
-            "     }\n" +
-            "   }")
+    tool_paths = (
+        '        tool_path (name= "ar", path= "%s"),\n' % tool_path["ar"] +
+        '        tool_path (name= "compat-ld", path= "%s"),\n' % tool_path["ld"] +
+        '        tool_path (name= "cpp", path= "%s"),\n' % tool_path["cpp"] +
+        '        tool_path (name= "dwp", path= "%s"),\n' % tool_path["dwp"] +
+        '        tool_path (name= "gcc", path= "%s"),\n' % tool_path["gcc"] +
+        '        tool_path (name= "gcov", path= "%s"),\n' % tool_path["gcov"] +
+        '        tool_path (name= "ld", path= "%s"),\n' % tool_path["ld"] +
+        '        tool_path (name= "nm", path= "%s"),\n' % tool_path["nm"] +
+        '        tool_path (name= "objcopy", path= "%s"),\n' % tool_path["objcopy"] +
+        '        tool_path (name= "objdump", path= "%s"),\n' % tool_path["objdump"] +
+        '        tool_path (name= "strip", path= "%s"),\n' % tool_path["strip"]
+    )
+    include_directories = ('        "%s/",\n        ' % tool_path_prefix) if msys_root else ""
+    artifact_name_patterns = '        artifact_name_pattern(category_name="executable", prefix="", extension=".exe"),'
+    return tool_paths, tool_bin_path, include_directories, artifact_name_patterns
 
 def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
@@ -350,8 +318,7 @@ def configure_windows_toolchain(repository_ctx):
     """Configure C++ toolchain on Windows."""
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.static.windows",
-        "@bazel_tools//tools/cpp:CROSSTOOL",
-        "@bazel_tools//tools/cpp:CROSSTOOL.tpl",
+        "@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl",
         "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
         "@bazel_tools//tools/cpp:msys_gcc_installation_error.bat",
     ])
@@ -386,14 +353,14 @@ def configure_windows_toolchain(repository_ctx):
                 {"%{vc_error_message}": message},
             )
 
+    tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw, _ = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
+    tool_paths, tool_bin_path, inc_dir, artifact_patterns = _get_escaped_windows_msys_starlark_content(repository_ctx)
     if not vc_path or missing_tools:
         repository_ctx.template(
-            "CROSSTOOL",
-            paths["@bazel_tools//tools/cpp:CROSSTOOL.tpl"],
+            "cc_toolchain_config.bzl",
+            paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl"],
             {
-                "%{cpu}": "x64_windows",
-                "%{default_toolchain_name}": "msvc_x64",
-                "%{toolchain_name}": "msys_x64",
+                "%{toolchain_identifier}": "msys_x64",
                 "%{msvc_env_tmp}": "",
                 "%{msvc_env_path}": "",
                 "%{msvc_env_include}": "",
@@ -402,20 +369,36 @@ def configure_windows_toolchain(repository_ctx):
                 "%{msvc_ml_path}": "vc_installation_error.bat",
                 "%{msvc_link_path}": "vc_installation_error.bat",
                 "%{msvc_lib_path}": "vc_installation_error.bat",
-                "%{msys_x64_mingw_top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-                "%{msys_x64_mingw_cxx_content}": build_flags(["-std=gnu++0x"]),
-                "%{msys_x64_mingw_link_content}": build_flags(["-lstdc++"]),
+                "%{msys_x64_mingw_cxx_content}": get_starlark_list(["-std=gnu++0x"]),
+                "%{msys_x64_mingw_link_content}": get_starlark_list(["-lstdc++"]),
                 "%{dbg_mode_debug}": "/DEBUG",
                 "%{fastbuild_mode_debug}": "/DEBUG",
-                "%{top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
                 "%{compile_content}": "",
-                "%{cxx_content}": build_flags(["-std=gnu++0x"]),
-                "%{link_content}": build_flags(["-lstdc++"]),
+                "%{cxx_content}": get_starlark_list(["-std=gnu++0x"]),
+                "%{link_content}": get_starlark_list(["-lstdc++"]),
                 "%{opt_compile_content}": "",
                 "%{opt_link_content}": "",
                 "%{unfiltered_content}": "",
                 "%{dbg_compile_content}": "",
-                "%{msvc_x64_top_level_content}": "",
+                "%{cxx_builtin_include_directories}": inc_dir,
+                "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
+                "%{coverage_feature}": "",
+                "%{use_coverage_feature}": "",
+                "%{supports_start_end_lib}": "",
+                "%{use_windows_features}": "windows_features + ",
+                "%{abi_version}": "local",
+                "%{abi_libc_version}": "local",
+                "%{builtin_sysroot}": "",
+                "%{compiler}": "msys-gcc",
+                "%{host_system_name}": "local",
+                "%{target_libc}": "msys",
+                "%{target_cpu}": "x64_windows",
+                "%{target_system_name}": "local",
+                "%{tool_paths}": tool_paths,
+                "%{mingw_tool_paths}": tool_paths_mingw,
+                "%{artifact_name_patterns}": artifact_patterns,
+                "%{tool_bin_path}": tool_bin_path,
+                "%{mingw_tool_bin_path}": tool_bin_path_mingw,
             },
         )
         return
@@ -451,24 +434,22 @@ def configure_windows_toolchain(repository_ctx):
 
     for path in escaped_include_paths.split(";"):
         if path:
-            escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
+            escaped_cxx_include_directories.append("\"%s\"" % path)
     if llvm_path:
         clang_version = _get_clang_version(repository_ctx, cl_path)
         clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
         clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
-        escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % clang_include_path)
+        escaped_cxx_include_directories.append("\"%s\"" % clang_include_path)
         clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
         escaped_lib_paths = escaped_lib_paths + ";" + clang_lib_path
 
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
     repository_ctx.template(
-        "CROSSTOOL",
-        paths["@bazel_tools//tools/cpp:CROSSTOOL.tpl"],
+        "cc_toolchain_config.bzl",
+        paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl"],
         {
-            "%{cpu}": "x64_windows",
-            "%{default_toolchain_name}": "msvc_x64",
-            "%{toolchain_name}": "msys_x64",
+            "%{toolchain_identifier}": "msys_x64",
             "%{msvc_env_tmp}": escaped_tmp_dir,
             "%{msvc_env_path}": escaped_paths,
             "%{msvc_env_include}": escaped_include_paths,
@@ -479,17 +460,33 @@ def configure_windows_toolchain(repository_ctx):
             "%{msvc_lib_path}": lib_path,
             "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
             "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-            "%{top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-            "%{msys_x64_mingw_top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-            "%{msys_x64_mingw_cxx_content}": build_flags(["-std=gnu++0x"]),
-            "%{msys_x64_mingw_link_content}": build_flags(["-lstdc++"]),
+            "%{msys_x64_mingw_cxx_content}": get_starlark_list(["-std=gnu++0x"]),
+            "%{msys_x64_mingw_link_content}": get_starlark_list(["-lstdc++"]),
             "%{compile_content}": "",
-            "%{cxx_content}": build_flags(["-std=gnu++0x"]),
-            "%{link_content}": build_flags(["-lstdc++"]),
+            "%{cxx_content}": get_starlark_list(["-std=gnu++0x"]),
+            "%{link_content}": get_starlark_list(["-lstdc++"]),
             "%{opt_compile_content}": "",
             "%{opt_link_content}": "",
             "%{unfiltered_content}": "",
             "%{dbg_compile_content}": "",
-            "%{msvc_x64_top_level_content}": "\n".join(escaped_cxx_include_directories),
+            "%{cxx_builtin_include_directories}": inc_dir + ",\n        ".join(escaped_cxx_include_directories),
+            "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw + ",\n        ".join(escaped_cxx_include_directories),
+            "%{coverage_feature}": "",
+            "%{use_coverage_feature}": "",
+            "%{supports_start_end_lib}": "",
+            "%{use_windows_features}": "windows_features + ",
+            "%{abi_version}": "local",
+            "%{abi_libc_version}": "local",
+            "%{builtin_sysroot}": "",
+            "%{compiler}": "msys-gcc",
+            "%{host_system_name}": "local",
+            "%{target_libc}": "msys",
+            "%{target_cpu}": "x64_windows",
+            "%{target_system_name}": "local",
+            "%{tool_paths}": tool_paths,
+            "%{mingw_tool_paths}": tool_paths_mingw,
+            "%{artifact_name_patterns}": artifact_patterns,
+            "%{tool_bin_path}": tool_bin_path,
+            "%{mingw_tool_bin_path}": tool_bin_path_mingw,
         },
     )

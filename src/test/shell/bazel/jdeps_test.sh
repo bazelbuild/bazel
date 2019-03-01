@@ -59,9 +59,8 @@ function test_jdeps() {
   else
     platform="linux"
   fi
-  cp $(rlocation openjdk_${platform}/file/zulu-${platform}.tar.gz) .
-  tar xf zulu-${platform}.tar.gz || fail "Failed to extract JDK."
-  find . | grep jdeps
+  cp $(rlocation io_bazel/src/allmodules_jdk.tar.gz) .
+  tar xf allmodules_jdk.tar.gz || fail "Failed to extract JDK."
   blacklist=$(rlocation io_bazel/src/test/shell/bazel/jdeps_class_blacklist.txt)
   deploy_jar=$(rlocation io_bazel/src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar)
   cd ../bazeljar
@@ -73,7 +72,7 @@ function test_jdeps() {
   # src/test/shell/bazel/jdeps_class_blacklist.txt.
   find . -type f -iname \*class | \
     grep -vFf "$blacklist" | \
-    xargs ../jdk/zulu9.0.7.1-jdk9.0.7-*/bin/jdeps --list-reduced-deps | \
+    xargs ../jdk/reduced/bin/jdeps --list-reduced-deps | \
     grep -v "unnamed module" > ../jdeps \
     || fail "Failed to run jdeps on non blacklisted class files."
   cd ..

@@ -409,12 +409,7 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    try {
-      client.exec(simpleSpawn, simplePolicy);
-      fail("Expected an exception");
-    } catch (Exception e) {
-      assertThat(e).hasMessageThat().contains("no output files.");
-    }
+    client.exec(simpleSpawn, simplePolicy);
   }
 
   @Test
@@ -1182,15 +1177,16 @@ public class GrpcRemoteExecutionClientTest {
                       .setResponse(Any.pack(ExecuteResponse.newBuilder().setStatus(status).build()))
                       .build());
               responseObserver.onCompleted();
+            } else {
+              assertThat(request.getSkipCacheLookup()).isFalse();
+              responseObserver.onNext(
+                  Operation.newBuilder()
+                      .setDone(true)
+                      .setResponse(
+                          Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                      .build());
+              responseObserver.onCompleted();
             }
-            assertThat(request.getSkipCacheLookup()).isFalse();
-            responseObserver.onNext(
-                Operation.newBuilder()
-                    .setDone(true)
-                    .setResponse(
-                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
-                    .build());
-            responseObserver.onCompleted();
           }
         });
     AtomicInteger numCacheUploads = new AtomicInteger();

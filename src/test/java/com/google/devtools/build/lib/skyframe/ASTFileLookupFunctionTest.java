@@ -164,6 +164,6 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     assertThat(result.get(skyKey).getErrorMsg())
     .contains("Unable to load package for '@a_remote_repo//remote_pkg:BUILD'");
     assertThat(result.get(skyKey).getErrorMsg())
-        .contains("The repository could not be resolved");
+        .contains("The repository '@a_remote_repo' could not be resolved");
   }
 }

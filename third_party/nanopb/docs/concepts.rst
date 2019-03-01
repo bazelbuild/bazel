@@ -255,6 +255,61 @@ generates this field description array for the structure *Person_PhoneNumber*::
     PB_LAST_FIELD
  };
 
+Oneof
+=====
+Protocol Buffers supports `oneof`_ sections. Here is an example of ``oneof`` usage::
+
+ message MsgType1 {
+     required int32 value = 1;
+ }
+
+ message MsgType2 {
+     required bool value = 1;
+ }
+ 
+ message MsgType3 {
+     required int32 value1 = 1;
+     required int32 value2 = 2;
+ } 
+ 
+ message MyMessage {
+     required uint32 uid = 1;
+     required uint32 pid = 2;
+     required uint32 utime = 3;
+ 
+     oneof payload {
+         MsgType1 msg1 = 4;
+         MsgType2 msg2 = 5;
+         MsgType3 msg3 = 6;
+     }
+ }
+
+Nanopb will generate ``payload`` as a C union and add an additional field ``which_payload``::
+
+  typedef struct _MyMessage {
+    uint32_t uid;
+    uint32_t pid;
+    uint32_t utime;
+    pb_size_t which_payload;
+    union {
+        MsgType1 msg1;
+        MsgType2 msg2;
+        MsgType3 msg3;
+    } payload;
+  /* @@protoc_insertion_point(struct:MyMessage) */
+  } MyMessage;
+
+``which_payload`` indicates which of the ``oneof`` fields is actually set. 
+The user is expected to set the filed manually using the correct field tag::
+
+  MyMessage msg = MyMessage_init_zero;
+  msg.payload.msg2.value = true;
+  msg.which_payload = MyMessage_msg2_tag;
+
+Notice that neither ``which_payload`` field nor the unused fileds in ``payload``
+will consume any space in the resulting encoded message.
+
+.. _`oneof`: https://developers.google.com/protocol-buffers/docs/reference/proto2-spec#oneof_and_oneof_field
 
 Extension fields
 ================

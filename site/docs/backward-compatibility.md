@@ -61,7 +61,7 @@ In other words, during a migration window for an incompatible change `foo`:
 1. After the code is migrated, the users can check whether they migrated
    successfully by building with `--incompatible_foo=true`. However, their
    code will continue to work in the same release in default state (where
-   `--incompatible_foo` is of), as well after the migration window is over
+   `--incompatible_foo` is off), as well after the migration window is over
    (at which point the flag will be effectively on).
 
 ## Communicating incompatible changes

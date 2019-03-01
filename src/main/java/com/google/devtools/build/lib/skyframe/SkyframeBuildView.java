@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
@@ -62,7 +63,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -294,14 +294,14 @@ public final class SkyframeBuildView {
           Event.info(
               "--discard_analysis_cache was used in the previous build, "
               + "discarding analysis cache."));
-      skyframeExecutor.handleConfiguredTargetChange();
+      skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
       String diff = describeConfigurationDifference(configurations, maxDifferencesToShow);
       if (diff != null) {
         // Clearing cached ConfiguredTargets when the configuration changes is not required for
         // correctness, but prevents unbounded memory usage.
         eventHandler.handle(Event.info(diff + ", discarding analysis cache."));
-        skyframeExecutor.handleConfiguredTargetChange();
+        skyframeExecutor.handleAnalysisInvalidatingChange();
       }
     }
     skyframeAnalysisWasDiscarded = false;
@@ -751,7 +751,8 @@ public final class SkyframeBuildView {
       Target target,
       BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
+      ConfiguredTargetKey configuredTargetKey,
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
@@ -766,6 +767,7 @@ public final class SkyframeBuildView {
         target,
         configuration,
         getHostConfiguration(configuration),
+        configuredTargetKey,
         prerequisiteMap,
         configConditions,
         toolchainContext);

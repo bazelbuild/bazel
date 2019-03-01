@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -46,28 +45,6 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   private static SkylarkDict<Object, Object> makeDict(Environment env) {
     return SkylarkDict.of(env, 1, 1, 2, 2);
-  }
-
-  @Test
-  public void testEmptyStringToIterable() throws Exception {
-    assertThat(EvalUtils.toIterable("", null, null)).isEmpty();
-  }
-
-  @Test
-  public void testStringToIterable() throws Exception {
-    assertThat(EvalUtils.toIterable("abc", null, null)).hasSize(3);
-  }
-
-  @Test
-  public void testSize() throws Exception {
-    assertThat(EvalUtils.size("abc")).isEqualTo(3);
-    assertThat(EvalUtils.size(ImmutableMap.of(1, 2, 3, 4))).isEqualTo(2);
-    assertThat(EvalUtils.size(SkylarkList.Tuple.of(1, 2, 3))).isEqualTo(3);
-    SkylarkNestedSet set = SkylarkNestedSet.of(
-        Object.class,
-        NestedSetBuilder.stableOrder().add(1).add(2).add(3).build());
-    assertThat(EvalUtils.size(set)).isEqualTo(3);
-    assertThat(EvalUtils.size(ImmutableList.of(1, 2, 3))).isEqualTo(3);
   }
 
   /** MockClassA */

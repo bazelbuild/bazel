@@ -183,6 +183,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
           .append('\n');
     }
 
+    if (options.includeArtifacts) {
     stringBuilder
         .append("  Inputs: [")
         .append(
@@ -202,6 +203,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
                 .sorted()
                 .collect(Collectors.joining(", ")))
         .append("]\n");
+    }
 
     if (action instanceof SpawnAction) {
       SpawnAction spawnAction = (SpawnAction) action;

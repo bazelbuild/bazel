@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkinterface;
 
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -46,10 +46,10 @@ import java.lang.annotation.Target;
  *   <li>If structField=true, there must be zero user-supplied parameters.
  *   <li>The underlying java method's parameters must be supplied in the following order:
  *       <pre>method([positionals]*[named args]*(extra positionals list)(extra kwargs)
- *       (Location)(FuncallExpression)(Envrionment)(SkylarkSemantics)(StarlarkContext))</pre>
+ *       (Location)(FuncallExpression)(Envrionment)(StarlarkSemantics)(StarlarkContext))</pre>
  *       where (extra positionals list) is a SkylarkList if extraPositionals is defined, (extra
  *       kwargs) is a SkylarkDict if extraKeywords is defined, and Location, FuncallExpression,
- *       Environment, and SkylarkSemantics are supplied by the interpreter if and only if
+ *       Environment, and StarlarkSemantics are supplied by the interpreter if and only if
  *       useLocation, useAst, useEnvironment, and useSkylarkSemantics are specified, respectively.
  *   <li>The number of method parameters much match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
@@ -165,7 +165,7 @@ public @interface SkylarkCallable {
 
   /**
    * If true, the Skylark semantics will be passed as an argument of the annotated function. (Thus,
-   * the annotated method signature must contain SkylarkSemantics as a parameter. See the
+   * the annotated method signature must contain StarlarkSemantics as a parameter. See the
    * interface-level javadoc for details.)
    */
   boolean useSkylarkSemantics() default false;
@@ -182,12 +182,12 @@ public @interface SkylarkCallable {
    * Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
    * non-NONE.
    */
-  SkylarkSemantics.FlagIdentifier enableOnlyWithFlag() default FlagIdentifier.NONE;
+  StarlarkSemantics.FlagIdentifier enableOnlyWithFlag() default FlagIdentifier.NONE;
 
   /**
    * If not NONE, the annotated method will only be callable if the given semantic flag is false.
    * Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
    * non-NONE.
    */
-  SkylarkSemantics.FlagIdentifier disableWithFlag() default FlagIdentifier.NONE;
+  StarlarkSemantics.FlagIdentifier disableWithFlag() default FlagIdentifier.NONE;
 }

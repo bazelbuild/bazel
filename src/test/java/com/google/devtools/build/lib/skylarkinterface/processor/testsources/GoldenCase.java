@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 
 /**
  * Test source file verifying various proper uses of SkylarkCallable.
@@ -39,12 +39,11 @@ public class GoldenCase {
   }
 
   @SkylarkCallable(
-    name = "struct_field_method_with_info",
-    documented = false,
-    structField = true,
-    useSkylarkSemantics = true
-  )
-  public String structFieldMethodWithInfo(SkylarkSemantics semantics) {
+      name = "struct_field_method_with_info",
+      documented = false,
+      structField = true,
+      useSkylarkSemantics = true)
+  public String structFieldMethodWithInfo(StarlarkSemantics semantics) {
     return "foo";
   }
 
@@ -62,18 +61,17 @@ public class GoldenCase {
   }
 
   @SkylarkCallable(
-    name = "zero_arg_method_with_skylark_info",
-    documented = false,
-    useAst = true,
-    useLocation = true,
-    useEnvironment = true,
-    useSkylarkSemantics = true
-  )
+      name = "zero_arg_method_with_skylark_info",
+      documented = false,
+      useAst = true,
+      useLocation = true,
+      useEnvironment = true,
+      useSkylarkSemantics = true)
   public Integer zeroArgMethod(
       Location location,
       FuncallExpression ast,
       Environment environment,
-      SkylarkSemantics semantics) {
+      StarlarkSemantics semantics) {
     return 0;
   }
 
@@ -108,18 +106,17 @@ public class GoldenCase {
   }
 
   @SkylarkCallable(
-    name = "three_arg_method_with_params_and_info",
-    documented = false,
-    parameters = {
-      @Param(name = "one", type = String.class, named = true),
-      @Param(name = "two", type = Integer.class, named = true),
-      @Param(name = "three", type = String.class, named = true),
-    },
-    useAst = true,
-    useLocation = true,
-    useEnvironment = true,
-    useSkylarkSemantics = true
-  )
+      name = "three_arg_method_with_params_and_info",
+      documented = false,
+      parameters = {
+        @Param(name = "one", type = String.class, named = true),
+        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "three", type = String.class, named = true),
+      },
+      useAst = true,
+      useLocation = true,
+      useEnvironment = true,
+      useSkylarkSemantics = true)
   public String threeArgMethodWithParams(
       String one,
       Integer two,
@@ -127,7 +124,7 @@ public class GoldenCase {
       Location location,
       FuncallExpression ast,
       Environment environment,
-      SkylarkSemantics skylarkSemantics) {
+      StarlarkSemantics starlarkSemantics) {
     return "baz";
   }
 
@@ -177,7 +174,7 @@ public class GoldenCase {
       Location location,
       FuncallExpression ast,
       Environment environment,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       StarlarkContext context) {
     return "blep";
   }
@@ -221,11 +218,9 @@ public class GoldenCase {
       structField = true,
       useLocation = true,
       useEnvironment = true,
-      useSkylarkSemantics = true
-  )
-  public String structFieldMethodWithInfo(Location location,
-      Environment environment,
-      SkylarkSemantics skylarkSemantics) {
+      useSkylarkSemantics = true)
+  public String structFieldMethodWithInfo(
+      Location location, Environment environment, StarlarkSemantics starlarkSemantics) {
     return "dragon";
   }
 }

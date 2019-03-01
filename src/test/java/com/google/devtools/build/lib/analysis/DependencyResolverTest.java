@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.causes.Cause;
@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.Collection;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -69,8 +67,10 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
           @Override
           protected Map<Label, Target> getTargets(
-              Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses) {
-            return Streams.stream(labels)
+              OrderedSetMultimap<DependencyKind, Label> labelMap,
+              Target fromTarget,
+              NestedSetBuilder<Cause> rootCauses) {
+            return labelMap.values().stream()
                 .distinct()
                 .collect(
                     Collectors.toMap(
@@ -92,38 +92,41 @@ public class DependencyResolverTest extends AnalysisTestCase {
     scratch.file("" + name + "/BUILD", contents);
   }
 
-  private OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
+  private OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
       String targetName, NativeAspectClass aspect) throws Exception {
     Target target =
         packageManager.getTarget(reporter, Label.parseAbsolute(targetName, ImmutableMap.of()));
-    return dependencyResolver.dependentNodeMap(
-        new TargetAndConfiguration(target, getTargetConfiguration()),
-        getHostConfiguration(),
-        aspect != null ? Aspect.forNative(aspect) : null,
-        ImmutableMap.of(),
-        /*toolchainLabels=*/ ImmutableSet.of(),
-        /*trimmingTransitionFactory=*/ null);
+    OrderedSetMultimap<DependencyKind, Dependency> prerequisiteMap =
+        dependencyResolver.dependentNodeMap(
+            new TargetAndConfiguration(target, getTargetConfiguration()),
+            getHostConfiguration(),
+            aspect != null ? Aspect.forNative(aspect) : null,
+            ImmutableMap.of(),
+            /*toolchainLabels=*/ ImmutableSet.of(),
+            /*trimmingTransitionFactory=*/ null);
+
+    return prerequisiteMap;
   }
 
   @SafeVarargs
   private final Dependency assertDep(
-      OrderedSetMultimap<Attribute, Dependency> dependentNodeMap,
+      OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap,
       String attrName,
       String dep,
       AspectDescriptor... aspects) {
-    Attribute attr = null;
-    for (Attribute candidate : dependentNodeMap.keySet()) {
-      if (candidate.getName().equals(attrName)) {
-        attr = candidate;
+    DependencyKind kind = null;
+    for (DependencyKind candidate : dependentNodeMap.keySet()) {
+      if (candidate.getAttribute() != null && candidate.getAttribute().getName().equals(attrName)) {
+        kind = candidate;
         break;
       }
     }
 
-    assertWithMessage("Attribute '" + attrName + "' not found").that(attr).isNotNull();
+    assertWithMessage("Attribute '" + attrName + "' not found").that(kind).isNotNull();
     Dependency dependency = null;
-    for (Dependency candidate : dependentNodeMap.get(attr)) {
-      if (candidate.getLabel().toString().equals(dep)) {
-        dependency = candidate;
+    for (Dependency depCandidate : dependentNodeMap.get(kind)) {
+      if (depCandidate.getLabel().toString().equals(dep)) {
+        dependency = depCandidate;
         break;
       }
     }
@@ -141,7 +144,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     pkg("a",
         "aspect(name='a', foo=[':b'])",
         "aspect(name='b', foo=[])");
-    OrderedSetMultimap<Attribute, Dependency> map = dependentNodeMap("//a:a", null);
+    OrderedSetMultimap<DependencyKind, Dependency> map = dependentNodeMap("//a:a", null);
     assertDep(
         map, "foo", "//a:b",
         new AspectDescriptor(TestAspects.SIMPLE_ASPECT));
@@ -153,7 +156,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     pkg("a",
         "simple(name='a', foo=[':b'])",
         "simple(name='b', foo=[])");
-    OrderedSetMultimap<Attribute, Dependency> map =
+    OrderedSetMultimap<DependencyKind, Dependency> map =
         dependentNodeMap("//a:a", TestAspects.ATTRIBUTE_ASPECT);
     assertDep(
         map, "foo", "//a:b",
@@ -166,7 +169,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     pkg("a",
         "simple(name='a', foo=[':b'])",
         "simple(name='b', foo=[])");
-    OrderedSetMultimap<Attribute, Dependency> map =
+    OrderedSetMultimap<DependencyKind, Dependency> map =
         dependentNodeMap("//a:a", TestAspects.ALL_ATTRIBUTES_ASPECT);
     assertDep(
         map, "foo", "//a:b",
@@ -178,7 +181,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     setRulesAvailableInTests(TestAspects.BASE_RULE);
     pkg("a", "base(name='a')");
     pkg("extra", "base(name='extra')");
-    OrderedSetMultimap<Attribute, Dependency> map =
+    OrderedSetMultimap<DependencyKind, Dependency> map =
         dependentNodeMap("//a:a", TestAspects.EXTRA_ATTRIBUTE_ASPECT);
     assertDep(map, "$dep", "//extra:extra");
   }

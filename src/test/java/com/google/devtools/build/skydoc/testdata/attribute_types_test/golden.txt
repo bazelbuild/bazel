@@ -2,7 +2,7 @@
 ## my_rule
 
 <pre>
-my_rule(<a href="#my_rule-name">name</a>, <a href="#my_rule-a">a</a>, <a href="#my_rule-b">b</a>, <a href="#my_rule-c">c</a>, <a href="#my_rule-d">d</a>, <a href="#my_rule-e">e</a>, <a href="#my_rule-f">f</a>, <a href="#my_rule-g">g</a>, <a href="#my_rule-h">h</a>, <a href="#my_rule-i">i</a>, <a href="#my_rule-j">j</a>, <a href="#my_rule-k">k</a>, <a href="#my_rule-l">l</a>, <a href="#my_rule-m">m</a>)
+my_rule(<a href="#my_rule-name">name</a>, <a href="#my_rule-a">a</a>, <a href="#my_rule-b">b</a>, <a href="#my_rule-c">c</a>, <a href="#my_rule-d">d</a>, <a href="#my_rule-e">e</a>, <a href="#my_rule-f">f</a>, <a href="#my_rule-g">g</a>, <a href="#my_rule-h">h</a>, <a href="#my_rule-i">i</a>, <a href="#my_rule-j">j</a>, <a href="#my_rule-k">k</a>, <a href="#my_rule-l">l</a>)
 </pre>
 
 This is my rule. It does stuff.
@@ -81,23 +81,14 @@ This is my rule. It does stuff.
     <tr id="my_rule-g">
       <td><code>g</code></td>
       <td>
-        List of strings; optional
-        <p>
-          Some license
-        </p>
-      </td>
-    </tr>
-    <tr id="my_rule-h">
-      <td><code>h</code></td>
-      <td>
         <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; optional
         <p>
           Some output
         </p>
       </td>
     </tr>
-    <tr id="my_rule-i">
-      <td><code>i</code></td>
+    <tr id="my_rule-h">
+      <td><code>h</code></td>
       <td>
         List of labels; optional
         <p>
@@ -105,8 +96,8 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="my_rule-j">
-      <td><code>j</code></td>
+    <tr id="my_rule-i">
+      <td><code>i</code></td>
       <td>
         String; required
         <p>
@@ -114,8 +105,8 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="my_rule-k">
-      <td><code>k</code></td>
+    <tr id="my_rule-j">
+      <td><code>j</code></td>
       <td>
         <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
         <p>
@@ -123,8 +114,8 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="my_rule-l">
-      <td><code>l</code></td>
+    <tr id="my_rule-k">
+      <td><code>k</code></td>
       <td>
         List of strings; required
         <p>
@@ -132,8 +123,8 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="my_rule-m">
-      <td><code>m</code></td>
+    <tr id="my_rule-l">
+      <td><code>l</code></td>
       <td>
         <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> List of strings</a>; optional
         <p>

@@ -17,6 +17,7 @@ package com.google.devtools.skylark.skylint;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.skylark.common.DocstringUtils;
 import java.util.ArrayList;
 import java.util.List;
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
@@ -69,7 +70,7 @@ public class StandaloneModule extends BlazeModule {
 
     // This makes the "sandboxed" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.
-    builder.addStrategyByMnemonic("", "standalone");
+    builder.addStrategyByMnemonic("", ImmutableList.of("standalone"));
 
     // This makes the "standalone" strategy available via --spawn_strategy=standalone, but it is not
     // necessarily the default.
