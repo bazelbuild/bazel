@@ -273,8 +273,16 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
     @Override
     public ExtendedEventHandler.Postable createFailed(
-        AspectValue value, NestedSet<Cause> rootCauses, Environment env) {
-      return AspectCompleteEvent.createFailed(value, rootCauses);
+        AspectValue value, NestedSet<Cause> rootCauses, Environment env)
+        throws InterruptedException {
+      BuildConfigurationValue buildConfigurationValue =
+          (BuildConfigurationValue)
+              env.getValue(value.getKey().getBaseConfiguredTargetKey().getConfigurationKey());
+      if (buildConfigurationValue == null) {
+        return null;
+      }
+      return AspectCompleteEvent.createFailed(
+          value, rootCauses, buildConfigurationValue.getConfiguration().getEventId());
     }
 
     @Override
@@ -288,10 +296,18 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         AspectValue value,
         ArtifactPathResolver pathResolver,
         TopLevelArtifactContext topLevelArtifactContext,
-        Environment env) {
+        Environment env)
+        throws InterruptedException {
       ArtifactsToBuild artifacts =
           TopLevelArtifactHelper.getAllArtifactsToBuild(value, topLevelArtifactContext);
-      return AspectCompleteEvent.createSuccessful(value, pathResolver, artifacts);
+      BuildConfigurationValue buildConfigurationValue =
+          (BuildConfigurationValue)
+              env.getValue(value.getKey().getBaseConfiguredTargetKey().getConfigurationKey());
+      if (buildConfigurationValue == null) {
+        return null;
+      }
+      return AspectCompleteEvent.createSuccessful(
+          value, pathResolver, artifacts, buildConfigurationValue.getConfiguration().getEventId());
     }
   }
 

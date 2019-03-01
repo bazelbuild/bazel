@@ -46,12 +46,14 @@ public class AspectCompleteEvent
   private final Collection<BuildEventId> postedAfter;
   private final ArtifactPathResolver pathResolver;
   private final ArtifactsToBuild artifacts;
+  private final BuildEventId configurationEventId;
 
   private AspectCompleteEvent(
       AspectValue aspectValue,
       NestedSet<Cause> rootCauses,
       ArtifactPathResolver pathResolver,
-      ArtifactsToBuild artifacts) {
+      ArtifactsToBuild artifacts,
+      BuildEventId configurationEventId) {
     this.aspectValue = aspectValue;
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
@@ -62,20 +64,26 @@ public class AspectCompleteEvent
     this.postedAfter = postedAfterBuilder.build();
     this.pathResolver = pathResolver;
     this.artifacts = artifacts;
+    this.configurationEventId = configurationEventId;
   }
 
   /** Construct a successful target completion event. */
   public static AspectCompleteEvent createSuccessful(
-      AspectValue value, ArtifactPathResolver pathResolver, ArtifactsToBuild artifacts) {
-    return new AspectCompleteEvent(value, null, pathResolver, artifacts);
+      AspectValue value,
+      ArtifactPathResolver pathResolver,
+      ArtifactsToBuild artifacts,
+      BuildEventId configurationEventId) {
+    return new AspectCompleteEvent(value, null, pathResolver, artifacts, configurationEventId);
   }
 
   /**
    * Construct a target completion event for a failed target, with the given non-empty root causes.
    */
-  public static AspectCompleteEvent createFailed(AspectValue value, NestedSet<Cause> rootCauses) {
+  public static AspectCompleteEvent createFailed(
+      AspectValue value, NestedSet<Cause> rootCauses, BuildEventId configurationEventId) {
     Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
-    return new AspectCompleteEvent(value, rootCauses, ArtifactPathResolver.IDENTITY, null);
+    return new AspectCompleteEvent(
+        value, rootCauses, ArtifactPathResolver.IDENTITY, null, configurationEventId);
   }
 
   /**
@@ -100,7 +108,9 @@ public class AspectCompleteEvent
   @Override
   public BuildEventId getEventId() {
     return BuildEventId.aspectCompleted(
-        aspectValue.getLabel(), aspectValue.getAspect().getDescriptor().getDescription());
+        aspectValue.getLabel(),
+        configurationEventId,
+        aspectValue.getAspect().getDescriptor().getDescription());
   }
 
   @Override
