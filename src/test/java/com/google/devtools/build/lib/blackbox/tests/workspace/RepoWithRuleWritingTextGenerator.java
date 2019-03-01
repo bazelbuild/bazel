@@ -22,7 +22,7 @@ import java.nio.file.Path;
  * Generator of the test local repository with:
  *
  * helper.bzl file,
- *   where there is a write_to_file rule, which writes some text to the output file.
+ *   that contains a write_to_file rule, which writes some text to the output file.
  *
  * empty WORKSPACE file,
  *
@@ -33,6 +33,8 @@ import java.nio.file.Path;
  * Intended to be used by workspace tests.
  */
 public class RepoWithRuleWritingTextGenerator {
+
+  private static final String HELPER_FILE = "helper.bzl";
   private static final String RULE_NAME = "write_to_file";
   static final String HELLO = "HELLO";
   static final String TARGET = "write_text";
@@ -105,7 +107,7 @@ public class RepoWithRuleWritingTextGenerator {
    */
   Path setupRepository() throws IOException {
     Path workspace = PathUtils.writeFileInDir(root, "WORKSPACE");
-    PathUtils.writeFileInDir(root, "helper.bzl", WRITE_TEXT_TO_FILE);
+    PathUtils.writeFileInDir(root, HELPER_FILE, WRITE_TEXT_TO_FILE);
     PathUtils.writeFileInDir(root, "BUILD",
         "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
         loadRule(""),
@@ -122,7 +124,7 @@ public class RepoWithRuleWritingTextGenerator {
    * @return load statement text
    */
   static String loadRule(String repoName) {
-    return String.format("load('%s//:helper.bzl', '%s')", repoName, RULE_NAME);
+    return String.format("load('%s//:%s', '%s')", repoName, HELPER_FILE, RULE_NAME);
   }
 
   /**

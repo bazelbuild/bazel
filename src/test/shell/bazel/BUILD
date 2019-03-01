@@ -1,4 +1,4 @@
-package(default_visibility = ["//visibility:private"])
+package(default_testonly = 1)
 
 filegroup(
     name = "srcs",

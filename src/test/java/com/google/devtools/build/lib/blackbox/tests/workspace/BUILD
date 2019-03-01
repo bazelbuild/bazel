@@ -1,3 +1,5 @@
+package(default_testonly = 1)
+
 filegroup(
     name = "srcs",
     testonly = 0,
