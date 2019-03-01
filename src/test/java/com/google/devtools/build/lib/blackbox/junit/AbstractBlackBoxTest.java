@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.blackbox.junit;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.blackbox.bazel.BlackBoxTestEnvironmentImpl;
 import com.google.devtools.build.lib.blackbox.bazel.CrossToolsSetup;
@@ -24,6 +26,8 @@ import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestEnvironment;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.After;
@@ -122,4 +126,5 @@ public abstract class AbstractBlackBoxTest {
   protected ImmutableList<ToolsSetup> getAdditionalTools() {
     return ImmutableList.of();
   }
+
 }

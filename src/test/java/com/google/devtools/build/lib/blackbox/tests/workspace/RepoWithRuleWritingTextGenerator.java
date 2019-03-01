@@ -39,7 +39,7 @@ public class RepoWithRuleWritingTextGenerator {
   static final String TARGET = "write_text";
   static final String OUT_FILE = "out";
 
-  private static final String WRITE_TEXT_TO_FILE =
+  static final String WRITE_TEXT_TO_FILE =
       "def _impl(ctx):\n"
           + "  out = ctx.actions.declare_file(ctx.attr.filename)\n"
           + "  ctx.actions.write(out, ctx.attr.text)\n"

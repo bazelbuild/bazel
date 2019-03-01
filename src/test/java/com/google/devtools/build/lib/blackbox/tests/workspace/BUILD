@@ -26,11 +26,29 @@ java_test(
     name = "WorkspaceBlackBoxTest",
     timeout = "moderate",
     srcs = [
+        "AssertHelper.java",
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceBlackBoxTest.java",
     ],
     tags = ["black_box_test"],
     deps = common_deps,
+)
+
+java_test(
+    name = "BazelEmbeddedSkylarkBlackBoxTest",
+    timeout = "moderate",
+    srcs = [
+        "AssertHelper.java",
+        "BazelEmbeddedSkylarkBlackBoxTest.java",
+        "RepoWithRuleWritingTextGenerator.java",
+    ],
+    tags = ["black_box_test"],
+    deps = [
+        ":common_deps",
+        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
+    ],
 )
 
 test_suite(
