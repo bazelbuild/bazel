@@ -74,15 +74,19 @@ std::string ResolveEnvvars(const std::string &path) {
     // Just match to the next }
     size_t end = result.find("}", start + 1);
     if (end == std::string::npos) {
-      // No more variables can exist
-      break;
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "ResolveEnvvars(" << path
+          << "): incomplete variable at position "
+          << start;
     }
     // Extract the variable name
     const std::string name = result.substr(start + 2, end - start - 2);
     // Get the value from the environment
-    const char *value = getenv(name.c_str());
+    const char *c_value = getenv(name.c_str());
+    const std::string value = std::string(c_value ? c_value : "");
     result.erase(start, end - start + 1);
-    result.insert(start, value ? value : "");
+    result.insert(start, value);
+    start += value.length();
   }
   return result;
 }

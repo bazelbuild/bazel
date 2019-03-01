@@ -163,6 +163,7 @@ TEST(PathPosixTest, MakeAbsoluteAndResolveEnvvars) {
   // Check that Unix-style envvars are resolved.
   const std::string tmpdir = getenv("TEST_TMPDIR");
   const std::string expected_tmpdir_bar = ConvertPath(tmpdir + "/bar");
+  setenv("PATH_POSIX_TEST_ENV", "${TEST_TMPDIR}", 1);
 
   // Using an existing environment variable
   EXPECT_EQ(expected_tmpdir_bar,
@@ -174,6 +175,10 @@ TEST(PathPosixTest, MakeAbsoluteAndResolveEnvvars) {
   // This style of variable is not supported
   EXPECT_EQ(JoinPath(GetCwd(), "$TEST_TMPDIR/bar"),
             MakeAbsoluteAndResolveEnvvars("$TEST_TMPDIR/bar"));
+
+  // Only one layer of variables is expanded, we do not recurse
+  EXPECT_EQ(JoinPath(GetCwd(), "${TEST_TMPDIR}/bar"),
+            MakeAbsoluteAndResolveEnvvars("${PATH_POSIX_TEST_ENV}/bar"));
 
   // Check that Windows-style envvars are not resolved when not on Windows.
   EXPECT_EQ(MakeAbsoluteAndResolveEnvvars("%PATH%"),
