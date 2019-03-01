@@ -1,7 +1,9 @@
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**/**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:srcs",
+    ],
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox:__subpackages__"],
 )
 

@@ -1,3 +1,10 @@
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox/tests:__pkg__"],
+)
+
 common_deps = [
     "//src/test/java/com/google/devtools/build/lib/blackbox/tests:common_deps",
 ]
