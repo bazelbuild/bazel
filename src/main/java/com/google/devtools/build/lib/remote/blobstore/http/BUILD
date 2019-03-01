@@ -19,6 +19,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:apache_commons_lang",
         "//third_party:auth",
         "//third_party:guava",
         "//third_party:netty",

@@ -67,7 +67,7 @@ public class BlazeVersionInfoTest {
   @Test
   public void testVersionIsHeadIfBuildLabelIsNull() {
     BlazeVersionInfo info = new BlazeVersionInfo(ImmutableMap.of());
-    assertThat(info.getVersion()).isEqualTo("HEAD");
+    assertThat(info.getVersion()).isEmpty();
   }
 
   @Test

@@ -30,13 +30,14 @@ import java.net.URI;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.lang.StringUtils;
 
 /** Common functionality shared by concrete classes. */
 abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelInboundHandler<T>
     implements ChannelOutboundHandler {
 
-  private static final String USER_AGENT_VALUE =
-      "bazel/" + BlazeVersionInfo.instance().getVersion();
+  private static String USER_AGENT_VALUE = null;
+
   private final Credentials credentials;
 
   public AbstractHttpHandler(Credentials credentials) {
@@ -53,8 +54,8 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     userPromise = null;
   }
 
-  @SuppressWarnings("FutureReturnValueIgnored")
-  protected void succeedAndResetUserPromise() {
+  @SuppressWarnings("FutureReturnValueIgnored") 
+  protected void succeedAndResetUserPromise() {  
     userPromise.setSuccess();
     userPromise = null;
   }
@@ -82,6 +83,10 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   }
 
   protected void addUserAgentHeader(HttpRequest request) {
+    if (USER_AGENT_VALUE == null) {
+      USER_AGENT_VALUE =
+          "bazel/" + StringUtils.defaultIfEmpty(BlazeVersionInfo.instance().getVersion(), "dev");
+    }
     request.headers().set(HttpHeaderNames.USER_AGENT, USER_AGENT_VALUE);
   }
 
