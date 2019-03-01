@@ -426,7 +426,7 @@ public class FilesystemValueChecker {
           boolean lastSeenRemotely = fileValue != null && fileValue.isRemote();
           if (!fileMetadata.exists() && lastSeenRemotely) {
             // The output file does not exist in the output tree, but the last time we created it
-            // it was stored on a remotely so there is no need to invalidate it.
+            // it was stored remotely so there is no need to invalidate it.
             continue;
           }
 
