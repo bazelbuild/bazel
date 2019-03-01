@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -28,13 +29,10 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import java.util.List;
 
-/**
- * A context for C++ compilation that calls into a {@link SpawnActionContext}.
- */
+/** A context for C++ compilation that calls into a {@link SpawnActionContext}. */
 @ExecutionStrategy(
-  contextType = CppCompileActionContext.class,
-  name = {"spawn"}
-)
+    contextType = CppCompileActionContext.class,
+    name = {"spawn"})
 public class SpawnGccStrategy implements CppCompileActionContext {
   @Override
   public CppCompileActionResult execWithReply(
@@ -48,6 +46,14 @@ public class SpawnGccStrategy implements CppCompileActionContext {
              * not needed for execution.
              */
             action.getMandatoryInputs(), action.getAdditionalInputs());
+
+    ImmutableList<? extends ActionInput> requiredLocalOutputs = ImmutableList.of();
+    if (action.getDotdFile() != null) {
+      // .d file scanning happens locally even if the compiler was run remotely. We thus need
+      // to ensure that the .d file is staged on the local fileystem.
+      requiredLocalOutputs = ImmutableList.of(action.getDotdFile().artifact());
+    }
+
     Spawn spawn =
         new SimpleSpawn(
             action,
@@ -59,10 +65,12 @@ public class SpawnGccStrategy implements CppCompileActionContext {
             ImmutableList.copyOf(inputs),
             /* tools= */ ImmutableList.of(),
             action.getOutputs().asList(),
+            requiredLocalOutputs,
             action.estimateResourceConsumptionLocal());
-
+    
     List<SpawnResult> spawnResults =
-        actionExecutionContext.getContext(SpawnActionContext.class)
+        actionExecutionContext
+            .getContext(SpawnActionContext.class)
             .exec(spawn, actionExecutionContext);
     return CppCompileActionResult.builder().setSpawnResults(spawnResults).build();
   }

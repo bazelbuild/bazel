@@ -37,6 +37,7 @@ public final class SimpleSpawn implements Spawn {
   private final RunfilesSupplier runfilesSupplier;
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
   private final ImmutableList<? extends ActionInput> outputs;
+  private final ImmutableList<? extends ActionInput> requiredLocalOutputs;
   private final ResourceSet localResources;
 
   public SimpleSpawn(
@@ -49,6 +50,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<? extends ActionInput> inputs,
       ImmutableList<? extends ActionInput> tools,
       ImmutableList<? extends ActionInput> outputs,
+      ImmutableList<? extends ActionInput> requiredLocalOutputs,
       ResourceSet localResources) {
     this.owner = Preconditions.checkNotNull(owner);
     this.arguments = Preconditions.checkNotNull(arguments);
@@ -60,6 +62,7 @@ public final class SimpleSpawn implements Spawn {
         runfilesSupplier == null ? EmptyRunfilesSupplier.INSTANCE : runfilesSupplier;
     this.filesetMappings = filesetMappings;
     this.outputs = Preconditions.checkNotNull(outputs);
+    this.requiredLocalOutputs = Preconditions.checkNotNull(requiredLocalOutputs);
     this.localResources = Preconditions.checkNotNull(localResources);
   }
 
@@ -81,6 +84,7 @@ public final class SimpleSpawn implements Spawn {
         inputs,
         ImmutableList.<Artifact>of(),
         outputs,
+        /* requiredLocalOutputs= */ ImmutableList.of(),
         localResources);
   }
 

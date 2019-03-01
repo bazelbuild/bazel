@@ -97,6 +97,18 @@ public interface Spawn {
   Collection<? extends ActionInput> getOutputFiles();
 
   /**
+   * Returns the collection of files that this command must write and make available via
+   * Bazel's {@link com.google.devtools.build.lib.vfs.FileSystem}. The returned outputs
+   * are a subset of the spawns's output {@link #getOutputFiles()}.
+   *
+   * <p>This is for use with remote execution, where as an optimization we don't want to
+   * stage (i.e. download) all output files of a spawn on disk.
+   */
+  default Collection<? extends ActionInput> getRequiredLocalOutputs() {
+    return ImmutableList.of();
+  }
+
+  /**
    * Returns the resource owner for local fallback.
    */
   ActionExecutionMetadata getResourceOwner();

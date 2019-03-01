@@ -136,6 +136,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             /*inputs=*/ ImmutableList.copyOf(action.getInputs()),
             /*tools=*/ ImmutableList.<Artifact>of(),
             ImmutableList.copyOf(action.getSpawnOutputs()),
+            /*requiredLocalOutputs=*/ ImmutableList.of(),
             localResourceUsage);
     return new StandaloneTestRunnerSpawn(
         action, actionExecutionContext, spawn, tmpDir, coverageDir, workingDirectory, execRoot);
@@ -435,6 +436,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         /*inputs=*/ ImmutableList.of(action.getTestXmlGeneratorScript(), action.getTestLog()),
         /*tools=*/ ImmutableList.<Artifact>of(),
         /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
+        /*requiredLocalOutputs=*/ ImmutableList.of(),
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 

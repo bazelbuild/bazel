@@ -65,6 +65,7 @@ public final class SpawnBuilder {
         ImmutableList.copyOf(inputs),
         /*tools=*/ ImmutableList.<Artifact>of(),
         ImmutableList.copyOf(outputs),
+        /*requiredLocalOutputs=*/ ImmutableList.of(),
         ResourceSet.ZERO);
   }
 
