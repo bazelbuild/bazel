@@ -31,7 +31,7 @@ libraries have been installed.
 Set up your build environment as follows:
 
 1.  If you have not already done so,
-   [download and install Bazel 0.23](install-ubuntu.html) or later.
+   [download and install Bazel 0.23](../install-ubuntu.html) or later.
 
 2.  Download the
     [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
