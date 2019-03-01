@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.base.Strings.nullToEmpty;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -124,7 +122,7 @@ public class BlazeVersionInfo {
    */
   public String getVersion() {
     String buildLabel = buildData.get(BUILD_LABEL);
-    return nullToEmpty(buildLabel);
+    return buildLabel != null ? buildLabel : "";
   }
 
   /**
