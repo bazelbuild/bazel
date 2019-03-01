@@ -1,13 +1,16 @@
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:srcs",
+    ],
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox:__subpackages__"],
 )
 
 java_library(
     name = "common_deps",
     testonly = 1,
+    visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox/tests:__subpackages__"],
     exports = [
         "//src/test/java/com/google/devtools/build/lib/blackbox:base_deps",
         "//src/test/java/com/google/devtools/build/lib/blackbox:test_deps",
@@ -35,6 +38,7 @@ test_suite(
         "PythonBlackBoxTest",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework:framework_tests",
         "//src/test/java/com/google/devtools/build/lib/blackbox/junit:TimeoutTestWatcherTest",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:ws_black_box_tests",
     ],
 )
 
