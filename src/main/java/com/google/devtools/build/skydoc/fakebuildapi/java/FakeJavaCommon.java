@@ -32,13 +32,26 @@ import javax.annotation.Nullable;
 /** Fake implementation of {@link JavaCommonApi}. */
 public class FakeJavaCommon
     implements JavaCommonApi<
-        FileApi, FakeJavaInfo, SkylarkRuleContextApi, SkylarkActionFactoryApi> {
+        FileApi,
+        FakeJavaInfo,
+        FakeJavaToolchainSkylarkApiProviderApi,
+        FakeJavaRuntimeInfoApi,
+        SkylarkRuleContextApi,
+        SkylarkActionFactoryApi> {
 
   @Override
-  public FakeJavaInfo create(@Nullable Object actionsUnchecked, Object compileTimeJars,
-      Object runtimeJars, Boolean useIjar, @Nullable Object javaToolchainUnchecked,
-      Object transitiveCompileTimeJars, Object transitiveRuntimeJars, Object sourceJars,
-      Location location, Environment environment) throws EvalException {
+  public FakeJavaInfo create(
+      @Nullable Object actionsUnchecked,
+      Object compileTimeJars,
+      Object runtimeJars,
+      Boolean useIjar,
+      @Nullable Object javaToolchainUnchecked,
+      Object transitiveCompileTimeJars,
+      Object transitiveRuntimeJars,
+      Object sourceJars,
+      Location location,
+      Environment environment)
+      throws EvalException {
     return new FakeJavaInfo();
   }
 
@@ -60,8 +73,8 @@ public class FakeJavaCommon
       SkylarkList<FakeJavaInfo> plugins,
       SkylarkList<FakeJavaInfo> exportedPlugins,
       String strictDepsMode,
-      Object javaToolchain,
-      Object hostJavabase,
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
+      FakeJavaRuntimeInfoApi hostJavabase,
       SkylarkList<FileApi> sourcepathEntries,
       SkylarkList<FileApi> resources,
       Boolean neverlink,
@@ -76,7 +89,7 @@ public class FakeJavaCommon
       SkylarkActionFactoryApi actions,
       FileApi jar,
       Object targetLabel,
-      Object javaToolchain,
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       Location location,
       StarlarkSemantics semantics)
       throws EvalException {
@@ -88,7 +101,7 @@ public class FakeJavaCommon
       SkylarkActionFactoryApi actions,
       FileApi jar,
       Label targetLabel,
-      Object javaToolchain,
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       Location location,
       StarlarkSemantics semantics)
       throws EvalException {
@@ -101,8 +114,8 @@ public class FakeJavaCommon
       FileApi outputJar,
       SkylarkList<FileApi> sourceFiles,
       SkylarkList<FileApi> sourceJars,
-      Object javaToolchain,
-      Object hostJavabase,
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
+      FakeJavaRuntimeInfoApi hostJavabase,
       Location location,
       StarlarkSemantics semantics)
       throws EvalException {
@@ -111,12 +124,7 @@ public class FakeJavaCommon
 
   @Override
   public ImmutableList<String> getDefaultJavacOpts(
-      Object skylarkRuleContext,
-      Object javaToolchainAttr,
-      Object javaToolchain,
-      Location loc,
-      StarlarkSemantics semantics)
-      throws EvalException {
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain, Location loc) throws EvalException {
     return ImmutableList.of();
   }
 
