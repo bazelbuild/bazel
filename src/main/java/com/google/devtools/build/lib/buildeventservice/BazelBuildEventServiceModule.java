@@ -98,4 +98,9 @@ public class BazelBuildEventServiceModule
         ? besOptions.besResultsUrl
         : besOptions.besResultsUrl + "/";
   }
+
+  @Override
+  protected String getBuildRequestIdPrefix() {
+    return "";
+  }
 }
