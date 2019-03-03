@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
-import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -186,12 +185,15 @@ public class PrecomputedValue implements SkyValue {
     }
   }
 
-  /** An {@linkplain UnshareableValue unshareable} version of {@link PrecomputedValue}. */
-  private static final class UnshareablePrecomputedValue extends PrecomputedValue
-      implements UnshareableValue {
-
+  /** An unshareable version of {@link PrecomputedValue}. */
+  private static final class UnshareablePrecomputedValue extends PrecomputedValue {
     private UnshareablePrecomputedValue(Object value) {
       super(value);
+    }
+
+    @Override
+    public boolean dataIsShareable() {
+      return false;
     }
   }
 
