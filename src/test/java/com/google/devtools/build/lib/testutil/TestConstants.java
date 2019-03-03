@@ -113,12 +113,8 @@ public class TestConstants {
   public static final ImmutableList<String> OSX_CROSSTOOL_FLAGS =
       ImmutableList.of();
 
-  /**
-   * Flags that must be set for Bazel to work properly, if the default values are unusable for
-   * some reason.
-   */
-  public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
-      ImmutableList.of();
+  public static final InvocationPolicy TEST_INVOCATION_POLICY =
+      InvocationPolicy.getDefaultInstance();
 
   public static final BuilderFactoryForTesting PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING =
       PackageFactoryBuilderFactoryForBazelUnitTests.INSTANCE;

@@ -111,6 +111,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     OptionsParser parser =
         OptionsParser.newOptionsParser(PackageCacheOptions.class, StarlarkSemanticsOptions.class);
+    analysisMock.getInvocationPolicyEnforcer().enforce(parser);
     setUpSkyframe(
         parser.getOptions(PackageCacheOptions.class),
         parser.getOptions(StarlarkSemanticsOptions.class));

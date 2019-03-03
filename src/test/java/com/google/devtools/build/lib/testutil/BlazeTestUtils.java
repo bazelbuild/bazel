@@ -14,16 +14,18 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.List;
 
 /**
  * Some static utility functions for testing Blaze code. In contrast to {@link TestUtils}, these
@@ -95,15 +97,7 @@ public class BlazeTestUtils {
     }
   }
 
-  /**
-   * Creates a list of arguments to pass to Bazel, with flags necessary for Bazel to work properly
-   * appended to the original {@code args} array.
-   */
-  public static ArrayList<String> makeArgs(String... args) {
-    ArrayList<String> result =
-        new ArrayList<>(args.length + TestConstants.PRODUCT_SPECIFIC_FLAGS.size());
-    Collections.addAll(result, args);
-    result.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
-    return result;
+  public static List<Label> convertLabels(Iterable<Label> labels) {
+    return Streams.stream(labels).map(BlazeTestUtils::convertLabel).collect(toImmutableList());
   }
 }
