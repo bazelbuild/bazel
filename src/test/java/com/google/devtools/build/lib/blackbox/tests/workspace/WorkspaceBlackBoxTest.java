@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import com.google.devtools.build.lib.util.OS;
@@ -56,10 +57,11 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context().write("BUILD", "load(':rule.bzl', 'debug_rule')",
         "debug_rule(name = 'check', dep = '@check_bash_target//:out.txt')");
 
-    context().bazel()
-        .withEnv("BAZEL_SH", "C:/foo/bar/usr/bin/bash.exe")
-        .withEnv("PATH", WorkspaceTestUtils.removeMsysFromPath(System.getenv("PATH")))
-        .withErrorCode(OS.WINDOWS.equals(OS.getCurrent()) ? -1 :0).build("check");
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    if (OS.WINDOWS.equals(OS.getCurrent())) {
+      bazel.shouldFail();
+    }
+    bazel.build("check");
   }
 
   @Test
@@ -76,18 +78,16 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
             String.format(
                 "local_repository(name = 'x', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repoA)));
-    context().bazel().build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    Path xPath = context().resolveBinPath(context().bazel(), "external/x/out");
+    Path xPath = context().resolveBinPath(bazel, "external/x/out");
     AssertHelper.assertOneLineFile(xPath, "hi");
 
-    context()
-        .write(
-            WORKSPACE,
-            String.format(
-                "local_repository(name = 'x', path = '%s',)",
+    context().write(WORKSPACE,
+            String.format("local_repository(name = 'x', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repoB)));
-    context().bazel().build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
+    bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
     AssertHelper.assertOneLineFile(xPath, "bye");
   }
@@ -95,8 +95,9 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
   @Test
   public void testPathWithSpace() throws Exception {
     context().write("a b/WORKSPACE");
-    context().bazel().info();
-    context().bazel().help();
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    bazel.info();
+    bazel.help();
   }
 
   // TODO(ichern) move other tests from workspace_test.sh here.

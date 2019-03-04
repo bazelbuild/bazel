@@ -107,12 +107,22 @@ public final class ProcessRunner {
               ? outReader.get()
               : Files.readAllLines(parameters.redirectOutput().get());
 
-      if (parameters.expectedExitCode() != process.exitValue()) {
+      int exitValue = process.exitValue();
+      if ((exitValue == 0) == parameters.expectedToFail()) {
+        throw new ProcessRunnerException(
+            String.format(
+                "Expected to %s, but %s.\nError: %s\nOutput: %s",
+                parameters.expectedToFail() ? "fail" : "succeed",
+                exitValue == 0 ? "succeeded" : "failed",
+                StringUtilities.joinLines(err),
+                StringUtilities.joinLines(out)));
+      }
+      if (parameters.expectedExitCode() != 0 && parameters.expectedExitCode() != exitValue) {
         throw new ProcessRunnerException(
             String.format(
                 "Expected exit code %d, but found %d.\nError: %s\nOutput: %s",
                 parameters.expectedExitCode(),
-                process.exitValue(),
+                exitValue,
                 StringUtilities.joinLines(err),
                 StringUtilities.joinLines(out)));
       }

@@ -112,7 +112,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private BuilderRunner bazel() {
-    return context().bazel().withFlags("--all_incompatible_changes");
+    return WorkspaceTestUtils.bazel(context()).withFlags("--all_incompatible_changes");
   }
 
   private Path decompress(Path dataTarPath)

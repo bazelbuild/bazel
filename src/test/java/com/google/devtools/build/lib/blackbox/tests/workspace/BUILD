@@ -42,6 +42,7 @@ java_test(
         "AssertHelper.java",
         "BazelEmbeddedSkylarkBlackBoxTest.java",
         "RepoWithRuleWritingTextGenerator.java",
+        "WorkspaceTestUtils.java",
     ],
     tags = ["black_box_test"],
     deps = common_deps + [
