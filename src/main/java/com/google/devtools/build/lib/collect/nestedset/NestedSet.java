@@ -97,9 +97,8 @@ public final class NestedSet<E> implements Iterable<E> {
         throw new AssertionError(order);
     }
 
-    // Remember children we extracted from one-element subsets.
-    // Otherwise we can end up with two of the same child, which is a
-    // problem for the fast path in toList().
+    // Remember children we extracted from one-element subsets. Otherwise we can end up with two of
+    // the same child, which is a problem for the fast path in toList().
     Set<E> alreadyInserted = ImmutableSet.of();
     // The candidate array of children.
     Object[] children = new Object[direct.size() + transitive.size()];
@@ -121,7 +120,7 @@ public final class NestedSet<E> implements Iterable<E> {
         }
         alreadyInserted = direct;
       } else if ((pass == 1) == preorder && !transitive.isEmpty()) {
-        CompactHashSet<E> hoisted = CompactHashSet.create();
+        CompactHashSet<E> hoisted = null;
         for (NestedSet<E> subset : transitiveOrder) {
           // If this is a deserialization future, this call blocks.
           Object c = subset.getChildren();
@@ -133,12 +132,17 @@ public final class NestedSet<E> implements Iterable<E> {
             children[n++] = a;
             leaf = false;
           } else {
-            if (!alreadyInserted.contains(c) && hoisted.add((E) c)) {
-              children[n++] = c;
+            if (!alreadyInserted.contains(c)) {
+              if (hoisted == null) {
+                hoisted = CompactHashSet.create();
+              }
+              if (hoisted.add((E) c)) {
+                children[n++] = c;
+              }
             }
           }
         }
-        alreadyInserted = hoisted;
+        alreadyInserted = hoisted == null ? ImmutableSet.of() : hoisted;
       }
     }
 
