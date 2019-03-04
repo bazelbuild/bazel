@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.Iterables;
 import java.util.List;
 
 /**
@@ -22,18 +21,24 @@ import java.util.List;
 @ActionContextMarker(name = "spawn")
 public interface SpawnActionContext extends ActionContext {
 
-  /** Executes the given spawn and returns metadata about the execution. */
+  /**
+   * Executes the given spawn and returns metadata about the execution. Implementations must
+   * guarantee that the first list entry represents the successful execution of the given spawn (if
+   * no execution was successful, the method must throw an exception instead). The list may contain
+   * further entries for (unsuccessful) retries as well as tree artifact management (which may
+   * require additional spawn executions).
+   */
   List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
   /**
-   * Executes the given spawn, possibly asynchronously, and returns a FutureSpawn to represent the
-   * execution, which can be listened to / registered with Skyframe.
+   * Executes the given spawn, possibly asynchronously, and returns a SpawnContinuation to represent
+   * the execution. Otherwise all requirements from {@link #exec} apply.
    */
-  default FutureSpawn execMaybeAsync(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  default SpawnContinuation beginExecution(
+      Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    SpawnResult result = Iterables.getOnlyElement(exec(spawn, actionExecutionContext));
-    return FutureSpawn.immediate(result);
+    return SpawnContinuation.immediate(exec(spawn, actionExecutionContext));
   }
 
   /** Returns whether this SpawnActionContext supports executing the given Spawn. */

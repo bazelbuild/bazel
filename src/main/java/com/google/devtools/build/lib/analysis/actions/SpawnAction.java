@@ -51,13 +51,13 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -296,28 +296,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       beforeExecute(actionExecutionContext);
       Spawn spawn = getSpawn(actionExecutionContext);
       SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
-      FutureSpawn futureSpawn = context.execMaybeAsync(spawn, actionExecutionContext);
-      return new ActionContinuationOrResult() {
-        @Override
-        public ListenableFuture<?> getFuture() {
-          return futureSpawn.getFuture();
-        }
-
-        @Override
-        public ActionContinuationOrResult execute()
-            throws ActionExecutionException, InterruptedException {
-          try {
-            SpawnResult spawnResult = futureSpawn.get();
-            afterExecute(actionExecutionContext);
-            return ActionContinuationOrResult.of(
-                ActionResult.create(ImmutableList.of(spawnResult)));
-          } catch (IOException e) {
-            throw warnUnexpectedIOException(actionExecutionContext, e);
-          } catch (ExecException e) {
-            throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
-          }
-        }
-      };
+      SpawnContinuation spawnContinuation = context.beginExecution(spawn, actionExecutionContext);
+      return new SpawnActionContinuation(spawnContinuation, actionExecutionContext);
     } catch (IOException e) {
       throw warnUnexpectedIOException(actionExecutionContext, e);
     } catch (ExecException e) {
@@ -1360,6 +1340,39 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         }
       }
       return result.build();
+    }
+  }
+
+  private final class SpawnActionContinuation extends ActionContinuationOrResult {
+    private final SpawnContinuation spawnContinuation;
+    private final ActionExecutionContext actionExecutionContext;
+
+    public SpawnActionContinuation(
+        SpawnContinuation spawnContinuation, ActionExecutionContext actionExecutionContext) {
+      this.spawnContinuation = spawnContinuation;
+      this.actionExecutionContext = actionExecutionContext;
+    }
+
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return spawnContinuation.getFuture();
+    }
+
+    @Override
+    public ActionContinuationOrResult execute()
+        throws ActionExecutionException, InterruptedException {
+      try {
+        SpawnContinuation nextContinuation = spawnContinuation.execute();
+        if (nextContinuation.isDone()) {
+          afterExecute(actionExecutionContext);
+          return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
+        }
+        return new SpawnActionContinuation(nextContinuation, actionExecutionContext);
+      } catch (IOException e) {
+        throw warnUnexpectedIOException(actionExecutionContext, e);
+      } catch (ExecException e) {
+        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+      }
     }
   }
 }
