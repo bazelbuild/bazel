@@ -22,9 +22,7 @@ filegroup(    name = "srcs",     srcs = glob(         ["*"],
 )
 
 filegroup(
-    name = "git",
-    srcs = glob(
-        [".git/**"],
+    name = "git",    srcs = glob(        [".git/**"],
         exclude = [".git/**/*[*"],  # gitk creates temp files with []
     ),
 )
