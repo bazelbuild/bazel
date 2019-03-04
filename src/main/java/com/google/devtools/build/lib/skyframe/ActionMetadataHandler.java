@@ -229,7 +229,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
       if (!fileMetadata.exists()) {
         throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
       }
-      return FileArtifactValue.createNormalFile(fileMetadata);
+      return FileArtifactValue.createNormalFile(fileMetadata, !artifact.isConstantMetadata());
     }
 
     // No existing metadata; this can happen if the output metadata is not injected after a spawn
@@ -269,7 +269,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
     if (isFile && !artifact.hasParent() && data.getDigest() != null) {
       // We do not need to store the FileArtifactValue separately -- the digest is in the file value
       // and that is all that is needed for this file's metadata.
-      return FileArtifactValue.createNormalFile(data);
+      return FileArtifactValue.createNormalFile(data, !artifact.isConstantMetadata());
     }
     // Unfortunately, the ArtifactFileMetadata does not contain enough information for us to
     // calculate the corresponding FileArtifactValue -- either the metadata must use the modified
