@@ -27,6 +27,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Utility class for helping JUnit black box workspace tests.
+ */
 public class WorkspaceTestUtils {
   public static final String PATH = "PATH";
   public static final String BAZEL_SH = "BAZEL_SH";
@@ -37,14 +40,18 @@ public class WorkspaceTestUtils {
    * @return BuilderRunner for running Bazel
    */
   static BuilderRunner bazel(BlackBoxTestContext context) {
-    if (!OS.WINDOWS.equals(OS.getCurrent())) return context.bazel();
+    if (!OS.WINDOWS.equals(OS.getCurrent())) {
+      return context.bazel();
+    }
     return context.bazel()
         .withEnv(BAZEL_SH, "C:/foo/bar/usr/bin/bash.exe")
         .withEnv(PATH, removeMsysFromPath(System.getenv(PATH)));
   }
 
   private static String removeMsysFromPath(String path) {
-    if (!OS.WINDOWS.equals(OS.getCurrent())) return path;
+    if (!OS.WINDOWS.equals(OS.getCurrent())) {
+      return path;
+    }
     if (path.indexOf(';') == -1) {
       return path;
     }
