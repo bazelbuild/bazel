@@ -19,9 +19,7 @@ filegroup(    name = "libunix",    srcs = select({        "//src/conditions:darw
     ],
 )
 
-[genrule(
-    name = "install_base_key-file" + suffix,
-    srcs = [
+[genrule(    name = "install_base_key-file" + suffix,    srcs = [
         "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "//src/main/cpp:client",
         ":libunix",
