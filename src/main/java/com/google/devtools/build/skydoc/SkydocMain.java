@@ -577,7 +577,8 @@ public class SkydocMain {
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
     "ProtoRegistryAspect",
-    CcInfoApi.NAME
+    "JspbInfo",
+    CcInfoApi.NAME,
   };
 
   /**
