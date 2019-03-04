@@ -264,25 +264,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     }
   }
 
-  /** TODO(bazel-team): document this */
-  public static class PluginOptionConverter implements Converter<Map.Entry<String, String>> {
-    @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
-      int index = input.indexOf('=');
-      if (index == -1) {
-        throw new OptionsParsingException("Plugin option not in the plugin=option format");
-      }
-      String option = input.substring(0, index);
-      String value = input.substring(index + 1);
-      return Maps.immutableEntry(option, value);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "An option for a plugin";
-    }
-  }
-
   /**
    * Values for the --strict_*_deps option
    */
