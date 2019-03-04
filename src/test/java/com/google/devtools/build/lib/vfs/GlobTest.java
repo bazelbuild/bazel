@@ -456,6 +456,7 @@ public class GlobTest {
   public void testExcludeFiltering() {
     ImmutableList<String> paths = ImmutableList.of("a/A.java", "a/B.java", "a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "**/*.java")).containsExactly("c.cc");
+    assertThat(removeExcludes(paths, "a/**/*.java")).containsExactly("c.cc");
     assertThat(removeExcludes(paths, "**/nomatch.*")).containsAllIn(paths);
     assertThat(removeExcludes(paths, "a/A.java")).containsExactly("a/B.java", "a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "a/?.java")).containsExactly("a/b/C.java", "c.cc");
