@@ -503,4 +503,29 @@ public class RemoteSpawnCacheTest {
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
   }
+
+  @Test
+  public void failedCacheActionAsCacheMiss() throws Exception {
+    ActionResult actionResult = ActionResult.newBuilder().setExitCode(1).build();
+    when(remoteCache.getCachedActionResult(any(ActionKey.class)))
+        .thenAnswer(
+            (Answer<ActionResult>) invocation -> {
+              RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+              assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
+              assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+              return actionResult;
+            });
+
+    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
+
+    assertThat(entry.hasResult()).isFalse();
+    verify(remoteCache, never())
+        .download(
+            any(ActionResult.class),
+            any(Path.class),
+            eq(outErr)
+        );
+    assertThat(progressUpdates)
+        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+  }
 }

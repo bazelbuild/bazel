@@ -192,21 +192,20 @@ class RemoteSpawnRunner implements SpawnRunner {
         }
         if (cachedResult != null) {
           if (cachedResult.getExitCode() != 0) {
-            // The remote cache must never serve a failed action.
-            throw new EnvironmentalExecException(
-                "The remote cache is in an invalid state as it"
-                    + " served a failed action. Hash of the action: "
-                    + actionKey.getDigest());
-          }
-          try (SilentCloseable c = Profiler.instance().profile("Remote.downloadRemoteResults")) {
-            return downloadRemoteResults(cachedResult, context.getFileOutErr())
-                .setCacheHit(true)
-                .setRunnerName("remote cache hit")
-                .build();
-          } catch (CacheNotFoundException e) {
-            // No cache hit, so we fall through to local or remote execution.
-            // We set acceptCachedResult to false in order to force the action re-execution.
+            // Cache returned failed action, so we treat it as a cache miss
+            // Set acceptCachedResult to false in order to force the action re-execution
             acceptCachedResult = false;
+          } else {
+            try (SilentCloseable c = Profiler.instance().profile("Remote.downloadRemoteResults")) {
+              return downloadRemoteResults(cachedResult, context.getFileOutErr())
+                  .setCacheHit(true)
+                  .setRunnerName("remote cache hit")
+                  .build();
+            } catch (CacheNotFoundException e) {
+              // No cache hit, so we fall through to local or remote execution.
+              // We set acceptCachedResult to false in order to force the action re-execution.
+              acceptCachedResult = false;
+            }
           }
         }
       } catch (IOException e) {

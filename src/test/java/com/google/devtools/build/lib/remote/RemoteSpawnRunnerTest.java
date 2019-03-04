@@ -329,16 +329,12 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
-  public void dontAcceptFailedCachedAction() throws Exception {
-    // Test that bazel fails if the remote cache serves a failed action.
+  public void treatFailedCachedActionAsCacheMiss_local() throws Exception {
+    // Test that bazel treats failed cache action as a cache miss and attempts to execute action locally
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
-
-    Spawn spawn = newSimpleSpawn();
-    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     RemoteSpawnRunner runner =
         spy(
@@ -356,8 +352,93 @@ public class RemoteSpawnRunnerTest {
                 retrier,
                 digestUtil,
                 logDir));
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
-    assertThrows(EnvironmentalExecException.class, () -> runner.exec(spawn, policy));
+    SpawnResult res = Mockito.mock(SpawnResult.class);
+    when(res.exitCode()).thenReturn(1);
+    when(res.status()).thenReturn(Status.EXECUTION_FAILED);
+    when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(res);
+
+    runner.exec(spawn, policy);
+
+    verify(localRunner).exec(eq(spawn), eq(policy));
+    verify(runner)
+        .execLocallyAndUpload(
+            eq(spawn),
+            eq(policy),
+            any(SortedMap.class),
+            eq(cache),
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache, never())
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class));
+    verify(cache, never())
+        .download(
+            any(ActionResult.class),
+            any(Path.class),
+            eq(outErr));
+  }
+
+  @Test
+  public void treatFailedCachedActionAsCacheMiss_remote() throws Exception {
+    // Test that bazel treats failed cache action as a cache miss and attempts to execute action locally
+
+    options.remoteAcceptCached = true;
+    options.remoteLocalFallback = false;
+    options.remoteUploadLocalResults = true;
+    options.remoteResultCachePriority = 1;
+    options.remoteExecutionPriority = 2;
+
+    ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            Options.getDefaults(ExecutionOptions.class),
+            new AtomicReference<>(localRunner),
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor,
+            retrier,
+            digestUtil,
+            logDir);
+
+    ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(
+        ActionResult.newBuilder().setExitCode(0).build()).build();
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
+
+    Spawn spawn = new SimpleSpawn(
+        new FakeOwner("foo", "bar"),
+        /*arguments=*/ ImmutableList.of(),
+        /*environment=*/ ImmutableMap.of(),
+        NO_CACHE,
+        /*inputs=*/ ImmutableList.of(),
+        /*outputs=*/ ImmutableList.<ActionInput>of(),
+        ResourceSet.ZERO);
+
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+
+    runner.exec(spawn, policy);
+
+    ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
+    verify(executor).executeRemotely(requestCaptor.capture());
+    assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
+    assertThat(requestCaptor.getValue().getResultsCachePolicy().getPriority()).isEqualTo(1);
+    assertThat(requestCaptor.getValue().getExecutionPolicy().getPriority()).isEqualTo(2);
   }
 
   @Test
