@@ -16,15 +16,53 @@ package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
-import java.nio.file.Files;
+import com.google.devtools.build.lib.util.OS;
 import java.nio.file.Path;
-import java.util.List;
 import org.junit.Test;
 
 /** End to end test of workspace-related functionality. */
 public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
+
+  @Test
+  public void testNotInMsys() throws Exception {
+    context().write("repo_rule.bzl",
+        "def _impl(rctx):",
+        "  result = rctx.execute(['bash', '-c', 'which bash > out.txt'])",
+        "  if result.return_code != 0:",
+        "    fail('Execute bash failed: ' + result.stderr)",
+        "  rctx.file('BUILD', 'exports_files([\"out.txt\"])')",
+        "check_bash = repository_rule(implementation = _impl)");
+
+    context().write(WORKSPACE, "workspace(name='subdir')",
+        "load(':repo_rule.bzl', 'check_bash')",
+        "check_bash(name = 'check_bash_target')");
+
+    context().write("rule.bzl",
+        "def _impl(ctx):\n"
+            + "  out = ctx.actions.declare_file('does_not_matter')\n"
+            + "  ctx.actions.write(out, 'hi')\n"
+            + "  return [DefaultInfo(files = depset([out]))]\n"
+            + "\n"
+            + "debug_rule = rule(\n"
+            + "    implementation = _impl,\n"
+            + "    attrs = {\n"
+            + "        \"dep\": attr.label(allow_single_file = True),\n"
+            + "    }\n"
+            + ")"
+    );
+
+    context().write("BUILD", "load(':rule.bzl', 'debug_rule')",
+        "debug_rule(name = 'check', dep = '@check_bash_target//:out.txt')");
+
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    if (OS.WINDOWS.equals(OS.getCurrent())) {
+      bazel.shouldFail();
+    }
+    bazel.build("check");
+  }
 
   @Test
   public void testWorkspaceChanges() throws Exception {
@@ -40,33 +78,26 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
             String.format(
                 "local_repository(name = 'x', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repoA)));
-    context().bazel().build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    Path xPath = context().resolveBinPath(context().bazel(), "external/x/out");
-    assertThat(Files.exists(xPath)).isTrue();
-    List<String> lines = PathUtils.readFile(xPath);
-    assertThat(lines.size()).isEqualTo(1);
-    assertThat(lines.get(0)).isEqualTo("hi");
+    Path xPath = context().resolveBinPath(bazel, "external/x/out");
+    WorkspaceTestUtils.assertOneLineFile(xPath, "hi");
 
-    context()
-        .write(
-            WORKSPACE,
-            String.format(
-                "local_repository(name = 'x', path = '%s',)",
-                PathUtils.pathForStarlarkFile(repoB)));
-    context().bazel().build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
+    context().write(WORKSPACE,
+        String.format("local_repository(name = 'x', path = '%s',)",
+            PathUtils.pathForStarlarkFile(repoB)));
+    bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    assertThat(Files.exists(xPath)).isTrue();
-    lines = PathUtils.readFile(xPath);
-    assertThat(lines.size()).isEqualTo(1);
-    assertThat(lines.get(0)).isEqualTo("bye");
+    WorkspaceTestUtils.assertOneLineFile(xPath, "bye");
   }
 
   @Test
   public void testPathWithSpace() throws Exception {
     context().write("a b/WORKSPACE");
-    context().bazel().info();
-    context().bazel().help();
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    bazel.info();
+    bazel.help();
   }
 
   // TODO(ichern) move other tests from workspace_test.sh here.
