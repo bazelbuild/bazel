@@ -275,7 +275,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         // We post a PatternExpandingError here - the pattern could not be parsed, so we don't even
         // get to run TargetPatternFunction.
         env.getListener().post(
-            PatternExpandingError.failed(keyOrException.getOriginalPattern(), e.getMessage()));
+            PatternExpandingError.failed(options.getTargetPatterns(), keyOrException.getOriginalPattern(), e.getMessage()));
         // We generally skip patterns that don't parse. We report a parsing failed exception to the
         // event bus here, but not in determineTests below, which goes through the same list. Note
         // that the TargetPatternFunction otherwise reports these events (but only if the target
@@ -306,7 +306,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
         failedPatterns.add(rawPattern);
-        env.getListener().post(PatternExpandingError.failed(rawPattern, errorMessage));
+        env.getListener().post(PatternExpandingError.failed(options.getTargetPatterns(), rawPattern, errorMessage));
         env.getListener().handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
         continue;
       }

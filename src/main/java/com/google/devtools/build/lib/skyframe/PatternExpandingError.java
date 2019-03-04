@@ -18,18 +18,25 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import java.util.Collection;
 import java.util.List;
 
 /** Event reporting about failure to expand a target pattern properly. */
-public final class PatternExpandingError implements BuildEvent {
+public final class PatternExpandingError implements BuildEvent, BuildEventWithOrderConstraint {
 
+  private final Collection<BuildEventId> postedAfter;
   private final List<String> pattern;
   private final String message;
   private final boolean skipped;
 
-  private PatternExpandingError(List<String> pattern, String message, boolean skipped) {
+  private PatternExpandingError(List<String> allPatterns, List<String> pattern, String message, boolean skipped) {
+    ImmutableList.Builder postedAfterBuilder = ImmutableList.builder();
+    if (allPatterns.size() > pattern.size()) {
+      postedAfterBuilder.add(BuildEventId.targetPatternExpanded(allPatterns));
+    }
+    this.postedAfter = postedAfterBuilder.build();
     this.pattern = pattern;
     this.message = message;
     this.skipped = skipped;
@@ -44,17 +51,17 @@ public final class PatternExpandingError implements BuildEvent {
   }
 
   public static PatternExpandingError failed(List<String> pattern, String message) {
-    return new PatternExpandingError(pattern, message, false);
+    return new PatternExpandingError(ImmutableList.of(), pattern, message, false);
   }
 
-  public static PatternExpandingError failed(String term, String message) {
-    return new PatternExpandingError(ImmutableList.of(term), message, false);
+  public static PatternExpandingError failed(List<String> allPatterns, String term, String message) {
+    return new PatternExpandingError(allPatterns, ImmutableList.of(term), message, false);
   }
 
   // This is unused right now - when we generate the error, we don't know if we're in keep_going
   // mode or not.
   public static PatternExpandingError skipped(String term, String message) {
-    return new PatternExpandingError(ImmutableList.of(term), message, true);
+    return new PatternExpandingError(ImmutableList.of(), ImmutableList.of(term), message, true);
   }
 
   @Override
@@ -64,6 +71,11 @@ public final class PatternExpandingError implements BuildEvent {
     } else {
       return BuildEventId.targetPatternExpanded(pattern);
     }
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return postedAfter;
   }
 
   @Override

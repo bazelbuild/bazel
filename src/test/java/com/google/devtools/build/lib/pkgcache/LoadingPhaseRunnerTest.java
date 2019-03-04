@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -162,6 +163,7 @@ public class LoadingPhaseRunnerTest {
     }
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//does/not/exist");
+    assertThat(err.postedAfter()).isEmpty();
   }
 
   @Test
@@ -176,6 +178,7 @@ public class LoadingPhaseRunnerTest {
     tester.assertContainsWarning("Target pattern parsing failed.");
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//base:missing");
+    assertThat(err.postedAfter()).isEmpty();
   }
 
   @Test
@@ -185,6 +188,8 @@ public class LoadingPhaseRunnerTest {
     tester.loadKeepGoing("//base:hello", "//base:missing");
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//base:missing");
+    assertThat(err.postedAfter()).containsExactly(
+        BuildEventId.targetPatternExpanded(ImmutableList.of("//base:hello", "//base:missing")));
     TargetParsingCompleteEvent event = tester.findPostOnce(TargetParsingCompleteEvent.class);
     assertThat(event.getOriginalTargetPattern()).containsExactly("//base:hello", "//base:missing");
     assertThat(event.getFailedTargetPatterns()).containsExactly("//base:missing");
