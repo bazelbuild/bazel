@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -157,6 +158,11 @@ public class RemoteSpawnCacheTest {
         @Override
         public void report(ProgressStatus state, String name) {
           progressUpdates.add(Pair.of(state, name));
+        }
+
+        @Override
+        public MetadataInjector getMetadataInjector() {
+          throw new UnsupportedOperationException();
         }
       };
 

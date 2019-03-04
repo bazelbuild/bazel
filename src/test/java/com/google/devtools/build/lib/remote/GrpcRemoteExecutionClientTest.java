@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -194,6 +195,11 @@ public class GrpcRemoteExecutionClientTest {
         @Override
         public void report(ProgressStatus state, String name) {
           // TODO(ulfjack): Test that the right calls are made.
+        }
+
+        @Override
+        public MetadataInjector getMetadataInjector() {
+          throw new UnsupportedOperationException();
         }
       };
 

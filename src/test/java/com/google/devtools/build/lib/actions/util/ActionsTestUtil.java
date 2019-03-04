@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -737,6 +738,12 @@ public final class ActionsTestUtil {
 
     @Override
     public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void injectRemoteDirectory(Artifact treeArtifact,
+        Map<PathFragment, RemoteFileArtifactValue> children) {
       throw new UnsupportedOperationException();
     }
 

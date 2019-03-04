@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -27,23 +27,26 @@ public interface MetadataInjector {
   /**
    * Injects metadata of a file that is stored remotely.
    *
-   * @param file  a regular output file.
+   * @param output  a regular output file.
    * @param digest  the digest of the file.
-   * @param sizeBytes the size of the file in bytes.
+   * @param size the size of the file in bytes.
    * @param locationIndex is only used in Blaze.
    */
-  default void injectRemoteFile(Artifact file, byte[] digest, long sizeBytes, int locationIndex) {
-    throw new UnsupportedOperationException();
-  }
+  void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex);
 
   /**
    * Inject the metadata of a tree artifact whose contents are stored remotely.
    *
-   * @param treeArtifact  an output directory.
-   * @param children  the metadata of the files stored in the directory.
+   * @param output  an output directory.
+   * @param children  the metadata of the files stored in the directory. The paths must be relative
+   * to the path of {@code output}.
    */
-  default void injectRemoteDirectory(SpecialArtifact treeArtifact,
-      Map<PathFragment, RemoteFileArtifactValue> children) {
-    throw new UnsupportedOperationException();
-  }
+  void injectRemoteDirectory(Artifact output,
+      Map<PathFragment, RemoteFileArtifactValue> children);
+
+  /**
+   * Marks an {@link Artifact} as intentionally omitted. Acknowledges that this artifact could have
+   * existed, but was intentionally not saved, most likely as an optimization.
+   */
+  void markOmitted(ActionInput output);
 }

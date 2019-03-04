@@ -57,14 +57,6 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
   void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
 
   /**
-   * Marks an artifact as intentionally omitted. Acknowledges that this Artifact could have existed,
-   * but was intentionally not saved, most likely as an optimization.
-   *
-   * <p>Must only be called after a call to {@link #discardOutputMetadata}.
-   */
-  void markOmitted(ActionInput output);
-
-  /**
    * Returns true iff artifact was intentionally omitted (not saved).
    */
   // TODO(ulfjack): artifactOmitted always returns false unless we've just executed the action, and

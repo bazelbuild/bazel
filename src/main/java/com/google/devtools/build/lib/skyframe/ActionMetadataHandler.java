@@ -480,14 +480,23 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
-    Preconditions.checkState(
-        executionMode.get(), "Tried to inject %s outside of execution.", output);
+    Preconditions.checkState(executionMode.get(),
+        "Tried to inject %s outside of execution.", output);
+    Preconditions.checkState(isKnownOutput(output),
+        output + " is not a declared output of this action");
     store.injectRemoteFile(output, digest, size, locationIndex);
   }
 
   @Override
-  public void injectRemoteDirectory(SpecialArtifact output,
+  public void injectRemoteDirectory(Artifact output,
       Map<PathFragment, RemoteFileArtifactValue> children) {
+    Preconditions.checkState(executionMode.get(),
+        "Tried to inject %s outside of execution.", output);
+    Preconditions.checkState(isKnownOutput(output),
+        output + " is not a declared output of this action");
+    Preconditions.checkState(output.isTreeArtifact(),
+        "output must be a tree artifact");
+
     ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> childFileValues = ImmutableMap.builder();
     for (Map.Entry<PathFragment, RemoteFileArtifactValue> child : children.entrySet()) {
       childFileValues.put(ActionInputHelper.treeFileArtifact(output, child.getKey()), child.getValue());

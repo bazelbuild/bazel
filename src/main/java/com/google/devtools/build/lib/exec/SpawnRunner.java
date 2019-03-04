@@ -204,9 +204,7 @@ public interface SpawnRunner {
      * Returns a {@link MetadataInjector} that allows a caller to inject metadata about spawn
      * outputs that are stored remotely.
      */
-    default MetadataInjector getMetadataInjector() {
-      throw new UnsupportedOperationException();
-    }
+    MetadataInjector getMetadataInjector();
   }
 
   /**

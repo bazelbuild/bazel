@@ -144,14 +144,14 @@ public final class ActionInputHelper {
    * that Artifact.
    */
   public static TreeFileArtifact treeFileArtifact(
-      SpecialArtifact parent, PathFragment relativePath) {
+      Artifact parent, PathFragment relativePath) {
     Preconditions.checkState(parent.isTreeArtifact(),
         "Given parent %s must be a TreeArtifact", parent);
     return new TreeFileArtifact(parent, relativePath);
   }
 
   public static TreeFileArtifact treeFileArtifact(
-      SpecialArtifact parent, PathFragment relativePath, ArtifactOwner artifactOwner) {
+      Artifact parent, PathFragment relativePath, ArtifactOwner artifactOwner) {
     Preconditions.checkState(parent.isTreeArtifact(),
         "Given parent %s must be a TreeArtifact", parent);
     return new TreeFileArtifact(
@@ -164,13 +164,13 @@ public final class ActionInputHelper {
    * Instantiates a concrete TreeFileArtifact with the given parent Artifact and path relative to
    * that Artifact.
    */
-  public static TreeFileArtifact treeFileArtifact(SpecialArtifact parent, String relativePath) {
+  public static TreeFileArtifact treeFileArtifact(Artifact parent, String relativePath) {
     return treeFileArtifact(parent, PathFragment.create(relativePath));
   }
 
   /** Returns an Iterable of TreeFileArtifacts with the given parent and parent relative paths. */
   public static Iterable<TreeFileArtifact> asTreeFileArtifacts(
-      final SpecialArtifact parent, Iterable<? extends PathFragment> parentRelativePaths) {
+      final Artifact parent, Iterable<? extends PathFragment> parentRelativePaths) {
     Preconditions.checkState(parent.isTreeArtifact(),
         "Given parent %s must be a TreeArtifact", parent);
     return Iterables.transform(
@@ -179,7 +179,7 @@ public final class ActionInputHelper {
 
   /** Returns a Set of TreeFileArtifacts with the given parent and parent-relative paths. */
   public static Set<TreeFileArtifact> asTreeFileArtifacts(
-      final SpecialArtifact parent, Set<? extends PathFragment> parentRelativePaths) {
+      final Artifact parent, Set<? extends PathFragment> parentRelativePaths) {
     Preconditions.checkState(parent.isTreeArtifact(),
         "Given parent %s must be a TreeArtifact", parent);
 

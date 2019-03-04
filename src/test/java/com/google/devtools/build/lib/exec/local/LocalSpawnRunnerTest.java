@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -257,6 +258,11 @@ public class LocalSpawnRunnerTest {
     @Override
     public void report(ProgressStatus state, String name) {
       reportedStatus.add(state);
+    }
+
+    @Override
+    public MetadataInjector getMetadataInjector() {
+      throw new UnsupportedOperationException();
     }
   }
 
