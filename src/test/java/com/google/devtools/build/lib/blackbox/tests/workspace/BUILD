@@ -43,8 +43,8 @@ java_test(
         "RepoWithRuleWritingTextGenerator.java",
     ],
     tags = ["black_box_test"],
-    deps = [
-        ":common_deps",
+    deps = common_deps + [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:bazel-repository",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
@@ -55,6 +55,7 @@ test_suite(
     name = "ws_black_box_tests",
     tags = ["black_box_test"],
     tests = [
+        "BazelEmbeddedSkylarkBlackBoxTest",
         "RepoWithRuleWritingTextGeneratorTest",
         "WorkspaceBlackBoxTest",
     ],

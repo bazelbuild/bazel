@@ -29,7 +29,9 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
   public void testNotInMsys() throws Exception {
     context().write("repo_rule.bzl",
         "def _impl(rctx):",
-        "  rctx.execute(['bash', '-c', 'echo \"Hello\"'])",
+        "  result = rctx.execute(['bash', '-c', 'echo \"Hello\"'])",
+        "  if result.return_code != 0:",
+        "    fail('Execute bash failed: ' + result.stderr)",
         "  rctx.file('out.txt', '123')",
         "  rctx.file('BUILD', 'exports_files([\"out.txt\"])')",
         "check_bash = repository_rule(implementation = _impl)");
