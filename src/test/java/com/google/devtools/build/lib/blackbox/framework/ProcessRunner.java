@@ -108,15 +108,18 @@ public final class ProcessRunner {
               : Files.readAllLines(parameters.redirectOutput().get());
 
       int exitValue = process.exitValue();
-      if ((exitValue == 0) == parameters.expectedToFail()) {
+      boolean expectedToFail = parameters.expectedToFail() || parameters.expectedExitCode() != 0;
+      if ((exitValue == 0) == expectedToFail) {
         throw new ProcessRunnerException(
             String.format(
                 "Expected to %s, but %s.\nError: %s\nOutput: %s",
-                parameters.expectedToFail() ? "fail" : "succeed",
+                expectedToFail ? "fail" : "succeed",
                 exitValue == 0 ? "succeeded" : "failed",
                 StringUtilities.joinLines(err),
                 StringUtilities.joinLines(out)));
       }
+      // We want to check the exact exit code if it was explicitly set to something;
+      // we already checked the variant when it is equal to zero above.
       if (parameters.expectedExitCode() != 0 && parameters.expectedExitCode() != exitValue) {
         throw new ProcessRunnerException(
             String.format(
