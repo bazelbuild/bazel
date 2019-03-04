@@ -309,6 +309,15 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         return expandSingletonArtifact(filesToBuild, "$@", "output file");
       }
 
+      if (variableName.equals("RULEDIR")) {
+        // The output root directory. This variable expands to the package's root directory
+        // in the genfiles tree.
+        PathFragment dir = ruleContext.getBinOrGenfilesDirectory().getExecPath();
+        PathFragment relPath =
+            ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
+        return dir.getRelative(relPath).getPathString();
+      }
+
       if (variableName.equals("@D")) {
         // The output directory. If there is only one filename in outs,
         // this expands to the directory containing that file. If there are
