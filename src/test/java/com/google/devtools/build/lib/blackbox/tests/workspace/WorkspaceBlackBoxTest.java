@@ -57,7 +57,9 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context().write("BUILD", "load(':rule.bzl', 'debug_rule')",
         "debug_rule(name = 'check', dep = '@check_bash_target//:out.txt')");
 
-    context().bazel().withErrorCode(OS.WINDOWS.equals(OS.getCurrent()) ? -1 :0).build("check");
+    context().bazel()
+        .withEnv("BAZEL_SH", "C:/foo/bar/usr/bin/bash.exe")
+        .withErrorCode(OS.WINDOWS.equals(OS.getCurrent()) ? -1 :0).build("check");
   }
 
   @Test
