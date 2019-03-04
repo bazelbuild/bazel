@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Preconditions;
@@ -139,6 +140,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   public static final RuleClass binaryBaseRule =
       new RuleClass.Builder("$binary_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .add(attr("args", STRING_LIST))
+          .add(attr("envs", STRING_DICT))
           .add(attr("output_licenses", LICENSE))
           .build();
 
@@ -169,6 +171,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 .nonconfigurable(
                     "policy decision: this should be consistent across configurations"))
         .add(attr("args", STRING_LIST))
+        .add(attr("envs", STRING_DICT))
         // Input files for every test action
         .add(
             attr("$test_wrapper", LABEL)

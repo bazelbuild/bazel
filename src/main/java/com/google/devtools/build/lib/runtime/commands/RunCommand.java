@@ -181,6 +181,21 @@ public class RunCommand implements BlazeCommand  {
     return args;
   }
 
+  /**
+   * Get any environement variables specified by the {@code envs=} attribute.
+   */
+  @Nullable
+  private Map<String, String> getEnvs(ConfiguredTarget targetToRun) {
+    Map<String, String> envs = new TreeMap<>();
+
+    FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
+    RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
+    if (runfilesSupport != null && !runfilesSupport.getEnvs().isEmpty()) {
+      envs.putAll(runfilesSupport.getEnvs());
+    }
+    return envs;
+  }
+
   private void constructCommandLine(List<String> cmdLine, List<String> prettyCmdLine,
       CommandEnvironment env, PathFragment shellExecutable, ConfiguredTarget targetToRun,
       ConfiguredTarget runUnderTarget, List<String> args) {
@@ -365,6 +380,8 @@ public class RunCommand implements BlazeCommand  {
     List<String> cmdLine = new ArrayList<>();
     List<String> prettyCmdLine = new ArrayList<>();
     Path workingDir;
+
+    runEnvironment.putAll(getEnvs(targetToRun));
 
     runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
     runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());

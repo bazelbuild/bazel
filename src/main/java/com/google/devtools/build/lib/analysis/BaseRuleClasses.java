@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -164,6 +165,7 @@ public class BaseRuleClasses {
                   .taggable()
                   .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("args", STRING_LIST))
+          .add(attr("envs", STRING_DICT))
           // Input files for every test action
           .add(
               attr("$test_wrapper", LABEL)
@@ -419,6 +421,7 @@ public class BaseRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("args", STRING_LIST))
+          .add(attr("envs", STRING_DICT))
           .add(attr("output_licenses", LICENSE))
           .add(
               attr("$is_executable", BOOLEAN)

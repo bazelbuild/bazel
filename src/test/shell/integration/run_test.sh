@@ -259,6 +259,25 @@ EOF
   rm -rf x
 }
 
+function test_envs_attr() {
+  mkdir -p some/testing
+  cat > some/testing/BUILD <<'EOF'
+sh_binary(
+    name = "testing",
+    srcs = ["test.sh"],
+    envs = {"FOO", "bar"},
+)
+EOF
+  cat > some/testing/test.sh <<'EOF'
+#!/usr/bin/env bash
+echo "foo: $FOO"
+EOF
+  chmod +x some/testing/test.sh
+
+  bazel run //some/testing >$TEST_log || fail "Expected success"
+  expect_log "foo: bar"
+}
+
 # Test for $(location) in args list of sh_binary
 function test_location_in_args() {
   mkdir -p some/testing

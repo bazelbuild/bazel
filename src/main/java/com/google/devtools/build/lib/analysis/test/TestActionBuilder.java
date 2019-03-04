@@ -316,6 +316,11 @@ public final class TestActionBuilder {
           executable, null, shards);
     }
 
+    Object envObj = ruleContext.getRule().getAttributeContainer().getAttr("envs");
+    if (envObj != null) {
+      extraTestEnv.putAll((Map<String, String>)envObj);
+    }
+
     extraTestEnv.putAll(extraEnv);
 
     if (config.getRunUnder() != null) {

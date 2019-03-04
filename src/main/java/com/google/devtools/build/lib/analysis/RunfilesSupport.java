@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,6 +84,7 @@ public final class RunfilesSupport {
   private final Artifact owningExecutable;
   private final boolean createSymlinks;
   private final CommandLine args;
+  private final Map<String, String > envs;
 
   /**
    * Creates the RunfilesSupport helper with the given executable and runfiles.
@@ -93,7 +95,8 @@ public final class RunfilesSupport {
    * @param runfiles the runfiles
    */
   private static RunfilesSupport create(
-      RuleContext ruleContext, Artifact executable, Runfiles runfiles, CommandLine args) {
+      RuleContext ruleContext, Artifact executable, Runfiles runfiles, CommandLine args,
+      Map<String, String> envs) {
     Artifact owningExecutable = Preconditions.checkNotNull(executable);
     boolean createManifest = ruleContext.getConfiguration().buildRunfilesManifests();
     boolean createSymlinks = createManifest && ruleContext.getConfiguration().buildRunfiles();
@@ -140,7 +143,8 @@ public final class RunfilesSupport {
         sourcesManifest,
         owningExecutable,
         createSymlinks,
-        args);
+        args,
+        envs);
   }
 
   @AutoCodec.Instantiator
@@ -153,7 +157,8 @@ public final class RunfilesSupport {
       Artifact sourcesManifest,
       Artifact owningExecutable,
       boolean createSymlinks,
-      CommandLine args) {
+      CommandLine args,
+      Map<String, String> envs) {
     this.runfiles = runfiles;
     this.runfilesInputManifest = runfilesInputManifest;
     this.runfilesManifest = runfilesManifest;
@@ -162,6 +167,7 @@ public final class RunfilesSupport {
     this.owningExecutable = owningExecutable;
     this.createSymlinks = createSymlinks;
     this.args = args;
+    this.envs = envs;
   }
 
   /**
@@ -408,6 +414,11 @@ public final class RunfilesSupport {
     return args;
   }
 
+  /** Returns the unmodifiable list of 'envs' attribute values. */
+  public Map<String,String> getEnvs() {
+    return envs;
+  }
+
   /**
    * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
    * that this method calls back into the passed in rule to obtain the runfiles.
@@ -415,7 +426,7 @@ public final class RunfilesSupport {
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
     return RunfilesSupport.create(
-        ruleContext, executable, runfiles, computeArgs(ruleContext, CommandLine.EMPTY));
+        ruleContext, executable, runfiles, computeArgs(ruleContext, CommandLine.EMPTY), computeEnvs(ruleContext));
   }
 
   /**
@@ -425,17 +436,7 @@ public final class RunfilesSupport {
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable, List<String> appendingArgs) {
     return RunfilesSupport.create(
-        ruleContext, executable, runfiles, computeArgs(ruleContext, CommandLine.of(appendingArgs)));
-  }
-
-  /**
-   * Creates and returns a {@link RunfilesSupport} object for the given rule, executable, runfiles
-   * and args.
-   */
-  public static RunfilesSupport withExecutable(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable, CommandLine appendingArgs) {
-    return RunfilesSupport.create(
-        ruleContext, executable, runfiles, computeArgs(ruleContext, appendingArgs));
+        ruleContext, executable, runfiles, computeArgs(ruleContext, CommandLine.of(appendingArgs)), computeEnvs(ruleContext));
   }
 
   private static CommandLine computeArgs(
@@ -449,5 +450,13 @@ public final class RunfilesSupport {
     return CommandLine.concat(
         ruleContext.getExpander().withDataLocations().tokenized("args"),
         additionalArgs);
+  }
+
+  private static Map<String, String> computeEnvs(
+      RuleContext ruleContext) {
+    if (!ruleContext.getRule().isAttrDefined("envs", Type.STRING_DICT)) {
+      return new HashMap<>();
+    }
+    return (Map<String, String>) ruleContext.getRule().getAttributeContainer().getAttr("envs");
   }
 }

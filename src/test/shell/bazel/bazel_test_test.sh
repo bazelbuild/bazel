@@ -128,12 +128,14 @@ EOF
 echo "pwd: $PWD"
 echo "src: $TEST_SRCDIR"
 echo "ws: $TEST_WORKSPACE"
+echo "foo: $FOO"
 EOF
   chmod +x foo/testenv.sh
   cat > foo/BUILD <<EOF
 sh_test(
     name = "foo",
     srcs = ["testenv.sh"],
+    envs = {"FOO", "bar"},
 )
 EOF
 
@@ -141,6 +143,7 @@ EOF
   expect_log "pwd: .*/foo.runfiles/bar$"
   expect_log "src: .*/foo.runfiles$"
   expect_log "ws: bar$"
+  expect_log "foo: bar"
 }
 
 function test_run_under_label_with_options() {
