@@ -50,6 +50,7 @@ public final class BuilderRunner {
   private boolean useDefaultRc = true;
   private int errorCode = 0;
   private List<String> flags;
+  private boolean shouldFail;
 
   /**
    * Creates the BuilderRunner
@@ -102,6 +103,16 @@ public final class BuilderRunner {
    */
   public BuilderRunner withErrorCode(int errorCode) {
     this.errorCode = errorCode;
+    return this;
+  }
+
+  /**
+   * Expect Bazel to fail. This method is needed when the exact error code can not be specified.
+   *
+   * @return this BuildRunner instance
+   */
+  public BuilderRunner shouldFail() {
+    this.shouldFail = true;
     return this;
   }
 
@@ -271,6 +282,7 @@ public final class BuilderRunner {
             // we need to allow the error output stream be not empty
             .setExpectedEmptyError(false)
             .setExpectedExitCode(errorCode)
+            .setExpectedToFail(shouldFail)
             .build();
     return new ProcessRunner(parameters, executorService).runSynchronously();
   }

@@ -82,9 +82,9 @@ public final class ProcessRunner {
     Process process = processBuilder.start();
 
     try (ProcessStreamReader outReader =
-            parameters.redirectOutput().isPresent()
-                ? null
-                : createReader(process.getInputStream(), ">> ");
+        parameters.redirectOutput().isPresent()
+            ? null
+            : createReader(process.getInputStream(), ">> ");
         ProcessStreamReader errReader =
             parameters.redirectError().isPresent()
                 ? null
@@ -107,12 +107,25 @@ public final class ProcessRunner {
               ? outReader.get()
               : Files.readAllLines(parameters.redirectOutput().get());
 
-      if (parameters.expectedExitCode() != process.exitValue()) {
+      int exitValue = process.exitValue();
+      boolean expectedToFail = parameters.expectedToFail() || parameters.expectedExitCode() != 0;
+      if ((exitValue == 0) == expectedToFail) {
+        throw new ProcessRunnerException(
+            String.format(
+                "Expected to %s, but %s.\nError: %s\nOutput: %s",
+                expectedToFail ? "fail" : "succeed",
+                exitValue == 0 ? "succeeded" : "failed",
+                StringUtilities.joinLines(err),
+                StringUtilities.joinLines(out)));
+      }
+      // We want to check the exact exit code if it was explicitly set to something;
+      // we already checked the variant when it is equal to zero above.
+      if (parameters.expectedExitCode() != 0 && parameters.expectedExitCode() != exitValue) {
         throw new ProcessRunnerException(
             String.format(
                 "Expected exit code %d, but found %d.\nError: %s\nOutput: %s",
                 parameters.expectedExitCode(),
-                process.exitValue(),
+                exitValue,
                 StringUtilities.joinLines(err),
                 StringUtilities.joinLines(out)));
       }
@@ -123,7 +136,7 @@ public final class ProcessRunner {
               "Expected empty error stream, but found: " + StringUtilities.joinLines(err));
         }
       }
-      return ProcessResult.create(parameters.expectedExitCode(), out, err);
+      return ProcessResult.create(exitValue, out, err);
     } finally {
       process.destroy();
     }
