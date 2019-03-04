@@ -408,8 +408,16 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         ruleDeclWithDefaultPyVersionAttr("foo_v2", "PY2"),
         ruleDeclWithDefaultPyVersionAttr("foo_v3", "PY3"));
 
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo_v2", PythonVersion.PY2, "--force_python=PY2");
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo_v3", PythonVersion.PY2, "--force_python=PY2");
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo_v2",
+        PythonVersion.PY2,
+        "--incompatible_allow_python_version_transitions=false",
+        "--force_python=PY2");
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo_v3",
+        PythonVersion.PY2,
+        "--incompatible_allow_python_version_transitions=false",
+        "--force_python=PY2");
   }
 
   @Test
@@ -421,8 +429,16 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         ruleDeclWithDefaultPyVersionAttr("foo_v2", "PY2"),
         ruleDeclWithDefaultPyVersionAttr("foo_v3", "PY3"));
 
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo_v2", PythonVersion.PY3, "--force_python=PY3");
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo_v3", PythonVersion.PY3, "--force_python=PY3");
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo_v2",
+        PythonVersion.PY3,
+        "--incompatible_allow_python_version_transitions=false",
+        "--force_python=PY3");
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo_v3",
+        PythonVersion.PY3,
+        "--incompatible_allow_python_version_transitions=false",
+        "--force_python=PY3");
   }
 
   @Test

@@ -88,19 +88,22 @@ EOF
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 3"
 
+  # These assertions try to override the version, which is legacy semantics.
+  FLAG=--incompatible_allow_python_version_transitions=false
+
   # Force to Python 2.
-  bazel run //test:main2 --force_python=PY2 \
+  bazel run //test:main2 $FLAG --force_python=PY2 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 2"
-  bazel run //test:main3 --force_python=PY2 \
+  bazel run //test:main3 $FLAG --force_python=PY2 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 2"
 
   # Force to Python 3.
-  bazel run //test:main2 --force_python=PY3 \
+  bazel run //test:main2 $FLAG --force_python=PY3 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 3"
-  bazel run //test:main3 --force_python=PY3 \
+  bazel run //test:main3 $FLAG --force_python=PY3 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 3"
 }
