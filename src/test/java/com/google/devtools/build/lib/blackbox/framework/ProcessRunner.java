@@ -82,9 +82,9 @@ public final class ProcessRunner {
     Process process = processBuilder.start();
 
     try (ProcessStreamReader outReader =
-            parameters.redirectOutput().isPresent()
-                ? null
-                : createReader(process.getInputStream(), ">> ");
+        parameters.redirectOutput().isPresent()
+            ? null
+            : createReader(process.getInputStream(), ">> ");
         ProcessStreamReader errReader =
             parameters.redirectError().isPresent()
                 ? null
