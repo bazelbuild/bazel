@@ -9,6 +9,8 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/remote/blobstore/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/logging:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/merkletree:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
@@ -30,6 +32,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
+        "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -38,6 +41,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/remote/util",
         "//third_party:api_client",
         "//third_party:guava",
         "//third_party:mockito",

@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -88,9 +90,11 @@ public class MerkleTree {
       MetadataProvider metadataProvider,
       Path execRoot,
       DigestUtil digestUtil) throws IOException {
-    InputTree tree =
-        InputTree.build(inputs, metadataProvider, execRoot, digestUtil);
-    return MerkleTree.build(tree, digestUtil);
+    try (SilentCloseable c = Profiler.instance().profile("MerkeTree.build")) {
+      InputTree tree =
+          InputTree.build(inputs, metadataProvider, execRoot, digestUtil);
+      return build(tree, digestUtil);
+    }
   }
 
   private static MerkleTree build(InputTree tree, DigestUtil digestUtil) {

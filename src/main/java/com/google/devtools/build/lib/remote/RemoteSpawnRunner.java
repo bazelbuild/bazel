@@ -148,12 +148,8 @@ class RemoteSpawnRunner implements SpawnRunner {
     context.report(ProgressStatus.EXECUTING, getName());
 
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
-    final MerkleTree merkleTree;
-    try (SilentCloseable c = Profiler.instance().profile("Remote.buildMerkleTree")) {
-      merkleTree =
-          MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
-    }
-    
+    final MerkleTree merkleTree =
+        MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     maybeWriteParamFilesLocally(spawn);
 
     // Get the remote platform properties.

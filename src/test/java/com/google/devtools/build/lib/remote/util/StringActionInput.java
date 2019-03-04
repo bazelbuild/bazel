@@ -1,4 +1,4 @@
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.util;
 
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.vfs.PathFragment;

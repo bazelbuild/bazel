@@ -101,12 +101,9 @@ final class RemoteSpawnCache implements SpawnCache {
     }
 
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
-    final Digest merkleTreeRoot;
-    try (SilentCloseable c = Profiler.instance().profile("RemoteCache.buildMerkleTree")) {
-      MerkleTree merkleTree =
-          MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
-      merkleTreeRoot = merkleTree.getRootDigest();
-    }
+    MerkleTree merkleTree =
+        MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+    Digest merkleTreeRoot = merkleTree.getRootDigest();
 
     // Get the remote platform properties.
     Platform platform =
