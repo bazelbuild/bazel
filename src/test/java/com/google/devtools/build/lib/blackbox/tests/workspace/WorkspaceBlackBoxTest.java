@@ -29,10 +29,9 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
   public void testNotInMsys() throws Exception {
     context().write("repo_rule.bzl",
         "def _impl(rctx):",
-        "  result = rctx.execute(['bash', '-c', 'echo \"Hello\"'])",
+        "  result = rctx.execute(['bash', '-c', 'which bash > out.txt'])",
         "  if result.return_code != 0:",
         "    fail('Execute bash failed: ' + result.stderr)",
-        "  rctx.file('out.txt', '123')",
         "  rctx.file('BUILD', 'exports_files([\"out.txt\"])')",
         "check_bash = repository_rule(implementation = _impl)");
 
@@ -59,6 +58,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     context().bazel()
         .withEnv("BAZEL_SH", "C:/foo/bar/usr/bin/bash.exe")
+        .withEnv("PATH", WorkspaceTestUtils.removeMsysFromPath(System.getenv("PATH")))
         .withErrorCode(OS.WINDOWS.equals(OS.getCurrent()) ? -1 :0).build("check");
   }
 

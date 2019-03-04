@@ -29,6 +29,7 @@ java_test(
         "AssertHelper.java",
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceBlackBoxTest.java",
+        "WorkspaceTestUtils.java",
     ],
     tags = ["black_box_test"],
     deps = common_deps,
@@ -49,6 +50,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
     ],
+)
+
+java_binary(
+    name = "WorkspaceTestUtils",
+    srcs = ["WorkspaceTestUtils.java"],
+    deps = common_deps,
 )
 
 test_suite(
