@@ -135,7 +135,7 @@ EOF
 sh_test(
     name = "foo",
     srcs = ["testenv.sh"],
-    envs = {"FOO", "bar"},
+    envs = {"FOO" : "bar"},
 )
 EOF
 

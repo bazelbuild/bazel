@@ -265,7 +265,7 @@ function test_envs_attr() {
 sh_binary(
     name = "testing",
     srcs = ["test.sh"],
-    envs = {"FOO", "bar"},
+    envs = {"FOO" : "bar"},
 )
 EOF
   cat > some/testing/test.sh <<'EOF'
