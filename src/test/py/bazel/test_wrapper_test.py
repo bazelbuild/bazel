@@ -444,14 +444,18 @@ class TestWrapperTest(test_base.TestBase):
     # than desktop Windows versions, and one of the recognized types is ".ico"
     # files.
     # Update(2019-03-05): apparently this MIME type is now recognized on CI as
-    # as "image/vnd.microsoft.icon", so the assertion below should accept both
-    # "image/x-icon" and "image/vnd.microsoft.icon".
+    # as "image/vnd.microsoft.icon". The standard MIME type is "image/x-icon",
+    # but Wikipedia lists a few alterantive ones, so the test will accept all of
+    # them.
     if len(mf_content) != 2:
       self._FailWithOutput(mf_content)
-    if (mf_content[0] != 'out1/data1.ico\t70\timage/x-icon' and
-        mf_content[0] != 'out1/data1.ico\t70\timage/vnd.microsoft.icon'):
+    tokens = mf_content[0].split('\t')
+    if (len(tokens) != 3 or tokens[0] != 'out1/data1.ico' or tokens[1] != '70'
+        or tokens[2] not in ['image/x-icon', 'image/vnd.microsoft.icon',
+                             'image/ico', 'image/icon', 'text/ico',
+                             'application/ico']):
       self._FailWithOutput(mf_content)
-    if len(mf_content[1]) != 'out2/data2.dat\t16\tapplication/octet-stream':
+    if mf_content[1] != 'out2/data2.dat\t16\tapplication/octet-stream':
       self._FailWithOutput(mf_content)
 
   def _AssertUndeclaredOutputsAnnotations(self, flag):
