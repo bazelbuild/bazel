@@ -746,6 +746,7 @@ The following is a reference of `CcToolchainConfigInfo` build variables.
   </tr>
   <tr>
    <td><strong><code>quote_include_paths</code></strong>
+   </td>
    <td>compile</td>
    <td>Sequence of <code>-iquote</code> includes -
        directories in which the compiler searches for headers included using
