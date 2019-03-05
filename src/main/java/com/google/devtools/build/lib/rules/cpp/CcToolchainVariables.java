@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.collect.Streams;
@@ -299,6 +300,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /** An empty variables instance. */
   public static final CcToolchainVariables EMPTY = new CcToolchainVariables.Builder().build();
 
+  private final Map<String, VariableValue> cache = Maps.newConcurrentMap();
+
   /**
    * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
    * and converts it into a list of plain strings.
@@ -307,297 +310,298 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    */
   public static final ImmutableList<String> toStringList(
       CcToolchainVariables variables, String variableName) {
-      return Streams
-          .stream(variables.getSequenceVariable(variableName))
-          .map(variable -> variable.getStringValue(variableName))
-          .collect(ImmutableList.toImmutableList());
-    }
+    return Streams.stream(variables.getSequenceVariable(variableName))
+        .map(variable -> variable.getStringValue(variableName))
+        .collect(ImmutableList.toImmutableList());
+  }
 
-    /**
-     * Get a variable value named @param name. Supports accessing fields in structures (e.g.
-     * 'libraries_to_link.interface_libraries')
-     *
-     * @throws ExpansionException when no such variable or no such field are present, or when
-     *     accessing a field of non-structured variable
-     */
-    VariableValue getVariable(String name) {
+  /**
+   * Get a variable value named @param name. Supports accessing fields in structures (e.g.
+   * 'libraries_to_link.interface_libraries')
+   *
+   * @throws ExpansionException when no such variable or no such field are present, or when
+   *     accessing a field of non-structured variable
+   */
+  VariableValue getVariable(String name) {
     return lookupVariable(name, /* throwOnMissingVariable= */ true, /* expander= */ null);
-    }
+  }
 
-    VariableValue getVariable(String name, @Nullable ArtifactExpander expander) {
+  VariableValue getVariable(String name, @Nullable ArtifactExpander expander) {
     return lookupVariable(name, /* throwOnMissingVariable= */ true, expander);
+  }
+
+  /**
+   * Lookup a variable named @param name or return a reason why the variable was not found. Supports
+   * accessing fields in structures.
+   *
+   * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
+   *     reason why variable was not found)
+   */
+  private VariableValue lookupVariable(
+      String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
+    VariableValue variable =
+        cache.computeIfAbsent(
+            name,
+            n -> {
+              VariableValue nonStructuredVariable = getNonStructuredVariable(n);
+              if (nonStructuredVariable != null) {
+                return nonStructuredVariable;
+              }
+              VariableValue structuredVariable =
+                  getStructureVariable(n, throwOnMissingVariable, expander);
+              return structuredVariable;
+            });
+    if (variable == null && throwOnMissingVariable) {
+      throw new ExpansionException(
+          String.format("Invalid toolchain configuration: Cannot find variable named '%s'.", name));
+    }
+    return variable;
+  }
+
+  private VariableValue getStructureVariable(
+      String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
+    if (!name.contains(".")) {
+      return null;
     }
 
-    /**
-     * Lookup a variable named @param name or return a reason why the variable was not found.
-     * Supports accessing fields in structures.
-     *
-     * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
-     *     reason why variable was not found)
-     */
-    private VariableValue lookupVariable(
-        String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
-      VariableValue nonStructuredVariable = getNonStructuredVariable(name);
-      if (nonStructuredVariable != null) {
-        return nonStructuredVariable;
-      }
-      VariableValue structuredVariable =
-          getStructureVariable(name, throwOnMissingVariable, expander);
-      if (structuredVariable != null) {
-        return structuredVariable;
-      } else if (throwOnMissingVariable) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot find variable named '%s'.", name));
-      } else {
-        return null;
-      }
+    Stack<String> fieldsToAccess = new Stack<>();
+    String structPath = name;
+    VariableValue variable;
+
+    do {
+      fieldsToAccess.push(structPath.substring(structPath.lastIndexOf('.') + 1));
+      structPath = structPath.substring(0, structPath.lastIndexOf('.'));
+      variable = getNonStructuredVariable(structPath);
+    } while (variable == null && structPath.contains("."));
+
+    if (variable == null) {
+      return null;
     }
 
-    private VariableValue getStructureVariable(
-        String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
-      if (!name.contains(".")) {
-        return null;
-      }
-
-      Stack<String> fieldsToAccess = new Stack<>();
-      String structPath = name;
-      VariableValue variable;
-
-      do {
-        fieldsToAccess.push(structPath.substring(structPath.lastIndexOf('.') + 1));
-        structPath = structPath.substring(0, structPath.lastIndexOf('.'));
-        variable = getNonStructuredVariable(structPath);
-      } while (variable == null && structPath.contains("."));
-
+    while (!fieldsToAccess.empty()) {
+      String field = fieldsToAccess.pop();
+      variable = variable.getFieldValue(structPath, field, expander);
       if (variable == null) {
-        return null;
-      }
-
-      while (!fieldsToAccess.empty()) {
-        String field = fieldsToAccess.pop();
-        variable = variable.getFieldValue(structPath, field, expander);
-        if (variable == null) {
-          if (throwOnMissingVariable) {
-            throw new ExpansionException(
-                String.format(
-                    "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
-                        + "doesn't have a field named '%s'",
-                    structPath, field, structPath, field));
-          } else {
-            return null;
-          }
+        if (throwOnMissingVariable) {
+          throw new ExpansionException(
+              String.format(
+                  "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
+                      + "doesn't have a field named '%s'",
+                  structPath, field, structPath, field));
+        } else {
+          return null;
         }
       }
-      return variable;
     }
+    return variable;
+  }
 
-    public String getStringVariable(String variableName) {
+  public String getStringVariable(String variableName) {
     return getVariable(variableName, /* expander= */ null).getStringValue(variableName);
-    }
+  }
 
-    public Iterable<? extends VariableValue> getSequenceVariable(String variableName) {
+  public Iterable<? extends VariableValue> getSequenceVariable(String variableName) {
     return getVariable(variableName, /* expander= */ null).getSequenceValue(variableName);
-    }
+  }
 
-    public Iterable<? extends VariableValue> getSequenceVariable(
-        String variableName, @Nullable ArtifactExpander expander) {
-      return getVariable(variableName, expander).getSequenceValue(variableName);
-    }
+  public Iterable<? extends VariableValue> getSequenceVariable(
+      String variableName, @Nullable ArtifactExpander expander) {
+    return getVariable(variableName, expander).getSequenceValue(variableName);
+  }
 
-    /** Returns whether {@code variable} is set. */
-    boolean isAvailable(String variable) {
+  /** Returns whether {@code variable} is set. */
+  boolean isAvailable(String variable) {
     return isAvailable(variable, /* expander= */ null);
-    }
+  }
 
-    boolean isAvailable(String variable, @Nullable ArtifactExpander expander) {
+  boolean isAvailable(String variable, @Nullable ArtifactExpander expander) {
     return lookupVariable(variable, /* throwOnMissingVariable= */ false, expander) != null;
-    }
+  }
 
-    abstract Map<String, VariableValue> getVariablesMap();
+  abstract Map<String, VariableValue> getVariablesMap();
 
-    abstract Map<String, String> getStringVariablesMap();
+  abstract Map<String, String> getStringVariablesMap();
 
-    @Nullable
-    abstract VariableValue getNonStructuredVariable(String name);
+  @Nullable
+  abstract VariableValue getNonStructuredVariable(String name);
+
+  /**
+   * Value of a build variable exposed to the CROSSTOOL used for flag expansion.
+   *
+   * <p>{@link VariableValue} represent either primitive values or an arbitrarily deeply nested
+   * recursive structures or sequences. Since there are builds with millions of values, some
+   * implementations might exist only to optimize memory usage.
+   *
+   * <p>Implementations must be immutable and without any side-effects. They will be expanded and
+   * queried multiple times.
+   */
+  interface VariableValue {
+    /**
+     * Returns string value of the variable, if the variable type can be converted to string (e.g.
+     * StringValue), or throw exception if it cannot (e.g. Sequence).
+     *
+     * @param variableName name of the variable value at hand, for better exception message.
+     */
+    String getStringValue(String variableName);
 
     /**
-     * Value of a build variable exposed to the CROSSTOOL used for flag expansion.
+     * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
+     * (e.g. Sequence), or throw exception if it cannot (e.g. StringValue).
      *
-     * <p>{@link VariableValue} represent either primitive values or an arbitrarily deeply nested
-     * recursive structures or sequences. Since there are builds with millions of values, some
-     * implementations might exist only to optimize memory usage.
-     *
-     * <p>Implementations must be immutable and without any side-effects. They will be expanded and
-     * queried multiple times.
+     * @param variableName name of the variable value at hand, for better exception message.
      */
-    interface VariableValue {
-      /**
-       * Returns string value of the variable, if the variable type can be converted to string (e.g.
-       * StringValue), or throw exception if it cannot (e.g. Sequence).
-       *
-       * @param variableName name of the variable value at hand, for better exception message.
-       */
-      String getStringValue(String variableName);
-
-      /**
-       * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
-       * (e.g. Sequence), or throw exception if it cannot (e.g. StringValue).
-       *
-       * @param variableName name of the variable value at hand, for better exception message.
-       */
-      Iterable<? extends VariableValue> getSequenceValue(String variableName);
-
-      /**
-       * Returns value of the field, if the variable is of struct type or throw exception if it is
-       * not or no such field exists.
-       *
-       * @param variableName name of the variable value at hand, for better exception message.
-       */
-      VariableValue getFieldValue(String variableName, String field);
-
-      VariableValue getFieldValue(
-          String variableName, String field, @Nullable ArtifactExpander expander);
-
-      /** Returns true if the variable is truthy */
-      boolean isTruthy();
-    }
+    Iterable<? extends VariableValue> getSequenceValue(String variableName);
 
     /**
-     * Adapter for {@link VariableValue} predefining error handling methods. Override {@link
-     * #getVariableTypeName()}, {@link #isTruthy()}, and one of {@link #getFieldValue(String,
-     * String)}, {@link #getSequenceValue(String)}, or {@link #getStringValue(String)}, and you'll
-     * get error handling for the other methods for free.
+     * Returns value of the field, if the variable is of struct type or throw exception if it is not
+     * or no such field exists.
+     *
+     * @param variableName name of the variable value at hand, for better exception message.
      */
-    abstract static class VariableValueAdapter implements VariableValue {
+    VariableValue getFieldValue(String variableName, String field);
 
-      /** Returns human-readable variable type name to be used in error messages. */
-      public abstract String getVariableTypeName();
+    VariableValue getFieldValue(
+        String variableName, String field, @Nullable ArtifactExpander expander);
 
-      @Override
-      public abstract boolean isTruthy();
+    /** Returns true if the variable is truthy */
+    boolean isTruthy();
+  }
 
-      @Override
-      public VariableValue getFieldValue(String variableName, String field) {
+  /**
+   * Adapter for {@link VariableValue} predefining error handling methods. Override {@link
+   * #getVariableTypeName()}, {@link #isTruthy()}, and one of {@link #getFieldValue(String,
+   * String)}, {@link #getSequenceValue(String)}, or {@link #getStringValue(String)}, and you'll get
+   * error handling for the other methods for free.
+   */
+  abstract static class VariableValueAdapter implements VariableValue {
+
+    /** Returns human-readable variable type name to be used in error messages. */
+    public abstract String getVariableTypeName();
+
+    @Override
+    public abstract boolean isTruthy();
+
+    @Override
+    public VariableValue getFieldValue(String variableName, String field) {
       return getFieldValue(variableName, field, /* expander= */ null);
-      }
-
-      @Override
-      public VariableValue getFieldValue(
-          String variableName, String field, @Nullable ArtifactExpander expander) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
-                    + "%s, expected structure",
-                variableName, field, variableName, getVariableTypeName()));
-      }
-
-      @Override
-      public String getStringValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
-                    + "found %s",
-                variableName, getVariableTypeName()));
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
-                    + "found %s",
-                variableName, getVariableTypeName()));
-      }
     }
 
-    /** Interface for VariableValue builders */
-    public interface VariableValueBuilder {
-      VariableValue build();
+    @Override
+    public VariableValue getFieldValue(
+        String variableName, String field, @Nullable ArtifactExpander expander) {
+      throw new ExpansionException(
+          String.format(
+              "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
+                  + "%s, expected structure",
+              variableName, field, variableName, getVariableTypeName()));
     }
 
-    /** Builder for StringSequence. */
-    public static class StringSequenceBuilder implements VariableValueBuilder {
-
-      private final ImmutableList.Builder<String> values = ImmutableList.builder();
-
-      /** Adds a value to the sequence. */
-      public StringSequenceBuilder addValue(String value) {
-        values.add(value);
-        return this;
-      }
-
-      /** Returns an immutable string sequence. */
-      @Override
-      public StringSequence build() {
-        return new StringSequence(values.build());
-      }
+    @Override
+    public String getStringValue(String variableName) {
+      throw new ExpansionException(
+          String.format(
+              "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
+                  + "found %s",
+              variableName, getVariableTypeName()));
     }
 
-    /** Builder for Sequence. */
-    public static class SequenceBuilder implements VariableValueBuilder {
+    @Override
+    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+      throw new ExpansionException(
+          String.format(
+              "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
+                  + "found %s",
+              variableName, getVariableTypeName()));
+    }
+  }
 
-      private final ImmutableList.Builder<VariableValue> values = ImmutableList.builder();
+  /** Interface for VariableValue builders */
+  public interface VariableValueBuilder {
+    VariableValue build();
+  }
 
-      /** Adds a value to the sequence. */
-      public SequenceBuilder addValue(VariableValue value) {
-        values.add(value);
-        return this;
-      }
+  /** Builder for StringSequence. */
+  public static class StringSequenceBuilder implements VariableValueBuilder {
 
-      /** Adds a value to the sequence. */
-      public SequenceBuilder addValue(VariableValueBuilder value) {
-        Preconditions.checkArgument(value != null, "Cannot use null builder for a sequence value");
-        values.add(value.build());
-        return this;
-      }
+    private final ImmutableList.Builder<String> values = ImmutableList.builder();
 
-      /** Returns an immutable sequence. */
-      @Override
-      public Sequence build() {
-        return new Sequence(values.build());
-      }
+    /** Adds a value to the sequence. */
+    public StringSequenceBuilder addValue(String value) {
+      values.add(value);
+      return this;
     }
 
-    /** Builder for StructureValue. */
-    public static class StructureBuilder implements VariableValueBuilder {
-
-      private final ImmutableMap.Builder<String, VariableValue> fields = ImmutableMap.builder();
-
-      /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, VariableValue value) {
-        fields.put(name, value);
-        return this;
-      }
-
-      /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, VariableValueBuilder valueBuilder) {
-        Preconditions.checkArgument(
-            valueBuilder != null,
-            "Cannot use null builder to get a field value for field '%s'",
-            name);
-        fields.put(name, valueBuilder.build());
-        return this;
-      }
-
-      /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, String value) {
-        fields.put(name, new StringValue(value));
-        return this;
-      }
-
-      /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, ImmutableList<String> values) {
-        fields.put(name, new StringSequence(values));
-        return this;
-      }
-
-      /** Returns an immutable structure. */
-      @Override
-      public StructureValue build() {
-        return new StructureValue(fields.build());
-      }
+    /** Returns an immutable string sequence. */
+    @Override
+    public StringSequence build() {
+      return new StringSequence(values.build());
     }
+  }
+
+  /** Builder for Sequence. */
+  public static class SequenceBuilder implements VariableValueBuilder {
+
+    private final ImmutableList.Builder<VariableValue> values = ImmutableList.builder();
+
+    /** Adds a value to the sequence. */
+    public SequenceBuilder addValue(VariableValue value) {
+      values.add(value);
+      return this;
+    }
+
+    /** Adds a value to the sequence. */
+    public SequenceBuilder addValue(VariableValueBuilder value) {
+      Preconditions.checkArgument(value != null, "Cannot use null builder for a sequence value");
+      values.add(value.build());
+      return this;
+    }
+
+    /** Returns an immutable sequence. */
+    @Override
+    public Sequence build() {
+      return new Sequence(values.build());
+    }
+  }
+
+  /** Builder for StructureValue. */
+  public static class StructureBuilder implements VariableValueBuilder {
+
+    private final ImmutableMap.Builder<String, VariableValue> fields = ImmutableMap.builder();
+
+    /** Adds a field to the structure. */
+    public StructureBuilder addField(String name, VariableValue value) {
+      fields.put(name, value);
+      return this;
+    }
+
+    /** Adds a field to the structure. */
+    public StructureBuilder addField(String name, VariableValueBuilder valueBuilder) {
+      Preconditions.checkArgument(
+          valueBuilder != null,
+          "Cannot use null builder to get a field value for field '%s'",
+          name);
+      fields.put(name, valueBuilder.build());
+      return this;
+    }
+
+    /** Adds a field to the structure. */
+    public StructureBuilder addField(String name, String value) {
+      fields.put(name, new StringValue(value));
+      return this;
+    }
+
+    /** Adds a field to the structure. */
+    public StructureBuilder addField(String name, ImmutableList<String> values) {
+      fields.put(name, new StringSequence(values));
+      return this;
+    }
+
+    /** Returns an immutable structure. */
+    @Override
+    public StructureValue build() {
+      return new StructureValue(fields.build());
+    }
+  }
 
   /**
    * Lazily computed string sequence. Exists as a memory optimization. Make sure the {@param
