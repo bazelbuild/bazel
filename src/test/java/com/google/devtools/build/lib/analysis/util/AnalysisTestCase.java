@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
@@ -281,12 +282,13 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     LoadingPhaseThreadsOption.class,
                     LoadingOptions.class),
                 ruleClassProvider.getConfigurationOptions()));
-    optionsParser.parse("--default_visibility=public", "--cpu=k8", "--host_cpu=k8");
-    optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    optionsParser.parse(new String[] {"--default_visibility=public", "--cpu=k8", "--host_cpu=k8"});
     optionsParser.parse(args);
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       optionsParser.parse("--experimental_dynamic_configs=on");
     }
+    InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
+    optionsPolicyEnforcer.enforce(optionsParser);
 
     buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
   }

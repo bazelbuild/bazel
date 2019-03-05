@@ -157,6 +157,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -364,6 +365,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
     optionsParser.setStarlarkOptions(skylarkOptions);
 
+    InvocationPolicyEnforcer optionsPolicyEnforcer =
+        getAnalysisMock().getInvocationPolicyEnforcer();
+    optionsPolicyEnforcer.enforce(optionsParser);
+
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     return skyframeExecutor.createConfigurations(
         reporter, buildOptions, ImmutableSet.<String>of(), false);
@@ -513,17 +518,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void useConfiguration(ImmutableMap<String, Object> skylarkOptions, String... args)
       throws Exception {
-    ImmutableList<String> actualArgs =
-        ImmutableList.<String>builder()
-            .addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS)
-            .add(args)
-            .add("--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString()))
-            .build();
-
-    masterConfig = createConfigurations(skylarkOptions, actualArgs.toArray(new String[0]));
+    String[] actualArgs;
+    actualArgs = Arrays.copyOf(args, args.length + 1);
+    actualArgs[args.length] =
+        "--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString());
+    masterConfig = createConfigurations(skylarkOptions, actualArgs);
     targetConfig = getTargetConfiguration();
     targetConfigKey = BuildConfigurationValue.key(targetConfig);
-    configurationArgs = actualArgs;
+    configurationArgs = Arrays.asList(actualArgs);
     createBuildView();
   }
 
