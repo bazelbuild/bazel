@@ -196,7 +196,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("expected value of type 'JavaRuntimeInfo'");
+    assertContainsEvent("must point to a Java runtime");
   }
 
   @Test
@@ -2279,7 +2279,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("expected value of type 'JavaRuntimeInfo'");
+    assertContainsEvent("java_common.JavaRuntimeInfo");
   }
 
   @Test
@@ -2319,7 +2319,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("expected value of type 'JavaToolchainSkylarkApiProvider'");
+    assertContainsEvent("java_common.JavaToolchainInfo");
   }
 
   @Test
