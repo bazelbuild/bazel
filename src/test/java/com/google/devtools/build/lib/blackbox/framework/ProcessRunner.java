@@ -70,7 +70,7 @@ public final class ProcessRunner {
     commandParts.add(parameters.name());
     commandParts.addAll(args);
 
-    logger.info("Running: " + commandParts.stream().collect(Collectors.joining(" ")));
+    logger.info("Running: " + String.join(" ", commandParts));
 
     ProcessBuilder processBuilder = new ProcessBuilder(commandParts);
     processBuilder.directory(parameters.workingDirectory());
@@ -108,24 +108,24 @@ public final class ProcessRunner {
               : Files.readAllLines(parameters.redirectOutput().get());
 
       int exitValue = process.exitValue();
+      boolean processFailed = exitValue != 0;
       boolean expectedToFail = parameters.expectedToFail() || parameters.expectedExitCode() != 0;
-      if ((exitValue == 0) == expectedToFail) {
+      if (processFailed != expectedToFail) {
+        // We want to check the exact exit code if it was explicitly set to something;
+        if (parameters.expectedExitCode() != 0 && parameters.expectedExitCode() != exitValue) {
+          throw new ProcessRunnerException(
+              String.format(
+                  "Expected exit code %d, but found %d.\nError: %s\nOutput: %s",
+                  parameters.expectedExitCode(),
+                  exitValue,
+                  StringUtilities.joinLines(err),
+                  StringUtilities.joinLines(out)));
+        }
         throw new ProcessRunnerException(
             String.format(
                 "Expected to %s, but %s.\nError: %s\nOutput: %s",
                 expectedToFail ? "fail" : "succeed",
-                exitValue == 0 ? "succeeded" : "failed",
-                StringUtilities.joinLines(err),
-                StringUtilities.joinLines(out)));
-      }
-      // We want to check the exact exit code if it was explicitly set to something;
-      // we already checked the variant when it is equal to zero above.
-      if (parameters.expectedExitCode() != 0 && parameters.expectedExitCode() != exitValue) {
-        throw new ProcessRunnerException(
-            String.format(
-                "Expected exit code %d, but found %d.\nError: %s\nOutput: %s",
-                parameters.expectedExitCode(),
-                exitValue,
+                processFailed ? "failed" : "succeeded",
                 StringUtilities.joinLines(err),
                 StringUtilities.joinLines(out)));
       }
