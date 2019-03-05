@@ -151,7 +151,7 @@ class TestWrapperTest(test_base.TestBase):
         executable=True)
 
     # A single white pixel as an ".ico" file. /usr/bin/file should identify this
-    # as "image/x-icon".
+    # as "image/x-icon" or as "image/vnd.microsoft.icon".
     # The MIME type lookup logic of the test wrapper only looks at file names,
     # but the test-setup.sh calls /usr/bin/file which inspects file contents, so
     # we need a valid ".ico" file.
@@ -443,10 +443,16 @@ class TestWrapperTest(test_base.TestBase):
     # machines run Windows Server 2016 core which recognizes fewer MIME types
     # than desktop Windows versions, and one of the recognized types is ".ico"
     # files.
-    self.assertListEqual(mf_content, [
-        'out1/data1.ico\t70\timage/x-icon',
-        'out2/data2.dat\t16\tapplication/octet-stream'
-    ])
+    # Update(2019-03-05): apparently this MIME type is now recognized on CI as
+    # as "image/vnd.microsoft.icon", so the assertion below should accept both
+    # "image/x-icon" and "image/vnd.microsoft.icon".
+    if len(mf_content) != 2:
+      self._FailWithOutput(mf_content)
+    if (mf_content[0] != 'out1/data1.ico\t70\timage/x-icon' and
+        mf_content[0] != 'out1/data1.ico\t70\timage/vnd.microsoft.icon'):
+      self._FailWithOutput(mf_content)
+    if len(mf_content[1]) != 'out2/data2.dat\t16\tapplication/octet-stream':
+      self._FailWithOutput(mf_content)
 
   def _AssertUndeclaredOutputsAnnotations(self, flag):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
