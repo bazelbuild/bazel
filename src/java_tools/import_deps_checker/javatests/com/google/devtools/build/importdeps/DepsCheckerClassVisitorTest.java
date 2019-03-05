@@ -128,18 +128,19 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
     // exceptions.
     // module-info's peculiarity is that it's like java.lang.Object
     // and doesn't have a superclass.
-    ZipFile zipFile = new ZipFile(libraryModuleInfoJar.toFile());
-    ZipEntry entry = zipFile.getEntry("module-info.class");
-    ClassCache cache = new ClassCache(
-      ImmutableSet.of(),
-      ImmutableSet.of(),
-      ImmutableSet.of(),
-      ImmutableSet.of(),
-      false);
-    try (InputStream classStream = zipFile.getInputStream(entry)) {
-      ClassReader reader = new ClassReader(classStream);
-      DepsCheckerClassVisitor checker = new DepsCheckerClassVisitor(cache, null);
-      reader.accept(checker, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+    try (ZipFile zipFile = new ZipFile(libraryModuleInfoJar.toFile())) {
+      ZipEntry entry = zipFile.getEntry("module-info.class");
+      ClassCache cache = new ClassCache(
+          ImmutableSet.of(),
+          ImmutableSet.of(),
+          ImmutableSet.of(),
+          ImmutableSet.of(),
+          false);
+      try (InputStream classStream = zipFile.getInputStream(entry)) {
+        ClassReader reader = new ClassReader(classStream);
+        DepsCheckerClassVisitor checker = new DepsCheckerClassVisitor(cache, null);
+        reader.accept(checker, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+      }
     }
   }
 
