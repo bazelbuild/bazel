@@ -507,14 +507,7 @@ public class RemoteSpawnCacheTest {
   @Test
   public void failedCacheActionAsCacheMiss() throws Exception {
     ActionResult actionResult = ActionResult.newBuilder().setExitCode(1).build();
-    when(remoteCache.getCachedActionResult(any(ActionKey.class)))
-        .thenAnswer(
-            (Answer<ActionResult>) invocation -> {
-              RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
-              assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
-              assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
-              return actionResult;
-            });
+    when(remoteCache.getCachedActionResult(any(ActionKey.class))).thenReturn(actionResult);
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
 
@@ -525,7 +518,5 @@ public class RemoteSpawnCacheTest {
             any(Path.class),
             eq(outErr)
         );
-    assertThat(progressUpdates)
-        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
 }

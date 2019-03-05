@@ -143,8 +143,8 @@ final class RemoteSpawnCache implements SpawnCache {
           result = remoteCache.getCachedActionResult(actionKey);
         }
         if (result != null && result.getExitCode() == 0) {
-          // We don't cache failed actions, so we know the outputs exist.
-          // In case if failed action returned (exit code != 0) we treat it as a missed cache
+          // In case if failed action returned (exit code != 0) we treat it as a cache miss
+          // Otherwise, we know that result exists.
           // For now, download all outputs locally; in the future, we can reuse the digests to
           // just update the TreeNodeRepository and continue the build.
           try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {

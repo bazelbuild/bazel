@@ -355,10 +355,10 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
-    SpawnResult res = Mockito.mock(SpawnResult.class);
-    when(res.exitCode()).thenReturn(1);
-    when(res.status()).thenReturn(Status.EXECUTION_FAILED);
-    when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(res);
+    SpawnResult succeeded = Mockito.mock(SpawnResult.class);
+    when(succeeded.exitCode()).thenReturn(0);
+    when(succeeded.status()).thenReturn(Status.SUCCESS);
+    when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(succeeded);
 
     runner.exec(spawn, policy);
 
@@ -373,7 +373,7 @@ public class RemoteSpawnRunnerTest {
             any(Action.class),
             any(Command.class),
             /* uploadLocalResults= */ eq(true));
-    verify(cache, never())
+    verify(cache)
         .upload(
             any(ActionKey.class),
             any(Action.class),
@@ -391,12 +391,6 @@ public class RemoteSpawnRunnerTest {
   @Test
   public void treatFailedCachedActionAsCacheMiss_remote() throws Exception {
     // Test that bazel treats failed cache action as a cache miss and attempts to execute action locally
-
-    options.remoteAcceptCached = true;
-    options.remoteLocalFallback = false;
-    options.remoteUploadLocalResults = true;
-    options.remoteResultCachePriority = 1;
-    options.remoteExecutionPriority = 2;
 
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
@@ -437,8 +431,6 @@ public class RemoteSpawnRunnerTest {
     ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
     verify(executor).executeRemotely(requestCaptor.capture());
     assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
-    assertThat(requestCaptor.getValue().getResultsCachePolicy().getPriority()).isEqualTo(1);
-    assertThat(requestCaptor.getValue().getExecutionPolicy().getPriority()).isEqualTo(2);
   }
 
   @Test

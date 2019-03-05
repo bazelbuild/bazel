@@ -192,7 +192,7 @@ class RemoteSpawnRunner implements SpawnRunner {
         }
         if (cachedResult != null) {
           if (cachedResult.getExitCode() != 0) {
-            // Cache returned failed action, so we treat it as a cache miss
+            // Failed actions are treated as a cache miss mostly in order to avoid caching flaky actions (tests).
             // Set acceptCachedResult to false in order to force the action re-execution
             acceptCachedResult = false;
           } else {
