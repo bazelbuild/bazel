@@ -130,6 +130,7 @@ public class SkylarkSemanticsConsistencyTest {
             + ","
             + rand.nextDouble(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
+        "--experimental_restrict_named_params=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
         "--experimental_transition_whitelist_location=" + rand.nextDouble(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
@@ -177,6 +178,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalJavaCommonCreateProviderEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalPlatformsApi(rand.nextBoolean())
+        .experimentalRestrictNamedParams(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
         .experimentalTransitionWhitelistLocation(String.valueOf(rand.nextDouble()))
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())

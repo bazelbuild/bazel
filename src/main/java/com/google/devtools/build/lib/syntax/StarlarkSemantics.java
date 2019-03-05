@@ -127,6 +127,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalPlatformsApi();
 
+  public abstract boolean experimentalRestrictNamedParams();
+
   public abstract boolean experimentalStarlarkConfigTransitions();
 
   public abstract String experimentalTransitionWhitelistLocation();
@@ -208,6 +210,7 @@ public abstract class StarlarkSemantics {
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
+          .experimentalRestrictNamedParams(false)
           .experimentalStarlarkConfigTransitions(false)
           .experimentalTransitionWhitelistLocation("")
           .incompatibleUseToolchainProvidersInJavaCommon(false)
@@ -256,6 +259,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 
     public abstract Builder experimentalPlatformsApi(boolean value);
+
+    public abstract Builder experimentalRestrictNamedParams(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
