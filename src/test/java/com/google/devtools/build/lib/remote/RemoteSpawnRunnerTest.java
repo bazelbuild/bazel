@@ -329,6 +329,7 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   public void treatFailedCachedActionAsCacheMiss_local() throws Exception {
     // Test that bazel treats failed cache action as a cache miss and attempts to execute action locally
 
