@@ -129,10 +129,6 @@ public final class BazelPyRuleClasses {
               attr("srcs_version", STRING)
                   .value(PythonVersion.DEFAULT_SRCS_VALUE.toString())
                   .allowedValues(new AllowedValueSet(PythonVersion.SRCS_STRINGS)))
-          // TODO(brandjon): Consider adding to py_interpreter a .mandatoryNativeProviders() of
-          // PyRuntimeInfoProvider. (Add a test case to PythonConfigurationTest for violations of
-          // this requirement.) Probably moot now that this is going to be replaced by toolchains.
-          .add(attr(":py_interpreter", LABEL).value(PY_INTERPRETER))
           // do not depend on lib2to3:2to3 rule, because it creates circular dependencies
           // 2to3 is itself written in Python and depends on many libraries.
           .add(
@@ -253,6 +249,11 @@ public final class BazelPyRuleClasses {
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
+          // TODO(brandjon): Consider adding to py_interpreter a .mandatoryNativeProviders() of
+          // PyRuntimeInfoProvider. (Add a test case to PythonConfigurationTest for violations of
+          // this requirement.) Probably moot now that this is going to be replaced by toolchains.
+          .add(attr(":py_interpreter", LABEL).value(PY_INTERPRETER))
+          .addRequiredToolchains(env.getToolsLabel("//tools/python:toolchain_type"))
           .build();
     }
 
