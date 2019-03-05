@@ -151,7 +151,7 @@ class TestWrapperTest(test_base.TestBase):
         executable=True)
 
     # A single white pixel as an ".ico" file. /usr/bin/file should identify this
-    # as "image/x-icon" or as "image/vnd.microsoft.icon".
+    # as "image/x-icon".
     # The MIME type lookup logic of the test wrapper only looks at file names,
     # but the test-setup.sh calls /usr/bin/file which inspects file contents, so
     # we need a valid ".ico" file.
