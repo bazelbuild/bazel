@@ -186,8 +186,8 @@ events to using the `--bes_backend=HOST:PORT flag`. Bazel’s implementation als
 supports TLS which can be enabled by specifying the `--tls_enabled flag`.
 
 There is currently an experimental open source implementation of the [Build Event
-Service](https://github.com/buildbarn/bb-event-service/) in go as part of the 
-`buildbarn` suite of Remote Execution tools and services.
+Service](https://github.com/buildbarn/bb-event-service/) in Go as part of the 
+Buildbarn suite of Remote Execution tools and services.
 
 ### Build Event Service Flags
 
