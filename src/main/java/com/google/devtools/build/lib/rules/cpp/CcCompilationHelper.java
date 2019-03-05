@@ -1420,7 +1420,7 @@ public final class CcCompilationHelper {
     Artifact sourceFile = builder.getSourceFile();
     String dotdFileExecPath = null;
     if (builder.getDotdFile() != null) {
-      dotdFileExecPath = builder.getDotdFile().getSafeExecPath().getPathString();
+      dotdFileExecPath = builder.getDotdFile().getExecPathString();
     }
     ImmutableMap.Builder<String, String> allAdditionalBuildVariables = ImmutableMap.builder();
     allAdditionalBuildVariables.putAll(additionalBuildVariables);

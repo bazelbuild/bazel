@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -287,27 +285,25 @@ public final class JavaCompileActionBuilder {
       classpathMode = JavaClasspathMode.OFF;
     }
 
-    ActionInput outputDepsProtoInput = null;
-    if (outputDepsProto != null) {
+    Artifact outputDepsProto = null;
+    if (this.outputDepsProto != null) {
+      outputDepsProto =
+          ruleContext.getDerivedArtifact(
+              FileSystemUtils.replaceExtension(
+                  this.outputDepsProto.relativeTo(outputJar.getRoot().getExecPath()), ".jdeps"),
+              outputJar.getRoot());
+      outputs.add(outputDepsProto);
       if (javaConfiguration.inmemoryJdepsFiles()) {
-        outputDepsProtoInput = ActionInputHelper.fromPath(outputDepsProto.getSafePathString());
         executionInfo =
             ImmutableMap.<String, String>builderWithExpectedSize(this.executionInfo.size() + 1)
                 .putAll(this.executionInfo)
                 .put(
                     ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                    outputDepsProtoInput.getExecPathString())
+                    outputDepsProto.getExecPathString())
                 .build();
-      } else {
-        Artifact outputDepsProtoArtifact =
-            ruleContext.getDerivedArtifact(
-                FileSystemUtils.replaceExtension(
-                    outputDepsProto.relativeTo(outputJar.getRoot().getExecPath()), ".jdeps"),
-                outputJar.getRoot());
-        outputDepsProtoInput = outputDepsProtoArtifact;
-        outputs.add(outputDepsProtoArtifact);
       }
     }
+
     NestedSet<Artifact> tools = toolsBuilder.build();
     mandatoryInputs.addTransitive(tools);
     JavaCompileAction javaCompileAction =
@@ -329,7 +325,7 @@ public final class JavaCompileActionBuilder {
             /* flagLine= */ buildParamFileContents(ruleContext.getConfiguration(), internedJcopts),
             /* configuration= */ ruleContext.getConfiguration(),
             /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
-            /* outputDepsProto= */ outputDepsProtoInput,
+            /* outputDepsProto= */ outputDepsProto,
             /* classpathMode= */ classpathMode);
     ruleContext.getAnalysisEnvironment().registerAction(javaCompileAction);
     return javaCompileAction;

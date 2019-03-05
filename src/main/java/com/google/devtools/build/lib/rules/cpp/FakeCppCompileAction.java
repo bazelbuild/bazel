@@ -74,7 +74,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       NestedSet<Artifact> prunableHeaders,
       Artifact outputFile,
       PathFragment tempOutputFile,
-      DotdFile dotdFile,
+      Artifact dotdFile,
       ActionEnvironment env,
       CcCompilationContext ccCompilationContext,
       CoptsFilter nocopts,
@@ -216,8 +216,7 @@ public class FakeCppCompileAction extends CppCompileAction {
     // line to write to $TEST_TMPDIR instead.
     final String outputPrefix = "$TEST_TMPDIR/";
     String argv =
-        getArguments()
-            .stream()
+        getArguments().stream()
             .map(
                 input -> {
                   String result = ShellEscaper.escapeString(input);
@@ -228,7 +227,7 @@ public class FakeCppCompileAction extends CppCompileAction {
                   }
                   if (input.equals(outputFile.getExecPathString())
                       || (getDotdFile() != null
-                          && input.equals(getDotdFile().getSafeExecPath().getPathString()))) {
+                          && input.equals(getDotdFile().getExecPathString()))) {
                     result = outputPrefix + ShellEscaper.escapeString(input);
                   }
                   return result;
@@ -246,7 +245,7 @@ public class FakeCppCompileAction extends CppCompileAction {
               || outputFile
                   .getExecPath()
                   .getParentDirectory()
-                  .equals(getDotdFile().getSafeExecPath().getParentDirectory()));
+                  .equals(getDotdFile().getExecPath().getParentDirectory()));
       FileSystemUtils.writeContent(
           actionExecutionContext.getInputPath(outputFile),
           ISO_8859_1,
