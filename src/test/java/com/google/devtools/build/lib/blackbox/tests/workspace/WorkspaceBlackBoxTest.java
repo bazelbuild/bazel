@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.blackbox.tests.workspace;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
@@ -40,24 +38,26 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
         "load(':repo_rule.bzl', 'check_bash')",
         "check_bash(name = 'check_bash_target')");
 
-    context().write("rule.bzl",
-        "def _impl(ctx):\n"
-            + "  out = ctx.actions.declare_file('does_not_matter')\n"
-            + "  ctx.actions.write(out, 'hi')\n"
-            + "  return [DefaultInfo(files = depset([out]))]\n"
-            + "\n"
-            + "debug_rule = rule(\n"
-            + "    implementation = _impl,\n"
-            + "    attrs = {\n"
-            + "        \"dep\": attr.label(allow_single_file = True),\n"
-            + "    }\n"
-            + ")"
-    );
-
+    // To make repository rule target be computed, depend on it in debug_rule
     context().write("BUILD", "load(':rule.bzl', 'debug_rule')",
         "debug_rule(name = 'check', dep = '@check_bash_target//:out.txt')");
 
+    context().write("rule.bzl",
+        "def _impl(ctx):",
+        "  out = ctx.actions.declare_file('does_not_matter')",
+        "  ctx.actions.write(out, 'hi')",
+        "  return [DefaultInfo(files = depset([out]))]",
+        "",
+        "debug_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "        \"dep\": attr.label(allow_single_file = True),",
+        "    }",
+        ")"
+    );
+
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    // The build using "bash" should fail on Windows, and pass on Linux and Mac OS
     if (OS.WINDOWS.equals(OS.getCurrent())) {
       bazel.shouldFail();
     }
@@ -82,14 +82,14 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
     Path xPath = context().resolveBinPath(bazel, "external/x/out");
-    WorkspaceTestUtils.assertOneLineFile(xPath, "hi");
+    WorkspaceTestUtils.assertLinesExactly(xPath, "hi");
 
     context().write(WORKSPACE,
         String.format("local_repository(name = 'x', path = '%s',)",
             PathUtils.pathForStarlarkFile(repoB)));
     bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    WorkspaceTestUtils.assertOneLineFile(xPath, "bye");
+    WorkspaceTestUtils.assertLinesExactly(xPath, "bye");
   }
 
   @Test

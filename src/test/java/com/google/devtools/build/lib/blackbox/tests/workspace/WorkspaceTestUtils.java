@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
@@ -31,8 +32,7 @@ import java.util.stream.Collectors;
  * Utility class for helping JUnit black box workspace tests.
  */
 public class WorkspaceTestUtils {
-  public static final String PATH = "PATH";
-  public static final String BAZEL_SH = "BAZEL_SH";
+  private static final String PATH = "PATH";
 
   /**
    * Create the BuilderRunner for workspace tests without MSYS/MINGW dependency on Windows.
@@ -44,15 +44,12 @@ public class WorkspaceTestUtils {
       return context.bazel();
     }
     return context.bazel()
-        .withEnv(BAZEL_SH, "C:/foo/bar/usr/bin/bash.exe")
+        .withEnv("BAZEL_SH", "C:/foo/bar/usr/bin/bash.exe")
         .withEnv(PATH, removeMsysFromPath(System.getenv(PATH)));
   }
 
   private static String removeMsysFromPath(String path) {
     if (!OS.WINDOWS.equals(OS.getCurrent())) {
-      return path;
-    }
-    if (path.indexOf(';') == -1) {
       return path;
     }
     String[] parts = path.split(";");
@@ -63,13 +60,17 @@ public class WorkspaceTestUtils {
   /**
    * Assert that the file exists and contains exactly one line with the certain text.
    * @param path - path to file
-   * @param text - text expected in the file
+   * @param lines - lines of text expected in the file
    * @throws IOException if any file operation failed
    */
-  static void assertOneLineFile(Path path, String text) throws IOException {
+  static void assertLinesExactly(Path path, String... lines) throws IOException {
+    Preconditions.checkState(lines.length > 0);
+
     assertThat(Files.exists(path)).isTrue();
-    List<String> lines = PathUtils.readFile(path);
-    assertThat(lines.size()).isEqualTo(1);
-    assertThat(lines.get(0)).isEqualTo(text);
+    List<String> realLines = PathUtils.readFile(path);
+    assertThat(realLines.size()).isEqualTo(lines.length);
+    for (int i = 0; i < lines.length; i++) {
+      assertThat(realLines.get(i)).isEqualTo(lines[i]);
+    }
   }
 }

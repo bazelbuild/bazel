@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 import org.junit.Test;
 
 /**
- * Test that the embedded skylark code is compliant with --all_incompatible_changes.
+ * Test that the embedded Starlark code is compliant with --all_incompatible_changes.
  * To replace bazel_embedded_skylark_test.sh.
  */
 public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
@@ -51,7 +51,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
     context().write("main/bar.txt", "Hello World, again");
     context().write("main/BUILD",
         "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
-        "pkg_tar(name = \"data\", srcs = glob([\"*.txt\"]),)");
+        "pkg_tar(name = \"data\", srcs = ['foo.txt', 'bar.txt'],)");
 
     BuilderRunner bazel = bazel();
     bazel.build("...");
@@ -65,8 +65,8 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
     Map<String, Path> map = Arrays.stream(Objects.requireNonNull(directory.toFile().listFiles()))
         .collect(Collectors.toMap(File::getName, file -> Paths.get(file.getAbsolutePath())));
 
-    WorkspaceTestUtils.assertOneLineFile(map.get("foo.txt"), "Hello World");
-    WorkspaceTestUtils.assertOneLineFile(map.get("bar.txt"), "Hello World, again");
+    WorkspaceTestUtils.assertLinesExactly(map.get("foo.txt"), "Hello World");
+    WorkspaceTestUtils.assertLinesExactly(map.get("bar.txt"), "Hello World, again");
   }
 
   @Test
@@ -102,13 +102,13 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
     bazel.build("@ext//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
     Path xPath = context().resolveBinPath(bazel, "external/ext/out");
-    WorkspaceTestUtils.assertOneLineFile(xPath, HELLO_FROM_EXTERNAL_REPOSITORY);
+    WorkspaceTestUtils.assertLinesExactly(xPath, HELLO_FROM_EXTERNAL_REPOSITORY);
 
     // and use the rule from http_archive in the main repository
     bazel.build("//:call_from_main");
 
     Path mainOutPath = context().resolveBinPath(bazel, "main_out.txt");
-    WorkspaceTestUtils.assertOneLineFile(mainOutPath, HELLO_FROM_MAIN_REPOSITORY);
+    WorkspaceTestUtils.assertLinesExactly(mainOutPath, HELLO_FROM_MAIN_REPOSITORY);
   }
 
   private BuilderRunner bazel() {
@@ -117,7 +117,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
 
   private Path decompress(Path dataTarPath)
       throws IOException, RepositoryFunctionException {
-    FileSystem fs = FileSystems.getJavaIoFileSystem();
+    FileSystem fs = FileSystems.getNativeFileSystem();
     com.google.devtools.build.lib.vfs.Path dataTarPathForDecompress =
         fs.getPath(dataTarPath.toAbsolutePath().toString());
 
