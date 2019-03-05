@@ -34,7 +34,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -70,7 +69,7 @@ public final class ProcessRunner {
     commandParts.add(parameters.name());
     commandParts.addAll(args);
 
-    logger.info("Running: " + commandParts.stream().collect(Collectors.joining(" ")));
+    logger.info("Running: " + String.join(" ", commandParts));
 
     ProcessBuilder processBuilder = new ProcessBuilder(commandParts);
     processBuilder.directory(parameters.workingDirectory());
@@ -107,12 +106,25 @@ public final class ProcessRunner {
               ? outReader.get()
               : Files.readAllLines(parameters.redirectOutput().get());
 
-      if (parameters.expectedExitCode() != process.exitValue()) {
+      int exitValue = process.exitValue();
+      boolean processFailed = exitValue != 0;
+      boolean expectedToFail = parameters.expectedToFail() || parameters.expectedExitCode() != 0;
+      if (processFailed != expectedToFail) {
+        // We want to check the exact exit code if it was explicitly set to something;
+        if (parameters.expectedExitCode() != 0 && parameters.expectedExitCode() != exitValue) {
+          throw new ProcessRunnerException(
+              String.format(
+                  "Expected exit code %d, but found %d.\nError: %s\nOutput: %s",
+                  parameters.expectedExitCode(),
+                  exitValue,
+                  StringUtilities.joinLines(err),
+                  StringUtilities.joinLines(out)));
+        }
         throw new ProcessRunnerException(
             String.format(
-                "Expected exit code %d, but found %d.\nError: %s\nOutput: %s",
-                parameters.expectedExitCode(),
-                process.exitValue(),
+                "Expected to %s, but %s.\nError: %s\nOutput: %s",
+                expectedToFail ? "fail" : "succeed",
+                processFailed ? "failed" : "succeeded",
                 StringUtilities.joinLines(err),
                 StringUtilities.joinLines(out)));
       }
@@ -123,7 +135,7 @@ public final class ProcessRunner {
               "Expected empty error stream, but found: " + StringUtilities.joinLines(err));
         }
       }
-      return ProcessResult.create(parameters.expectedExitCode(), out, err);
+      return ProcessResult.create(exitValue, out, err);
     } finally {
       process.destroy();
     }
