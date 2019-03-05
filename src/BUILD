@@ -39,9 +39,7 @@ filegroup(    name = "libunix",    srcs = select({        "//src/conditions:darw
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
     "_jdk_minimal": [":embedded_tools_jdk_minimal"],
     "_dev_jdk": [":embedded_tools_dev_jdk"],
-    "_nojdk": [":embedded_tools_nojdk"],
-    "_notools": [],
-}.items()]
+    "_nojdk": [":embedded_tools_nojdk"],    "_notools": [],}.items()]
 
 # Try to grab the java version from the java_toolchain.
 # Unfortunately, we don't have access to the javac options
@@ -49,8 +47,7 @@ filegroup(    name = "libunix",    srcs = select({        "//src/conditions:darw
 genquery(
     name = "java_toolchain_content",
     expression = "kind(java_toolchain, deps(@bazel_tools//tools/jdk:current_java_toolchain))",
-    opts = ["--output=xml"],
-    scope = ["@bazel_tools//tools/jdk:current_java_toolchain"],
+    opts = ["--output=xml"],    scope = ["@bazel_tools//tools/jdk:current_java_toolchain"],
 )
 
 # Create dummy tools so we can do select to prevent building iOS target on
