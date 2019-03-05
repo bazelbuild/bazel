@@ -204,6 +204,26 @@ public final class BlackBoxTestContext {
   }
 
   /**
+   * Runs external binary in the specified working directory. See {@link BuilderRunner}
+   *
+   * @param workingDirectory - working directory for running the binary
+   * @param processToRun - path to the binary to run
+   * @param arguments - arguments to pass to the binary
+   * @return ProcessResult - execution result
+   */
+  public ProcessResult runBinary(Path workingDirectory, String processToRun, String... arguments)
+      throws Exception {
+    ProcessParameters parameters =
+        ProcessParameters.builder()
+            .setWorkingDirectory(workingDirectory.toFile())
+            .setName(processToRun)
+            .setTimeoutMillis(getProcessTimeoutMillis(getProcessTimeoutMillis(-1)))
+            .setArguments(arguments)
+            .build();
+    return new ProcessRunner(parameters, executorService).runSynchronously();
+  }
+
+  /**
    * Take the value from environment variable and assert that it is a path, and the file or
    * directory, specified by this path, exists.
    *
