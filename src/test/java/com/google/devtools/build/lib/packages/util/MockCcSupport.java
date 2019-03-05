@@ -1105,7 +1105,10 @@ public abstract class MockCcSupport {
               "    )",
               "cc_toolchain_config = rule(",
               "    implementation = _impl,",
-              "    attrs = {cpu: attr.string()},",
+              "    attrs = {",
+              "        'cpu': attr.string(),",
+              "        'compiler': attr.string(),",
+              "    },",
               "    provides = [CcToolchainConfigInfo],",
               ")");
 
@@ -1233,7 +1236,7 @@ public abstract class MockCcSupport {
           .setCrosstoolFile(getMockCrosstoolVersion(), crosstoolFile)
           .setSupportedArchs(getCrosstoolArchs())
           .setSupportsHeaderParsing(true)
-          .write();
+          .write(/* disableCrosstool= */ false);
     }
   }
 

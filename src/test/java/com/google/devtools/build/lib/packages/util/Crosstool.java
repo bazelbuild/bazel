@@ -35,6 +35,44 @@ final class Crosstool {
   private static final ImmutableList<String> CROSSTOOL_BINARIES =
       ImmutableList.of("ar", "as", "compile", "dwp", "link", "objcopy", "llvm-profdata");
 
+  /**
+   * A class that contains relevant fields from either the CROSSTOOL file or the Starlark rule
+   * implementation that are needed in order to generate the BUILD file.
+   */
+  static final class ToolchainConfig {
+    private final String toolchainIdentifier;
+    private final String cpu;
+    private final String compiler;
+    private final boolean hasStaticLinkCppRuntimesFeature;
+
+    ToolchainConfig(
+        String toolchainIdentifier,
+        String cpu,
+        String compiler,
+        boolean hasStaticLinkCppRuntimesFeature) {
+      this.toolchainIdentifier = toolchainIdentifier;
+      this.cpu = cpu;
+      this.compiler = compiler;
+      this.hasStaticLinkCppRuntimesFeature = hasStaticLinkCppRuntimesFeature;
+    }
+
+    public String getToolchainIdentifier() {
+      return toolchainIdentifier;
+    }
+
+    public String getTargetCpu() {
+      return cpu;
+    }
+
+    public String getCompiler() {
+      return compiler;
+    }
+
+    public boolean hasStaticLinkCppRuntimesFeature() {
+      return hasStaticLinkCppRuntimesFeature;
+    }
+  }
+
   private final MockToolsConfig config;
 
   private final String crosstoolTop;
@@ -42,6 +80,8 @@ final class Crosstool {
   private String crosstoolFileContents;
   private ImmutableList<String> archs;
   private boolean supportsHeaderParsing;
+  private String ccToolchainConfigFileContents;
+  private ImmutableList<ToolchainConfig> toolchainConfigList;
 
   Crosstool(MockToolsConfig config, String crosstoolTop) {
     this.config = config;
@@ -64,7 +104,17 @@ final class Crosstool {
     return this;
   }
 
-  public void write() throws IOException {
+  public Crosstool setCcToolchainConfigFile(String ccToolchainConfigFile) {
+    this.ccToolchainConfigFileContents = ccToolchainConfigFile;
+    return this;
+  }
+
+  public Crosstool setToolchainConfigs(ImmutableList<ToolchainConfig> toolchainConfigs) {
+    this.toolchainConfigList = toolchainConfigs;
+    return this;
+  }
+
+  public void write(boolean disableCrosstool) throws IOException {
     Set<String> runtimes = new HashSet<>();
     StringBuilder compilationTools = new StringBuilder();
     for (String compilationTool : CROSSTOOL_BINARIES) {
@@ -83,24 +133,35 @@ final class Crosstool {
             String.format("filegroup(name = '%s', srcs = [':everything-multilib'])\n", archTarget));
       }
     }
-
-    CrosstoolConfig.CrosstoolRelease.Builder configBuilder =
-        CrosstoolConfig.CrosstoolRelease.newBuilder();
-    TextFormat.merge(crosstoolFileContents, configBuilder);
-
-    List<CToolchain> toolchainList = configBuilder.build().getToolchainList();
+    ImmutableList<ToolchainConfig> toolchainConfigs;
+    if (disableCrosstool) {
+      toolchainConfigs = toolchainConfigList;
+    } else {
+      CrosstoolConfig.CrosstoolRelease.Builder configBuilder =
+          CrosstoolConfig.CrosstoolRelease.newBuilder();
+      TextFormat.merge(crosstoolFileContents, configBuilder);
+      List<CToolchain> toolchainList = configBuilder.build().getToolchainList();
+      ImmutableList.Builder<ToolchainConfig> toolchainConfigInfoBuilder = ImmutableList.builder();
+      for (CToolchain toolchain : toolchainList) {
+        toolchainConfigInfoBuilder.add(
+            new ToolchainConfig(
+                toolchain.getToolchainIdentifier(),
+                toolchain.getTargetCpu(),
+                toolchain.getCompiler(),
+                toolchain.getFeatureList().stream()
+                    .anyMatch(f -> f.getName().equals(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES))));
+      }
+      toolchainConfigs = toolchainConfigInfoBuilder.build();
+    }
     Set<String> seenCpus = new LinkedHashSet<>();
     StringBuilder compilerMap = new StringBuilder();
-    for (CToolchain toolchain : toolchainList) {
-      boolean hasStaticLinkCppRuntimesFeature =
-          toolchain.getFeatureList().stream()
-              .anyMatch(f -> f.getName().equals(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
+    for (ToolchainConfig toolchain : toolchainConfigs) {
       String staticRuntimeLabel =
-          hasStaticLinkCppRuntimesFeature
+          toolchain.hasStaticLinkCppRuntimesFeature()
               ? "mock-static-runtimes-target-for-" + toolchain.getToolchainIdentifier()
               : null;
       String dynamicRuntimeLabel =
-          hasStaticLinkCppRuntimesFeature
+          toolchain.hasStaticLinkCppRuntimesFeature()
               ? "mock-dynamic-runtimes-target-for-" + toolchain.getToolchainIdentifier()
               : null;
       if (staticRuntimeLabel != null) {
@@ -149,9 +210,19 @@ final class Crosstool {
                   "  toolchain_type = ':toolchain_type',",
                   "  toolchain = ':cc-compiler-" + suffix + "',",
                   ")",
+                  disableCrosstool
+                      ? Joiner.on("\n")
+                          .join(
+                              "cc_toolchain_config(",
+                              "  name = '" + suffix + "_config',",
+                              "  cpu = '" + toolchain.getTargetCpu() + "',",
+                              "  compiler = '" + toolchain.getCompiler() + "',",
+                              "  )")
+                      : "",
                   "cc_toolchain(",
                   "  name = 'cc-compiler-" + suffix + "',",
                   "  toolchain_identifier = '" + toolchain.getToolchainIdentifier() + "',",
+                  disableCrosstool ? "  toolchain_config = ':" + suffix + "_config'," : "",
                   "  output_licenses = ['unencumbered'],",
                   "  module_map = 'crosstool.cppmap',",
                   "  cpu = '" + toolchain.getTargetCpu() + "',",
@@ -182,6 +253,7 @@ final class Crosstool {
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
+                disableCrosstool ? "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')" : "",
                 "toolchain_type(name = 'toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "alias(name = 'toolchain', actual = 'everything')",
@@ -209,9 +281,12 @@ final class Crosstool {
 
     config.create(crosstoolTop + "/" + version + "/x86/bin/gcc");
     config.create(crosstoolTop + "/" + version + "/x86/bin/ld");
-    config.getPath(crosstoolTop + "/CROSSTOOL");
     config.overwrite(crosstoolTop + "/BUILD", build);
-    config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
+    if (disableCrosstool) {
+      config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
+    } else {
+      config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
+    }
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
   }
 }
