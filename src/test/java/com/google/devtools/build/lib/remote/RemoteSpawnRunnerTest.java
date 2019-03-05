@@ -390,7 +390,7 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void treatFailedCachedActionAsCacheMiss_remote() throws Exception {
-    // Test that bazel treats failed cache action as a cache miss and attempts to execute action locally
+    // Test that bazel treats failed cache action as a cache miss and attempts to execute action remotely
 
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
@@ -414,16 +414,7 @@ public class RemoteSpawnRunnerTest {
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(
         ActionResult.newBuilder().setExitCode(0).build()).build();
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
-
-    Spawn spawn = new SimpleSpawn(
-        new FakeOwner("foo", "bar"),
-        /*arguments=*/ ImmutableList.of(),
-        /*environment=*/ ImmutableMap.of(),
-        NO_CACHE,
-        /*inputs=*/ ImmutableList.of(),
-        /*outputs=*/ ImmutableList.<ActionInput>of(),
-        ResourceSet.ZERO);
-
+    Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     runner.exec(spawn, policy);
