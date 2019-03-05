@@ -512,11 +512,5 @@ public class RemoteSpawnCacheTest {
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
 
     assertThat(entry.hasResult()).isFalse();
-    verify(remoteCache, never())
-        .download(
-            any(ActionResult.class),
-            any(Path.class),
-            eq(outErr)
-        );
   }
 }
