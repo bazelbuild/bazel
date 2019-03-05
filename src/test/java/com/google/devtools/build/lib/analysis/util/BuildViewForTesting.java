@@ -423,9 +423,8 @@ public class BuildViewForTesting {
     if (target instanceof Rule && ((Rule) target).containsErrors()) {
       return null;
     }
-    return TransitionResolver.evaluateTopLevelTransition(
-        new TargetAndConfiguration(target, config),
-        ruleClassProvider.getTrimmingTransitionFactory());
+    return TransitionResolver.evaluateTransition(
+        config, NoTransition.INSTANCE, target, ruleClassProvider.getTrimmingTransitionFactory());
   }
 
   /**

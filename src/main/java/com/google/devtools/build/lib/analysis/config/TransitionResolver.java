@@ -15,15 +15,12 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
@@ -42,20 +39,21 @@ import javax.annotation.Nullable;
  */
 public final class TransitionResolver {
   /**
-   * Given a parent rule and configuration depending on a child through an attribute, determines the
-   * configuration the child should take.
+   * Given an original configuration and a base transition, determines the configuration a target
+   * should have.
    *
-   * @param fromConfig the parent rule's configuration
-   * @param attributeTransition the configuration transition of the attribute of this dependency
-   *     edge
-   * @param toTarget the child target (which may or may not be a rule)
+   * @param fromConfig the original configuration
+   * @param baseTransition the base configuration transitions computed by this method should be
+   *     composed with (the configuration transition of the attribute through which this dependency
+   *     happens or {@code NoTransition.INSTANCE} if this is a top-level target)
+   * @param toTarget the target whose configuration should be computed (may or may not be a rule)
    * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
-   *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
-   * @return the child's configuration(s), expressed as a diff from the parent's configuration.
+   *     temporary feature; see the corresponding methods in {@code ConfiguredRuleClassProvider})
+   * @return the target's configuration(s), expressed as a diff from the original configuration.
    */
   public static ConfigurationTransition evaluateTransition(
       BuildConfiguration fromConfig,
-      ConfigurationTransition attributeTransition,
+      ConfigurationTransition baseTransition,
       Target toTarget,
       @Nullable RuleTransitionFactory trimmingTransitionFactory) {
 
@@ -66,7 +64,7 @@ public final class TransitionResolver {
     }
 
     // II. Input files and package groups have no configurations. We don't want to duplicate them.
-    if (usesNullConfiguration(toTarget)) {
+    if (!toTarget.isConfigurable()) {
       return NullTransition.INSTANCE;
     }
 
@@ -97,7 +95,7 @@ public final class TransitionResolver {
     // ComposingTransition, which encapsulates them into a single object so calling code
     // doesn't need special logic for combinations.
     // IV. Apply whatever transition the attribute requires.
-    ConfigurationTransition currentTransition = attributeTransition;
+    ConfigurationTransition currentTransition = baseTransition;
 
     // V. Applies any rule transitions associated with the dep target and composes their
     // transitions with a passed-in existing transition.
@@ -106,33 +104,6 @@ public final class TransitionResolver {
     // VI. Applies a transition to trim the result and returns it. (note: this is a temporary
     // feature; see the corresponding methods in ConfiguredRuleClassProvider)
     return applyTransitionFromFactory(currentTransition, toTarget, trimmingTransitionFactory);
-  }
-
-  /**
-   * Same as evaluateTransition except does not check for transitions coming from parents and
-   * enables support for rule-triggered top-level configuration hooks.
-   */
-  public static ConfigurationTransition evaluateTopLevelTransition(
-      TargetAndConfiguration targetAndConfig,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory) {
-    Target target = targetAndConfig.getTarget();
-
-    // Rule class transitions (chosen by rule class definitions):
-    if (target.getAssociatedRule() == null) {
-      return NoTransition.INSTANCE;
-    }
-    ConfigurationTransition ruleTransition = applyRuleTransition(NoTransition.INSTANCE, target);
-    ConfigurationTransition trimmingTransition =
-        applyTransitionFromFactory(ruleTransition, target, trimmingTransitionFactory);
-    return trimmingTransition;
-  }
-
-  /**
-   * Returns true if the given target should have a null configuration. This method is the
-   * "source of truth" for this determination.
-   */
-  public static boolean usesNullConfiguration(Target target) {
-    return target instanceof InputFile || target instanceof PackageGroup;
   }
 
   /**

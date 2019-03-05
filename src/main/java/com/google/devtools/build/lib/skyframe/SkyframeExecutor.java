@@ -1923,6 +1923,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (depFragments != null) {
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
+          if (toOptions.equals(BuildOptions.NULL_OPTIONS)) {
+            continue;
+          }
+
           StarlarkTransition.postProcessStarlarkTransitions(eventHandler, key.getTransition());
           configSkyKeys.add(
               BuildConfigurationValue.key(
@@ -1947,6 +1951,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (depFragments != null) {
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
+          if (toOptions.equals(BuildOptions.NULL_OPTIONS)) {
+            builder.put(key, null);
+          }
           SkyKey configKey =
               BuildConfigurationValue.key(
                   depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, toOptions));

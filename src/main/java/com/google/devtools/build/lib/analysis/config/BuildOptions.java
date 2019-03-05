@@ -75,6 +75,8 @@ public final class BuildOptions implements Cloneable, Serializable {
   private static final Comparator<Label> skylarkOptionsComparator = Ordering.natural();
   private static final Logger logger = Logger.getLogger(BuildOptions.class.getName());
 
+  public static final BuildOptions NULL_OPTIONS = builder().build();
+
   public static Map<Label, Object> labelizeStarlarkOptions(Map<String, Object> starlarkOptions) {
     return starlarkOptions.entrySet().stream()
         .collect(

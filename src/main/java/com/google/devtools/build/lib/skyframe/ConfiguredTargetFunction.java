@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
@@ -228,22 +227,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (transitivePackagesForPackageRootResolution != null) {
       transitivePackagesForPackageRootResolution.add(pkg);
     }
-    // TODO(bazel-team): This is problematic - we create the right key, but then end up with a value
-    // that doesn't match; we can even have the same value multiple times. However, I think it's
-    // only triggered in tests (i.e., in normal operation, the configuration passed in is already
-    // null).
-    if (!target.isConfigurable()) {
-      configuration = null;
-    }
-
-    if (target.isConfigurable() && configuredTargetKey.getConfigurationKey() == null) {
+    if (target.isConfigurable() != (configuredTargetKey.getConfigurationKey() != null)) {
       // We somehow ended up in a target that requires a non-null configuration as a dependency of
-      // one that requires a null configuration. This is always an error, but we need to analyze
-      // the dependencies of the latter target to realize that. Short-circuit the evaluation to
-      // avoid doing useless work and running code with a null configuration that's not prepared for
-      // it.
+      // one that requires a null configuration or the other way round. This is always an error, but
+      // we need to analyze the dependencies of the latter target to realize that. Short-circuit the
+      // evaluation to avoid doing useless work and running code with a null configuration that's
+      // not prepared for it.
       return new NonRuleConfiguredTargetValue(
-          new EmptyConfiguredTarget(target.getLabel(), null),
+          new EmptyConfiguredTarget(target.getLabel(), configuredTargetKey.getConfigurationKey()),
           GeneratingActions.EMPTY,
           transitivePackagesForPackageRootResolution == null
               ? null
@@ -608,31 +599,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return NO_CONFIG_CONDITIONS;
     }
 
-    Map<Label, Target> configurabilityTargets =
-        resolver.getTargets(configLabelMap, target, transitiveRootCauses);
-    if (configurabilityTargets == null) {
-      return null;
-    }
-
-    // Collect the actual deps, hard-coded to the current configuration (since by definition config
-    // conditions evaluate over the current target's configuration).
+    // Collect the actual deps without a configuration transition (since by definition config
+    // conditions evaluate over the current target's configuration). If the dependency is
+    // (erroneously) something that needs the null configuration, its analysis will be
+    // short-circuited. That error will be reported later.
     ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
     for (Label configurabilityLabel : configLabelMap.values()) {
-      Target configurabilityTarget = configurabilityTargets.get(configurabilityLabel);
-      Dependency configurabilityDependency;
-      if (TransitionResolver.usesNullConfiguration(configurabilityTarget)) {
-        // This is kinda awful: select conditions should be config_setting rules, but we don't know
-        // if they are one until after we analyzed them. However, we need to figure out which
-        // configuration we analyze them in and input files and package groups are supposed to have
-        // the null configuration.
-        //
-        // We can't check for the Target being a config_setting because configurability targets can
-        // also be aliases pointing to config_settig rules.
-        configurabilityDependency = Dependency.withNullConfiguration(configurabilityLabel);
-      } else {
-        configurabilityDependency =
-            Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
-      }
+      Dependency configurabilityDependency =
+          Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
       depsBuilder.add(configurabilityDependency);
     }
 
