@@ -58,6 +58,7 @@ public class RepoWithRuleWritingTextGenerator {
   private String target;
   private String outputText;
   private String outFile;
+  private boolean generateBuildFile;
 
   /**
    * Generator constructor
@@ -69,6 +70,7 @@ public class RepoWithRuleWritingTextGenerator {
     this.target = TARGET;
     this.outputText = HELLO;
     this.outFile = OUT_FILE;
+    generateBuildFile = true;
   }
 
   /**
@@ -105,6 +107,16 @@ public class RepoWithRuleWritingTextGenerator {
   }
 
   /**
+   * Specifies that BUILD file should not be generated
+   *
+   * @return this generator
+   */
+  RepoWithRuleWritingTextGenerator skipBuildFile() {
+    generateBuildFile = false;
+    return this;
+  }
+
+  /**
    * Generates the repository: WORKSPACE, BUILD, and helper.bzl files.
    *
    * @return repository directory
@@ -113,13 +125,15 @@ public class RepoWithRuleWritingTextGenerator {
   Path setupRepository() throws IOException {
     Path workspace = PathUtils.writeFileInDir(root, "WORKSPACE");
     PathUtils.writeFileInDir(root, HELPER_FILE, WRITE_TEXT_TO_FILE);
-    PathUtils.writeFileInDir(
-        root,
-        "BUILD",
-        "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
-        loadRule(""),
-        callRule(target, outFile, outputText),
-        String.format("pkg_tar(name = \"%s\", srcs = glob([\"*\"]),)", getPkgTarTarget()));
+    if (generateBuildFile) {
+      PathUtils.writeFileInDir(
+          root,
+          "BUILD",
+          "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
+          loadRule(""),
+          callRule(target, outFile, outputText),
+          String.format("pkg_tar(name = \"%s\", srcs = glob([\"*\"]),)", getPkgTarTarget()));
+    }
     return workspace.getParent();
   }
 

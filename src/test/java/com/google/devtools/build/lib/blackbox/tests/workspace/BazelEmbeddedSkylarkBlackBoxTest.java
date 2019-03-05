@@ -111,6 +111,38 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
     WorkspaceTestUtils.assertLinesExactly(mainOutPath, HELLO_FROM_MAIN_REPOSITORY);
   }
 
+  @Test
+  public void testNewGitRepository() throws Exception {
+    Path repo = context().getTmpDir().resolve("ext_repo");
+    RepoWithRuleWritingTextGenerator generator = new RepoWithRuleWritingTextGenerator(repo);
+    generator.withOutputText(HELLO_FROM_EXTERNAL_REPOSITORY)
+        .skipBuildFile()
+        .setupRepository();
+
+    GitRepositoryHelper gitRepository = new GitRepositoryHelper(context(), repo);
+    gitRepository.init();
+    gitRepository.addAll();
+    gitRepository.commit("Initial commit");
+    gitRepository.tag("first");
+
+    String buildFileContent = String.format("%s\n%s", RepoWithRuleWritingTextGenerator.loadRule(""),
+        RepoWithRuleWritingTextGenerator.callRule("call_write_text", "out.txt",
+            HELLO_FROM_EXTERNAL_REPOSITORY));
+    context().write("WORKSPACE",
+        "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
+        "new_git_repository(",
+        "  name='ext',",
+        String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
+        "  tag='first',",
+        String.format("  build_file_content=\"\"\"%s\"\"\",", buildFileContent),
+        ")");
+
+    BuilderRunner bazel = bazel();
+    bazel.build("@ext//:call_write_text");
+    Path outPath = context().resolveBinPath(bazel, "external/ext/out.txt");
+    WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
+  }
+
   private BuilderRunner bazel() {
     return WorkspaceTestUtils.bazel(context()).withFlags("--all_incompatible_changes");
   }
