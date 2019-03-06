@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -346,5 +346,19 @@ public class PathUtils {
       return path.toString().replace("\\", "/");
     }
     return path.toString();
+  }
+
+  /**
+   * Returns the file:///... URI to the passed path. Ensures the 'file:' is followed by three
+   * forward slahes on all platforms.
+   *
+   * @param path path to refer to
+   * @return file:///... URI to the passed path
+   */
+  public static String pathToFileURI(Path path) {
+    if (OS.WINDOWS.equals(OS.getCurrent())) {
+      return "file:///" + path.toString().replace("\\", "/");
+    }
+    return "file://" + path.toString();
   }
 }
