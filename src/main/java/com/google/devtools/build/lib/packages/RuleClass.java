@@ -647,7 +647,6 @@ public class RuleClass {
     private boolean isExecutableSkylark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
-    private boolean isConfigMatcher = false;
     private boolean hasFunctionTransitionWhitelist = false;
     private boolean ignorePackageLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
@@ -839,7 +838,6 @@ public class RuleClass {
           hasFunctionTransitionWhitelist,
           ignorePackageLicenses,
           implicitOutputsFunction,
-          isConfigMatcher,
           transitionFactory,
           configuredTargetFactory,
           validityPredicate,
@@ -1322,17 +1320,6 @@ public class RuleClass {
     }
 
     /**
-     * Causes rules of this type to be evaluated with the parent's configuration, always, so that
-     * rules which match against parts of the configuration will behave as expected.
-     *
-     * <p>This is only intended for use by {@code config_setting} - other rules should not use this!
-     */
-    public Builder setIsConfigMatcherForConfigSettingOnly() {
-      this.isConfigMatcher = true;
-      return this;
-    }
-
-    /**
      * Causes rules of this type to implicitly reference the configuration fragments associated with
      * the options its attributes reference.
      *
@@ -1438,7 +1425,6 @@ public class RuleClass {
   private final boolean isExecutableSkylark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
-  private final boolean isConfigMatcher;
   private final boolean hasFunctionTransitionWhitelist;
   private final boolean ignorePackageLicenses;
 
@@ -1573,7 +1559,6 @@ public class RuleClass {
       boolean hasFunctionTransitionWhitelist,
       boolean ignorePackageLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      boolean isConfigMatcher,
       RuleTransitionFactory transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
@@ -1604,7 +1589,6 @@ public class RuleClass {
     this.publicByDefault = publicByDefault;
     this.binaryOutput = binaryOutput;
     this.implicitOutputsFunction = implicitOutputsFunction;
-    this.isConfigMatcher = isConfigMatcher;
     this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
     this.validityPredicate = validityPredicate;
@@ -1825,14 +1809,6 @@ public class RuleClass {
    */
   public boolean supportsConstraintChecking() {
     return supportsConstraintChecking;
-  }
-
-  /**
-   * Returns true if rules of this type should be evaluated with the parent's configuration so that
-   * they can match on aspects of it.
-   */
-  public boolean isConfigMatcher() {
-    return isConfigMatcher;
   }
 
   /**

@@ -893,7 +893,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         /* hasFunctionTransitionWhitelist=*/ false,
         /* ignorePackageLicenses=*/ false,
         implicitOutputsFunction,
-        /*isConfigMatcher=*/ false,
         transitionFactory,
         configuredTargetFactory,
         validityPredicate,
