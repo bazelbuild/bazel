@@ -87,10 +87,12 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     Label topLevel = Label.parseAbsoluteUnchecked("//foo");
     Label causeLabel = Label.parseAbsoluteUnchecked("//bar");
     assertThat(collector.events.keySet()).containsExactly(topLevel);
-    assertThat(collector.events.get(topLevel))
-        .containsExactly(
-            new LoadingFailedCause(
-                causeLabel, "no such package 'bar': BUILD file not found on package path"));
+    assertThat(collector.events.get(topLevel)).hasSize(1);
+    Cause topLevelCause = collector.events.get(topLevel).iterator().next();
+    assertThat(topLevelCause.getClass()).isAssignableTo(LoadingFailedCause.class);
+    assertThat(topLevelCause.getLabel()).isEqualTo(causeLabel);
+    assertThat(topLevelCause.toString())
+        .contains("no such package 'bar': BUILD file not found on package path");
   }
 
   /**

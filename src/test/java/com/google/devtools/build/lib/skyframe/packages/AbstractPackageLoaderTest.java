@@ -77,7 +77,7 @@ public abstract class AbstractPackageLoaderTest {
     } catch (NoSuchPackageException expected) {
       assertThat(expected)
           .hasMessageThat()
-          .isEqualTo("no such package 'nope': BUILD file not found on package path");
+          .contains("no such package 'nope': BUILD file not found on package path");
     }
     assertNoEvents(handler.getEvents());
   }
