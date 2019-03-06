@@ -467,7 +467,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_windows_style_arg_escaping",
-      defaultValue = "false", // NOTE: purely decorative, rc files are read by the client.
+      defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {
         OptionEffectTag.ACTION_COMMAND_LINES,

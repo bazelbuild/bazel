@@ -29,7 +29,7 @@ BazelStartupOptions::BazelStartupOptions(
       use_workspace_rc(true),
       use_home_rc(true),
       use_master_bazelrc_(true),
-      incompatible_windows_style_arg_escaping(false) {
+      incompatible_windows_style_arg_escaping(true) {
   RegisterNullaryStartupFlag("home_rc");
   RegisterNullaryStartupFlag("incompatible_windows_style_arg_escaping");
   RegisterNullaryStartupFlag("master_bazelrc");
