@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
@@ -1921,12 +1922,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
       if (depFragments != null) {
+        if (key.getTransition() == NullTransition.INSTANCE) {
+          continue;
+        }
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
-          if (toOptions.equals(BuildOptions.NULL_OPTIONS)) {
-            continue;
-          }
-
           StarlarkTransition.postProcessStarlarkTransitions(eventHandler, key.getTransition());
           configSkyKeys.add(
               BuildConfigurationValue.key(
@@ -1949,11 +1949,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
       if (depFragments != null) {
+        if (key.getTransition() == NullTransition.INSTANCE) {
+          builder.put(key, null);
+          continue;
+        }
+
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
-          if (toOptions.equals(BuildOptions.NULL_OPTIONS)) {
-            builder.put(key, null);
-          }
           SkyKey configKey =
               BuildConfigurationValue.key(
                   depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, toOptions));
