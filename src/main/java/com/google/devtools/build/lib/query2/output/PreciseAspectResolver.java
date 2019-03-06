@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
@@ -50,30 +49,46 @@ public class PreciseAspectResolver implements AspectResolver {
   }
 
   @Override
-  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target,
-      DependencyFilter dependencyFilter) throws InterruptedException {
+  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(
+      Target target, DependencyFilter dependencyFilter) throws InterruptedException {
     Multimap<Attribute, Label> result = LinkedListMultimap.create();
     if (target instanceof Rule) {
       Rule rule = (Rule) target;
       Multimap<Attribute, Label> transitions =
           rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
       for (Attribute attribute : transitions.keySet()) {
-        ImmutableList<Aspect> aspects = attribute.getAspects(rule);
-        for (Label toLabel : transitions.get(attribute)) {
-          Target toTarget;
-          try {
-            toTarget = packageProvider.getTarget(eventHandler, toLabel);
-            result.putAll(
-                AspectDefinition.visitAspectsIfRequired(
-                    target, aspects, toTarget, dependencyFilter));
-          } catch (NoSuchThingException e) {
-            // Do nothing. One of target direct deps has an error. The dependency on the BUILD file
-            // (or one of the files included in it) will be reported in the query result of :BUILD.
+        for (Aspect aspect : attribute.getAspects(rule)) {
+          if (hasDepThatSatisfies(aspect, transitions.get(attribute))) {
+            AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+                rule, aspect, dependencyFilter, result::put);
           }
         }
       }
     }
     return ImmutableMultimap.copyOf(result);
+  }
+
+  private boolean hasDepThatSatisfies(Aspect aspect, Iterable<Label> labelDeps)
+      throws InterruptedException {
+    for (Label toLabel : labelDeps) {
+      Target toTarget;
+      try {
+        toTarget = packageProvider.getTarget(eventHandler, toLabel);
+      } catch (NoSuchThingException e) {
+        // Do nothing interesting. One of target direct deps has an error. The dependency on the
+        // BUILD file (or one of the files included in it) will be reported in the query result of
+        // :BUILD.
+        continue;
+      }
+      if (!(toTarget instanceof Rule)) {
+        continue;
+      }
+      if (AspectDefinition.satisfies(
+          aspect, ((Rule) toTarget).getRuleClassObject().getAdvertisedProviders())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
