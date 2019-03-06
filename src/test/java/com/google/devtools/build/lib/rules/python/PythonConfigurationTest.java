@@ -201,7 +201,8 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--incompatible_py3_is_default=true",
             "--incompatible_py2_outputs_are_suffixed=true",
             "--build_python_zip=true",
-            "--incompatible_disallow_legacy_py_provider=true");
+            "--incompatible_disallow_legacy_py_provider=true",
+            "--experimental_use_python_toolchains=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
     assertThat(hostOpts.incompatibleAllowPythonVersionTransitions).isTrue();
     assertThat(hostOpts.incompatibleRemoveOldPythonVersionApi).isTrue();
@@ -209,6 +210,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     assertThat(hostOpts.incompatiblePy2OutputsAreSuffixed).isTrue();
     assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);
     assertThat(hostOpts.incompatibleDisallowLegacyPyProvider).isTrue();
+    assertThat(hostOpts.incompatibleUsePythonToolchains).isTrue();
   }
 
   @Test

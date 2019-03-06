@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.python;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
@@ -253,6 +254,9 @@ public final class BazelPyRuleClasses {
           // PyRuntimeInfoProvider. (Add a test case to PythonConfigurationTest for violations of
           // this requirement.) Probably moot now that this is going to be replaced by toolchains.
           .add(attr(":py_interpreter", LABEL).value(PY_INTERPRETER))
+          .add(
+              attr("$py_toolchain_type", NODEP_LABEL)
+                  .value(env.getToolsLabel("//tools/python:toolchain_type")))
           .addRequiredToolchains(env.getToolsLabel("//tools/python:toolchain_type"))
           .build();
     }
