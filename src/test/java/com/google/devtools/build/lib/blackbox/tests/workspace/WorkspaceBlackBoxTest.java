@@ -82,13 +82,13 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
   @Test
   public void testExecuteInWorkingDirectory() throws Exception {
     String pwd = isWindows() ? "echo %cd%" : "pwd";
-    String ruleName = RepoWithRuleWritingTextGenerator.RULE_NAME;
-    String buildFileText = String.format(
-        "\"\"\"load('@main//:rule.bzl', '%s')\n%s(name = 'debug_me', text = '%%s')\"\"\" %% stdout",
-        ruleName, ruleName);
+    String buildFileText = "\"\"\"" + String.join("\n",
+        RepoWithRuleWritingTextGenerator.loadRule("@main"),
+        RepoWithRuleWritingTextGenerator.callRule("debug_me", "out", "%s")) +"\"\"\" % stdout";
     context().write("repo_rule.bzl",
         "def _impl(rctx):",
-        String.format("  result = rctx.execute(['%s'], working_directory = rctx.attr.working_directory)", pwd),
+        String.format(
+            "  result = rctx.execute(['%s'], working_directory=rctx.attr.working_directory)", pwd),
         "  if result.return_code != 0:",
         "    fail('Execute failed: ' + result.stderr)",
         // we want to compare the real paths,
@@ -105,7 +105,8 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
         "  attrs = { 'working_directory': attr.string() }",
         ")");
 
-    context().write("rule.bzl", RepoWithRuleWritingTextGenerator.WRITE_TEXT_TO_FILE);
+    context().write(RepoWithRuleWritingTextGenerator.HELPER_FILE,
+        RepoWithRuleWritingTextGenerator.WRITE_TEXT_TO_FILE);
     context().write("BUILD");
 
     Path tempDirectory = Files.createTempDirectory("temp-execute");
@@ -115,9 +116,9 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
         "check_wd(name = 'relative', working_directory = 'relative')",
         "check_wd(name = 'relative2', working_directory = '../relative2')",
         String.format("check_wd(name = 'absolute', working_directory = '%s')",
-            tempDirectory.toString()),
+            PathUtils.pathForStarlarkFile(tempDirectory)),
         String.format("check_wd(name = 'absolute2', working_directory = '%s')",
-            tempDirectory.resolve("non_existent_child").toString())
+            PathUtils.pathForStarlarkFile(tempDirectory.resolve("non_existent_child")))
         );
 
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());

@@ -33,7 +33,7 @@ import java.nio.file.Path;
  */
 public class RepoWithRuleWritingTextGenerator {
 
-  private static final String HELPER_FILE = "helper.bzl";
+  static final String HELPER_FILE = "helper.bzl";
   static final String RULE_NAME = "write_to_file";
   static final String HELLO = "HELLO";
   static final String TARGET = "write_text";
