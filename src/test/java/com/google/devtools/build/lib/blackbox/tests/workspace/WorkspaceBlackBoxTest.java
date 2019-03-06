@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import com.google.devtools.build.lib.util.OS;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import org.junit.Test;
 
@@ -81,14 +82,14 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testExecuteInWorkingDirectory() throws Exception {
-    String pwd = isWindows() ? "echo %cd%" : "pwd";
+    String pwd = isWindows() ? "['echo', '%%cd%%']" : "['pwd']";
     String buildFileText = "\"\"\"" + String.join("\n",
         RepoWithRuleWritingTextGenerator.loadRule("@main"),
         RepoWithRuleWritingTextGenerator.callRule("debug_me", "out", "%s")) +"\"\"\" % stdout";
     context().write("repo_rule.bzl",
         "def _impl(rctx):",
         String.format(
-            "  result = rctx.execute(['%s'], working_directory=rctx.attr.working_directory)", pwd),
+            "  result = rctx.execute(%s, working_directory=rctx.attr.working_directory)", pwd),
         "  if result.return_code != 0:",
         "    fail('Execute failed: ' + result.stderr)",
         // we want to compare the real paths,
@@ -127,7 +128,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(outFile.toFile().exists()).isTrue();
     List<String> lines = PathUtils.readFile(outFile);
     assertThat(lines.size()).isEqualTo(1);
-    assertThat(lines.get(0)).endsWith("external/relative/relative");
+    assertThat(Paths.get(lines.get(0)).endsWith(Paths.get("external/relative/relative"))).isTrue();
 
     bazel.build("@relative2//:debug_me");
     bazel.build("@absolute//:debug_me");
@@ -137,7 +138,8 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(outFile2.toFile().exists()).isTrue();
     List<String> lines2 = PathUtils.readFile(outFile2);
     assertThat(lines2.size()).isEqualTo(1);
-    assertThat(lines2.get(0)).isEqualTo(tempDirectory.resolve("non_existent_child").toString());
+    assertThat(Paths.get(lines2.get(0)).equals(
+        tempDirectory.resolve("non_existent_child"))).isTrue();
   }
 
   @Test
