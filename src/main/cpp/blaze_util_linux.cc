@@ -82,19 +82,10 @@ void WarnFilesystemType(const string& output_base) {
 }
 
 string GetSelfPath() {
-  char buffer[PATH_MAX] = {};
-  ssize_t bytes = readlink("/proc/self/exe", buffer, sizeof(buffer));
-  if (bytes == sizeof(buffer)) {
-    // symlink contents truncated
-    bytes = -1;
-    errno = ENAMETOOLONG;
-  }
-  if (bytes == -1) {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "error reading /proc/self/exe: " << GetLastErrorString();
-  }
-  buffer[bytes] = '\0';  // readlink does not NUL-terminate
-  return string(buffer);
+  // The file to which this symlink points could change contents or go missing
+  // concurrent with execution of the Bazel client, so we don't eagerly resolve
+  // it.
+  return "/proc/self/exe";
 }
 
 uint64_t GetMillisecondsMonotonic() {

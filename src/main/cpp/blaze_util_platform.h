@@ -95,7 +95,8 @@ void SigPrintf(const char *format, ...);
 
 std::string GetProcessIdAsString();
 
-// Get the absolute path to the binary being executed.
+// Get an absolute path to the binary being executed that is guaranteed to be
+// readable.
 std::string GetSelfPath();
 
 // Returns the directory Bazel can use to store output.
