@@ -15,6 +15,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",

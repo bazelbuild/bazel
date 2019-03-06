@@ -38,8 +38,10 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
+import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
@@ -667,9 +670,9 @@ public class AbstractRemoteActionCacheTests {
   }
 
   private DefaultRemoteActionCache newTestCache() {
-    RemoteOptions options = new RemoteOptions();
-    RemoteRetrier retrier =
-        new RemoteRetrier(options, (e) -> false, retryService, Retrier.ALLOW_ALL_CALLS);
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    RemoteRetrier retrier = TestUtils.newRemoteRetrier(() -> new ExponentialBackoff(options),
+        (e) -> false, retryService);
     return new DefaultRemoteActionCache(options, digestUtil, retrier);
   }
 

@@ -62,7 +62,9 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -97,6 +99,7 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -257,12 +260,8 @@ public class GrpcRemoteExecutionClientTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    RemoteRetrier retrier =
-        new RemoteRetrier(
-            remoteOptions,
-            RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
-            retryService,
-            Retrier.ALLOW_ALL_CALLS);
+    RemoteRetrier retrier = TestUtils.newRemoteRetrier(() -> new ExponentialBackoff(remoteOptions),
+        RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS, retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
     GrpcRemoteExecutor executor =

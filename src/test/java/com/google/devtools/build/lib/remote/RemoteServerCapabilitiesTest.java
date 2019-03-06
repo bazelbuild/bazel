@@ -30,6 +30,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.common.options.Options;
 import io.grpc.CallCredentials;
@@ -134,12 +136,9 @@ public class RemoteServerCapabilitiesTest {
             new RequestHeadersValidator()));
 
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    RemoteRetrier retrier =
-        new RemoteRetrier(
-            remoteOptions,
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-            retryService,
-            Retrier.ALLOW_ALL_CALLS);
+    RemoteRetrier retrier = TestUtils.newRemoteRetrier(() -> new ExponentialBackoff(remoteOptions),
+        RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+        retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
