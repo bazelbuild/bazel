@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
-import com.google.devtools.build.lib.testutil.TestConstants;
 
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
@@ -53,7 +53,7 @@ public class TestArchiveDescriptor {
   private static final String RELATIVE_SYMBOLIC_LINK_FILE_NAME = "relativeSymbolicLinkFile";
   private static final String ABSOLUTE_SYMBOLIC_LINK_FILE_NAME = "absoluteSymbolicLinkFile";
   private static final String PATH_TO_TEST_ARCHIVE =
-      "com/google/devtools/build/lib/bazel/repository/";
+      "/com/google/devtools/build/lib/bazel/repository/";
 
   static final String ROOT_FOLDER_NAME = "root_folder";
   static final String INNER_FOLDER_NAME = "another_folder";
@@ -73,8 +73,11 @@ public class TestArchiveDescriptor {
         ? new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS)
         : new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
 
-    Path tarballPath = testFS.getPath(Runfiles.create()
-        .rlocation(TestConstants.JAVATESTS_ROOT + PATH_TO_TEST_ARCHIVE + archiveName));
+    // do not rely on TestConstants.JAVATESTS_ROOT end with slash, but ensure separators
+    // are not duplicated
+    String path = (TestConstants.JAVATESTS_ROOT + PATH_TO_TEST_ARCHIVE + archiveName)
+        .replace("//", "/");
+    Path tarballPath = testFS.getPath(Runfiles.create().rlocation(path));
 
     Path workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     Path outDir = workingDir.getRelative(outDirName);
