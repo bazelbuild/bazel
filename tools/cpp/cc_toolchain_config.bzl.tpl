@@ -1517,6 +1517,8 @@ def _impl(ctx):
 
     dbg_feature = feature(name = "dbg")
 
+    fastbuild_feature = feature(name = "fastbuild")
+
     opt_feature = feature(name = "opt")
 
     sysroot_feature = feature(
@@ -1628,6 +1630,7 @@ def _impl(ctx):
         fdo_optimize_feature,
         supports_dynamic_linker_feature,
         dbg_feature,
+        fastbuild_feature,
         opt_feature,
         user_compile_flags_feature,
         sysroot_feature,
