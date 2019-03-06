@@ -643,7 +643,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_windows_escape_jvm_flags",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
         OptionEffectTag.ACTION_COMMAND_LINES,
