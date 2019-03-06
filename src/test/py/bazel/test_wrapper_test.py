@@ -558,7 +558,7 @@ class TestWrapperTest(test_base.TestBase):
 
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
-    flag = '--noexperimental_windows_native_test_wrapper'
+    flag = '--noincompatible_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
@@ -596,7 +596,7 @@ class TestWrapperTest(test_base.TestBase):
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
-    flag = '--experimental_windows_native_test_wrapper'
+    flag = '--incompatible_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
