@@ -74,23 +74,6 @@ public final class TransitionResolver {
       return NoTransition.INSTANCE;
     }
 
-    // Make sure config_setting dependencies are resolved in the referencing rule's configuration,
-    // unconditionally. For example, given:
-    //
-    // genrule(
-    //     name = 'myrule',
-    //     tools = select({ '//a:condition': [':sometool'] })
-    //
-    // all labels in "tools" get resolved in the host configuration (since the "tools" attribute
-    // declares a host configuration transition). We want to explicitly exclude configuration labels
-    // from these transitions, since their *purpose* is to do computation on the owning
-    // rule's configuration.
-    // TODO(bazel-team): don't require special casing here. This is far too hackish.
-    if (toTarget instanceof Rule && ((Rule) toTarget).getRuleClassObject().isConfigMatcher()) {
-      // TODO(gregce): see if this actually gets called
-      return NoTransition.INSTANCE;
-    }
-
     // The current transition to apply. When multiple transitions are requested, this is a
     // ComposingTransition, which encapsulates them into a single object so calling code
     // doesn't need special logic for combinations.
