@@ -96,7 +96,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
         // otherwise it is not clear how to verify the relative path variant
         "  wd = str(rctx.path(rctx.attr.working_directory))",
         // pwd returns the path with '\n' in the end of the line; cut it
-        "  stdout = result.stdout.strip(' \\n\\r')",
+        "  stdout = result.stdout.strip(' \\n\\r').replace('\\\\', '/')",
         "  if wd != stdout:",
         "    fail('Wrong current directory: **%s**, expecting **%s**' % (stdout, wd))",
         // create BUILD file with a target so we can call it;
