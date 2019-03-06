@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -296,8 +297,9 @@ public class SkylarkRepositoryContext
       Integer timeout,
       SkylarkDict<String, String> environment,
       boolean quiet,
+      String workingDirectory,
       Location location)
-      throws EvalException, RepositoryFunctionException {
+      throws EvalException, RepositoryFunctionException, InterruptedException {
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExecuteEvent(
             arguments,
@@ -309,10 +311,15 @@ public class SkylarkRepositoryContext
             rule.getLabel().toString(),
             location);
     env.getListener().post(w);
-    createDirectory(outputDirectory);
+
+    Path workingDirectoryPath = outputDirectory;
+    if (workingDirectory != null && !workingDirectory.isEmpty()) {
+      workingDirectoryPath = getPath("execute()", workingDirectory).getPath();
+    }
+    createDirectory(workingDirectoryPath);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
         .addArguments(arguments)
-        .setDirectory(outputDirectory.getPathFile())
+        .setDirectory(workingDirectoryPath.getPathFile())
         .addEnvironmentVariables(environment)
         .setTimeout(Math.round(timeout.longValue() * 1000 * timeoutScaling))
         .setQuiet(quiet)

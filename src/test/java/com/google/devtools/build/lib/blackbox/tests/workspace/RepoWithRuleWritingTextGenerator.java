@@ -34,12 +34,12 @@ import java.nio.file.Path;
 public class RepoWithRuleWritingTextGenerator {
 
   private static final String HELPER_FILE = "helper.bzl";
-  private static final String RULE_NAME = "write_to_file";
+  static final String RULE_NAME = "write_to_file";
   static final String HELLO = "HELLO";
   static final String TARGET = "write_text";
   static final String OUT_FILE = "out";
 
-  private static final String WRITE_TEXT_TO_FILE =
+  static final String WRITE_TEXT_TO_FILE =
       "def _impl(ctx):\n"
           + "  out = ctx.actions.declare_file(ctx.attr.filename)\n"
           + "  ctx.actions.write(out, ctx.attr.text)\n"
