@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -928,7 +929,7 @@ public final class SkyframeBuildView {
       Iterable<ConfiguredTargetKey> ctKeys, Iterable<AspectValueKey> aspectKeys)
       throws InterruptedException {
     WalkableGraph walkableGraph = SkyframeExecutorWrappingWalkableGraph.of(skyframeExecutor);
-    Set<SkyKey> seen = new HashSet<>();
+    Set<SkyKey> seen = CompactHashSet.create();
     List<ActionLookupValue> result = new ArrayList<>();
     for (ConfiguredTargetKey key : ctKeys) {
       findActionsRecursively(walkableGraph, key, seen, result);
@@ -956,11 +957,8 @@ public final class SkyframeBuildView {
     if (value instanceof ActionLookupValue) {
       result.add((ActionLookupValue) value);
     }
-    for (Map.Entry<SkyKey, Iterable<SkyKey>> deps :
-        walkableGraph.getDirectDeps(ImmutableList.of(key)).entrySet()) {
-      for (SkyKey dep : deps.getValue()) {
-        findActionsRecursively(walkableGraph, dep, seen, result);
-      }
+    for (SkyKey dep : walkableGraph.getDirectDeps(key)) {
+      findActionsRecursively(walkableGraph, dep, seen, result);
     }
   }
 
