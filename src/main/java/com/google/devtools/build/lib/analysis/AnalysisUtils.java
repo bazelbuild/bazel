@@ -193,7 +193,7 @@ public final class AnalysisUtils {
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
     for (BuildConfiguration config : configurations.getTargetConfigurations()) {
       for (Target target : targets) {
-        nodes.add(new TargetAndConfiguration(target, target.isConfigurable() ? config : null));
+        nodes.add(new TargetAndConfiguration(target, config));
       }
     }
 
