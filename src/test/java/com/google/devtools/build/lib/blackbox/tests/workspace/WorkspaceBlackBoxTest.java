@@ -82,7 +82,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testExecuteInWorkingDirectory() throws Exception {
-    String pwd = isWindows() ? "['echo', '%%cd%%']" : "['pwd']";
+    String pwd = isWindows() ? "['echo', '%cd%']" : "['pwd']";
     String buildFileText = "\"\"\"" + String.join("\n",
         RepoWithRuleWritingTextGenerator.loadRule("@main"),
         RepoWithRuleWritingTextGenerator.callRule("debug_me", "out", "%s")) +"\"\"\" % stdout";
