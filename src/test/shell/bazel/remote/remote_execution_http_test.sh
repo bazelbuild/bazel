@@ -50,7 +50,7 @@ function set_up() {
 }
 
 function tear_down() {
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
     kill "${pid}" || true
@@ -76,7 +76,7 @@ EOF
     || fail "Failed to build //a:test without remote cache"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --remote_http_cache=http://localhost:${http_port} \
       //a:test \
@@ -109,7 +109,7 @@ EOF
     || fail "Failed to build //a:test without remote cache"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   bazel build \
       --remote_http_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
@@ -248,7 +248,7 @@ function test_directory_artifact_skylark() {
       || fail "Failed to build //a:test with remote execution"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote execution generated different result"
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
@@ -268,7 +268,7 @@ function test_directory_artifact_skylark_grpc_cache() {
       || fail "Failed to build //a:test with remote gRPC cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
@@ -287,7 +287,7 @@ function test_directory_artifact_skylark_rest_cache() {
       || fail "Failed to build //a:test with remote REST cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --remote_rest_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
@@ -306,7 +306,7 @@ function test_directory_artifact_in_runfiles_skylark_rest_cache() {
       || fail "Failed to build //a:test2 with remote REST cache"
   diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --remote_rest_cache=http://localhost:${http_port} \
       //a:test2 >& $TEST_log \
