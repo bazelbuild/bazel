@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -68,20 +69,28 @@ public class TreeArtifactValue implements SkyValue {
   /**
    * Returns a TreeArtifactValue out of the given Artifact-relative path fragments
    * and their corresponding FileArtifactValues.
+   *
+   * <p>All {@code childFileValues} must return the same value for
+   * {@link FileArtifactValue#isRemote()}.
    */
   static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
     Map<String, FileArtifactValue> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
-    boolean isRemote = true;
+    Boolean isRemote = null;
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
-      isRemote = isRemote && e.getValue().isRemote();
-      digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), e.getValue());
+      FileArtifactValue v = e.getValue();
+      if (isRemote == null) {
+        isRemote = v.isRemote();
+      }
+      Preconditions.checkArgument(v.isRemote() == isRemote, "files in a tree artifact must either"
+          + " be all remote or all local.");
+      digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), v);
     }
 
     return new TreeArtifactValue(
         DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe(),
         ImmutableMap.copyOf(childFileValues),
-        isRemote);
+        isRemote != null ? isRemote : false);
   }
 
   FileArtifactValue getSelfData() {
@@ -110,7 +119,7 @@ public class TreeArtifactValue implements SkyValue {
   }
 
   /**
-   * Returns {@code true} if at least one {@link TreeFileArtifact} is only stored remotely.
+   * Returns {@code true} if the @link TreeFileArtifact}s are only stored remotely.
    */
   public boolean isRemote() {
     return isRemote;
