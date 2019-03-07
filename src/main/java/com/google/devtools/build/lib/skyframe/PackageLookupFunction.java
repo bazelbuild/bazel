@@ -115,7 +115,6 @@ public class PackageLookupFunction implements SkyFunction {
   private PackageLookupValue findPackageByBuildFile(
       Environment env, PathPackageLocator pkgLocator, PackageIdentifier packageKey)
       throws PackageLookupFunctionException, InterruptedException {
-    StringBuilder notFoundMessage = new StringBuilder("BUILD file not found on package path.");
     // TODO(bazel-team): The following is O(n^2) on the number of elements on the package path due
     // to having restart the SkyFunction after every new dependency. However, if we try to batch
     // the missing value keys, more dependencies than necessary will be declared. This wart can be
@@ -129,14 +128,13 @@ public class PackageLookupFunction implements SkyFunction {
         if (result == null) {
           return null;
         }
-        if (!(result instanceof PackageLookupValue.NoBuildFilePackageLookupValue)) {
+        if (result != PackageLookupValue.NO_BUILD_FILE_VALUE) {
           return result;
         }
-        notFoundMessage.append("\n - ").append(result.getErrorMsg());
       }
     }
 
-    return new PackageLookupValue.NoBuildFilePackageLookupValue(notFoundMessage.toString());
+    return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   @Nullable
@@ -184,11 +182,11 @@ public class PackageLookupFunction implements SkyFunction {
       if (result == null) {
         return null;
       }
-      if (!(result instanceof PackageLookupValue.NoBuildFilePackageLookupValue)) {
+      if (result != PackageLookupValue.NO_BUILD_FILE_VALUE) {
         return result;
       }
     }
-    return new PackageLookupValue.NoBuildFilePackageLookupValue();
+    return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   private PackageLookupValue getPackageLookupValue(
@@ -261,8 +259,7 @@ public class PackageLookupFunction implements SkyFunction {
       return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
     }
 
-    return new PackageLookupValue.NoBuildFilePackageLookupValue(
-        fileValue.realRootedPath().asPath().toString() + ": " + fileValue.realFileStateValue());
+    return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   private PackageLookupValue computeWorkspacePackageLookupValue(
@@ -284,7 +281,7 @@ public class PackageLookupFunction implements SkyFunction {
     // TODO(kchodorow): get rid of this, the semantics are wrong (successful package lookup should
     // mean the package exists). a bunch of tests need to be rewritten first though.
     if (packagePathEntries.isEmpty()) {
-      return new PackageLookupValue.NoBuildFilePackageLookupValue();
+      return PackageLookupValue.NO_BUILD_FILE_VALUE;
     }
     Root lastPackagePath = packagePathEntries.get(packagePathEntries.size() - 1);
     FileValue lastPackagePackagePathFileValue =
@@ -297,7 +294,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
     return lastPackagePackagePathFileValue.exists()
         ? PackageLookupValue.success(lastPackagePath, BuildFileName.WORKSPACE)
-        : new PackageLookupValue.NoBuildFilePackageLookupValue();
+        : PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   /**
@@ -344,7 +341,7 @@ public class PackageLookupFunction implements SkyFunction {
       }
     }
 
-    return new PackageLookupValue.NoBuildFilePackageLookupValue();
+    return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   /**

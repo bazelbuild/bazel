@@ -44,6 +44,10 @@ import javax.annotation.Nullable;
 public abstract class PackageLookupValue implements SkyValue {
 
   @AutoCodec
+  public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
+      new NoBuildFilePackageLookupValue();
+
+  @AutoCodec
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
 
@@ -244,38 +248,24 @@ public abstract class PackageLookupValue implements SkyValue {
 
   /** Marker value for no build file found. */
   public static class NoBuildFilePackageLookupValue extends UnsuccessfulPackageLookupValue {
-    private final String message;
+    private static final BigInteger FINGERPRINT = new BigInteger("14769240659748016902");
 
-    public NoBuildFilePackageLookupValue() {
-      message = "BUILD file not found on package path";
-    }
-
-    public NoBuildFilePackageLookupValue(String message) {
-      this.message = message;
-    }
+    private NoBuildFilePackageLookupValue() {}
 
     @Override
     ErrorReason getErrorReason() {
       return ErrorReason.NO_BUILD_FILE;
     }
 
+    @Nullable
+    @Override
+    public BigInteger getValueFingerprint() {
+      return FINGERPRINT;
+    }
+
     @Override
     public String getErrorMsg() {
-      return message;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (!(obj instanceof NoBuildFilePackageLookupValue)) {
-        return false;
-      }
-      NoBuildFilePackageLookupValue other = (NoBuildFilePackageLookupValue) obj;
-      return message.equals(other.message);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(message);
+      return "BUILD file not found on package path";
     }
   }
 

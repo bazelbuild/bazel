@@ -195,7 +195,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage)
-        .contains(
+        .isEqualTo(
             "Unable to load package for '//pkg:ext.bzl': BUILD file not found on package path");
   }
 
@@ -212,7 +212,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage)
-        .contains(
+        .isEqualTo(
             "Unable to load package for '//pkg:ext.bzl': BUILD file not found on package path");
   }
 

@@ -280,8 +280,7 @@ public abstract class RepositoryFunction {
     }
     if (!pkgLookupValue.packageExists()) {
       throw new EvalException(
-          Location.BUILTIN,
-          "Unable to load package for " + label + ": " + pkgLookupValue.getErrorMsg());
+          Location.BUILTIN, "Unable to load package for " + label + ": not found.");
     }
 
     // And now for the file
