@@ -134,6 +134,81 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertNotIn('foo=bar2', result_in_lower_case)
     self.assertIn('foo=bar3', result_in_lower_case)
 
+  def testAnalyzeCcRuleWithoutVCInstalled(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "bin",',
+        '  srcs = ["main.cc"],',
+        ')',
+    ])
+    self.ScratchFile('main.cc', [
+        'void main() {',
+        '  printf("Hello world");',
+        '}',
+    ])
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '//...',
+        ],
+        # Set BAZEL_VC to a non-existing path,
+        # Bazel should still work when analyzing cc rules .
+        env_add={'BAZEL_VC': 'C:/not/exists/VC'},
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+
+  def testBuildNonCcRuleWithoutVCInstalled(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'genrule(',
+        '  name="gen",',
+        '  outs = ["hello"],',
+        '  cmd = "touch $@",',
+        ')',
+        '',
+        'java_binary(',
+        '  name = "bin_java",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        ')',
+        '',
+        'py_binary(',
+        '  name = "bin_py",',
+        '  srcs = ["bin_py.py"],',
+        ')',
+        '',
+        'sh_binary(',
+        '  name = "bin_sh",',
+        '  srcs = ["main.sh"],',
+        ')',
+    ])
+    self.ScratchFile('Main.java', [
+        'public class Main {',
+        '  public static void main(String[] args) {',
+        '    System.out.println("hello java");',
+        '  }',
+        '}',
+    ])
+    self.ScratchFile('bin_py.py', [
+        'print("Hello world")',
+    ])
+    self.ScratchFile('main.sh', [
+        'echo "Hello world"',
+    ])
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '//...',
+        ],
+        # Set BAZEL_VC to a non-existing path,
+        # Bazel should still work when building rules that doesn't
+        # require cc toolchain.
+        env_add={'BAZEL_VC': 'C:/not/exists/VC'},
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+
 
 if __name__ == '__main__':
   unittest.main()
