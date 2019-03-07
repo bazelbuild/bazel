@@ -62,7 +62,9 @@ public final class SolibSymlinkAction extends AbstractAction {
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
+    Actions.prefetchInputs(ImmutableList.of(getPrimaryInput()), actionExecutionContext, this);
+
     Path mangledPath = actionExecutionContext.getInputPath(symlink);
     try {
       mangledPath.createSymbolicLink(actionExecutionContext.getInputPath(getPrimaryInput()));
