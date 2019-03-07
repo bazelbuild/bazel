@@ -1457,7 +1457,7 @@ static string LocateBashMaybe() {
   return msys_bash.empty() ? GetBinaryFromPath("bash.exe") : msys_bash;
 }
 
-void DetectBashAndExportBazelSh() {
+string DetectBashAndExportBazelSh() {
   string bash = blaze::GetEnv("BAZEL_SH");
   if (!bash.empty()) {
     return bash;
@@ -1476,6 +1476,8 @@ void DetectBashAndExportBazelSh() {
     // Set process environment variable.
     blaze::SetEnv("BAZEL_SH", bash);
   }
+
+  return bash;
 }
 
 void EnsurePythonPathOption(std::vector<string>* options) {
