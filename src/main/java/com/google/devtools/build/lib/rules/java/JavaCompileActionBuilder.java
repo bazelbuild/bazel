@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
@@ -162,7 +161,6 @@ public final class JavaCompileActionBuilder {
   private FilesToRunProvider javaBuilder;
   private Artifact langtoolsJar;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private ImmutableList<Artifact> instrumentationJars = ImmutableList.of();
   private PathFragment sourceGenDirectory;
   private PathFragment tempDirectory;
   private PathFragment classDirectory;
@@ -218,22 +216,7 @@ public final class JavaCompileActionBuilder {
       executableLine.addPath(javaBuilder.getExecutable().getExecPath());
       runfilesSupplier = javaBuilder.getRunfilesSupplier();
       toolsBuilder.addTransitive(javaBuilder.getFilesToRun());
-    } else if (!instrumentationJars.isEmpty()) {
-      toolsBuilder.add(javaBuilderJar);
-      executableLine
-          .addPath(javaExecutable)
-          .addAll(javacJvmOpts)
-          .addExecPaths(
-              "-cp",
-              VectorArg.join(ruleContext.getConfiguration().getHostPathSeparator())
-                  .each(
-                      ImmutableList.<Artifact>builder()
-                          .addAll(instrumentationJars)
-                          .add(javaBuilderJar)
-                          .build()))
-          .addDynamicString(javaSemantics.getJavaBuilderMainClass());
     } else {
-      // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
       toolsBuilder.add(javaBuilderJar);
       executableLine
           .addPath(javaExecutable)
@@ -241,7 +224,7 @@ public final class JavaCompileActionBuilder {
           .add("-jar")
           .addPath(javaBuilderJar.getExecPath());
     }
-    toolsBuilder.add(langtoolsJar).addTransitive(toolsJars).addAll(instrumentationJars);
+    toolsBuilder.add(langtoolsJar).addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
         ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
@@ -565,11 +548,6 @@ public final class JavaCompileActionBuilder {
 
   public JavaCompileActionBuilder setJavaBuilder(FilesToRunProvider javaBuilder) {
     this.javaBuilder = javaBuilder;
-    return this;
-  }
-
-  public JavaCompileActionBuilder setInstrumentationJars(Iterable<Artifact> instrumentationJars) {
-    this.instrumentationJars = ImmutableList.copyOf(instrumentationJars);
     return this;
   }
 

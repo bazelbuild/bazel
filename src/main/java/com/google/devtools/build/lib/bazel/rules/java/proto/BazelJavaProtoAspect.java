@@ -37,7 +37,6 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
   public BazelJavaProtoAspect(RuleDefinitionEnvironment env) {
     super(
         BazelJavaSemantics.INSTANCE,
-        null, /* jacocoAttr */
         new NoopRpcSupport(),
         "@com_google_protobuf//:java_toolchain",
         env);

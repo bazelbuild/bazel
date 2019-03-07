@@ -89,9 +89,7 @@ public class BazelJavaRuleClasses {
   public static final class JavaBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr("$jacoco_instrumentation", LABEL).cfg(HostTransition.INSTANCE))
-          .build();
+      return builder.build();
     }
 
     @Override

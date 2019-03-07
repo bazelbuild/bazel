@@ -99,7 +99,7 @@ public final class JavaCompileActionTestHelper {
   /** Returns the JavaBuilder options. */
   public static List<String> getJavacArguments(JavaCompileAction action) throws Exception {
     List<String> args = action.getCommandLines().allArguments();
-    return args.subList(mainClassIndex(args) + 1, args.size());
+    return args.subList(mainClassIndex(args), args.size());
   }
 
   // Find the index of the last argument of the JavaBuilder command, and before the first option
@@ -108,10 +108,10 @@ public final class JavaCompileActionTestHelper {
     for (int idx = 0; idx < args.size(); idx++) {
       String arg = args.get(idx);
       if (arg.equals("-jar")) {
-        return idx + 1;
+        return idx + 2;
       }
       if (arg.contains("JavaBuilder") && !arg.endsWith(".jar")) {
-        return idx;
+        return idx + 1;
       }
     }
     throw new IllegalStateException(args.toString());
