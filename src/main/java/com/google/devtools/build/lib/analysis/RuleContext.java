@@ -1873,6 +1873,9 @@ public final class RuleContext extends TargetContext
               "'" + prerequisite.getTarget().getLabel() + "' must produce a single file");
           return;
         }
+        if (Iterables.size(artifacts) == 0) {
+          return;
+        }
         for (Artifact sourceArtifact : artifacts) {
           if (allowedFileTypes.apply(sourceArtifact.getFilename())) {
             return;
