@@ -230,14 +230,23 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             defaultValue = "True",
             named = true,
             doc = "If stdout and stderr should be printed to the terminal."),
+        @Param(
+            name = "working_directory",
+            type = String.class,
+            defaultValue = "\"\"",
+            named = true,
+            doc =
+                "Working directory for command execution.\n"
+                    + "Can be relative to the repository root or absolute."),
       })
   public SkylarkExecutionResultApi execute(
       SkylarkList<Object> arguments,
       Integer timeout,
       SkylarkDict<String, String> environment,
       boolean quiet,
+      String workingDirectory,
       Location location)
-      throws EvalException, RepositoryFunctionExceptionT;
+      throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
 
   @SkylarkCallable(
       name = "which",

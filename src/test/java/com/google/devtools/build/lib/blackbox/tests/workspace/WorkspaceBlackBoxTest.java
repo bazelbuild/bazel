@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.blackbox.tests.workspace;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import com.google.devtools.build.lib.util.OS;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import org.junit.Test;
 
 /** End to end test of workspace-related functionality. */
@@ -68,10 +73,83 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     // The build using "bash" should fail on Windows, and pass on Linux and Mac OS
-    if (OS.WINDOWS.equals(OS.getCurrent())) {
+    if (isWindows()) {
       bazel.shouldFail();
     }
     bazel.build("check");
+  }
+
+  @Test
+  public void testExecuteInWorkingDirectory() throws Exception {
+    String pwd = isWindows() ? "['cmd', '/c', 'echo %cd%']" : "['pwd']";
+    String buildFileText =
+        "\"\"\""
+            + String.join(
+                "\n",
+                RepoWithRuleWritingTextGenerator.loadRule("@main"),
+                RepoWithRuleWritingTextGenerator.callRule("debug_me", "out", "%s"))
+            + "\"\"\" % stdout";
+    context()
+        .write(
+            "repo_rule.bzl",
+            "def _impl(rctx):",
+            String.format(
+                "  result = rctx.execute(%s, working_directory=rctx.attr.working_directory)", pwd),
+            "  if result.return_code != 0:",
+            "    fail('Execute failed: ' + result.stderr)",
+            // we want to compare the real paths,
+            // otherwise it is not clear how to verify the relative path variant
+            "  wd = str(rctx.path(rctx.attr.working_directory))",
+            // pwd returns the path with '\n' in the end of the line; cut it
+            "  stdout = result.stdout.strip(' \\n\\r').replace('\\\\', '/')",
+            "  if wd != stdout:",
+            "    fail('Wrong current directory: **%s**, expecting **%s**' % (stdout, wd))",
+            // create BUILD file with a target so we can call it;
+            // rule of a target is defined in the main repository
+            "  rctx.file('BUILD', " + buildFileText + ")",
+            "check_wd = repository_rule(implementation = _impl,",
+            "  attrs = { 'working_directory': attr.string() }",
+            ")");
+
+    context()
+        .write(
+            RepoWithRuleWritingTextGenerator.HELPER_FILE,
+            RepoWithRuleWritingTextGenerator.WRITE_TEXT_TO_FILE);
+    context().write("BUILD");
+
+    Path tempDirectory = Files.createTempDirectory("temp-execute");
+    context()
+        .write(
+            WORKSPACE,
+            "workspace(name = 'main')",
+            "load(':repo_rule.bzl', 'check_wd')",
+            "check_wd(name = 'relative', working_directory = 'relative')",
+            "check_wd(name = 'relative2', working_directory = '../relative2')",
+            String.format(
+                "check_wd(name = 'absolute', working_directory = '%s')",
+                PathUtils.pathForStarlarkFile(tempDirectory)),
+            String.format(
+                "check_wd(name = 'absolute2', working_directory = '%s')",
+                PathUtils.pathForStarlarkFile(tempDirectory.resolve("non_existent_child"))));
+
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    bazel.build("@relative//:debug_me");
+    Path outFile = context().resolveBinPath(bazel, "external/relative/out");
+    assertThat(outFile.toFile().exists()).isTrue();
+    List<String> lines = PathUtils.readFile(outFile);
+    assertThat(lines.size()).isEqualTo(1);
+    assertThat(Paths.get(lines.get(0)).endsWith(Paths.get("external/relative/relative"))).isTrue();
+
+    bazel.build("@relative2//:debug_me");
+    bazel.build("@absolute//:debug_me");
+
+    bazel.build("@absolute2//:debug_me");
+    Path outFile2 = context().resolveBinPath(bazel, "external/absolute2/out");
+    assertThat(outFile2.toFile().exists()).isTrue();
+    List<String> lines2 = PathUtils.readFile(outFile2);
+    assertThat(lines2.size()).isEqualTo(1);
+    assertThat(Paths.get(lines2.get(0)).equals(tempDirectory.resolve("non_existent_child")))
+        .isTrue();
   }
 
   @Test
@@ -113,6 +191,9 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     bazel.help();
   }
 
+  private boolean isWindows() {
+    return OS.WINDOWS.equals(OS.getCurrent());
+  }
   // TODO(ichern) move other tests from workspace_test.sh here.
 
 }
