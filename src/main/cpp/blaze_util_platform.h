@@ -263,8 +263,7 @@ bool UnlimitResources();
 bool UnlimitCoredumps();
 
 #if defined(_WIN32) || defined(__CYGWIN__)
-std::string DetectBashAndExportBazelSh();
-void DetectBashOrDie();
+void DetectBashAndExportBazelSh();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
 // This function has no effect on Unix platforms.

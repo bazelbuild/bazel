@@ -1452,20 +1452,12 @@ static string GetBinaryFromPath(const string& binary_name) {
   return string();
 }
 
-static string LocateBash() {
+static string LocateBashMaybe() {
   string msys_bash = GetMsysBash();
-  if (!msys_bash.empty()) {
-    return msys_bash;
-  }
-
-  string result = GetBinaryFromPath("bash.exe");
-  if (result.empty()) {
-    BAZEL_LOG(ERROR) << "bash.exe not found on PATH";
-  }
-  return result;
+  return msys_bash.empty() ? GetBinaryFromPath("bash.exe") : msys_bash;
 }
 
-string DetectBashAndExportBazelSh() {
+void DetectBashAndExportBazelSh() {
   string bash = blaze::GetEnv("BAZEL_SH");
   if (!bash.empty()) {
     return bash;
@@ -1473,32 +1465,16 @@ string DetectBashAndExportBazelSh() {
 
   uint64_t start = blaze::GetMillisecondsMonotonic();
 
-  bash = LocateBash();
+  bash = LocateBashMaybe();
   uint64_t end = blaze::GetMillisecondsMonotonic();
-  BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
-                  << " msec, found " << bash.c_str();
-
-  if (!bash.empty()) {
+  if (bash.empty()) {
+    BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
+                    << " msec, not found";
+  } else {
+    BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
+                    << " msec, found " << bash.c_str();
     // Set process environment variable.
     blaze::SetEnv("BAZEL_SH", bash);
-  }
-  return bash;
-}
-
-void DetectBashOrDie() {
-  string bash = DetectBashAndExportBazelSh();
-  if (bash.empty()) {
-    // TODO(bazel-team) should this be printed to stderr? If so, it should use
-    // BAZEL_LOG(ERROR)
-    printf(
-        "Bazel on Windows requires MSYS2 Bash, but we could not find it.\n"
-        "If you do not have it installed, you can install MSYS2 from\n"
-        "       http://repo.msys2.org/distrib/msys2-x86_64-latest.exe\n"
-        "\n"
-        "If you already have it installed but Bazel cannot find it,\n"
-        "set BAZEL_SH environment variable to its location:\n"
-        "       set BAZEL_SH=c:\\path\\to\\msys2\\usr\\bin\\bash.exe\n");
-    exit(1);
   }
 }
 
