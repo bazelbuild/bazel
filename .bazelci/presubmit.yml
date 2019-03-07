@@ -1,5 +1,7 @@
 ---
-buildifier: latest
+buildifier:
+  version: latest
+  warnings: rule-impl-return
 platforms:
   ubuntu1404:
     shell_commands:
