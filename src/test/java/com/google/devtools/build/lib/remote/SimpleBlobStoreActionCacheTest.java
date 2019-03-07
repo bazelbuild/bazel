@@ -99,7 +99,8 @@ public class SimpleBlobStoreActionCacheTest {
                 },
             (e) -> false,
             retryService,
-            RemoteRetrier.ALLOW_ALL_CALLS);
+            RemoteRetrier.ALLOW_ALL_CALLS,
+            (millis) -> {});
     Path stdout = fs.getPath("/tmp/stdout");
     Path stderr = fs.getPath("/tmp/stderr");
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
