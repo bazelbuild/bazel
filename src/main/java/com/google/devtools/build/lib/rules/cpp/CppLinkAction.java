@@ -244,13 +244,6 @@ public final class CppLinkAction extends AbstractAction
     return interfaceOutputLibrary;
   }
 
-  /**
-   * Returns the output of the linking.
-   */
-  public Artifact getLinkOutput() {
-    return linkOutput;
-  }
-
   /** Returns the path to the output artifact produced by the linker. */
   private Path getOutputFile(ActionExecutionContext actionExecutionContext) {
     return actionExecutionContext.getInputPath(linkOutput);
