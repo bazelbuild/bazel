@@ -1546,7 +1546,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // Must be done before command line parsing.
   // ParseOptions already populate --client_env, so detect bash before it
   // happens.
-  DetectBashOrDie();
+  (void)DetectBashAndExportBazelSh();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
