@@ -66,16 +66,20 @@ use_fake_python_runtimes_for_testsuite
 
 # Tests that Python 2 or Python 3 is actually invoked, with and without flag
 # overrides.
+# TODO(brandjon): This test can probably be replaced by a test that simply
+# checks that Python 2 and 3 "interpreters" (the fake runtimes) can be invoked,
+# without checking the force_python behavior that's already covered in analysis
+# unit tests.
 function test_python_version() {
   mkdir -p test
   touch test/main2.py test/main3.py
   cat > test/BUILD << EOF
 py_binary(name = "main2",
-    default_python_version = "PY2",
+    python_version = "PY2",
     srcs = ['main2.py'],
 )
 py_binary(name = "main3",
-    default_python_version = "PY3",
+    python_version = "PY3",
     srcs = ["main3.py"],
 )
 EOF
@@ -92,18 +96,18 @@ EOF
   FLAG=--incompatible_allow_python_version_transitions=false
 
   # Force to Python 2.
-  bazel run //test:main2 $FLAG --force_python=PY2 \
+  bazel run //test:main2 $FLAG --python_version=PY2 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 2"
-  bazel run //test:main3 $FLAG --force_python=PY2 \
+  bazel run //test:main3 $FLAG --python_version=PY2 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 2"
 
   # Force to Python 3.
-  bazel run //test:main2 $FLAG --force_python=PY3 \
+  bazel run //test:main2 $FLAG --python_version=PY3 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 3"
-  bazel run //test:main3 $FLAG --force_python=PY3 \
+  bazel run //test:main3 $FLAG --python_version=PY3 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 3"
 }

@@ -304,7 +304,7 @@ public class BuildOptionsTest {
             "--javacopt=--javacoption",
             "--experimental_fix_deps_tool=fake",
             "--build_python_zip=no",
-            "--force_python=py2");
+            "--python_version=PY2");
     OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
     OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
     assertThat(diff2).isEqualTo(diff1);
