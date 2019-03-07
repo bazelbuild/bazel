@@ -202,12 +202,13 @@ public class CcToolchainProviderHelper {
             "fdo",
             prefetchHintsFile.getAbsolutePath().getBaseName(),
             ruleContext.getBinOrGenfilesDirectory());
-    ruleContext.registerAction(SymlinkAction.toAbsolutePath(
-        ruleContext.getActionOwner(),
-        PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
-        prefetchHintsArtifact,
-        "Symlinking LLVM Cache Prefetch Hints Profile "
-            + prefetchHintsFile.getAbsolutePath().getPathString()));
+    ruleContext.registerAction(
+        SymlinkAction.toAbsolutePath(
+            ruleContext.getActionOwner(),
+            PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
+            prefetchHintsArtifact,
+            "Symlinking LLVM Cache Prefetch Hints Profile "
+                + prefetchHintsFile.getAbsolutePath().getPathString()));
     return prefetchHintsArtifact;
   }
 
@@ -394,12 +395,10 @@ public class CcToolchainProviderHelper {
       return null;
     }
 
-
     if (fdoInputs != null) {
       fdoInputFile = fdoInputs.getFirst();
       protoProfileArtifact = fdoInputs.getSecond();
     }
-
 
     CcSkyframeSupportValue ccSkyframeSupportValue = null;
     SkyKey ccSupportKey = null;

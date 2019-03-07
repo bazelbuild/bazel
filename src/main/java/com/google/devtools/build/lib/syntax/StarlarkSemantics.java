@@ -76,22 +76,21 @@ public abstract class StarlarkSemantics {
    * Returns true if a feature attached to the given toggling flags should be enabled.
    *
    * <ul>
-   *   <li>If both parameters are {@code NONE}, this indicates the feature is not
-   *       controlled by flags, and should thus be enabled.</li>
-   *   <li>If the {@code enablingFlag} parameter is non-{@code NONE}, this returns
-   *       true if and only if that flag is true. (This represents a feature that is only on
-   *       if a given flag is *on*).</li>
-   *   <li>If the {@code disablingFlag} parameter is non-{@code NONE}, this returns
-   *       true if and only if that flag is false. (This represents a feature that is only on
-   *       if a given flag is *off*).</li>
-   *   <li>It is illegal to pass both parameters as non-{@code NONE}.</li>
+   *   <li>If both parameters are {@code NONE}, this indicates the feature is not controlled by
+   *       flags, and should thus be enabled.
+   *   <li>If the {@code enablingFlag} parameter is non-{@code NONE}, this returns true if and only
+   *       if that flag is true. (This represents a feature that is only on if a given flag is
+   *       *on*).
+   *   <li>If the {@code disablingFlag} parameter is non-{@code NONE}, this returns true if and only
+   *       if that flag is false. (This represents a feature that is only on if a given flag is
+   *       *off*).
+   *   <li>It is illegal to pass both parameters as non-{@code NONE}.
    * </ul>
    */
   public boolean isFeatureEnabledBasedOnTogglingFlags(
-      FlagIdentifier enablingFlag,
-      FlagIdentifier disablingFlag) {
-    Preconditions.checkArgument(enablingFlag == FlagIdentifier.NONE
-        || disablingFlag == FlagIdentifier.NONE,
+      FlagIdentifier enablingFlag, FlagIdentifier disablingFlag) {
+    Preconditions.checkArgument(
+        enablingFlag == FlagIdentifier.NONE || disablingFlag == FlagIdentifier.NONE,
         "at least one of 'enablingFlag' or 'disablingFlag' must be NONE");
     if (enablingFlag != FlagIdentifier.NONE) {
       return enablingFlag.semanticsFunction.apply(this);

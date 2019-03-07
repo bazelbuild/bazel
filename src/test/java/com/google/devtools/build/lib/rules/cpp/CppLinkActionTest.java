@@ -299,9 +299,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction =
-        (CppLinkAction)
-            getGeneratingAction(configuredTarget, "x/foo");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo");
 
     Iterable<? extends VariableValue> runtimeLibrarySearchDirectories =
         linkAction
@@ -339,8 +337,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     useConfiguration("--experimental_link_compile_output_separately", "--force_pic");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    CppLinkAction linkAction =
-        (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
     assertThat(artifactsToStrings(linkAction.getInputs()))
         .contains("bin _solib_k8/libx_Sliba.ifso");
     assertThat(linkAction.getArguments())
@@ -575,14 +572,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
   @Test
   public void testCommandLineSplitting() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
-    Artifact output = getDerivedArtifact(
-        PathFragment.create("output/path.xyz"), getTargetConfiguration().getBinDirectory(
-            RepositoryName.MAIN),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    final Artifact outputIfso = getDerivedArtifact(
-        PathFragment.create("output/path.ifso"), getTargetConfiguration().getBinDirectory(
-            RepositoryName.MAIN),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    Artifact output =
+        getDerivedArtifact(
+            PathFragment.create("output/path.xyz"),
+            getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    final Artifact outputIfso =
+        getDerivedArtifact(
+            PathFragment.create("output/path.ifso"),
+            getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder builder =
@@ -608,8 +607,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   /**
-   * Links a small target.
-   * Checks that resource estimates are above the minimum and scale correctly.
+   * Links a small target. Checks that resource estimates are above the minimum and scale correctly.
    */
   @Test
   public void testSmallLocalLinkResourceEstimate() throws Exception {
@@ -617,9 +615,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   /**
-   * Fake links a large target.
-   * Checks that resource estimates are above the minimum and scale correctly.
-   * The actual link action is irrelevant; we are just checking the estimate.
+   * Fake links a large target. Checks that resource estimates are above the minimum and scale
+   * correctly. The actual link action is irrelevant; we are just checking the estimate.
    */
   @Test
   public void testLargeLocalLinkResourceEstimate() throws Exception {
@@ -653,16 +650,20 @@ public class CppLinkActionTest extends BuildViewTestCase {
         .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage());
 
     final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputArtifacts());
-    ResourceSet scaledSet = ResourceSet.createWithRamCpu(
-        CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
-        CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize
-    );
+    ResourceSet scaledSet =
+        ResourceSet.createWithRamCpu(
+            CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
+            CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize);
 
     // Ensure that anything above the minimum is properly scaled.
-    assertThat(resources.getMemoryMb() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb()
-        || resources.getMemoryMb() == scaledSet.getMemoryMb()).isTrue();
-    assertThat(resources.getCpuUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage()
-        || resources.getCpuUsage() == scaledSet.getCpuUsage()).isTrue();
+    assertThat(
+            resources.getMemoryMb() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb()
+                || resources.getMemoryMb() == scaledSet.getMemoryMb())
+        .isTrue();
+    assertThat(
+            resources.getCpuUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage()
+                || resources.getCpuUsage() == scaledSet.getCpuUsage())
+        .isTrue();
   }
 
   private CppLinkActionBuilder createLinkBuilder(

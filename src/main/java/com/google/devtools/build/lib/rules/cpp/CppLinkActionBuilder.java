@@ -213,7 +213,7 @@ public class CppLinkActionBuilder {
   private String getActionName() {
     return linkType.getActionName();
   }
-  
+
   /** Returns linker inputs that are not libraries. */
   public Set<LinkerInput> getObjectFiles() {
     return objectFiles;
@@ -229,16 +229,12 @@ public class CppLinkActionBuilder {
     return linkstampsBuilder.build();
   }
 
-  /**
-   * Returns command line options for this link action.
-   */
+  /** Returns command line options for this link action. */
   public final List<String> getLinkopts() {
     return this.linkopts;
   }
-  
-  /**
-   * Returns the type of this link action.
-   */
+
+  /** Returns the type of this link action. */
   public LinkTargetType getLinkType() {
     return this.linkType;
   }
@@ -247,13 +243,11 @@ public class CppLinkActionBuilder {
     return this.linkingMode;
   }
 
-  /**
-   * Returns true for a cc_fake_binary.
-   */
+  /** Returns true for a cc_fake_binary. */
   public boolean isFake() {
     return this.fake;
   }
- 
+
   public CppLinkActionBuilder setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {
     this.linkArtifactFactory = linkArtifactFactory;
     return this;
@@ -387,9 +381,7 @@ public class CppLinkActionBuilder {
   }
 
   private ImmutableList<String> collectPerFileLtoBackendOpts(Artifact objectFile) {
-    return cppConfiguration
-        .getPerFileLtoBackendOpts()
-        .stream()
+    return cppConfiguration.getPerFileLtoBackendOpts().stream()
         .filter(perLabelOptions -> perLabelOptions.isIncluded(objectFile))
         .map(PerLabelOptions::getOptions)
         .flatMap(options -> options.stream())
@@ -998,8 +990,7 @@ public class CppLinkActionBuilder {
       inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
       // Pass along tree artifacts, so they can be properly expanded.
       ImmutableSet<Artifact> paramFileActionInputs =
-          expandedLinkerArtifacts
-              .stream()
+          expandedLinkerArtifacts.stream()
               .filter(a -> a.isTreeArtifact())
               .collect(ImmutableSet.toImmutableSet());
 
@@ -1064,8 +1055,7 @@ public class CppLinkActionBuilder {
     inputsBuilder.add(linkstampObjectArtifacts);
 
     ImmutableSet<Artifact> fakeLinkerInputArtifacts =
-        collectedLibrariesToLink.getExpandedLinkerInputs()
-            .stream()
+        collectedLibrariesToLink.getExpandedLinkerInputs().stream()
             .filter(LinkerInput::isFake)
             .map(LinkerInput::getArtifact)
             .collect(ImmutableSet.toImmutableSet());
@@ -1211,7 +1201,7 @@ public class CppLinkActionBuilder {
   protected ActionOwner getOwner() {
     return actionConstructionContext.getActionOwner();
   }
-  
+
   /** Sets the mnemonic for the link action. */
   public CppLinkActionBuilder setMnemonic(String mnemonic) {
     this.mnemonic = mnemonic;
@@ -1267,8 +1257,8 @@ public class CppLinkActionBuilder {
     for (VariablesExtension variablesExtension : variablesExtensions) {
       addVariablesExtension(variablesExtension);
     }
-     return this;
-   }
+    return this;
+  }
 
   /**
    * Sets the interface output of the link. A non-null argument can only be provided if the link
@@ -1291,7 +1281,7 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-   private void addObjectFile(LinkerInput input) {
+  private void addObjectFile(LinkerInput input) {
     // We skip file extension checks for TreeArtifacts because they represent directory artifacts
     // without a file extension.
     String name = input.getArtifact().getFilename();
@@ -1303,9 +1293,7 @@ public class CppLinkActionBuilder {
     }
   }
 
-  /**
-   * Adds a single object file to the set of inputs.
-   */
+  /** Adds a single object file to the set of inputs. */
   public CppLinkActionBuilder addObjectFile(Artifact input) {
     addObjectFile(
         LinkerInputs.simpleLinkerInput(
@@ -1313,9 +1301,7 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-  /**
-   * Adds object files to the linker action.
-   */
+  /** Adds object files to the linker action. */
   public CppLinkActionBuilder addObjectFiles(Iterable<Artifact> inputs) {
     for (Artifact input : inputs) {
       addObjectFile(
@@ -1427,8 +1413,8 @@ public class CppLinkActionBuilder {
   }
 
   /**
-   * Sets the identifier of the library produced by the action. See
-   * {@link LinkerInputs.LibraryToLink#getLibraryIdentifier()}
+   * Sets the identifier of the library produced by the action. See {@link
+   * LinkerInputs.LibraryToLink#getLibraryIdentifier()}
    */
   public CppLinkActionBuilder setLibraryIdentifier(String libraryIdentifier) {
     this.libraryIdentifier = libraryIdentifier;
@@ -1537,26 +1523,20 @@ public class CppLinkActionBuilder {
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
     return this;
   }
-  
-  /**
-   * Adds an extra input artifact to the link action.
-   */
+
+  /** Adds an extra input artifact to the link action. */
   public CppLinkActionBuilder addActionInput(Artifact input) {
     this.linkActionInputs.add(input);
     return this;
   }
-  
-  /**
-   * Adds extra input artifacts to the link action.
-   */
+
+  /** Adds extra input artifacts to the link action. */
   public CppLinkActionBuilder addActionInputs(Iterable<Artifact> inputs) {
     this.linkActionInputs.addAll(inputs);
     return this;
   }
-  
-  /**
-   * Adds extra input artifacts to the link actions.
-   */
+
+  /** Adds extra input artifacts to the link actions. */
   public CppLinkActionBuilder addTransitiveActionInputs(NestedSet<Artifact> inputs) {
     this.linkActionInputs.addTransitive(inputs);
     return this;

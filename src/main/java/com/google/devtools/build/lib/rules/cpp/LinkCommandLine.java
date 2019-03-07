@@ -105,9 +105,7 @@ public final class LinkCommandLine extends CommandLine {
     return featureConfiguration;
   }
 
-  /**
-   * Returns the current type of link target set.
-   */
+  /** Returns the current type of link target set. */
   public LinkTargetType getLinkTargetType() {
     return linkTargetType;
   }
@@ -117,9 +115,7 @@ public final class LinkCommandLine extends CommandLine {
     return linkingMode;
   }
 
-  /**
-   * Returns the additional linker options for this link.
-   */
+  /** Returns the additional linker options for this link. */
   public ImmutableList<String> getLinkopts() {
     if (variables.isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
       return CcToolchainVariables.toStringList(
@@ -144,17 +140,15 @@ public final class LinkCommandLine extends CommandLine {
     return toolchainLibrariesSolibDir;
   }
 
-  /**
-   * Returns true for libraries linked as native dependencies for other languages.
-   */
+  /** Returns true for libraries linked as native dependencies for other languages. */
   public boolean isNativeDeps() {
     return nativeDeps;
   }
 
   /**
    * Returns true if this link should use test-specific flags (e.g. $EXEC_ORIGIN as the root for
-   * finding shared libraries or lazy binding);  false by default.  See bug "Please use
-   * $EXEC_ORIGIN instead of $ORIGIN when linking cc_tests" for further context.
+   * finding shared libraries or lazy binding); false by default. See bug "Please use $EXEC_ORIGIN
+   * instead of $ORIGIN when linking cc_tests" for further context.
    */
   public boolean useTestOnlyFlags() {
     return useTestOnlyFlags;
@@ -182,9 +176,7 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   private static Pair<List<String>, List<String>> splitCommandline(
-      Artifact paramFile,
-      List<String> args,
-      LinkTargetType linkTargetType) {
+      Artifact paramFile, List<String> args, LinkTargetType linkTargetType) {
     Preconditions.checkNotNull(paramFile);
     if (linkTargetType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
       // Ar link commands can also generate huge command lines.
@@ -237,12 +229,7 @@ public final class LinkCommandLine extends CommandLine {
     public Iterable<String> arguments() {
       List<String> argv =
           getRawLinkArgv(
-              null,
-              forcedToolPath,
-              featureConfiguration,
-              actionName,
-              linkTargetType,
-              variables);
+              null, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
       return splitCommandline(paramsFile, argv, linkTargetType).getSecond();
     }
 
@@ -260,18 +247,11 @@ public final class LinkCommandLine extends CommandLine {
     }
   }
 
-  /**
-   * Returns just the .params file portion of the command-line as a {@link CommandLine}.
-   */
+  /** Returns just the .params file portion of the command-line as a {@link CommandLine}. */
   CommandLine paramCmdLine() {
     Preconditions.checkNotNull(paramFile);
     return new ParamFileCommandLine(
-        paramFile,
-        linkTargetType,
-        forcedToolPath,
-        featureConfiguration,
-        actionName,
-        variables);
+        paramFile, linkTargetType, forcedToolPath, featureConfiguration, actionName, variables);
   }
 
   public static void extractArgumentsForStaticLinkParamFile(
@@ -292,7 +272,7 @@ public final class LinkCommandLine extends CommandLine {
       List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     // Note, that it is not important that all linker arguments are extracted so that
     // they can be moved into a parameter file, but the vast majority should.
-    commandlineArgs.add(args.get(0));   // gcc command, must not be moved!
+    commandlineArgs.add(args.get(0)); // gcc command, must not be moved!
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
@@ -360,12 +340,7 @@ public final class LinkCommandLine extends CommandLine {
    */
   public List<String> getRawLinkArgv(@Nullable ArtifactExpander expander) {
     return getRawLinkArgv(
-        expander,
-        forcedToolPath,
-        featureConfiguration,
-        actionName,
-        linkTargetType,
-        variables);
+        expander, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
   }
 
   private static List<String> getRawLinkArgv(
@@ -518,8 +493,8 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     /**
-     * Sets whether to use test-specific linker flags, e.g. {@code $EXEC_ORIGIN} instead of
-     * {@code $ORIGIN} in the rpath or lazy binding.
+     * Sets whether to use test-specific linker flags, e.g. {@code $EXEC_ORIGIN} instead of {@code
+     * $ORIGIN} in the rpath or lazy binding.
      */
     public Builder setUseTestOnlyFlags(boolean useTestOnlyFlags) {
       this.useTestOnlyFlags = useTestOnlyFlags;

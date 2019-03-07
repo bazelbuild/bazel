@@ -367,7 +367,8 @@ public final class CppToolchainInfo {
     }
 
     for (ArtifactCategory category : ArtifactCategory.values()) {
-      if (!definedCategories.contains(category) && category.getDefaultPrefix() != null
+      if (!definedCategories.contains(category)
+          && category.getDefaultPrefix() != null
           && category.getDefaultExtension() != null) {
         toolchainBuilder.addArtifactNamePattern(
             ArtifactNamePattern.newBuilder()
@@ -379,31 +380,29 @@ public final class CppToolchainInfo {
     }
 
     ImmutableSet<String> featureNames =
-        toolchain
-            .getFeatureList()
-            .stream()
+        toolchain.getFeatureList().stream()
             .map(feature -> feature.getName())
             .collect(ImmutableSet.toImmutableSet());
     if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
-        String gccToolPath = "DUMMY_GCC_TOOL";
-        String linkerToolPath = "DUMMY_LINKER_TOOL";
-        String arToolPath = "DUMMY_AR_TOOL";
-        String stripToolPath = "DUMMY_STRIP_TOOL";
-        for (ToolPath tool : toolchain.getToolPathList()) {
-          if (tool.getName().equals(CppConfiguration.Tool.GCC.getNamePart())) {
-            gccToolPath = tool.getPath();
-            linkerToolPath =
-                crosstoolTopPathFragment
-                    .getRelative(PathFragment.create(tool.getPath()))
-                    .getPathString();
-          }
-          if (tool.getName().equals(CppConfiguration.Tool.AR.getNamePart())) {
-            arToolPath = tool.getPath();
-          }
-          if (tool.getName().equals(CppConfiguration.Tool.STRIP.getNamePart())) {
-            stripToolPath = tool.getPath();
-          }
+      String gccToolPath = "DUMMY_GCC_TOOL";
+      String linkerToolPath = "DUMMY_LINKER_TOOL";
+      String arToolPath = "DUMMY_AR_TOOL";
+      String stripToolPath = "DUMMY_STRIP_TOOL";
+      for (ToolPath tool : toolchain.getToolPathList()) {
+        if (tool.getName().equals(CppConfiguration.Tool.GCC.getNamePart())) {
+          gccToolPath = tool.getPath();
+          linkerToolPath =
+              crosstoolTopPathFragment
+                  .getRelative(PathFragment.create(tool.getPath()))
+                  .getPathString();
         }
+        if (tool.getName().equals(CppConfiguration.Tool.AR.getNamePart())) {
+          arToolPath = tool.getPath();
+        }
+        if (tool.getName().equals(CppConfiguration.Tool.STRIP.getNamePart())) {
+          stripToolPath = tool.getPath();
+        }
+      }
 
       // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
       // crosstools.
