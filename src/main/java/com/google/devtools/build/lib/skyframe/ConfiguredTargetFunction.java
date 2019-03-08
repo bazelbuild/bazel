@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -68,6 +66,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -580,22 +579,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (!(target instanceof Rule)) {
       return NO_CONFIG_CONDITIONS;
     }
-
-    Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
+    RawAttributeMapper attrs = RawAttributeMapper.of(((Rule) target));
+    if (!attrs.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
+      return NO_CONFIG_CONDITIONS;
+    }
 
     // Collect the labels of the configured targets we need to resolve.
-    OrderedSetMultimap<DependencyKind, Label> configLabelMap = OrderedSetMultimap.create();
-    RawAttributeMapper attributeMap = RawAttributeMapper.of(((Rule) target));
-    for (Attribute a : ((Rule) target).getAttributes()) {
-      for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
-        if (!BuildType.Selector.isReservedLabel(configLabel)) {
-          configLabelMap.put(
-              AttributeDependencyKind.forRule(a),
-              target.getLabel().resolveRepositoryRelative(configLabel));
-        }
-      }
-    }
-    if (configLabelMap.isEmpty()) {
+    List<Label> configLabels =
+        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).stream()
+            .map(configLabel -> target.getLabel().resolveRepositoryRelative(configLabel))
+            .collect(Collectors.toList());
+    if (configLabels.isEmpty()) {
       return NO_CONFIG_CONDITIONS;
     }
 
@@ -604,7 +598,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // (erroneously) something that needs the null configuration, its analysis will be
     // short-circuited. That error will be reported later.
     ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
-    for (Label configurabilityLabel : configLabelMap.values()) {
+    for (Label configurabilityLabel : configLabels) {
       Dependency configurabilityDependency =
           Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
       depsBuilder.add(configurabilityDependency);
@@ -622,6 +616,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (configValues == null) {
       return null;
     }
+
+    Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configConditionDeps) {

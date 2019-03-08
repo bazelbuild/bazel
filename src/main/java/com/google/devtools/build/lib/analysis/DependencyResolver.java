@@ -470,7 +470,14 @@ public abstract class DependencyResolver {
     Label ruleLabel = rule.getLabel();
     for (AttributeDependencyKind dependencyKind : getAttributes(rule, aspects)) {
       Attribute attribute = dependencyKind.getAttribute();
-      if (!attribute.getCondition().apply(attributeMap)) {
+      if (!attribute.getCondition().apply(attributeMap)
+          // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
+          // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
+          // breaks trimming as shown by
+          // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
+          // because it resolves a dep that trimming (correctly) doesn't account for because it's
+          // part of an unchosen select() branch.
+          || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
         continue;
       }
 

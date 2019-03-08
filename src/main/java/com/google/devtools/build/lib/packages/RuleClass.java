@@ -71,12 +71,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -272,6 +272,33 @@ public class RuleClass {
    */
   public static final String DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR =
       "$" + COMPATIBLE_ENVIRONMENT_ATTR;
+
+  /**
+   * Name of the attribute that stores all {@link
+   * com.google.devtools.build.lib.rules.config.ConfigRuleClasses} labels this rule references (i.e.
+   * select() keys). This is specially populated in {@link #populateRuleAttributeValues}.
+   *
+   * <p>This isn't technically necessary for builds: select() keys are evaluated in {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} instead of
+   * normal dependency resolution because they're needed to determine other dependencies. So there's
+   * no intrinsic reason why we need an extra attribute to store them.
+   *
+   * <p>There are three reasons why we still create this attribute:
+   *
+   * <ol>
+   *   <li>Collecting them once in {@link #populateRuleAttributeValues} instead of multiple times in
+   *       ConfiguredTargetFunction saves extra looping over the rule's attributes.
+   *   <li>Query's dependency resolution has no equivalent of {@link
+   *       com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} and
+   *       we need to make sure its coverage remains complete.
+   *   <li>Manual configuration trimming uses the normal dependency resolution process to work
+   *       correctly and config_setting keys are subject to this trimming.
+   * </ol>
+   *
+   * <p>It should be possible to clean up these issues if we decide we don't want an artificial
+   * attribute dependency. But care has to be taken to do that safely.
+   */
+  public static final String CONFIG_SETTING_DEPS_ATTRIBUTE = "$config_dependencies";
 
   /**
    * A support class to make it easier to create {@code RuleClass} instances.
@@ -2067,19 +2094,18 @@ public class RuleClass {
    */
   private static void populateConfigDependenciesAttribute(Rule rule) {
     RawAttributeMapper attributes = RawAttributeMapper.of(rule);
-    Attribute configDepsAttribute = attributes.getAttributeDefinition("$config_dependencies");
+    Attribute configDepsAttribute =
+        attributes.getAttributeDefinition(CONFIG_SETTING_DEPS_ATTRIBUTE);
     if (configDepsAttribute == null) {
-      // Not currently compatible with Skylark rules.
       return;
     }
 
-    Set<Label> configLabels = new LinkedHashSet<>();
-    for (Attribute attr : rule.getAttributes()) {
-      SelectorList<?> selectors = attributes.getSelectorList(attr.getName(), attr.getType());
-      if (selectors != null) {
-        configLabels.addAll(selectors.getKeyLabels());
-      }
-    }
+    Set<Label> configLabels =
+        rule.getAttributes().stream()
+            .map(attr -> attributes.getSelectorList(attr.getName(), attr.getType()))
+            .filter(Predicates.notNull())
+            .flatMap(selectorList -> selectorList.getKeyLabels().stream())
+            .collect(Collectors.toSet());
 
     rule.setAttributeValue(configDepsAttribute, ImmutableList.copyOf(configLabels),
         /*explicit=*/false);
