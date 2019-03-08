@@ -388,11 +388,10 @@ public class CppLinkActionBuilder {
         .collect(ImmutableList.toImmutableList());
   }
 
-  private List<String> getLtoBackendCommandLineOptions(
+  private List<String> getLtoBackendUserCompileFlags(
       Artifact objectFile, ImmutableList<String> copts) {
     List<String> argv = new ArrayList<>();
     argv.addAll(cppConfiguration.getLinkopts());
-    argv.addAll(toolchain.getLegacyCompileOptions());
     argv.addAll(copts);
     argv.addAll(cppConfiguration.getLtoBackendOptions());
     argv.addAll(collectPerFileLtoBackendOpts(objectFile));
@@ -443,8 +442,8 @@ public class CppLinkActionBuilder {
       for (Artifact objectFile : lib.getObjectFiles()) {
         if (compiled.contains(objectFile)) {
           if (includeLinkStaticInLtoIndexing) {
-            List<String> backendArgv =
-                getLtoBackendCommandLineOptions(
+            List<String> backendUserCompileFlags =
+                getLtoBackendUserCompileFlags(
                     objectFile, lib.getLtoCompilationContext().getCopts(objectFile));
             LtoBackendArtifacts ltoArtifacts =
                 createLtoArtifact(
@@ -452,7 +451,7 @@ public class CppLinkActionBuilder {
                     allBitcode,
                     ltoOutputRootPrefix,
                     /* createSharedNonLto= */ false,
-                    backendArgv);
+                    backendUserCompileFlags);
             ltoOutputs.add(ltoArtifacts);
           } else {
             // We should have created shared LTO backends when the library was created.
@@ -467,8 +466,8 @@ public class CppLinkActionBuilder {
     }
     for (LinkerInput input : objectFiles) {
       if (this.ltoCompilationContext.containsBitcodeFile(input.getArtifact())) {
-        List<String> backendArgv =
-            getLtoBackendCommandLineOptions(
+        List<String> backendUserCompileFlags =
+            getLtoBackendUserCompileFlags(
                 input.getArtifact(), this.ltoCompilationContext.getCopts(input.getArtifact()));
         LtoBackendArtifacts ltoArtifacts =
             createLtoArtifact(
@@ -476,7 +475,7 @@ public class CppLinkActionBuilder {
                 allBitcode,
                 ltoOutputRootPrefix,
                 !allowLtoIndexing,
-                backendArgv);
+                backendUserCompileFlags);
         ltoOutputs.add(ltoArtifacts);
       }
     }
@@ -500,8 +499,8 @@ public class CppLinkActionBuilder {
 
     for (LinkerInput input : objectFiles) {
       if (this.ltoCompilationContext.containsBitcodeFile(input.getArtifact())) {
-        List<String> backendArgv =
-            getLtoBackendCommandLineOptions(
+        List<String> backendUserCompileFlags =
+            getLtoBackendUserCompileFlags(
                 input.getArtifact(), this.ltoCompilationContext.getCopts(input.getArtifact()));
         LtoBackendArtifacts ltoArtifacts =
             createLtoArtifact(
@@ -509,7 +508,7 @@ public class CppLinkActionBuilder {
                 /* allBitcode= */ null,
                 ltoOutputRootPrefix,
                 /* createSharedNonLto= */ true,
-                backendArgv);
+                backendUserCompileFlags);
         sharedNonLtoBackends.put(input.getArtifact(), ltoArtifacts);
       }
     }

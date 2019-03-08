@@ -489,6 +489,55 @@ public abstract class MockCcSupport {
               "        ],",
               "    )]");
 
+  public static final String USER_COMPILE_FLAGS_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'user_compile_flags'"
+          + "  enabled: true"
+          + "  flag_set {"
+          + "    action: 'assemble'"
+          + "    action: 'preprocess-assemble'"
+          + "    action: 'linkstamp-compile'"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-module-compile'"
+          + "    action: 'c++-module-codegen'"
+          + "    action: 'lto-backend'"
+          + "    action: 'clif-match'"
+          + "    flag_group {"
+          + "      flag: '%{user_compile_flags}'"
+          + "      iterate_over: 'user_compile_flags'"
+          + "      expand_if_all_available: 'user_compile_flags'"
+          + "    }"
+          + "  }"
+          + "}";
+
+  public static final String LEGACY_COMPILE_FLAGS_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'legacy_compile_flags'"
+          + "  enabled: true"
+          + "  flag_set {"
+          + "    action: 'assemble'"
+          + "    action: 'preprocess-assemble'"
+          + "    action: 'linkstamp-compile'"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-module-compile'"
+          + "    action: 'c++-module-codegen'"
+          + "    action: 'lto-backend'"
+          + "    action: 'clif-match'"
+          + "    flag_group {"
+          + "      flag: '%{legacy_compile_flags}'"
+          + "      iterate_over: 'legacy_compile_flags'"
+          + "      expand_if_all_available: 'legacy_compile_flags'"
+          + "    }"
+          + "  }"
+          + "}"
+          + "compiler_flag: 'legacy_compile_flag'";
+
   public static final String THIN_LTO_CONFIGURATION =
       ""
           + "feature { "
