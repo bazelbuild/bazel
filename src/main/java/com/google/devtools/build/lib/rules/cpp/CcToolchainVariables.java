@@ -300,7 +300,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /** An empty variables instance. */
   public static final CcToolchainVariables EMPTY = new CcToolchainVariables.Builder().build();
 
-  private final Map<String, VariableValue> cache = Maps.newConcurrentMap();
+  private Map<String, VariableValue> cache;
 
   /**
    * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
@@ -339,6 +339,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    */
   private VariableValue lookupVariable(
       String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
+    if (cache == null) {
+      cache = Maps.newConcurrentMap();
+    }
     VariableValue variable =
         cache.computeIfAbsent(
             name,
