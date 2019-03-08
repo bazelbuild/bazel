@@ -66,5 +66,6 @@ cc_binary(
 cc_library(
     name = "resources",
     srcs = ["resources.o"],
+    linkstatic = 1,
     visibility = ["//src/main/cpp:__pkg__"],
 )
