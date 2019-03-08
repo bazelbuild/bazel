@@ -724,12 +724,10 @@ public final class BuildType {
   }
 
   /**
-   * Tristate values are needed for cases where user intent matters.
-   *
-   * <p>Tristate values are not explicitly interchangeable with booleans and are
-   * handled explicitly as TriStates. Prefer Booleans with default values where
-   * possible.  The main use case for TriState values is when a Rule's behavior
-   * must interact with a Flag value in a complicated way.</p>
+   * A TriState value is like a boolean attribute whose default value may be distinguished from
+   * either of the possible explicitly assigned values. TriState attributes may be assigned the
+   * values 0 (NO), 1 (YES), or None (AUTO). TriState is deprecated; use attr.int(values=[-1, 0, 1])
+   * instead.
    */
   private static class TriStateType extends Type<TriState> {
     @Override
@@ -751,7 +749,6 @@ public final class BuildType {
       return "tristate";
     }
 
-    // Like BooleanType, this must handle integers as well.
     @Override
     public TriState convert(Object x, Object what, Object context)
         throws ConversionException {
@@ -759,7 +756,12 @@ public final class BuildType {
         return (TriState) x;
       }
       if (x instanceof Boolean) {
-        return ((Boolean) x) ? TriState.YES : TriState.NO;
+        throw new ConversionException(
+            this,
+            x,
+            "rule attribute (tristate is being replaced by "
+                + "attr.int(values=[-1, 0, 1]), and it no longer accepts Boolean values; "
+                + "instead, use 0 or 1, or None for the default)");
       }
       Integer xAsInteger = INTEGER.convert(x, what, context);
       if (xAsInteger == -1) {
