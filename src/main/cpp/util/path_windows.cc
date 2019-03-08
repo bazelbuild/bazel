@@ -88,7 +88,7 @@ std::string MakeAbsolute(const std::string& path) {
       WstringToCstring(RemoveUncPrefixMaybe(wpath.c_str())).get());
 }
 
-std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string& path) {
+std::string MakeAbsoluteAndResolveEnvvars(const std::string& path) {
   // Get the size of the expanded string, so we know how big of a buffer to
   // provide. The returned size includes the null terminator.
   std::unique_ptr<CHAR[]> resolved(new CHAR[MAX_PATH]);
