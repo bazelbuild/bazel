@@ -796,8 +796,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * single command, so callers should err on the side of calling it more frequently. Should be
    * idempotent, so that calls after the first one in the same evaluation should be quick.
    */
-  public void notifyCommandComplete() throws InterruptedException {
-    memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished();
+  public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
+    memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
   }
 
   protected abstract Differencer evaluatorDiffer();

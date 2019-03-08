@@ -548,7 +548,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // commands might also need to notify the SkyframeExecutor. It's called in #stopRequest so that
     // timing metrics for builds can be more accurate (since this call can be slow).
     try {
-      workspace.getSkyframeExecutor().notifyCommandComplete();
+      workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
     } catch (InterruptedException e) {
       afterCommandResult = BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
       Thread.currentThread().interrupt();
