@@ -457,6 +457,9 @@ def _windows_msvc_impl(ctx):
                         flags = ["/OUT:%{output_execpath}"],
                         expand_if_available = "output_execpath",
                     ),
+                    flag_group(
+                        flags = ["/MACHINE:X64"]
+                    ),
                 ],
             ),
         ],
