@@ -570,16 +570,16 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
              flag_sets = [
                  flag_set(
                      actions = [
-                         "ACTION_NAMES.assemble",
-                         "ACTION_NAMES.preprocess_assemble",
-                         "ACTION_NAMES.linkstamp_compile",
-                         "ACTION_NAMES.c_compile",
-                         "ACTION_NAMES.cpp_compile",
-                         "ACTION_NAMES.cpp_header_parsing",
-                         "ACTION_NAMES.cpp_module_compile",
-                         "ACTION_NAMES.cpp_module_codegen",
-                         "ACTION_NAMES.lto_backend",
-                         "ACTION_NAMES.clif_match",
+                         ACTION_NAMES.assemble,
+                         ACTION_NAMES.preprocess_assemble,
+                         ACTION_NAMES.linkstamp_compile,
+                         ACTION_NAMES.c_compile,
+                         ACTION_NAMES.cpp_compile,
+                         ACTION_NAMES.cpp_header_parsing,
+                         ACTION_NAMES.cpp_module_compile,
+                         ACTION_NAMES.cpp_module_codegen,
+                         ACTION_NAMES.lto_backend,
+                         ACTION_NAMES.clif_match,
                      ],
                      flag_groups = [
                          flag_group(
