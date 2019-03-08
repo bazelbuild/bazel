@@ -25,7 +25,7 @@ def git_repo(ctx):
 
     directory = str(ctx.path("."))
     if ctx.attr.strip_prefix:
-        directory = directory + "-tmp"
+        directory = directory + "-t m p"
 
     return GitRepo(
         directory = directory,
