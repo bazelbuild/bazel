@@ -292,7 +292,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        if (ruleContext.isAttrDefined("win_def_file", LABEL)) {
+        if (ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET) != null) {
           Artifact customDefFile = null;
           customDefFile = ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
           if (customDefFile != null) {
