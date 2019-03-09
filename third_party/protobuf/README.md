@@ -7,8 +7,8 @@ You will create and merge the following Pull Requests.
 1.  Fetch the desired protobuf version and copy it in a folder `new_proto` under
    `third_party/protobuf`.
 
-    **Example:** to upgrade to 3.6.1, download and unpack
-    [protobuf-all-3.6.1.zip](https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protobuf-all-3.6.1.zip).
+    **Example:** to upgrade to 3.7.1, download and unpack
+    [protobuf-all-3.7.1.zip](https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/protobuf-all-3.7.1.zip).
 
 1.  Build the Java proto library from source and, in case you cloned an upstream version
     of protobuf, remove the .git folders:
@@ -103,4 +103,4 @@ You will create and merge the following Pull Requests.
 
 # Current protobuf version
 
-The current version of protobuf is [3.6.1](https://github.com/google/protobuf/releases/tag/v3.6.1).
+The current version of protobuf is [3.7.1](https://github.com/google/protobuf/releases/tag/v3.7.1).

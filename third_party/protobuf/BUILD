@@ -11,7 +11,7 @@ filegroup(
     name = "srcs",
     srcs = [
         "//third_party/protobuf/" + PROTOBUF_VERSION + ":srcs",
-        "//third_party/protobuf/" + _NEW_PROTOBUF_VERSION + ":srcs",
+        "//third_party/protobuf/" + _OLD_PROTOBUF_VERSION + ":srcs",
     ] + glob(["**"]),  # glob everything to satisfy the compile.sh srcs test
     visibility = ["//third_party:__pkg__"],
 )

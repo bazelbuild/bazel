@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 load("//tools/build_rules:genproto.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("//third_party/protobuf/3.6.1:protobuf.bzl", "py_proto_library")
+load("//third_party/protobuf/3.7.1:protobuf.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 
 exports_files(

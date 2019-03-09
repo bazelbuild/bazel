@@ -72,8 +72,8 @@ bind(
 
 new_local_repository(
     name = "com_google_protobuf",
-    build_file = "./third_party/protobuf/3.6.1/BUILD",
-    path = "./third_party/protobuf/3.6.1/",
+    build_file = "./third_party/protobuf/3.7.1/BUILD",
+    path = "./third_party/protobuf/3.7.1/",
 )
 
 local_repository(
