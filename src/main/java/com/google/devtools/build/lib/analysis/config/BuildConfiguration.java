@@ -111,8 +111,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
 
-  private static final Interner<ImmutableMap<String, String>>
-      executionInfoInterner = BlazeInterners.newWeakInterner();
+  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   /** Compute the default shell environment for actions from the command line options. */
   public interface ActionEnvironmentProvider {
@@ -1823,9 +1823,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
     if (!options.executionInfoModifier.matches(mnemonic)) {
       return executionInfo;
     }
-    LinkedHashMap<String, String> mutableCopy = new LinkedHashMap<>(executionInfo);
+    Map<String, String> mutableCopy = new HashMap<>(executionInfo);
     modifyExecutionInfo(mutableCopy, mnemonic);
-    return executionInfoInterner.intern(ImmutableMap.copyOf(mutableCopy));
+    return executionInfoInterner.intern(ImmutableSortedMap.copyOf(mutableCopy));
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
