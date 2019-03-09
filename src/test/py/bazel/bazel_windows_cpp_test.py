@@ -145,8 +145,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     def_file = os.path.join(bazel_bin, 'A.gen.def')
     self.assertTrue(os.path.exists(import_library))
     self.assertTrue(os.path.exists(shared_library))
-    # DEF file shouldn't be generated for //:A
-    self.assertFalse(os.path.exists(def_file))
+    # DEF file should be generated for //:A
+    self.assertTrue(os.path.exists(def_file))
+    self.AssertFileContentNotContains(def_file, 'hello_A')
 
   def testBuildDynamicLibraryWithExportSymbolFeature(self):
     self.createProjectFiles()
@@ -168,6 +169,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(shared_library))
     # DEF file should be generated for //:B
     self.assertTrue(os.path.exists(def_file))
+    self.AssertFileContentContains(def_file, 'hello_B')
 
     # Test build //:B if windows_export_all_symbols feature is disabled by
     # no_windows_export_all_symbols.
@@ -175,8 +177,15 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '//:B', '--output_groups=dynamic_library',
         '--features=no_windows_export_all_symbols'
     ])
-    self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('output \'B.if.lib\' was not created', ''.join(stderr))
+    self.AssertExitCode(exit_code, 0, stderr)
+    import_library = os.path.join(bazel_bin, 'B.if.lib')
+    shared_library = os.path.join(bazel_bin, 'B.dll')
+    def_file = os.path.join(bazel_bin, 'B.gen.def')
+    self.assertTrue(os.path.exists(import_library))
+    self.assertTrue(os.path.exists(shared_library))
+    # DEF file should be generated for //:B
+    self.assertTrue(os.path.exists(def_file))
+    self.AssertFileContentNotContains(def_file, 'hello_B')
 
   def testBuildCcBinaryWithDependenciesDynamicallyLinked(self):
     self.createProjectFiles()
@@ -195,13 +204,17 @@ class BazelWindowsCppTest(test_base.TestBase):
     # a_shared_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.dll')))
     # a_def_file
-    self.assertFalse(os.path.exists(os.path.join(bazel_bin, 'A.gen.def')))
+    def_file = os.path.join(bazel_bin, 'A.gen.def')
+    self.assertTrue(os.path.exists(def_file))
+    self.AssertFileContentNotContains(def_file, 'hello_A')
     # b_import_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.if.lib')))
     # b_shared_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.dll')))
     # b_def_file
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.gen.def')))
+    def_file = os.path.join(bazel_bin, 'B.gen.def')
+    self.assertTrue(os.path.exists(def_file))
+    self.AssertFileContentContains(def_file, 'hello_B')
     # c_exe
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'C.exe')))
 
@@ -432,9 +445,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # we should still be able to get the DEF file by def_file output group.
     def_file = os.path.join(bazel_bin, 'main/main.dll.gen.def')
     self.assertTrue(os.path.exists(def_file))
-    self.AssertFileContentContains(def_file, 'hello_A')
-    self.AssertFileContentContains(def_file, 'hello_B')
-    self.AssertFileContentContains(def_file, 'hello_C')
+    self.AssertFileContentNotContains(def_file, 'hello_A')
+    self.AssertFileContentNotContains(def_file, 'hello_B')
+    self.AssertFileContentNotContains(def_file, 'hello_C')
 
   def AssertFileContentContains(self, file_path, entry):
     with open(file_path, 'r') as f:
