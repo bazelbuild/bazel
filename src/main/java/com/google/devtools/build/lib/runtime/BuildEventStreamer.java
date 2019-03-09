@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -459,6 +460,7 @@ public class BuildEventStreamer implements EventHandler {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void buildEvent(BuildEvent event) {
     if (finalEventsToCome != null) {
       synchronized (this) {
