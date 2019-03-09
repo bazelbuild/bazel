@@ -43,6 +43,11 @@ You will create and merge the following Pull Requests.
     copy the `licenses` declaration and the `srcs` filegroup to the corresponding file under
     `third_party/protobuf/<new_proto>`.
 
+1.  In `third_party/protobuf/<new_proto>/BUILD`, replace zlib dependency from:
+    ZLIB_DEPS = ["//external/zlib"]
+    to
+    ZLIB_DEPS = ["@//third_party/zlib"]
+
 1.  In `third_party/protobuf/<new_proto>/BUILD`, in the `srcs` filegroup rule, update the version
     number referring to the newly added `srcs` rules.
 

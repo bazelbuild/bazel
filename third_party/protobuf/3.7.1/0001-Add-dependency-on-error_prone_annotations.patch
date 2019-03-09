@@ -1,0 +1,43 @@
+From d71bc7a980629afdbb1f210b7a25be6fbefffda9 Mon Sep 17 00:00:00 2001
+From: David Ostrovsky <david@ostrovsky.org>
+Date: Tue, 5 Mar 2019 09:12:05 +0100
+Subject: [PATCH] Add dependency on error_prone_annotations
+
+---
+ BUILD     |  1 +
+ WORKSPACE | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/BUILD b/BUILD
+index e9e10837..5c4c2d9c 100644
+--- a/BUILD
++++ b/BUILD
+@@ -638,6 +638,7 @@ java_library(
+     visibility = ["//visibility:public"],
+     deps = [
+         "protobuf_java",
++        "//external:error_prone_annotations",
+         "//external:gson",
+         "//external:guava",
+     ],
+diff --git a/WORKSPACE b/WORKSPACE
+index 0fa64583..af3f05aa 100644
+--- a/WORKSPACE
++++ b/WORKSPACE
+@@ -74,3 +74,13 @@ bind(
+     name = "zlib",
+     actual = "@net_zlib//:zlib",
+ )
++
++maven_jar(
++    name = "error_prone_annotations_maven",
++    artifact = "com.google.errorprone:error_prone_annotations:2.3.2",
++)
++
++bind(
++    name = "error_prone_annotations",
++    actual = "@error_prone_annotations_maven//jar",
++)
+-- 
+2.20.1
+
