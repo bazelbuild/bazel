@@ -155,8 +155,8 @@ function test_modify_execution_info_various_types() {
     cat >> WORKSPACE << EOF
 new_local_repository(
     name = "com_google_protobuf",
-    path = "$(dirname $(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD))",
-    build_file = "$(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD)",
+    path = "$(dirname $(rlocation io_bazel/third_party/protobuf/3.7.1/BUILD))",
+    build_file = "$(rlocation io_bazel/third_party/protobuf/3.7.1/BUILD)",
 )
 EOF
   fi

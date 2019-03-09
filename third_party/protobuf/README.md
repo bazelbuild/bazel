@@ -80,7 +80,11 @@ You will create and merge the following Pull Requests.
 
 1.  In the root `WORKSPACE` file update relative paths of protobuf to point to the new version.
 
-1.  Update version number in `src/main/protobuf/BUILD` and `src/test/shell/testenv.sh`.
+1.  Update version number in `src/main/protobuf/BUILD`.
+
+1.  Update version number in `src/test/shell/integration/BUILD`.
+
+1.  Update version number in `src/test/shell/integration/modify_execution_info_test.sh`. 
 
 1.  Update the current version in this file.
 
