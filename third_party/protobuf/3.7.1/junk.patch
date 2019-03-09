@@ -1,0 +1,38 @@
+--- /var/tmp/utils_v3.6.1.js	2018-12-06 20:16:28.487959462 +0100
++++ js/binary/utils.js	2018-12-06 20:20:50.011951815 +0100
+@@ -431,7 +431,7 @@
+ 
+ /**
+  * Individual digits for number->string conversion.
+- * @const {!Array<string>}
++ * @const {!Array.<string>}
+  */
+ jspb.utils.DIGITS = [
+   '0', '1', '2', '3', '4', '5', '6', '7',
+@@ -554,10 +554,10 @@
+ /**
+  * Converts an array of 8-character hash strings into their decimal
+  * representations.
+- * @param {!Array<string>} hashes The array of hash strings to convert.
++ * @param {!Array.<string>} hashes The array of hash strings to convert.
+  * @param {boolean} signed True if we should treat the hash string as encoding
+  *     a signed integer.
+- * @return {!Array<string>}
++ * @return {!Array.<string>}
+  */
+ jspb.utils.hash64ArrayToDecimalStrings = function(hashes, signed) {
+   var result = new Array(hashes.length);
+@@ -971,12 +971,8 @@
+     return /** @type {!Uint8Array} */(new Uint8Array(data));
+   }
+ 
+-  if (data.constructor === Buffer) {
+-    return /** @type {!Uint8Array} */(new Uint8Array(data));
+-  }
+-
+   if (data.constructor === Array) {
+-    data = /** @type {!Array<number>} */(data);
++    data = /** @type {!Array.<number>} */(data);
+     return /** @type {!Uint8Array} */(new Uint8Array(data));
+   }
+ 
