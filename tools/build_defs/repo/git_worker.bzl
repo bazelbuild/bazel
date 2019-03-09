@@ -4,16 +4,16 @@ GitRepo = provider(
         "directory": "TODO",
         "shallow": "TODO",
         "ref": "TODO",
+        "fetch_head": "TODO",
     },
 )
 
 def git_repo(ctx):
     shallow = "--depth=1"
     if ctx.attr.shallow_since:
-        if "all" == ctx.attr.shallow_since:
-            shallow = ""
-        else:
-            shallow = "--shallow-since=%s" % ctx.attr.shallow_since
+        shallow = "--shallow-since=%s" % ctx.attr.shallow_since
+    if ctx.attr.commit:
+        shallow = ""
 
     ref = "HEAD"
     if ctx.attr.commit:
@@ -31,6 +31,7 @@ def git_repo(ctx):
         directory = directory,
         shallow = shallow,
         ref = ref,
+        fetch_head = ctx.attr.commit,
     )
 
 def init(ctx, git_repo):
@@ -50,6 +51,8 @@ def ensure_at_ref(ctx, git_repo):
 
 def fetch(ctx, git_repo):
     ref = git_repo.ref + ":" + git_repo.ref
+    if git_repo.fetch_head:
+        ref = ""
     _git_maybe_shallow(ctx, git_repo, "fetch", False, "origin", ref)
 
 def reset(ctx, git_repo, silent):
