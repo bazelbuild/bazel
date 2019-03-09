@@ -51,6 +51,10 @@ public class GitRepositoryHelper {
     return runGit("tag", tagName);
   }
 
+  String getHead() throws Exception {
+    return runGit("rev-parse", "--short", "HEAD");
+  }
+
   private String runGit(String... arguments) throws Exception {
     ProcessResult result = context.runBinary(root, "git", arguments);
     return result.outString();
