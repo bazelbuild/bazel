@@ -4,8 +4,8 @@ licenses(["notice"])
 
 load(":proto_alias.bzl", "proto_alias")
 
-PROTOBUF_VERSION = "3.6.1"
-_NEW_PROTOBUF_VERSION = "3.7.1"
+_OLD_PROTOBUF_VERSION = "3.6.1"
+PROTOBUF_VERSION = "3.7.1"
 
 filegroup(
     name = "srcs",
