@@ -399,18 +399,21 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (isLinkShared(ruleContext)) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
         ImmutableList.Builder<Artifact> objectFiles = ImmutableList.builder();
-        objectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
 
-        for (LibraryToLink library : depsCcLinkingContext.getLibraries()) {
-          if (isStaticMode
-              || (library.getDynamicLibrary() == null && library.getInterfaceLibrary() == null)) {
-            if (library.getPicStaticLibrary() != null) {
-              if (library.getPicObjectFiles() != null) {
-                objectFiles.addAll(library.getPicObjectFiles());
-              }
-            } else if (library.getStaticLibrary() != null) {
-              if (library.getObjectFiles() != null) {
-                objectFiles.addAll(library.getObjectFiles());
+        if (CppHelper.shouldExportAllSymbols(featureConfiguration)) {
+          objectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
+
+          for (LibraryToLink library : depsCcLinkingContext.getLibraries()) {
+            if (isStaticMode
+                || (library.getDynamicLibrary() == null && library.getInterfaceLibrary() == null)) {
+              if (library.getPicStaticLibrary() != null) {
+                if (library.getPicObjectFiles() != null) {
+                  objectFiles.addAll(library.getPicObjectFiles());
+                }
+              } else if (library.getStaticLibrary() != null) {
+                if (library.getObjectFiles() != null) {
+                  objectFiles.addAll(library.getObjectFiles());
+                }
               }
             }
           }
@@ -780,7 +783,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     if (customDefFile != null) {
       ccLinkingHelper.setDefFile(customDefFile);
-    } else if (CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
+    } else {
       ccLinkingHelper.setDefFile(generatedDefFile);
     }
 
