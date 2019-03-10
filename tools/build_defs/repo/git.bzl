@@ -132,7 +132,7 @@ def _clone_or_update(ctx):
             st = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
 
             if st.return_code:
-                fail("Error checking out worktree %s:\n%s" % (ctx.name, st.stderr))
+                fail("Error checking out worktree %s. Maybe you have a too old git version?:\n%s" % (ctx.name, st.stderr))
     else:
         st = ctx.execute([bash_exe, "-c", """
     cd {working_dir}

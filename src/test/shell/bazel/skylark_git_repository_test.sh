@@ -165,17 +165,23 @@ EOF
 # 1. Creates a git_repository rule with some commit hash
 # 2. Make sure worksapce can be built and repository cache is updated
 function test_git_repositry_cache_is_populated() {
-  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
-  local cache_dir=/tmp/bazel_cache
-  local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
+  function verlte() { printf '%s\n%s' "$1" "$2" | sort -C -V }
+  local git_version=$(git --version | awk '{print $3}')
+  if [[ verlte $git_version 2.5.0 && 1 == 1 ]]; then
+    local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+    local cache_dir=/tmp/bazel_cache
+    local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 
 
-  export BAZEL_GIT_REPOSITORY_CACHE=$cache_dir
+    export BAZEL_GIT_REPOSITORY_CACHE=$cache_dir
 
-  do_git_repository_test $commit_hash
+    do_git_repository_test $commit_hash
 
-  cache_commit_hash="$(cat $cache_dir/worktrees/pluto/HEAD)"
-  assert_equals $commit_hash $cache_commit_hash
+    cache_commit_hash="$(cat $cache_dir/worktrees/pluto/HEAD)"
+    assert_equals $commit_hash $cache_commit_hash
+  else
+
+  fi
 }
 
 function test_git_repository() {
