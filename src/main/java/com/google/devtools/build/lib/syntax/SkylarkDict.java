@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
+import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -185,19 +187,39 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   @SkylarkCallable(
     name = "update",
-    doc = "Update the dictionary with the key/value pairs from other, overwriting existing keys.",
+    doc = "Update the dictionary with an optional positional argument <code>[pairs]</code> "
+              + " and an optional set of keyword arguments <code>[, name=value[, ...]</code>\n"
+              + "If the positional argument <code>pairs</code> is present, it must be "
+              + "<code>None</code>, another <code>dict</code>, or some other iterable. "
+              + "If it is another <code>dict</code>, then its key/value pairs are inserted. "
+              + "If it is an iterable, it must provide a sequence of pairs (or other iterables "
+              + "of length 2), each of which is treated as a key/value pair to be inserted.\n"
+              + "For each <code>name=value</code> argument present, the name is converted to a "
+              + "string and used as the key for an insertion into D, with its corresponding "
+              + "value being <code>value</code>.",
     parameters = {
-        @Param(name = "other", type = SkylarkDict.class, doc = "The values to add."),
+        @Param(
+            name = "args",
+            type = Object.class,
+            defaultValue = "[]",
+            doc =
+                "Either a dictionary or a list of entries. Entries must be tuples or lists with "
+                    + "exactly two elements: key, value."),
     },
+    extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
     useLocation = true,
     useEnvironment = true
   )
   public Runtime.NoneType update(
-      SkylarkDict<K, V> other,
+      Object args,
+      SkylarkDict<?, ?> kwargs,
       Location loc,
       Environment env)
       throws EvalException {
-    putAll(other, loc, env.mutability());
+    SkylarkDict<K, V> dict = (args instanceof SkylarkDict) ?
+        (SkylarkDict<K, V>)args: getDictFromArgs(args,loc,env);
+    dict = SkylarkDict.plus(dict, (SkylarkDict<K, V>) kwargs, env);
+    putAll(dict, loc, env.mutability());
     return Runtime.NONE;
   }
 
@@ -488,5 +510,36 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     result.putAllUnsafe(left);
     result.putAllUnsafe(right);
     return result;
+  }
+
+  public static <K, V> SkylarkDict<K, V> getDictFromArgs(
+      Object args, Location loc, @Nullable Environment env) throws EvalException {
+    SkylarkDict<K, V> result = SkylarkDict.of(env);
+    int pos = 0;
+    for (Object element : Type.OBJECT_LIST.convert(args, "parameter args in dict()")) {
+      List<Object> pair = convertToPair(element, pos, loc);
+      result.put((K) pair.get(0), (V) pair.get(1), loc, env);
+      ++pos;
+    }
+    return result;
+  }
+
+  private static List<Object> convertToPair(Object element, int pos, Location loc)
+      throws EvalException {
+    try {
+      List<Object> tuple = Type.OBJECT_LIST.convert(element, "");
+      int numElements = tuple.size();
+      if (numElements != 2) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "item #%d has length %d, but exactly two elements are required",
+                pos, numElements));
+      }
+      return tuple;
+    } catch (ConversionException e) {
+      throw new EvalException(
+          loc, String.format("cannot convert item #%d to a sequence", pos), e);
+    }
   }
 }

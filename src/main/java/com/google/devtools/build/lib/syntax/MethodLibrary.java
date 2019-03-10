@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -541,39 +540,8 @@ public class MethodLibrary {
           SkylarkDict<?, ?> argsDict =
               (args instanceof SkylarkDict)
                   ? (SkylarkDict<?, ?>) args
-                  : getDictFromArgs(args, loc, env);
+                  : SkylarkDict.getDictFromArgs(args, loc, env);
           return SkylarkDict.plus(argsDict, kwargs, env);
-        }
-
-        private SkylarkDict<Object, Object> getDictFromArgs(
-            Object args, Location loc, Environment env) throws EvalException {
-          SkylarkDict<Object, Object> result = SkylarkDict.of(env);
-          int pos = 0;
-          for (Object element : Type.OBJECT_LIST.convert(args, "parameter args in dict()")) {
-            List<Object> pair = convertToPair(element, pos, loc);
-            result.put(pair.get(0), pair.get(1), loc, env);
-            ++pos;
-          }
-          return result;
-        }
-
-        private List<Object> convertToPair(Object element, int pos, Location loc)
-            throws EvalException {
-          try {
-            List<Object> tuple = Type.OBJECT_LIST.convert(element, "");
-            int numElements = tuple.size();
-            if (numElements != 2) {
-              throw new EvalException(
-                  location,
-                  String.format(
-                      "item #%d has length %d, but exactly two elements are required",
-                      pos, numElements));
-            }
-            return tuple;
-          } catch (ConversionException e) {
-            throw new EvalException(
-                loc, String.format("cannot convert item #%d to a sequence", pos), e);
-          }
         }
       };
 
