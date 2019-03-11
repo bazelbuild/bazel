@@ -207,6 +207,43 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
+function test_worker_strategy_is_default() {
+  write_hello_library_files
+
+  bazel build //java/main:main \
+    --incompatible_list_based_execution_strategy_selection &> $TEST_log || fail "build failed"
+  # By default, Java rules use worker strategy
+  expect_log " processes: .*worker"
+}
+function test_strategy_overrides_worker_default() {
+  write_hello_library_files
+
+  bazel build //java/main:main \
+    --incompatible_list_based_execution_strategy_selection \
+    --spawn_strategy=local &> $TEST_log || fail "build failed"
+  # Java rules defaulting to worker do not override the strategy specified on
+  # the cli
+  expect_not_log " processes: .*worker"
+}
+function test_strategy_picks_first_preferred_worker() {
+  write_hello_library_files
+
+  bazel build //java/main:main \
+    --incompatible_list_based_execution_strategy_selection \
+    --spawn_strategy=worker,local &> $TEST_log || fail "build failed"
+  expect_log " processes: .*worker"
+}
+
+function test_strategy_picks_first_preferred_local() {
+  write_hello_library_files
+
+  bazel build //java/main:main \
+    --incompatible_list_based_execution_strategy_selection \
+    --spawn_strategy=local,worker &> $TEST_log || fail "build failed"
+  expect_not_log " processes: .*worker"
+  expect_log " processes: .*local"
+}
+
 # This test builds a simple java deploy jar using remote singlejar and ijar
 # targets which compile them from source.
 function test_build_hello_world_with_remote_embedded_tool_targets() {

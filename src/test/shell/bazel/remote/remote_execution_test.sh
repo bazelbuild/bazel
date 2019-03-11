@@ -87,10 +87,11 @@ EOF
 
   bazel clean >& $TEST_log
   bazel build \
-      --spawn_strategy=remote \
+      --incompatible_list_based_execution_strategy_selection \
       --remote_executor=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
+  expect_log "2 processes: 2 remote"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -247,6 +248,77 @@ EOF
 
   mv gen1.log $TEST_log
   expect_log "1 process: 1 local"
+}
+
+function test_local_fallback_with_local_strategy_lists() {
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --incompatible_list_based_execution_strategy_selection \
+      --spawn_strategy=remote,local \
+      --remote_executor=localhost:${worker_port} \
+      --build_event_text_file=gen1.log \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "1 process: 1 local"
+}
+
+function test_local_fallback_with_sandbox_strategy_lists() {
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --incompatible_list_based_execution_strategy_selection \
+      --spawn_strategy=remote,sandboxed,local \
+      --remote_executor=localhost:${worker_port} \
+      --build_event_text_file=gen1.log \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "1 process: 1 .*-sandbox"
+}
+
+function test_local_fallback_to_sandbox_by_default() {
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --incompatible_list_based_execution_strategy_selection \
+      --remote_executor=localhost:${worker_port} \
+      --build_event_text_file=gen1.log \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "1 process: 1 .*-sandbox"
 }
 
 function test_local_fallback_works_with_sandboxed_strategy() {
