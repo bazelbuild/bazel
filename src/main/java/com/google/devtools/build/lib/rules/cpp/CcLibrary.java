@@ -292,33 +292,29 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        if (ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET) != null) {
-          Artifact customDefFile = null;
-          customDefFile = ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
-          if (customDefFile != null) {
-            linkingHelper.setDefFile(customDefFile);
-          }
+        Artifact customDefFile = ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
+        if (customDefFile != null) {
+          linkingHelper.setDefFile(customDefFile);
         } else {
           // If user doesn't specify a custom DEF file, then we generate one for her.
           try {
-            ImmutableList<Artifact> objectFiles;
+            Artifact generatedDefFile;
+            String dllName = ccToolchain.getFeatures().getArtifactNameForCategory(
+                ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName());
+
             if (CppHelper.shouldExportAllSymbols(featureConfiguration)) {
               // If windows_export_all_symbols feature is enabled, bazel parses object files to generate
               // DEF file and use it to export symbols.
-              objectFiles = ccCompilationOutputs.getObjectFiles(false);
+              generatedDefFile =
+                  CppHelper.createDefFileActions(
+                      ruleContext,
+                      ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST),
+                      ccCompilationOutputs.getObjectFiles(/* usePic= */ false),
+                      dllName);
             } else {
               // Otherwise generate DEF file without exports to ensure import library is being generated.
-              objectFiles = ImmutableList.of();
+              generatedDefFile = CppHelper.createTrivialDefFileAction(ruleContext, dllName);
             }
-            Artifact generatedDefFile =
-                CppHelper.createDefFileActions(
-                    ruleContext,
-                    ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST),
-                    objectFiles,
-                    ccToolchain
-                        .getFeatures()
-                        .getArtifactNameForCategory(
-                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
             linkingHelper.setDefFile(generatedDefFile);
           } catch (EvalException e) {
             ruleContext.throwWithRuleError(e.getMessage());

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -772,6 +773,28 @@ public class CppHelper {
         && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS);
   }
 
+  public static String getGeneratedDefFileName(RuleContext ruleContext) {
+    return ruleContext.getLabel().getName()
+        + ".gen"
+        + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions());
+  }
+
+  /**
+   * Create action for generating trivial DEF file without any exports, should only be used when
+   * targeting Windows.
+   *
+   * @param dllName The DLL name to be written into the DEF file, it specifies which DLL is required
+   *     at runtime
+   * @return The DEF file artifact.
+   */
+  public static Artifact createTrivialDefFileAction(RuleContext ruleContext, String dllName) {
+    Artifact generatedDefFile = ruleContext.getBinArtifact(
+        CppHelper.getGeneratedDefFileName(ruleContext));
+    ruleContext.registerAction(FileWriteAction.create(ruleContext, generatedDefFile,
+        "LIBRARY " + dllName + "\n", false));
+    return generatedDefFile;
+  }
+
   /**
    * Create actions for parsing object files to generate a DEF file, should only be used when
    * targeting Windows.
@@ -787,11 +810,7 @@ public class CppHelper {
       Artifact defParser,
       ImmutableList<Artifact> objectFiles,
       String dllName) {
-    Artifact defFile =
-        ruleContext.getBinArtifact(
-            ruleContext.getLabel().getName()
-                + ".gen"
-                + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
+    Artifact defFile = ruleContext.getBinArtifact(getGeneratedDefFileName(ruleContext));
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
     for (Artifact objectFile : objectFiles) {
       argv.addDynamicString(objectFile.getExecPathString());

@@ -398,9 +398,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Artifact customDefFile = null;
     if (isLinkShared(ruleContext)) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        ImmutableList.Builder<Artifact> objectFiles = ImmutableList.builder();
-
         if (CppHelper.shouldExportAllSymbols(featureConfiguration)) {
+          ImmutableList.Builder<Artifact> objectFiles = ImmutableList.builder();
           objectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
 
           for (LibraryToLink library : depsCcLinkingContext.getLibraries()) {
@@ -417,14 +416,18 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
               }
             }
           }
+
+          generatedDefFile =
+              CppHelper.createDefFileActions(
+                  ruleContext,
+                  ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST),
+                  objectFiles.build(),
+                  binary.getFilename());
+        } else {
+          generatedDefFile = 
+              CppHelper.createTrivialDefFileAction(ruleContext, binary.getFilename());
         }
 
-        generatedDefFile =
-            CppHelper.createDefFileActions(
-                ruleContext,
-                ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST),
-                objectFiles.build(),
-                binary.getFilename());
         customDefFile = common.getWinDefFile();
       }
     }
