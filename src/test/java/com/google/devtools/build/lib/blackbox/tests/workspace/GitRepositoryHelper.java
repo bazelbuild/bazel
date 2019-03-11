@@ -40,6 +40,7 @@ public class GitRepositoryHelper {
   }
 
   String addAll() throws Exception {
+    runGit("rm", "--cached");
     return runGit("add", ".");
   }
 
