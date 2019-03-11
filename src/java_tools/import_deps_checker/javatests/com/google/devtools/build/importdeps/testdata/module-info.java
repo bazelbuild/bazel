@@ -12,6 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-:open module com.google.devtools.build.importdeps.testdata {
+open module com.google.devtools.build.importdeps.testdata {
     exports com.google.devtools.build.importdeps.testdata;
 }
