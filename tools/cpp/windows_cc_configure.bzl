@@ -93,6 +93,20 @@ def find_vc_path(repository_ctx):
     _auto_configure_warning_maybe(repository_ctx, "'BAZEL_VC' is not set, " +
                                                   "start looking for the latest Visual C++ installed.")
 
+    if "BAZEL_VC_TOOL" in repository_ctx.os.environ:
+        auto_configure_warning("'BAZEL_VC_TOOL' is set, " +
+                               "but 'BAZEL_VC' and 'BAZEL_VS' are not. " + 
+                               "This is not recomended and can " +
+                               "lead to incorrect VC++ detection and configuration.")
+        vc_tool_path = repository_ctx.os.environ["BAZEL_VC_TOOL"]
+        # As neither 'BAZEL_VC' nor 'BAZEL_VS' are set, we assume BAZEL_VC_TOOL looks like that: %VS_PATH%\VC\<path_to_tool>
+        # path_to_tool is different for different VS versions, but we don't care
+        # We DO NOT search in any other places as we can easily 
+        # get inconsistancy with VC++ tools and VCVARSALL.BAT 
+        # (assuming multiple versions of VS are installed)
+        vc_path = repository_ctx.re.search(r".*(^|[/\\])VC[\\/]?", vc_tool_path)
+        return vc_path.group(0) if vc_path else None
+
     # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
     # vcvarsqueryregistry.bat to detect VC++.
     _auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
@@ -210,19 +224,25 @@ def setup_vc_env_vars(repository_ctx, vc_path):
 
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
+    if "BAZEL_CV_TOOL" in repository_ctx.os.environ
+        return repository_ctx.os.environp["BAZEL_CV_TOOL"] + "\\" + tool
+
     tool_path = ""
     if _is_vs_2017(vc_path):
         # For VS 2017, the tools are under a directory like:
         # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.10.24930\bin\HostX64\x64
-        dirs = repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()
-        if len(dirs) < 1:
-            return None
+        msvc_path = vc_path + "\\Tools\\MSVC\\"
+        dirs = [msvc_path + ver for ver in repository_ctx.path(msvc_path).readdir()]
 
         # Normally there should be only one child directory under %VC_PATH%\TOOLS\MSVC,
-        # but iterate every directory to be more robust.
-        for path in dirs:
-            tool_path = str(path) + "\\bin\\HostX64\\x64\\" + tool
-            if repository_ctx.path(tool_path).exists:
+        # but we might have number of subdirs.
+        # Each directory represents different VC++ version. We'd like to select latest one if possible.
+        vc_version_paths = sorted([str(path) for path in dirs], key=repository_ctx.path.basename, reverse=True)
+        vc_tool_paths =  [vc_ver_path + "\\bin\\HostX64\\x64\\" + tool for vc_ver_path in vc_version_paths]
+        # VC tools should exist in the directory with the newest version,
+        # bbut iterate every directory to be more robust. (from newest to oldest)
+        for path in vc_tool_paths:
+            if repository_ctx.path(path).exists:
                 break
     else:
         # For VS 2015 and older version, the tools are under:
