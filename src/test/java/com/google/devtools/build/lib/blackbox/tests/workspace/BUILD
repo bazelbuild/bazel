@@ -39,6 +39,7 @@ java_test(
     timeout = "moderate",
     srcs = [
         "BazelEmbeddedSkylarkBlackBoxTest.java",
+        "GitRepositoryBlackBoxTest.java",
         "GitRepositoryHelper.java",
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceTestUtils.java",
