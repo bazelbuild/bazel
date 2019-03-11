@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.blackbox.tests.workspace.GitRepositoryBlackBoxTest.setupGitRepository;
 
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.TarFunction;
@@ -123,16 +124,7 @@ public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
   @Test
   public void testNewGitRepository() throws Exception {
     Path repo = context().getTmpDir().resolve("ext_repo");
-    RepoWithRuleWritingTextGenerator generator = new RepoWithRuleWritingTextGenerator(repo);
-    generator.withOutputText(HELLO_FROM_EXTERNAL_REPOSITORY)
-        .skipBuildFile()
-        .setupRepository();
-
-    GitRepositoryHelper gitRepository = new GitRepositoryHelper(context(), repo);
-    gitRepository.init();
-    gitRepository.addAll();
-    gitRepository.commit("Initial commit");
-    gitRepository.tag("first");
+    setupGitRepository(context(), repo);
 
     String buildFileContent = String.format("%s\n%s", RepoWithRuleWritingTextGenerator.loadRule(""),
         RepoWithRuleWritingTextGenerator.callRule("call_write_text", "out.txt",
