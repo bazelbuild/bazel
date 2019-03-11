@@ -224,7 +224,7 @@ def setup_vc_env_vars(repository_ctx, vc_path):
 
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
-    if "BAZEL_CV_TOOL" in repository_ctx.os.environ
+    if "BAZEL_CV_TOOL" in repository_ctx.os.environ:
         return repository_ctx.os.environp["BAZEL_CV_TOOL"] + "\\" + tool
 
     tool_path = ""
