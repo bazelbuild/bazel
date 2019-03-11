@@ -699,7 +699,7 @@ public class CcToolchainProviderHelper {
       CcSkyframeSupportValue ccSkyframeSupportValue,
       CToolchain toolchainFromCcToolchainAttribute,
       CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
 
     CcToolchainConfigInfo configInfo = attributes.getCcToolchainConfigInfo();
 
@@ -731,7 +731,12 @@ public class CcToolchainProviderHelper {
     try {
       toolchain =
           CppToolchainInfo.addLegacyFeatures(
-              toolchain, CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
+              toolchain,
+              ruleContext
+                  .getAnalysisEnvironment()
+                  .getSkylarkSemantics()
+                  .incompatibleDoNotSplitLinkingCmdline(),
+              CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
       CcToolchainConfigInfo ccToolchainConfigInfo =
           CcToolchainConfigInfo.fromToolchain(ruleContext, toolchain);
       return CppToolchainInfo.create(

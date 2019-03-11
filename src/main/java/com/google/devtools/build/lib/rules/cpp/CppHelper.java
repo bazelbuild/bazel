@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -909,5 +910,11 @@ public class CppHelper {
     return ruleContext.attributes().has("$grep_includes")
         ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
         : null;
+  }
+
+  public static boolean doNotSplitLinkingCmdLine(
+      StarlarkSemantics starlarkSemantics, CcToolchainProvider ccToolchain) {
+    return starlarkSemantics.incompatibleDoNotSplitLinkingCmdline()
+        || ccToolchain.doNotSplitLinkingCmdline();
   }
 }

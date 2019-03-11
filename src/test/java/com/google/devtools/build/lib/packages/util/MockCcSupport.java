@@ -63,6 +63,9 @@ public abstract class MockCcSupport {
   public static final String DYNAMIC_LINKING_MODE_FEATURE =
       "feature { name: '" + CppRuleClasses.DYNAMIC_LINKING_MODE + "'}";
 
+  public static final String DO_NOT_SPLIT_LINKING_CMDLINE_FEATURE =
+      "feature { name: '" + CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE + "' enabled: true}";
+
   public static final String STARLARK_DYNAMIC_LINKING_MODE_FEATURE =
       "[feature(name = '" + CppRuleClasses.DYNAMIC_LINKING_MODE + "')]";
 

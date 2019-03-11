@@ -788,6 +788,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testParamFileLinkVariables() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig, "feature {", "  name: 'do_not_split_linking_cmdline'", "}");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
@@ -796,7 +800,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "cc_toolchain = toolchain,",
                 "param_file = 'foo/bar/params',",
                 ")"))
-        .contains("-Wl,@foo/bar/params");
+        .contains("@foo/bar/params");
   }
 
   @Test

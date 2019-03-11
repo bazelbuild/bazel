@@ -188,6 +188,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleUseToolchainProvidersInJavaCommon();
 
+  public abstract boolean incompatibleDoNotSplitLinkingCmdline();
+
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
 
@@ -240,6 +242,7 @@ public abstract class StarlarkSemantics {
           .incompatibleRequireFeatureConfigurationForPic(true)
           .incompatibleStricArgumentOrdering(true)
           .internalSkylarkFlagTestCanary(false)
+          .incompatibleDoNotSplitLinkingCmdline(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -320,6 +323,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleUseToolchainProvidersInJavaCommon(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
+
+    public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
 
     public abstract StarlarkSemantics build();
   }

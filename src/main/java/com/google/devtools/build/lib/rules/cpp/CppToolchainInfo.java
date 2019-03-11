@@ -352,7 +352,9 @@ public final class CppToolchainInfo {
   // TODO(bazel-team): Remove this once bazel supports all crosstool flags through
   // feature configuration, and all crosstools have been converted.
   public static CToolchain addLegacyFeatures(
-      CToolchain toolchain, PathFragment crosstoolTopPathFragment) {
+      CToolchain toolchain,
+      boolean doNotSplitLinkingCmdLine,
+      PathFragment crosstoolTopPathFragment) {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
 
     Set<ArtifactCategory> definedCategories = new HashSet<>();
@@ -450,14 +452,16 @@ public final class CppToolchainInfo {
               featureNames,
               linkerToolPath,
               toolchain.getSupportsEmbeddedRuntimes(),
-              toolchain.getSupportsInterfaceSharedObjects()));
+              toolchain.getSupportsInterfaceSharedObjects(),
+              doNotSplitLinkingCmdLine));
     }
 
     toolchainBuilder.mergeFrom(toolchain);
 
     if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
       toolchainBuilder.addAllFeature(
-          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames));
+          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
+              featureNames, doNotSplitLinkingCmdLine));
     }
 
     return toolchainBuilder.build();
