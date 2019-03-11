@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.devtools.build.lib.profiler.MemoryProfiler.MemoryProfileStableHeapParameters;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -221,6 +223,16 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableCpuUsageProfiling;
 
   @Option(
+      name = "experimental_profile_additional_tasks",
+      converter = ProfilerTaskConverter.class,
+      defaultValue = "none",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "Specifies additional profile tasks to be included in the profile.")
+  public List<ProfilerTask> additionalProfileTasks;
+
+  @Option(
       name = "profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -416,4 +428,10 @@ public class CommonCommandOptions extends OptionsBase {
               + "one."
   )
   public boolean keepStateAfterBuild;
+
+  public static class ProfilerTaskConverter extends EnumConverter<ProfilerTask> {
+    public ProfilerTaskConverter() {
+      super(ProfilerTask.class, "profiler task");
+    }
+  }
 }
