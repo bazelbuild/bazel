@@ -206,18 +206,44 @@ public final class FilesetEntryFunction implements SkyFunction {
     return null;
   }
 
+  /**
+   * Returns the {@link RecursiveFilesystemTraversalValue.TraversalRequest} node used to compute the
+   * Skyframe value for {@code filesetEntryKey}. Should only be called to determine which nodes need
+   * to be rewound, and only when {@code filesetEntryKey.isGenerated()}.
+   */
+  public static RecursiveFilesystemTraversalValue.TraversalRequest getDependencyForRewinding(
+      FilesetEntryKey filesetEntryKey) {
+    FilesetTraversalParams t = filesetEntryKey.argument();
+    Preconditions.checkState(
+        t.getDirectTraversal().isPresent() && t.getNestedArtifact() == null,
+        "FilesetEntry does not support nested traversal: %s",
+        t);
+    Preconditions.checkState(
+        t.getDirectTraversal().get().isGenerated(),
+        "Rewinding is only supported for outputs: %s",
+        t);
+    // Traversals in the output tree inline any recursive TraversalRequest evaluations, i.e. there
+    // won't be any transitively depended-on TraversalRequests.
+    return createTraversalRequestKey(createErrorInfo(t), t.getDirectTraversal().get());
+  }
+
+  private static RecursiveFilesystemTraversalValue.TraversalRequest createTraversalRequestKey(
+      String errorInfo, DirectTraversal traversal) {
+    return RecursiveFilesystemTraversalValue.TraversalRequest.create(
+        traversal.getRoot(),
+        traversal.isGenerated(),
+        traversal.getPackageBoundaryMode(),
+        traversal.isStrictFilesetOutput(),
+        traversal.isPackage(),
+        errorInfo);
+  }
+
   private static RecursiveFilesystemTraversalValue traverse(
       Environment env, String errorInfo, DirectTraversal traversal)
       throws MissingDepException, InterruptedException {
-    RecursiveFilesystemTraversalValue.TraversalRequest depKey =
-        RecursiveFilesystemTraversalValue.TraversalRequest.create(
-            traversal.getRoot(),
-            traversal.isGenerated(),
-            traversal.getPackageBoundaryMode(),
-            traversal.isStrictFilesetOutput(),
-            traversal.isPackage(),
-            errorInfo);
-    RecursiveFilesystemTraversalValue v = (RecursiveFilesystemTraversalValue) env.getValue(depKey);
+    RecursiveFilesystemTraversalValue v =
+        (RecursiveFilesystemTraversalValue)
+            env.getValue(createTraversalRequestKey(errorInfo, traversal));
     if (env.valuesMissing()) {
       throw new MissingDepException();
     }

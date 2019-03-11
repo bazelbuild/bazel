@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
+import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
@@ -213,8 +214,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // Fetching enabled, go ahead.
       env.getListener().post(new RepositoryFetching(repositoryName.getName(), false));
       setupRepositoryRoot(repoRoot);
-      RepositoryDirectoryValue.Builder result =
-          handler.fetch(rule, repoRoot, directories, env, markerData, skyKey);
+      RepositoryDirectoryValue.Builder result = null;
+      try {
+        result = handler.fetch(rule, repoRoot, directories, env, markerData, skyKey);
+      } catch (SkyFunctionException e) {
+        // Upon an exceptional exit, the fetching of that repository is over as well.
+        env.getListener().post(new RepositoryFetching(repositoryName.getName(), true));
+        env.getListener().post(new RepositoryFailedEvent(repositoryName.strippedName()));
+        throw e;
+      }
       if (env.valuesMissing()) {
         env.getListener()
             .post(new RepositoryFetching(repositoryName.getName(), false, "Restarting."));

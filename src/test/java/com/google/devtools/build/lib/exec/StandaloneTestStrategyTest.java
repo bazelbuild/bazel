@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
@@ -153,6 +155,14 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     return action;
   }
 
+  private List<SpawnResult> execute(
+      TestRunnerAction testRunnerAction,
+      ActionExecutionContext actionExecutionContext,
+      TestActionContext testActionContext)
+      throws ActionExecutionException, InterruptedException {
+    return testRunnerAction.execute(actionExecutionContext, testActionContext).spawnResults();
+  }
+
   @Test
   public void testRunTestOnce() throws Exception {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
@@ -185,7 +195,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
-        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+        execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
 
     assertThat(spawnResults).contains(expectedSpawnResult);
     TestResult result = standaloneTestStrategy.postedResult;
@@ -253,9 +263,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
-        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+        execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
 
-    assertThat(spawnResults).containsExactly(passSpawnResult);
+    assertThat(spawnResults).containsExactly(failSpawnResult, passSpawnResult).inOrder();
 
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
@@ -319,7 +329,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
-        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+        execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
 
     assertThat(spawnResults).contains(expectedSpawnResult);
 
@@ -377,7 +387,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
-        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+        execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
 
     // check that the rigged SpawnResult was returned
     assertThat(spawnResults).contains(expectedSpawnResult);
@@ -460,7 +470,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
-        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+        execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
 
     // check that the rigged SpawnResult was returned
     assertThat(spawnResults).contains(expectedSpawnResult);
@@ -558,7 +568,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
-        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+        execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
 
     // check that the rigged SpawnResult was returned
     assertThat(spawnResults).containsExactly(testSpawnResult, xmlGeneratorSpawnResult);
@@ -613,7 +623,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
-        standaloneTestStrategy.exec(testRunnerAction, actionExecutionContext);
+        execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
 
     // check that the rigged SpawnResult was returned
     assertThat(spawnResults).contains(expectedSpawnResult);

@@ -18,11 +18,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
 import java.io.File;
@@ -33,8 +31,9 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -73,7 +72,7 @@ public class ZipDecompressor implements Decompressor {
    */
   @Override
   @Nullable
-  public Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException {
+  public Path decompress(DecompressorDescriptor descriptor) throws IOException {
     Path destinationDirectory = descriptor.archivePath().getParentDirectory();
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
@@ -92,17 +91,20 @@ public class ZipDecompressor implements Decompressor {
       for (Map.Entry<Path, PathFragment> symlink : symlinks.entrySet()) {
         symlink.getKey().createSymbolicLink(symlink.getValue());
       }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(new IOException(
-          String.format("Error extracting %s to %s: %s",
-              descriptor.archivePath(), destinationDirectory, e.getMessage())),
-          Transience.TRANSIENT);
-    }
 
-    if (prefix.isPresent() && !foundPrefix) {
-      throw new RepositoryFunctionException(
-          new IOException("Prefix " + prefix.get() + " was given, but not found in the zip"),
-          Transience.PERSISTENT);
+      if (prefix.isPresent() && !foundPrefix) {
+        Set<String> prefixes = new HashSet<>();
+        for (ZipFileEntry entry : entries) {
+          StripPrefixedPath entryPath =
+              StripPrefixedPath.maybeDeprefix(entry.getName(), Optional.absent());
+          Optional<String> suggestion =
+              CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment());
+          if (suggestion.isPresent()) {
+            prefixes.add(suggestion.get());
+          }
+        }
+        throw new CouldNotFindPrefixException(prefix.get(), prefixes);
+      }
     }
 
     return destinationDirectory;

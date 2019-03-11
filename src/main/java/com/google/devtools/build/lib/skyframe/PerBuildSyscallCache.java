@@ -30,15 +30,14 @@ import java.util.Collection;
  */
 public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
 
-  private final LoadingCache<Pair<Path, Symlinks>, Pair<FileStatus, IOException>> statCache;
-  private final LoadingCache<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>>
-      readdirCache;
+  private final LoadingCache<Pair<Path, Symlinks>, Object> statCache;
+  private final LoadingCache<Pair<Path, Symlinks>, Object> readdirCache;
 
   private static final FileStatus NO_STATUS = new FakeFileStatus();
 
   private PerBuildSyscallCache(
-      LoadingCache<Pair<Path, Symlinks>, Pair<FileStatus, IOException>> statCache,
-      LoadingCache<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>> readdirCache) {
+      LoadingCache<Pair<Path, Symlinks>, Object> statCache,
+      LoadingCache<Pair<Path, Symlinks>, Object> readdirCache) {
     this.statCache = statCache;
     this.readdirCache = readdirCache;
   }
@@ -95,22 +94,21 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
 
   @Override
   public Collection<Dirent> readdir(Path path, Symlinks symlinks) throws IOException {
-    Pair<Collection<Dirent>, IOException> result =
-        readdirCache.getUnchecked(Pair.of(path, symlinks));
-    Collection<Dirent> entries = result.getFirst();
-    if (entries != null) {
-      return entries;
+    Object result = readdirCache.getUnchecked(Pair.of(path, symlinks));
+    if (result instanceof IOException) {
+      throw (IOException) result;
     }
-    throw result.getSecond();
+    return (Collection<Dirent>) result;
   }
 
   @Override
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
-    Pair<FileStatus, IOException> status = statCache.getUnchecked(Pair.of(path, symlinks));
-    if (status.getFirst() != null) {
-      return (status.getFirst() == NO_STATUS) ? null : status.getFirst();
+    Object result = statCache.getUnchecked(Pair.of(path, symlinks));
+    if (result instanceof IOException) {
+      throw (IOException) result;
     }
-    throw status.getSecond();
+    FileStatus status = (FileStatus) result;
+    return (status == NO_STATUS) ? null : status;
   }
 
   public void clear() {
@@ -162,42 +160,39 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
   }
 
   /**
-   * A {@link CacheLoader} for a cache of stat calls.
-   * Input: (path, following_symlinks)
-   * Output: FileStatus
+   * A {@link CacheLoader} for a cache of stat calls. Input: (path, following_symlinks) Output:
+   * FileStatus
    */
-  private static CacheLoader<Pair<Path, Symlinks>, Pair<FileStatus, IOException>> newStatLoader() {
-    return new CacheLoader<Pair<Path, Symlinks>, Pair<FileStatus, IOException>>() {
-        @Override
-        public Pair<FileStatus, IOException> load(Pair<Path, Symlinks> p) {
-          try {
-            FileStatus f = p.first.statIfFound(p.second);
-            return Pair.of((f == null) ? NO_STATUS : f, null);
-          } catch (IOException e) {
-            return Pair.of(null, e);
-          }
+  private static CacheLoader<Pair<Path, Symlinks>, Object> newStatLoader() {
+    return new CacheLoader<Pair<Path, Symlinks>, Object>() {
+      @Override
+      public Object load(Pair<Path, Symlinks> p) {
+        try {
+          FileStatus f = p.first.statIfFound(p.second);
+          return (f == null) ? NO_STATUS : f;
+        } catch (IOException e) {
+          return e;
         }
-      };
+      }
+    };
   }
 
   /**
-   * A {@link CacheLoader} for a cache of readdir calls.
-   * Input: (path, following_symlinks)
-   * Output: A union of (Dirents, IOException).
+   * A {@link CacheLoader} for a cache of readdir calls. Input: (path, following_symlinks) Output: A
+   * union of (Dirents, IOException).
    */
-  private static
-  CacheLoader<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>> newReaddirLoader() {
-    return new CacheLoader<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>>() {
-        @Override
-        public Pair<Collection<Dirent>, IOException> load(Pair<Path, Symlinks> p) {
-          try {
-            // TODO(bazel-team): Consider storing the Collection of Dirent values more compactly
-            // by reusing DirectoryEntryListingStateValue#CompactSortedDirents.
-            return Pair.of(p.first.readdir(p.second), null);
-          } catch (IOException e) {
-            return Pair.of(null, e);
-          }
+  private static CacheLoader<Pair<Path, Symlinks>, Object> newReaddirLoader() {
+    return new CacheLoader<Pair<Path, Symlinks>, Object>() {
+      @Override
+      public Object load(Pair<Path, Symlinks> p) {
+        try {
+          // TODO(bazel-team): Consider storing the Collection of Dirent values more compactly
+          // by reusing DirectoryEntryListingStateValue#CompactSortedDirents.
+          return p.first.readdir(p.second);
+        } catch (IOException e) {
+          return e;
         }
-      };
+      }
+    };
   }
 }

@@ -19,6 +19,7 @@
 #include <windows.h>
 
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -114,38 +115,32 @@ class Tee {
 // Buffered input stream (based on a HANDLE) with peek-ahead support.
 class IFStream {
  public:
+  enum {
+    kIFStreamErrorEOF = 256,
+    kIFStreamErrorIO = 257,
+  };
+
   virtual ~IFStream() {}
 
-  // Gets the current byte under the read cursor.
-  // Returns true upon success, returns false if there's no more data to read.
-  virtual bool Get(uint8_t* result) const = 0;
+  // Reads one byte from the stream, and moves the cursor ahead.
+  // Returns:
+  //   0..255: success, the value of the read byte
+  //   256 (kIFStreamErrorEOF): failure, EOF was reached
+  //   257 (kIFStreamErrorIO): failure, I/O error
+  virtual int Get() = 0;
 
-  // Advances the read cursor one byte ahead. May fetch data from the underlying
-  // HANDLE.
-  // Returns true if the cursor could be moved. Returns false if EOF was reached
-  // or if there was an I/O error.
-  virtual bool Advance() = 0;
-
-  // Peeks at the next byte after the read cursor. Returns true if there's at
-  // least one more byte in the stream.
-  bool Peek1(uint8_t* result) const { return PeekN(1, result); }
-
-  // Peeks at the next two bytes after the read cursor. Returns true if there
-  // are at least two more byte in the stream.
-  bool Peek2(uint8_t* result) const { return PeekN(2, result); }
-
-  // Peeks at the next three bytes after the read cursor. Returns true if there
-  // are at least three more byte in the stream.
-  bool Peek3(uint8_t* result) const { return PeekN(3, result); }
+  // Peeks at 'n' bytes starting at the current cursor position.
+  // Writes into 'out' the 0..'n' successfully peeked bytes.
+  // Returns:
+  //   0..n: the number of successfully peeked bytes
+  virtual DWORD Peek(DWORD n, uint8_t* out) const = 0;
 
  protected:
   IFStream() {}
+
+ private:
   IFStream(const IFStream&) = delete;
   IFStream& operator=(const IFStream&) = delete;
-
-  // Peeks ahead N bytes, writing them to 'result'. Returns true if successful.
-  // The result does not include the byte currently under the read cursor.
-  virtual bool PeekN(DWORD n, uint8_t* result) const = 0;
 };
 
 // The main function of the test wrapper.
@@ -199,14 +194,9 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
                         bazel::windows::AutoHandle* output2,
                         std::unique_ptr<Tee>* result);
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
-                                std::vector<DWORD>* cdata_end_locations);
+bool TestOnly_CdataEncode(IFStream* in_stm, std::basic_ostream<char>* out_stm);
 
-bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
-                                   const std::wstring& abs_output);
-
-IFStream* TestOnly_CreateIFStream(bazel::windows::AutoHandle* handle,
-                                  DWORD page_size);
+IFStream* TestOnly_CreateIFStream(HANDLE handle, DWORD page_size);
 
 }  // namespace testing
 

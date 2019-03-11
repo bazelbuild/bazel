@@ -457,6 +457,9 @@ def _windows_msvc_impl(ctx):
                         flags = ["/OUT:%{output_execpath}"],
                         expand_if_available = "output_execpath",
                     ),
+                    flag_group(
+                        flags = ["/MACHINE:X64"]
+                    ),
                 ],
             ),
         ],
@@ -600,6 +603,7 @@ def _windows_msvc_impl(ctx):
 
     preprocessor_defines_feature = feature(
         name = "preprocessor_defines",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -758,6 +762,7 @@ def _windows_msvc_impl(ctx):
 
     include_paths_feature = feature(
         name = "include_paths",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [

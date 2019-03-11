@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -93,8 +93,7 @@ public class StarlarkOptionsParser {
     try {
       env.syncPackageLoading(
           optionsParser.getOptions(PackageCacheOptions.class),
-          optionsParser.getOptions(SkylarkSemanticsOptions.class),
-          runtime.getDefaultsPackageContent());
+          optionsParser.getOptions(StarlarkSemanticsOptions.class));
     } catch (AbruptExitException e) {
       throw new OptionsParsingException(e.getMessage());
     }

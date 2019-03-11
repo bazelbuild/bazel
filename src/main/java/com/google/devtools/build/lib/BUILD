@@ -46,6 +46,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/logging:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/util:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/merkletree:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/swift:srcs",
@@ -382,7 +383,10 @@ java_library(
     srcs = glob([
         "skylarkinterface/*.java",
     ]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:__pkg__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         ":skylark_semantics",
         "//third_party:jsr305",
@@ -407,8 +411,9 @@ java_library(
 java_library(
     name = "skylark_semantics",
     srcs = [
-        "syntax/SkylarkSemantics.java",
+        "syntax/StarlarkSemantics.java",
     ],
+    visibility = ["//visibility:public"],  # needed by Copybara
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
@@ -418,7 +423,7 @@ java_library(
 java_library(
     name = "skylark_semantics_options",
     srcs = [
-        "packages/SkylarkSemanticsOptions.java",
+        "packages/StarlarkSemanticsOptions.java",
     ],
     deps = [
         ":skylark_semantics",
@@ -453,7 +458,7 @@ java_library(
 
 java_library(
     name = "skylark-semantics",
-    srcs = ["syntax/SkylarkSemantics.java"],
+    srcs = ["syntax/StarlarkSemantics.java"],
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
@@ -466,7 +471,7 @@ java_library(
         [
             "syntax/**/*.java",
         ],
-        exclude = ["syntax/SkylarkSemantics.java"],
+        exclude = ["syntax/StarlarkSemantics.java"],
     ),
     deps = [
         ":events",
@@ -646,6 +651,7 @@ java_library(
         ":transitive-info-provider",
     ],
     deps = [
+        ":bug-report",
         ":build-request-options",
         ":command-utils",
         ":events",
@@ -744,6 +750,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
@@ -757,6 +764,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
@@ -803,6 +811,22 @@ java_library(
 )
 
 java_library(
+    name = "bazel/LicenseCheckingModule",
+    srcs = ["bazel/LicenseCheckingModule.java"],
+    deps = [
+        ":build-base",
+        ":events",
+        ":packages-internal",
+        ":runtime",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "bazel-main",
     srcs = ["bazel/Bazel.java"],
     resources = [
@@ -840,8 +864,10 @@ java_library(
         exclude = [
             "bazel/Bazel.java",
             "bazel/BazelRepositoryModule.java",
+            "bazel/LicenseCheckingModule.java",
         ],
     ),
+    exports = [":bazel/LicenseCheckingModule"],
     deps = [
         ":build-base",
         ":build-info",
@@ -943,6 +969,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-event",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:events",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -1128,6 +1155,8 @@ java_library(
         ":packages-internal",
         ":skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",

@@ -54,7 +54,9 @@ public class ActionMetadataHandlerTest {
   @Test
   public void withNonArtifactInput() throws Exception {
     ActionInput input = ActionInputHelper.fromPath("foo/bar");
-    FileArtifactValue metadata = FileArtifactValue.createNormalFile(new byte[] {1,  2, 3}, 10);
+    FileArtifactValue metadata =
+        FileArtifactValue.createNormalFile(
+            new byte[] {1, 2, 3}, /*proxy=*/ null, 10L, /*isShareable=*/ true);
     ActionInputMap map = new ActionInputMap(1);
     map.putWithNoDepOwner(input, metadata);
     assertThat(map.getMetadata(input)).isEqualTo(metadata);
@@ -72,7 +74,9 @@ public class ActionMetadataHandlerTest {
   public void withArtifactInput() throws Exception {
     PathFragment path = PathFragment.create("src/a");
     Artifact artifact = new Artifact(path, sourceRoot);
-    FileArtifactValue metadata = FileArtifactValue.createNormalFile(new byte[] {1,  2, 3}, 10);
+    FileArtifactValue metadata =
+        FileArtifactValue.createNormalFile(
+            new byte[] {1, 2, 3}, /*proxy=*/ null, 10L, /*isShareable=*/ true);
     ActionInputMap map = new ActionInputMap(1);
     map.putWithNoDepOwner(artifact, metadata);
     ActionMetadataHandler handler = new ActionMetadataHandler(
@@ -247,5 +251,33 @@ public class ActionMetadataHandlerTest {
       fail();
     } catch (IllegalStateException expected) {
     }
+  }
+
+  @Test
+  public void resettingOutputs() throws Exception {
+    scratch.file("/output/bin/foo/bar", "not empty");
+    PathFragment path = PathFragment.create("foo/bar");
+    Artifact artifact = new Artifact(path, outputRoot);
+    ActionInputMap map = new ActionInputMap(1);
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            map,
+            /* missingArtifactsAllowed= */ true,
+            /* outputs= */ ImmutableList.of(artifact),
+            /* tsgm= */ null,
+            ArtifactPathResolver.IDENTITY,
+            new MinimalOutputStore());
+    handler.discardOutputMetadata();
+
+    // The handler doesn't have any info. It'll stat the file and discover that it's 10 bytes long.
+    assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
+
+    // Inject a remote file of size 42.
+    handler.injectRemoteFile(artifact, new byte[] {1, 2, 3}, 42, 0);
+    assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(42);
+
+    // Reset this output, which will make the handler stat the file again.
+    handler.resetOutputs(ImmutableList.of(artifact));
+    assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
   }
 }

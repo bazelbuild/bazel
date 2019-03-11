@@ -19,7 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
 /** Information about the C++ toolchain. */
@@ -59,6 +60,14 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       doc = "Returns the list of built-in directories of the compiler.",
       structField = true)
   public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings();
+
+  @SkylarkCallable(
+      name = "all_files",
+      doc =
+          "Returns all toolchain files (so they can be passed to actions using this "
+              + "toolchain as inputs).",
+      structField = true)
+  public SkylarkNestedSet getAllFilesForStarlark();
 
   @SkylarkCallable(
       name = "sysroot",

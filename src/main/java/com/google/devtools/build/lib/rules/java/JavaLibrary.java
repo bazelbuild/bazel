@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 
@@ -116,17 +116,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
 
-    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
-
     Artifact nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
 
-    helper.createCompileActionWithInstrumentation(
-        classJar,
-        manifestProtoOutput,
-        genSourceJar,
-        outputDepsProto,
-        javaArtifactsBuilder,
-        nativeHeaderOutput);
+    JavaCompileAction javaCompileAction =
+        helper.createCompileActionWithInstrumentation(
+            classJar, manifestProtoOutput, genSourceJar, javaArtifactsBuilder, nativeHeaderOutput);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     Artifact iJar = null;
@@ -136,7 +130,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
             .addOutputJar(classJar, iJar, manifestProtoOutput, ImmutableList.of(srcJar))
-            .setJdeps(outputDepsProto)
+            .setJdeps(javaCompileAction.getOutputDepsProto())
             .setNativeHeaders(nativeHeaderOutput);
 
     GeneratedExtensionRegistryProvider generatedExtensionRegistryProvider = null;
@@ -165,7 +159,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         new JavaStrictCompilationArgsProvider(
             common.collectJavaCompilationArgs(
                 neverLink, /* srcLessDepsExport= */ false, /* javaProtoLibraryStrictDeps= */ true));
-    NestedSet<LibraryToLinkWrapper> transitiveJavaNativeLibraries =
+    NestedSet<LibraryToLink> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Root;
 
 /**
@@ -50,8 +50,8 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
 
   @Override
   public void onLoadingComplete(
-      Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeNanos) {
-    sanityCheckBazelPackageLoader(pkg, ruleClassProvider, skylarkSemantics);
+      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
+    sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }
 
   private static final Function<Target, Label> TARGET_TO_LABEL =
@@ -65,14 +65,14 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
   private void sanityCheckBazelPackageLoader(
       Package pkg,
       ConfiguredRuleClassProvider ruleClassProvider,
-      SkylarkSemantics skylarkSemantics) {
+      StarlarkSemantics starlarkSemantics) {
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
     PackageLoader packageLoader =
         BazelPackageLoader.builder(
-            Root.fromPath(directories.getWorkspace()),
-            directories.getInstallBase(),
-            directories.getOutputBase())
-            .setSkylarkSemantics(skylarkSemantics)
+                Root.fromPath(directories.getWorkspace()),
+                directories.getInstallBase(),
+                directories.getOutputBase())
+            .setSkylarkSemantics(starlarkSemantics)
             .setRuleClassProvider(ruleClassProvider)
             .build();
     Package newlyLoadedPkg;
@@ -90,18 +90,6 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
             Iterables.transform(newlyLoadedPkg.getTargets().values(), TARGET_TO_LABEL));
     if (!targetsInPkg.equals(targetsInNewlyLoadedPkg)) {
       Sets.SetView<Label> unsatisfied = Sets.difference(targetsInPkg, targetsInNewlyLoadedPkg);
-      if (pkgId.compareTo(PackageIdentifier.createInMainRepo("tools/defaults")) == 0
-          && unsatisfied.isEmpty()) {
-        // The tools/defaults package is populated from command-line options
-        // (=configuration fragments) which the user specifies in tests using
-        // BuildViewTestCase.useConfiguration().
-        // We'd like PackageLoader to work as much as possible without duplicating the entire
-        // configuration of Bazel, so we prefer not to pass these flags to PackageLoader.
-        // As a result, the contents of tools/defaults might differ.
-        // As long as PackageLoader returns a superset of what Bazel returns, everything should load
-        // fine.
-        return;
-      }
       Sets.SetView<Label> unexpected = Sets.difference(targetsInNewlyLoadedPkg, targetsInPkg);
       throw new IllegalStateException(
           String.format(

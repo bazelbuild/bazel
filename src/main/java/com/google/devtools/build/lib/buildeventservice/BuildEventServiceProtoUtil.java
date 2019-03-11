@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished.FinishType.FINISHED;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -46,7 +47,7 @@ public final class BuildEventServiceProtoUtil {
   private final String commandName;
   private final Set<String> additionalKeywords;
 
-  public BuildEventServiceProtoUtil(
+  private BuildEventServiceProtoUtil(
       String buildRequestId,
       String buildInvocationId,
       @Nullable String projectId,
@@ -194,5 +195,48 @@ public final class BuildEventServiceProtoUtil {
         .add("protocol_name=BEP")
         .addAll(additionalKeywords)
         .build();
+  }
+
+  /** A builder for {@link BuildEventServiceProtoUtil}. */
+  public static class Builder {
+    private String invocationId;
+    private String buildRequestId;
+    private String commandName;
+    private Set<String> keywords;
+    private @Nullable String projectId;
+
+    public Builder buildRequestId(String value) {
+      this.buildRequestId = value;
+      return this;
+    }
+
+    public Builder invocationId(String value) {
+      this.invocationId = value;
+      return this;
+    }
+
+    public Builder projectId(String value) {
+      this.projectId = value;
+      return this;
+    }
+
+    public Builder commandName(String value) {
+      this.commandName = value;
+      return this;
+    }
+
+    public Builder keywords(Set<String> value) {
+      this.keywords = value;
+      return this;
+    }
+
+    public BuildEventServiceProtoUtil build() {
+      return new BuildEventServiceProtoUtil(
+          checkNotNull(buildRequestId),
+          checkNotNull(invocationId),
+          projectId,
+          checkNotNull(commandName),
+          checkNotNull(keywords));
+    }
   }
 }

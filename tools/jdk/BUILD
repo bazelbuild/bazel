@@ -1,11 +1,17 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
-    "default_remote_java_toolchain",
     "java_runtime_files",
     "JDK8_JVM_OPTS",
-    "JDK8_JVM_OPTS_REMOTE_JAVAC",
     "bootclasspath",
+)
+load(
+    "//tools/jdk:java_toolchain_alias.bzl",
+    "java_toolchain_alias",
+    "java_runtime_alias",
+    "java_host_runtime_alias",
+    "legacy_java_toolchain_alias",
+    "legacy_java_runtime_alias",
 )
 
 package(default_visibility = ["//visibility:public"])
@@ -46,6 +52,12 @@ java_runtime_alias(name = "current_java_runtime")
 java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
+
+# This exists to support the migration to toolchain resolution.
+# TODO(cushon): delete once the migration is complete.
+legacy_java_runtime_alias(name = "legacy_current_java_runtime")
+
+legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
 
 # Used to set --host_javabase or --javabase to a local JDK without having to define
 # a custom java_runtime rule.
@@ -140,67 +152,97 @@ exports_files(["BUILD.pkg"])
 
 filegroup(
     name = "genclass",
-    srcs = ["//tools/jdk:GenClass_deploy.jar"],
-)
-
-filegroup(
-    name = "remote-genclass",
     srcs = ["@remote_java_tools//:GenClass"],
 )
 
 filegroup(
-    name = "turbine",
-    srcs = ["//tools/jdk:turbine_deploy.jar"],
+    name = "GenClass_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/GenClass_deploy.jar"],
 )
 
 filegroup(
-    name = "remote-turbine",
+    name = "bazel-singlejar_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/bazel-singlejar_deploy.jar"],
+)
+
+filegroup(
+    name = "turbine",
     srcs = ["@remote_java_tools//:Turbine"],
 )
 
 filegroup(
-    name = "turbine_direct",
-    srcs = glob(["turbine_direct*"]),
+    name = "turbine_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/turbine_deploy.jar"],
 )
 
 filegroup(
-    name = "remote-turbine_direct",
+    name = "turbine_direct",
     srcs = ["@remote_java_tools//:TurbineDirect"],
 )
 
 filegroup(
-    name = "javabuilder",
-    srcs = ["//tools/jdk:JavaBuilder_deploy.jar"],
+    name = "turbine_direct_binary_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/turbine_direct_binary_deploy.jar"],
 )
 
 filegroup(
-    name = "remote-javabuilder",
+    name = "javabuilder",
     srcs = ["@remote_java_tools//:JavaBuilder"],
 )
 
 filegroup(
-    name = "vanillajavabuilder",
-    srcs = ["//tools/jdk:VanillaJavaBuilder_deploy.jar"],
+    name = "JavaBuilder_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/JavaBuilder_deploy.jar"],
 )
 
 filegroup(
-    name = "remote-vanillajavabuilder",
+    name = "vanillajavabuilder",
     srcs = ["@remote_java_tools//:VanillaJavaBuilder"],
 )
 
 filegroup(
-    name = "remote-javac_jar",
+    name = "javac_jar",
     srcs = ["@remote_java_tools//:javac_jar"],
 )
 
 filegroup(
-    name = "remote-jdk_compiler_jar",
+    name = "jdk_compiler_jar",
     srcs = ["@remote_java_tools//:jdk_compiler_jar"],
 )
 
 filegroup(
-    name = "remote-java_compiler_jar",
+    name = "java_compiler_jar",
     srcs = ["@remote_java_tools//:java_compiler_jar"],
+)
+
+java_import(
+    name = "JacocoCoverageRunner",
+    jars = ["@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar"],
+)
+
+java_import(
+    name = "JacocoCoverage",
+    jars = ["@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar"],
+)
+
+java_import(
+    name = "TestRunner",
+    jars = ["@remote_java_tools//:java_tools/Runner_deploy.jar"],
+)
+
+filegroup(
+    name = "TestRunner_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/Runner_deploy.jar"],
+)
+
+java_import(
+    name = "ExperimentalTestRunner",
+    jars = ["@remote_java_tools//:java_tools/ExperimentalRunner_deploy.jar"],
+)
+
+filegroup(
+    name = "ExperimentalRunner_deploy.jar",
+    srcs = ["@remote_java_tools//:java_tools/ExperimentalRunner_deploy.jar"],
 )
 
 BOOTCLASS_JARS = [
@@ -268,13 +310,6 @@ default_java_toolchain(
     target_version = "8",
 )
 
-default_remote_java_toolchain(
-    name = "remote_toolchain_hostjdk8",
-    jvm_opts = JDK8_JVM_OPTS_REMOTE_JAVAC,
-    source_version = "8",
-    target_version = "8",
-)
-
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
@@ -283,7 +318,7 @@ default_java_toolchain(
     target_version = "8",
 )
 
-default_remote_java_toolchain(
+default_java_toolchain(
     name = "remote_toolchain",
     source_version = "8",
     target_version = "8",
@@ -310,13 +345,6 @@ default_java_toolchain(
     jvm_opts = [],
 )
 
-default_remote_java_toolchain(
-    name = "remote_toolchain_vanilla",
-    forcibly_disable_header_compilation = True,
-    javabuilder = ["@bazel_tools//tools/jdk:remote-vanillajavabuilder"],
-    jvm_opts = [],
-)
-
 RELEASES = (8, 9)
 
 [
@@ -334,6 +362,7 @@ filegroup(
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
+        "java_toolchain_alias.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",
@@ -369,11 +398,6 @@ py_test(
 alias(
     name = "jacoco-blaze-agent",
     actual = "//third_party/java/jacoco:blaze-agent",
-)
-
-java_import(
-    name = "JacocoCoverage",
-    jars = [":JacocoCoverage_deploy.jar"],
 )
 
 java_import(

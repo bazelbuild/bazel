@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.Converters;
-import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -171,9 +170,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
-        Options.getDefaults(SkylarkSemanticsOptions.class),
-        ruleClassProvider.getDefaultsPackageContent(
-            analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
+        Options.getDefaults(StarlarkSemanticsOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -207,9 +204,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         .add(TestOptions.class)
         .build());
     parser.parse(args);
-
-    InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
-    optionsPolicyEnforcer.enforce(parser);
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
 
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(
         parser.getOptions(TestOptions.class).multiCpus);

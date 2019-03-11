@@ -448,7 +448,6 @@ public final class ConfigurationResolver {
       ConfigurationTransition transition,
       Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
       RuleClassProvider ruleClassProvider, boolean trimResults) {
-
     // TODO(bazel-team): safety-check that this never mutates fromOptions.
     List<BuildOptions> result = transition.apply(fromOptions);
 

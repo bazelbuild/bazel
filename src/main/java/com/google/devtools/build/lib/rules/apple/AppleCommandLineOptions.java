@@ -389,20 +389,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
      * Compile the minimal set of bitcode markers. This is often the best option for developer/debug
      * builds.
      */
-    EMBEDDED_MARKERS(
-        "embedded_markers", ImmutableList.of("bitcode_embedded_markers"), "-fembed-bitcode-marker"),
+    EMBEDDED_MARKERS("embedded_markers", ImmutableList.of("bitcode_embedded_markers")),
     /** Fully embed bitcode in compiled files. This is often the best option for release builds. */
-    EMBEDDED("embedded", ImmutableList.of("bitcode_embedded"), "-fembed-bitcode");
+    EMBEDDED("embedded", ImmutableList.of("bitcode_embedded"));
 
     private final String mode;
     private final ImmutableList<String> featureNames;
-    private final ImmutableList<String> clangFlags;
 
-    private AppleBitcodeMode(
-        String mode, ImmutableList<String> featureNames, String... clangFlags) {
+    private AppleBitcodeMode(String mode, ImmutableList<String> featureNames) {
       this.mode = mode;
       this.featureNames = featureNames;
-      this.clangFlags = ImmutableList.copyOf(clangFlags);
     }
 
     @Override
@@ -418,14 +414,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     /** Returns the names of any crosstool features that correspond to this bitcode mode. */
     public ImmutableList<String> getFeatureNames() {
       return featureNames;
-    }
-
-    /**
-     * Returns the flags that should be added to compile and link actions to use this bitcode
-     * setting.
-     */
-    public ImmutableList<String> getCompileAndLinkFlags() {
-      return clangFlags;
     }
 
     /** Converts to {@link AppleBitcodeMode}. */

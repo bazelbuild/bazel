@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -160,7 +160,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public SkylarkSemantics getSkylarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
       return original.getSkylarkSemantics();
     }
 
@@ -221,8 +221,10 @@ public final class AnalysisTestUtil {
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
-        FileSystemUtils.writeContent(stableStatus.getPath(), new byte[] {});
-        FileSystemUtils.writeContent(volatileStatus.getPath(), new byte[] {});
+        FileSystemUtils.writeContent(
+            actionExecutionContext.getInputPath(stableStatus), new byte[] {});
+        FileSystemUtils.writeContent(
+            actionExecutionContext.getInputPath(volatileStatus), new byte[] {});
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, true);
       }
@@ -345,7 +347,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public SkylarkSemantics getSkylarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
       return null;
     }
 

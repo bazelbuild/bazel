@@ -66,6 +66,7 @@ public class AndroidBinaryDataInfo extends NativeInfo
     return dataApk;
   }
 
+  @Override
   public Artifact getResourceProguardConfig() {
     return resourceProguardConfig;
   }

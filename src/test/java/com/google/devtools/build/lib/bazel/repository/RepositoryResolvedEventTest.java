@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.List;
@@ -79,5 +80,21 @@ public class RepositoryResolvedEventTest {
             ImmutableMap.of("foo", "new", "bar", "otherValue"));
     assertThat(result.getFirst()).containsExactly("foo", "new", "bar", "otherValue");
     assertThat(result.getSecond()).isEmpty();
+  }
+
+  @Test
+  public void testRepresentModifications() {
+    assertThat(
+            RepositoryResolvedEvent.representModifications(
+                ImmutableMap.<String, Object>of("a", "b", "c", "d")))
+        .isEqualTo("a = \"b\", c = \"d\"");
+    assertThat(
+            RepositoryResolvedEvent.representModifications(
+                ImmutableMap.<String, Object>of("a", 1, "b", 2)))
+        .isEqualTo("a = 1, b = 2");
+    assertThat(
+            RepositoryResolvedEvent.representModifications(
+                ImmutableMap.<String, Object>of("a", ImmutableList.<Integer>of(1, 2, 3))))
+        .isEqualTo("a = [1, 2, 3]");
   }
 }

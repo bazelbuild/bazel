@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.syntax.Runtime;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,12 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
 
   @Test
   public void testAndroidSplitTransition() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain= */ false,
+            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
     writeAndroidSplitTransitionTestFiles();
 
     useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");

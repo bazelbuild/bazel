@@ -106,15 +106,18 @@ distdir_tar(
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "java_tools_pkg-0.5.1.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
+        "java_tools_pkg-0.5.1.tar.gz": "bcfc1a3dd0d638a49fed50f17f0f1f7d77101debf19ae2c82119c82459a9a8d1",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": ["https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip"],
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz"],
+        "java_tools_pkg-0.5.1.tar.gz": ["https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.5.1.tar.gz"],
     },
 )
 
@@ -142,7 +145,7 @@ http_file(
     downloaded_file_path = "zulu-linux-minimal.tar.gz",
     sha256 = "241cab34b1dc91afe39cad4173331e45bfaf3267dfb3db306a50fa68a988ed3f",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-linux_x64-minimal-90755145cb6e6418584d8603cd5fa9afbb30aecc-1549209948.tar.gz"
+        "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-linux_x64-minimal-90755145cb6e6418584d8603cd5fa9afbb30aecc-1549209948.tar.gz",
     ],
 )
 
@@ -226,13 +229,19 @@ http_file(
 
 http_archive(
     name = "bazel_toolchains",
-    sha256 = "109a99384f9d08f9e75136d218ebaebc68cc810c56897aea2224c57932052d30",
-    strip_prefix = "bazel-toolchains-94d31935a2c94fe7e7c7379a0f3393e181928ff7",
+    sha256 = "4b1468b254a572dbe134cc1fd7c6eab1618a72acd339749ea343bd8f55c3b7eb",
+    strip_prefix = "bazel-toolchains-d665ccfa3e9c90fa789671bf4ef5f7c19c5715c4",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/94d31935a2c94fe7e7c7379a0f3393e181928ff7.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/94d31935a2c94fe7e7c7379a0f3393e181928ff7.tar.gz",
+      "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/d665ccfa3e9c90fa789671bf4ef5f7c19c5715c4.tar.gz",
+      "https://github.com/bazelbuild/bazel-toolchains/archive/d665ccfa3e9c90fa789671bf4ef5f7c19c5715c4.tar.gz",
     ],
 )
+
+# Creates toolchain configuration for remote execution with BuildKite CI
+# for rbe_ubuntu1604.
+# To run the tests with RBE on BuildKite CI uncomment the two lines below
+# load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
+# rbe_autoconfig(name = "buildkite_config")
 
 # We're pinning to a commit because this project does not have a recent release.
 # Nothing special about this commit, though.
@@ -257,10 +266,10 @@ http_archive(
 
 http_archive(
     name = "skydoc",
-    sha256 = "4db9fc4f5f69c220816c6d0b16e9956e7da2be8c85e83793661c0f4723e88d81",
-    strip_prefix = "skydoc-7a08959b9d00c9ba592c1a1db145dffcf6c0b6bf",
+    sha256 = "4a1318fed4831697b83ce879b3ab70ae09592b167e5bda8edaff45132d1c3b3f",
+    strip_prefix = "skydoc-2d9566b21fbe405acf5f7bf77eda30df72a4744c",
     urls = [
-        "https://github.com/bazelbuild/skydoc/archive/7a08959b9d00c9ba592c1a1db145dffcf6c0b6bf.tar.gz",
+        "https://github.com/bazelbuild/skydoc/archive/2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
     ],
 )
 
@@ -278,7 +287,7 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz",
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip",
         "jdk10-server-release-1804.tar.xz",
-        "java_tools_pkg-0.1.tar.gz",
+        "java_tools_pkg-0.5.1.tar.gz",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz",
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz",
         "zulu11.2.3-jdk11.0.1-win_x64.zip",
@@ -296,7 +305,7 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": "e669c9a897413d855b550b4e39d79614392e6fb96f494e8ef99a34297d9d85d3",
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip": "c39e7700a8d41794d60985df5a20352435196e78ecbc6a2b30df7be8637bffd5",
         "jdk10-server-release-1804.tar.xz": "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
-        "java_tools_pkg-0.1.tar.gz": "df33ddb3054f0ee70389368bd1dc2efe72eeb1f489dbcdf948f3f3b3058646b7",
+        "java_tools_pkg-0.5.1.tar.gz": "bcfc1a3dd0d638a49fed50f17f0f1f7d77101debf19ae2c82119c82459a9a8d1",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": "232b1c3511f0d26e92582b7c3cc363be7ac633e371854ca2f2e9f2b50eb72a75",
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": "1edf366ee821e5db8e348152fcb337b28dfd6bf0f97943c270dcc6747cedb6cb",
         "zulu11.2.3-jdk11.0.1-win_x64.zip": "8e1e2b8347de6746f3fd1538840dd643201533ab113abc4ed93678e342d28aa3",
@@ -313,7 +322,7 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz"],
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip"],
         "jdk10-server-release-1804.tar.xz": ["https://mirror.bazel.build/openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz"],
-        "java_tools_pkg-0.1.tar.gz": ["https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.1.tar.gz"],
+        "java_tools_pkg-0.5.1.tar.gz": ["https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.5.1.tar.gz"],
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-linux_x64.tar.gz"],
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz"],
         "zulu11.2.3-jdk11.0.1-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-win_x64.zip"],

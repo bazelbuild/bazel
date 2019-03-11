@@ -459,7 +459,9 @@ cc_binary(
   contain function definitions, <code>for</code> statements or
   <code>if</code> statements (but list comprehensions and <code>if</code>
   expressions are allowed). Functions should be declared in <code>.bzl</code>
-  files instead.
+  files instead. Additionally, <code>*args</code> and <code>**kwargs</code>
+  arguments are not allowed in BUILD files; instead list all the arguments
+  explicitly.
 </p>
 
 <p>

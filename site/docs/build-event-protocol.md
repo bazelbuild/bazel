@@ -185,16 +185,18 @@ transmits Build Event Protocol events. One can specify the endpoint to send the
 events to using the `--bes_backend=HOST:PORT flag`. Bazel’s implementation also
 supports TLS which can be enabled by specifying the `--tls_enabled flag`.
 
-There is currently no open source server-side Build Event Service implementation
-that we know of.
+There is currently an experimental open source implementation of the [Build Event
+Service](https://github.com/buildbarn/bb-event-service/) in Go as part of the
+Buildbarn suite of Remote Execution tools and services.
 
 ### Build Event Service Flags
 
-Bazel has several flags related to the [Build Event Service] protocol:
+Bazel has several flags related to the [Build Event Service] protocol, including:
 
 *  `--bes_backend`
 *  `--[no]bes_best_effort`
 *  `--[no]bes_lifecycle_events`
+*  `--bes_results_url`
 *  `--bes_timeout`
 *  `--project_id`
 

@@ -123,7 +123,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -143,7 +143,7 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -157,7 +157,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -202,7 +201,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
-  private SkylarkSemanticsOptions skylarkSemanticsOptions;
+  private StarlarkSemanticsOptions starlarkSemanticsOptions;
   protected PackageFactory pkgFactory;
 
   protected MockToolsConfig mockToolsConfig;
@@ -243,7 +242,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     initializeMockClient();
 
     packageCacheOptions = parsePackageCacheOptions();
-    skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
+    starlarkSemanticsOptions = parseSkylarkSemanticsOptions();
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
@@ -297,8 +296,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
-        skylarkSemanticsOptions,
-        "",
+        starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -334,8 +332,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.<EnvironmentExtension>of();
   }
 
-  protected SkylarkSemantics getSkylarkSemantics() {
-    return skylarkSemanticsOptions.toSkylarkSemantics();
+  protected StarlarkSemantics getSkylarkSemantics() {
+    return starlarkSemanticsOptions.toSkylarkSemantics();
   }
 
   protected ResourceSet getStartingResources() {
@@ -355,16 +353,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     allArgs.add("--stamp");  // Stamp is now defaulted to false.
     allArgs.add("--experimental_extended_sanity_checks");
     allArgs.add("--features=cc_include_scanning");
+    // Always default to k8, even on mac and windows. Tests that need different cpu should set it
+    // using {@link useConfiguration()} explicitly.
+    allArgs.add("--cpu=k8");
+    allArgs.add("--host_cpu=k8");
 
     optionsParser.parse(allArgs);
     optionsParser.parse(args);
 
     // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
     optionsParser.setStarlarkOptions(skylarkOptions);
-
-    InvocationPolicyEnforcer optionsPolicyEnforcer =
-        getAnalysisMock().getInvocationPolicyEnforcer();
-    optionsPolicyEnforcer.enforce(optionsParser);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     return skyframeExecutor.createConfigurations(
@@ -415,8 +413,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
-        skylarkSemanticsOptions,
-        ruleClassProvider.getDefaultsPackageContent(optionsParser),
+        starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -441,7 +438,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected void setSkylarkSemanticsOptions(String... options) throws Exception {
-    skylarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+    starlarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
     setUpSkyframe();
   }
 
@@ -452,11 +449,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageCacheOptions.class);
   }
 
-  private static SkylarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+  private static StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
       throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
     parser.parse(options);
-    return parser.getOptions(SkylarkSemanticsOptions.class);
+    return parser.getOptions(StarlarkSemanticsOptions.class);
   }
 
   /** Used by skyframe-only tests. */
@@ -516,14 +513,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void useConfiguration(ImmutableMap<String, Object> skylarkOptions, String... args)
       throws Exception {
-    String[] actualArgs;
-    actualArgs = Arrays.copyOf(args, args.length + 1);
-    actualArgs[args.length] =
-        "--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString());
-    masterConfig = createConfigurations(skylarkOptions, actualArgs);
+    ImmutableList<String> actualArgs =
+        ImmutableList.<String>builder()
+            .addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS)
+            .add(args)
+            .add("--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString()))
+            .build();
+
+    masterConfig = createConfigurations(skylarkOptions, actualArgs.toArray(new String[0]));
     targetConfig = getTargetConfiguration();
     targetConfigKey = BuildConfigurationValue.key(targetConfig);
-    configurationArgs = Arrays.asList(actualArgs);
+    configurationArgs = actualArgs;
     createBuildView();
   }
 
@@ -552,8 +552,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         + "and does not match target configuration %s",
         getHostConfiguration(), getTargetConfiguration());
 
-    String defaultsPackageContent = ruleClassProvider.getDefaultsPackageContent(optionsParser);
-    skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
     skyframeExecutor.handleAnalysisInvalidatingChange();
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
@@ -1983,7 +1981,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public SkylarkSemantics getSkylarkSemantics() {
+    public StarlarkSemantics getSkylarkSemantics() {
       throw new UnsupportedOperationException();
     }
 

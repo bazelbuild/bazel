@@ -288,8 +288,6 @@ function assert_gcov_coverage_srcs_a_cc() {
 function:4,1,_Z1ab
 lcount:4,1
 lcount:5,1
-branch:5,taken
-branch:5,nottaken
 lcount:6,1
 lcount:8,0"
     assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
@@ -320,8 +318,6 @@ function assert_gcov_coverage_srcs_b_h() {
 function:1,1,_Z1bi
 lcount:1,1
 lcount:2,1
-branch:2,taken
-branch:2,nottaken
 lcount:3,1
 lcount:5,0"
     assert_coverage_entry_in_file "$expected_gcov_result" "$output_file"
@@ -382,9 +378,9 @@ function test_cc_test_coverage_gcov() {
     # This assertion is needed to make sure no other source files are included
     # in the output file.
     local nr_lines="$(wc -l < "$output_file")"
-    [[ "$nr_lines" == 21 ]] || \
+    [[ "$nr_lines" == 17 ]] || \
       fail "Number of lines in C++ gcov coverage output file is "\
-      "$nr_lines and different than 21"
+      "$nr_lines and different than 17"
 }
 
 run_suite "Testing tools/test/collect_cc_coverage.sh"

@@ -102,8 +102,17 @@ public class BuildEventServiceOptions extends OptionsBase {
       help =
           "Specifies the maximal size of stdout or stderr to be buffered in BEP, before it is "
               + "reported as a progress event. Individual writes are still reported in a single "
-              + "event, even if larger than the specified value.")
+              + "event, even if larger than the specified value up to --bes_outerr_chunk_size.")
   public int besOuterrBufferSize;
+
+  @Option(
+      name = "bes_outerr_chunk_size",
+      defaultValue = "1048576", // 2^20 = 1MB
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Specifies the maximal size of stdout or stderr to be sent to BEP in a single message.")
+  public int besOuterrChunkSize;
 
   @Option(
       name = "bes_results_url",

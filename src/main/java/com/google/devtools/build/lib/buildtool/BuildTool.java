@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildtool.PostAnalysisQueryBuildTool.PostAnalysisQueryCommandLineException;
@@ -113,7 +112,7 @@ public class BuildTool {
     }
     // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
     try (SilentCloseable c = Profiler.instance().profile("setupPackageCache")) {
-      env.setupPackageCache(request, DefaultsPackage.getDefaultsPackageContent(buildOptions));
+      env.setupPackageCache(request);
     }
 
     ExecutionTool executionTool = null;
@@ -368,7 +367,7 @@ public class BuildTool {
     result.setExitCondition(exitCondition);
     InterruptedException ie = null;
     try {
-      env.getSkyframeExecutor().notifyCommandComplete();
+      env.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("Build interrupted during command completion"));
       ie = e;

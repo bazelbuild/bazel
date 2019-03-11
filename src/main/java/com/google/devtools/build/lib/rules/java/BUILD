@@ -13,7 +13,6 @@ java_library(
         "JavaBinary.java",
         "JavaCcLinkParamsProvider.java",
         "JavaConfigurationLoader.java",
-        "JavaHostRuntimeAliasRule.java",
         "JavaImport.java",
         "JavaImportBaseRule.java",
         "JavaInfo.java",
@@ -48,6 +47,7 @@ java_library(
     ],
     deps = [
         ":java-compilation",
+        ":java-implicit-attributes",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",

@@ -93,6 +93,14 @@ public abstract class BugReport {
   }
 
   /**
+   * Convenience method for {@linkplain #sendBugReport(Throwable, List, String...) sending a bug
+   * report} without additional arguments.
+   */
+  public static void sendBugReport(Throwable exception) {
+    sendBugReport(exception, /*args=*/ ImmutableList.of());
+  }
+
+  /**
    * Logs the unhandled exception with a special prefix signifying that this was a crash.
    *
    * @param exception the unhandled exception to display.

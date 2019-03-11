@@ -270,6 +270,8 @@ if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
   trap 'echo "-- Test timed out at $(date +"%F %T %Z") --"' SIGTERM
 else
   for signal in $signals; do
+    # SIGCHLD is expected when a subprocess dies
+    [ "${signal}" = "SIGCHLD" ] && continue
     trap "write_xml_output_file ${signal}" ${signal}
   done
 fi

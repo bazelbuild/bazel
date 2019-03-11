@@ -151,7 +151,7 @@ def main():
       output_xml.write(new_manifest)
 
     with open(FLAGS.output_datafile, "wb") as output_file:
-      output_file.write("\n".join([old_application, app_package]))
+      output_file.write("\n".join([old_application, app_package]).encode())
 
   elif FLAGS.mode == "instant_run":
     with open(FLAGS.input_manifest, "rb") as input_manifest:

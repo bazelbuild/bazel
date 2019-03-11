@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -122,6 +123,12 @@ public class AarImportTest extends BuildViewTestCase {
         "    jars = ['baz.jar'],",
         "    constraints = ['android'],",
         ")");
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain=*/ false,
+            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
   }
 
   @Test

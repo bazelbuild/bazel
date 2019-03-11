@@ -199,13 +199,49 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     assertThat(PyProviderUtils.getUsesSharedLibraries(getTarget())).isTrue();
   }
 
-  // TODO(#7054): Add tests for getImports once we actually read the Python provider instead of the
-  // specialized PythonImportsProvider.
+  private static final String IMPORTS_SETUP_CODE =
+      join(
+          "modern_info = PyInfo(transitive_sources = depset([]), imports = depset(direct=['abc']))",
+          "legacy_info = struct(",
+          "    transitive_sources = depset([]),",
+          "    imports = depset(direct=['def']))");
+
+  @Test
+  public void getImports_ModernProvider() throws Exception {
+    declareTargetWithImplementation( //
+        IMPORTS_SETUP_CODE, //
+        "return [modern_info]");
+    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("abc");
+  }
+
+  @Test
+  public void getImports_LegacyProvider() throws Exception {
+    declareTargetWithImplementation( //
+        IMPORTS_SETUP_CODE, //
+        "return struct(py=legacy_info)");
+    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("def");
+  }
+
+  @Test
+  public void getImports_BothProviders() throws Exception {
+    declareTargetWithImplementation( //
+        IMPORTS_SETUP_CODE, //
+        "return struct(py=legacy_info, providers=[modern_info])");
+    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("abc");
+  }
+
+  @Test
+  public void getImports_NoProvider() throws Exception {
+    declareTargetWithImplementation( //
+        IMPORTS_SETUP_CODE, //
+        "return []");
+    assertThat(PyProviderUtils.getImports(getTarget())).isEmpty();
+  }
 
   private static final String HAS_PY2_ONLY_SOURCES_SETUP_CODE =
       join(
-          "modern_info = PyInfo(transitive_sources = depset([]), has_py2_only_sources=False)",
-          "legacy_info = struct(transitive_sources = depset([]), has_py2_only_sources=True)");
+          "modern_info = PyInfo(transitive_sources = depset([]), has_py2_only_sources = False)",
+          "legacy_info = struct(transitive_sources = depset([]), has_py2_only_sources = True)");
 
   @Test
   public void getHasPy2OnlySources_ModernProvider() throws Exception {
@@ -240,8 +276,8 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
 
   private static final String HAS_PY3_ONLY_SOURCES_SETUP_CODE =
       join(
-          "modern_info = PyInfo(transitive_sources = depset([]), has_py3_only_sources=False)",
-          "legacy_info = struct(transitive_sources = depset([]), has_py3_only_sources=True)");
+          "modern_info = PyInfo(transitive_sources = depset([]), has_py3_only_sources = False)",
+          "legacy_info = struct(transitive_sources = depset([]), has_py3_only_sources = True)");
 
   @Test
   public void getHasPy3OnlySources_ModernProvider() throws Exception {

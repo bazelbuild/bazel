@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import static com.google.devtools.build.lib.analysis.platform.PlatformInfo.DuplicateConstraintException.formatError;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -46,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -164,9 +163,10 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     // constraint_values that map to the same constraint_setting. This method checks if there are
     // duplicates and records an error if so.
     try {
-      PlatformInfo.Builder.validateConstraints(constraintValues);
-    } catch (PlatformInfo.DuplicateConstraintException e) {
-        errors.ruleError(formatError(e.duplicateConstraints()));
+      ConstraintCollection.validateConstraints(constraintValues);
+    } catch (ConstraintCollection.DuplicateConstraintException e) {
+      errors.ruleError(
+          ConstraintCollection.DuplicateConstraintException.formatError(e.duplicateConstraints()));
         return false;
     }
 

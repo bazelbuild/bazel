@@ -119,7 +119,6 @@ py_binary(
 # The tools Bazel uses to compile Java.
 # TODO(#6316): Gradually remove the targets here.
 JAVA_TOOLS = [
-    "//third_party/java/jdk/langtools:test-srcs",
     "//third_party/java/proguard:embedded_tools",
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/tools/singlejar:embedded_tools",
@@ -143,7 +142,7 @@ JAVA_TOOLS = [
                "BUILD.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
-               "//third_party/java/java_tools:java_tools",
+               "//third_party/java/java_tools:bazel_embedded_java_tools",
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/concurrent:srcs",
                "//third_party/py/gflags:srcs",
@@ -358,7 +357,12 @@ filegroup(
         "//src/main/tools:jdk-support",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
-    ],
+    ] + select({
+        "//src/conditions:windows": [],
+        "//conditions:default": [
+            "//src/main/tools:daemonize",
+        ],
+    }),
     outs = ["package" + suffix + ".zip"],
     cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",
     tools = ["package-bazel.sh"],
@@ -453,7 +457,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skydoc:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
-        "//src/main/java/com/google/devtools/skylark:srcs",
+        "//src/main/java/com/google/devtools/starlark:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/tools:srcs",
@@ -462,7 +466,7 @@ filegroup(
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
         "//src/test/native:srcs",
-        "//src/test/skylark:srcs",
+        "//src/test/starlark:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",

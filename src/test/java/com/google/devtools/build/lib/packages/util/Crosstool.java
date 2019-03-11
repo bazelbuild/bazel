@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
@@ -34,26 +35,57 @@ final class Crosstool {
   private static final ImmutableList<String> CROSSTOOL_BINARIES =
       ImmutableList.of("ar", "as", "compile", "dwp", "link", "objcopy", "llvm-profdata");
 
+  /**
+   * A class that contains relevant fields from either the CROSSTOOL file or the Starlark rule
+   * implementation that are needed in order to generate the BUILD file.
+   */
+  static final class ToolchainConfig {
+    private final String toolchainIdentifier;
+    private final String cpu;
+    private final String compiler;
+    private final boolean hasStaticLinkCppRuntimesFeature;
+
+    ToolchainConfig(
+        String toolchainIdentifier,
+        String cpu,
+        String compiler,
+        boolean hasStaticLinkCppRuntimesFeature) {
+      this.toolchainIdentifier = toolchainIdentifier;
+      this.cpu = cpu;
+      this.compiler = compiler;
+      this.hasStaticLinkCppRuntimesFeature = hasStaticLinkCppRuntimesFeature;
+    }
+
+    public String getToolchainIdentifier() {
+      return toolchainIdentifier;
+    }
+
+    public String getTargetCpu() {
+      return cpu;
+    }
+
+    public String getCompiler() {
+      return compiler;
+    }
+
+    public boolean hasStaticLinkCppRuntimesFeature() {
+      return hasStaticLinkCppRuntimesFeature;
+    }
+  }
+
   private final MockToolsConfig config;
 
   private final String crosstoolTop;
   private String version;
   private String crosstoolFileContents;
-  private boolean addEmbeddedRuntimes;
-  private String staticRuntimeLabelOrNull;
-  private String dynamicRuntimeLabelOrNull;
   private ImmutableList<String> archs;
-  private boolean addModuleMap;
   private boolean supportsHeaderParsing;
+  private String ccToolchainConfigFileContents;
+  private ImmutableList<ToolchainConfig> toolchainConfigList;
 
   Crosstool(MockToolsConfig config, String crosstoolTop) {
     this.config = config;
     this.crosstoolTop = crosstoolTop;
-  }
-
-  public Crosstool setAddModuleMap(boolean addModuleMap) {
-    this.addModuleMap = addModuleMap;
-    return this;
   }
 
   public Crosstool setCrosstoolFile(String version, String crosstoolFileContents) {
@@ -72,15 +104,17 @@ final class Crosstool {
     return this;
   }
 
-  public Crosstool setEmbeddedRuntimes(
-      boolean addEmbeddedRuntimes, String staticRuntimesLabel, String dynamicRuntimesLabel) {
-    this.addEmbeddedRuntimes = addEmbeddedRuntimes;
-    this.staticRuntimeLabelOrNull = staticRuntimesLabel;
-    this.dynamicRuntimeLabelOrNull = dynamicRuntimesLabel;
+  public Crosstool setCcToolchainConfigFile(String ccToolchainConfigFile) {
+    this.ccToolchainConfigFileContents = ccToolchainConfigFile;
     return this;
   }
 
-  public void write() throws IOException {
+  public Crosstool setToolchainConfigs(ImmutableList<ToolchainConfig> toolchainConfigs) {
+    this.toolchainConfigList = toolchainConfigs;
+    return this;
+  }
+
+  public void write(boolean disableCrosstool) throws IOException {
     Set<String> runtimes = new HashSet<>();
     StringBuilder compilationTools = new StringBuilder();
     for (String compilationTool : CROSSTOOL_BINARIES) {
@@ -99,24 +133,38 @@ final class Crosstool {
             String.format("filegroup(name = '%s', srcs = [':everything-multilib'])\n", archTarget));
       }
     }
-
-    CrosstoolConfig.CrosstoolRelease.Builder configBuilder =
-        CrosstoolConfig.CrosstoolRelease.newBuilder();
-    TextFormat.merge(crosstoolFileContents, configBuilder);
-
-    List<CToolchain> toolchainList = configBuilder.build().getToolchainList();
+    ImmutableList<ToolchainConfig> toolchainConfigs;
+    if (disableCrosstool) {
+      toolchainConfigs = toolchainConfigList;
+    } else {
+      CrosstoolConfig.CrosstoolRelease.Builder configBuilder =
+          CrosstoolConfig.CrosstoolRelease.newBuilder();
+      TextFormat.merge(crosstoolFileContents, configBuilder);
+      List<CToolchain> toolchainList = configBuilder.build().getToolchainList();
+      ImmutableList.Builder<ToolchainConfig> toolchainConfigInfoBuilder = ImmutableList.builder();
+      for (CToolchain toolchain : toolchainList) {
+        toolchainConfigInfoBuilder.add(
+            new ToolchainConfig(
+                toolchain.getToolchainIdentifier(),
+                toolchain.getTargetCpu(),
+                toolchain.getCompiler(),
+                toolchain.getFeatureList().stream()
+                    .anyMatch(f -> f.getName().equals(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES))));
+      }
+      toolchainConfigs = toolchainConfigInfoBuilder.build();
+    }
     Set<String> seenCpus = new LinkedHashSet<>();
     StringBuilder compilerMap = new StringBuilder();
-    for (CToolchain toolchain : toolchainList) {
+    for (ToolchainConfig toolchain : toolchainConfigs) {
       String staticRuntimeLabel =
-          staticRuntimeLabelOrNull != null
-              ? staticRuntimeLabelOrNull
-              : toolchain.getStaticRuntimesFilegroup();
+          toolchain.hasStaticLinkCppRuntimesFeature()
+              ? "mock-static-runtimes-target-for-" + toolchain.getToolchainIdentifier()
+              : null;
       String dynamicRuntimeLabel =
-          dynamicRuntimeLabelOrNull != null
-              ? dynamicRuntimeLabelOrNull
-              : toolchain.getDynamicRuntimesFilegroup();
-      if (!staticRuntimeLabel.isEmpty()) {
+          toolchain.hasStaticLinkCppRuntimesFeature()
+              ? "mock-dynamic-runtimes-target-for-" + toolchain.getToolchainIdentifier()
+              : null;
+      if (staticRuntimeLabel != null) {
         runtimes.add(
             Joiner.on('\n')
                 .join(
@@ -126,7 +174,7 @@ final class Crosstool {
                     "  srcs = ['libstatic-runtime-lib-source.a'])",
                     ""));
       }
-      if (!dynamicRuntimeLabel.isEmpty()) {
+      if (dynamicRuntimeLabel != null) {
         runtimes.add(
             Joiner.on('\n')
                 .join(
@@ -162,11 +210,21 @@ final class Crosstool {
                   "  toolchain_type = ':toolchain_type',",
                   "  toolchain = ':cc-compiler-" + suffix + "',",
                   ")",
+                  disableCrosstool
+                      ? Joiner.on("\n")
+                          .join(
+                              "cc_toolchain_config(",
+                              "  name = '" + suffix + "_config',",
+                              "  cpu = '" + toolchain.getTargetCpu() + "',",
+                              "  compiler = '" + toolchain.getCompiler() + "',",
+                              "  )")
+                      : "",
                   "cc_toolchain(",
                   "  name = 'cc-compiler-" + suffix + "',",
                   "  toolchain_identifier = '" + toolchain.getToolchainIdentifier() + "',",
+                  disableCrosstool ? "  toolchain_config = ':" + suffix + "_config'," : "",
                   "  output_licenses = ['unencumbered'],",
-                  addModuleMap ? "    module_map = 'crosstool.cppmap'," : "",
+                  "  module_map = 'crosstool.cppmap',",
                   "  cpu = '" + toolchain.getTargetCpu() + "',",
                   "  compiler = '" + toolchain.getCompiler() + "',",
                   "  ar_files = 'ar-" + toolchain.getTargetCpu() + "',",
@@ -179,10 +237,10 @@ final class Crosstool {
                   "  all_files = ':every-file',",
                   "  licenses = ['unencumbered'],",
                   supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
-                  dynamicRuntimeLabel.isEmpty()
+                  dynamicRuntimeLabel == null
                       ? ""
                       : "    dynamic_runtime_lib = '" + dynamicRuntimeLabel + "',",
-                  staticRuntimeLabel.isEmpty()
+                  staticRuntimeLabel == null
                       ? ""
                       : "    static_runtime_lib = '" + staticRuntimeLabel + "',",
                   ")",
@@ -195,6 +253,7 @@ final class Crosstool {
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
+                disableCrosstool ? "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')" : "",
                 "toolchain_type(name = 'toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "alias(name = 'toolchain', actual = 'everything')",
@@ -207,10 +266,8 @@ final class Crosstool {
                     "cc_toolchain_suite(name = 'everything', toolchains = {%s})", compilerMap),
                 "",
                 String.format(
-                    "filegroup(name = 'every-file', srcs = ['%s'%s%s])",
-                    Joiner.on("', '").join(CROSSTOOL_BINARIES),
-                    addEmbeddedRuntimes ? ", ':dynamic-runtime-libs-k8'" : "",
-                    addEmbeddedRuntimes ? ", ':static-runtime-libs-k8'" : ""),
+                    "filegroup(name = 'every-file', srcs = ['%s'])",
+                    Joiner.on("', '").join(CROSSTOOL_BINARIES)),
                 "",
                 compilationTools.toString(),
                 Joiner.on("\n").join(runtimes),
@@ -224,9 +281,12 @@ final class Crosstool {
 
     config.create(crosstoolTop + "/" + version + "/x86/bin/gcc");
     config.create(crosstoolTop + "/" + version + "/x86/bin/ld");
-    config.getPath(crosstoolTop + "/CROSSTOOL");
     config.overwrite(crosstoolTop + "/BUILD", build);
-    config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
+    if (disableCrosstool) {
+      config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
+    } else {
+      config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
+    }
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
   }
 }

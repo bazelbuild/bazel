@@ -416,7 +416,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    output = output_jar,",
         "    deps = deps,",
         "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],",
+        "    javac_opts = ['-XDone -XDtwo'],",
         "  )",
         "  return struct(",
         "    files = depset([output_jar] + compilation_provider.source_jars),",
@@ -446,6 +447,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(compilationInfo.getRuntimeClasspath().toList()))
         .containsExactly("java/test/libdep.jar", "java/test/libcustom.jar");
+
+    assertThat(compilationInfo.getJavacOpts()).contains("-XDone");
   }
 
   @Test
@@ -630,7 +633,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   @Test
   public void testJavaCommonCompileWithOnlyOneSourceJarWithIncompatibleFlag() throws Exception {
     writeBuildFileForJavaToolchain();
-    setSkylarkSemanticsOptions("--incompatible_generate_javacommon_source_jar=true");
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -683,7 +685,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   @Test
   public void testJavaCommonCompileCustomSourceJar() throws Exception {
     writeBuildFileForJavaToolchain();
-    setSkylarkSemanticsOptions("--incompatible_generate_javacommon_source_jar=true");
     scratch.file(
         "java/test/BUILD",
         "load(':custom_rule.bzl', 'java_custom_library')",
@@ -804,8 +805,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    output = output_jar,",
         "    exported_plugins = [p[JavaInfo] for p in ctx.attr.exported_plugins],",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return [DefaultInfo(files=depset([output_jar])), compilation_provider]",
         "java_custom_library = rule(",
@@ -1896,7 +1897,10 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
             configuredTarget.get(
                 new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     Label javaToolchainLabel = ((Label) info.getValue("java_toolchain_label"));
-    assertThat(javaToolchainLabel.toString()).endsWith("jdk:toolchain");
+    assertThat(
+            javaToolchainLabel.toString().endsWith("jdk:remote_toolchain")
+                || javaToolchainLabel.toString().endsWith("jdk:toolchain"))
+        .isTrue();
   }
 
   @Test
@@ -2326,7 +2330,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  return struct(",
         "    javac_opts = java_common.default_javac_opts(",
-        "        ctx, java_toolchain_attr = '_java_toolchain')",
+        "        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo])",
         "    )",
         "get_javac_opts = rule(",
         "  _impl,",

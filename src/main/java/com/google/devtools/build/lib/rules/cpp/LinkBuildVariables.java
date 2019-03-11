@@ -184,7 +184,8 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(
           THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
           Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
-              + ";" + objectFileExtension);
+              + ";"
+              + objectFileExtension);
       if (thinltoMergedObjectFile != null) {
         buildVariables.addStringVariable(
             THINLTO_MERGED_OBJECT_FILE.getVariableName(), thinltoMergedObjectFile);
@@ -311,10 +312,6 @@ public enum LinkBuildVariables {
     // Extra test-specific link options.
     if (useTestOnlyFlags) {
       result.addAll(ccToolchainProvider.getTestOnlyLinkOptions());
-    }
-
-    if (!cppConfiguration.enableLinkoptsInUserLinkFlags()) {
-      result.addAll(cppConfiguration.getLinkopts());
     }
 
     // -pie is not compatible with shared and should be

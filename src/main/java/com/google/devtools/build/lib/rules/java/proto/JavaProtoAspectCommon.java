@@ -21,10 +21,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
-import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -52,27 +50,15 @@ public class JavaProtoAspectCommon {
   private final String protoToolchainAttr;
   private final String jarSuffix;
   private final RpcSupport rpcSupport;
-  private final Label toolchainType;
-  private final Label runtimeToolchainType;
 
   /**
    * Returns a {@link JavaProtoAspectCommon} instance that handles logic for {@code
    * java_proto_library}.
    */
   static JavaProtoAspectCommon getSpeedInstance(
-      RuleContext ruleContext,
-      JavaSemantics javaSemantics,
-      RpcSupport rpcSupport,
-      Label toolchainType,
-      Label runtimeToolchainType) {
+      RuleContext ruleContext, JavaSemantics javaSemantics, RpcSupport rpcSupport) {
     return new JavaProtoAspectCommon(
-        ruleContext,
-        javaSemantics,
-        rpcSupport,
-        SPEED_PROTO_TOOLCHAIN_ATTR,
-        SPEED_JAR_SUFFIX,
-        toolchainType,
-        runtimeToolchainType);
+        ruleContext, javaSemantics, rpcSupport, SPEED_PROTO_TOOLCHAIN_ATTR, SPEED_JAR_SUFFIX);
   }
 
   /**
@@ -80,18 +66,9 @@ public class JavaProtoAspectCommon {
    * java_lite_proto_library}.
    */
   static JavaProtoAspectCommon getLiteInstance(
-      RuleContext ruleContext,
-      JavaSemantics javaSemantics,
-      Label toolchainType,
-      Label runtimeToolchainType) {
+      RuleContext ruleContext, JavaSemantics javaSemantics) {
     return new JavaProtoAspectCommon(
-        ruleContext,
-        javaSemantics,
-        null,
-        LITE_PROTO_TOOLCHAIN_ATTR,
-        LITE_JAR_SUFFIX,
-        toolchainType,
-        runtimeToolchainType);
+        ruleContext, javaSemantics, null, LITE_PROTO_TOOLCHAIN_ATTR, LITE_JAR_SUFFIX);
   }
 
   /**
@@ -102,17 +79,9 @@ public class JavaProtoAspectCommon {
       RuleContext ruleContext,
       JavaSemantics javaSemantics,
       RpcSupport rpcSupport,
-      String protoToolchainAttr,
-      Label toolchainType,
-      Label runtimeToolchainType) {
+      String protoToolchainAttr) {
     return new JavaProtoAspectCommon(
-        ruleContext,
-        javaSemantics,
-        rpcSupport,
-        protoToolchainAttr,
-        MUTABLE_JAR_SUFFIX,
-        toolchainType,
-        runtimeToolchainType);
+        ruleContext, javaSemantics, rpcSupport, protoToolchainAttr, MUTABLE_JAR_SUFFIX);
   }
 
   private JavaProtoAspectCommon(
@@ -120,16 +89,12 @@ public class JavaProtoAspectCommon {
       JavaSemantics javaSemantics,
       RpcSupport rpcSupport,
       String protoToolchainAttr,
-      String jarSuffix,
-      Label toolchainType,
-      Label runtimeToolchainType) {
+      String jarSuffix) {
     this.ruleContext = ruleContext;
     this.javaSemantics = javaSemantics;
     this.protoToolchainAttr = protoToolchainAttr;
     this.jarSuffix = jarSuffix;
     this.rpcSupport = rpcSupport;
-    this.toolchainType = toolchainType;
-    this.runtimeToolchainType = runtimeToolchainType;
   }
 
   /**
@@ -149,7 +114,7 @@ public class JavaProtoAspectCommon {
             .setInjectingRuleKind(injectingRuleKind)
             .setOutput(outputJar)
             .addSourceJars(sourceJar)
-            .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext, toolchainType))
+            .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext))
             .addDep(dep)
             .setCompilationStrictDepsMode(StrictDepsMode.ERROR);
     for (TransitiveInfoCollection t : getProtoRuntimeDeps()) {
@@ -163,9 +128,8 @@ public class JavaProtoAspectCommon {
     JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
-            JavaToolchainProvider.from(ruleContext, toolchainType),
-            JavaRuntimeInfo.forHost(ruleContext, runtimeToolchainType),
-            JavaCompilationHelper.getInstrumentationJars(ruleContext),
+            JavaToolchainProvider.from(ruleContext),
+            JavaRuntimeInfo.forHost(ruleContext),
             JavaRuleOutputJarsProvider.builder(),
             /*createOutputSourceJar*/ false,
             /*outputSourceJar=*/ null);

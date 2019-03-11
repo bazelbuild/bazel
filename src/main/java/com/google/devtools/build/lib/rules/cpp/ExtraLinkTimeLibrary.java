@@ -33,16 +33,16 @@ public interface ExtraLinkTimeLibrary {
 
   /** Output of {@link #buildLibraries}. Pair of libraries to link and runtime libraries. */
   class BuildLibraryOutput {
-    public NestedSet<LibraryToLinkWrapper> librariesToLink;
+    public NestedSet<LibraryToLink> librariesToLink;
     public NestedSet<Artifact> runtimeLibraries;
 
     public BuildLibraryOutput(
-        NestedSet<LibraryToLinkWrapper> librariesToLink, NestedSet<Artifact> runtimeLibraries) {
+        NestedSet<LibraryToLink> librariesToLink, NestedSet<Artifact> runtimeLibraries) {
       this.librariesToLink = librariesToLink;
       this.runtimeLibraries = runtimeLibraries;
     }
 
-    public NestedSet<LibraryToLinkWrapper> getLibrariesToLink() {
+    public NestedSet<LibraryToLink> getLibrariesToLink() {
       return librariesToLink;
     }
 

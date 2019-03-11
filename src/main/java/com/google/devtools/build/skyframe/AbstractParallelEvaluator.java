@@ -20,6 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.graph.ImmutableGraph;
+import com.google.common.graph.Traverser;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Event;
@@ -42,8 +45,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctio
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import java.math.BigInteger;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -198,9 +203,6 @@ public abstract class AbstractParallelEvaluator {
     }
 
     private DirtyOutcome maybeHandleDirtyNode(NodeEntry state) throws InterruptedException {
-      if (!state.isDirty()) {
-        return DirtyOutcome.NEEDS_EVALUATION;
-      }
       while (state.getDirtyState().equals(DirtyState.CHECK_DEPENDENCIES)) {
         // Evaluating a dirty node for the first time, and checking its children to see if any
         // of them have changed. Note that there must be dirty children for this to happen.
@@ -219,7 +221,7 @@ public abstract class AbstractParallelEvaluator {
         // its reverse dep on this node removed. Failing to do either one of these would result in
         // a graph inconsistency, where the child had a reverse dep on this node, but this node
         // had no kind of dependency on the child.
-        Collection<SkyKey> directDepsToCheck = state.getNextDirtyDirectDeps();
+        List<SkyKey> directDepsToCheck = state.getNextDirtyDirectDeps();
 
         if (invalidatedByErrorTransience(directDepsToCheck, state)) {
           // If this dep is the ErrorTransienceValue and the ErrorTransienceValue has been
@@ -622,10 +624,11 @@ public abstract class AbstractParallelEvaluator {
         // direct deps. uniqueNewDeps will be the set of unique keys contained in newDirectDeps.
         Set<SkyKey> uniqueNewDeps = state.addTemporaryDirectDeps(newDirectDeps);
 
+        List<ListenableFuture<?>> externalDeps = env.externalDeps;
         // If there were no newly requested dependencies, at least one of them was in error or there
         // is a bug in the SkyFunction implementation. The environment has collected its errors, so
         // we just order it to be built.
-        if (uniqueNewDeps.isEmpty()) {
+        if (uniqueNewDeps.isEmpty() && externalDeps == null) {
           // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
           Preconditions.checkState(
               !env.getChildErrorInfos().isEmpty(),
@@ -645,6 +648,13 @@ public abstract class AbstractParallelEvaluator {
           return;
         }
 
+        // If there are external deps, we register that fact on the NodeEntry before we enqueue
+        // child nodes in order to prevent the current node from being re-enqueued between here and
+        // the call to registerExternalDeps below.
+        if (externalDeps != null) {
+          state.addExternalDep();
+        }
+
         // We want to split apart the dependencies that existed for this node the last time we did
         // an evaluation and those that were introduced in this evaluation. To be clear, the prefix
         // "newDeps" refers to newly discovered this time around after a SkyFunction#compute call
@@ -662,6 +672,10 @@ public abstract class AbstractParallelEvaluator {
         handleKnownChildrenForDirtyNode(
             newDepsThatWereInTheLastEvaluation, state, childEvaluationPriority);
 
+        // Due to multi-threading, this can potentially cause the current node to be re-enqueued if
+        // all 'new' children of this node are already done. Therefore, there should not be any
+        // code after this loop, as it would potentially race with the re-evaluation in another
+        // thread.
         for (Map.Entry<SkyKey, ? extends NodeEntry> e :
             newDepsThatWerentInTheLastEvaluationNodes.get().entrySet()) {
           SkyKey newDirectDep = e.getKey();
@@ -674,7 +688,15 @@ public abstract class AbstractParallelEvaluator {
               /*depAlreadyExists=*/ false,
               childEvaluationPriority);
         }
-        // It is critical that there is no code below this point in the try block.
+        if (externalDeps != null) {
+          // This can cause the current node to be re-enqueued if all futures are already done.
+          // This is an exception to the rule above that there must not be code below the for
+          // loop. It is safe because we call state.addExternalDep above, which prevents
+          // re-enqueueing of the current node in the above loop if externalDeps != null.
+          evaluatorContext.getVisitor().registerExternalDeps(skyKey, state, externalDeps);
+        }
+        // Do not put any code here! Any code here can race with a re-evaluation of this same node
+        // in another thread.
       } catch (InterruptedException ie) {
         // InterruptedException cannot be thrown by Runnable.run, so we must wrap it.
         // Interrupts can be caught by both the Evaluator and the AbstractQueueVisitor.
@@ -708,40 +730,109 @@ public abstract class AbstractParallelEvaluator {
 
   /**
    * If {@code returnedValue} is a {@link Restart} value, then {@code entry} will be reset, and the
-   * nodes specified by {@code returnedValue.getAdditionalKeysToRestart()} will be marked changed.
+   * other nodes specified by {@code returnedValue.rewindGraph()} will be marked changed via
+   * postorder DFS.
+   *
+   * <p>{@code returnedValue.rewindGraph()} must be empty or must contain {@code key}.
+   *
+   * <p>TODO(b/123993876): this should verify that edges in rewindGraph correspond to deps in the
+   * Skyframe graph. Will require a safe way of requesting deps for nodes which may not be done.
    *
    * @return {@code returnedValue instanceof Restart}
    */
+  // Nodes must be marked changed via postorder DFS. To see why, suppose we have this graph:
+  //
+  //   FailedNode   SomeOtherRdepOfR1
+  //       |       /
+  //       |  -----
+  //       | /
+  //       R1
+  //       |
+  //       R2
+  //
+  // Suppose FailedNode (FN) fails and requires that R1 and R2 must be dirtied and run again.
+  // Suppose they aren't dirtied via postorder DFS, so R1 is dirtied first.
+  //
+  // Then, the evaluation thread working on dirtying these nodes is suspended.
+  //
+  // On a separate evaluation thread, SomeOtherRdepOfR1 requests R1. R1 is scheduled for evaluation,
+  // checks its dep R2, and because R2 is done, R1 completes without scheduling R2 for evaluation.
+  //
+  // Then, the evaluation thread working on dirtying these nodes continues its work. It dirties
+  // R2 and schedules FN for evaluation.
+  //
+  // When FN next evaluates, it requests R1, and because R1 is done, R2 is not scheduled for
+  // evaluation, contrary to FN's expectations.
   private boolean maybeHandleRestart(SkyKey key, NodeEntry entry, SkyValue returnedValue)
       throws InterruptedException {
     if (!(returnedValue instanceof Restart)) {
       return false;
     }
-    restart(key, entry);
 
-    Restart restart = (Restart) returnedValue;
+    ImmutableGraph<SkyKey> rewindGraph = ((Restart) returnedValue).rewindGraph();
+    if (rewindGraph.nodes().isEmpty()) {
+      restart(key, entry);
+      return true;
+    }
+    Preconditions.checkArgument(
+        rewindGraph.nodes().contains(key),
+        "rewindGraph must contain the key for the failed evaluation if it's not empty. key: %s, "
+            + "rewindGraph: %s",
+        key,
+        rewindGraph);
 
-    Map<SkyKey, ? extends NodeEntry> additionalNodesToRestart =
-        this.evaluatorContext.getBatchValues(
-            key, Reason.INVALIDATION, restart.getAdditionalKeysToRestart());
-    if (!additionalNodesToRestart.isEmpty()) {
+    ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
+    for (SkyKey k : Traverser.forGraph(rewindGraph).depthFirstPostOrder(key)) {
+      if (!k.equals(key)) {
+        builder.add(k);
+      }
+    }
+    ImmutableList<SkyKey> additionalKeysToRestart = builder.build();
+    if (!additionalKeysToRestart.isEmpty()) {
       evaluatorContext
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(
-              key, additionalNodesToRestart.keySet(), Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
+              key, additionalKeysToRestart, Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
     }
-    for (NodeEntry restartEntry : additionalNodesToRestart.values()) {
+
+    Map<SkyKey, ? extends NodeEntry> additionalNodesToRestart =
+        evaluatorContext.getBatchValues(key, Reason.INVALIDATION, additionalKeysToRestart);
+
+    ArrayList<SkyKey> missingNodes = null;
+    for (SkyKey keyToRestart : additionalKeysToRestart) {
+      NodeEntry restartEntry = additionalNodesToRestart.get(keyToRestart);
+
+      if (restartEntry == null) {
+        if (missingNodes == null) {
+          missingNodes = new ArrayList<>();
+        }
+        missingNodes.add(keyToRestart);
+        continue;
+      }
+
       // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate to
       // a different value than before, even if their versions remain the same.
       restartEntry.markDirty(DirtyType.FORCE_REBUILD);
+      evaluatorContext
+          .getProgressReceiver()
+          .invalidated(keyToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);
     }
 
-    // TODO(mschaller): rdeps of children have to be handled here. If the graph does not keep edges,
-    // nothing has to be done, since there are no reverse deps to keep consistent. If the graph
-    // keeps edges, it's a harder problem. The reverse deps could just be removed, but in the case
-    // that this node is dirty, the deps shouldn't be removed, they should just be transformed back
-    // to "known reverse deps" from "reverse deps declared during this evaluation" (the inverse of
-    // NodeEntry#checkIfDoneForDirtyReverseDep). Such a method doesn't currently exist, but could.
+    if (missingNodes != null) {
+      evaluatorContext
+          .getGraphInconsistencyReceiver()
+          .noteInconsistencyAndMaybeThrow(
+              key, missingNodes, Inconsistency.PARENT_FORCE_REBUILD_OF_MISSING_CHILD);
+    }
+
+    // TODO(b/19539699): rdeps of children have to be handled here. If the graph does not keep
+    // edges, nothing has to be done, since there are no reverse deps to keep consistent. If the
+    // graph keeps edges, it's a harder problem. The reverse deps could just be removed, but in the
+    // case that this node is dirty, the deps shouldn't be removed, they should just be transformed
+    // back to "known reverse deps" from "reverse deps declared during this evaluation" (the inverse
+    // of NodeEntry#checkIfDoneForDirtyReverseDep). Such a method doesn't currently exist, but
+    // could.
+    restart(key, entry);
     return true;
   }
 

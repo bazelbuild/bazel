@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
@@ -51,7 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
@@ -85,7 +86,7 @@ public class CcModule
         FeatureConfiguration,
         CcCompilationContext,
         CcLinkingContext,
-        LibraryToLinkWrapper,
+        LibraryToLink,
         CcToolchainVariables,
         SkylarkRuleContext,
         CcToolchainConfigInfo> {
@@ -194,6 +195,7 @@ public class CcModule
         convertFromNoneable(sourceFile, /* defaultValue= */ null),
         convertFromNoneable(outputFile, /* defaultValue= */ null),
         /* gcnoFile= */ null,
+        /* isUsingFission= */ false,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
         /* includes= */ ImmutableList.of(),
@@ -317,7 +319,7 @@ public class CcModule
   }
 
   /**
-   * This method returns a {@link LibraryToLinkWrapper} object that will be used to contain linking
+   * This method returns a {@link LibraryToLink} object that will be used to contain linking
    * artifacts and information for a single library that will later be used by a linking action.
    *
    * @param actionsObject SkylarkActionFactory
@@ -332,7 +334,7 @@ public class CcModule
    * @throws InterruptedException
    */
   @Override
-  public LibraryToLinkWrapper createLibraryLinkerInput(
+  public LibraryToLink createLibraryLinkerInput(
       Object actionsObject,
       Object featureConfigurationObject,
       Object ccToolchainProviderObject,
@@ -456,7 +458,7 @@ public class CcModule
           "Must pass at least one of the following parameters: static_library, pic_static_library, "
               + "dynamic_library and interface_library.");
     }
-    return LibraryToLinkWrapper.builder()
+    return LibraryToLink.builder()
         .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
         .setStaticLibrary(staticLibrary)
         .setPicStaticLibrary(picStaticLibrary)
@@ -537,7 +539,7 @@ public class CcModule
       StarlarkContext context)
       throws EvalException {
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLinkWrapper> librariesToLink =
+    SkylarkList<LibraryToLink> librariesToLink =
         nullIfNone(librariesToLinkObject, SkylarkList.class);
     @SuppressWarnings("unchecked")
     SkylarkList<String> userLinkFlags = nullIfNone(userLinkFlagsObject, SkylarkList.class);
@@ -583,10 +585,12 @@ public class CcModule
       Object skylarkAdditionalCompilationInputs,
       Object skylarkAdditionalIncludeScanningRoots,
       SkylarkList<CcCompilationContext> ccCompilationContexts,
-      Object purpose)
+      Object purpose,
+      Location location)
       throws EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
+    SkylarkActionFactory actions = skylarkRuleContext.actions();
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfiguration featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
@@ -599,10 +603,14 @@ public class CcModule
     List<String> includeDirs = convertSkylarkListOrNestedSetToList(skylarkIncludes, String.class);
     CcCompilationHelper helper =
         new CcCompilationHelper(
-                ruleContext,
+                actions.asActionRegistry(location, actions),
+                actions.getActionConstructionContext(),
+                ruleContext.getLabel(),
+                /* grepIncludes= */ ruleContext.attributes().has("$grep_includes")
+                    ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
+                    : null,
                 cppSemantics,
                 featureConfiguration,
-                CcCompilationHelper.SourceCategory.CC,
                 ccToolchainProvider,
                 fdoContext)
             .addPublicHeaders(headers)
@@ -639,7 +647,6 @@ public class CcModule
       helper.setCopts(copts.getSet(String.class));
     }
 
-    Location location = ruleContext.getRule().getLocation();
     RegisterActions generateNoPicOption =
         RegisterActions.fromString(generateNoPicOutputs, location, "generate_no_pic_outputs");
     if (!generateNoPicOption.equals(RegisterActions.CONDITIONALLY)) {
@@ -692,16 +699,16 @@ public class CcModule
             .setNeverLink(neverLink);
     try {
       CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-      ImmutableList<LibraryToLinkWrapper> libraryToLinkWrapper = ImmutableList.of();
+      ImmutableList<LibraryToLink> libraryToLink = ImmutableList.of();
       if (!ccCompilationOutputs.isEmpty()) {
         ccLinkingOutputs = helper.link(ccCompilationOutputs);
         if (!neverLink && !ccLinkingOutputs.isEmpty()) {
-          libraryToLinkWrapper = ImmutableList.of(ccLinkingOutputs.getLibraryToLink());
+          libraryToLink = ImmutableList.of(ccLinkingOutputs.getLibraryToLink());
         }
       }
       CcLinkingContext ccLinkingContext =
-          helper.buildCcLinkingContextFromLibraryToLinkWrappers(
-              libraryToLinkWrapper, CcCompilationContext.EMPTY);
+          helper.buildCcLinkingContextFromLibrariesToLink(
+              libraryToLink, CcCompilationContext.EMPTY);
       return new LinkingInfo(ccLinkingContext, ccLinkingOutputs);
     } catch (RuleErrorException e) {
       throw new EvalException(ruleContext.getRule().getLocation(), e);
@@ -887,7 +894,10 @@ public class CcModule
         }
       }
 
-      CppPlatform platform = targetLibc.equals("macos") ? CppPlatform.MAC : CppPlatform.LINUX;
+      CppPlatform platform =
+          targetLibc.equals(CppActionConfigs.MACOS_TARGET_LIBC)
+              ? CppPlatform.MAC
+              : CppPlatform.LINUX;
       for (CToolchain.Feature feature :
           CppActionConfigs.getLegacyFeatures(
               platform,

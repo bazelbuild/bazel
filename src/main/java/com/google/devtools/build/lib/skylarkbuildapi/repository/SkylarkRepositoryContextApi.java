@@ -230,14 +230,23 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             defaultValue = "True",
             named = true,
             doc = "If stdout and stderr should be printed to the terminal."),
+        @Param(
+            name = "working_directory",
+            type = String.class,
+            defaultValue = "\"\"",
+            named = true,
+            doc =
+                "Working directory for command execution.\n"
+                    + "Can be relative to the repository root or absolute."),
       })
   public SkylarkExecutionResultApi execute(
       SkylarkList<Object> arguments,
       Integer timeout,
       SkylarkDict<String, String> environment,
       boolean quiet,
+      String workingDirectory,
       Location location)
-      throws EvalException, RepositoryFunctionExceptionT;
+      throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
 
   @SkylarkCallable(
       name = "which",
@@ -301,6 +310,49 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public StructApi download(
       Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "extract",
+      doc = "Extract an archive to the repository directory.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "archive",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            named = true,
+            doc =
+                "path to the archive that will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "output",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            defaultValue = "''",
+            named = true,
+            doc =
+                "path to the directory where the archive will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "stripPrefix",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "a directory prefix to strip from the extracted files."
+                    + "\nMany archives contain a top-level directory that contains all files in the"
+                    + " archive. Instead of needing to specify this prefix over and over in the"
+                    + " <code>build_file</code>, this field can be used to strip it from extracted"
+                    + " files."),
+      })
+  public void extract(Object archive, Object output, String stripPrefix, Location location)
+      throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 
   @SkylarkCallable(
       name = "download_and_extract",

@@ -1,5 +1,10 @@
 package(default_visibility = ["//src:__subpackages__"])
 
+cc_binary(
+    name = "daemonize",
+    srcs = ["daemonize.c"],
+)
+
 cc_library(
     name = "logging",
     srcs = ["logging.cc"],

@@ -47,6 +47,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",
@@ -514,6 +515,7 @@ java_test(
     srcs = WINDOWS_ON_WINDOWS_TESTS,
     data = [
         ":MockSubprocess_deploy.jar",
+        ":printarg",
     ] + JNI_LIB,
     jvm_flags = [
         "-Dbazel.windows_unix_root=C:/fake/msys",
@@ -534,6 +536,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "@bazel_tools//tools/java/runfiles",
     ],
+)
+
+cc_binary(
+    name = "printarg",
+    testonly = 1,
+    srcs = ["windows/printarg.cc"],
 )
 
 java_library(
@@ -622,6 +630,9 @@ java_library(
         ],
         exclude = ["analysis/util/DefaultBuildOptionsForTesting.java"],
     ),
+    data = [
+        "//tools/jdk:srcs",
+    ],
     resources = [
         "analysis/mock/MOCK_CROSSTOOL",
     ],
@@ -640,6 +651,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-repository",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:bazel/LicenseCheckingModule",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:core-rules",
@@ -685,6 +697,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 
@@ -848,6 +861,7 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:bazel/LicenseCheckingModule",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages",
@@ -1283,53 +1297,6 @@ java_test(
         "//src/main/protobuf:test_status_java_proto",
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:mockito",
-    ],
-)
-
-java_test(
-    name = "remote-tests",
-    srcs = glob(["remote/**/*.java"]),
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":analysis_testutil",
-        ":foundations_testutil",
-        ":guava_junit_truth",
-        ":test_runner",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:exitcode-external",
-        "//src/main/java/com/google/devtools/build/lib:io",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/authandtls",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/remote",
-        "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
-        "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
-        "//src/main/java/com/google/devtools/build/lib/remote/logging",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:remote_execution_log_java_proto",
-        "//third_party:api_client",
-        "//third_party:auth",
-        "//third_party:mockito",
-        "//third_party:netty",
-        "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
-        "@googleapis//:google_bytestream_bytestream_java_grpc",
-        "@googleapis//:google_bytestream_bytestream_java_proto",
-        "@googleapis//:google_longrunning_operations_java_proto",
-        "@googleapis//:google_rpc_code_java_proto",
-        "@googleapis//:google_rpc_error_details_java_proto",
-        "@googleapis//:google_rpc_status_java_proto",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
-        "@remoteapis//:build_bazel_semver_semver_java_proto",
     ],
 )
 

@@ -396,6 +396,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.legacyWholeArchive;
   }
 
+  public boolean removeLegacyWholeArchive() {
+    return cppOptions.removeLegacyWholeArchive;
+  }
+
   public boolean getInmemoryDotdFiles() {
     return cppOptions.inmemoryDotdFiles;
   }
@@ -556,14 +560,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         + "migration instructions).";
   }
 
-  public boolean enableLinkoptsInUserLinkFlags() {
-    return cppOptions.enableLinkoptsInUserLinkFlags;
-  }
-
-  public boolean disableEmittingStaticLibgcc() {
-    return cppOptions.disableEmittingStaticLibgcc;
-  }
-
   public boolean disableDepsetInUserFlags() {
     return cppOptions.disableDepsetInUserFlags;
   }
@@ -583,10 +579,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return PathFragment.create(builtInSysroot);
   }
 
-  boolean disableRuntimesFilegroups() {
-    return cppOptions.disableRuntimesFilegroups;
-  }
-
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
@@ -604,5 +596,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean disableCrosstool() {
     return cppOptions.disableCrosstool;
+  }
+
+  public boolean dontEnableHostNonhost() {
+    return cppOptions.dontEnableHostNonhost;
+  }
+
+  public boolean disableCcContextQuoteIncludesHook() {
+    return cppOptions.disableCcContextQuoteIncludesHook;
   }
 }

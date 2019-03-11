@@ -197,12 +197,13 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
     builder.addConstraint(ConstraintValueInfo.create(setting3, makeLabel("//constraint:value6")));
 
-    PlatformInfo.DuplicateConstraintException exception =
-        assertThrows(PlatformInfo.DuplicateConstraintException.class, () -> builder.build());
+    ConstraintCollection.DuplicateConstraintException exception =
+        assertThrows(
+            ConstraintCollection.DuplicateConstraintException.class, () -> builder.build());
     assertThat(exception)
         .hasMessageThat()
         .contains(
-            "Duplicate constraint_values detected: "
+            "Duplicate constraint values detected: "
                 + "constraint_setting //constraint:basic has "
                 + "[//constraint:value1, //constraint:value2], "
                 + "constraint_setting //constraint:complex has "

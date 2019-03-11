@@ -51,10 +51,11 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.AqueryActionFilter;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -93,6 +94,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -132,6 +134,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private final DiffAwarenessManager diffAwarenessManager;
   private final Iterable<SkyValueDirtinessChecker> customDirtinessCheckers;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
+
+  private int modifiedFiles;
+  private int outputDirtyFiles;
+  private int modifiedFilesDuringPreviousBuild;
+  private Duration sourceDiffCheckingDuration;
+  private Duration outputTreeDiffCheckingDuration;
 
   private SequencedSkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
@@ -288,8 +296,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExtendedEventHandler eventHandler,
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator packageLocator,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
-      String defaultsPackageContents,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -305,15 +312,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         eventHandler,
         packageCacheOptions,
         packageLocator,
-        skylarkSemanticsOptions,
-        defaultsPackageContents,
+        starlarkSemanticsOptions,
         commandId,
         clientEnv,
         tsgm,
         options);
-    try (SilentCloseable c = Profiler.instance().profile("handleDiffs")) {
-      handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
-    }
+    long startTime = System.nanoTime();
+    handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
+    long stopTime = System.nanoTime();
+    Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
+    long duration = stopTime - startTime;
+    sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
   }
 
   /**
@@ -676,9 +685,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles, @Nullable Range<Long> lastExecutionTimeRange)
-      throws AbruptExitException, InterruptedException {
-
-    // Detect external modifications in the output tree.
+      throws InterruptedException {
+    long startTime = System.nanoTime();
     FilesystemValueChecker fsvc =
         new FilesystemValueChecker(Preconditions.checkNotNull(tsgm.get()), lastExecutionTimeRange);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
@@ -688,7 +696,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
     outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
     modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
-    informAboutNumberOfModifiedFiles();
+    logger.info(String.format("Found %d modified files from last build", modifiedFiles));
+    long stopTime = System.nanoTime();
+    Profiler.instance()
+        .logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "detectModifiedOutputFiles");
+    long duration = stopTime - startTime;
+    outputTreeDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
   }
 
   @Override
@@ -829,6 +842,21 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     } finally {
       progressReceiver.ignoreInvalidations = false;
     }
+  }
+
+  @Override
+  public ExecutionFinishedEvent createExecutionFinishedEvent() {
+    ExecutionFinishedEvent result =
+        new ExecutionFinishedEvent(
+            outputDirtyFiles,
+            modifiedFilesDuringPreviousBuild,
+            sourceDiffCheckingDuration,
+            outputTreeDiffCheckingDuration);
+    outputDirtyFiles = 0;
+    modifiedFilesDuringPreviousBuild = 0;
+    sourceDiffCheckingDuration = Duration.ZERO;
+    outputTreeDiffCheckingDuration = Duration.ZERO;
+    return result;
   }
 
   @Override

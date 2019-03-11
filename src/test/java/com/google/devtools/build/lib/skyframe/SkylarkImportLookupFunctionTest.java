@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
@@ -63,8 +63,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(alternativeRoot)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
-            Options.getDefaults(SkylarkSemanticsOptions.class),
-            "",
+            Options.getDefaults(StarlarkSemanticsOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -413,6 +412,31 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         .contains(
             "Label '//a/c:c/c.bzl' crosses boundary of package 'a' (perhaps you meant to put the "
                 + "colon here: '//a:c/c/c.bzl'?)");
+  }
+
+  @Test
+  public void testWithNonExistentRepository_And_DisallowLoadUsingLabelThatCrossesBoundaryOfPackage()
+      throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
+
+    scratch.file("BUILD", "load(\"@repository//dir:file.bzl\", \"foo\")");
+
+    SkyKey skylarkImportLookupKey = key("@repository//dir:file.bzl");
+    EvaluationResult<com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .isInstanceOf(SkylarkImportFailedException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "Unable to find package for @repository//dir:file.bzl: The repository '@repository' "
+                + "could not be resolved.");
   }
 
   @Test

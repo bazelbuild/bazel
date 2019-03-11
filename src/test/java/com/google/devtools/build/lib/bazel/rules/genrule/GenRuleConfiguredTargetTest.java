@@ -283,6 +283,26 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(bazExpected.equals(barExpected)).isFalse();
   }
 
+  /** Ensure that variable $(RULE_DIR) gets expanded correctly in the genrule cmd. */
+  @Test
+  public void testRuleDirExpansion() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "genrule(name = 'bar',",
+        "        srcs = ['bar_in.txt'],",
+        "        cmd = 'touch $(RULEDIR)',",
+        "        outs = ['bar/bar_out.txt'])",
+        "genrule(name = 'baz',",
+        "        srcs = ['bar/bar_out.txt'],",
+        "        cmd = 'touch $(RULEDIR)',",
+        "        outs = ['baz/baz_out.txt', 'logs/baz.log'])");
+
+    // Make sure the expansion for $(RULE_DIR) results in the directory of the BUILD file ("foo")
+    String expectedRegex = "touch b.{4}-out.*foo";
+    assertThat(getCommand("//foo:bar")).containsMatch(expectedRegex);
+    assertThat(getCommand("//foo:baz")).containsMatch(expectedRegex);
+  }
+
   /** Ensure that variable $(CC) gets expanded correctly in the genrule cmd. */
   @Test
   public void testMakeVarExpansion() throws Exception {

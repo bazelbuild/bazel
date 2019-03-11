@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.HOST_JAVA_RUNTIME_ATTRIBUTE_NAME;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkingInfo;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.createNonStrictCompilationArgsProvider;
 
@@ -32,13 +32,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -56,15 +56,12 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import javax.annotation.Nullable;
 
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
-  private final LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute;
-  private final Label javaRuntimeToolchainType;
-  private final LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute;
-  private final Label javaToolchainType;
+  private final Label hostJdkAttribute;
+  private final Label javaToolchainAttribute;
 
   private static LabelLateBoundDefault<?> getSpeedProtoToolchainLabel(String defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
@@ -75,25 +72,20 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
   private final JavaSemantics javaSemantics;
 
-  @Nullable private final String jacocoLabel;
   private final RpcSupport rpcSupport;
   private final String defaultSpeedProtoToolchainLabel;
 
   protected JavaProtoAspect(
       JavaSemantics javaSemantics,
-      @Nullable String jacocoLabel,
       RpcSupport rpcSupport,
       String defaultSpeedProtoToolchainLabel,
       RuleDefinitionEnvironment env) {
     this.javaSemantics = Preconditions.checkNotNull(javaSemantics);
-    this.jacocoLabel = jacocoLabel;
     this.rpcSupport = Preconditions.checkNotNull(rpcSupport);
     this.defaultSpeedProtoToolchainLabel =
         Preconditions.checkNotNull(defaultSpeedProtoToolchainLabel);
     this.hostJdkAttribute = JavaSemantics.hostJdkAttribute(env);
-    this.javaRuntimeToolchainType = JavaRuleClasses.javaRuntimeTypeAttribute(env);
     this.javaToolchainAttribute = JavaSemantics.javaToolchainAttribute(env);
-    this.javaToolchainType = JavaRuleClasses.javaToolchainTypeAttribute(env);
   }
 
   @Override
@@ -112,8 +104,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
     JavaProtoAspectCommon aspectCommon =
-        JavaProtoAspectCommon.getSpeedInstance(
-            ruleContext, javaSemantics, rpcSupport, javaToolchainType, javaRuntimeToolchainType);
+        JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
     Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport);
     impl.addProviders(aspect);
     return aspect.build();
@@ -136,23 +127,20 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                     // once it's in a Bazel release.
                     .legacyAllowAnyFileType()
                     .value(getSpeedProtoToolchainLabel(defaultSpeedProtoToolchainLabel)))
-            .add(attr(":host_jdk", LABEL).cfg(HostTransition.INSTANCE).value(hostJdkAttribute))
+            .add(
+                attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
+                    .cfg(HostTransition.INSTANCE)
+                    .value(hostJdkAttribute)
+                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
             .add(
                 attr(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, LABEL)
                     .useOutputLicenses()
-                    .allowedRuleClasses("java_toolchain")
-                    .value(javaToolchainAttribute))
-            .addRequiredToolchains(javaRuntimeToolchainType, javaToolchainType);
+                    .value(javaToolchainAttribute)
+                    .mandatoryProviders(ToolchainInfo.PROVIDER.id()));
 
     rpcSupport.mutateAspectDefinition(result, aspectParameters);
 
-    Attribute.Builder<Label> jacocoAttr =
-        attr("$jacoco_instrumentation", LABEL).cfg(HostTransition.INSTANCE);
-
-    if (jacocoLabel != null) {
-      jacocoAttr.value(parseAbsoluteUnchecked(jacocoLabel));
-    }
-    return result.add(jacocoAttr).build();
+    return result.build();
   }
 
   private static class Impl {

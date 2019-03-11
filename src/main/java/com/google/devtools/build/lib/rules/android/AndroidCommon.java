@@ -49,8 +49,8 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -623,14 +624,10 @@ public class AndroidCommon {
 
     nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
 
-    outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
-    helper.createCompileActionWithInstrumentation(
-        classJar,
-        manifestProtoOutput,
-        genSourceJar,
-        outputDepsProto,
-        javaArtifactsBuilder,
-        nativeHeaderOutput);
+    JavaCompileAction javaCompileAction =
+        helper.createCompileActionWithInstrumentation(
+            classJar, manifestProtoOutput, genSourceJar, javaArtifactsBuilder, nativeHeaderOutput);
+    outputDepsProto = javaCompileAction.getOutputDepsProto();
 
     if (generateExtensionRegistry) {
       generatedExtensionRegistryProvider =

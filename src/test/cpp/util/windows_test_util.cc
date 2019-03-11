@@ -88,6 +88,11 @@ bool DeleteAllUnder(wstring path) {
 }
 
 bool CreateDummyFile(const wstring& path, const std::string& content) {
+  return CreateDummyFile(path, content.c_str(), content.size());
+}
+
+bool CreateDummyFile(const std::wstring& path, const void* content,
+                     const DWORD size) {
   HANDLE handle =
       ::CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, NULL,
                     CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -96,9 +101,8 @@ bool CreateDummyFile(const wstring& path, const std::string& content) {
   }
   bool result = true;
   DWORD actually_written = 0;
-  if (!::WriteFile(handle, content.c_str(), content.size(), &actually_written,
-                   NULL) &&
-      actually_written != content.size()) {
+  if (!::WriteFile(handle, content, size, &actually_written, NULL) &&
+      actually_written != size) {
     result = false;
   }
   CloseHandle(handle);

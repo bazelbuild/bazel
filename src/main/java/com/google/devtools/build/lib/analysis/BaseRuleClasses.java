@@ -273,9 +273,10 @@ public class BaseRuleClasses {
                 .value(testonlyDefault)
                 .nonconfigurable("policy decision: rules testability should be consistent"))
         .add(attr("features", STRING_LIST).orderIndependent())
-        .add(attr(":action_listener", LABEL_LIST)
-            .cfg(HostTransition.INSTANCE)
-            .value(ACTION_LISTENER))
+        .add(
+            attr(":action_listener", LABEL_LIST)
+                .cfg(HostTransition.INSTANCE)
+                .value(ACTION_LISTENER))
         .add(
             attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
                 .allowedRuleClasses(EnvironmentRule.RULE_NAME)
@@ -291,7 +292,10 @@ public class BaseRuleClasses {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable(
-                    "special logic for constraints and select: see ConstraintSemantics"));
+                    "special logic for constraints and select: see ConstraintSemantics"))
+        .add(
+            attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
+                .nonconfigurable("stores configurability keys"));
   }
 
   public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {
@@ -326,24 +330,12 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return commonCoreAndSkylarkAttributes(builder)
-          // Aggregates the labels of all {@link ConfigRuleClasses} rules this rule uses (e.g.
-          // keys for configurable attributes). This is specially populated in
-          // {@RuleClass#populateRuleAttributeValues}.
-          //
-          // This attribute is not needed for actual builds. Its main purpose is so query's
-          // proto/XML output includes the labels of config dependencies, so, e.g., depserver
-          // reverse dependency lookups remain accurate. These can't just be added to the
-          // attribute definitions proto/XML queries already output because not all attributes
-          // contain labels.
-          //
-          // Builds and Blaze-interactive queries don't need this because they find dependencies
-          // through direct Rule label visitation, which already factors these in.
-          .add(attr("$config_dependencies", LABEL_LIST)
-              .nonconfigurable("not intended for actual builds"))
-          .add(attr("licenses", LICENSE)
-              .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          .add(attr("distribs", DISTRIBUTIONS)
-              .nonconfigurable("Used in core loading phase logic with no access to configs"))
+          .add(
+              attr("licenses", LICENSE)
+                  .nonconfigurable("Used in core loading phase logic with no access to configs"))
+          .add(
+              attr("distribs", DISTRIBUTIONS)
+                  .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .build();
     }
 

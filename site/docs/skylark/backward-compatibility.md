@@ -71,7 +71,7 @@ where the left-hand side is a dictionary. This is done to improve compatibility
 with Python. A possible workaround is to use the `.update` method instead.
 
 *   Flag: `--incompatible_disallow_dict_plus`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#6461](https://github.com/bazelbuild/bazel/issues/6461)
 
 ### Load must appear at top of file
@@ -194,7 +194,7 @@ needed, you can simply pass a list of strings to restrict the file types the
 rule accepts.
 
 *   Flag: `--incompatible_disallow_filetype`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5831](https://github.com/bazelbuild/bazel/issues/5831)
 
 
@@ -232,7 +232,7 @@ parameters are disabled. To add many arguments at once you must use `add_all()`
 or `add_joined()` instead.
 
 *   Flag: `--incompatible_disallow_old_style_args_add`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5822](https://github.com/bazelbuild/bazel/issues/5822)
 
 

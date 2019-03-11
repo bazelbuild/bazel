@@ -34,13 +34,13 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 /** Utilites related to C++ support. */
 @SkylarkModule(
     name = "cc_common",
-    doc = "Utilities for C++ compilation, linking, and command line " + "generation.")
+    doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
     CcToolchainProviderT extends CcToolchainProviderApi,
     FeatureConfigurationT extends FeatureConfigurationApi,
     CompilationContextT extends CcCompilationContextApi,
     LinkingContextT extends CcLinkingContextApi,
-    LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
+    LibraryToLinkT extends LibraryToLinkApi,
     CcToolchainVariablesT extends CcToolchainVariablesApi,
     SkylarkRuleContextT extends SkylarkRuleContextApi,
     CcToolchainConfigInfoT extends CcToolchainConfigInfoApi> {
@@ -550,7 +550,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "False"),
       })
-  LibraryToLinkWrapperT createLibraryLinkerInput(
+  LibraryToLinkT createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -622,8 +622,8 @@ public interface CcModuleApi<
             name = "system_includes",
             doc =
                 "Set of search paths for header files referenced by angle brackets, i.e. "
-                    + "#include <foo/bar/header.h>. They can be either relative to the exec root "
-                    + "or absolute. Usually passed with -isystem",
+                    + "#include &lt;foo/bar/header.h&gt;. They can be either relative to the exec "
+                    + "root or absolute. Usually passed with -isystem",
             positional = false,
             named = true,
             defaultValue = "unbound",

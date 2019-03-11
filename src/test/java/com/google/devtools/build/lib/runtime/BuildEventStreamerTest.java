@@ -75,6 +75,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -85,6 +86,25 @@ import org.mockito.MockitoAnnotations;
 /** Tests {@link BuildEventStreamer}. */
 @RunWith(JUnit4.class)
 public class BuildEventStreamerTest extends FoundationTestCase {
+  private CountingArtifactGroupNamer artifactGroupNamer;
+  private RecordingBuildEventTransport transport;
+  private BuildEventStreamer streamer;
+
+  @Before
+  public void setUp() {
+    artifactGroupNamer = new CountingArtifactGroupNamer();
+    transport = new RecordingBuildEventTransport(artifactGroupNamer);
+    streamer =
+        new BuildEventStreamer(
+            ImmutableSet.<BuildEventTransport>of(transport), reporter, artifactGroupNamer);
+  }
+
+  @After
+  public void tearDown() {
+    artifactGroupNamer = null;
+    transport = null;
+    streamer = null;
+  }
 
   private static final ActionExecutedEvent SUCCESSFUL_ACTION_EXECUTED_EVENT =
       new ActionExecutedEvent(
@@ -99,6 +119,11 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   private static class RecordingBuildEventTransport implements BuildEventTransport {
     private final List<BuildEvent> events = new ArrayList<>();
     private final List<BuildEventStreamProtos.BuildEvent> eventsAsProtos = new ArrayList<>();
+    private ArtifactGroupNamer artifactGroupNamer;
+
+    RecordingBuildEventTransport(ArtifactGroupNamer namer) {
+      this.artifactGroupNamer = namer;
+    }
 
     @Override
     public String name() {
@@ -106,14 +131,14 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
+    public void sendBuildEvent(BuildEvent event) {
       events.add(event);
       eventsAsProtos.add(
           event.asStreamProto(
               new BuildEventContext() {
                 @Override
                 public ArtifactGroupNamer artifactGroupNamer() {
-                  return namer;
+                  return artifactGroupNamer;
                 }
 
                 @Override
@@ -308,10 +333,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     eventBus.register(handler);
     assertThat(handler.transportSet).isNull();
 
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE,
@@ -348,11 +369,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testChaining() {
     // Verify that unannounced events are linked in with progress update events, assuming
     // a correctly formed initial event.
-
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
@@ -379,11 +395,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     // Verify that, if the initial event does not announce the initial progress update event,
     // the initial progress event is used instead to chain that event; in this way, new
     // progress updates can always be chained in.
-
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEvent unexpectedStartEvent =
         new GenericBuildEvent(testId("unexpected start"), ImmutableSet.<BuildEventId>of());
 
@@ -423,10 +434,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testReferPastEvent() {
     // Verify that, if an event is refers to a previously done event, that duplicated
     // late-referenced event is not expected again.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),
@@ -457,11 +464,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   @Test
   public void testReordering() {
     // Verify that an event requiring to be posted after another one is indeed.
-
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEventId expectedId = testId("the target");
     BuildEvent startEvent =
         new GenericBuildEvent(
@@ -490,11 +492,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testMissingPrerequisites() {
     // Verify that an event where the prerequisite is never coming till the end of
     // the build still gets posted, with the prerequisite aborted.
-
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEventId expectedId = testId("the target");
     BuildEvent startEvent =
         new GenericBuildEvent(
@@ -523,10 +520,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   @Test
   public void testVeryFirstEventNeedsToWait() {
     // Verify that we can handle an first event waiting for another event.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEventId initialId = testId("Initial");
     BuildEventId waitId = testId("Waiting for initial event");
     BuildEvent startEvent =
@@ -554,10 +547,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   @Test
   public void testReportedArtifacts() {
     // Verify that reported artifacts are correctly unfolded into the stream
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),
@@ -600,9 +589,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testStdoutReported() {
     // Verify that stdout and stderr are reported in the build-event stream on progress
     // events.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
     BuildEventStreamer.OutErrProvider outErr =
         Mockito.mock(BuildEventStreamer.OutErrProvider.class);
     String stdoutMsg = "Some text that was written to stdout.";
@@ -644,9 +630,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testStdoutReportedAfterCrash() {
     // Verify that stdout and stderr are reported in the build-event stream on progress
     // events.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
     BuildEventStreamer.OutErrProvider outErr =
         Mockito.mock(BuildEventStreamer.OutErrProvider.class);
     String stdoutMsg = "Some text that was written to stdout.";
@@ -725,10 +708,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   @Test
   public void testReportedConfigurations() throws Exception {
     // Verify that configuration events are posted, but only once.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildOptions defaultBuildOptions =
         BuildOptions.of(
             ImmutableList.<Class<? extends FragmentOptions>>of(BuildConfiguration.Options.class));
@@ -775,9 +754,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testEarlyFlush() throws Exception {
     // Verify that the streamer can handle early calls to flush() and still correctly
     // reports stdout and stderr in the build-event stream.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
     BuildEventStreamer.OutErrProvider outErr =
         Mockito.mock(BuildEventStreamer.OutErrProvider.class);
     String firstStdoutMsg = "Some text that was written to stdout.";
@@ -822,9 +798,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   @Test
   public void testChunkedFlush() throws Exception {
     // Verify that the streamer calls to flush() that return multiple chunked buffers.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
     BuildEventStreamer.OutErrProvider outErr =
         Mockito.mock(BuildEventStreamer.OutErrProvider.class);
     String firstStdoutMsg = "Some text that was written to stdout.";
@@ -871,9 +844,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   @Test
   public void testNoopFlush() throws Exception {
     // Verify that the streamer ignores a flush, if neither stream produces any output.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
     BuildEventStreamer.OutErrProvider outErr =
         Mockito.mock(BuildEventStreamer.OutErrProvider.class);
     String stdoutMsg = "Some text that was written to stdout.";
@@ -906,9 +876,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     //   all events
     // - the unusal first event we have seen, and
     // - a progress event reporting the flushed messages.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
     BuildEventStreamer.OutErrProvider outErr =
         Mockito.mock(BuildEventStreamer.OutErrProvider.class);
     String stdoutMsg = "Some text that was written to stdout.";
@@ -956,10 +923,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     // we still expect that, if a build-started event is forced by some order
     // constraint (e.g., CommandLine wants to come after build started), then
     // that gets sorted to the beginning.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
-
     BuildEvent orderEvent =
         new GenericOrderEvent(
             testId("event depending on start"),
@@ -984,9 +947,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testFinalEventsLate() throws Exception {
     // Verify that we correctly handle late events (i.e., events coming only after the
     // BuildCompleteEvent) that are sent to the streamer after the BuildCompleteEvent.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),
@@ -1013,9 +973,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     // Verify that we correctly handle late events (i.e., events coming only after the
     // BuildCompleteEvent) that are sent to the streamer before the BuildCompleteEvent,
     // but with an order constraint to come afterwards.
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),
@@ -1042,12 +999,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testSuccessfulActionsAreNotPublishedByDefault() {
     EventBusHandler handler = new EventBusHandler();
     eventBus.register(handler);
-
-    BuildEventStreamOptions options = new BuildEventStreamOptions();
-
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter, options);
 
     ActionExecutedEvent failedActionExecutedEvent =
         new ActionExecutedEvent(
@@ -1076,9 +1027,13 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     BuildEventStreamOptions options = new BuildEventStreamOptions();
     options.publishAllActions = true;
 
-    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter, options);
+        new BuildEventStreamer.Builder()
+            .artifactGroupNamer(artifactGroupNamer)
+            .besStreamOptions(options)
+            .cmdLineReporter(reporter)
+            .buildEventTransports(ImmutableSet.of(transport))
+            .build();
 
     ActionExecutedEvent failedActionExecutedEvent =
         new ActionExecutedEvent(

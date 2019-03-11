@@ -27,7 +27,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.trimming.ConfigurationComparer;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -58,8 +56,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -79,26 +75,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     return starlarkOptions.entrySet().stream()
         .collect(
             Collectors.toMap(e -> Label.parseAbsoluteUnchecked(e.getKey()), Map.Entry::getValue));
-  }
-
-  /**
-   * Creates a BuildOptions object with all options set to their default values, processed by the
-   * given {@code invocationPolicy}.
-   */
-  static BuildOptions createDefaults(
-      Iterable<Class<? extends FragmentOptions>> options, InvocationPolicy invocationPolicy) {
-    return of(options, createDefaultParser(options, invocationPolicy));
-  }
-
-  private static OptionsParser createDefaultParser(
-      Iterable<Class<? extends FragmentOptions>> options, InvocationPolicy invocationPolicy) {
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(options);
-    try {
-      new InvocationPolicyEnforcer(invocationPolicy).enforce(optionsParser);
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException(e);
-    }
-    return optionsParser;
   }
 
   /** Creates a new BuildOptions instance for host. */
@@ -178,27 +154,6 @@ public final class BuildOptions implements Cloneable, Serializable {
   /** Returns true if these options contain the given {@link FragmentOptions}. */
   public boolean contains(Class<? extends FragmentOptions> optionsClass) {
     return fragmentOptionsMap.containsKey(optionsClass);
-  }
-
-  // It would be very convenient to use a Multimap here, but we cannot do that because we need to
-  // support defaults labels that have zero elements.
-  ImmutableMap<String, ImmutableSet<Label>> getDefaultsLabels() {
-    Map<String, Set<Label>> collector = new TreeMap<>();
-    for (FragmentOptions fragment : fragmentOptionsMap.values()) {
-      for (Map.Entry<String, Set<Label>> entry : fragment.getDefaultsLabels().entrySet()) {
-        if (!collector.containsKey(entry.getKey())) {
-          collector.put(entry.getKey(), new TreeSet<Label>());
-        }
-        collector.get(entry.getKey()).addAll(entry.getValue());
-      }
-    }
-
-    ImmutableMap.Builder<String, ImmutableSet<Label>> result = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, Set<Label>> entry : collector.entrySet()) {
-      result.put(entry.getKey(), ImmutableSet.copyOf(entry.getValue()));
-    }
-
-    return result.build();
   }
 
   /** The cache key for the options collection. Recomputes cache key every time it's called. */
@@ -534,7 +489,8 @@ public final class BuildOptions implements Cloneable, Serializable {
           // changes, add a test verifying this error catching works properly.
           throw new IllegalStateException(
               "OptionsDiffForReconstruction can only handle a single first BuildOptions and a "
-                  + "single second BuildOptions and has encountered multiple second BuildOptions");
+                  + "single second BuildOptions and has encountered multiple second BuildOptions",
+              e);
         }
         valueMap.put(optionDefinition.getField().getName(), secondValue);
       }

@@ -110,6 +110,11 @@ public final class RemoteModule extends BlazeModule {
         return true; // if *all* > 0 violations have type MISSING
       };
 
+  /** Returns whether remote execution should be available. */
+  public static boolean shouldEnableRemoteExecution(RemoteOptions options) {
+    return !Strings.isNullOrEmpty(options.remoteExecutor);
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
@@ -123,14 +128,9 @@ public final class RemoteModule extends BlazeModule {
 
     boolean enableRestCache = SimpleBlobStoreFactory.isRestUrlOptions(remoteOptions);
     boolean enableDiskCache = SimpleBlobStoreFactory.isDiskCache(remoteOptions);
-    if (enableRestCache && enableDiskCache) {
-      throw new AbruptExitException(
-          "Cannot enable HTTP-based and local disk cache simultaneously",
-          ExitCode.COMMAND_LINE_ERROR);
-    }
     boolean enableBlobStoreCache = enableRestCache || enableDiskCache;
     boolean enableGrpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
-    boolean enableRemoteExecution = !Strings.isNullOrEmpty(remoteOptions.remoteExecutor);
+    boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     if (enableBlobStoreCache && enableRemoteExecution) {
       throw new AbruptExitException(
           "Cannot combine gRPC based remote execution with local disk or HTTP-based caching",
@@ -330,6 +330,8 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void afterCommand() {
+    buildEventArtifactUploaderFactoryDelegate.reset();
+    actionContextProvider = null;
     if (rpcLogFile != null) {
       try {
         rpcLogFile.close();
@@ -339,7 +341,6 @@ public final class RemoteModule extends BlazeModule {
         rpcLogFile = null;
       }
     }
-    buildEventArtifactUploaderFactoryDelegate.reset();
   }
 
   @Override

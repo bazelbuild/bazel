@@ -70,7 +70,9 @@ public class MockRuleDefaults {
               .dontCheckConstraints(),
           attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
               .allowedFileTypes(FileTypeSet.NO_FILE)
-              .dontCheckConstraints());
+              .dontCheckConstraints(),
+          attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
+              .nonconfigurable("stores configurability keys"));
 
   /**
    * The default configured target factory for mock rules.

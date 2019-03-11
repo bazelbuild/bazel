@@ -368,8 +368,6 @@ public final class CommandInterruptionTest {
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                     // Can't create a defaults package without the base options in there!
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
-                    // Need to have some defaults values to satisfy DefaultsPackage.getContent()
-                    // TODO(dbabkin): remove when DefaultsPackage been deprecated b/79239052
                     builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
                   }
                 })

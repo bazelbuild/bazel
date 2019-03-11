@@ -89,7 +89,7 @@ public final class SyncCommand implements BlazeCommand {
                   true,
                   true,
                   env.getCommandId().toString()));
-      env.setupPackageCache(options, env.getRuntime().getDefaultsPackageContent());
+      env.setupPackageCache(options);
       SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(

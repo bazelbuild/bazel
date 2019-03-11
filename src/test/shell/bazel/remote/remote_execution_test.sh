@@ -51,7 +51,7 @@ function set_up() {
 }
 
 function tear_down() {
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
     kill "${pid}" || true
@@ -85,7 +85,7 @@ EOF
     || fail "Failed to build //a:test without remote execution"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
@@ -170,7 +170,7 @@ EOF
     || fail "Failed to build //a:test without remote cache"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   bazel build \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
@@ -196,7 +196,7 @@ EOF
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache service"
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   bazel build \
       --remote_cache=localhost:${worker_port} \
       //a:test 2>&1 | tee $TEST_log | grep "remote cache hit" \
@@ -325,7 +325,7 @@ EOF
     || fail "Failed to build //a:large_output without remote execution"
   cp -f bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt
 
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
@@ -636,7 +636,7 @@ function test_symlinks_in_directory_cache_only() {
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote cache service"
     expect_log "1 local"
-    bazel clean --expunge # Get rid of local results, rely on remote cache.
+    bazel clean # Get rid of local results, rely on remote cache.
     bazel build \
           --incompatible_remote_symlinks \
           --remote_cache=localhost:${worker_port} \

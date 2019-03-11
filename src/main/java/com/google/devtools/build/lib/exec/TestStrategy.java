@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -126,9 +125,9 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   @Override
-  public abstract List<SpawnResult> exec(
-      TestRunnerAction action, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException;
+  public final boolean isTestKeepGoing() {
+    return executionOptions.testKeepGoing;
+  }
 
   /**
    * Generates a command line to run for the test action, taking into account coverage and {@code

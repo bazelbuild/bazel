@@ -33,10 +33,11 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -362,6 +363,11 @@ public final class CcToolchainProvider extends ToolchainInfo
         .collect(ImmutableList.toImmutableList());
   }
 
+  @Override
+  public SkylarkNestedSet getAllFilesForStarlark() {
+    return SkylarkNestedSet.of(Artifact.class, getAllFiles());
+  }
+
   public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
   }
@@ -599,14 +605,6 @@ public final class CcToolchainProvider extends ToolchainInfo
    * supplied inside the toolchain distribution.
    */
   public boolean supportsEmbeddedRuntimes() {
-    return toolchainInfo.supportsEmbeddedRuntimes();
-  }
-
-  /**
-   * Returns whether the toolchain supports EXEC_ORIGIN libraries resolution.
-   */
-  public boolean supportsExecOrigin() {
-    // We're rolling out support for this in the same release that also supports embedded runtimes.
     return toolchainInfo.supportsEmbeddedRuntimes();
   }
 

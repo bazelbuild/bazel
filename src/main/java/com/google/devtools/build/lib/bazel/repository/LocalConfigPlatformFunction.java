@@ -118,7 +118,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   private static String workspaceFileContent(String repositoryName) {
     return format(
         ImmutableList.of(
-            "# DO NOT EDIT: automatically generated WORKSPACE file for local_config_platforms",
+            "# DO NOT EDIT: automatically generated WORKSPACE file for local_config_platform",
             "workspace(name = \"%s\")"),
         repositoryName);
   }
@@ -126,7 +126,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   private static String buildFileContent(String repositoryName) {
     return format(
         ImmutableList.of(
-            "# DO NOT EDIT: automatically generated BUILD file for local_config_platforms",
+            "# DO NOT EDIT: automatically generated BUILD file for local_config_platform",
             "load(':constraints.bzl', 'HOST_CONSTRAINTS')",
             "platform(name = 'host',",
             "  # Auto-detected host platform constraints.",
@@ -138,7 +138,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   private static String constraintFileContent(CPU hostCpu, OS hostOs) {
     List<String> contents = new ArrayList<>();
     contents.add(
-        "# DO NOT EDIT: automatically generated constraints list for local_config_platforms");
+        "# DO NOT EDIT: automatically generated constraints list for local_config_platform");
     contents.add("# Auto-detected host platform constraints.");
     contents.add("HOST_CONSTRAINTS = [");
 

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 
 /**
  * Provides access to information about Java rules. Every Java-related target provides
@@ -45,7 +45,7 @@ public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
       useSkylarkSemantics = true,
       useLocation = true,
       structField = true)
-  public NestedSet<FileT> getSourceJars(Location location, SkylarkSemantics semantics)
+  public NestedSet<FileT> getSourceJars(Location location, StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -54,7 +54,7 @@ public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
       useSkylarkSemantics = true,
       useLocation = true,
       structField = true)
-  public NestedSet<FileT> getTransitiveDeps(Location location, SkylarkSemantics semantics)
+  public NestedSet<FileT> getTransitiveDeps(Location location, StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -63,7 +63,7 @@ public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
       useSkylarkSemantics = true,
       useLocation = true,
       structField = true)
-  public NestedSet<FileT> getTransitiveRuntimeDeps(Location location, SkylarkSemantics semantics)
+  public NestedSet<FileT> getTransitiveRuntimeDeps(Location location, StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -74,7 +74,7 @@ public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
       useSkylarkSemantics = true,
       useLocation = true,
       structField = true)
-  public NestedSet<FileT> getTransitiveSourceJars(Location location, SkylarkSemantics semantics)
+  public NestedSet<FileT> getTransitiveSourceJars(Location location, StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -84,7 +84,7 @@ public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
       useLocation = true,
       structField = true)
   public JavaRuleOutputJarsProviderApi<?> getOutputJars(
-      Location location, SkylarkSemantics semantics) throws EvalException;
+      Location location, StarlarkSemantics semantics) throws EvalException;
 
   @SkylarkCallable(
       name = "transitive_exports",
@@ -92,7 +92,7 @@ public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
       useSkylarkSemantics = true,
       useLocation = true,
       doc = "Returns transitive set of labels that are being exported from this rule.")
-  public NestedSet<Label> getTransitiveExports(Location location, SkylarkSemantics semantics)
+  public NestedSet<Label> getTransitiveExports(Location location, StarlarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -103,7 +103,7 @@ public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
       useLocation = true,
       doc = "Returns information about annotation processing for this Java target.")
   public JavaAnnotationProcessingApi<?> getGenJarsProvider(
-      Location location, SkylarkSemantics semantics) throws EvalException;
+      Location location, StarlarkSemantics semantics) throws EvalException;
 
   @SkylarkCallable(
       name = "compilation_info",
@@ -113,5 +113,5 @@ public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
       useLocation = true,
       doc = "Returns compilation information for this Java target.")
   public JavaCompilationInfoProviderApi<?> getCompilationInfoProvider(
-      Location location, SkylarkSemantics semantics) throws EvalException;
+      Location location, StarlarkSemantics semantics) throws EvalException;
 }

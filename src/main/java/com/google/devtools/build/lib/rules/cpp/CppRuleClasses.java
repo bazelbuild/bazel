@@ -46,9 +46,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
-/**
- * Rule class definitions for C++ rules.
- */
+/** Rule class definitions for C++ rules. */
 public class CppRuleClasses {
 
   /**
@@ -86,27 +84,29 @@ public class CppRuleClasses {
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
-  static final FileTypeSet DISALLOWED_HDRS_FILES = FileTypeSet.of(
-      ARCHIVE,
-      PIC_ARCHIVE,
-      ALWAYS_LINK_LIBRARY,
-      ALWAYS_LINK_PIC_LIBRARY,
-      SHARED_LIBRARY,
-      INTERFACE_SHARED_LIBRARY,
-      VERSIONED_SHARED_LIBRARY,
-      OBJECT_FILE,
-      PIC_OBJECT_FILE);
+  static final FileTypeSet DISALLOWED_HDRS_FILES =
+      FileTypeSet.of(
+          ARCHIVE,
+          PIC_ARCHIVE,
+          ALWAYS_LINK_LIBRARY,
+          ALWAYS_LINK_PIC_LIBRARY,
+          SHARED_LIBRARY,
+          INTERFACE_SHARED_LIBRARY,
+          VERSIONED_SHARED_LIBRARY,
+          OBJECT_FILE,
+          PIC_OBJECT_FILE);
 
   /**
    * The set of instrumented source file types; keep this in sync with the list above. Note that
    * extension-less header files cannot currently be declared, so we cannot collect coverage for
    * those.
    */
-  static final InstrumentationSpec INSTRUMENTATION_SPEC = new InstrumentationSpec(
-      FileTypeSet.of(CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR,
-          ASSEMBLER))
-      .withSourceAttributes("srcs", "hdrs")
-      .withDependencyAttributes("deps", "data");
+  static final InstrumentationSpec INSTRUMENTATION_SPEC =
+      new InstrumentationSpec(
+              FileTypeSet.of(
+                  CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR, ASSEMBLER))
+          .withSourceAttributes("srcs", "hdrs")
+          .withDependencyAttributes("deps", "data");
 
   /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
@@ -119,9 +119,7 @@ public class CppRuleClasses {
   /** Name of the feature that will be exempt from flag filtering when nocopts are used */
   public static final String UNFILTERED_COMPILE_FLAGS_FEATURE_NAME = "unfiltered_compile_flags";
 
-  /**
-   * A string constant for the parse_headers feature.
-   */
+  /** A string constant for the parse_headers feature. */
   public static final String PARSE_HEADERS = "parse_headers";
 
   /**
@@ -136,31 +134,25 @@ public class CppRuleClasses {
    */
   public static final String RANDOM_SEED = "random_seed";
 
-  /**
-   * A string constant for the dependency_file feature. This feature generates the .d file.
-   */
+  /** A string constant for the dependency_file feature. This feature generates the .d file. */
   public static final String DEPENDENCY_FILE = "dependency_file";
 
-  /**
-   * A string constant for the module_map_home_cwd feature.
-   */
+  /** A string constant for the module_map_home_cwd feature. */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";
 
   /**
    * A string constant for the module_map_without_extern_module feature.
    *
-   * <p>This features is a transitional feature; enabling it means that generated module maps
-   * will not have "extern module" declarations inside them; instead, the module maps need
-   * to be passed via the dependent_module_map_files build variable.
+   * <p>This features is a transitional feature; enabling it means that generated module maps will
+   * not have "extern module" declarations inside them; instead, the module maps need to be passed
+   * via the dependent_module_map_files build variable.
    *
    * <p>This variable is phrased negatively to aid the roll-out: currently, the default is that
    * "extern module" declarations are generated.
    */
   public static final String MODULE_MAP_WITHOUT_EXTERN_MODULE = "module_map_without_extern_module";
 
-  /**
-   * A string constant for the layering_check feature.
-   */
+  /** A string constant for the layering_check feature. */
   public static final String LAYERING_CHECK = "layering_check";
 
   /** A string constant for the header_modules feature. */
@@ -172,22 +164,18 @@ public class CppRuleClasses {
   /** A string constant for the header_module_codegen feature. */
   public static final String HEADER_MODULE_CODEGEN = "header_module_codegen";
 
-  /**
-   * A string constant for the compile_all_modules feature.
-   */
+  /** A string constant for the compile_all_modules feature. */
   public static final String COMPILE_ALL_MODULES = "compile_all_modules";
 
-  /**
-   * A string constant for the exclude_private_headers_in_module_maps feature.
-   */
+  /** A string constant for the exclude_private_headers_in_module_maps feature. */
   public static final String EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS =
       "exclude_private_headers_in_module_maps";
 
   /**
    * A string constant for the use_header_modules feature.
    *
-   * <p>This feature is only used during rollout; we expect to default enable this once we
-   * have verified that module-enabled compilation is stable enough.
+   * <p>This feature is only used during rollout; we expect to default enable this once we have
+   * verified that module-enabled compilation is stable enough.
    */
   public static final String USE_HEADER_MODULES = "use_header_modules";
 
@@ -230,9 +218,7 @@ public class CppRuleClasses {
    */
   public static final String DEFAULT_COMPILE_FLAGS = "default_compile_flags";
 
-  /**
-   * A string constant for the feature that makes us build per-object debug info files.
-   */
+  /** A string constant for the feature that makes us build per-object debug info files. */
   public static final String PER_OBJECT_DEBUG_INFO = "per_object_debug_info";
 
   /**
@@ -246,17 +232,13 @@ public class CppRuleClasses {
   /** A string constant for a feature that indicates that the toolchain can produce PIC objects. */
   public static final String SUPPORTS_PIC = "supports_pic";
 
-  /**
-   * A string constant for the feature the represents preprocessor defines.
-   */
+  /** A string constant for the feature the represents preprocessor defines. */
   public static final String PREPROCESSOR_DEFINES = "preprocessor_defines";
 
   /** A string constant for the includes feature. */
   public static final String INCLUDES = "includes";
 
-  /**
-   * A string constant for the include_paths feature.
-   */
+  /** A string constant for the include_paths feature. */
   public static final String INCLUDE_PATHS = "include_paths";
 
   /** A string constant for the feature signalling static linking mode. */
@@ -265,9 +247,7 @@ public class CppRuleClasses {
   /** A string constant for the feature signalling dynamic linking mode. */
   public static final String DYNAMIC_LINKING_MODE = "dynamic_linking_mode";
 
-  /**
-   * A string constant for the ThinLTO feature.
-   */
+  /** A string constant for the ThinLTO feature. */
   public static final String THIN_LTO = "thin_lto";
 
   /*
@@ -368,27 +348,19 @@ public class CppRuleClasses {
    */
   public static final String FDO_INSTRUMENT = "fdo_instrument";
 
-  /**
-   * A string constant for the fdo_optimize feature.
-   */
+  /** A string constant for the fdo_optimize feature. */
   public static final String FDO_OPTIMIZE = "fdo_optimize";
 
-  /**
-   * A string constant for the cache prefetch hints feature.
-   */
+  /** A string constant for the cache prefetch hints feature. */
   public static final String FDO_PREFETCH_HINTS = "fdo_prefetch_hints";
 
-  /**
-   * A string constant for the autofdo feature.
-   */
+  /** A string constant for the autofdo feature. */
   public static final String AUTOFDO = "autofdo";
 
   /** A string constant for the xbinaryfdo feature. */
   public static final String XBINARYFDO = "xbinaryfdo";
 
-  /**
-   * A string constant for the coverage feature.
-   */
+  /** A string constant for the coverage feature. */
   public static final String COVERAGE = "coverage";
 
   /** Produce artifacts for coverage in llvm coverage mapping format. */
@@ -411,6 +383,9 @@ public class CppRuleClasses {
    * runtime.
    */
   public static final String SUPPORTS_DYNAMIC_LINKER = "supports_dynamic_linker";
+
+  /** A feature marking that the target needs to link its deps in --whole-archive block. */
+  public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {

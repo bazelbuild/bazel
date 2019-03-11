@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 
 /**
  * Factory for creating new {@link LinkerInput} objects.
@@ -153,7 +152,7 @@ public abstract class LinkerInputs {
    * A library the user can link to. This is different from a simple linker input in that it also
    * has a library identifier.
    */
-  public interface LibraryToLink extends LinkerInput, LibraryToLinkApi<Artifact> {
+  public interface LibraryToLink extends LinkerInput {
     LtoCompilationContext getLtoCompilationContext();
 
     /**
@@ -206,7 +205,6 @@ public abstract class LinkerInputs {
       return ArtifactCategory.DYNAMIC_LIBRARY;
     }
 
-    @Override
     public Artifact getArtifact() {
       return solibSymlinkArtifact;
     }
@@ -362,7 +360,6 @@ public abstract class LinkerInputs {
       return category;
     }
 
-    @Override
     public Artifact getArtifact() {
       return libraryArtifact;
     }

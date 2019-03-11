@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -70,6 +71,19 @@ public final class BuildCommand implements BlazeCommand {
     List<String> targets;
     try (SilentCloseable closeable = Profiler.instance().profile("ProjectFileSupport.getTargets")) {
       targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
+    }
+    if (targets.isEmpty()) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Usage: "
+                      + runtime.getProductName()
+                      + " build <options> <targets>."
+                      + "\nInvoke `"
+                      + runtime.getProductName()
+                      + " help build` for full description of usage and options."
+                      + "\nYour request is correct, but requested an empty set of targets."
+                      + " Nothing will be built."));
     }
 
     BuildRequest request;

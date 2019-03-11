@@ -49,6 +49,21 @@ public class AnalysisFailureInfo extends Info implements AnalysisFailureInfoApi<
         NestedSetBuilder.<AnalysisFailure>stableOrder().addAll(failures).build());
   }
 
+  /**
+   * Constructs and returns an {@link AnalysisFailureInfo} object representing the given sets of
+   * failures. When combining nested sets of analysis failures, use this method instead of {@link
+   * #forAnalysisFailures} so that the sets do not need to be flattened.
+   */
+  public static AnalysisFailureInfo forAnalysisFailureSets(
+      Iterable<NestedSet<AnalysisFailure>> failures) {
+    NestedSetBuilder<AnalysisFailure> fullSetBuilder =
+        NestedSetBuilder.<AnalysisFailure>stableOrder();
+    for (NestedSet<AnalysisFailure> failure : failures) {
+      fullSetBuilder.addTransitive(failure);
+    }
+    return new AnalysisFailureInfo(fullSetBuilder.build());
+  }
+
   @Override
   public NestedSet<AnalysisFailure> getCauses() {
     return causes;

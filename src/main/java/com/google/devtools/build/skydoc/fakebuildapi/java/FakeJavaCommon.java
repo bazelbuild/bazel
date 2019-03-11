@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import javax.annotation.Nullable;
 
@@ -78,7 +78,7 @@ public class FakeJavaCommon
       Object targetLabel,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -90,7 +90,7 @@ public class FakeJavaCommon
       Label targetLabel,
       Object javaToolchain,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -104,7 +104,7 @@ public class FakeJavaCommon
       Object javaToolchain,
       Object hostJavabase,
       Location location,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -115,7 +115,7 @@ public class FakeJavaCommon
       Object javaToolchainAttr,
       Object javaToolchain,
       Location loc,
-      SkylarkSemantics semantics)
+      StarlarkSemantics semantics)
       throws EvalException {
     return ImmutableList.of();
   }

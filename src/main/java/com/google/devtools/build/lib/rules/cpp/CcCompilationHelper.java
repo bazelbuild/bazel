@@ -269,94 +269,61 @@ public final class CcCompilationHelper {
   private final ActionRegistry actionRegistry;
   private final ActionConstructionContext actionConstructionContext;
   private final Label label;
-  private final Artifact grepIncludes;
+  @Nullable private final Artifact grepIncludes;
 
-  /**
-   * Creates a CcCompilationHelper.
-   *
-   * @param ruleContext the RuleContext for the rule being built
-   * @param semantics CppSemantics for the build
-   * @param featureConfiguration activated features and action configs for the build
-   * @param sourceCatagory the candidate source types for the build
-   * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoContext the C++ FDO optimization support provider for the build
-   */
+  /** Creates a CcCompilationHelper that outputs artifacts in a given configuration. */
   public CcCompilationHelper(
-      RuleContext ruleContext,
+      ActionRegistry actionRegistry,
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      @Nullable Artifact grepIncludes,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
-      SourceCategory sourceCatagory,
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext) {
-    this(
-        ruleContext,
-        semantics,
-        featureConfiguration,
-        sourceCatagory,
-        ccToolchain,
-        fdoContext,
-        ruleContext.getConfiguration());
-  }
-
-  /**
-   * Creates a CcCompilationHelper that outputs artifacts in a given configuration.
-   *
-   * @param ruleContext the RuleContext for the rule being built
-   * @param semantics CppSemantics for the build
-   * @param featureConfiguration activated features and action configs for the build
-   * @param sourceCatagory the candidate source types for the build
-   * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoContext the C++ FDO optimization support provider for the build
-   * @param configuration the configuration that gives the directory of output artifacts
-   */
-  public CcCompilationHelper(
-      RuleContext ruleContext,
-      CppSemantics semantics,
-      FeatureConfiguration featureConfiguration,
-      SourceCategory sourceCatagory,
+      SourceCategory sourceCategory,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      BuildConfiguration configuration) {
+      BuildConfiguration buildConfiguration) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
-    this.sourceCategory = Preconditions.checkNotNull(sourceCatagory);
+    this.sourceCategory = Preconditions.checkNotNull(sourceCategory);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
-    this.configuration = Preconditions.checkNotNull(configuration);
-    this.cppConfiguration =
-        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
+    this.actionConstructionContext = Preconditions.checkNotNull(actionConstructionContext);
+    this.configuration = buildConfiguration;
+    this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     setGenerateNoPicAction(
         !ccToolchain.usePicForDynamicLibraries(featureConfiguration)
             || !CppHelper.usePicForBinaries(ccToolchain, featureConfiguration));
     setGeneratePicAction(
         ccToolchain.usePicForDynamicLibraries(featureConfiguration)
             || CppHelper.usePicForBinaries(ccToolchain, featureConfiguration));
-    ruleErrorConsumer = ruleContext;
-    actionRegistry = ruleContext;
-    actionConstructionContext = ruleContext;
-    label = ruleContext.getLabel();
-    grepIncludes =
-        ruleContext.attributes().has("$grep_includes")
-            ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
-            : null;
+    this.ruleErrorConsumer = actionConstructionContext.getRuleErrorConsumer();
+    this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
+    this.label = Preconditions.checkNotNull(label);
+    this.grepIncludes = grepIncludes;
   }
 
-  /**
-   * Creates a CcCompilationHelper for cpp source files.
-   *
-   * @param ruleContext the RuleContext for the rule being built
-   * @param semantics CppSemantics for the build
-   * @param featureConfiguration activated features and action configs for the build
-   * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoContext the C++ FDO optimization support provider for the build
-   */
+  /** Creates a CcCompilationHelper for cpp source files. */
   public CcCompilationHelper(
-      RuleContext ruleContext,
+      ActionRegistry actionRegistry,
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      @Nullable Artifact grepIncludes,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext) {
-    this(ruleContext, semantics, featureConfiguration, SourceCategory.CC, ccToolchain, fdoContext);
+    this(
+        actionRegistry,
+        actionConstructionContext,
+        label,
+        grepIncludes,
+        semantics,
+        featureConfiguration,
+        SourceCategory.CC,
+        ccToolchain,
+        fdoContext,
+        actionConstructionContext.getConfiguration());
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -1317,7 +1284,8 @@ public final class CcCompilationHelper {
                 // The source action does not generate dwo when it has bitcode
                 // output (since it isn't generating a native object with debug
                 // info). In that case the LtoBackendAction will generate the dwo.
-                ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration) && !bitcodeOutput,
+                ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
+                bitcodeOutput,
                 isGenerateDotdFile(sourceArtifact));
             break;
         }
@@ -1385,6 +1353,7 @@ public final class CcCompilationHelper {
             /* ccRelativeName= */ null,
             ccCompilationContext.getCppModuleMap(),
             /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             /* additionalBuildVariables= */ ImmutableMap.of()));
@@ -1444,13 +1413,14 @@ public final class CcCompilationHelper {
       PathFragment ccRelativeName,
       CppModuleMap cppModuleMap,
       Artifact gcnoFile,
+      boolean isUsingFission,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
       ImmutableMap<String, String> additionalBuildVariables) {
     Artifact sourceFile = builder.getSourceFile();
     String dotdFileExecPath = null;
     if (builder.getDotdFile() != null) {
-      dotdFileExecPath = builder.getDotdFile().getSafeExecPath().getPathString();
+      dotdFileExecPath = builder.getDotdFile().getExecPathString();
     }
     ImmutableMap.Builder<String, String> allAdditionalBuildVariables = ImmutableMap.builder();
     allAdditionalBuildVariables.putAll(additionalBuildVariables);
@@ -1469,6 +1439,7 @@ public final class CcCompilationHelper {
         toPathString(sourceFile),
         toPathString(builder.getOutputFile()),
         toPathString(gcnoFile),
+        isUsingFission,
         toPathString(dwoFile),
         toPathString(ltoIndexingFile),
         ImmutableList.of(),
@@ -1557,6 +1528,7 @@ public final class CcCompilationHelper {
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
             gcnoFile,
+            generateDwo,
             dwoFile,
             /* ltoIndexingFile= */ null,
             /* additionalBuildVariables= */ ImmutableMap.of()));
@@ -1610,6 +1582,7 @@ public final class CcCompilationHelper {
             /* ccRelativeName= */ null,
             ccCompilationContext.getCppModuleMap(),
             /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             /* additionalBuildVariables= */ ImmutableMap.of()));
@@ -1641,6 +1614,7 @@ public final class CcCompilationHelper {
         /* addObject= */ false,
         /* enableCoverage= */ false,
         /* generateDwo= */ false,
+        /* bitcodeOutput= */ false,
         isGenerateDotdFile(moduleMapArtifact));
   }
 
@@ -1655,6 +1629,7 @@ public final class CcCompilationHelper {
       boolean addObject,
       boolean enableCoverage,
       boolean generateDwo,
+      boolean bitcodeOutput,
       boolean generateDotd)
       throws RuleErrorException {
     ImmutableList.Builder<Artifact> directOutputs = new ImmutableList.Builder<>();
@@ -1672,10 +1647,6 @@ public final class CcCompilationHelper {
           usePic,
           generateDotd);
     } else {
-      boolean bitcodeOutput =
-          featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
-              && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
-
       // Create PIC compile actions (same as no-PIC, but use -fPIC and
       // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
       if (generatePicAction) {
@@ -1692,7 +1663,8 @@ public final class CcCompilationHelper {
                 ? CppHelper.getCompileOutputArtifact(
                     actionConstructionContext, label, gcnoFileName, configuration)
                 : null;
-        Artifact dwoFile = generateDwo ? getDwoFile(picBuilder.getOutputFile()) : null;
+        Artifact dwoFile =
+            generateDwo && !bitcodeOutput ? getDwoFile(picBuilder.getOutputFile()) : null;
         Artifact ltoIndexingFile =
             bitcodeOutput ? getLtoIndexingFile(picBuilder.getOutputFile()) : null;
 
@@ -1704,6 +1676,7 @@ public final class CcCompilationHelper {
                 ccRelativeName,
                 ccCompilationContext.getCppModuleMap(),
                 gcnoFile,
+                generateDwo,
                 dwoFile,
                 ltoIndexingFile,
                 /* additionalBuildVariables= */ ImmutableMap.of()));
@@ -1766,7 +1739,7 @@ public final class CcCompilationHelper {
                     actionConstructionContext, label, gcnoFileName, configuration)
                 : null;
 
-        Artifact noPicDwoFile = generateDwo ? getDwoFile(noPicOutputFile) : null;
+        Artifact noPicDwoFile = generateDwo && !bitcodeOutput ? getDwoFile(noPicOutputFile) : null;
         Artifact ltoIndexingFile =
             bitcodeOutput ? getLtoIndexingFile(builder.getOutputFile()) : null;
 
@@ -1778,6 +1751,7 @@ public final class CcCompilationHelper {
                 ccRelativeName,
                 cppModuleMap,
                 gcnoFile,
+                generateDwo,
                 noPicDwoFile,
                 ltoIndexingFile,
                 /* additionalBuildVariables= */ ImmutableMap.of()));
@@ -1890,6 +1864,7 @@ public final class CcCompilationHelper {
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
             /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             /* additionalBuildVariables= */ ImmutableMap.of()));
@@ -2005,6 +1980,7 @@ public final class CcCompilationHelper {
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
             /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             ImmutableMap.of(
@@ -2030,6 +2006,7 @@ public final class CcCompilationHelper {
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
             /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             ImmutableMap.of(

@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
@@ -110,7 +111,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -138,7 +139,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -292,10 +293,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private CompletionReceiver actionExecutionFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private final AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
-
-  protected int modifiedFiles;
-  protected int outputDirtyFiles;
-  protected int modifiedFilesDuringPreviousBuild;
 
   @VisibleForTesting boolean lastAnalysisDiscarded = false;
 
@@ -508,7 +505,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             skylarkImportLookupFunctionForInlining,
             packageProgress,
             actionOnIOExceptionReadingBuildFile,
-            IncrementalityIntent.INCREMENTAL));
+            tracksStateForIncrementality()
+                ? IncrementalityIntent.INCREMENTAL
+                : IncrementalityIntent.NON_INCREMENTAL));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
@@ -601,7 +600,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected SkyFunction newDirectoryListingStateFunction() {
-    return new DirectoryListingStateFunction(externalFilesHelper);
+    return new DirectoryListingStateFunction(externalFilesHelper, syscalls);
   }
 
   protected SkyFunction newGlobFunction() {
@@ -797,8 +796,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * single command, so callers should err on the side of calling it more frequently. Should be
    * idempotent, so that calls after the first one in the same evaluation should be quick.
    */
-  public void notifyCommandComplete() throws InterruptedException {
-    memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished();
+  public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
+    memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
   }
 
   protected abstract Differencer evaluatorDiffer();
@@ -940,7 +939,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", logger)) {
       lastAnalysisDiscarded = true;
       Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
-          memoizingEvaluator.getGraphMap().entrySet().iterator();
+          memoizingEvaluator.getGraphEntries().iterator();
       while (it.hasNext()) {
         Map.Entry<SkyKey, ? extends NodeEntry> keyAndEntry = it.next();
         NodeEntry entry = keyAndEntry.getValue();
@@ -997,14 +996,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
 
-  /**
-   * Injects the contents of the computed tools/defaults package.
-   */
-  @VisibleForTesting
-  public void setupDefaultPackage(String defaultsPackageContents) {
-    PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
-  }
-
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
     WorkspaceStatusAction.Environment env =
         new WorkspaceStatusAction.Environment() {
@@ -1053,8 +1044,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  protected void setSkylarkSemantics(SkylarkSemantics skylarkSemantics) {
-    PrecomputedValue.SKYLARK_SEMANTICS.set(injectable(), skylarkSemantics);
+  protected void setSkylarkSemantics(StarlarkSemantics starlarkSemantics) {
+    PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
   public void injectExtraPrecomputedValues(
@@ -1177,16 +1168,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public SkyFunctionEnvironmentForTesting getSkyFunctionEnvironmentForTesting(
       ExtendedEventHandler eventHandler) {
     return new SkyFunctionEnvironmentForTesting(eventHandler, this);
-  }
-
-  /**
-   * Informs user about number of modified files (source and output files).
-   */
-  // Note, that number of modified files in some cases can be bigger than actual number of
-  // modified files for targets in current request. Skyframe may check for modification all files
-  // from previous requests.
-  protected void informAboutNumberOfModifiedFiles() {
-    logger.info(String.format("Found %d modified files from last build", modifiedFiles));
   }
 
   public EventBus getEventBus() {
@@ -1318,8 +1299,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void preparePackageLoading(
       PathPackageLocator pkgLocator,
       PackageCacheOptions packageCacheOptions,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
-      String defaultsPackageContents,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm) {
@@ -1332,11 +1312,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.clientEnv.set(clientEnv);
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
-    setSkylarkSemantics(skylarkSemanticsOptions.toSkylarkSemantics());
-
-    setupDefaultPackage("# //tools/defaults in-memory package is disabled.");
-    PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.set(injectable(), false);
-
+    setSkylarkSemantics(starlarkSemanticsOptions.toSkylarkSemantics());
     setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
@@ -1946,6 +1922,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
       if (depFragments != null) {
+        if (key.getTransition() == NullTransition.INSTANCE) {
+          continue;
+        }
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
           StarlarkTransition.postProcessStarlarkTransitions(eventHandler, key.getTransition());
@@ -1970,6 +1949,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
       if (depFragments != null) {
+        if (key.getTransition() == NullTransition.INSTANCE) {
+          builder.put(key, null);
+          continue;
+        }
+
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
           SkyKey configKey =
@@ -2131,6 +2115,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       lastAnalysisDiscarded = false;
     }
     invalidateFilesUnderPathForTestingImpl(eventHandler, modifiedFileSet, pathEntry);
+  }
+
+  @VisibleForTesting
+  public final void turnOffSyscallCacheForTesting() {
+    syscalls.set(UnixGlob.DEFAULT_SYSCALLS);
   }
 
   protected abstract void invalidateFilesUnderPathForTestingImpl(
@@ -2420,8 +2409,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
-      String defaultsPackageContents,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -2431,8 +2419,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,
-        skylarkSemanticsOptions,
-        defaultsPackageContents,
+        starlarkSemanticsOptions,
         commandId,
         clientEnv,
         tsgm);
@@ -2445,8 +2432,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
-      String defaultsPackageContents,
+      StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm)
@@ -2455,8 +2441,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       preparePackageLoading(
           pathPackageLocator,
           packageCacheOptions,
-          skylarkSemanticsOptions,
-          defaultsPackageContents,
+          starlarkSemanticsOptions,
           commandId,
           clientEnv,
           tsgm);
@@ -2708,17 +2693,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  public int getOutputDirtyFilesAndClear() {
-    int result = outputDirtyFiles;
-    outputDirtyFiles = 0;
-    return result;
-  }
-
-  public int getModifiedFilesDuringPreviousBuildAndClear() {
-    int result = modifiedFilesDuringPreviousBuild;
-    modifiedFilesDuringPreviousBuild = 0;
-    return result;
-  }
+  public abstract ExecutionFinishedEvent createExecutionFinishedEvent();
 
   private <T extends SkyValue> EvaluationResult<T> evaluate(
       Iterable<? extends SkyKey> roots,

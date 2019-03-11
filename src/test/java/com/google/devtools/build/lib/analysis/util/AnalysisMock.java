@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -72,17 +71,6 @@ public abstract class AnalysisMock extends LoadingMock {
       BlazeDirectories directories) {
     return super.getPackageFactoryBuilderForTesting(directories)
         .setExtraSkyFunctions(getSkyFunctions(directories));
-  }
-
-  @Override
-  public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
-    return new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
-  }
-
-  @Override
-  public String getDefaultsPackageContent() {
-    return createRuleClassProvider()
-        .getDefaultsPackageContent(getInvocationPolicyEnforcer().getInvocationPolicy());
   }
 
   /**
@@ -188,11 +176,6 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public ConfiguredRuleClassProvider createRuleClassProvider() {
       return delegate.createRuleClassProvider();
-    }
-
-    @Override
-    public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
-      return delegate.getInvocationPolicyEnforcer();
     }
 
     @Override

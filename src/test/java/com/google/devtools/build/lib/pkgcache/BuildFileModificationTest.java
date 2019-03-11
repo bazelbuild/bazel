@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.util.DefaultBuildOptionsForTesting
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
@@ -109,17 +109,15 @@ public class BuildFileModificationTest extends FoundationTestCase {
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
                 Optional.<RootedPath>absent())));
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
-    OptionsParser parser = OptionsParser.newOptionsParser(
-        PackageCacheOptions.class, SkylarkSemanticsOptions.class);
-    analysisMock.getInvocationPolicyEnforcer().enforce(parser);
+    OptionsParser parser =
+        OptionsParser.newOptionsParser(PackageCacheOptions.class, StarlarkSemanticsOptions.class);
     setUpSkyframe(
         parser.getOptions(PackageCacheOptions.class),
-        parser.getOptions(SkylarkSemanticsOptions.class));
+        parser.getOptions(StarlarkSemanticsOptions.class));
   }
 
   private void setUpSkyframe(
-      PackageCacheOptions packageCacheOptions,
-      SkylarkSemanticsOptions skylarkSemanticsOptions) {
+      PackageCacheOptions packageCacheOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
@@ -133,8 +131,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
-        skylarkSemanticsOptions,
-        analysisMock.getDefaultsPackageContent(),
+        starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(clock));

@@ -115,15 +115,27 @@ function test_no_arguments() {
   expect_log "Usage: b\\(laze\\|azel\\)"
 }
 
-
 function test_max_idle_secs() {
-  # Remove when https://github.com/bazelbuild/bazel/issues/6773 is fixed.
+  # TODO(https://github.com/bazelbuild/bazel/issues/6773): Remove when fixed.
   bazel shutdown
 
-  local server_pid1=$(bazel --max_idle_secs=1 info server_pid 2>$TEST_log)
-  sleep 5
-  local server_pid2=$(bazel info server_pid 2>$TEST_log)
-  assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
+  local options=( --max_idle_secs=1 )
+
+  local output_base
+  output_base="$(bazel "${options[@]}" info output_base 2>"$TEST_log")" \
+    || fail "bazel info failed"
+  local timeout=60  # Lower than the default --max_idle_secs.
+  while [[ -f "${output_base}/server/server.pid.txt" ]]; do
+    timeout="$(( ${timeout} - 1 ))"
+    [[ "${timeout}" -gt 0 ]] || fail "--max_idle_secs was not respected"
+
+    # Wait for the server to go away.
+    sleep 1
+  done
+
+  bazel "${options[@]}" info >"$TEST_log" 2>&1 || fail "bazel info failed"
+  expect_log "Starting local.*server and connecting to it"
+  # Ensure the restart was not triggered by different startup options.
   expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
@@ -197,6 +209,57 @@ function test_bad_command_nobatch() {
   exitcode=$?
   assert_equals 2 "$exitcode"
   expect_log "Command 'notacommand' not found."
+}
+
+function get_pid_environment() {
+  local pid="$1"
+  case "$(uname -s)" in
+    Linux)
+      cat "/proc/${pid}/environ" | tr '\0' '\n'
+      ;;
+    Darwin)
+      if ! ps > /dev/null; then
+        echo "Cannot use ps command, probably due to sandboxing." >&2
+        return 1
+      fi
+      ps eww -o command "${pid}" | tr ' ' '\n'
+      ;;
+    *)
+      false
+      ;;
+  esac
+}
+
+function test_proxy_settings() {
+  # We expect that proxy settings are propagated from the client to the server
+  # process, but are _not_ used for client-server communication.
+
+  bazel shutdown  # We are changing the server process's environment variables.
+
+  local example_no_proxy='foo.example.com'
+  # A known-invalid http*_proxy value which, if not ignored, would be expected
+  # to cause the client-server gRPC channel to time out or otherwise fail.
+  local invalid_proxy='http://localhost:0'
+  local server_pid
+  server_pid="$(http_proxy="${invalid_proxy}" HTTP_PROXY="${invalid_proxy}" \
+    https_proxy="${invalid_proxy}" HTTPS_PROXY="${invalid_proxy}" \
+    no_proxy="${example_no_proxy}" NO_PROXY="${example_no_proxy}" \
+    bazel info server_pid 2> $TEST_log)" \
+    || fail "http*_proxy env variables not ignored by client-server channel."
+
+  # Check that the server uses the *_proxy env variables set by the client.
+  if get_pid_environment "${server_pid}" > "${TEST_TMPDIR}/server_env"; then
+    local var
+    for var in http{,s}_proxy HTTP{,S}_PROXY; do
+      assert_contains "^${var}=${invalid_proxy}\$" "${TEST_TMPDIR}/server_env"
+    done
+    for var in no_proxy NO_PROXY; do
+      assert_contains "^${var}=${example_no_proxy}\$" \
+        "${TEST_TMPDIR}/server_env"
+    done
+  else
+    echo "Cannot not test server process environment on this platform"
+  fi
 }
 
 run_suite "Tests of the bazel client."

@@ -52,19 +52,20 @@ public class BuildEventServiceProtoUtilTest {
   private static final String ADDITIONAL_KEYWORD = "keyword=foo";
   private static final ImmutableList<String> EXPECTED_KEYWORDS =
       ImmutableList.of("command_name=" + COMMAND_NAME, "protocol_name=BEP", ADDITIONAL_KEYWORD);
+  private static final BuildEventServiceProtoUtil BES_PROTO_UTIL =
+      new BuildEventServiceProtoUtil.Builder()
+          .buildRequestId(BUILD_REQUEST_ID)
+          .invocationId(BUILD_INVOCATION_ID)
+          .projectId(PROJECT_ID)
+          .commandName(COMMAND_NAME)
+          .keywords(ImmutableSet.of(ADDITIONAL_KEYWORD))
+          .build();
   private final ManualClock clock = new ManualClock();
-  private final BuildEventServiceProtoUtil besProtocol =
-      new BuildEventServiceProtoUtil(
-          BUILD_REQUEST_ID,
-          BUILD_INVOCATION_ID,
-          PROJECT_ID,
-          COMMAND_NAME,
-          ImmutableSet.of(ADDITIONAL_KEYWORD));
 
   @Test
   public void testBuildEnqueued() {
     Timestamp expected = Timestamps.fromMillis(clock.advanceMillis(100));
-    assertThat(besProtocol.buildEnqueued(expected))
+    assertThat(BES_PROTO_UTIL.buildEnqueued(expected))
         .isEqualTo(
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
@@ -86,7 +87,7 @@ public class BuildEventServiceProtoUtilTest {
   @Test
   public void testInvocationAttemptStarted() {
     Timestamp expected = Timestamps.fromMillis(clock.advanceMillis(100));
-    assertThat(besProtocol.invocationStarted(expected))
+    assertThat(BES_PROTO_UTIL.invocationStarted(expected))
         .isEqualTo(
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
@@ -110,7 +111,7 @@ public class BuildEventServiceProtoUtilTest {
   @Test
   public void testInvocationAttemptFinished() {
     Timestamp expected = Timestamps.fromMillis(clock.advanceMillis(100));
-    assertThat(besProtocol.invocationFinished(expected, Result.COMMAND_SUCCEEDED))
+    assertThat(BES_PROTO_UTIL.invocationFinished(expected, Result.COMMAND_SUCCEEDED))
         .isEqualTo(
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
@@ -137,7 +138,7 @@ public class BuildEventServiceProtoUtilTest {
   @Test
   public void testBuildFinished() {
     Timestamp expected = Timestamps.fromMillis(clock.advanceMillis(100));
-    assertThat(besProtocol.buildFinished(expected, Result.COMMAND_SUCCEEDED))
+    assertThat(BES_PROTO_UTIL.buildFinished(expected, Result.COMMAND_SUCCEEDED))
         .isEqualTo(
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
@@ -164,7 +165,7 @@ public class BuildEventServiceProtoUtilTest {
   public void testStreamEvents() {
     Timestamp firstEventTimestamp = Timestamps.fromMillis(clock.advanceMillis(100));
     Any anything = Any.getDefaultInstance();
-    assertThat(besProtocol.bazelEvent(1, firstEventTimestamp, anything))
+    assertThat(BES_PROTO_UTIL.bazelEvent(1, firstEventTimestamp, anything))
         .isEqualTo(
             PublishBuildToolEventStreamRequest.newBuilder()
                 .addAllNotificationKeywords(EXPECTED_KEYWORDS)
@@ -185,7 +186,7 @@ public class BuildEventServiceProtoUtilTest {
                 .build());
 
     Timestamp secondEventTimestamp = Timestamps.fromMillis(clock.advanceMillis(100));
-    assertThat(besProtocol.bazelEvent(2, secondEventTimestamp, anything))
+    assertThat(BES_PROTO_UTIL.bazelEvent(2, secondEventTimestamp, anything))
         .isEqualTo(
             PublishBuildToolEventStreamRequest.newBuilder()
                 .setProjectId(PROJECT_ID)
@@ -205,7 +206,7 @@ public class BuildEventServiceProtoUtilTest {
                 .build());
 
     Timestamp thirdEventTimestamp = Timestamps.fromMillis(clock.advanceMillis(100));
-    assertThat(besProtocol.streamFinished(3, thirdEventTimestamp))
+    assertThat(BES_PROTO_UTIL.streamFinished(3, thirdEventTimestamp))
         .isEqualTo(
             PublishBuildToolEventStreamRequest.newBuilder()
                 .setProjectId(PROJECT_ID)

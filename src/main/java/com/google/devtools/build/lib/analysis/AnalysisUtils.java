@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -191,7 +193,7 @@ public final class AnalysisUtils {
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
     for (BuildConfiguration config : configurations.getTargetConfigurations()) {
       for (Target target : targets) {
-        nodes.add(new TargetAndConfiguration(target, target.isConfigurable() ? config : null));
+        nodes.add(new TargetAndConfiguration(target, config));
       }
     }
 
@@ -212,13 +214,18 @@ public final class AnalysisUtils {
     Multimap<BuildConfiguration, Dependency> asDeps =
         ArrayListMultimap.<BuildConfiguration, Dependency>create();
     for (TargetAndConfiguration targetAndConfig : nodes) {
+      ConfigurationTransition transition =
+          TransitionResolver.evaluateTransition(
+              targetAndConfig.getConfiguration(),
+              NoTransition.INSTANCE,
+              targetAndConfig.getTarget(),
+              ruleClassProvider.getTrimmingTransitionFactory());
       if (targetAndConfig.getConfiguration() != null) {
         asDeps.put(
             targetAndConfig.getConfiguration(),
             Dependency.withTransitionAndAspects(
                 targetAndConfig.getLabel(),
-                TransitionResolver.evaluateTopLevelTransition(
-                    targetAndConfig, ruleClassProvider.getTrimmingTransitionFactory()),
+                transition,
                 // TODO(bazel-team): support top-level aspects
                 AspectCollection.EMPTY));
       }

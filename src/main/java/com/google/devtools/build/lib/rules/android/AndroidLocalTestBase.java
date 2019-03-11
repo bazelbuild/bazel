@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeClasspathProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -239,18 +240,16 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       genSourceJar = helper.createGensrcJar(classJar);
       helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
-    Artifact outputDepsProtoArtifact =
-        helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
-    javaRuleOutputJarsProviderBuilder.setJdeps(outputDepsProtoArtifact);
 
-    helper.createCompileAction(
-        classJar,
-        manifestProtoOutput,
-        genSourceJar,
-        outputDepsProtoArtifact,
-        instrumentationMetadata,
-        /* nativeHeaderOutput= */ null);
+    JavaCompileAction javaCompileAction =
+        helper.createCompileAction(
+            classJar,
+            manifestProtoOutput,
+            genSourceJar,
+            instrumentationMetadata,
+            /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
+    javaRuleOutputJarsProviderBuilder.setJdeps(javaCompileAction.getOutputDepsProto());
 
     setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build());
 
@@ -456,14 +455,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     // with the same root relative path
     builder.addTransitiveArtifactsWrappedInStableOrder(javaCommon.getRuntimeClasspath());
 
-    // Add the JDK files if it comes from P4 (see java_stub_template.txt).
-    TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
-
-    if (javabaseTarget != null) {
-      builder.addTransitiveArtifacts(
-          javabaseTarget.getProvider(FileProvider.class).getFilesToBuild());
-    }
-
+    // Add the JDK files from P4 (see java_stub_template.txt).
+    builder.addTransitiveArtifacts(JavaRuntimeInfo.from(ruleContext).javaBaseInputs());
     builder.addArtifact(manifest);
     builder.addArtifact(resourcesClassJar);
     builder.addArtifact(resourcesZip);

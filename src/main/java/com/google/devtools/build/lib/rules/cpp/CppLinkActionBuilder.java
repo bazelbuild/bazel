@@ -46,12 +46,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExt
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
 import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.CollectedLibrariesToLink;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -112,9 +111,9 @@ public class CppLinkActionBuilder {
   // Keep these in sync with {@link Context}.
   private final Set<LinkerInput> objectFiles = new LinkedHashSet<>();
   private final Set<Artifact> nonCodeInputs = new LinkedHashSet<>();
-  private final NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
-  private final NestedSetBuilder<LibraryToLinkWrapper> libraryToLinkWrappers =
+  private final NestedSetBuilder<LinkerInputs.LibraryToLink> libraries =
       NestedSetBuilder.linkOrder();
+  private final NestedSetBuilder<LibraryToLink> librariesToLink = NestedSetBuilder.linkOrder();
   private NestedSet<Artifact> linkerFiles = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private Artifact runtimeMiddleman;
   private ArtifactCategory toolchainLibrariesType = null;
@@ -139,7 +138,7 @@ public class CppLinkActionBuilder {
   private boolean isLtoIndexing = false;
   private boolean usePicForLtoBackendActions = false;
   private Iterable<LtoBackendArtifacts> allLtoArtifacts = null;
-  
+
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkActionInputs = NestedSetBuilder.stableOrder();
   private final ImmutableList.Builder<Artifact> linkActionOutputs = ImmutableList.builder();
@@ -214,16 +213,14 @@ public class CppLinkActionBuilder {
   private String getActionName() {
     return linkType.getActionName();
   }
-  
+
   /** Returns linker inputs that are not libraries. */
   public Set<LinkerInput> getObjectFiles() {
     return objectFiles;
   }
 
-  /**
-   * Returns linker inputs that are libraries.
-   */
-  public NestedSetBuilder<LibraryToLink> getLibraries() {
+  /** Returns linker inputs that are libraries. */
+  public NestedSetBuilder<LinkerInputs.LibraryToLink> getLibraries() {
     return libraries;
   }
 
@@ -232,16 +229,12 @@ public class CppLinkActionBuilder {
     return linkstampsBuilder.build();
   }
 
-  /**
-   * Returns command line options for this link action.
-   */
+  /** Returns command line options for this link action. */
   public final List<String> getLinkopts() {
     return this.linkopts;
   }
-  
-  /**
-   * Returns the type of this link action.
-   */
+
+  /** Returns the type of this link action. */
   public LinkTargetType getLinkType() {
     return this.linkType;
   }
@@ -250,13 +243,11 @@ public class CppLinkActionBuilder {
     return this.linkingMode;
   }
 
-  /**
-   * Returns true for a cc_fake_binary.
-   */
+  /** Returns true for a cc_fake_binary. */
   public boolean isFake() {
     return this.fake;
   }
- 
+
   public CppLinkActionBuilder setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {
     this.linkArtifactFactory = linkArtifactFactory;
     return this;
@@ -283,10 +274,12 @@ public class CppLinkActionBuilder {
    * Maps bitcode library files used by the LTO backends to the corresponding minimized bitcode file
    * used as input to the LTO indexing step.
    */
-  private static NestedSet<LibraryToLink> computeLtoIndexingUniqueLibraries(
-      NestedSet<LibraryToLink> originalUniqueLibraries, boolean includeLinkStaticInLtoIndexing) {
-    NestedSetBuilder<LibraryToLink> uniqueLibrariesBuilder = NestedSetBuilder.linkOrder();
-    for (LibraryToLink lib : originalUniqueLibraries) {
+  private static NestedSet<LinkerInputs.LibraryToLink> computeLtoIndexingUniqueLibraries(
+      NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries,
+      boolean includeLinkStaticInLtoIndexing) {
+    NestedSetBuilder<LinkerInputs.LibraryToLink> uniqueLibrariesBuilder =
+        NestedSetBuilder.linkOrder();
+    for (LinkerInputs.LibraryToLink lib : originalUniqueLibraries) {
       if (!lib.containsObjectFiles()) {
         uniqueLibrariesBuilder.add(lib);
         continue;
@@ -332,7 +325,7 @@ public class CppLinkActionBuilder {
     if (!ltoCompilationContext.isEmpty()) {
       return true;
     }
-    for (LibraryToLink lib : libraries.build()) {
+    for (LinkerInputs.LibraryToLink lib : libraries.build()) {
       if (!lib.getLtoCompilationContext().isEmpty()) {
         return true;
       }
@@ -388,20 +381,17 @@ public class CppLinkActionBuilder {
   }
 
   private ImmutableList<String> collectPerFileLtoBackendOpts(Artifact objectFile) {
-    return cppConfiguration
-        .getPerFileLtoBackendOpts()
-        .stream()
+    return cppConfiguration.getPerFileLtoBackendOpts().stream()
         .filter(perLabelOptions -> perLabelOptions.isIncluded(objectFile))
         .map(PerLabelOptions::getOptions)
         .flatMap(options -> options.stream())
         .collect(ImmutableList.toImmutableList());
   }
 
-  private List<String> getLtoBackendCommandLineOptions(
+  private List<String> getLtoBackendUserCompileFlags(
       Artifact objectFile, ImmutableList<String> copts) {
     List<String> argv = new ArrayList<>();
     argv.addAll(cppConfiguration.getLinkopts());
-    argv.addAll(toolchain.getLegacyCompileOptions());
     argv.addAll(copts);
     argv.addAll(cppConfiguration.getLtoBackendOptions());
     argv.addAll(collectPerFileLtoBackendOpts(objectFile));
@@ -410,11 +400,11 @@ public class CppLinkActionBuilder {
 
   private Iterable<LtoBackendArtifacts> createLtoArtifacts(
       PathFragment ltoOutputRootPrefix,
-      NestedSet<LibraryToLink> uniqueLibraries,
+      NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
       boolean allowLtoIndexing,
       boolean includeLinkStaticInLtoIndexing) {
     Set<Artifact> compiled = new LinkedHashSet<>();
-    for (LibraryToLink lib : uniqueLibraries) {
+    for (LinkerInputs.LibraryToLink lib : uniqueLibraries) {
       compiled.addAll(lib.getLtoCompilationContext().getBitcodeFiles());
     }
 
@@ -425,7 +415,7 @@ public class CppLinkActionBuilder {
     // statically linked, so we need to look at includeLinkStaticInLtoIndexing to decide whether
     // to include its objects in the LTO indexing for this target.
     if (includeLinkStaticInLtoIndexing) {
-      for (LibraryToLink lib : uniqueLibraries) {
+      for (LinkerInputs.LibraryToLink lib : uniqueLibraries) {
         if (!lib.containsObjectFiles()) {
           continue;
         }
@@ -443,7 +433,7 @@ public class CppLinkActionBuilder {
     }
 
     ImmutableList.Builder<LtoBackendArtifacts> ltoOutputs = ImmutableList.builder();
-    for (LibraryToLink lib : uniqueLibraries) {
+    for (LinkerInputs.LibraryToLink lib : uniqueLibraries) {
       if (!lib.containsObjectFiles()) {
         continue;
       }
@@ -452,8 +442,8 @@ public class CppLinkActionBuilder {
       for (Artifact objectFile : lib.getObjectFiles()) {
         if (compiled.contains(objectFile)) {
           if (includeLinkStaticInLtoIndexing) {
-            List<String> backendArgv =
-                getLtoBackendCommandLineOptions(
+            List<String> backendUserCompileFlags =
+                getLtoBackendUserCompileFlags(
                     objectFile, lib.getLtoCompilationContext().getCopts(objectFile));
             LtoBackendArtifacts ltoArtifacts =
                 createLtoArtifact(
@@ -461,7 +451,7 @@ public class CppLinkActionBuilder {
                     allBitcode,
                     ltoOutputRootPrefix,
                     /* createSharedNonLto= */ false,
-                    backendArgv);
+                    backendUserCompileFlags);
             ltoOutputs.add(ltoArtifacts);
           } else {
             // We should have created shared LTO backends when the library was created.
@@ -476,8 +466,8 @@ public class CppLinkActionBuilder {
     }
     for (LinkerInput input : objectFiles) {
       if (this.ltoCompilationContext.containsBitcodeFile(input.getArtifact())) {
-        List<String> backendArgv =
-            getLtoBackendCommandLineOptions(
+        List<String> backendUserCompileFlags =
+            getLtoBackendUserCompileFlags(
                 input.getArtifact(), this.ltoCompilationContext.getCopts(input.getArtifact()));
         LtoBackendArtifacts ltoArtifacts =
             createLtoArtifact(
@@ -485,7 +475,7 @@ public class CppLinkActionBuilder {
                 allBitcode,
                 ltoOutputRootPrefix,
                 !allowLtoIndexing,
-                backendArgv);
+                backendUserCompileFlags);
         ltoOutputs.add(ltoArtifacts);
       }
     }
@@ -509,8 +499,8 @@ public class CppLinkActionBuilder {
 
     for (LinkerInput input : objectFiles) {
       if (this.ltoCompilationContext.containsBitcodeFile(input.getArtifact())) {
-        List<String> backendArgv =
-            getLtoBackendCommandLineOptions(
+        List<String> backendUserCompileFlags =
+            getLtoBackendUserCompileFlags(
                 input.getArtifact(), this.ltoCompilationContext.getCopts(input.getArtifact()));
         LtoBackendArtifacts ltoArtifacts =
             createLtoArtifact(
@@ -518,7 +508,7 @@ public class CppLinkActionBuilder {
                 /* allBitcode= */ null,
                 ltoOutputRootPrefix,
                 /* createSharedNonLto= */ true,
-                backendArgv);
+                backendUserCompileFlags);
         sharedNonLtoBackends.put(input.getArtifact(), ltoArtifacts);
       }
     }
@@ -557,19 +547,18 @@ public class CppLinkActionBuilder {
     }
   }
 
-  private List<LibraryToLink> convertLibraryToLinkWrapperListToLibraryToLinkList(
-      NestedSet<LibraryToLinkWrapper> libraryToLinkWrappers) {
-    ImmutableList.Builder<LibraryToLink> librariesToLink = ImmutableList.builder();
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
-      LibraryToLink staticLibraryToLink =
-          libraryToLinkWrapper.getStaticLibrary() == null
+  private List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLibraryToLinkList(
+      NestedSet<LibraryToLink> librariesToLink) {
+    ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
+        ImmutableList.builder();
+    for (LibraryToLink libraryToLink : librariesToLink) {
+      LinkerInputs.LibraryToLink staticLibraryToLink =
+          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
+      LinkerInputs.LibraryToLink picStaticLibraryToLink =
+          libraryToLink.getPicStaticLibrary() == null
               ? null
-              : libraryToLinkWrapper.getStaticLibraryToLink();
-      LibraryToLink picStaticLibraryToLink =
-          libraryToLinkWrapper.getPicStaticLibrary() == null
-              ? null
-              : libraryToLinkWrapper.getPicStaticLibraryToLink();
-      LibraryToLink libraryToLinkToUse = null;
+              : libraryToLink.getPicStaticLibraryToLink();
+      LinkerInputs.LibraryToLink libraryToLinkToUse = null;
       if (linkingMode == LinkingMode.STATIC) {
         if (linkType.isDynamicLibrary()) {
           if (picStaticLibraryToLink != null) {
@@ -586,31 +575,30 @@ public class CppLinkActionBuilder {
         }
       }
       if (libraryToLinkToUse == null) {
-        if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-          libraryToLinkToUse = libraryToLinkWrapper.getInterfaceLibraryToLink();
-        } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-          libraryToLinkToUse = libraryToLinkWrapper.getDynamicLibraryToLink();
+        if (libraryToLink.getInterfaceLibrary() != null) {
+          libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
+        } else if (libraryToLink.getDynamicLibrary() != null) {
+          libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
         }
       }
       Preconditions.checkNotNull(libraryToLinkToUse);
       checkLibrary(libraryToLinkToUse);
-      librariesToLink.add(libraryToLinkToUse);
+      librariesToLinkBuilder.add(libraryToLinkToUse);
     }
-    return librariesToLink.build();
+    return librariesToLinkBuilder.build();
   }
 
   /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws InterruptedException {
-    NestedSet<LibraryToLink> originalUniqueLibraries = null;
+    NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = null;
 
-    if (libraryToLinkWrappers.isEmpty()) {
+    if (librariesToLink.isEmpty()) {
       originalUniqueLibraries = libraries.build();
     } else {
       Preconditions.checkState(libraries.isEmpty());
       originalUniqueLibraries =
-          NestedSetBuilder.<LibraryToLink>linkOrder()
-              .addAll(
-                  convertLibraryToLinkWrapperListToLibraryToLinkList(libraryToLinkWrappers.build()))
+          NestedSetBuilder.<LinkerInputs.LibraryToLink>linkOrder()
+              .addAll(convertLibraryToLinkListToLibraryToLinkList(librariesToLink.build()))
               .build();
     }
 
@@ -649,7 +637,8 @@ public class CppLinkActionBuilder {
 
     boolean needWholeArchive =
         wholeArchive
-            || needWholeArchive(linkingMode, linkType, linkopts, isNativeDeps, cppConfiguration);
+            || needWholeArchive(
+                featureConfiguration, linkingMode, linkType, linkopts, cppConfiguration);
     // Disallow LTO indexing for test targets that link statically, and optionally for any
     // linkstatic target (which can be used to disable LTO indexing for non-testonly cc_binary
     // built due to data dependences for a blaze test invocation). Otherwise this will provoke
@@ -700,7 +689,7 @@ public class CppLinkActionBuilder {
     // Get the set of object files and libraries containing the correct
     // inputs for this link, depending on whether this is LTO indexing or
     // a native link.
-    NestedSet<LibraryToLink> uniqueLibraries;
+    NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries;
     ImmutableSet<LinkerInput> objectFileInputs;
     ImmutableSet<LinkerInput> linkstampObjectFileInputs;
     if (isLtoIndexing) {
@@ -737,7 +726,7 @@ public class CppLinkActionBuilder {
             .addAll(objectArtifacts)
             .addAll(linkstampObjectArtifacts)
             .build();
-    final LibraryToLink outputLibrary =
+    final LinkerInputs.LibraryToLink outputLibrary =
         linkType.isExecutable()
             ? null
             : LinkerInputs.newInputLibrary(
@@ -752,7 +741,7 @@ public class CppLinkActionBuilder {
                     : LtoCompilationContext.EMPTY,
                 createSharedNonLtoArtifacts(isLtoIndexing),
                 /* mustKeepDebug= */ false);
-    final LibraryToLink interfaceOutputLibrary =
+    final LinkerInputs.LibraryToLink interfaceOutputLibrary =
         (interfaceOutput == null)
             ? null
             : LinkerInputs.newInputLibrary(
@@ -882,16 +871,6 @@ public class CppLinkActionBuilder {
 
     CcToolchainVariables variables;
     try {
-      ImmutableList<String> userLinkFlags;
-      if (cppConfiguration.enableLinkoptsInUserLinkFlags()) {
-        userLinkFlags =
-            ImmutableList.<String>builder()
-                .addAll(linkopts)
-                .addAll(cppConfiguration.getLinkopts())
-                .build();
-      } else {
-        userLinkFlags = ImmutableList.copyOf(linkopts);
-      }
       variables =
           LinkBuildVariables.setupVariables(
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
@@ -906,7 +885,10 @@ public class CppLinkActionBuilder {
               featureConfiguration,
               useTestOnlyFlags,
               isLtoIndexing,
-              userLinkFlags,
+              ImmutableList.<String>builder()
+                  .addAll(linkopts)
+                  .addAll(cppConfiguration.getLinkopts())
+                  .build(),
               toolchain.getInterfaceSoBuilder().getExecPathString(),
               interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
               ltoOutputRootPrefix,
@@ -1007,8 +989,7 @@ public class CppLinkActionBuilder {
       inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
       // Pass along tree artifacts, so they can be properly expanded.
       ImmutableSet<Artifact> paramFileActionInputs =
-          expandedLinkerArtifacts
-              .stream()
+          expandedLinkerArtifacts.stream()
               .filter(a -> a.isTreeArtifact())
               .collect(ImmutableSet.toImmutableSet());
 
@@ -1073,8 +1054,7 @@ public class CppLinkActionBuilder {
     inputsBuilder.add(linkstampObjectArtifacts);
 
     ImmutableSet<Artifact> fakeLinkerInputArtifacts =
-        collectedLibrariesToLink.getExpandedLinkerInputs()
-            .stream()
+        collectedLibrariesToLink.getExpandedLinkerInputs().stream()
             .filter(LinkerInput::isFake)
             .map(LinkerInput::getArtifact)
             .collect(ImmutableSet.toImmutableSet());
@@ -1127,15 +1107,42 @@ public class CppLinkActionBuilder {
 
   /** The default heuristic on whether we need to use whole-archive for the link. */
   private static boolean needWholeArchive(
-      Link.LinkingMode staticness,
+      FeatureConfiguration featureConfiguration,
+      LinkingMode linkingMode,
       LinkTargetType type,
       Collection<String> linkopts,
-      boolean isNativeDeps,
       CppConfiguration cppConfig) {
-    boolean mostlyStatic = (staticness == Link.LinkingMode.STATIC);
     boolean sharedLinkopts =
         type.isDynamicLibrary() || linkopts.contains("-shared") || cppConfig.hasSharedLinkOption();
-    return (isNativeDeps || cppConfig.legacyWholeArchive()) && mostlyStatic && sharedLinkopts;
+    // Fasten your seat belt, the logic below doesn't make perfect sense and it's full of obviously
+    // missed corner cases. The world still stands and depends on this behavior, so ¯\_(ツ)_/¯.
+    if (!sharedLinkopts) {
+      // We are not producing shared library, there is no reason to use --whole-archive with
+      // executable (if the executable doesn't use the symbols, nobody else will, so --whole-archive
+      // is not needed).
+      return false;
+    }
+    if (cppConfig.removeLegacyWholeArchive()) {
+      // --incompatible_remove_legacy_whole_archive has been flipped, no --whole-archive for the
+      // entire build.
+      return false;
+    }
+    if (linkingMode != LinkingMode.STATIC) {
+      // legacy whole archive only applies to static linking mode.
+      return false;
+    }
+    if (featureConfiguration.getRequestedFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
+      // --incompatible_remove_legacy_whole_archive has not been flipped, and this target requested
+      // --whole-archive using features.
+      return true;
+    }
+    if (cppConfig.legacyWholeArchive()) {
+      // --incompatible_remove_legacy_whole_archive has not been flipped, so whether to
+      // use --whole-archive depends on --legacy_whole_archive.
+      return true;
+    }
+    // Hopefully future default.
+    return false;
   }
 
   private static ImmutableSet<Artifact> constructOutputs(
@@ -1193,7 +1200,7 @@ public class CppLinkActionBuilder {
   protected ActionOwner getOwner() {
     return actionConstructionContext.getActionOwner();
   }
-  
+
   /** Sets the mnemonic for the link action. */
   public CppLinkActionBuilder setMnemonic(String mnemonic) {
     this.mnemonic = mnemonic;
@@ -1249,8 +1256,8 @@ public class CppLinkActionBuilder {
     for (VariablesExtension variablesExtension : variablesExtensions) {
       addVariablesExtension(variablesExtension);
     }
-     return this;
-   }
+    return this;
+  }
 
   /**
    * Sets the interface output of the link. A non-null argument can only be provided if the link
@@ -1273,7 +1280,7 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-   private void addObjectFile(LinkerInput input) {
+  private void addObjectFile(LinkerInput input) {
     // We skip file extension checks for TreeArtifacts because they represent directory artifacts
     // without a file extension.
     String name = input.getArtifact().getFilename();
@@ -1285,9 +1292,7 @@ public class CppLinkActionBuilder {
     }
   }
 
-  /**
-   * Adds a single object file to the set of inputs.
-   */
+  /** Adds a single object file to the set of inputs. */
   public CppLinkActionBuilder addObjectFile(Artifact input) {
     addObjectFile(
         LinkerInputs.simpleLinkerInput(
@@ -1295,9 +1300,7 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-  /**
-   * Adds object files to the linker action.
-   */
+  /** Adds object files to the linker action. */
   public CppLinkActionBuilder addObjectFiles(Iterable<Artifact> inputs) {
     for (Artifact input : inputs) {
       addObjectFile(
@@ -1340,7 +1343,7 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-  private void checkLibrary(LibraryToLink input) {
+  private void checkLibrary(LinkerInputs.LibraryToLink input) {
     String name = input.getArtifact().getFilename();
     Preconditions.checkArgument(
         Link.ARCHIVE_LIBRARY_FILETYPES.matches(name) || Link.SHARED_LIBRARY_FILETYPES.matches(name),
@@ -1353,7 +1356,7 @@ public class CppLinkActionBuilder {
    * library. Note that all directly added libraries are implicitly ordered before all nested sets
    * added with {@link #addLibraries}, even if added in the opposite order.
    */
-  public CppLinkActionBuilder addLibrary(LibraryToLink input) {
+  public CppLinkActionBuilder addLibrary(LinkerInputs.LibraryToLink input) {
     checkLibrary(input);
     libraries.add(input);
     if (input.isMustKeepDebug()) {
@@ -1366,9 +1369,9 @@ public class CppLinkActionBuilder {
    * Adds multiple artifact to the set of inputs. The artifacts must be archives or shared
    * libraries.
    */
-  public CppLinkActionBuilder addLibraries(Iterable<LibraryToLink> inputs) {
-    Preconditions.checkState(libraryToLinkWrappers.isEmpty());
-    for (LibraryToLink input : inputs) {
+  public CppLinkActionBuilder addLibraries(Iterable<LinkerInputs.LibraryToLink> inputs) {
+    Preconditions.checkState(librariesToLink.isEmpty());
+    for (LinkerInputs.LibraryToLink input : inputs) {
       checkLibrary(input);
       if (input.isMustKeepDebug()) {
         mustKeepDebug = true;
@@ -1378,14 +1381,14 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-  public CppLinkActionBuilder addLibraryToLinkWrappers(Iterable<LibraryToLinkWrapper> inputs) {
+  public CppLinkActionBuilder addLibrariesToLink(Iterable<LibraryToLink> inputs) {
     Preconditions.checkState(libraries.isEmpty());
-    for (LibraryToLinkWrapper input : inputs) {
+    for (LibraryToLink input : inputs) {
       if (input.getMustKeepDebug()) {
         mustKeepDebug = true;
       }
     }
-    this.libraryToLinkWrappers.addAll(inputs);
+    this.librariesToLink.addAll(inputs);
     return this;
   }
 
@@ -1409,8 +1412,8 @@ public class CppLinkActionBuilder {
   }
 
   /**
-   * Sets the identifier of the library produced by the action. See
-   * {@link LinkerInputs.LibraryToLink#getLibraryIdentifier()}
+   * Sets the identifier of the library produced by the action. See {@link
+   * LinkerInputs.LibraryToLink#getLibraryIdentifier()}
    */
   public CppLinkActionBuilder setLibraryIdentifier(String libraryIdentifier) {
     this.libraryIdentifier = libraryIdentifier;
@@ -1457,7 +1460,7 @@ public class CppLinkActionBuilder {
    * #addLibraries}, and {@link #addLinkstamps}.
    */
   public CppLinkActionBuilder addLinkParams(
-      List<LibraryToLink> libraries,
+      List<LinkerInputs.LibraryToLink> libraries,
       List<String> userLinkFlags,
       List<Linkstamp> linkstamps,
       List<Artifact> nonCodeInputs,
@@ -1519,26 +1522,20 @@ public class CppLinkActionBuilder {
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
     return this;
   }
-  
-  /**
-   * Adds an extra input artifact to the link action.
-   */
+
+  /** Adds an extra input artifact to the link action. */
   public CppLinkActionBuilder addActionInput(Artifact input) {
     this.linkActionInputs.add(input);
     return this;
   }
-  
-  /**
-   * Adds extra input artifacts to the link action.
-   */
+
+  /** Adds extra input artifacts to the link action. */
   public CppLinkActionBuilder addActionInputs(Iterable<Artifact> inputs) {
     this.linkActionInputs.addAll(inputs);
     return this;
   }
-  
-  /**
-   * Adds extra input artifacts to the link actions.
-   */
+
+  /** Adds extra input artifacts to the link actions. */
   public CppLinkActionBuilder addTransitiveActionInputs(NestedSet<Artifact> inputs) {
     this.linkActionInputs.addTransitive(inputs);
     return this;

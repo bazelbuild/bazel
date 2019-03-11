@@ -36,11 +36,12 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -768,13 +769,13 @@ public class Package {
        * done loading the given {@link Package}.
        *
        * @param pkg the loaded {@link Package}
-       * @param skylarkSemantics are the semantics used to load the package
+       * @param starlarkSemantics are the semantics used to load the package
        * @param loadTimeMs the wall time, in ms, that it took to load the package. More precisely,
        *     this is the wall time of the call to {@link PackageFactory#createPackageFromAst}.
        *     Notably, this does not include the time to read and parse the package's BUILD file, nor
        *     the time to read, parse, or evaluate any of the transitively loaded .bzl files.
        */
-      void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeMs);
+      void onLoadingComplete(Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeMs);
     }
 
     /** {@link Helper} that simply calls the {@link Package} constructor. */
@@ -791,8 +792,7 @@ public class Package {
 
       @Override
       public void onLoadingComplete(
-          Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeMs) {
-      }
+          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeMs) {}
     }
 
     /**
@@ -837,6 +837,9 @@ public class Package {
 
     private final List<String> registeredExecutionPlatforms = new ArrayList<>();
     private final List<String> registeredToolchains = new ArrayList<>();
+
+    private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
+        ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -1015,6 +1018,15 @@ public class Package {
     public Builder setWorkspaceName(String workspaceName) {
       pkg.workspaceName = workspaceName;
       return this;
+    }
+
+    public Builder setThirdPartyLicenceExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
+      this.thirdPartyLicenceExistencePolicy = policy;
+      return this;
+    }
+
+    public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
+      return thirdPartyLicenceExistencePolicy;
     }
 
     /**

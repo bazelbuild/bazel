@@ -387,7 +387,7 @@ watch [issue #4558] for updates.
 [AWS S3]: https://aws.amazon.com/s3
 [issue #3360]: https://github.com/bazelbuild/bazel/issues/3360
 [gRPC protocol]: https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto
-[Buildbarn]: https://github.com/EdSchouten/bazel-buildbarn
+[Buildbarn]: https://github.com/buildbarn
 [Buildfarm]: https://github.com/bazelbuild/bazel-buildfarm
 [BuildGrid]: https://gitlab.com/BuildGrid/buildgrid
 [issue #4558]: https://github.com/bazelbuild/bazel/issues/4558

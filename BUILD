@@ -126,9 +126,9 @@ filegroup(
 
 platform(
     name = "rbe_ubuntu1604_with_network_and_privileged",
-    parents = ["@bazel_toolchains//configs/ubuntu16_04_clang/1.1:rbe_ubuntu1604"],
+    # parents = ["@buildkite_config//config:platform"],
     remote_execution_properties = """
-        {PARENT_REMOTE_EXECUTION_PROPERTIES}
+        # {PARENT_REMOTE_EXECUTION_PROPERTIES}
         properties: {
           name: "dockerNetwork"
           value: "standard"

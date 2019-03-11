@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttribut
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -98,7 +98,7 @@ public class WorkspaceFactoryHelper {
    * should also evaluate to the same thing.
    */
   public static void addMainRepoEntry(
-      Package.Builder builder, String externalRepoName, SkylarkSemantics semantics) {
+      Package.Builder builder, String externalRepoName, StarlarkSemantics semantics) {
     if (semantics.incompatibleRemapMainRepo()) {
       if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
         builder.addRepositoryMappingEntry(

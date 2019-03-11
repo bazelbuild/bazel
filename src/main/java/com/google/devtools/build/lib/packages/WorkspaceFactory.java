@@ -50,10 +50,10 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -139,7 +139,7 @@ public class WorkspaceFactory {
   @VisibleForTesting
   void parseForTesting(
       ParserInputSource source,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       @Nullable StoredEventHandler localReporter)
       throws BuildFileContainsErrorsException, InterruptedException {
     if (localReporter == null) {
@@ -153,7 +153,7 @@ public class WorkspaceFactory {
     execute(
         buildFileAST,
         null,
-        skylarkSemantics,
+        starlarkSemantics,
         localReporter,
         WorkspaceFileValue.key(
             RootedPath.toRootedPath(Root.fromPath(workspaceDir), source.getPath())));
@@ -166,18 +166,18 @@ public class WorkspaceFactory {
   public void execute(
       BuildFileAST ast,
       Map<String, Extension> importedExtensions,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
     Preconditions.checkNotNull(ast);
     Preconditions.checkNotNull(importedExtensions);
-    execute(ast, importedExtensions, skylarkSemantics, new StoredEventHandler(), workspaceFileKey);
+    execute(ast, importedExtensions, starlarkSemantics, new StoredEventHandler(), workspaceFileKey);
   }
 
   private void execute(
       BuildFileAST ast,
       @Nullable Map<String, Extension> importedExtensions,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       StoredEventHandler localReporter,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
@@ -188,7 +188,7 @@ public class WorkspaceFactory {
     }
     Environment workspaceEnv =
         Environment.builder(mutability)
-            .setSemantics(skylarkSemantics)
+            .setSemantics(starlarkSemantics)
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(localReporter)
             .setImportedExtensions(importMap)

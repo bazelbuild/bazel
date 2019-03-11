@@ -62,7 +62,9 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -258,11 +260,10 @@ public class GrpcRemoteExecutionClientTest {
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     RemoteRetrier retrier =
-        new RemoteRetrier(
-            remoteOptions,
+        TestUtils.newRemoteRetrier(
+            () -> new ExponentialBackoff(remoteOptions),
             RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
-            retryService,
-            Retrier.ALLOW_ALL_CALLS);
+            retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
     GrpcRemoteExecutor executor =
@@ -1177,15 +1178,16 @@ public class GrpcRemoteExecutionClientTest {
                       .setResponse(Any.pack(ExecuteResponse.newBuilder().setStatus(status).build()))
                       .build());
               responseObserver.onCompleted();
+            } else {
+              assertThat(request.getSkipCacheLookup()).isFalse();
+              responseObserver.onNext(
+                  Operation.newBuilder()
+                      .setDone(true)
+                      .setResponse(
+                          Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                      .build());
+              responseObserver.onCompleted();
             }
-            assertThat(request.getSkipCacheLookup()).isFalse();
-            responseObserver.onNext(
-                Operation.newBuilder()
-                    .setDone(true)
-                    .setResponse(
-                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
-                    .build());
-            responseObserver.onCompleted();
           }
         });
     AtomicInteger numCacheUploads = new AtomicInteger();

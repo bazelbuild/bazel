@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -95,14 +96,21 @@ public final class CollectionUtils {
    * @return the set of repeated elements.  May return an empty set, but never null.
    */
   public static <T> Set<T> duplicatedElementsOf(Iterable<T> input) {
-    Set<T> duplicates = new HashSet<>();
-    Set<T> elementSet = new HashSet<>();
+    int count = Iterables.size(input);
+    if (count < 2) {
+      return ImmutableSet.of();
+    }
+    Set<T> duplicates = null;
+    Set<T> elementSet = CompactHashSet.createWithExpectedSize(count);
     for (T el : input) {
       if (!elementSet.add(el)) {
+        if (duplicates == null) {
+          duplicates = new HashSet<>();
+        }
         duplicates.add(el);
       }
     }
-    return duplicates;
+    return duplicates == null ? ImmutableSet.of() : duplicates;
   }
 
   /**

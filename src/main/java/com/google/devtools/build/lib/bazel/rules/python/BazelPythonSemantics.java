@@ -40,11 +40,11 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Functionality specific to the Python rules in Bazel.
@@ -73,12 +74,13 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public void collectRunfilesForBinary(
       RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo) {
-    addRuntime(ruleContext, builder);
+    addRuntime(ruleContext, common, builder);
   }
 
   @Override
-  public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder) {
-    addRuntime(ruleContext, builder);
+  public void collectDefaultRunfilesForBinary(
+      RuleContext ruleContext, PyCommon common, Runfiles.Builder builder) {
+    addRuntime(ruleContext, common, builder);
   }
 
   @Override
@@ -131,13 +133,12 @@ public class BazelPythonSemantics implements PythonSemantics {
       RuleContext ruleContext,
       PyCommon common,
       CcInfo ccInfo,
-      NestedSet<String> imports,
       Runfiles.Builder runfilesBuilder)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
     Artifact executable = common.getExecutable();
     BazelPythonConfiguration config = ruleContext.getFragment(BazelPythonConfiguration.class);
-    String pythonBinary = getPythonBinary(ruleContext, config);
+    String pythonBinary = getPythonBinary(ruleContext, common, config);
 
     if (!ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       Artifact stubOutput = executable;
@@ -156,7 +157,7 @@ public class BazelPythonSemantics implements PythonSemantics {
               ImmutableList.of(
                   Substitution.of("%main%", main),
                   Substitution.of("%python_binary%", pythonBinary),
-                  Substitution.of("%imports%", Joiner.on(":").join(imports)),
+                  Substitution.of("%imports%", Joiner.on(":").join(common.getImports())),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                   Substitution.of("%is_zipfile%", "False"),
                   Substitution.of(
@@ -174,11 +175,11 @@ public class BazelPythonSemantics implements PythonSemantics {
               ImmutableList.of(
                   Substitution.of("%main%", main),
                   Substitution.of("%python_binary%", pythonBinary),
-                  Substitution.of("%imports%", Joiner.on(":").join(imports)),
+                  Substitution.of("%imports%", Joiner.on(":").join(common.getImports())),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                   Substitution.of("%is_zipfile%", "True"),
-                  Substitution.of("%import_all%",
-                      config.getImportAllRepositories() ? "True" : "False")),
+                  Substitution.of(
+                      "%import_all%", config.getImportAllRepositories() ? "True" : "False")),
               true));
 
       if (OS.getCurrent() != OS.WINDOWS) {
@@ -314,41 +315,51 @@ public class BazelPythonSemantics implements PythonSemantics {
             .build(ruleContext));
   }
 
-  private static void addRuntime(RuleContext ruleContext, Runfiles.Builder builder) {
-    BazelPyRuntimeProvider provider = ruleContext.getPrerequisite(
-        ":py_interpreter", Mode.TARGET, BazelPyRuntimeProvider.class);
-    if (provider != null && provider.interpreter() != null) {
-      builder.addArtifact(provider.interpreter());
+  /**
+   * Returns the Python runtime to use, either from the toolchain or the legacy flag-based
+   * mechanism.
+   *
+   * <p>Can only be called for an executable Python rule.
+   *
+   * <p>Returns {@code null} if there's a problem retrieving the runtime.
+   */
+  @Nullable
+  private static PyRuntimeInfo getRuntime(RuleContext ruleContext, PyCommon common) {
+    return common.shouldGetRuntimeFromToolchain()
+        ? common.getRuntimeFromToolchain()
+        : ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeInfo.PROVIDER);
+  }
+
+  private static void addRuntime(
+      RuleContext ruleContext, PyCommon common, Runfiles.Builder builder) {
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
+    if (provider != null && provider.isInBuild()) {
+      builder.addArtifact(provider.getInterpreter());
       // WARNING: we are adding the all Python runtime files here,
       // and it would fail if the filenames of them contain spaces.
       // Currently, we need to exclude them in py_runtime rules.
       // Possible files in Python runtime which contain spaces in filenames:
       // - https://github.com/pypa/setuptools/blob/master/setuptools/script%20(dev).tmpl
       // - https://github.com/pypa/setuptools/blob/master/setuptools/command/launcher%20manifest.xml
-      builder.addTransitiveArtifacts(provider.files());
+      builder.addTransitiveArtifacts(provider.getFiles());
     }
   }
 
   private static String getPythonBinary(
-      RuleContext ruleContext,
-      BazelPythonConfiguration config) {
-
+      RuleContext ruleContext, PyCommon common, BazelPythonConfiguration config) {
     String pythonBinary;
-
-    BazelPyRuntimeProvider provider = ruleContext.getPrerequisite(
-        ":py_interpreter", Mode.TARGET, BazelPyRuntimeProvider.class);
-
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
     if (provider != null) {
       // make use of py_runtime defined by --python_top
-      if (!provider.interpreterPath().isEmpty()) {
+      if (!provider.isInBuild()) {
         // absolute Python path in py_runtime
-        pythonBinary = provider.interpreterPath();
+        pythonBinary = provider.getInterpreterPath().getPathString();
       } else {
         // checked in Python interpreter in py_runtime
         PathFragment workspaceName =
             PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
         pythonBinary =
-            workspaceName.getRelative(provider.interpreter().getRunfilesPath()).getPathString();
+            workspaceName.getRelative(provider.getInterpreter().getRunfilesPath()).getPathString();
       }
     } else  {
       // make use of the Python interpreter in an absolute path

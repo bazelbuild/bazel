@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1315,7 +1315,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     // building a transitive provider from the target-to-build's deps. We duplicate that behavior
     // here to make sure we're testing the provider set that the eventual target library would see.
     ObjcProvider newProvider =
-        new ObjcProvider.Builder(SkylarkSemantics.DEFAULT_SEMANTICS)
+        new ObjcProvider.Builder(StarlarkSemantics.DEFAULT_SEMANTICS)
             .addTransitiveAndPropagate(ImmutableList.of(provider))
             .build();
     return getFirstArtifactEndingWith(newProvider.get(ObjcProvider.MODULE_MAP), nameSuffix);

@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.SkylarkImports;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -145,12 +145,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     SkylarkImportLookupKey key = (SkylarkImportLookupKey) skyKey.argument();
     Label importLabel = key.importLabel;
 
-    if (!visitedNested.add(importLabel)) {
-      ImmutableList<Label> cycle =
-          CycleUtils.splitIntoPathAndChain(Predicates.equalTo(importLabel), visitedNested).second;
-      throw new SkylarkImportFailedException("Starlark import cycle: " + cycle);
-    }
-
     // Note that we can't block other threads on the computation of this value due to a potential
     // deadlock on a cycle. Although we are repeating some work, it is possible we have an import
     // cycle where one thread starts at one side of the cycle and the other thread starts at the
@@ -160,6 +154,12 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (cachedSkylarkImportLookupValueAndDeps != null) {
       cachedSkylarkImportLookupValueAndDeps.traverse(env::registerDependencies, visitedGlobalDeps);
       return cachedSkylarkImportLookupValueAndDeps;
+    }
+
+    if (!visitedNested.add(importLabel)) {
+      ImmutableList<Label> cycle =
+          CycleUtils.splitIntoPathAndChain(Predicates.equalTo(importLabel), visitedNested).second;
+      throw new SkylarkImportFailedException("Starlark import cycle: " + cycle);
     }
 
     CachedSkylarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder =
@@ -184,6 +184,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
             Preconditions.checkNotNull(visitedNested, importLabel),
             inlineCachedValueBuilder,
             visitedGlobalDeps);
+    // All imports traversed, this key can no longer be part of a cycle.
+    Preconditions.checkState(visitedNested.remove(importLabel), importLabel);
 
     if (value != null) {
       inlineCachedValueBuilder.setValue(value);
@@ -223,12 +225,12 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
     PathFragment filePath = fileLabel.toPathFragment();
 
-    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
-    if (skylarkSemantics == null) {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
       return null;
     }
 
-    if (skylarkSemantics.incompatibleDisallowLoadLabelsToCrossPackageBoundaries()) {
+    if (starlarkSemantics.incompatibleDisallowLoadLabelsToCrossPackageBoundaries()) {
       PathFragment dir = Label.getContainingDirectory(fileLabel);
       PackageIdentifier dirId =
           PackageIdentifier.create(fileLabel.getPackageIdentifier().getRepository(), dir);
@@ -247,7 +249,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         return null;
       }
       if (!containingPackageLookupValue.hasContainingPackage()) {
-        throw SkylarkImportFailedException.noBuildFile(fileLabel.toPathFragment());
+        throw SkylarkImportFailedException.noBuildFile(
+            fileLabel, containingPackageLookupValue.getReasonForNoContainingPackage());
       }
       if (!containingPackageLookupValue.getContainingPackageName().equals(
           fileLabel.getPackageIdentifier())) {
@@ -350,8 +353,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           inlineCachedValueBuilder.addTransitiveDeps(cachedValue);
         }
       }
-      // All imports traversed, this key can no longer be part of a cycle.
-      Preconditions.checkState(visitedNested.remove(fileLabel), fileLabel);
     }
     if (valuesMissing) {
       // This means some imports are unavailable.
@@ -385,7 +386,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
             ast,
             fileLabel,
             extensionsForImports,
-            skylarkSemantics,
+            starlarkSemantics,
             env,
             inWorkspace,
             repositoryMapping);
@@ -503,7 +504,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       BuildFileAST ast,
       Label extensionLabel,
       Map<String, Extension> importMap,
-      SkylarkSemantics skylarkSemantics,
+      StarlarkSemantics starlarkSemantics,
       Environment env,
       boolean inWorkspace,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
@@ -519,7 +520,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           ruleClassProvider.createSkylarkRuleClassEnvironment(
               extensionLabel,
               mutability,
-              skylarkSemantics,
+              starlarkSemantics,
               eventHandler,
               ast.getContentHashCode(),
               importMap,
@@ -600,7 +601,11 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           cause);
     }
 
-    static SkylarkImportFailedException noBuildFile(PathFragment file) {
+    static SkylarkImportFailedException noBuildFile(Label file, @Nullable String reason) {
+      if (reason != null) {
+        return new SkylarkImportFailedException(
+            String.format("Unable to find package for %s: %s.", file, reason));
+      }
       return new SkylarkImportFailedException(
           String.format("Every .bzl file must have a corresponding package, but '%s' "
               + "does not have one. Please create a BUILD file in the same or any parent directory."

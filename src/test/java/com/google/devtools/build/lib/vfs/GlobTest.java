@@ -374,7 +374,7 @@ public class GlobTest {
           new UnixGlob.Builder(tmpPath)
               .addPattern("**")
               .setDirectoryFilter(interrupterPredicate)
-              .setThreadPool(executor)
+              .setExecutor(executor)
               .globAsync();
       globResult.get();
       fail(); // Should have received InterruptedException
@@ -413,9 +413,12 @@ public class GlobTest {
       }
     };
 
-    List<Path> result = new UnixGlob.Builder(tmpPath)
-        .addPatterns("**", "*")
-        .setDirectoryFilter(interrupterPredicate).setThreadPool(executor).glob();
+    List<Path> result =
+        new UnixGlob.Builder(tmpPath)
+            .addPatterns("**", "*")
+            .setDirectoryFilter(interrupterPredicate)
+            .setExecutor(executor)
+            .glob();
 
     // In the non-interruptible case, the interrupt bit should be set, but the
     // glob should return the correct set of full results.
@@ -441,5 +444,30 @@ public class GlobTest {
     executor.shutdown();
     assertThat(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
         .isTrue();
+  }
+
+  private Collection<String> removeExcludes(ImmutableList<String> paths, String... excludes) {
+    HashSet<String> pathSet = new HashSet<>(paths);
+    UnixGlob.removeExcludes(pathSet, ImmutableList.copyOf(excludes));
+    return pathSet;
+  }
+
+  @Test
+  public void testExcludeFiltering() {
+    ImmutableList<String> paths = ImmutableList.of("a/A.java", "a/B.java", "a/b/C.java", "c.cc");
+    assertThat(removeExcludes(paths, "**/*.java")).containsExactly("c.cc");
+    assertThat(removeExcludes(paths, "a/**/*.java")).containsExactly("c.cc");
+    assertThat(removeExcludes(paths, "**/nomatch.*")).containsAllIn(paths);
+    assertThat(removeExcludes(paths, "a/A.java")).containsExactly("a/B.java", "a/b/C.java", "c.cc");
+    assertThat(removeExcludes(paths, "a/?.java")).containsExactly("a/b/C.java", "c.cc");
+    assertThat(removeExcludes(paths, "a/*/C.java")).containsExactly("a/A.java", "a/B.java", "c.cc");
+    assertThat(removeExcludes(paths, "**")).isEmpty();
+    assertThat(removeExcludes(paths, "**/**")).isEmpty();
+
+    // Test filenames that look like code patterns.
+    paths = ImmutableList.of("a/A.java", "a/B.java", "a/b/*.java", "a/b/C.java", "c.cc");
+    assertThat(removeExcludes(paths, "**/*.java")).containsExactly("c.cc");
+    assertThat(removeExcludes(paths, "**/A.java", "**/B.java", "**/C.java"))
+        .containsExactly("a/b/*.java", "c.cc");
   }
 }

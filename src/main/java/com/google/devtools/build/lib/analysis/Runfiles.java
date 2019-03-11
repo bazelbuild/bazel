@@ -828,7 +828,8 @@ public final class Runfiles implements RunfilesApi {
      */
     public Builder addArtifact(Artifact artifact) {
       Preconditions.checkNotNull(artifact);
-      Preconditions.checkArgument(!artifact.isMiddlemanArtifact());
+      Preconditions.checkArgument(
+          !artifact.isMiddlemanArtifact(), "unexpected middleman artifact: %s", artifact);
       artifactsBuilder.add(artifact);
       return this;
     }
@@ -1165,10 +1166,16 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public Runfiles merge(RunfilesApi other) {
-    Runfiles.Builder builder = new Runfiles.Builder(suffix, false);
-    builder.merge(this);
-    builder.merge((Runfiles) other);
-    return builder.build();
+    Runfiles o = (Runfiles) other;
+    if (isEmpty()) {
+      // This is not just a memory / performance optimization. The Builder requires a valid suffix,
+      // but the {@code Runfiles.EMPTY} singleton has an invalid one, which must not be used to
+      // construct a Runfiles.Builder.
+      return o;
+    } else if (o.isEmpty()) {
+      return this;
+    }
+    return new Runfiles.Builder(suffix, false).merge(this).merge(o).build();
   }
 
   /**

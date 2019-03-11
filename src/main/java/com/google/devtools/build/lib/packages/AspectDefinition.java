@@ -17,13 +17,10 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -38,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -172,40 +170,8 @@ public final class AspectDefinition {
     return applyToFiles;
   }
 
-  /**
-   * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
-   */
-  public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
-      Target from, Attribute attribute, Target to,
-      DependencyFilter dependencyFilter) {
-    // Aspect can be declared only for Rules.
-    if (!(from instanceof Rule) || !(to instanceof Rule)) {
-      return ImmutableMultimap.of();
-    }
-    RuleClass ruleClass = ((Rule) to).getRuleClassObject();
-    AdvertisedProviderSet providers = ruleClass.getAdvertisedProviders();
-    return visitAspectsIfRequired((Rule) from, attribute,
-        providers, dependencyFilter);
-  }
-
-  /**
-   * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
-   */
-  public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
-      Rule from, Attribute attribute,
-      AdvertisedProviderSet advertisedProviders,
-      DependencyFilter dependencyFilter) {
-    SetMultimap<Attribute, Label> result = LinkedHashMultimap.create();
-    for (Aspect candidateClass : attribute.getAspects(from)) {
-      // Check if target satisfies condition for this aspect (has to provide all required
-      // TransitiveInfoProviders)
-      RequiredProviders requiredProviders =
-          candidateClass.getDefinition().getRequiredProviders();
-      if (requiredProviders.isSatisfiedBy(advertisedProviders)) {
-        addAllAttributesOfAspect(from, result, candidateClass, dependencyFilter);
-      }
-    }
-    return ImmutableMultimap.copyOf(result);
+  public static boolean satisfies(Aspect aspect, AdvertisedProviderSet advertisedProviderSet) {
+    return aspect.getDefinition().getRequiredProviders().isSatisfiedBy(advertisedProviderSet);
   }
 
   @Nullable
@@ -221,16 +187,23 @@ public final class AspectDefinition {
       final Multimap<Attribute, Label> labelBuilder,
       Aspect aspect,
       DependencyFilter dependencyFilter) {
+    forEachLabelDepFromAllAttributesOfAspect(from, aspect, dependencyFilter, labelBuilder::put);
+  }
+
+  public static void forEachLabelDepFromAllAttributesOfAspect(
+      Rule from,
+      Aspect aspect,
+      DependencyFilter dependencyFilter,
+      BiConsumer<Attribute, Label> consumer) {
     LabelVisitor<Attribute> labelVisitor =
         (label, aspectAttribute) -> {
-          Label repositoryRelative = maybeGetRepositoryRelativeLabel(from, label);
-          if (repositoryRelative == null) {
+          Label repositoryRelativeLabel = maybeGetRepositoryRelativeLabel(from, label);
+          if (repositoryRelativeLabel == null) {
             return;
           }
-          labelBuilder.put(aspectAttribute, repositoryRelative);
+          consumer.accept(aspectAttribute, repositoryRelativeLabel);
         };
-    ImmutableMap<String, Attribute> attributes = aspect.getDefinition().getAttributes();
-    for (final Attribute aspectAttribute : attributes.values()) {
+    for (Attribute aspectAttribute : aspect.getDefinition().getAttributes().values()) {
       if (!dependencyFilter.apply(aspect, aspectAttribute)) {
         continue;
       }

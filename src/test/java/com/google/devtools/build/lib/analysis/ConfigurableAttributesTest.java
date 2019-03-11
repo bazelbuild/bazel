@@ -462,7 +462,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    values = {'test_arg': 'a'})");
     writeHelloRules(/*includeDefaultCondition=*/true);
     getConfiguredTarget("//java/hello:hello");
-    assertContainsEvent("no such target '//conditions:b': target 'b' not declared in package");
+    assertContainsEvent("errors encountered while analyzing target '//java/hello:hello");
   }
 
   /**

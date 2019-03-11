@@ -18,7 +18,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -83,8 +83,8 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
   private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
   private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
-  private static final String SKYLARK_SEMANTICS =
-      "com.google.devtools.build.lib.syntax.SkylarkSemantics";
+  private static final String STARLARK_SEMANTICS =
+      "com.google.devtools.build.lib.syntax.StarlarkSemantics";
   private static final String STARLARK_CONTEXT =
       "com.google.devtools.build.lib.skylarkinterface.StarlarkContext";
 
@@ -221,7 +221,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     boolean allowNonDefaultPositionalNext = true;
 
     for (Param parameter : annotation.parameters()) {
-      if ((!parameter.positional()) && (!isParamNamed(parameter))) {
+      if (!parameter.positional() && !parameter.named()) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format("Parameter '%s' must be either positional or named",
@@ -440,14 +440,14 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       currentIndex++;
     }
     if (annotation.useSkylarkSemantics()) {
-      if (!SKYLARK_SEMANTICS.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
+      if (!STARLARK_SEMANTICS.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format(
                 "Expected parameter index %d to be the %s type, matching useSkylarkSemantics, "
                     + "but was %s",
                 currentIndex,
-                SKYLARK_SEMANTICS,
+                STARLARK_SEMANTICS,
                 methodSignatureParams.get(currentIndex).asType().toString()));
       }
       currentIndex++;

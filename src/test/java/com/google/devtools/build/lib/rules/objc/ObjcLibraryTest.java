@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1477,9 +1477,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     Iterable<Artifact> linkerInputArtifacts =
         Iterables.transform(
             objcProvider.get(CC_LIBRARY),
-            new Function<LibraryToLinkWrapper, Artifact>() {
+            new Function<LibraryToLink, Artifact>() {
               @Override
-              public Artifact apply(LibraryToLinkWrapper library) {
+              public Artifact apply(LibraryToLink library) {
                 return library.getStaticLibrary();
               }
             });
@@ -2045,5 +2045,82 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileAction = compileAction("//cc/lib", "a.o");
     assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
         .contains("cc/txt_dep/hdr.h");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_assetCatalogs() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', asset_catalogs = ['fg'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_datamodels() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', datamodels = ['fg'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_resources() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', resources = ['fg'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_storyboards() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', storyboards = ['fg.storyboard'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_strings() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', strings = ['fg.strings'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_structuredResources() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', structured_resources = ['fg'])");
+  }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_xibs() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', xibs = ['fg.xib'])");
   }
 }

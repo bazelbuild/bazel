@@ -8,7 +8,7 @@ ${module.documentation}
 
 #if (!$module.methods.isEmpty())
 <div class="toc">
-  <h2>Methods</h2>
+  <h2>Members</h2>
   <ul>
   #foreach ($method in $module.methods)
     #if ($method.documented())

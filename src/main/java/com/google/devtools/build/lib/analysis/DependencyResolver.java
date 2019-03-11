@@ -54,7 +54,6 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -135,6 +134,10 @@ public abstract class DependencyResolver {
     }
   }
 
+  /**
+   * What we know about a dependency edge after factoring in the properties of the configured target
+   * that the edge originates from, but not the properties of target it points to.
+   */
   @AutoValue
   abstract static class PartiallyResolvedDependency {
     public abstract Label getLabel();
@@ -276,8 +279,6 @@ public abstract class DependencyResolver {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(outgoingLabels, fromRule, attributeMap, aspects);
 
-    filterIllegalVisibilityDependencies(node, targetMap, partiallyResolvedDeps);
-
     OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
         fullyResolveDependencies(
             partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
@@ -322,12 +323,9 @@ public abstract class DependencyResolver {
       }
 
       if (entry.getKey() == VISIBILITY_DEPENDENCY) {
-        // Package groups should be analyzed with the null configuration, but we don't know if this
-        // is actually a package group. So just use no transition until it's known whether that
-        // assumption is correct.
         partiallyResolvedDeps.put(
             VISIBILITY_DEPENDENCY,
-            PartiallyResolvedDependency.of(toLabel, NoTransition.INSTANCE, ImmutableList.of()));
+            PartiallyResolvedDependency.of(toLabel, NullTransition.INSTANCE, ImmutableList.of()));
         continue;
       }
 
@@ -356,49 +354,14 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Filter out visibility dependencies that don't point to package groups.
-   *
-   * <p>This should really be done where we filter other illegal kinds of dependencies (e.g. on the
-   * wrong rule class), but we'll either have to figure out a way to report the common mistake of
-   * the visibility attribute of a rule referring to the rule that depends on it (instead of its
-   * package) or decide to live without nice reporting in that case.
-   */
-  private void filterIllegalVisibilityDependencies(
-      TargetAndConfiguration node,
-      Map<Label, Target> targetMap,
-      OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps) {
-    Set<PartiallyResolvedDependency> illegalVisibilityDeps = new LinkedHashSet<>();
-    for (PartiallyResolvedDependency dep : partiallyResolvedDeps.get(VISIBILITY_DEPENDENCY)) {
-      Target toTarget = targetMap.get(dep.getLabel());
-      if (toTarget == null) {
-        // Dependency pointing to non-existent target. This error was reported above, so we can just
-        // ignore this dependency.
-      }
-
-      if (!(toTarget instanceof PackageGroup)) {
-        // Note that this error could also be caught in
-        // AbstractConfiguredTarget.convertVisibility(), but we have an
-        // opportunity here to avoid dependency cycles that result from
-        // the visibility attribute of a rule referring to a rule that
-        // depends on it (instead of its package)
-        invalidPackageGroupReferenceHook(node, dep.getLabel());
-        illegalVisibilityDeps.add(dep);
-      }
-    }
-
-    for (PartiallyResolvedDependency illegalVisibilityDep : illegalVisibilityDeps) {
-      partiallyResolvedDeps.remove(VISIBILITY_DEPENDENCY, illegalVisibilityDep);
-    }
-  }
-
-  /**
    * Factor in the properties of the target where the dependency points to in the dependency edge
    * calculation.
    *
    * <p>The target of the dependency edges depends on two things: the rule that depends on them and
    * the type of target they depend on. This function takes the rule into account. Accordingly, it
    * should <b>NOT</b> get the {@link Rule} instance representing the rule whose dependencies are
-   * being calculated as an argument or its attributes.
+   * being calculated as an argument or its attributes and it should <b>NOT</b> do anything with the
+   * keys of {@code partiallyResolvedDeps} other than passing them on to the output map.
    */
   private OrderedSetMultimap<DependencyKind, Dependency> fullyResolveDependencies(
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
@@ -415,8 +378,7 @@ public abstract class DependencyResolver {
       Target toTarget = targetMap.get(dep.getLabel());
       if (toTarget == null) {
         // Dependency pointing to non-existent target. This error was reported in getTargets(), so
-        // we can just ignore this dependency. Toolchain dependencies always have toTarget == null
-        // since we do not depend on their package.
+        // we can just ignore this dependency.
         continue;
       }
 
@@ -508,7 +470,14 @@ public abstract class DependencyResolver {
     Label ruleLabel = rule.getLabel();
     for (AttributeDependencyKind dependencyKind : getAttributes(rule, aspects)) {
       Attribute attribute = dependencyKind.getAttribute();
-      if (!attribute.getCondition().apply(attributeMap)) {
+      if (!attribute.getCondition().apply(attributeMap)
+          // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
+          // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
+          // breaks trimming as shown by
+          // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
+          // because it resolves a dep that trimming (correctly) doesn't account for because it's
+          // part of an unchosen select() branch.
+          || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
         continue;
       }
 
@@ -668,9 +637,9 @@ public abstract class DependencyResolver {
    * Filter the set of aspects that are to be propagated according to the set of advertised
    * providers of the dependency.
    */
-  private AspectCollection filterPropagatingAspects(Iterable<Aspect> aspects, Target toTarget)
+  private AspectCollection filterPropagatingAspects(ImmutableList<Aspect> aspects, Target toTarget)
       throws InconsistentAspectOrderException {
-    if (!(toTarget instanceof Rule)) {
+    if (!(toTarget instanceof Rule) || aspects.isEmpty()) {
       return AspectCollection.EMPTY;
     }
 

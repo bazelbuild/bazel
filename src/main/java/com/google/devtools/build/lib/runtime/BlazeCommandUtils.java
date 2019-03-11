@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -47,7 +47,7 @@ public class BlazeCommandUtils {
           ClientOptions.class,
           // Skylark options aren't applicable to all commands, but making them a common option
           // allows users to put them in the common section of the bazelrc. See issue #3538.
-          SkylarkSemanticsOptions.class);
+          StarlarkSemanticsOptions.class);
 
   private BlazeCommandUtils() {}
 

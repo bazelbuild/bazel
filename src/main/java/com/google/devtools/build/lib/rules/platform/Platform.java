@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -61,7 +62,7 @@ public class Platform implements RuleConfiguredTargetFactory {
     platformBuilder.setParent(parentPlatform);
 
     if (!platformOptions.autoConfigureHostPlatform) {
-      // If the flag is set, the constraints are defaulted by @local_config_platforms.
+      // If the flag is set, the constraints are defaulted by @local_config_platform.
       setDefaultConstraints(platformBuilder, ruleContext);
     }
 
@@ -79,10 +80,9 @@ public class Platform implements RuleConfiguredTargetFactory {
     PlatformInfo platformInfo;
     try {
       platformInfo = platformBuilder.build();
-    } catch (PlatformInfo.DuplicateConstraintException e) {
-      // Report the error and return null.
-      ruleContext.attributeError(PlatformRule.CONSTRAINT_VALUES_ATTR, e.getMessage());
-      return null;
+    } catch (ConstraintCollection.DuplicateConstraintException e) {
+      throw ruleContext.throwWithAttributeError(
+          PlatformRule.CONSTRAINT_VALUES_ATTR, e.getMessage());
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)

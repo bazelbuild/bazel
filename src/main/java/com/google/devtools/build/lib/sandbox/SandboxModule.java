@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -238,7 +237,7 @@ public final class SandboxModule extends BlazeModule {
 
       // This makes the "sandboxed" strategy the default Spawn strategy, unless it is
       // overridden by a later BlazeModule.
-      builder.addStrategyByMnemonic("", "sandboxed");
+      builder.addStrategyByMnemonic("", ImmutableList.of("sandboxed"));
     }
   }
 
@@ -307,14 +306,23 @@ public final class SandboxModule extends BlazeModule {
     @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
         throws InterruptedException, IOException, ExecException {
-      if (!Spawns.mayBeSandboxed(spawn)) {
-        return fallbackSpawnRunner.exec(spawn, context);
-      } else {
+      if (sandboxSpawnRunner.canExec(spawn)) {
         return sandboxSpawnRunner.exec(spawn, context);
+      } else {
+        return fallbackSpawnRunner.exec(spawn, context);
       }
+    }
+
+    @Override
+    public boolean canExec(Spawn spawn) {
+      return sandboxSpawnRunner.canExec(spawn) || fallbackSpawnRunner.canExec(spawn);
     }
   }
 
+  /**
+   * Unmounts an existing sandboxfs instance unless the user asked not to by providing the {@code
+   * --sandbox_debug} flag.
+   */
   private void unmountSandboxfs() {
     if (sandboxfsProcess != null) {
       if (shouldCleanupSandboxBase) {
@@ -325,6 +333,14 @@ public final class SandboxModule extends BlazeModule {
         env.getReporter()
             .handle(Event.info("Leaving sandboxfs mounted because of --sandbox_debug"));
       }
+    }
+  }
+
+  /** Silently tries to unmount an existing sandboxfs instance, ignoring errors. */
+  private void tryUnmountSandboxfsOnShutdown() {
+    if (sandboxfsProcess != null) {
+      sandboxfsProcess.destroy();
+      sandboxfsProcess = null;
     }
   }
 
@@ -360,5 +376,15 @@ public final class SandboxModule extends BlazeModule {
 
     env.getEventBus().unregister(this);
     env = null;
+  }
+
+  @Override
+  public void blazeShutdown() {
+    tryUnmountSandboxfsOnShutdown();
+  }
+
+  @Override
+  public void blazeShutdownOnCrash() {
+    tryUnmountSandboxfsOnShutdown();
   }
 }
