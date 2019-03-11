@@ -48,7 +48,8 @@ def _clone_or_update(ctx):
 
     repository_exists = ctx.path(".").exists and ctx.path("./.git").exists
     if not repository_exists:
-        _remove_dir(ctx, ctx.path("."))
+        if ctx.path(".").exists:
+            _remove_dir(ctx, ctx.path("."))
         init(ctx, git)
         add_origin(ctx, git, ctx.attr.remote)
     ensure_at_ref(ctx, git)
