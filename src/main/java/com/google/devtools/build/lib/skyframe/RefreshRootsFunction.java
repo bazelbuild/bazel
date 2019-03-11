@@ -3,6 +3,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;

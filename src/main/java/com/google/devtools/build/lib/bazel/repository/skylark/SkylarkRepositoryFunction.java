@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -227,7 +228,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     if (function == null) {
       return false;
     }
-    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    StarlarkSemantics skylarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (skylarkSemantics == null) {
       return false;
     }
@@ -250,7 +251,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
                   new BazelStarlarkContext(
                       /* toolsRepository = */ null,
                       /* fragmentNameToClass = */ null,
-                      rule.getPackage().getRepositoryMapping()))
+                      rule.getPackage().getRepositoryMapping(),
+                      new SymbolGenerator<>("needs_update")))
               .build();
 
       // todo probably it should be restricted context, where not all operations are allowed
