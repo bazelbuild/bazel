@@ -293,6 +293,15 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "whitelist_test",
+    size = "medium",
+    srcs = ["whitelist_test.sh"],
+    data = [":test-deps"],
+    shard_count = 3,
+    tags = ["no_windows"],
+)
+
 genquery(
     name = "embedded_tools_deps",
     expression = "kind(\"cc_(binary|library)\", deps(//src:embedded_tools_jdk_allmodules_srcs))",
