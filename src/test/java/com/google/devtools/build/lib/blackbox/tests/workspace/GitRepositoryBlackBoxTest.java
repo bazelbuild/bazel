@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.blackbox.tests.workspace;
 
+import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.Test;
 
@@ -27,7 +29,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
   @Test
   public void testNewGitRepository() throws Exception {
     Path repo = context().getTmpDir().resolve("ext_repo");
-    setupGitRepository(repo);
+    setupGitRepository(context(), repo);
 
     String buildFileContent = String.format("%s\n%s", RepoWithRuleWritingTextGenerator.loadRule(""),
         RepoWithRuleWritingTextGenerator.callRule("call_write_text", "out.txt",
@@ -50,7 +52,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
   @Test
   public void testCloneAtCommit() throws Exception {
     Path repo = context().getTmpDir().resolve("ext_repo");
-    String commit = setupGitRepository(repo);
+    String commit = setupGitRepository(context(), repo);
 
     String buildFileContent = String.format("%s\n%s", RepoWithRuleWritingTextGenerator.loadRule(""),
         RepoWithRuleWritingTextGenerator.callRule("call_write_text", "out.txt",
@@ -70,18 +72,20 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
-  private String setupGitRepository(Path repo) throws Exception {
+  static String setupGitRepository(BlackBoxTestContext context, Path repo) throws Exception {
+    PathUtils.deleteTree(repo);
+    Files.createDirectories(repo);
+    GitRepositoryHelper gitRepository = new GitRepositoryHelper(context, repo);
+    gitRepository.init();
+
     RepoWithRuleWritingTextGenerator generator = new RepoWithRuleWritingTextGenerator(repo);
     generator.withOutputText(HELLO_FROM_EXTERNAL_REPOSITORY)
         .skipBuildFile()
         .setupRepository();
 
-    GitRepositoryHelper gitRepository = new GitRepositoryHelper(context(), repo);
-    gitRepository.init();
     gitRepository.addAll();
     gitRepository.commit("Initial commit");
     gitRepository.tag("first");
     return gitRepository.getHead();
   }
-
 }
