@@ -14,19 +14,8 @@
 """Rules for cloning external git repositories."""
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "update_attrs", "workspace_and_buildfile")
-load(
-    "@bazel_tools//tools/build_defs/repo:git_worker.bzl",
-    "GitRepo",
-    "add_origin",
-    "ensure_at_ref",
-    "fetch",
-    "get_head_commit",
-    "get_head_date",
-    "git_repo",
-    "init",
-    "reset",
-    "update_submodules",
-)
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "remove_dir")
+load("@bazel_tools//tools/build_defs/repo:git_worker.bzl", "git_repo")
 
 def _clone_or_update(ctx):
     if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
@@ -35,49 +24,32 @@ def _clone_or_update(ctx):
         (ctx.attr.commit and ctx.attr.branch)):
         fail("Exactly one of commit, tag, or branch must be provided")
 
-    git = git_repo(ctx)
+    #    ctx.report_progress("Cloning %s of %s" % (git.ref, ctx.attr.remote))
+    #    if (ctx.attr.verbose):
+    #        print("git.bzl: Cloning or updating %s repository %s using strip_prefix of [%s]" %
+    #              (
+    #                  " (%s)" % git.shallow,
+    #                  ctx.name,
+    #                  ctx.attr.strip_prefix if ctx.attr.strip_prefix else "None",
+    #              ))
 
-    ctx.report_progress("Cloning %s of %s" % (git.ref, ctx.attr.remote))
-    if (ctx.attr.verbose):
-        print("git.bzl: Cloning or updating %s repository %s using strip_prefix of [%s]" %
-              (
-                  " (%s)" % git.shallow,
-                  ctx.name,
-                  ctx.attr.strip_prefix if ctx.attr.strip_prefix else "None",
-              ))
+    root = ctx.path(".")
+    directory = str(root)
+    if ctx.attr.strip_prefix:
+        directory = directory + "-tmp"
 
-    repository_exists = ctx.path(".").exists and ctx.path("./.git").exists
-    if not repository_exists:
-        if ctx.path(".").exists:
-            _remove_dir(ctx, ctx.path("."))
-        init(ctx, git)
-        add_origin(ctx, git, ctx.attr.remote)
-    ensure_at_ref(ctx, git)
-
-    if ctx.attr.init_submodules:
-        update_submodules(ctx, git)
+    git_ = git_repo(ctx, directory)
 
     if ctx.attr.strip_prefix:
-        dest_link = "{}/{}".format(git.directory, ctx.attr.strip_prefix)
+        dest_link = "{}/{}".format(directory, ctx.attr.strip_prefix)
         if not ctx.path(dest_link).exists:
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
 
-        ctx.symlink(dest_link, ctx.path("."))
+        # todo this does not really work, and it should not - how are we supposed to symlink to
+        # todo the directory we are filling?
+        ctx.symlink(dest_link, root)
 
-    ctx.report_progress("Recording actual commit")
-
-    # After the fact, determine the actual commit and its date
-    actual_commit = get_head_commit(ctx, git)
-    shallow_date = get_head_date(ctx, git)
-
-    return {"commit": actual_commit, "shallow_since": shallow_date}
-
-def _remove_dir(ctx, dir_):
-    quoted_dir = '"' + str(dir_) + '"'
-    remove_cmd = ["rd", "/s", "/q", quoted_dir] if ctx.os.name.lower().startswith("win") else ["rm", "-rf", quoted_dir]
-    st = ctx.execute(remove_cmd, environment = ctx.os.environ)
-    if st.return_code != 0:
-        fail("error removing directory " + quoted_dir)
+    return {"commit": git_.commit, "shallow_since": git_.shallow_since}
 
 def _update_git_attrs(orig, keys, override):
     result = update_attrs(orig, keys, override)
@@ -118,13 +90,13 @@ def _new_git_repository_implementation(ctx):
     update = _clone_or_update(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
-    _remove_dir(ctx, ctx.path(".git"))
+    remove_dir(ctx, ctx.path(".git"))
     return _update_git_attrs(ctx.attr, _new_git_repository_attrs.keys(), update)
 
 def _git_repository_implementation(ctx):
     update = _clone_or_update(ctx)
     patch(ctx)
-    _remove_dir(ctx, ctx.path(".git"))
+    remove_dir(ctx, ctx.path(".git"))
     return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)
 
 new_git_repository = repository_rule(
