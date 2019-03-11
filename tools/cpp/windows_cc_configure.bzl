@@ -243,6 +243,7 @@ def find_msvc_tool(repository_ctx, vc_path, tool):
         # bbut iterate every directory to be more robust. (from newest to oldest)
         for path in vc_tool_paths:
             if repository_ctx.path(path).exists:
+                tool_path = path
                 break
     else:
         # For VS 2015 and older version, the tools are under:
