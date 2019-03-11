@@ -72,6 +72,29 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
+  @Test
+  public void testCloneAtMaster() throws Exception {
+    Path repo = context().getTmpDir().resolve("ext_repo");
+    String commit = setupGitRepository(context(), repo);
+
+    String buildFileContent = String.format("%s\n%s", RepoWithRuleWritingTextGenerator.loadRule(""),
+        RepoWithRuleWritingTextGenerator.callRule("call_write_text", "out.txt",
+            HELLO_FROM_EXTERNAL_REPOSITORY));
+    context().write("WORKSPACE",
+        "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
+        "new_git_repository(",
+        "  name='ext',",
+        String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
+        "  branch='master',",
+        String.format("  build_file_content=\"\"\"%s\"\"\",", buildFileContent),
+        ")");
+
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    bazel.build("@ext//:call_write_text");
+    Path outPath = context().resolveBinPath(bazel, "external/ext/out.txt");
+    WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
+  }
+
   static String setupGitRepository(BlackBoxTestContext context, Path repo) throws Exception {
     PathUtils.deleteTree(repo);
     Files.createDirectories(repo);
