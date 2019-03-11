@@ -166,25 +166,25 @@ public final class AndroidIdeInfoProvider extends NativeInfo
     }
   }
 
-  private final String javaPackage;
-  private final String idlImportRoot;
-  private final Artifact manifest;
-  private final Artifact generatedManifest;
-  private final Artifact signedApk;
+  @Nullable private final String javaPackage;
+  @Nullable private final String idlImportRoot;
+  @Nullable private final Artifact manifest;
+  @Nullable private final Artifact generatedManifest;
+  @Nullable private final Artifact signedApk;
   @Nullable private final Artifact idlClassJar;
   @Nullable private final Artifact idlSourceJar;
   @Nullable private final OutputJar resourceJar;
   @Nullable private final Artifact resourceApk;
   private final boolean definesAndroidResources;
-  private final Artifact aar;
+  @Nullable private final Artifact aar;
   private final ImmutableCollection<Artifact> idlSrcs;
   private final ImmutableCollection<Artifact> idlGeneratedJavaFiles;
   private final ImmutableCollection<Artifact> apksUnderTest;
   private final ImmutableMap<String, NestedSet<Artifact>> nativeLibs;
 
   public AndroidIdeInfoProvider(
-      String javaPackage,
-      String idlImportRoot,
+      @Nullable String javaPackage,
+      @Nullable String idlImportRoot,
       @Nullable Artifact manifest,
       @Nullable Artifact generatedManifest,
       @Nullable Artifact signedApk,
@@ -197,7 +197,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
       ImmutableCollection<Artifact> idlGeneratedJavaFiles,
       ImmutableCollection<Artifact> apksUnderTest,
       ImmutableMap<String, NestedSet<Artifact>> nativeLibs,
-      Artifact resourceApk) {
+      @Nullable Artifact resourceApk) {
     super(PROVIDER);
     this.javaPackage = javaPackage;
     this.idlImportRoot = idlImportRoot;
@@ -217,6 +217,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
   }
 
   @Override
+  @Nullable
   public String getJavaPackage() {
     return javaPackage;
   }
@@ -317,17 +318,17 @@ public final class AndroidIdeInfoProvider extends NativeInfo
 
     @Override
     public AndroidIdeInfoProvider createInfo(
-        String javaPackage,
+        Object javaPackage,
         Object manifest,
         Object generatedManifest,
-        String idlImportRoot,
+        Object idlImportRoot,
         SkylarkList<Artifact> idlSrcs,
         SkylarkList<Artifact> idlGeneratedJavaFiles,
         Object idlSourceJar,
         Object idlClassJar,
         boolean definesAndroidResources,
         Object resourceJar,
-        Artifact resourceApk,
+        Object resourceApk,
         Object signedApk,
         Object aar,
         SkylarkList<Artifact> apksUnderTest,
@@ -341,8 +342,8 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         builder.put(entry.getKey(), entry.getValue().getSet(Artifact.class));
       }
       return new AndroidIdeInfoProvider(
-          javaPackage,
-          idlImportRoot,
+          fromNoneable(javaPackage, String.class),
+          fromNoneable(idlImportRoot, String.class),
           fromNoneable(manifest, Artifact.class),
           fromNoneable(generatedManifest, Artifact.class),
           fromNoneable(signedApk, Artifact.class),
@@ -355,7 +356,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           idlGeneratedJavaFiles.getImmutableList(),
           apksUnderTest.getImmutableList(),
           builder.build(),
-          resourceApk);
+          fromNoneable(resourceApk, Artifact.class));
     }
   }
 }
