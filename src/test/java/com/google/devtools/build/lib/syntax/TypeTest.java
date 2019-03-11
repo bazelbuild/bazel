@@ -146,6 +146,10 @@ public class TypeTest {
     assertThat(BuildType.TRISTATE.convert(TriState.NO, null)).isEqualTo(TriState.NO);
     assertThat(BuildType.TRISTATE.convert(TriState.AUTO, null)).isEqualTo(TriState.AUTO);
     assertThat(collectLabels(BuildType.TRISTATE, TriState.YES)).isEmpty();
+
+    // deprecated:
+    assertThat(BuildType.TRISTATE.convert(true, null)).isEqualTo(TriState.YES);
+    assertThat(BuildType.TRISTATE.convert(false, null)).isEqualTo(TriState.NO);
   }
 
   @Test
@@ -162,8 +166,9 @@ public class TypeTest {
   }
 
   @Test
-  public void testTriStateDoesNotAcceptStringsOrBools() throws Exception {
-    List<?> listOfCases = Lists.newArrayList("bad", "true", "auto", "false", true, false);
+  public void testTriStateDoesNotAcceptStrings() throws Exception {
+    List<?> listOfCases = Lists.newArrayList("bad", "true", "auto", "false");
+    // TODO(adonovan): add booleans true, false to this list; see b/116691720.
     for (Object entry : listOfCases) {
       try {
         BuildType.TRISTATE.convert(entry, null);

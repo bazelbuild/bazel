@@ -756,12 +756,12 @@ public final class BuildType {
         return (TriState) x;
       }
       if (x instanceof Boolean) {
-        throw new ConversionException(
-            this,
-            x,
-            "rule attribute (tristate is being replaced by "
-                + "attr.int(values=[-1, 0, 1]), and it no longer accepts Boolean values; "
-                + "instead, use 0 or 1, or None for the default)");
+        // TODO(adonovan): re-enable this under flag control; see b/116691720.
+        // throw new ConversionException(this, x,
+        //   "rule attribute (tristate is being replaced by "
+        //       + "attr.int(values=[-1, 0, 1]), and it no longer accepts Boolean values; "
+        //       + "instead, use 0 or 1, or None for the default)");
+        return ((Boolean) x) ? TriState.YES : TriState.NO;
       }
       Integer xAsInteger = INTEGER.convert(x, what, context);
       if (xAsInteger == -1) {
