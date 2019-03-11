@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -189,13 +190,22 @@ public class GrpcRemoteExecutionClientTest {
         public SortedMap<PathFragment, ActionInput> getInputMapping(
             boolean expandTreeArtifactsInRunfiles) throws IOException {
           return new SpawnInputExpander(execRoot, /*strict*/ false)
-              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, ArtifactPathResolver.IDENTITY,
-                  fakeFileCache, true);
+              .getInputMapping(
+                  simpleSpawn,
+                  SIMPLE_ARTIFACT_EXPANDER,
+                  ArtifactPathResolver.IDENTITY,
+                  fakeFileCache,
+                  true);
         }
 
         @Override
         public void report(ProgressStatus state, String name) {
           // TODO(ulfjack): Test that the right calls are made.
+        }
+
+        @Override
+        public MetadataInjector getMetadataInjector() {
+          throw new UnsupportedOperationException();
         }
       };
 
