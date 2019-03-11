@@ -404,7 +404,7 @@ public class CppRuleClasses {
       return builder
           .add(
               attr("$grep_includes", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .value(env.getToolsLabel("//tools/cpp:grep-includes")))
           .build();
     }

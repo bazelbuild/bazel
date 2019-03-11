@@ -36,16 +36,16 @@ public abstract class DependencyFilter
   /** Dependency predicate that excludes host dependencies */
   public static final DependencyFilter NO_HOST_DEPS =
       new DependencyFilter() {
-    @Override
-    public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
-      // getConfigurationTransition() is only defined for labels which introduce a dependency.
-      if (attribute.getType().getLabelClass() != LabelClass.DEPENDENCY) {
-        return true;
-      }
+        @Override
+        public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
+          // getConfigurationTransition() is only defined for labels which introduce a dependency.
+          if (attribute.getType().getLabelClass() != LabelClass.DEPENDENCY) {
+            return true;
+          }
 
-      return !attribute.getConfigurationTransition().isHostTransition();
-    }
-  };
+          return !attribute.getTransitionFactory().isHost();
+        }
+      };
   /** Dependency predicate that excludes implicit dependencies */
   public static final DependencyFilter NO_IMPLICIT_DEPS =
       new DependencyFilter() {

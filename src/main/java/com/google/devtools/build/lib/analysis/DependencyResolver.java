@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
@@ -342,10 +343,14 @@ public abstract class DependencyResolver {
       collectPropagatingAspects(
           aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
 
+      /*
       ConfigurationTransition attributeTransition =
           attribute.hasSplitConfigurationTransition()
               ? attribute.getSplitTransition(attributeMap)
               : attribute.getConfigurationTransition();
+              */
+      ConfigurationTransition attributeTransition =
+          attribute.getTransitionFactory().create(AttributeTransitionData.create(attributeMap));
       partiallyResolvedDeps.put(
           entry.getKey(),
           PartiallyResolvedDependency.of(toLabel, attributeTransition, propagatingAspects.build()));

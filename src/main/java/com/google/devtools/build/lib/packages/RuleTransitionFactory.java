@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 
-/**
- * Customizable transition which accepts the rule it will be executing on.
- */
+/** Customizable transition which accepts the rule it will be executing on. */
+// TODO(katre): Merge this with TransitionFactory, after figuring out how to add a Rule access
+// there.
 public interface RuleTransitionFactory {
   /**
    * Generates a transition to be used when entering the given rule.

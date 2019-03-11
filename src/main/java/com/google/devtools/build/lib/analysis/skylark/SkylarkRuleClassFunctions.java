@@ -172,40 +172,40 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         // Input files for every test action
         .add(
             attr("$test_wrapper", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_wrapper")))
         .add(
             attr("$xml_writer", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:xml_writer")))
         .add(
             attr("$test_runtime", LABEL_LIST)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(
                     ImmutableList.of(
                         labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
         .add(
             attr("$test_setup_script", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_setup")))
         .add(
             attr("$xml_generator_script", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(
                     labelCache.getUnchecked(toolsRepository + "//tools/test:test_xml_generator")))
         .add(
             attr("$collect_coverage_script", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:collect_coverage")))
         // Input files for test actions collecting code coverage
         .add(
             attr(":coverage_support", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(
                     BaseRuleClasses.coverageSupportAttribute(
                         labelCache.getUnchecked(
@@ -213,7 +213,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         // Used in the one-per-build coverage report generation action.
         .add(
             attr(":coverage_report_generator", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(
                     BaseRuleClasses.coverageReportGeneratorAttribute(
                         labelCache.getUnchecked(

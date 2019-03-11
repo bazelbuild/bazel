@@ -95,7 +95,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         // rule so they're not defined in multiple places
         .add(
             attr("$android_resources_busybox", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(environment.getToolsLabel(AndroidRuleClasses.DEFAULT_RESOURCES_BUSYBOX)))
         .add(

@@ -361,7 +361,7 @@ public class BazelCppRuleClasses {
           .add(attr("linkstatic", BOOLEAN).value(true))
           .add(
               attr("$def_parser", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .singleArtifact()
                   .value(
                       new Attribute.ComputedDefault() {

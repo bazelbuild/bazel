@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionFactoryData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** No-op configuration transition. */
@@ -26,5 +28,18 @@ public final class NoTransition implements PatchTransition {
   @Override
   public BuildOptions patch(BuildOptions options) {
     return options;
+  }
+
+  public static <T extends TransitionFactoryData> TransitionFactory<T> createFactory() {
+    return new AutoValue_NoTransition_NoTransitionFactory<>();
+  }
+
+  @AutoValue
+  public abstract static class NoTransitionFactory<T extends TransitionFactoryData>
+      implements TransitionFactory<T> {
+    @Override
+    public ConfigurationTransition create(TransitionFactoryData unused) {
+      return INSTANCE;
+    }
   }
 }

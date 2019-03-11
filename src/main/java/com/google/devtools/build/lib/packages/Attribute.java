@@ -31,18 +31,15 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -287,44 +284,6 @@ public final class Attribute implements Comparable<Attribute> {
         }
       };
 
-  /**
-   * Provides a {@link SplitTransition} given the originating target {@link Rule}. The split
-   * transition may be constant for all instances of the originating rule, or it may differ
-   * based on attributes of that rule. For instance, a split transition on a rule's deps may differ
-   * depending on the 'platform' attribute of the rule.
-   */
-  public interface SplitTransitionProvider extends SplitTransitionProviderApi {
-    /**
-     * Returns the {@link SplitTransition} given the attribute mapper of the originating rule.
-     */
-    SplitTransition apply(AttributeMap attributeMap);
-  }
-
-  /**
-   * Implementation of {@link SplitTransitionProvider} that returns a single {@link SplitTransition}
-   * regardless of the originating rule.
-   */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class BasicSplitTransitionProvider implements SplitTransitionProvider {
-    private final SplitTransition splitTransition;
-
-    @AutoCodec.VisibleForSerialization
-    BasicSplitTransitionProvider(SplitTransition splitTransition) {
-      this.splitTransition = splitTransition;
-    }
-
-    @Override
-    public SplitTransition apply(AttributeMap attributeMap) {
-      return splitTransition;
-    }
-
-    @Override
-    public void repr(SkylarkPrinter printer) {
-      printer.append("<transition object>");
-    }
-  }
-
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
   @AutoCodec
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
@@ -390,10 +349,9 @@ public final class Attribute implements Comparable<Attribute> {
   public static class ImmutableAttributeFactory {
     private final Type<?> type;
     private final String doc;
-    private final ConfigurationTransition configTransition;
+    @Nullable private final TransitionFactory<AttributeTransitionData> transitionFactory;
     private final RuleClassNamePredicate allowedRuleClassesForLabels;
     private final RuleClassNamePredicate allowedRuleClassesForLabelsWarning;
-    private final SplitTransitionProvider splitTransitionProvider;
     private final FileTypeSet allowedFileTypesForLabels;
     private final ValidityPredicate validityPredicate;
     private final Object value;
@@ -411,10 +369,9 @@ public final class Attribute implements Comparable<Attribute> {
         String doc,
         ImmutableSet<PropertyFlag> propertyFlags,
         Object value,
-        ConfigurationTransition configTransition,
+        @Nullable TransitionFactory<AttributeTransitionData> transitionFactory,
         RuleClassNamePredicate allowedRuleClassesForLabels,
         RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
-        SplitTransitionProvider splitTransitionProvider,
         FileTypeSet allowedFileTypesForLabels,
         ValidityPredicate validityPredicate,
         AttributeValueSource valueSource,
@@ -425,10 +382,9 @@ public final class Attribute implements Comparable<Attribute> {
         ImmutableList<RuleAspect<?>> aspects) {
       this.type = type;
       this.doc = doc;
-      this.configTransition = configTransition;
+      this.transitionFactory = transitionFactory;
       this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
       this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
-      this.splitTransitionProvider = splitTransitionProvider;
       this.allowedFileTypesForLabels = allowedFileTypesForLabels;
       this.validityPredicate = validityPredicate;
       this.value = value;
@@ -453,7 +409,6 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
       if (valueSource == AttributeValueSource.LATE_BOUND) {
         Preconditions.checkState(isLateBound(name));
-        Preconditions.checkState(splitTransitionProvider == null);
       }
       // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
       // remove all allowedFileTypes() calls without parameters.
@@ -479,8 +434,7 @@ public final class Attribute implements Comparable<Attribute> {
           type,
           propertyFlags,
           value,
-          configTransition,
-          splitTransitionProvider,
+          transitionFactory,
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
           allowedFileTypesForLabels,
@@ -501,10 +455,9 @@ public final class Attribute implements Comparable<Attribute> {
   public static class Builder <TYPE> {
     private final String name;
     private final Type<TYPE> type;
-    private ConfigurationTransition configTransition = NoTransition.INSTANCE;
+    @Nullable private TransitionFactory<AttributeTransitionData> transitionFactory = null;
     private RuleClassNamePredicate allowedRuleClassesForLabels = ANY_RULE;
     private RuleClassNamePredicate allowedRuleClassesForLabelsWarning = NO_RULE;
-    private SplitTransitionProvider splitTransitionProvider;
     private FileTypeSet allowedFileTypesForLabels;
     private ValidityPredicate validityPredicate = ANY_EDGE;
     private Object value;
@@ -637,31 +590,14 @@ public final class Attribute implements Comparable<Attribute> {
           "analysis-test split transition");
     }
 
-    /**
-     * Defines the configuration transition for this attribute.
-     */
-    public Builder<TYPE> cfg(SplitTransitionProvider splitTransitionProvider) {
-      Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
-          "the configuration transition is already set");
+    /** Defines the configuration transition for this attribute. */
+    public Builder<TYPE> cfg(TransitionFactory<AttributeTransitionData> transitionFactory) {
+      Preconditions.checkState(
+          this.transitionFactory == null,
+          "the configuration transition is already set to " + this.transitionFactory);
 
-      this.splitTransitionProvider = Preconditions.checkNotNull(splitTransitionProvider);
+      this.transitionFactory = Preconditions.checkNotNull(transitionFactory);
       return this;
-    }
-
-    /**
-     * Defines the configuration transition for this attribute (e.g. a {@link PatchTransition} or
-     * {@link SplitTransition}). Defaults to {@code NONE}.
-     */
-    public Builder<TYPE> cfg(ConfigurationTransition configTransition) {
-      Preconditions.checkNotNull(configTransition);
-      Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
-          "the configuration transition is already set");
-      if (configTransition instanceof SplitTransition) {
-        return cfg(new BasicSplitTransitionProvider((SplitTransition) configTransition));
-      } else {
-        this.configTransition = configTransition;
-        return this;
-      }
     }
 
     /**
@@ -1197,10 +1133,9 @@ public final class Attribute implements Comparable<Attribute> {
           doc,
           Sets.immutableEnumSet(propertyFlags),
           valueSet ? value : type.getDefaultValue(),
-          configTransition,
+          transitionFactory,
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
-          splitTransitionProvider,
           allowedFileTypesForLabels,
           validityPredicate,
           valueSource,
@@ -1949,9 +1884,7 @@ public final class Attribute implements Comparable<Attribute> {
   // (We assume a hypothetical Type.isValid(Object) predicate.)
   private final Object defaultValue;
 
-  private final ConfigurationTransition configTransition;
-
-  private final SplitTransitionProvider splitTransitionProvider;
+  @Nullable private final TransitionFactory<AttributeTransitionData> transitionFactory;
 
   /**
    * For label or label-list attributes, this predicate returns which rule
@@ -1998,8 +1931,8 @@ public final class Attribute implements Comparable<Attribute> {
    *     declaration in the BUILD file. Must be null, or of type "type". May be an instance of
    *     ComputedDefault, in which case its getDefault() method must return an instance of "type",
    *     or null. Must be immutable.
-   * @param configTransition the configuration transition for this attribute (which must be of type
-   *     LABEL, LABEL_LIST, NODEP_LABEL or NODEP_LABEL_LIST).
+   * @param transitionFactory the configuration transition factory for this attribute (which must be
+   *     of type LABEL, LABEL_LIST, NODEP_LABEL or NODEP_LABEL_LIST).
    */
   @VisibleForSerialization
   Attribute(
@@ -2008,8 +1941,7 @@ public final class Attribute implements Comparable<Attribute> {
       Type<?> type,
       Set<PropertyFlag> propertyFlags,
       Object defaultValue,
-      ConfigurationTransition configTransition,
-      SplitTransitionProvider splitTransitionProvider,
+      @Nullable TransitionFactory<AttributeTransitionData> transitionFactory,
       RuleClassNamePredicate allowedRuleClassesForLabels,
       RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
       FileTypeSet allowedFileTypesForLabels,
@@ -2018,20 +1950,22 @@ public final class Attribute implements Comparable<Attribute> {
       PredicateWithMessage<Object> allowedValues,
       RequiredProviders requiredProviders,
       ImmutableList<RuleAspect<?>> aspects) {
-    Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
-        (configTransition == NoTransition.INSTANCE)
-        || type.getLabelClass() == LabelClass.DEPENDENCY
-        || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
+        (transitionFactory == null)
+            || type.getLabelClass() == LabelClass.DEPENDENCY
+            || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
         "Configuration transitions can only be specified for label or label list attributes");
     Preconditions.checkArgument(
         isLateBound(name) == (defaultValue instanceof LateBoundDefault),
         "late bound attributes require a default value that is late bound (and vice versa): %s",
         name);
+    if (transitionFactory == null) {
+      transitionFactory = NoTransition.createFactory();
+    }
     if (isLateBound(name)) {
       LateBoundDefault<?, ?> lateBoundDefault = (LateBoundDefault<?, ?>) defaultValue;
-      Preconditions.checkArgument(!lateBoundDefault.useHostConfiguration()
-          || (configTransition.isHostTransition()),
+      Preconditions.checkArgument(
+          !lateBoundDefault.useHostConfiguration() || (transitionFactory.isHost()),
           "a late bound default value using the host configuration must use the host transition");
     }
 
@@ -2040,8 +1974,7 @@ public final class Attribute implements Comparable<Attribute> {
     this.type = type;
     this.propertyFlags = propertyFlags;
     this.defaultValue = defaultValue;
-    this.configTransition = configTransition;
-    this.splitTransitionProvider = splitTransitionProvider;
+    this.transitionFactory = transitionFactory;
     this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     this.allowedFileTypesForLabels = allowedFileTypesForLabels;
@@ -2057,8 +1990,7 @@ public final class Attribute implements Comparable<Attribute> {
             type,
             propertyFlags,
             defaultValue,
-            configTransition,
-            splitTransitionProvider,
+            transitionFactory,
             allowedRuleClassesForLabels,
             allowedRuleClassesForLabelsWarning,
             allowedFileTypesForLabels,
@@ -2170,37 +2102,16 @@ public final class Attribute implements Comparable<Attribute> {
     return getPropertyFlag(PropertyFlag.HAS_ANALYSIS_TEST_TRANSITION);
   }
 
-  /**
-   * Returns the configuration transition for this attribute for label or label
-   * list attributes. For other attributes it will always return {@code NONE}.
-   */
-  public ConfigurationTransition getConfigurationTransition() {
-    return configTransition;
+  public TransitionFactory<AttributeTransitionData> getTransitionFactory() {
+    return transitionFactory;
   }
 
   /**
-   * Returns the split configuration transition for this attribute.
-   *
-   * @param attributeMapper the attribute mapper of the current {@link Rule}
-   * @return a SplitTransition<BuildOptions> object
-   * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true
+   * Returns true if this attribute transitions on a split transition. See {@link SplitTransition}.
    */
-  public SplitTransition getSplitTransition(AttributeMap attributeMapper) {
-    Preconditions.checkState(hasSplitConfigurationTransition());
-    return splitTransitionProvider.apply(attributeMapper);
-  }
-
-  @VisibleForTesting
-  public SplitTransitionProvider getSplitTransitionProviderForTesting() {
-    return splitTransitionProvider;
-  }
-
-  /**
-   * Returns true if this attribute transitions on a split transition.
-   * See {@link SplitTransition}.
-   */
+  // TODO(katre): ideally get rid of this
   public boolean hasSplitConfigurationTransition() {
-    return (splitTransitionProvider != null);
+    return transitionFactory.isSplit();
   }
 
   /**
@@ -2466,8 +2377,7 @@ public final class Attribute implements Comparable<Attribute> {
         && Objects.equals(type, attribute.type)
         && Objects.equals(propertyFlags, attribute.propertyFlags)
         && Objects.equals(defaultValue, attribute.defaultValue)
-        && Objects.equals(configTransition, attribute.configTransition)
-        && Objects.equals(splitTransitionProvider, attribute.splitTransitionProvider)
+        && Objects.equals(transitionFactory, attribute.transitionFactory)
         && Objects.equals(allowedRuleClassesForLabels, attribute.allowedRuleClassesForLabels)
         && Objects.equals(
             allowedRuleClassesForLabelsWarning, attribute.allowedRuleClassesForLabelsWarning)
@@ -2497,8 +2407,11 @@ public final class Attribute implements Comparable<Attribute> {
     builder.requiredProvidersBuilder = requiredProviders.copyAsBuilder();
     builder.validityPredicate = validityPredicate;
     builder.condition = condition;
-    builder.configTransition = configTransition;
-    builder.splitTransitionProvider = splitTransitionProvider;
+    if (transitionFactory instanceof NoTransition.NoTransitionFactory) {
+      builder.transitionFactory = null;
+    } else {
+      builder.transitionFactory = transitionFactory;
+    }
     builder.propertyFlags = newEnumSet(propertyFlags, PropertyFlag.class);
     builder.value = defaultValue;
     builder.valueSet = false;

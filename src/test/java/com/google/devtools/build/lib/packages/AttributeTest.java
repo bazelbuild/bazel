@@ -27,13 +27,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
@@ -97,10 +98,12 @@ public class AttributeTest {
 
   @Test
   public void testDoublePropertySet() {
-    Attribute.Builder<String> builder = attr("x", STRING).mandatory()
-        .cfg(HostTransition.INSTANCE)
-        .undocumented("")
-        .value("y");
+    Attribute.Builder<String> builder =
+        attr("x", STRING)
+            .mandatory()
+            .cfg(HostTransition.createFactory())
+            .undocumented("")
+            .value("y");
     try {
       builder.mandatory();
       fail();
@@ -108,7 +111,7 @@ public class AttributeTest {
       // expected
     }
     try {
-      builder.cfg(HostTransition.INSTANCE);
+      builder.cfg(HostTransition.createFactory());
       fail();
     } catch (IllegalStateException expected) {
       // expected
@@ -277,24 +280,25 @@ public class AttributeTest {
   @Test
   public void testSplitTransition() throws Exception {
     TestSplitTransition splitTransition = new TestSplitTransition();
-    Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
-    assertThat(attr.hasSplitConfigurationTransition()).isTrue();
-    assertThat(attr.getSplitTransition(null)).isEqualTo(splitTransition);
-  }
-
-  @Test
-  public void testSplitTransitionProvider() throws Exception {
-    TestSplitTransitionProvider splitTransitionProvider = new TestSplitTransitionProvider();
     Attribute attr =
-        attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
-    assertThat(attr.hasSplitConfigurationTransition()).isTrue();
-    assertThat(attr.getSplitTransition(null) instanceof TestSplitTransition).isTrue();
+        attr("foo", LABEL)
+            .cfg(TransitionFactories.split(splitTransition))
+            .allowedFileTypes()
+            .build();
+    TransitionFactory<AttributeTransitionData> transitionFactory = attr.getTransitionFactory();
+    assertThat(transitionFactory).isNotNull();
+    assertThat(transitionFactory.isSplit()).isTrue();
+
+    AttributeMap attributeMapper = FakeAttributeMapper.empty();
+    assertThat(transitionFactory.create(AttributeTransitionData.create(attributeMapper)))
+        .isEqualTo(splitTransition);
   }
 
   @Test
   public void testHostTransition() throws Exception {
-    Attribute attr = attr("foo", LABEL).cfg(HostTransition.INSTANCE).allowedFileTypes().build();
-    assertThat(attr.getConfigurationTransition().isHostTransition()).isTrue();
+    Attribute attr =
+        attr("foo", LABEL).cfg(HostTransition.createFactory()).allowedFileTypes().build();
+    assertThat(attr.getTransitionFactory().isHost()).isTrue();
     assertThat(attr.hasSplitConfigurationTransition()).isFalse();
   }
 
@@ -303,16 +307,6 @@ public class AttributeTest {
     public List<BuildOptions> split(BuildOptions buildOptions) {
       return ImmutableList.of(buildOptions.clone(), buildOptions.clone());
     }
-  }
-
-  private static class TestSplitTransitionProvider implements SplitTransitionProvider {
-    @Override
-    public SplitTransition apply(AttributeMap attrMapper) {
-      return new TestSplitTransition();
-    }
-
-    @Override
-    public void repr(SkylarkPrinter printer) {}
   }
 
   @Test

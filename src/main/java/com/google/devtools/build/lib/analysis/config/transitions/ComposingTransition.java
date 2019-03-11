@@ -32,6 +32,7 @@ import java.util.Objects;
  *   ComposingTransition(transition1, transition2): { someSetting = $oldVal + " foo bar" }
  * </pre>
  */
+// TODO - rewrite to use factories
 @AutoCodec
 public class ComposingTransition implements ConfigurationTransition {
   private ConfigurationTransition transition1;
@@ -42,9 +43,9 @@ public class ComposingTransition implements ConfigurationTransition {
    * transition1 -> transition2 -> toOptions }.
    *
    * <p>Note that it's possible to create silly transitions with this constructor (e.g., if one or
-   * both of the transitions is {@link NoTransition}). Use
-   * {@link com.google.devtools.build.lib.analysis.config.TransitionResolver#composeTransitions}
-   * for these cases - it checks for for these states and avoids instantiation appropriately.
+   * both of the transitions is {@link NoTransition}). Use {@link
+   * com.google.devtools.build.lib.analysis.config.TransitionResolver#composeTransitions} for these
+   * cases - it checks for for these states and avoids instantiation appropriately.
    */
   @AutoCodec.Instantiator
   public ComposingTransition(

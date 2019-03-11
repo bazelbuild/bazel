@@ -23,13 +23,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -39,17 +40,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * This class implements a {@link SplitTransitionProvider} to provide a starlark-defined transition
- * that rules can apply to their dependencies' configurations. This transition has access to (1) the
- * a map of the current configuration's build settings and (2) the configured attributes of the
- * given rule (not its dependencies').
+ * This class implements a {@link TransitionFactory} to provide a starlark-defined transition that
+ * rules can apply to their dependencies' configurations. This transition has access to (1) the a
+ * map of the current configuration's build settings and (2) the configured attributes of the given
+ * rule (not its dependencies').
  *
  * <p>For starlark defined rule class transitions, see {@link StarlarkRuleTransitionProvider}.
  *
  * <p>TODO(bazel-team): Consider allowing dependency-typed attributes to actually return providers
- * instead of just labels (see {@link SkylarkAttributesCollection#addAttribute}).
+ * instead of just labels (see {@link SkylarkAttributesCollection.Builder#addAttribute}).
  */
-public class StarlarkAttributeTransitionProvider implements SplitTransitionProvider {
+public class StarlarkAttributeTransitionProvider
+    implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
   StarlarkAttributeTransitionProvider(
@@ -63,15 +65,20 @@ public class StarlarkAttributeTransitionProvider implements SplitTransitionProvi
   }
 
   @Override
-  public SplitTransition apply(AttributeMap attributeMap) {
-    Preconditions.checkArgument(attributeMap instanceof ConfiguredAttributeMapper);
+  public SplitTransition create(AttributeTransitionData data) {
+    Preconditions.checkArgument(data.attributes() instanceof ConfiguredAttributeMapper);
     return new FunctionSplitTransition(
-        starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
+        starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) data.attributes());
   }
 
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<transition object>");
+  }
+
+  @Override
+  public boolean isSplit() {
+    return true;
   }
 
   class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {

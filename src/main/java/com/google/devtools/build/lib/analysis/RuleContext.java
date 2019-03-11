@@ -52,8 +52,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
@@ -823,9 +824,16 @@ public final class RuleContext extends TargetContext
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
     checkAttribute(attributeName, Mode.SPLIT);
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
+    TransitionFactory<AttributeTransitionData> transitionFactory =
+        attributeDefinition.getTransitionFactory();
+    if (!transitionFactory.isSplit()) {
+      // DO NOT SUBMIT - this is an error.
+    }
+    // why is this configured?
+    ConfiguredAttributeMapper attributeMapper =
+        ConfiguredAttributeMapper.of(rule, configConditions);
     SplitTransition transition =
-        attributeDefinition.getSplitTransition(
-            ConfiguredAttributeMapper.of(rule, configConditions));
+        (SplitTransition) transitionFactory.create(AttributeTransitionData.create(attributeMapper));
     BuildOptions fromOptions = getConfiguration().getOptions();
     List<BuildOptions> splitOptions = transition.split(fromOptions);
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
@@ -1154,15 +1162,17 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
-    ConfigurationTransition transition = attributeDefinition.getConfigurationTransition();
+    // ConfigurationTransition transition = attributeDefinition.getConfigurationTransition();
+    TransitionFactory<AttributeTransitionData> transitionFactory =
+        attributeDefinition.getTransitionFactory();
     if (mode == Mode.HOST) {
-      if (!(transition instanceof PatchTransition)) {
+      if (transitionFactory.isSplit()) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the host configuration");
       }
     } else if (mode == Mode.TARGET) {
-      if (!(transition instanceof PatchTransition) && transition != NoTransition.INSTANCE) {
+      if (transitionFactory.isSplit()) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the target configuration");
