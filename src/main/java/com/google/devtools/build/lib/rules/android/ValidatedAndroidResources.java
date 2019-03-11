@@ -18,13 +18,14 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Wraps validated and packaged Android resource information */
-public class ValidatedAndroidResources extends MergedAndroidResources implements
-    ValidatedAndroidDataApi {
+public class ValidatedAndroidResources extends MergedAndroidResources
+    implements ValidatedAndroidDataApi<Artifact> {
   private final Artifact rTxt;
   private final Artifact sourceJar;
   private final Artifact apk;
@@ -119,31 +120,42 @@ public class ValidatedAndroidResources extends MergedAndroidResources implements
     return getResourceDependencies().toInfo(this);
   }
 
+  @Override
   public Artifact getRTxt() {
     return rTxt;
   }
 
+  @Override
   public Artifact getJavaSourceJar() {
     return sourceJar;
   }
 
+  @Override
   public Artifact getApk() {
     return apk;
   }
 
+  @Override
   @Nullable
   public Artifact getAapt2RTxt() {
     return aapt2RTxt;
   }
 
+  @Override
   @Nullable
   public Artifact getAapt2SourceJar() {
     return aapt2SourceJar;
   }
 
+  @Override
   @Nullable
   public Artifact getStaticLibrary() {
     return staticLibrary;
+  }
+
+  @Override
+  public SkylarkList<Artifact> getResourcesList() {
+    return SkylarkList.createImmutable(getResources());
   }
 
   public ValidatedAndroidResources filter(
