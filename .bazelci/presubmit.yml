@@ -281,10 +281,6 @@ platforms:
       -e 's/^# rbe_autoconfig/rbe_autoconfig/'
       -e 's/^# load("@bazel_toolchains/load("@bazel_toolchains/' WORKSPACE
     - rm -f WORKSPACE.bak
-    - sed -i.bak -e 's/^# parents = ["@buildkite_config/parents = ["@buildkite_config/'
-      -e 's/^# {PARENT_REMOTE_EXECUTION_PROPERTIES}/{PARENT_REMOTE_EXECUTION_PROPERTIES}/'
-      BUILD
-    - rm -f BUILD.bak
     build_targets:
     - "//src:bazel"
     - "//src:bazel_jdk_minimal"
