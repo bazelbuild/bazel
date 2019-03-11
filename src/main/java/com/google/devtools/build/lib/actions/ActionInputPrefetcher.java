@@ -15,21 +15,16 @@ package com.google.devtools.build.lib.actions;
 
 import java.io.IOException;
 
-/** Prefetches files to local disk. */
+/** Supports prefetching of action inputs. */
 public interface ActionInputPrefetcher {
-  public static final ActionInputPrefetcher NONE =
-      new ActionInputPrefetcher() {
-        @Override
-        public void prefetchFiles(
-            Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
-          // Do nothing.
-        }
-      };
+  ActionInputPrefetcher NONE = (inputs, metadataProvider) -> { /* Do nothing. */ };
 
   /**
-   * Initiates best-effort prefetching of all given inputs. This should not block.
+   * Prefetches input files to local disk.
    *
-   * <p>For any path not under this prefetcher's control, the call should be a no-op.
+   * <p>After this method returns all files under this prefetcher's control must be available
+   * via the local filesystem. For any path not under this prefetcher's control, the call should be
+   * a no-op.
    */
   void prefetchFiles(Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider)
       throws IOException, InterruptedException;
