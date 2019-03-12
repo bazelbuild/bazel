@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.MapDifference;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
@@ -382,6 +384,61 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     return replacedOptions;
+  }
+
+  /**
+   * Returns true if the passed parsing result's options have the same value as these options.
+   *
+   * <p>If a native parsed option is passed whose fragment has been trimmed in these options it is
+   * considered to match.
+   *
+   * <p>If no options are present in the parsing result or all options in the parsing result have
+   * been trimmed the result is considered not to match. This is because otherwise the parsing
+   * result would match any options in a similar trimmed state, regardless of contents.
+   *
+   * @param parsingResult parsing result to be compared to these options
+   * @return true if all non-trimmed values match
+   * @throws OptionsParsingException if options cannot be parsed
+   */
+  public boolean matches(OptionsParsingResult parsingResult) throws OptionsParsingException {
+    Set<OptionDefinition> ignoredDefinitions = new HashSet<>();
+    for (ParsedOptionDescription parsedOption : parsingResult.asListOfExplicitOptions()) {
+      OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+
+      // All options obtained from an options parser are guaranteed to have been defined in an
+      // FragmentOptions class.
+      @SuppressWarnings("unchecked")
+      Class<? extends FragmentOptions> fragmentClass =
+          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
+
+      FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentClass);
+      if (originalFragment == null) {
+        // Ignore flags set in trimmed fragments.
+        ignoredDefinitions.add(optionDefinition);
+        continue;
+      }
+      Object originalValue = originalFragment.asMap().get(optionDefinition.getOptionName());
+      if (!Objects.equals(originalValue, parsedOption.getConvertedValue())) {
+        return false;
+      }
+    }
+
+    Map<Label, Object> starlarkOptions =
+        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
+    MapDifference<Label, Object> starlarkDifference =
+        Maps.difference(skylarkOptionsMap, starlarkOptions);
+    if (starlarkDifference.entriesInCommon().size() < starlarkOptions.size()) {
+      return false;
+    }
+
+    if (ignoredDefinitions.size() == parsingResult.asListOfExplicitOptions().size()
+        && starlarkOptions.isEmpty()) {
+      // Zero options were compared, either because none were passed or because all of them were
+      // trimmed.
+      return false;
+    }
+
+    return true;
   }
 
   /** Creates a builder object for BuildOptions */
