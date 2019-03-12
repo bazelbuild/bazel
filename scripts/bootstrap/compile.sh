@@ -265,7 +265,7 @@ EOF
   link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
   # The BUILD file needed for @remote_java_tools.
-  link_file "${PWD}/third_party/java/java_tools/BUILD-new.pkg" "${BAZEL_TOOLS_REPO}/tools/jdk/BUILD.pkg"
+  link_file "${PWD}/third_party/java/java_tools/BUILD.pkg" "${BAZEL_TOOLS_REPO}/tools/jdk/BUILD.pkg"
 
   # Set up @bazel_tools//platforms properly
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms

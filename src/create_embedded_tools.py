@@ -35,7 +35,7 @@ output_paths = [
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
     ('*jarjar_command_deploy.jar',
      lambda x: 'tools/jdk/jarjar_command_deploy.jar'),
-    ('*BUILD-new.pkg', lambda x: 'tools/jdk/BUILD.pkg'),
+    ('*BUILD.pkg', lambda x: 'tools/jdk/BUILD.pkg'),
     ('*BUILD.javalangtools', lambda x: 'third_party/java/jdk/langtools/BUILD'),
     ('*singlejar_local.exe', lambda x: 'tools/jdk/singlejar/singlejar.exe'),
     ('*singlejar_local', lambda x: 'tools/jdk/singlejar/singlejar'),
