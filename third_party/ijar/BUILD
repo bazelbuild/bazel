@@ -100,16 +100,6 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-# TODO(#7696): Remove this target after third_party/ changes are merged.
-filegroup(
-    name = "embed_into_java_tools",
-    srcs = glob(
-        ["**"],
-        exclude = ["BUILD"],
-    ),
-    visibility = ["//visibility:public"],
-)
-
 pkg_tar(
     name = "ijar_with_deps_archive",
     extension = "tar.gz",
@@ -123,7 +113,10 @@ pkg_tar(
 
 pkg_tar(
     name = "ijar_archive",
-    srcs = glob(["**"]) + [
+    srcs = glob(
+        ["**"],
+        exclude = ["BUILD"]
+    ) + [
         # Also archive the binaries.
         ":ijar",
         ":zipper",
