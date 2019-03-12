@@ -122,7 +122,6 @@ public final class LocationExpander {
    * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
-   * @param labelMap A mapping of labels to build artifacts.
    */
   public static LocationExpander withRunfilesPaths(RuleContext ruleContext) {
     return new LocationExpander(ruleContext, null, false, false);
@@ -362,19 +361,12 @@ public final class LocationExpander {
       }
     }
 
-    boolean inAspect = ruleContext.getAspects().size() > 0;
-
     // Add all destination locations.
     for (OutputFile out : ruleContext.getRule().getOutputFiles()) {
-      Artifact artifact;
-      if (inAspect) {
-        // In aspect processing, so don't create & verify a new artifact, just find any cached ones.
-        artifact = ruleContext.getOutputArtifactsProvider().getOutputArtifact(out);
-        // FIXME: I see correct output if I just ignore missing artifacts here. Is that problematic?
-        if (artifact != null) {
-          mapGet(locationMap, out.getLabel()).add(artifact);
-        }
-      } else {
+      // We don't want to do this if we're processing aspect rules. It will
+      // create output artifacts and unbalance the input/output state, leading
+      // to an error (output artifact with no action to create its inputs).
+      if (ruleContext.getMainAspect() == null) {
         // Not in aspect processing, so explicitly build an artifact & let it verify.
         mapGet(locationMap, out.getLabel()).add(ruleContext.createOutputArtifact(out));
       }
