@@ -18,6 +18,7 @@ import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -311,8 +312,11 @@ public interface FilesetTraversalParams {
    * Fileset.
    */
   interface LinkSupplier {
-    ImmutableList<FilesetOutputSymlink> getLinks(EventHandler handler, Location location,
-        ArtifactPathResolver pathResolver)
+    ImmutableList<FilesetOutputSymlink> getLinks(
+        EventHandler handler,
+        Location location,
+        ArtifactPathResolver pathResolver,
+        ArtifactExpander artifactExpander)
         throws IOException;
 
     void fingerprint(Fingerprint fp);
