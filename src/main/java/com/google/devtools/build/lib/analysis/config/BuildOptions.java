@@ -39,7 +39,9 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -310,6 +312,76 @@ public final class BuildOptions implements Cloneable, Serializable {
     skylarkOptions.putAll(optionsDiff.extraSecondStarlarkOptions);
     builder.addStarlarkOptions(skylarkOptions);
     return builder.build();
+  }
+
+  /**
+   * Applies any options set in the parsing result on top of these options, returning the resulting
+   * build options.
+   *
+   * <p>To preserve fragment trimming, this method will not expand the set of included native
+   * fragments. If the parsing result contains native options whose owning fragment is not part of
+   * these options they will be ignored (i.e. not set on the resulting options). Starlark options
+   * are not affected by this restriction.
+   *
+   * @param parsingResult any options that are being modified
+   * @return the new options after applying the parsing result to the original options
+   * @throws OptionsParsingException if a value in the parsing result cannot in fact be parsed
+   */
+  public BuildOptions applyParsingResult(OptionsParsingResult parsingResult)
+      throws OptionsParsingException {
+    Map<Class<? extends FragmentOptions>, FragmentOptions> modifiedFragments =
+        toModifiedFragments(parsingResult);
+
+    BuildOptions.Builder builder = builder();
+    for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> classAndFragment :
+        fragmentOptionsMap.entrySet()) {
+      Class<? extends FragmentOptions> fragmentClass = classAndFragment.getKey();
+      if (modifiedFragments.containsKey(fragmentClass)) {
+        builder.addFragmentOptions(modifiedFragments.get(fragmentClass));
+      } else {
+        builder.addFragmentOptions(classAndFragment.getValue());
+      }
+    }
+
+    Map<Label, Object> starlarkOptions = new HashMap<>(skylarkOptionsMap);
+    Map<Label, Object> parsedStarlarkOptions =
+        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
+    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
+      starlarkOptions.put(starlarkOption.getKey(), starlarkOption.getValue());
+    }
+    builder.addStarlarkOptions(starlarkOptions);
+    return builder.build();
+  }
+
+  private Map<Class<? extends FragmentOptions>, FragmentOptions> toModifiedFragments(
+      OptionsParsingResult parsingResult) throws OptionsParsingException {
+    Map<Class<? extends FragmentOptions>, FragmentOptions> replacedOptions = new HashMap<>();
+    for (ParsedOptionDescription parsedOption : parsingResult.asListOfExplicitOptions()) {
+      OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+
+      // All options obtained from an options parser are guaranteed to have been defined in an
+      // FragmentOptions class.
+      @SuppressWarnings("unchecked")
+      Class<? extends FragmentOptions> fragmentOptionClass =
+          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
+
+      FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentOptionClass);
+      if (originalFragment == null) {
+        // Preserve trimming by ignoring fragments not present in the original options.
+        continue;
+      }
+      FragmentOptions newOptions =
+          replacedOptions.computeIfAbsent(
+              fragmentOptionClass,
+              (Class<? extends FragmentOptions> k) -> originalFragment.clone());
+      try {
+        optionDefinition.getField().set(newOptions, parsedOption.getConvertedValue());
+      } catch (IllegalAccessException e) {
+        throw new IllegalStateException("Couldn't set " + optionDefinition.getField(), e);
+      }
+    }
+
+    return replacedOptions;
   }
 
   /** Creates a builder object for BuildOptions */
