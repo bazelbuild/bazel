@@ -93,7 +93,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     // DepsOfPatternPreparer ignores excludedSubdirectories and embeds blacklistedSubdirectories in
     // the SkyKeys it creates and uses.
     ImmutableSet<PathFragment> blacklistedSubdirectories =
-        patternKey.getAllSubdirectoriesToExclude(blacklist.getPatterns());
+        patternKey.getAllSubdirectoriesToExclude(blacklist.getPrefixes());
     ImmutableSet<PathFragment> excludedSubdirectories = ImmutableSet.of();
 
     DepsOfPatternPreparer preparer =

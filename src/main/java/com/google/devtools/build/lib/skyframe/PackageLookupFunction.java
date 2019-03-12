@@ -96,7 +96,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     PathFragment buildFileFragment = packageKey.getPackageFragment();
-    for (PathFragment pattern : blacklistedPatternsValue.getPatterns()) {
+    for (PathFragment pattern : blacklistedPatternsValue.getPrefixes()) {
       if (buildFileFragment.startsWith(pattern)) {
         return PackageLookupValue.DELETED_PACKAGE_VALUE;
       }

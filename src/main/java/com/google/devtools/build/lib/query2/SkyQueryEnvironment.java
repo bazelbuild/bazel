@@ -1166,7 +1166,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     public ImmutableSet<PathFragment> get() throws InterruptedException {
       return ((BlacklistedPackagePrefixesValue)
               graph.getValue(BlacklistedPackagePrefixesValue.key()))
-          .getPatterns();
+          .getPrefixes();
     }
   }
 

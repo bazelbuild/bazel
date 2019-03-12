@@ -20,15 +20,18 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -151,8 +154,7 @@ public class DirtinessCheckerUtils {
       RootedPath rootedPath = (RootedPath) skyKey.argument();
       FileType fileType = externalFilesHelper.getAndNoteFileType(rootedPath, userBlacklisted);
       if (fileType == FileType.EXTERNAL) {
-        if (RefreshRootsValue.getRepositoryForRefreshRoot(userBlacklisted, refreshRoots,
-            fileType, rootedPath) != null) {
+        if (RefreshRootsValue.getRepositoryForRefreshRoot(refreshRoots, rootedPath) != null) {
           return SkyValueDirtinessChecker.DirtyResult.dirty(oldValue);
         }
       }

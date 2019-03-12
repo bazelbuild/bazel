@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -172,8 +171,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
           ExternalFilesHelper.create(
               pkgLocatorRef,
               ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-              directories, /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
-              /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT);
+              directories /*hardcodedBlacklistedPackagePrefixes=*/
+              /*additionalBlacklistedPackagePrefixesFile=*/);
       this.externalFileAction = externalFileAction;
     }
 
@@ -239,10 +238,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     public final PackageLoader build() {
       validate();
       externalFilesHelper =
-          ExternalFilesHelper.create(pkgLocatorRef, externalFileAction, directories,
-              // todo good enough for prototyping - used in test code only here
-              BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
-              BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE);
+          ExternalFilesHelper.create(pkgLocatorRef, externalFileAction, directories);
       return buildImpl();
     }
 

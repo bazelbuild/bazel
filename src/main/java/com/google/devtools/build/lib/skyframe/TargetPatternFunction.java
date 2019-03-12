@@ -76,7 +76,7 @@ public class TargetPatternFunction implements SkyFunction {
           };
       parsedPattern.eval(
           resolver,
-          blacklisted.getPatterns(),
+          blacklisted.getPrefixes(),
           excludedSubdirectories,
           callback,
           // The exception type here has to match the one on the BatchCallback. Since the callback

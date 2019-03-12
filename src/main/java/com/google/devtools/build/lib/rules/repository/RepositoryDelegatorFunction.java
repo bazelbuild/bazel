@@ -420,7 +420,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return null;
   }
 
-  private RepositoryDirectoryValue setupOverride(//todo should we put the needs update marker also here?
+  private RepositoryDirectoryValue setupOverride(
       RepositoryName repositoryName, PathFragment sourcePath, Environment env, Path repoRoot,
       Path markerPath)
       throws RepositoryFunctionException, InterruptedException {

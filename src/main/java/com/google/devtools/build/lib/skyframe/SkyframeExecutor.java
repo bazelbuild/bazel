@@ -304,7 +304,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       new SkyframeIncrementalBuildMonitor();
 
   private final ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes;
-  private final PathFragment additionalBlacklistedPackagePrefixesFile;
+  protected final PathFragment additionalBlacklistedPackagePrefixesFile;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -425,9 +425,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             skyframeActionExecutor);
     this.artifactFactory = artifactResolverSupplier;
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
-    this.externalFilesHelper = ExternalFilesHelper.create(pkgLocator, externalFileAction, directories,
-        hardcodedBlacklistedPackagePrefixes,
-        additionalBlacklistedPackagePrefixesFile);
+    this.externalFilesHelper = ExternalFilesHelper.create(pkgLocator, externalFileAction, directories
+    );
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;

@@ -6,9 +6,9 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -55,19 +55,9 @@ public class RefreshRootsValue implements SkyValue {
   }
 
   @Nullable
-  public static RepositoryName getRepositoryForRefreshRoot(
-      final BlacklistedPackagePrefixesValue blackListed,
+  static RepositoryName getRepositoryForRefreshRoot(
       final RefreshRootsValue refreshRootsValue,
-      final FileType fileType,
       final RootedPath rootedPath) {
-
-    // todo seems it is already checked before; remove this
-    if (fileType == FileType.INTERNAL) {
-      // Only black listed files and directories may be refreshed by external repositories
-      if (!Boolean.TRUE.equals(blackListed.isUnderBlacklisted(rootedPath))) {
-        return null;
-      }
-    }
 
     ImmutableMap<PathFragment, RepositoryName> roots = refreshRootsValue.getRoots();
     // todo how can we improve here???

@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -77,7 +78,6 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -112,7 +112,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -527,37 +526,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
     MissingDiffDirtinessChecker missingDiffDirtinessChecker = new MissingDiffDirtinessChecker(
         diffPackageRootsUnderWhichToCheck);
-
-    PathFragment configurationFiles[] = {LabelConstants.WORKSPACE_FILE_NAME,
-        BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE};
-    PathPackageLocator packageLocator = this.pkgLocator.get();
-    for (PathFragment configurationFile : configurationFiles) {
-      Collection<RootedPath> paths = packageLocator.getWellKnownRootedPaths(configurationFile);
-      List<SkyKey> changed = Lists.newArrayList();
-      for (RootedPath path : paths) {
-        SkyKey fileStateKey = FileStateValue.key(path);
-        SkyValue oldValue = memoizingEvaluator.getExistingValue(fileStateKey);
-        if (missingDiffDirtinessChecker.check(fileStateKey, oldValue, tsgm).isDirty()) {
-          changed.add(fileStateKey);
-        }
-      }
-      recordingDiffer.invalidate(changed);
-    }
-
-    EvaluationResult<SkyValue> blacklistedFilesResult = buildDriver
-        .evaluate(ImmutableSet.of(BlacklistedPackagePrefixesValue.key()), evaluationContext);
-    BlacklistedPackagePrefixesValue userBlacklisted = (BlacklistedPackagePrefixesValue) blacklistedFilesResult
-        .get(BlacklistedPackagePrefixesValue.key());
-    EvaluationResult<SkyValue> refreshRootsResult = buildDriver
-        .evaluate(ImmutableSet.of(RefreshRootsValue.key()), evaluationContext);
-    RefreshRootsValue refreshRoots = (RefreshRootsValue) refreshRootsResult.get(RefreshRootsValue.key());
-
-    externalFilesHelper.injectConfiguration(userBlacklisted, refreshRoots);
+    BlacklistedPackagePrefixesValue blacklistedPrefixes = computeBlacklistedPrefixes(
+        missingDiffDirtinessChecker, evaluationContext);
+    RefreshRootsValue refreshRoots = computeRefreshRoots(
+        missingDiffDirtinessChecker, evaluationContext);
+    externalFilesHelper.injectConfiguration(blacklistedPrefixes, refreshRoots,
+        additionalBlacklistedPackagePrefixesFile);
 
     Differencer.Diff diff;
     try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
       ExternalDirtinessChecker externalDirtinessChecker = new ExternalDirtinessChecker(
-          externalFilesHelper, fileTypesToCheck, userBlacklisted, refreshRoots);
+          externalFilesHelper, fileTypesToCheck, blacklistedPrefixes, refreshRoots);
       diff =
           fsvc.getDirtyKeys(
               memoizingEvaluator.getValues(),
@@ -578,6 +557,44 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pathEntriesWithoutDiffInformation) {
       pair.getSecond().markProcessed();
     }
+  }
+
+  private void refreshConfigurationFile(MissingDiffDirtinessChecker dirtinessChecker,
+      PathFragment configurationFile) throws InterruptedException {
+    PathPackageLocator packageLocator = pkgLocator.get();
+    TimestampGranularityMonitor granularityMonitor = this.tsgm.get();
+
+    List<SkyKey> changed = Lists.newArrayList();
+    for (Root packagePathEntry : packageLocator.getPathEntries()) {
+      RootedPath path = RootedPath.toRootedPath(packagePathEntry, configurationFile);
+      SkyKey fileStateKey = FileStateValue.key(path);
+      SkyValue oldValue = memoizingEvaluator.getExistingValue(fileStateKey);
+      if (dirtinessChecker.check(fileStateKey, oldValue, granularityMonitor).isDirty()) {
+        changed.add(fileStateKey);
+      }
+    }
+    recordingDiffer.invalidate(changed);
+  }
+
+  private BlacklistedPackagePrefixesValue computeBlacklistedPrefixes(
+      MissingDiffDirtinessChecker dirtinessChecker,
+      EvaluationContext evaluationContext) throws InterruptedException {
+    refreshConfigurationFile(dirtinessChecker, additionalBlacklistedPackagePrefixesFile);
+
+    EvaluationResult<SkyValue> blacklistedFilesResult = buildDriver
+        .evaluate(ImmutableSet.of(BlacklistedPackagePrefixesValue.key()), evaluationContext);
+    return (BlacklistedPackagePrefixesValue) blacklistedFilesResult
+        .get(BlacklistedPackagePrefixesValue.key());
+  }
+
+  private RefreshRootsValue computeRefreshRoots(
+      MissingDiffDirtinessChecker dirtinessChecker, EvaluationContext evaluationContext)
+      throws InterruptedException {
+    refreshConfigurationFile(dirtinessChecker, LabelConstants.WORKSPACE_FILE_NAME);
+
+    EvaluationResult<SkyValue> refreshRootsResult = buildDriver
+        .evaluate(ImmutableSet.of(RefreshRootsValue.key()), evaluationContext);
+    return (RefreshRootsValue) refreshRootsResult.get(RefreshRootsValue.key());
   }
 
   private void handleChangedFiles(

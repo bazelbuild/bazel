@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Set;
 
 /** An immutable set of package name prefixes that should be blacklisted. */
 @AutoCodec
@@ -37,7 +38,7 @@ public class BlacklistedPackagePrefixesValue implements SkyValue {
     return BLACKLIST_KEY;
   }
 
-  public ImmutableSet<PathFragment> getPatterns() {
+  public ImmutableSet<PathFragment> getPrefixes() {
     return patterns;
   }
 
@@ -56,7 +57,7 @@ public class BlacklistedPackagePrefixesValue implements SkyValue {
   }
 
   public boolean isUnderBlacklisted(final RootedPath rootedPath) {
-    for (PathFragment pattern : getPatterns()) {
+    for (PathFragment pattern : getPrefixes()) {
       if (startsWithFragment(rootedPath, pattern)) {
         return Boolean.TRUE;
       }
