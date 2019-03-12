@@ -186,3 +186,11 @@ filegroup(
     srcs = glob(["*.cc"]) + glob(["*.h"]) + ["BUILD"],
     visibility = ["//visibility:public"],
 )
+
+# These files are embedded into the remote Java tools
+# because they are needed by ijar.
+filegroup(
+    name = "embed_into_java_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]),
+    visibility = ["//visibility:public"],
+)
