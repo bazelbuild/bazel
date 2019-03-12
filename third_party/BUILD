@@ -607,18 +607,6 @@ filegroup(
 
 # Part of the Java tools remote archive. Not embedded or used in Bazel.
 pkg_tar(
-    name = "cpp_util",
-    srcs = [
-        "//src/main/cpp/util:embed_into_java_tools",
-    ],
-    extension = "tar.gz",
-    mode = "755",
-    # Create a pkg_tar to preserve the directory structure src/main/cpp/util.
-    package_dir = "src/main/cpp/util",
-)
-
-# Part of the Java tools remote archive. Not embedded or used in Bazel.
-pkg_tar(
     name = "zlib_pkg",
     srcs = ["//third_party/zlib:embedded_tools"],
     extension = "tar.gz",
@@ -657,9 +645,8 @@ pkg_tar(
     # Pass these as dependencies rather than srcs to preserve their directory
     # structures and avoid packaging all the files under the same directory.
     deps = [
-        ":cpp_util",
-        ":ijar_pkg",
         ":zlib_pkg",
+        "//third_party/ijar:ijar_with_deps_archive",
     ],
 )
 
