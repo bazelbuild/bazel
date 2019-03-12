@@ -951,15 +951,12 @@ public final class SkyframeActionExecutor {
       ActionContinuationOrResult nextActionContinuationOrResult;
       try {
         nextActionContinuationOrResult = actionContinuation.execute();
-      } catch (LostInputsActionExecutionException e) {
-        // If inputs are lost, then avoid publishing ActionCompletedEvent. Action rewinding will
-        // rerun this failed action after trying to regenerate the lost inputs. However, enrich
-        // the exception so that, if rewinding fails, an ActionCompletedEvent will be published.
-        e.setActionStartedEventAlreadyEmitted();
-        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ false);
-        return ActionStepOrResult.of(e);
       } catch (ActionExecutionException e) {
-        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ true);
+        boolean isLostInputsException = e instanceof LostInputsActionExecutionException;
+        if (isLostInputsException) {
+          ((LostInputsActionExecutionException) e).setActionStartedEventAlreadyEmitted();
+        }
+        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ !isLostInputsException);
         return ActionStepOrResult.of(
             processAndGetExceptionToThrow(
                 eventHandler,
