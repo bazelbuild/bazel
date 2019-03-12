@@ -281,13 +281,22 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     return outerF;
   }
 
-  class ProgressiveBackoff implements Backoff {
+  static class ProgressiveBackoff implements Backoff {
     private final Supplier<Backoff> backoffSupplier;
     private Backoff currentBackoff = null;
     private int retries = 0;
 
+    /**
+     * Creates a resettable Backoff for progressive reads.
+     * After a reset, the nextDelay returned indicates an immediate retry.
+     * Initially and after indicating an immediate retry, a delegate is generated
+     * to provide nextDelay until reset.
+     *
+     * @param backoffSupplier Delegate Backoff generator
+     */
     ProgressiveBackoff(Supplier<Backoff> backoffSupplier) {
       this.backoffSupplier = backoffSupplier;
+      currentBackoff = backoffSupplier.get();
     }
 
     public void reset() {
