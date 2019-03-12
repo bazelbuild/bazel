@@ -97,12 +97,3 @@ filegroup(
     srcs = glob(["**"]),
     visibility = ["//visibility:public"],
 )
-
-filegroup(
-    name = "embed_into_java_tools",
-    srcs = glob(
-        ["**"],
-        exclude = ["BUILD"],
-    ),
-    visibility = ["//visibility:public"],
-)

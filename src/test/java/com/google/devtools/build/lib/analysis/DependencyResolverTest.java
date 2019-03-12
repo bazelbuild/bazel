@@ -186,20 +186,6 @@ public class DependencyResolverTest extends AnalysisTestCase {
     assertDep(map, "$dep", "//extra:extra");
   }
 
-  /**
-   * Null configurations should always be explicit (vs. holding transitions). This lets Bazel skip
-   * its complicated dependency configuration logic for these cases.
-   */
-  @Test
-  public void nullConfigurationsAlwaysExplicit() throws Exception {
-    pkg("a",
-        "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
-    update();
-    Dependency dep = assertDep(dependentNodeMap("//a:gen", null), "srcs", "//a:gen.in");
-    assertThat(dep.hasExplicitConfiguration()).isTrue();
-    assertThat(dep.getConfiguration()).isNull();
-  }
-
   /** Runs the same test with trimmed configurations. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)

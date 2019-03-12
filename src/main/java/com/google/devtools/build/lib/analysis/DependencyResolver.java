@@ -391,9 +391,7 @@ public abstract class DependencyResolver {
 
       outgoingEdges.put(
           entry.getKey(),
-          transition == NullTransition.INSTANCE
-              ? Dependency.withNullConfiguration(dep.getLabel())
-              : Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
+          Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
     }
     return outgoingEdges;
   }
