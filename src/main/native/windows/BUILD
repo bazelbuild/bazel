@@ -1,20 +1,26 @@
 package(default_visibility = ["//visibility:private"])
 
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//src/main/native:__pkg__"],
 )
 
-filegroup(
-    name = "embed_in_java_tools",
+pkg_tar(
+    name = "src_main_native_windows",
     srcs = [
         "file.cc",
         "file.h",
         "util.cc",
         "util.h",
     ],
-    visibility = ["//third_party:__pkg__"],
+    extension = "tar.gz",
+    mode = "755",
+    # Create a pkg_tar to preserve the directory structure src/main/native/windows.
+    package_dir = "src/main/native/windows",
+    visibility = ["//src/main/cpp/util:__pkg__"],
 )
 
 filegroup(
