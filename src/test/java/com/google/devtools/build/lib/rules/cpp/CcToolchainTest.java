@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -146,7 +145,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     assertThat(getCppCompileOutputs()).doesNotContain("a.dwo");
   }
 
-  private ImmutableList<String> getCppCompileOutputs() throws LabelSyntaxException {
+  private ImmutableList<String> getCppCompileOutputs() throws Exception {
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//a:a");
     return target.getActions().stream()
         .filter(a -> a.getMnemonic().equals("CppCompile"))

@@ -856,7 +856,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * that transition is applied to the given config in the returned ConfiguredTarget.
    */
   public ConfiguredTarget getConfiguredTarget(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return getConfiguredTarget(label, targetConfig);
   }
 
@@ -866,7 +866,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * applied to the given config in the returned ConfiguredTarget.
    */
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
   }
 
@@ -880,7 +880,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * evaluation, which is produced by the {@link MemoizingEvaluator#getExistingValue} call in {@link
    * SkyframeExecutor#getConfiguredTargetForTesting}. See also b/26382502.
    */
-  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
+  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config)
+      throws TransitionException {
     return view.getConfiguredTargetForTesting(reporter, BlazeTestUtils.convertLabel(label), config);
   }
 
@@ -906,29 +907,28 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified file label, configured for
-   * the "build" (aka "target") configuration.
+   * Returns the ConfiguredTarget for the specified file label, configured for the "build" (aka
+   * "target") configuration.
    */
   protected FileConfiguredTarget getFileConfiguredTarget(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return (FileConfiguredTarget) getConfiguredTarget(label, targetConfig);
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified label, configured for
-   * the "host" configuration.
+   * Returns the ConfiguredTarget for the specified label, configured for the "host" configuration.
    */
   protected ConfiguredTarget getHostConfiguredTarget(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return getConfiguredTarget(label, getHostConfiguration());
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified file label, configured for
-   * the "host" configuration.
+   * Returns the ConfiguredTarget for the specified file label, configured for the "host"
+   * configuration.
    */
   protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return (FileConfiguredTarget) getHostConfiguredTarget(label);
   }
 
