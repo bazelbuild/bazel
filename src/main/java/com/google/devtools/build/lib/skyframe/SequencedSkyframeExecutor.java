@@ -525,19 +525,24 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         "About to scan skyframe graph checking for filesystem nodes of types "
             + Iterables.toString(fileTypesToCheck));
 
+    MissingDiffDirtinessChecker missingDiffDirtinessChecker = new MissingDiffDirtinessChecker(
+        diffPackageRootsUnderWhichToCheck);
+
+    PathFragment configurationFiles[] = {LabelConstants.WORKSPACE_FILE_NAME,
+        BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE};
     PathPackageLocator packageLocator = this.pkgLocator.get();
-
-    Set<RootedPath> rootsToInvalidate = Sets.newHashSet();
-    rootsToInvalidate.addAll(packageLocator.getWellKnownRootedPaths(LabelConstants.WORKSPACE_FILE_NAME));
-    rootsToInvalidate.addAll(packageLocator.getWellKnownRootedPaths(BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE));
-
-    Set<SkyKey> keys = Sets.newHashSet();
-    for (RootedPath path : rootsToInvalidate) {
-      keys.add(FileStateValue.key(path));
-      keys.add(FileValue.key(path));
+    for (PathFragment configurationFile : configurationFiles) {
+      Collection<RootedPath> paths = packageLocator.getWellKnownRootedPaths(configurationFile);
+      List<SkyKey> changed = Lists.newArrayList();
+      for (RootedPath path : paths) {
+        SkyKey fileStateKey = FileStateValue.key(path);
+        SkyValue oldValue = memoizingEvaluator.getExistingValue(fileStateKey);
+        if (missingDiffDirtinessChecker.check(fileStateKey, oldValue, tsgm).isDirty()) {
+          changed.add(fileStateKey);
+        }
+      }
+      recordingDiffer.invalidate(changed);
     }
-    // todo or do the diff gathering
-    recordingDiffer.invalidate(keys);
 
     EvaluationResult<SkyValue> blacklistedFilesResult = buildDriver
         .evaluate(ImmutableSet.of(BlacklistedPackagePrefixesValue.key()), evaluationContext);
@@ -561,7 +566,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                       customDirtinessCheckers,
                       ImmutableList.<SkyValueDirtinessChecker>of(
                           externalDirtinessChecker,
-                          new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
+                          missingDiffDirtinessChecker))));
       // We use the knowledge gained during the graph scan that just completed. Otherwise, naively,
       // once an external file gets into the Skyframe graph, we'll overly-conservatively always think
       // the graph needs to be scanned.
