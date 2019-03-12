@@ -361,12 +361,12 @@ public final class LocationExpander {
       }
     }
 
+    // We don't want to do this if we're processing aspect rules. It will
+    // create output artifacts and unbalance the input/output state, leading
+    // to an error (output artifact with no action to create its inputs).
+    if (ruleContext.getMainAspect() == null) {
     // Add all destination locations.
-    for (OutputFile out : ruleContext.getRule().getOutputFiles()) {
-      // We don't want to do this if we're processing aspect rules. It will
-      // create output artifacts and unbalance the input/output state, leading
-      // to an error (output artifact with no action to create its inputs).
-      if (ruleContext.getMainAspect() == null) {
+      for (OutputFile out : ruleContext.getRule().getOutputFiles()) {
         // Not in aspect processing, so explicitly build an artifact & let it verify.
         mapGet(locationMap, out.getLabel()).add(ruleContext.createOutputArtifact(out));
       }

@@ -602,7 +602,6 @@ public final class RuleContext extends TargetContext
             + "being analyzed", target.getLabel(), getLabel());
     ArtifactRoot root = getBinOrGenfilesDirectory();
 
-    Artifact artifact;
     switch (outputFileKind) {
       case FILE:
         return getDerivedArtifact(rootRelativePath, root);
