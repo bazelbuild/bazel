@@ -7,6 +7,8 @@ package_group(
     ],
 )
 
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
 cc_library(
     name = "util",
     hdrs = [
@@ -187,10 +189,30 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-# These files are embedded into the remote Java tools
-# because they are needed by ijar.
+# TODO(#7696): Remove this target after third_party/ changes are merged.
 filegroup(
     name = "embed_into_java_tools",
     srcs = glob(["*.cc"]) + glob(["*.h"]),
     visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "cpp_util_with_deps_archive",
+    extension = "tar.gz",
+    mode = "755",
+    visibility = ["//third_party/ijar:__pkg__"],
+    deps = [
+        ":cpp_util_archive",
+        "//src/main/native/windows:src_main_native_windows",
+    ],
+)
+
+pkg_tar(
+    name = "cpp_util_archive",
+    srcs = glob(["*.cc"]) + glob(["*.h"]),
+    extension = "tar.gz",
+    mode = "755",
+    # Create a pkg_tar to preserve the directory structure src/main/cpp/util.
+    package_dir = "src/main/cpp/util",
+    visibility = ["//visibility:private"],
 )
