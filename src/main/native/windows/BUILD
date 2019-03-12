@@ -7,6 +7,17 @@ filegroup(
 )
 
 filegroup(
+    name = "embed_in_java_tools",
+    srcs = [
+        "file.cc",
+        "file.h",
+        "util.cc",
+        "util.h",
+    ],
+    visibility = ["//third_party:__pkg__"],
+)
+
+filegroup(
     name = "embedded_tools",
     srcs = glob([
         "*.cc",
