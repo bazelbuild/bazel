@@ -437,7 +437,17 @@ public class SkylarkRepositoryContext
   public void extract(Object archive, Object output, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     SkylarkPath archivePath = getPath("extract()", archive);
+
+    if (!archivePath.exists()) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              Location.fromFile(archivePath.getPath()),
+              String.format("Archive path '%s' does not exist.", archivePath.toString())),
+          Transience.TRANSIENT);
+    }
+
     SkylarkPath outputPath = getPath("extract()", output);
+    checkInOutputDirectory(outputPath);
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExtractEvent(

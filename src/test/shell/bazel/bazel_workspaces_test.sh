@@ -75,6 +75,15 @@ function ensure_contains_atleast() {
   fi
 }
 
+function ensure_output_contains_exactly_once() {
+  file_path=$(bazel info output_base)/$1
+  num=`grep "$2" $file_path | wc -l`
+  if [ "$num" -ne 1 ]
+  then
+    fail "Expected to read \"$2\" in $1, but got $num occurrences: " `cat $file_path`
+  fi
+}
+
 function test_execute() {
   set_workspace_command 'repository_ctx.execute(["echo", "testing!"])'
   build_and_process_log
@@ -221,9 +230,9 @@ function test_download_then_extract() {
   local file_prefix="${server_dir}/download_then_extract"
 
   pushd ${TEST_TMPDIR}
-  echo "This is one file" > server_dir/download_then_extract.txt
-  zip -r server_dir/download_then_extract.zip server_dir
-  file_sha256="$(sha256sum server_dir/download_then_extract.zip | head -c 64)"
+  echo "This is one file" > ${server_dir}/download_then_extract.txt
+  zip -r ${server_dir}/download_then_extract.zip server_dir
+  file_sha256="$(sha256sum $server_dir/download_then_extract.zip | head -c 64)"
   popd
 
   # Start HTTP server with Python
@@ -246,6 +255,45 @@ function test_download_then_extract() {
   ensure_contains_exactly 'archive: "downloaded_file.zip"' 1
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/download_then_extract.txt" "This is one file"
+}
+
+function test_download_then_extract_tar() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  local data_dir="${TEST_TMPDIR}/data_dir"
+  mkdir -p "${server_dir}"
+  mkdir -p "${data_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "Experiment with tar" > ${data_dir}/download_then_extract_tar.txt
+  tar -zcvf ${server_dir}/download_then_extract.tar.gz data_dir
+  file_sha256="$(sha256sum $server_dir/download_then_extract.tar.gz | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  set_workspace_command "
+  repository_ctx.download(\"http://localhost:${fileserver_port}/download_then_extract.tar.gz\", \"downloaded_file.tar.gz\", \"${file_sha256}\")
+  repository_ctx.extract(\"downloaded_file.tar.gz\", \"out_dir\", \"data_dir/\")"
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 2
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.tar.gz\"" 1
+  ensure_contains_exactly 'output: "downloaded_file.tar.gz"' 1
+  ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
+  ensure_contains_exactly 'extract_event' 1
+  ensure_contains_exactly 'archive: "downloaded_file.tar.gz"' 1
+  ensure_contains_exactly 'output: "out_dir"' 1
+  ensure_contains_exactly 'strip_prefix: "data_dir/"' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/download_then_extract_tar.txt" "Experiment with tar"
 }
 
 function test_download_and_extract() {
@@ -255,8 +303,8 @@ function test_download_and_extract() {
   local file_prefix="${server_dir}/download_and_extract"
 
   pushd ${TEST_TMPDIR}
-  echo "This is one file" > server_dir/download_and_extract.txt
-  zip -r server_dir/download_and_extract.zip server_dir
+  echo "This is one file" > ${server_dir}/download_and_extract.txt
+  zip -r ${server_dir}/download_and_extract.zip server_dir
   file_sha256="$(sha256sum server_dir/download_and_extract.zip | head -c 64)"
   popd
 
@@ -275,6 +323,8 @@ function test_download_and_extract() {
   ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
   ensure_contains_exactly 'type: "zip"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/download_and_extract.txt" "This is one file"
 }
 
 function test_file() {
