@@ -12,7 +12,6 @@ filegroup(
     srcs = [
         "BUILD.javalangtools",
         "BUILD.pkg",
-        "BUILD-new.pkg",
     ],
 )
 
@@ -26,6 +25,5 @@ filegroup(
         "//conditions:default": [],
     }) + [
         "BUILD.pkg",
-        "BUILD-new.pkg",
     ],
 )
