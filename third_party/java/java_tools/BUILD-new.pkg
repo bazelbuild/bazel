@@ -66,4 +66,3 @@ filegroup(
     name = "java_compiler_jar",
     srcs = ["java_tools/java_compiler.jar"],
 )
-
