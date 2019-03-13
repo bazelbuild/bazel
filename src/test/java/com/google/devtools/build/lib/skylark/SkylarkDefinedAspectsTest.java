@@ -906,19 +906,13 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void aspectSkippingOrphanArtifactsWithLocation() throws Exception {
-    scratch.file("aspects/BUILD", "");
     scratch.file(
-        "aspects/print.bzl",
-        "def _print_expanded_copts_impl(target, ctx):",
-        "    # Make sure the rule has a srcs attribute.",
-        "    if hasattr(ctx.rule.attr, 'cmd'):",
-        "        cmd = ctx.rule.attr.cmd",
-        "        print(\"{} -> {}\".format(cmd, ctx.expand_location(cmd, [])))",
-        "    return []",
+        "simple/print.bzl",
+        "def _print_expanded_location_impl(target, ctx):",
+        "    return struct(result=ctx.expand_location(ctx.rule.attr.cmd, []))",
         "",
-        "print_expanded_copts = aspect(",
-        "    implementation = _print_expanded_copts_impl,",
-        "    attr_aspects = ['deps'],",
+        "print_expanded_location = aspect(",
+        "    implementation = _print_expanded_location_impl,",
         ")");
     scratch.file("simple/BUILD", "filegroup(",
         "    name = \"files\",",
@@ -929,12 +923,17 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "    name = \"concat_all_files\",",
         "    srcs = [\":files\"],",
         "    outs = [\"concatenated.txt\"],",
-        "    cmd = \"cat $(location :files) > $@\"",
+        "    cmd = \"$(location :files)\"",
         ")");
 
     reporter.removeHandler(failFastHandler);
-    AnalysisResult result = update(ImmutableList.of("aspects/print.bzl%print_expanded_copts"), "//simple:concat_all_files");
-    assertThat(result.hasError()).isFalse();
+    AnalysisResult analysisResult = update(ImmutableList.of("//simple:print.bzl%print_expanded_location"), "//simple:concat_all_files");
+    assertThat(analysisResult.hasError()).isFalse();
+    AspectValue value = Iterables.getOnlyElement(analysisResult.getAspects());
+    String result = (String) value.getConfiguredAspect().get("result");
+
+    assertThat(result).isEqualTo("simple/afile");
+
   }
 
   @Test
