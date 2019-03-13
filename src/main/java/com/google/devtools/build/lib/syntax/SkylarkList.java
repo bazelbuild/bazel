@@ -63,7 +63,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
    * @throws EvalException if the key is invalid
    */
   @Override
-  public E getIndex(Object key, Location loc) throws EvalException {
+  public E getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
     List<E> list = getContentsUnsafe();
     int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
     return list.get(index);

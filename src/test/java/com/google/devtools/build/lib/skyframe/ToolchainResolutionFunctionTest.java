@@ -263,7 +263,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     public void repr(SkylarkPrinter printer) {}
 
     @Override
-    public Object getIndex(Object key, Location loc) throws EvalException {
+    public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
       return null;
     }
 

@@ -116,7 +116,8 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
-  public final Object getIndex(Object key, Location loc) throws EvalException {
+  public final Object getIndex(Object key, Location loc, StarlarkContext context)
+      throws EvalException {
     if (!(key instanceof Provider)) {
       throw new EvalException(loc, String.format(
           "Type Target only supports indexing by object constructors, got %s instead",

@@ -466,7 +466,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   @Override
-  public final Object getIndex(Object key, Location loc) throws EvalException {
+  public final Object getIndex(Object key, Location loc, StarlarkContext context)
+      throws EvalException {
     if (!this.containsKey(key)) {
       throw new EvalException(loc, Printer.format("key %r not found in dictionary", key));
     }

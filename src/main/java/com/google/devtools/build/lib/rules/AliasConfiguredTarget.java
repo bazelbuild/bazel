@@ -110,8 +110,8 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   }
 
   @Override
-  public Object getIndex(Object key, Location loc) throws EvalException {
-    return actual.getIndex(key, loc);
+  public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
+    return actual.getIndex(key, loc, context);
   }
 
   @Override

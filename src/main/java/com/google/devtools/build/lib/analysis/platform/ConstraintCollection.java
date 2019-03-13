@@ -221,7 +221,7 @@ public abstract class ConstraintCollection
   }
 
   @Override
-  public Object getIndex(Object key, Location loc) throws EvalException {
+  public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
     ConstraintSettingInfo constraint = convertKey(key, loc);
     return get(constraint);
   }

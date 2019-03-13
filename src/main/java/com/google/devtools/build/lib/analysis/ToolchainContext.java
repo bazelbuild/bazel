@@ -158,7 +158,8 @@ public abstract class ToolchainContext implements ToolchainContextApi {
   }
 
   @Override
-  public ToolchainInfo getIndex(Object key, Location loc) throws EvalException {
+  public ToolchainInfo getIndex(Object key, Location loc, StarlarkContext context)
+      throws EvalException {
     Label toolchainTypeLabel = transformKey(key, loc);
 
     if (!containsKey(key, loc, context)) {

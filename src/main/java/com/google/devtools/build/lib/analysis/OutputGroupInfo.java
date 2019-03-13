@@ -218,7 +218,7 @@ public final class OutputGroupInfo extends NativeInfo
   }
 
   @Override
-  public Object getIndex(Object key, Location loc) throws EvalException {
+  public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
     if (!(key instanceof String)) {
       throw new EvalException(loc, String.format(
           "Output grout names must be strings, got %s instead",
