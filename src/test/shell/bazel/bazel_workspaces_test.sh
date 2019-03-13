@@ -308,7 +308,6 @@ function test_read() {
 
   ensure_contains_exactly 'read_event' 1
   ensure_contains_exactly 'path: ".*filefile.sh"' 2
-  ensure_contains_exactly 'encoding: "utf-8"' 1
 }
 
 function test_os() {

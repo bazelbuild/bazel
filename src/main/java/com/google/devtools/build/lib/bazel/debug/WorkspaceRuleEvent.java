@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.Templa
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.WhichEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.events.Location;
+import com.google.protobuf.ByteString;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
@@ -163,11 +164,11 @@ public final class WorkspaceRuleEvent implements ProgressLike {
 
   /** Creates a new WorkspaceRuleEvent for a file event. */
   public static WorkspaceRuleEvent newFileEvent(
-      String path, String content, boolean executable, String ruleLabel, Location location) {
+      String path, byte[] content, boolean executable, String ruleLabel, Location location) {
     FileEvent e =
         WorkspaceLogProtos.FileEvent.newBuilder()
             .setPath(path)
-            .setContent(content)
+            .setContent(ByteString.copyFrom(content))
             .setExecutable(executable)
             .build();
 
@@ -185,11 +186,10 @@ public final class WorkspaceRuleEvent implements ProgressLike {
 
   /** Creates a new WorkspaceRuleEvent for a file read event. */
   public static WorkspaceRuleEvent newReadEvent(
-      String path, String encoding, String ruleLabel, Location location) {
+      String path, String ruleLabel, Location location) {
     WorkspaceLogProtos.ReadEvent e =
         WorkspaceLogProtos.ReadEvent.newBuilder()
             .setPath(path)
-            .setEncoding(encoding)
             .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =

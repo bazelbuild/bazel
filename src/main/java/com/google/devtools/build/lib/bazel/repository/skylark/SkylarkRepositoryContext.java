@@ -59,7 +59,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -204,9 +203,15 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void createFile(Object path, String content, Boolean executable, Location location)
+  public void createFile(Object path, String rawContent, Boolean executable, Boolean legacyUtf8, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("file()", path);
+    byte[] content;
+    if (legacyUtf8) {
+      content = rawContent.getBytes(StandardCharsets.UTF_8);
+    } else {
+      content = rawContent.getBytes(StandardCharsets.ISO_8859_1);
+    }
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newFileEvent(
             p.toString(), content, executable, rule.getLabel().toString(), location);
@@ -216,7 +221,7 @@ public class SkylarkRepositoryContext
       makeDirectories(p.getPath());
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
-        stream.write(content.getBytes(StandardCharsets.UTF_8));
+        stream.write(content);
       }
       if (executable) {
         p.getPath().setExecutable(true);
@@ -266,23 +271,15 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public String readFile(Object path, String encoding, Location location)
+  public String readFile(Object path, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("read()", path);
-    Charset charset;
-    if (encoding.equals("")) {
-      charset = StandardCharsets.ISO_8859_1;
-    } else if (encoding.equalsIgnoreCase("utf-8")) {
-      charset = StandardCharsets.UTF_8;
-    } else {
-      throw new EvalException(Location.BUILTIN, "read() only supports encodings in ['utf-8'].");
-    }
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
-            p.toString(), encoding, rule.getLabel().toString(), location);
+            p.toString(), rule.getLabel().toString(), location);
     env.getListener().post(w);
     try {
-      return FileSystemUtils.readContent(p.getPath(), charset);
+      return FileSystemUtils.readContent(p.getPath(), StandardCharsets.ISO_8859_1);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

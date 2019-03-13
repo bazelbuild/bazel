@@ -77,7 +77,7 @@ message FileEvent {
   // Path to the created file
   string path = 1;
   // Content of the created file
-  string content = 2;
+  bytes content = 4;
   // Whether the file is executable
   bool executable = 3;
 }
@@ -86,8 +86,6 @@ message FileEvent {
 message ReadEvent {
   // Path to the file to read
   string path = 1;
-  // Text encoding, or empty for raw bytes
-  string encoding = 2;
 }
 
 // Information on "os" event in repository_ctx.
