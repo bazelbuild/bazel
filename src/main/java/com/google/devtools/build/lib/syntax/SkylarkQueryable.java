@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 
 /**
  * Skylark values that support querying by other objects, i.e. `foo in object`.
@@ -25,5 +26,5 @@ public interface SkylarkQueryable {
   /**
    * Returns whether the key is in the object.
    */
-  boolean containsKey(Object key, Location loc) throws EvalException;
+  boolean containsKey(Object key, Location loc, StarlarkContext context) throws EvalException;
 }

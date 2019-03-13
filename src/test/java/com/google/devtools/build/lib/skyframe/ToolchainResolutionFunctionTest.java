@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -267,7 +268,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     }
 
     @Override
-    public boolean containsKey(Object key, Location loc) throws EvalException {
+    public boolean containsKey(Object key, Location loc,
+        StarlarkContext context) throws EvalException {
       return false;
     }
   }

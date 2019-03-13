@@ -93,7 +93,7 @@ public final class BinaryOperatorExpression extends Expression {
               + "Use --incompatible_depset_is_not_iterable=false to temporarily disable "
               + "this check.");
     } else if (rval instanceof SkylarkQueryable) {
-      return ((SkylarkQueryable) rval).containsKey(lval, location);
+      return ((SkylarkQueryable) rval).containsKey(lval, location, env.getStarlarkContext());
     } else if (rval instanceof String) {
       if (lval instanceof String) {
         return ((String) rval).contains((String) lval);

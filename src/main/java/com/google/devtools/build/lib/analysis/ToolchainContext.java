@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.util.Optional;
@@ -160,7 +161,7 @@ public abstract class ToolchainContext implements ToolchainContextApi {
   public ToolchainInfo getIndex(Object key, Location loc) throws EvalException {
     Label toolchainTypeLabel = transformKey(key, loc);
 
-    if (!containsKey(key, loc)) {
+    if (!containsKey(key, loc, context)) {
       throw new EvalException(
           loc,
           String.format(
@@ -176,7 +177,8 @@ public abstract class ToolchainContext implements ToolchainContextApi {
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
+  public boolean containsKey(Object key, Location loc,
+      StarlarkContext context) throws EvalException {
     Label toolchainTypeLabel = transformKey(key, loc);
     Optional<Label> matching =
         toolchains().keySet().stream()

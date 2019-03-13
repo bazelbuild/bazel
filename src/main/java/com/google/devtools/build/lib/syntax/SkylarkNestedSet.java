@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -321,7 +322,8 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   }
 
   @Override
-  public final boolean containsKey(Object key, Location loc) throws EvalException {
+  public final boolean containsKey(Object key, Location loc,
+      StarlarkContext context) throws EvalException {
     return (set.toList().contains(key));
   }
 

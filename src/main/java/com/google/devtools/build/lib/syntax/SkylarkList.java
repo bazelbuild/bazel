@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.BaseMutableList;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,7 +70,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
+  public boolean containsKey(Object key, Location loc,
+      StarlarkContext context) throws EvalException {
     for (Object obj : this) {
       if (obj.equals(key)) {
         return true;

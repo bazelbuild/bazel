@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
@@ -473,7 +474,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   @Override
-  public final boolean containsKey(Object key, Location loc) throws EvalException {
+  public final boolean containsKey(Object key, Location loc,
+      StarlarkContext context) throws EvalException {
     return this.containsKey(key);
   }
 
