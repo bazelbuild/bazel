@@ -21,9 +21,7 @@
 #include <sys/un.h>
 
 #include <libproc.h>
-#include <pthread/spawn.h>
 #include <signal.h>
-#include <spawn.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -193,19 +191,6 @@ string GetSystemJavabase() {
 
   // The output ends with a \n, trim it off.
   return javabase.substr(0, javabase.length()-1);
-}
-
-int ConfigureDaemonProcess(posix_spawnattr_t* attrp) {
-  // The Bazel server and all of its subprocesses consume a ton of resources.
-  //
-  // It is common for these processes to rely on system services started by
-  // launchd and launchd-initiated services typically run as the Utility QoS
-  // class. We should run Bazel at the same level or otherwise we risk starving
-  // these services that we require to function properly.
-  //
-  // Explicitly lowering Bazel to run at the Utility QoS class also improves
-  // general system responsiveness.
-  return posix_spawnattr_set_qos_class_np(attrp, QOS_CLASS_UTILITY);
 }
 
 void WriteSystemSpecificProcessIdentifier(
