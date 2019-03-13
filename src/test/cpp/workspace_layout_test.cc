@@ -29,7 +29,7 @@ class WorkspaceLayoutTest : public ::testing::Test {
  protected:
   WorkspaceLayoutTest() :
       build_root_(blaze_util::JoinPath(
-          blaze::GetEnv("TEST_TMPDIR"), "build_root")),
+          blaze::GetPathEnv("TEST_TMPDIR"), "build_root")),
       workspace_layout_(new WorkspaceLayout()) {}
 
   void SetUp() override {

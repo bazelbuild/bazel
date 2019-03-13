@@ -34,7 +34,7 @@ using ::testing::MatchesRegex;
 class RcOptionsTest : public ::testing::Test {
  protected:
   RcOptionsTest()
-      : test_file_dir_(blaze::GetEnv("TEST_TMPDIR")),
+      : test_file_dir_(blaze::GetPathEnv("TEST_TMPDIR")),
         workspace_layout_() {}
 
   const string test_file_dir_;

@@ -206,7 +206,7 @@ string GetProcessIdAsString() {
   return ToString(getpid());
 }
 
-string GetHomeDir() { return GetEnv("HOME"); }
+string GetHomeDir() { return GetPathEnv("HOME"); }
 
 string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 
@@ -459,6 +459,10 @@ string GetEnv(const string& name) {
   return result != NULL ? string(result) : "";
 }
 
+string GetPathEnv(const string& name) {
+  return GetEnv(name);
+}
+
 bool ExistsEnv(const string& name) {
   return getenv(name.c_str()) != NULL;
 }
@@ -676,12 +680,11 @@ string GetUserName() {
 
 bool IsEmacsTerminal() {
   string emacs = GetEnv("EMACS");
-  string inside_emacs = GetEnv("INSIDE_EMACS");
   // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
   // do that and instead sets INSIDE_EMACS=<stuff> (where <stuff> can look like
   // e.g. "25.1.1,comint").  So we check both variables for maximum
   // compatibility.
-  return emacs == "t" || !inside_emacs.empty();
+  return emacs == "t" || ExistsEnv("INSIDE_EMACS");
 }
 
 // Returns true if stderr is connected to a terminal, and it can support color

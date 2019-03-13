@@ -42,10 +42,10 @@ class RcFileTest : public ::testing::Test {
  protected:
   RcFileTest()
       : workspace_(
-            blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "workspace")),
-        cwd_(blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "cwd")),
+            blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "workspace")),
+        cwd_(blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "cwd")),
         binary_dir_(
-            blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "bazeldir")),
+            blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "bazeldir")),
         binary_path_(blaze_util::JoinPath(binary_dir_, "bazel")),
         workspace_layout_(new WorkspaceLayout()) {}
 
