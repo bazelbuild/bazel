@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -133,7 +134,7 @@ public abstract class ToolchainContext implements ToolchainContextApi {
     printer.append(">");
   }
 
-  private Label transformKey(Object key, Location loc) throws EvalException {
+  private Label transformKey(Object key, Location loc, StarlarkContext context) throws EvalException {
     if (key instanceof Label) {
       return (Label) key;
     } else if (key instanceof ToolchainTypeInfo) {
@@ -142,7 +143,7 @@ public abstract class ToolchainContext implements ToolchainContextApi {
       Label toolchainType;
       String rawLabel = (String) key;
       try {
-        toolchainType = Label.parseAbsolute(rawLabel, ImmutableMap.of());
+        toolchainType = Label.parseAbsolute(rawLabel, ((BazelStarlarkContext) context).getRepoMapping());
       } catch (LabelSyntaxException e) {
         throw new EvalException(
             loc, String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()), e);
@@ -160,7 +161,7 @@ public abstract class ToolchainContext implements ToolchainContextApi {
   @Override
   public ToolchainInfo getIndex(Object key, Location loc, StarlarkContext context)
       throws EvalException {
-    Label toolchainTypeLabel = transformKey(key, loc);
+    Label toolchainTypeLabel = transformKey(key, loc, context);
 
     if (!containsKey(key, loc, context)) {
       throw new EvalException(
@@ -178,9 +179,9 @@ public abstract class ToolchainContext implements ToolchainContextApi {
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc,
-      StarlarkContext context) throws EvalException {
-    Label toolchainTypeLabel = transformKey(key, loc);
+  public boolean containsKey(Object key, Location loc, StarlarkContext context)
+      throws EvalException {
+    Label toolchainTypeLabel = transformKey(key, loc, context);
     Optional<Label> matching =
         toolchains().keySet().stream()
             .map(ToolchainTypeInfo::typeLabel)
