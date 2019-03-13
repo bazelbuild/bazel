@@ -196,6 +196,29 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+ARCHIVE_PACKAGE_DIR = "src/main/cpp/util"
+
+genrule(
+    name = "cpp_util_with_deps_zip",
+    srcs = [
+        ":cpp_util_zip",
+        "//src/main/native/windows:native_windows_zip",
+    ],
+    outs = ["cpp_util_with_deps.zip"],
+    cmd = "$(location //third_party:merge_zip_files.sh) nodir $(OUTS) $(SRCS)",
+    tools = ["//third_party:merge_zip_files.sh"],
+    visibility = ["//third_party/ijar:__pkg__"],
+)
+
+genrule(
+    name = "cpp_util_zip",
+    srcs = glob(["*.cc"]) + glob(["*.h"]),
+    outs = ["cpp_util.zip"],
+    cmd = "$(location //third_party:zip_java_tools.sh) " + ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
+    tools = ["//third_party:zip_java_tools.sh"],
+    visibility = ["//visibility:private"],
+)
+
 pkg_tar(
     name = "cpp_util_with_deps_archive",
     extension = "tar.gz",
@@ -212,7 +235,7 @@ pkg_tar(
     srcs = glob(["*.cc"]) + glob(["*.h"]),
     extension = "tar.gz",
     mode = "755",
-    # Create a pkg_tar to preserve the directory structure src/main/cpp/util.
-    package_dir = "src/main/cpp/util",
+    # Create a pkg_tar to preserve the directory structure.
+    package_dir = ARCHIVE_PACKAGE_DIR,
     visibility = ["//visibility:private"],
 )

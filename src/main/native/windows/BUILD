@@ -8,6 +8,22 @@ filegroup(
     visibility = ["//src/main/native:__pkg__"],
 )
 
+ARCHIVE_PACKAGE_DIR = "src/main/native/windows"
+
+genrule(
+    name = "native_windows_zip",
+    srcs = [
+        "file.cc",
+        "file.h",
+        "util.cc",
+        "util.h",
+    ],
+    outs = ["native_windows.zip"],
+    cmd = "$(location //third_party:zip_java_tools.sh) " + ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
+    tools = ["//third_party:zip_java_tools.sh"],
+    visibility = ["//src/main/cpp/util:__pkg__"],
+)
+
 pkg_tar(
     name = "src_main_native_windows",
     srcs = [
@@ -19,7 +35,7 @@ pkg_tar(
     extension = "tar.gz",
     mode = "755",
     # Create a pkg_tar to preserve the directory structure src/main/native/windows.
-    package_dir = "src/main/native/windows",
+    package_dir = ARCHIVE_PACKAGE_DIR,
     visibility = ["//src/main/cpp/util:__pkg__"],
 )
 

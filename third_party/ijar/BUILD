@@ -111,19 +111,43 @@ pkg_tar(
     ],
 )
 
+genrule(
+    name = "ijar_with_deps_zip",
+    srcs = [
+        ":ijar_srcs_zip",
+        "//src/main/cpp/util:cpp_util_with_deps_zip",
+    ],
+    outs = ["ijar_srcs_with_deps.zip"],
+    cmd = "$(location //third_party:merge_zip_files.sh) nodir $(OUTS) $(SRCS)",
+    tools = ["//third_party:merge_zip_files.sh"],
+    visibility = ["//third_party:__pkg__"],
+)
+
+IJAR_SOURCES_AND_BINARIES = glob(
+    ["**"],
+    exclude = ["BUILD"],
+) + [
+    ":ijar",
+    ":zipper",
+]
+
+IJAR_ARCHIVE_PACKAGE_DIR = "ijar"
+
+genrule(
+    name = "ijar_srcs_zip",
+    srcs = IJAR_SOURCES_AND_BINARIES,
+    outs = ["ijar_srcs.zip"],
+    cmd = "$(location //third_party:zip_java_tools.sh) " + IJAR_ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
+    tools = ["//third_party:zip_java_tools.sh"],
+    visibility = ["//third_party:__pkg__"],
+)
+
 pkg_tar(
     name = "ijar_archive",
-    srcs = glob(
-        ["**"],
-        exclude = ["BUILD"]
-    ) + [
-        # Also archive the binaries.
-        ":ijar",
-        ":zipper",
-    ],
+    srcs = IJAR_SOURCES_AND_BINARIES,
     extension = "tar.gz",
     mode = "755",
     # Create a new pkg_tar to preserve the directory structure (ijar/).
-    package_dir = "ijar",
+    package_dir = IJAR_ARCHIVE_PACKAGE_DIR,
     visibility = ["//visibility:private"],
 )
