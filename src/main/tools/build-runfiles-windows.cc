@@ -278,9 +278,8 @@ class RunfilesCreator {
 
           if (expected_target == manifest_file_map.end() ||
               expected_target->second.empty()
-              // Both paths are normalized paths in lower case, we can compare
-              // them directly.
-              || target != expected_target->second.c_str() ||
+              || !blaze_util::CompareAbsolutePaths(target,
+                                                   expected_target->second) ||
               blaze_util::IsDirectoryW(target) != is_dir) {
             if (is_dir) {
               RemoveDirectoryOrDie(subpath);

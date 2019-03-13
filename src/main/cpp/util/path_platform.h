@@ -136,7 +136,7 @@ template bool AsAbsoluteWindowsPath<char>(const char *, std::wstring *,
 template bool AsAbsoluteWindowsPath<wchar_t>(const wchar_t *, std::wstring *,
                                              std::string *);
 
-// Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
+// Same as `AsWindowsPath`, but returns a 8dot3 style shortened path.
 // Result will never have a UNC prefix, nor a trailing "/" or "\".
 // Works also for non-existent paths; shortens as much of them as it can.
 // Also works for non-existent drives.

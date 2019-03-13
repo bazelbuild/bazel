@@ -245,13 +245,13 @@ TEST(PathWindowsTest, TestAsWindowsPath) {
   EXPECT_TRUE(error.find("Unix-style") != string::npos);
 
   // Absolute-on-current-drive path gets a drive letter.
-  ASSERT_TRUE(AsWindowsPath("\\foo", &actual, nullptr));
-  ASSERT_EQ(wstring(1, GetCwd()[0]) + L":\\foo", actual);
+  ASSERT_TRUE(AsWindowsPath("\\Foo", &actual, nullptr));
+  ASSERT_EQ(wstring(1, GetCwd()[0]) + L":\\Foo", actual);
 
   // Even for long paths, AsWindowsPath doesn't add a "\\?\" prefix (it's the
   // caller's duty to do so).
-  wstring wlongpath(L"dummy_long_path\\");
-  string longpath("dummy_long_path/");
+  wstring wlongpath(L"DUMMY_long_path\\");
+  string longpath("DUMMY_long_path/");
   while (longpath.size() <= MAX_PATH) {
     wlongpath += wlongpath;
     longpath += longpath;
@@ -299,7 +299,7 @@ TEST(PathWindowsTest, TestAsShortWindowsPath) {
   ASSERT_EQ(string("NUL"), actual);
 
   ASSERT_TRUE(AsShortWindowsPath("C://", &actual, nullptr));
-  ASSERT_EQ(string("c:\\"), actual);
+  ASSERT_EQ(string("C:\\"), actual);
 
   string error;
   ASSERT_FALSE(AsShortWindowsPath("/C//", &actual, &error));
@@ -308,6 +308,9 @@ TEST(PathWindowsTest, TestAsShortWindowsPath) {
   // The A drive usually doesn't exist but AsShortWindowsPath should still work.
   // Here we even have multiple trailing slashes, that should be handled too.
   ASSERT_TRUE(AsShortWindowsPath("A://", &actual, nullptr));
+  ASSERT_EQ(string("A:\\"), actual);
+
+  ASSERT_TRUE(AsShortWindowsPath("a://", &actual, nullptr));
   ASSERT_EQ(string("a:\\"), actual);
 
   // Assert that we can shorten the TEST_TMPDIR.
@@ -327,17 +330,17 @@ TEST(PathWindowsTest, TestAsShortWindowsPath) {
   ASSERT_NE(actual.back(), '/');
   ASSERT_NE(actual.back(), '\\');
 
-  // Assert shortening another long path, and that the result is lowercased.
+  // Assert shortening another long path, and that the result is not lowercased.
   string dirname(JoinPath(short_tmpdir, "LONGpathNAME"));
   ASSERT_EQ(0, mkdir(dirname.c_str()));
   ASSERT_TRUE(PathExists(dirname));
   ASSERT_TRUE(AsShortWindowsPath(dirname, &actual, nullptr));
-  ASSERT_EQ(short_tmpdir + "\\longpa~1", actual);
+  ASSERT_EQ(short_tmpdir + "\\LONGPA~1", actual);
 
-  // Assert shortening non-existent paths.
+  // Assert shortening non-existent paths. Case is preserved.
   ASSERT_TRUE(AsShortWindowsPath(JoinPath(tmpdir, "NonExistent/FOO"), &actual,
                                  nullptr));
-  ASSERT_EQ(short_tmpdir + "\\nonexistent\\foo", actual);
+  ASSERT_EQ(short_tmpdir + "\\NonExistent\\FOO", actual);
 }
 
 TEST(PathWindowsTest, TestMsysRootRetrieval) {
@@ -371,23 +374,22 @@ TEST(PathWindowsTest, IsWindowsDevNullTest) {
 }
 
 TEST(PathWindowsTest, ConvertPathTest) {
-  EXPECT_EQ("c:\\foo", ConvertPath("C:\\FOO"));
+  EXPECT_EQ("C:\\FOO", ConvertPath("C:\\FOO"));
   EXPECT_EQ("c:\\", ConvertPath("c:/"));
-  EXPECT_EQ("c:\\foo\\bar", ConvertPath("c:/../foo\\BAR\\.\\"));
+  EXPECT_EQ("c:\\foo\\BAR", ConvertPath("c:/../foo\\BAR\\.\\"));
 }
 
 TEST(PathWindowsTest, MakeAbsolute) {
-  EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\BAR"));
-  EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar"));
-  EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\bar\\"));
-  EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar/"));
-  EXPECT_EQ(blaze_util::AsLower(blaze_util::GetCwd()) + "\\foo",
-            MakeAbsolute("foo"));
+  EXPECT_EQ("C:\\foo\\BAR", MakeAbsolute("C:\\foo\\BAR"));
+  EXPECT_EQ("C:\\foo\\Bar", MakeAbsolute("C:/foo/Bar"));
+  EXPECT_EQ("C:\\foo\\Bar", MakeAbsolute("C:\\foo\\Bar\\"));
+  EXPECT_EQ("C:\\foo\\Bar", MakeAbsolute("C:/foo/Bar/"));
+  EXPECT_EQ(blaze_util::GetCwd() + "\\Foo", MakeAbsolute("Foo"));
 
-  EXPECT_EQ("nul", MakeAbsolute("NUL"));
-  EXPECT_EQ("nul", MakeAbsolute("Nul"));
-  EXPECT_EQ("nul", MakeAbsolute("nul"));
-  EXPECT_EQ("nul", MakeAbsolute("/dev/null"));
+  EXPECT_EQ("NUL", MakeAbsolute("NUL"));
+  EXPECT_EQ("NUL", MakeAbsolute("Nul"));
+  EXPECT_EQ("NUL", MakeAbsolute("nul"));
+  EXPECT_EQ("NUL", MakeAbsolute("/dev/null"));
 
   EXPECT_EQ("", MakeAbsolute(""));
 }
@@ -399,16 +401,16 @@ TEST(PathWindowsTest, MakeAbsoluteAndResolveEnvvars_WithTmpdir) {
   char buf[MAX_PATH] = {0};
   DWORD len = ::GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH);
   const std::string tmpdir = buf;
-  const std::string expected_tmpdir_bar = ConvertPath(tmpdir + "\\bar");
+  const std::string expected_tmpdir_bar = ConvertPath(tmpdir + "\\Bar");
 
   EXPECT_EQ(expected_tmpdir_bar,
-            MakeAbsoluteAndResolveEnvvars("%TEST_TMPDIR%\\bar"));
+            MakeAbsoluteAndResolveEnvvars("%TEST_TMPDIR%\\Bar"));
   EXPECT_EQ(expected_tmpdir_bar,
-            MakeAbsoluteAndResolveEnvvars("%Test_Tmpdir%\\bar"));
+            MakeAbsoluteAndResolveEnvvars("%Test_Tmpdir%\\Bar"));
   EXPECT_EQ(expected_tmpdir_bar,
-            MakeAbsoluteAndResolveEnvvars("%test_tmpdir%\\bar"));
+            MakeAbsoluteAndResolveEnvvars("%test_tmpdir%\\Bar"));
   EXPECT_EQ(expected_tmpdir_bar,
-            MakeAbsoluteAndResolveEnvvars("%test_tmpdir%/bar"));
+            MakeAbsoluteAndResolveEnvvars("%test_tmpdir%/Bar"));
 }
 
 TEST(PathWindowsTest, MakeAbsoluteAndResolveEnvvars_LongPaths) {
@@ -416,6 +418,27 @@ TEST(PathWindowsTest, MakeAbsoluteAndResolveEnvvars_LongPaths) {
   blaze::SetEnv("long", long_path);
 
   EXPECT_EQ(long_path, MakeAbsoluteAndResolveEnvvars("%long%"));
+}
+
+TEST(PathWindowsTest, CompareAbsolutePathsTest) {
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "c:/foo"));
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "c:/foo/"));
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "C:\\FOO"));
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "C:\\FOO\\"));
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "\\\\?\\C:\\FOO"));
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "\\\\?\\C:\\FOO\\"));
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "C:\\BAR\\..\\FOO"));
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "C:\\BAR\\..\\FOO\\"));
+  EXPECT_TRUE(CompareAbsolutePaths("c:\\foo", "C:\\BAR\\..\\FOO\\"));
+
+  EXPECT_TRUE(CompareAbsolutePaths("NUL", "Nul"));
+  EXPECT_TRUE(CompareAbsolutePaths("NUL", "nul"));
+  EXPECT_TRUE(CompareAbsolutePaths("NUL", "/dev/null"));
+
+  EXPECT_FALSE(CompareAbsolutePaths("c:\\foo", "c:\\foo."));
+  EXPECT_FALSE(CompareAbsolutePaths("c:\\foo", "c:\\foo "));
+  EXPECT_FALSE(CompareAbsolutePaths("c:\\foo", "\\\\?\\c:\\foo."));
+  EXPECT_FALSE(CompareAbsolutePaths("c:\\foo", "c:\\bar"));
 }
 
 }  // namespace blaze_util
