@@ -305,10 +305,7 @@ public class PythonOptions extends FragmentOptions {
    *
    * <p>Under the new semantics ({@link #incompatibleAllowPythonVersionTransitions} is true),
    * version transitions are always allowed, so this essentially returns whether the new version is
-   * different from the existing one. However, to improve compatibility for unmigrated {@code
-   * select()}s that depend on {@code "force_python"}, if the old API is still enabled then
-   * transitioning is still done whenever {@link #forcePython} is not in agreement with the
-   * requested version, even if {@link #getPythonVersion}'s value would be unaffected.
+   * different from the existing one.
    *
    * <p>Under the old semantics ({@link #incompatibleAllowPythonVersionTransitions} is false),
    * version transitions are not allowed once the version has already been set ({@link #forcePython}
@@ -316,15 +313,23 @@ public class PythonOptions extends FragmentOptions {
    * transition the version to the hard-coded default value. Under these constraints, there is only
    * one transition possible, from null to the non-default value, and it is never a no-op.
    *
+   * <p>Previously this method also allowed transitioning under the new semantics in cases where the
+   * transition would have no impact on {@link #getPythonVersion} but would bring {@link
+   * #forcePython} into agreement with the actual version. The benefit of doing this was supposed to
+   * be that {@code select()}ing on {@code "force_python"} would give the correct result more often,
+   * even though it's still incorrect in general. However, this ended up causing more harm than
+   * good, because this type of transition does not change the output root and therefore caused
+   * action conflicts for unshareable actions (mainly C++ actions); see #7655. The resolution is
+   * that users should just migrate their {@code select()}s to the {@code
+   * //tools/python:python_version} target in the tools repository, as is required when {@code
+   * --incompatible_remove_old_python_version_api} is enabled.
+   *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public boolean canTransitionPythonVersion(PythonVersion version) {
     Preconditions.checkArgument(version.isTargetValue());
     if (incompatibleAllowPythonVersionTransitions) {
-      boolean currentVersionNeedsUpdating = !version.equals(getPythonVersion());
-      boolean forcePythonNeedsUpdating =
-          !incompatibleRemoveOldPythonVersionApi && !version.equals(forcePython);
-      return currentVersionNeedsUpdating || forcePythonNeedsUpdating;
+      return !version.equals(getPythonVersion());
     } else {
       boolean currentlyUnset = forcePython == null && pythonVersion == null;
       boolean transitioningToNonDefault = !version.equals(getDefaultPythonVersion());

@@ -177,17 +177,16 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void canTransitionPythonVersion_NewApi_YesBecauseForcePythonDisagrees() throws Exception {
+  public void canTransitionPythonVersion_NewApi_NoEvenWhenForcePythonDisagrees() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
             "--incompatible_allow_python_version_transitions=true",
             "--incompatible_remove_old_python_version_api=false",
-            // Test that even though getPythonVersion() would not be affected by a transition (it is
-            // PY3 before and after), the transition is still considered necessary because
-            // --force_python's value needs to be brought in sync.
+            // Test that even though --force_python's value isn't in sync, we don't transition
+            // because getPythonVersion() would be unaffected by the transition.
             "--force_python=PY2",
             "--python_version=PY3");
-    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isTrue();
+    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
   }
 
   @Test
