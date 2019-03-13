@@ -651,6 +651,10 @@ public class Artifact
           !parentRelativePath.containsUplevelReferences() && !parentRelativePath.isAbsolute(),
           "%s is not a proper normalized relative path",
           parentRelativePath);
+      Preconditions.checkState(
+          parentTreeArtifact.isTreeArtifact(),
+          "Given parent %s must be a TreeArtifact",
+          parentTreeArtifact);
       this.parentTreeArtifact = parentTreeArtifact;
       this.parentRelativePath = parentRelativePath;
     }

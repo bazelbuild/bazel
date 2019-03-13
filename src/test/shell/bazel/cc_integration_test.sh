@@ -103,4 +103,110 @@ EOF
   bazel build :ok || fail "Should have found include at synthetic path"
 }
 
+function test_tree_artifact_headers_are_invalidated() {
+  mkdir -p "ta_headers"
+  cat > "ta_headers/BUILD" <<EOF
+load(":mygen.bzl", "mygen")
+
+sh_binary(
+  name = "mygen_sh",
+  srcs = ["mygen.sh"],
+  visibility = ["//visibility:public"],
+)
+
+mygen(
+    name="mylib_generated",
+    srcs=[":mydef.txt"],
+)
+
+cc_library(
+    name = "mylib",
+    srcs = [":mylib_generated"],
+    hdrs = [":mylib_generated"],
+)
+
+cc_binary(
+    name = "myexec",
+    srcs = [],
+    deps = [":mylib"],
+)
+EOF
+  cat > "ta_headers/mygen.sh" <<'EOF'
+#!/bin/bash
+
+set -euo pipefail
+
+src_files=$1
+hdr_files=$2
+
+fc_name=$(cat ta_headers/mydef.txt)
+
+mkdir -p ${src_files}
+mkdir -p ${hdr_files}
+
+cat > ${src_files}/main.c <<EOT
+#include "ta_headers/files.h/another.h"
+int main(void) {
+    return MYFC();
+}
+EOT
+
+cat > ${src_files}/another.c <<EOT
+#include "ta_headers/files.h/another.h"
+int ${fc_name}(void) {
+    return 0;
+}
+EOT
+
+cat > ${hdr_files}/another.h <<EOT
+#define MYFC ${fc_name}
+int ${fc_name}(void);
+EOT
+EOF
+  chmod +x ta_headers/mygen.sh
+  cat > "ta_headers/mygen.bzl" <<EOF
+def _mygen_impl(ctx):
+  args = ctx.actions.args()
+  treeC = ctx.actions.declare_directory("files.c")
+  treeH = ctx.actions.declare_directory("files.h")
+  args.add(treeC.path)
+  args.add(treeH.path)
+  ctx.actions.run(
+      inputs = ctx.files.srcs,
+      outputs = [treeC, treeH],
+      arguments = [args],
+      executable = ctx.executable._mygen,
+  )
+  return [DefaultInfo(files=depset([treeC, treeH]))]
+
+mygen = rule(
+  implementation=_mygen_impl,
+  attrs={
+    "srcs": attr.label_list(allow_files=True),
+    "_mygen": attr.label(
+      cfg="host",
+      executable=True,
+      allow_files=True,
+      default=":mygen_sh",
+    ),
+  },
+)
+EOF
+
+  # So we have another.h defining a macro that is used by both main.c and
+  # another.c. :main depends on :another, and gets the header through the
+  # tree artifact. First build is fine.
+  echo "fc1" > "ta_headers/mydef.txt"
+  bazel build //ta_headers:myexec || fail \
+    "First build failed, something is wrong with the test."
+
+  # Now we change the content of another.h to define a different macro.
+  # This test verifies that not only another.c is recompiled, but also
+  # main.c. This is a regression test for
+  # https://github.com/bazelbuild/bazel/issues/5785.
+  echo "fc2" > "ta_headers/mydef.txt"
+  bazel build //ta_headers:myexec || fail \
+    "Second build failed, tree artifact was not invalidated."
+}
+
 run_suite "cc_integration_test"

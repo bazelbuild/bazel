@@ -101,7 +101,7 @@ public class CppCompileAction extends AbstractAction
   private final Iterable<Artifact> inputsForInvalidation;
 
   /**
-   * The set of input files that in addition to {@link CcCompilationContext#declaredIncludeSrcs}
+   * The set of input files that in addition to {@link CcCompilationContext#getDeclaredIncludeSrcs}
    * need to be added to the set of input artifacts of the action if we don't use input discovery.
    * They may be pruned after execution. See {@link #findUsedHeaders} for more details.
    */
