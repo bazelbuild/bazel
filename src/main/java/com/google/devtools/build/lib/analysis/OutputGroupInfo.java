@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -217,7 +218,7 @@ public final class OutputGroupInfo extends NativeInfo
   }
 
   @Override
-  public Object getIndex(Object key, Location loc) throws EvalException {
+  public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
     if (!(key instanceof String)) {
       throw new EvalException(loc, String.format(
           "Output grout names must be strings, got %s instead",

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -220,7 +221,7 @@ public abstract class ConstraintCollection
   }
 
   @Override
-  public Object getIndex(Object key, Location loc) throws EvalException {
+  public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
     ConstraintSettingInfo constraint = convertKey(key, loc);
     return get(constraint);
   }
