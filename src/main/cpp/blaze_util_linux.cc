@@ -130,7 +130,7 @@ bool IsSharedLibrary(const string &filename) {
 }
 
 static string Which(const string &executable) {
-  string path(GetEnv("PATH"));
+  string path(GetPathEnv("PATH"));
   if (path.empty()) {
     return "";
   }
@@ -154,7 +154,7 @@ static string Which(const string &executable) {
 
 string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
-  string javahome = GetEnv("JAVA_HOME");
+  string javahome = GetPathEnv("JAVA_HOME");
   if (!javahome.empty()) {
     string javac = blaze_util::JoinPath(javahome, "bin/javac");
     if (access(javac.c_str(), X_OK) == 0) {

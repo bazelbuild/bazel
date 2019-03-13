@@ -213,6 +213,8 @@ void CreateSecureOutputRoot(const std::string& path);
 
 std::string GetEnv(const std::string& name);
 
+std::string GetPathEnv(const std::string& name);
+
 bool ExistsEnv(const std::string& name);
 
 void SetEnv(const std::string& name, const std::string& value);

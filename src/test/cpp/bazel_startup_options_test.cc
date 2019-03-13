@@ -32,7 +32,7 @@ class BazelStartupOptionsTest : public ::testing::Test {
     // This knowingly ignores the possibility of these environment variables
     // being unset because we expect our test runner to set them in all cases.
     // Otherwise, we'll crash here, but this keeps our code simpler.
-    old_test_tmpdir_ = GetEnv("TEST_TMPDIR");
+    old_test_tmpdir_ = GetPathEnv("TEST_TMPDIR");
 
     ReinitStartupOptions();
   }
