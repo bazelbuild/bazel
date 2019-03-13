@@ -122,7 +122,6 @@ public final class LocationExpander {
    * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
-   * @param labelMap A mapping of labels to build artifacts.
    */
   public static LocationExpander withRunfilesPaths(RuleContext ruleContext) {
     return new LocationExpander(ruleContext, null, false, false);
@@ -362,9 +361,15 @@ public final class LocationExpander {
       }
     }
 
+    // We don't want to do this if we're processing aspect rules. It will
+    // create output artifacts and unbalance the input/output state, leading
+    // to an error (output artifact with no action to create its inputs).
+    if (ruleContext.getMainAspect() == null) {
     // Add all destination locations.
-    for (OutputFile out : ruleContext.getRule().getOutputFiles()) {
-      mapGet(locationMap, out.getLabel()).add(ruleContext.createOutputArtifact(out));
+      for (OutputFile out : ruleContext.getRule().getOutputFiles()) {
+        // Not in aspect processing, so explicitly build an artifact & let it verify.
+        mapGet(locationMap, out.getLabel()).add(ruleContext.createOutputArtifact(out));
+      }
     }
 
     if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {

@@ -66,17 +66,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
    */
   Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
-
-  /**
-   * Returns the artifact for the derived file {@code rootRelativePath}
-   *
-   * Same as {@code getDerivedArtifact()}, except the artifact is not verified to have a rule
-   * that generates it. This should only be used when dealing with aspects that need the names
-   * of the artifacts but are evaluated in a different environment so the artifacts won't have
-   * rules that generate them.
-   */
-  Artifact getDerivedArtifactUntracked(PathFragment rootRelativePath, ArtifactRoot root);
-
   /**
    * Returns an artifact for the derived file {@code rootRelativePath} whose changes do not cause a
    * rebuild.
