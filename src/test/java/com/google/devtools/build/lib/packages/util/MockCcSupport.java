@@ -57,33 +57,18 @@ public abstract class MockCcSupport {
   /** This feature will prevent bazel from patching the crosstool. */
   public static final String NO_LEGACY_FEATURES_FEATURE = "feature { name: 'no_legacy_features' }";
 
-  public static final String STARLARK_NO_LEGACY_FEATURES_FEATURE =
-      "[feature(name = 'no_legacy_features')]";
-
   public static final String DYNAMIC_LINKING_MODE_FEATURE =
       "feature { name: '" + CppRuleClasses.DYNAMIC_LINKING_MODE + "'}";
 
   public static final String DO_NOT_SPLIT_LINKING_CMDLINE_FEATURE =
       "feature { name: '" + CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE + "' enabled: true}";
 
-  public static final String STARLARK_DYNAMIC_LINKING_MODE_FEATURE =
-      "[feature(name = '" + CppRuleClasses.DYNAMIC_LINKING_MODE + "')]";
-
   public static final String SUPPORTS_DYNAMIC_LINKER_FEATURE =
       "feature { name: '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + "' enabled: true}";
-
-  public static final String STARLARK_SUPPORTS_DYNAMIC_LINKER_FEATURE =
-      "[feature(name = '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + "', enabled = True)]";
 
   public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE =
       "feature { name: '" + CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES + "' enabled: true}";
 
-  public static final String STARLARK_SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = '" + CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES + "',",
-              "'        enabled = True)]");
 
   /** Feature expected by the C++ rules when pic build is requested */
   public static final String PIC_FEATURE =
@@ -106,33 +91,6 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_PIC_FEATURE =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'pic',",
-              "        enabled = True,",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'assemble',",
-              "                    'preprocess-assemble',",
-              "                    'linkstamp-compile',",
-              "                    'c-compile',",
-              "                    'c++-compile',",
-              "                    'c++-module-codegen',",
-              "                    'c++-module-compile',",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        expand_if_available = 'pic',",
-              "                        flags = ['-fPIC'],",
-              "                    )",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    )]");
-
   /** A feature configuration snippet useful for testing header processing. */
   public static final String PARSE_HEADERS_FEATURE_CONFIGURATION =
       ""
@@ -145,23 +103,6 @@ public abstract class MockCcSupport {
           + "    }"
           + "  }"
           + "}";
-
-  public static final String STARLARK_PARSE_HEADERS_FEATURE_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'parse_headers',",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = ['c++-header-parsing'],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = ['<c++-header-parsing>'],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    )]");
 
   /** A feature configuration snippet useful for testing the layering check. */
   public static final String LAYERING_CHECK_FEATURE_CONFIGURATION =
@@ -180,31 +121,6 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_LAYERING_CHECK_FEATURE_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'layering_check',",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'c-compile',",
-              "                    'c++-compile',",
-              "                    'c++-header-parsing',",
-              "                    'c++-module-compile',",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        iterate_over = 'dependent_module_map_files',",
-              "                        flags = [",
-              "                            'dependent_module_map_file:"
-                  + "%{dependent_module_map_files}',",
-              "                        ],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    )]");
 
   /** A feature configuration snippet useful for testing header modules. */
   public static final String HEADER_MODULES_FEATURE_CONFIGURATION =
@@ -263,74 +179,6 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_HEADER_MODULES_FEATURE_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'header_modules',",
-              "        implies = ['use_header_modules', 'header_module_compile'],",
-              "    ),",
-              "    feature(",
-              "        name = 'header_module_compile',",
-              "        enabled = True,",
-              "        implies = ['module_maps'],",
-              "        flag_sets = [",
-              "            flag_set (",
-              "                actions = ['c++-module-compile'],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = ['--woohoo_modules'],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "            flag_set(",
-              "                actions = ['c++-module-codegen'],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = ['--this_is_modules_codegen'],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    ),",
-              "    feature(",
-              "        name = 'header_module_codegen',",
-              "        implies = ['header_modules'],",
-              "    ),",
-              "    feature(",
-              "        name = 'module_maps',",
-              "        enabled: True,",
-              "        flag_sets = [",
-              "            flag_set (",
-              "                actions = ['c-compile', 'c++-compile',",
-              "                           'c++-header-parsing', 'c++-module-compile'],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = [",
-              "                            'module_name:%{module_name}',",
-              "                            'module_map_file:%{module_map_file}',",
-              "                        ],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    ),",
-              "    feature(",
-              "        name = 'use_header_modules',",
-              "        flag_sets = [",
-              "            flag_set (",
-              "                actions = ['c-compile', 'c++-compile',",
-              "                           'c++-header-parsing', 'c++-module-compile'],",
-              "                flag_groups = [",
-              "                    flag_group (",
-              "                        iterate_over = 'module_files',",
-              "                        flags = ['module_file:%{module_files}'],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    )]");
-
   public static final String MODULE_MAP_HOME_CWD_FEATURE =
       ""
           + "feature {"
@@ -347,28 +195,6 @@ public abstract class MockCcSupport {
           + "    }"
           + "  }"
           + "}";
-
-  public static final String STARLARK_MODULE_MAP_HOME_CWD_FEATURE =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'module_map_home_cwd',",
-              "        enabled = True,",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'c-compile', 'c++-compile',",
-              "                    'c++-header-parsing', 'c++-module-compile',",
-              "                    'preprocess-assemble'",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = ['<flag>'],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    ),]");
 
   /** A feature configuration snippet useful for testing environment variables. */
   public static final String ENV_VAR_FEATURE_CONFIGURATION =
@@ -406,47 +232,6 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_ENV_VAR_FEATURE_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'env_feature',",
-              "        implies = ['static_env_feature', 'module_maps'],",
-              "    ),",
-              "    feature(",
-              "        name = 'static_env_feature',",
-              "        env_sets = [",
-              "            env_set(",
-              "                actions = ['c-compile', 'c++-compile',",
-              "                           'c++-header-parsing', 'c++-module-compile',",
-              "                ],",
-              "                env_entries = [",
-              "                    env_entry(",
-              "                        key = 'cat',",
-              "                        value = 'meow',",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    ),",
-              "    feature(",
-              "        name = 'module_maps',",
-              "        enabled = True,",
-              "        env_sets = [",
-              "            env_set(",
-              "                actions = ['c-compile', 'c++-compile',",
-              "                           'c++-header-parsing', 'c++-module-compile',",
-              "                ],",
-              "                env_entries = [",
-              "                    env_entry(",
-              "                        key = 'module',",
-              "                        value = 'module_name:%{module_name}',",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    )]");
-
   public static final String HOST_AND_NONHOST_CONFIGURATION =
       ""
           + "feature { "
@@ -469,28 +254,6 @@ public abstract class MockCcSupport {
           + "    }"
           + "  }"
           + "}";
-
-  public static final String STARLARK_HOST_AND_NONHOST_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'host'",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = ['c-compile', 'c-compile'],",
-              "                flag_groups = [flag_group(flags = ['-host'])],",
-              "            ),",
-              "        ],",
-              "    ),",
-              "    feature(",
-              "        name = 'nonhost',",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = ['c-compile','c-compile'],",
-              "                flag_groups = [flag_group(flags = ['-nonhost'])],",
-              "            ),",
-              "        ],",
-              "    )]");
 
   public static final String USER_COMPILE_FLAGS_CONFIGURATION =
       ""
@@ -592,91 +355,11 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_THIN_LTO_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'thin_lto',",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'c++-link-executable',",
-              "                    'c++-link-dynamic-library',",
-              "                    'c++-link-nodeps-dynamic-library',",
-              "                    'c++-link-static-library'",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = ['thinlto_param_file=%{thinlto_param_file}'],",
-              "                    ),",
-              "                ],",
-              "           ),",
-              "           flag_set(",
-              "               actions = ['c-compile', 'c++-compile'],",
-              "               flag_groups = [",
-              "                   flag_group(flags = ['-flto=thin']),",
-              "                   flag_group(",
-              "                       flags = [",
-              "                           'lto_indexing_bitcode=%{lto_indexing_bitcode_file}'],",
-              "                       expand_if_available = 'lto_indexing_bitcode_file',",
-              "                   ),",
-              "               ],",
-              "           ),",
-              "           flag_set(",
-              "               actions = ['lto-indexing'],",
-              "               flag_groups = [",
-              "                   flag_group(",
-              "                       flags = [",
-              "                           'param_file=%{thinlto_indexing_param_file}',",
-              "                           'prefix_replace=%{thinlto_prefix_replace}',",
-              "                       ],",
-              "                   ),",
-              "                   flag_group(",
-              "                       flags = [",
-              "                           'object_suffix_replace=%{thinlto_object_suffix_replace}'",
-              "                       ],",
-              "                       expand_if_available = 'thinlto_object_suffix_replace',",
-              "                   ),",
-              "                   flag_group(",
-              "                       flags = [",
-              "                           'thinlto_merged_object_file="
-                  + "%{thinlto_merged_object_file}',",
-              "                       ],",
-              "                       expand_if_available = 'thinlto_merged_object_file',",
-              "                   ),",
-              "               ],",
-              "           ),",
-              "           flag_set(",
-              "               actions = ['lto-backend'],",
-              "               flag_groups = [",
-              "                   flag_group(",
-              "                       flags = [",
-              "                           'thinlto_index=%{thinlto_index}',",
-              "                           'thinlto_output_object_file="
-                  + "%{thinlto_output_object_file}',",
-              "                           'thinlto_input_bitcode_file="
-                  + "%{thinlto_input_bitcode_file}',",
-              "                        ],",
-              "                   ),",
-              "               ],",
-              "           ),",
-              "        ],",
-              "       requires = [feature_set(features = ['nonhost'])],",
-              "   )]");
-
   public static final String THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
       "" + "feature {  name: 'thin_lto_linkstatic_tests_use_shared_nonlto_backends'}";
 
-  public static final String
-      STARLARK_THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
-          "[feature(name = 'thin_lto_linkstatic_tests_use_shared_nonlto_backends')]";
-
   public static final String THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
       "" + "feature {  name: 'thin_lto_all_linkstatic_use_shared_nonlto_backends'}";
-
-  public static final String
-      STARLARK_THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
-          "[feature(name = 'thin_lto_all_linkstatic_use_shared_nonlto_backends')]";
 
   public static final String ENABLE_AFDO_THINLTO_CONFIGURATION =
       ""
@@ -686,20 +369,8 @@ public abstract class MockCcSupport {
           + "  implies: 'thin_lto'"
           + "}";
 
-  public static final String STARLARK_ENABLE_AFDO_THINLTO_CONFIGURATION =
-      Joiner.on("")
-          .join(
-              "[feature(",
-              "        name = 'enable_fdo_thinlto',",
-              "        requires = [feature_set(features = ['fdo_implicit_thinlto'])],",
-              "        implies = ['thin_lto'],",
-              "    )]");
-
   public static final String AUTOFDO_IMPLICIT_THINLTO_CONFIGURATION =
       "" + "feature {  name: 'autofdo_implicit_thinlto'}";
-
-  public static final String STARLARK_AUTOFDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "[feature(name = 'autofdo_implicit_thinlto')]";
 
   public static final String ENABLE_FDO_THINLTO_CONFIGURATION =
       ""
@@ -709,20 +380,8 @@ public abstract class MockCcSupport {
           + "  implies: 'thin_lto'"
           + "}";
 
-  public static final String STARLARK_ENABLE_FDO_THINLTO_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'enable_afdo_thinlto',",
-              "        requires = [feature_set(features = ['autofdo_implicit_thinlto'])],",
-              "        implies = ['thin_lto'],",
-              "    )]");
-
   public static final String FDO_IMPLICIT_THINLTO_CONFIGURATION =
       "" + "feature {  name: 'fdo_implicit_thinlto'}";
-
-  public static final String STARLARK_FDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "[feature(name = 'fdo_implicit_thinlto')]";
 
   public static final String ENABLE_XFDO_THINLTO_CONFIGURATION =
       ""
@@ -732,20 +391,8 @@ public abstract class MockCcSupport {
           + "  implies: 'thin_lto'"
           + "}";
 
-  public static final String STARLARK_ENABLE_XFDO_THINLTO_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'enable_xbinaryfdo_thinlto',",
-              "        requires = [feature_set(features = ['xbinaryfdo_implicit_thinlto'])],",
-              "        implies = ['thin_lto'],",
-              "    )]");
-
   public static final String XFDO_IMPLICIT_THINLTO_CONFIGURATION =
       "" + "feature {  name: 'xbinaryfdo_implicit_thinlto'}";
-
-  public static final String STARLARK_XFDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "[feature(name = 'xbinaryfdo_implicit_thinlto')]";
 
   public static final String AUTO_FDO_CONFIGURATION =
       ""
@@ -764,37 +411,8 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_AUTO_FDO_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'autofdo',",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'c-compile',",
-              "                    'c++-compile',",
-              "                    'lto-backend',",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = [",
-              "                            '-fauto-profile=%{fdo_profile_path}',",
-              "                            '-fprofile-correction',",
-              "                        ],",
-              "                        expand_if_available = 'fdo_profile_path',",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "        provides = ['profile'],",
-              "    )]");
-
   public static final String IS_CC_FAKE_BINARY_CONFIGURATION =
       "feature { name: 'is_cc_fake_binary' }";
-
-  public static final String STARLARK_IS_CC_FAKE_BINARY_CONFIGURATION =
-      "[feature(name = 'is_cc_fake_binary')]";
 
   public static final String XBINARY_FDO_CONFIGURATION =
       ""
@@ -813,34 +431,6 @@ public abstract class MockCcSupport {
           + "    }"
           + "  }"
           + "}";
-
-  public static final String STARLARK_XBINARY_FDO_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'xbinaryfdo',",
-              "         flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'c-compile',",
-              "                    'c++-compile',",
-              "                    'lto-backend',",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = [",
-              "                            '-fauto-profile=%{fdo_profile_path}',",
-              "                            '-fprofile-correction',",
-              "                        ],",
-              "                    ),",
-              "                ],",
-              "                with_features = [",
-              "                    with_feature_set(not_features = ['is_cc_fake_binary']),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "        provides = ['profile'],",
-              "    )]");
 
   public static final String FDO_OPTIMIZE_CONFIGURATION =
       ""
@@ -861,31 +451,6 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_FDO_OPTIMIZE_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'fdo_optimize',",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = ['c-compile', 'c++-compile'],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = [",
-              "                            '-fprofile-use=%{fdo_profile_path}',",
-              "                            '-Xclang-only=-Wno-profile-instr-unprofiled',",
-              "                            '-Xclang-only=-Wno-profile-instr-out-of-date',",
-              "                            '-Xclang-only=-Wno-backend-plugin',",
-              "                            '-fprofile-correction',",
-              "                        ],",
-              "                        expand_if_available = 'fdo_profile_path',",
-              "                   ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "        provides = ['profile'],",
-              "    )]");
-
   public static final String FDO_INSTRUMENT_CONFIGURATION =
       ""
           + "feature { "
@@ -903,31 +468,6 @@ public abstract class MockCcSupport {
           + "    }"
           + "  }"
           + "}";
-
-  public static final String STARLARK_FDO_INSTRUMENT_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'fdo_instrument',",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'c-compile',",
-              "                    'c++-compile',",
-              "                    'c++-link-dynamic-library',",
-              "                    'c++-link-nodeps-dynamic-library',",
-              "                    'c++-link-executable',",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = ['fdo_instrument_option',",
-              "                                 'path=%{fdo_instrument_path}'],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "        provides = ['profile'],",
-              "    )]");
 
   public static final String PER_OBJECT_DEBUG_INFO_CONFIGURATION =
       ""
@@ -948,49 +488,14 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_PER_OBJECT_DEBUG_INFO_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'per_object_debug_info',",
-              "        enabled = True,",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'c-compile',",
-              "                    'c++-compile',",
-              "                    'assemble',",
-              "                    'preprocess-assemble',",
-              "                    'c++-module-codegen',",
-              "                    'lto-backend',",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                        flags = ['per_object_debug_info_option'],",
-              "                        expand_if_available = 'per_object_debug_info_file',",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    )]");
-
   public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION =
       "" + "feature { name: 'copy_dynamic_libraries_to_binary' }";
-
-  public static final String STARLARK_COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION =
-      "[feature(name = 'copy_dynamic_libraries_to_binary')]";
 
   public static final String SUPPORTS_START_END_LIB_FEATURE =
       "" + "feature { name: 'supports_start_end_lib' enabled: true }";
 
-  public static final String STARLARK_SUPPORTS_START_END_LIB_FEATURE =
-      "[feature(name = 'supports_start_end_lib', enabled = True)]";
-
   public static final String SUPPORTS_PIC_FEATURE =
       "" + "feature { name: 'supports_pic' enabled: true }";
-
-  public static final String STARLARK_SUPPORTS_PIC_FEATURE =
-      "[feature(name = 'supports_pic', enabled = True)]";
 
   public static final String TARGETS_WINDOWS_CONFIGURATION =
       ""
@@ -1000,15 +505,6 @@ public abstract class MockCcSupport {
           + "   enabled: true"
           + "}";
 
-  public static final String STARLARK_TARGETS_WINDOWS_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'targets_windows',",
-              "        enabled = True,",
-              "        implies = ['copy_dynamic_libraries_to_binary'],",
-              "    )]");
-
   public static final String STATIC_LINK_TWEAKED_CONFIGURATION =
       ""
           + "artifact_name_pattern {"
@@ -1017,15 +513,6 @@ public abstract class MockCcSupport {
           + "   extension: '.lib'"
           + "}";
 
-  public static final String STARLARK_STATIC_LINK_TWEAKED_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[artifact_name_pattern(",
-              "            category_name = 'static_library',",
-              "            prefix = 'lib',",
-              "            extension = '.lib',",
-              "        )]");
-
   public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =
       ""
           + "artifact_name_pattern {"
@@ -1033,15 +520,6 @@ public abstract class MockCcSupport {
           + "   prefix: 'lib'"
           + "   extension: '.a'"
           + "}";
-
-  public static final String STARLARK_STATIC_LINK_AS_DOT_A_CONFIGURATION =
-      Joiner.on("\n")
-          .join(
-              "[artifact_name_pattern(",
-              "        category_name = 'static_library',",
-              "        prefix = 'lib',",
-              "        extension = '.a',",
-              "    )]");
 
   public static final String MODULE_MAPS_FEATURE =
       ""
@@ -1060,109 +538,37 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String STARLARK_MODULE_MAPS_FEATURE =
-      Joiner.on("\n")
-          .join(
-              "[feature(",
-              "        name = 'module_maps',",
-              "        enabled = True,",
-              "        flag_sets = [",
-              "            flag_set(",
-              "                actions = [",
-              "                    'c-compile',",
-              "                    'c++-compile',",
-              "                    'c++-header-parsing',",
-              "                    'c++-module-compile',",
-              "                ],",
-              "                flag_groups = [",
-              "                    flag_group(",
-              "                       flags = [",
-              "                           'module_name:%{module_name}',",
-              "                           'module_map_file:%{module_map_file}',",
-              "                       ],",
-              "                    ),",
-              "                ],",
-              "            ),",
-              "        ],",
-              "    )]");
-
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
       emptyActionConfigFor(CppActionNames.CPP_COMPILE);
-
-  public static final String EMPTY_STARLARK_COMPILE_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(CppActionNames.CPP_COMPILE);
 
   public static final String EMPTY_MODULE_CODEGEN_ACTION_CONFIG =
       emptyActionConfigFor(CppActionNames.CPP_MODULE_CODEGEN);
 
-  public static final String EMPTY_STARLARK_MODULE_CODEGEN_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(CppActionNames.CPP_MODULE_CODEGEN);
-
   public static final String EMPTY_MODULE_COMPILE_ACTION_CONFIG =
       emptyActionConfigFor(CppActionNames.CPP_MODULE_COMPILE);
-
-  public static final String EMPTY_STARLARK_MODULE_COMPILE_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(CppActionNames.CPP_MODULE_COMPILE);
 
   public static final String EMPTY_EXECUTABLE_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
 
-  public static final String EMPTY_STARLARK_EXECUTABLE_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
-
   public static final String EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());
-
-  public static final String EMPTY_STARLARK_DYNAMIC_LIBRARY_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());
 
   public static final String EMPTY_TRANSITIVE_DYNAMIC_LIBRARY_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.DYNAMIC_LIBRARY.getActionName());
 
-  public static final String EMPTY_STARLARK_TRANSITIVE_DYNAMIC_LIBRARY_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(LinkTargetType.DYNAMIC_LIBRARY.getActionName());
-
   public static final String EMPTY_STATIC_LIBRARY_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.STATIC_LIBRARY.getActionName());
-
-  public static final String EMPTY_STARLARK_STATIC_LIBRARY_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(LinkTargetType.STATIC_LIBRARY.getActionName());
 
   public static final String EMPTY_CLIF_MATCH_ACTION_CONFIG =
       emptyActionConfigFor(CppActionNames.CLIF_MATCH);
 
-  public static final String EMPTY_STARLARK_CLIF_MATCH_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(CppActionNames.CLIF_MATCH);
-
   public static final String EMPTY_STRIP_ACTION_CONFIG = emptyActionConfigFor(CppActionNames.STRIP);
-  public static final String EMPTY_STARLARK_STRIP_ACTION_CONFIG =
-      emptyStarlarkActionConfigFor(CppActionNames.STRIP);
 
   public static final String STATIC_LINK_CPP_RUNTIMES_FEATURE =
       "feature { name: 'static_link_cpp_runtimes' enabled: true }";
 
-  public static final String STARLARK_STATIC_LINK_CPP_RUNTIMES_FEATURE =
-      "[feature(name = 'static_link_cpp_runtimes', enabled = True)]";
-
   public static final String EMPTY_CROSSTOOL =
       "major_version: 'foo'\nminor_version:' foo'\n" + emptyToolchainForCpu("k8");
-
-  public static final String EMPTY_CC_TOOLCHAIN_CONFIG =
-      Joiner.on("\n")
-          .join(
-              "def _impl(ctx):",
-              "    return cc_common.create_cc_toolchain_config_info(",
-              "        ctx = ctx,",
-              emptyStarlarkToolchainConfigForCpu("k8"),
-              "    )",
-              "cc_toolchain_config = rule(",
-              "    implementation = _impl,",
-              "    attrs = {",
-              "        'cpu': attr.string(),",
-              "        'compiler': attr.string(),",
-              "    },",
-              "    provides = [CcToolchainConfigInfo],",
-              ")");
 
   public static String emptyToolchainForCpu(String cpu, String... append) {
     return Joiner.on("\n")
@@ -1183,19 +589,6 @@ public abstract class MockCcSupport {
                 .build());
   }
 
-  public static String emptyStarlarkToolchainConfigForCpu(String cpu) {
-    return Joiner.on("\n")
-        .join(
-            "        toolchain_identifier = 'mock-llvm-toolchain-" + cpu + "',",
-            "        host_system_name = 'mock-system-name-for-" + cpu + "',",
-            "        target_system_name = 'mock-target-system-name-for-" + cpu + "',",
-            "        target_cpu = '" + cpu + "',",
-            "        target_libc = 'mock-libc-for-" + cpu + "',",
-            "        compiler = 'mock-compiler-for-" + cpu + "',",
-            "        abi_version = 'mock-abi-version-for-" + cpu + "',",
-            "        abi_libc_version = 'mock-abi-libc-for-" + cpu + "',");
-  }
-
   /**
    * Creates action_config for {@code actionName} action using DUMMY_TOOL that doesn't imply any
    * features.
@@ -1210,15 +603,6 @@ public abstract class MockCcSupport {
             + "  }"
             + "}",
         actionName, actionName);
-  }
-
-  private static String emptyStarlarkActionConfigFor(String actionName) {
-    return String.format(
-        "[action_config("
-            + "        action_name = '%s',"
-            + "        tools = [tool(tool_path = 'DUMMY_TOOL')],"
-            + "    )]",
-        actionName);
   }
 
   /** Filter to remove implicit dependencies of C/C++ rules. */
