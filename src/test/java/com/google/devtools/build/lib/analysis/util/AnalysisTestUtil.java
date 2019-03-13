@@ -125,11 +125,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getDerivedArtifactUntracked(PathFragment rootRelativePath, ArtifactRoot root) {
-      return original.getDerivedArtifactUntracked(rootRelativePath, root);
-    }
-
-    @Override
     public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getConstantMetadataArtifact(rootRelativePath, root);
     }
@@ -318,11 +313,6 @@ public final class AnalysisTestUtil {
 
     @Override
     public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
-    }
-
-    @Override
-    public Artifact getDerivedArtifactUntracked(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
 
