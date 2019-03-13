@@ -165,7 +165,7 @@ public abstract class ToolchainContext implements ToolchainContextApi {
       throw new EvalException(
           loc,
           String.format(
-              "In %s, toolchain type %s was requested but only types [%s] are configured",
+              "In %s, toolchagin type %s was requested but only types [%s] are configured",
               targetDescription(),
               toolchainTypeLabel,
               requiredToolchainTypes().stream()
