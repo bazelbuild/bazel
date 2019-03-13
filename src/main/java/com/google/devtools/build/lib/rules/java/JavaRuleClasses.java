@@ -82,6 +82,24 @@ public class JavaRuleClasses {
                   .value(JavaSemantics.jvmAttribute(env))
                   .mandatoryProviders(ToolchainInfo.PROVIDER.id())
                   .useOutputLicenses())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$java_runtime_toolchain_base_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(JavaHostRuntimeBaseRule.class)
+          .build();
+    }
+  }
+
+  /** Common attributes for rules that use the host Java runtime. */
+  public static final class JavaHostRuntimeBaseRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder
           .add(
               attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
                   .cfg(HostTransition.INSTANCE)
@@ -93,7 +111,7 @@ public class JavaRuleClasses {
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
-          .name("$java_runtime_toolchain_base_rule")
+          .name("$java_host_runtime_toolchain_base_rule")
           .type(RuleClassType.ABSTRACT)
           .build();
     }

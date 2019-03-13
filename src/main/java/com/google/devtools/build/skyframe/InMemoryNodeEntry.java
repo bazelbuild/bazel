@@ -387,11 +387,11 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (dirtyBuildingState == null) {
       dirtyBuildingState = DirtyBuildingState.createNew();
     }
-    boolean result = !dirtyBuildingState.isEvaluating();
-    if (result) {
+    boolean wasEvaluating = dirtyBuildingState.isEvaluating();
+    if (!wasEvaluating) {
       dirtyBuildingState.startEvaluating();
     }
-    return result ? DependencyState.NEEDS_SCHEDULING : DependencyState.ALREADY_EVALUATING;
+    return wasEvaluating ? DependencyState.ALREADY_EVALUATING : DependencyState.NEEDS_SCHEDULING;
   }
 
   /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
@@ -529,8 +529,9 @@ public class InMemoryNodeEntry implements NodeEntry {
       return new MarkedDirtyResult(ReverseDepsUtility.getReverseDeps(this));
     }
     if (dirtyType.equals(DirtyType.FORCE_REBUILD)) {
-      Preconditions.checkNotNull(dirtyBuildingState, this);
-      dirtyBuildingState.markForceRebuild();
+      if (dirtyBuildingState != null) {
+        dirtyBuildingState.markForceRebuild();
+      }
       return null;
     }
     // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty

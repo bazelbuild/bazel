@@ -164,120 +164,6 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void externalDep() throws Exception {
-    externalDep(1, 0);
-    externalDep(2, 0);
-    externalDep(1, 1);
-    externalDep(1, 2);
-    externalDep(2, 1);
-    externalDep(2, 2);
-  }
-
-  private void externalDep(int firstPassCount, int secondPassCount) throws Exception {
-    final SkyKey parentKey = GraphTester.toSkyKey("parentKey");
-    final CountDownLatch firstPassLatch = new CountDownLatch(1);
-    final CountDownLatch secondPassLatch = new CountDownLatch(1);
-    tester
-        .getOrCreate(parentKey)
-        .setBuilder(
-            new SkyFunction() {
-              // Skyframe doesn't have native support for continuations, so we use fields here. A
-              // simple continuation API in Skyframe could be Environment providing a
-              // setContinuation(SkyContinuation) method, where SkyContinuation provides a compute
-              // method similar to SkyFunction. When restarting the node, Skyframe would then call
-              // the continuation rather than the original SkyFunction. If we do that, we should
-              // consider only allowing calls to dependOnFuture in combination with setContinuation.
-              private List<SettableFuture<SkyValue>> firstPass;
-              private List<SettableFuture<SkyValue>> secondPass;
-
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                if (firstPass == null) {
-                  firstPass = new ArrayList<>();
-                  for (int i = 0; i < firstPassCount; i++) {
-                    SettableFuture<SkyValue> future = SettableFuture.create();
-                    firstPass.add(future);
-                    env.dependOnFuture(future);
-                  }
-                  assertThat(env.valuesMissing()).isTrue();
-                  Thread helper =
-                      new Thread(
-                          () -> {
-                            try {
-                              firstPassLatch.await();
-                              // Thread.sleep(5);
-                              for (int i = 0; i < firstPassCount; i++) {
-                                firstPass.get(i).set(new StringValue("value1"));
-                              }
-                            } catch (InterruptedException e) {
-                              throw new RuntimeException(e);
-                            }
-                          });
-                  helper.start();
-                  return null;
-                } else if (secondPass == null && secondPassCount > 0) {
-                  for (int i = 0; i < firstPassCount; i++) {
-                    assertThat(firstPass.get(i).isDone()).isTrue();
-                  }
-                  secondPass = new ArrayList<>();
-                  for (int i = 0; i < secondPassCount; i++) {
-                    SettableFuture<SkyValue> future = SettableFuture.create();
-                    secondPass.add(future);
-                    env.dependOnFuture(future);
-                  }
-                  assertThat(env.valuesMissing()).isTrue();
-                  Thread helper =
-                      new Thread(
-                          () -> {
-                            try {
-                              secondPassLatch.await();
-                              for (int i = 0; i < secondPassCount; i++) {
-                                secondPass.get(i).set(new StringValue("value2"));
-                              }
-                            } catch (InterruptedException e) {
-                              throw new RuntimeException(e);
-                            }
-                          });
-                  helper.start();
-                  return null;
-                }
-                for (int i = 0; i < secondPassCount; i++) {
-                  assertThat(secondPass.get(i).isDone()).isTrue();
-                }
-                return new StringValue("done!");
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
-            });
-    graph =
-        NotifyingHelper.makeNotifyingTransformer(
-                new Listener() {
-                  private boolean firstPassDone;
-
-                  @Override
-                  public void accept(SkyKey key, EventType type, Order order, Object context) {
-                    // NodeEntry.addExternalDep is called as part of bookkeeping at the end of
-                    // AbstractParallelEvaluator.Evaluate#run.
-                    if (key == parentKey && type == EventType.ADD_EXTERNAL_DEP) {
-                      if (!firstPassDone) {
-                        firstPassLatch.countDown();
-                        firstPassDone = true;
-                      } else {
-                        secondPassLatch.countDown();
-                      }
-                    }
-                  }
-                })
-            .transform(new InMemoryGraphImpl());
-    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ false, ImmutableList.of(parentKey));
-    assertThat(result.hasError()).isFalse();
-    assertThat(result.get(parentKey)).isEqualTo(new StringValue("done!"));
-  }
-
-  @Test
   public void enqueueDoneFuture() throws Exception {
     final SkyKey parentKey = GraphTester.toSkyKey("parentKey");
     tester
@@ -2697,6 +2583,60 @@ public class ParallelEvaluatorTest {
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError(errorKey).getRootCauseOfException()).isEqualTo(errorKey);
     assertThat(result.errorMap()).doesNotContainKey(rogueKey);
+  }
+
+  // Explicit test that we tolerate a SkyFunction that declares different [sequences of] deps each
+  // restart. Such behavior from a SkyFunction isn't desired, but Bazel-on-Skyframe does indeed do
+  // this.
+  @Test
+  public void declaresDifferentDepsAfterRestart() throws Exception {
+    graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
+    tester = new GraphTester();
+    SkyKey grandChild1Key = GraphTester.toSkyKey("grandChild1");
+    tester.getOrCreate(grandChild1Key).setConstantValue(new StringValue("grandChild1"));
+    SkyKey child1Key = GraphTester.toSkyKey("child1");
+    tester
+        .getOrCreate(child1Key)
+        .addDependency(grandChild1Key)
+        .setConstantValue(new StringValue("child1"));
+    SkyKey grandChild2Key = GraphTester.toSkyKey("grandChild2");
+    tester.getOrCreate(grandChild2Key).setConstantValue(new StringValue("grandChild2"));
+    SkyKey child2Key = GraphTester.toSkyKey("child2");
+    tester.getOrCreate(child2Key).setConstantValue(new StringValue("child2"));
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    AtomicInteger numComputes = new AtomicInteger(0);
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                switch (numComputes.incrementAndGet()) {
+                  case 1:
+                    env.getValue(child1Key);
+                    Preconditions.checkState(env.valuesMissing());
+                    return null;
+                  case 2:
+                    env.getValue(child2Key);
+                    Preconditions.checkState(env.valuesMissing());
+                    return null;
+                  case 3:
+                    return new StringValue("the third time's the charm!");
+                  default:
+                    throw new IllegalStateException();
+                }
+              }
+
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ false, ImmutableList.of(parentKey));
+    assertThatEvaluationResult(result).hasNoError();
+    assertThatEvaluationResult(result)
+        .hasEntryThat(parentKey)
+        .isEqualTo(new StringValue("the third time's the charm!"));
   }
 
   private void runUnhandledTransitiveErrors(boolean keepGoing,

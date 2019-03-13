@@ -293,6 +293,15 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "whitelist_test",
+    size = "medium",
+    srcs = ["whitelist_test.sh"],
+    data = [":test-deps"],
+    shard_count = 3,
+    tags = ["no_windows"],
+)
+
 genquery(
     name = "embedded_tools_deps",
     expression = "kind(\"cc_(binary|library)\", deps(//src:embedded_tools_jdk_allmodules_srcs))",
@@ -647,6 +656,14 @@ sh_test(
 )
 
 sh_test(
+    name = "license_checking_test",
+    size = "medium",
+    srcs = ["license_checking_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "bazel_bootstrap_distfile_test",
     timeout = "eternal",
     srcs = ["bazel_bootstrap_distfile_test.sh"],
@@ -813,6 +830,13 @@ sh_test(
 sh_test(
     name = "windows_arg_esc_test",
     srcs = ["windows_arg_esc_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "new_local_repo_test",
+    srcs = ["new_local_repo_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

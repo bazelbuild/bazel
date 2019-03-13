@@ -195,6 +195,7 @@ public class CcModule
         convertFromNoneable(sourceFile, /* defaultValue= */ null),
         convertFromNoneable(outputFile, /* defaultValue= */ null),
         /* gcnoFile= */ null,
+        /* isUsingFission= */ false,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
         /* includes= */ ImmutableList.of(),
@@ -903,7 +904,8 @@ public class CcModule
               featureNames,
               linkerToolPath,
               /* supportsEmbeddedRuntimes= */ false,
-              /* supportsInterfaceSharedLibraries= */ false)) {
+              /* supportsInterfaceSharedLibraries= */ false,
+              skylarkRuleContext.getSkylarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -912,7 +914,9 @@ public class CcModule
               .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
               .collect(ImmutableList.toImmutableList()));
       for (CToolchain.Feature feature :
-          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
+          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
+              featureNames,
+              skylarkRuleContext.getSkylarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
 

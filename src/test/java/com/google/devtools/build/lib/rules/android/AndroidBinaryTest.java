@@ -27,7 +27,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Splitter;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -65,7 +65,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -77,6 +76,16 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AndroidBinaryTest extends AndroidBuildViewTestCase {
+
+  @Before
+  public void setupCcToolchain() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain=*/ false,
+            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
+  }
 
   @Before
   public void createFiles() throws Exception {
@@ -4495,39 +4504,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars)).containsExactly(
         "libal_bottom_for_deps-src.jar",
         "libfoo_app-src.jar");
-  }
-
-  /** Gets the map of mergee manifests in the order specified on the command line. */
-  private Map<String, String> getBinaryMergeeManifests(ConfiguredTarget target) throws Exception {
-    Artifact processedManifest = target.get(ApkInfo.PROVIDER).getMergedManifest();
-    List<String> processingActionArgs = getGeneratingSpawnActionArgs(processedManifest);
-    assertThat(processingActionArgs).contains("--primaryData");
-    String primaryData =
-        processingActionArgs.get(processingActionArgs.indexOf("--primaryData") + 1);
-    String mergedManifestExecPathString = Splitter.on(":").splitToList(primaryData).get(2);
-    SpawnAction processingAction = getGeneratingSpawnAction(processedManifest);
-    Artifact mergedManifest =
-        Iterables.find(
-            processingAction.getInputs(),
-            (artifact) -> artifact.getExecPath().toString().equals(mergedManifestExecPathString));
-    List<String> mergeArgs = getGeneratingSpawnActionArgs(mergedManifest);
-    assertThat(mergeArgs).contains("--mergeeManifests");
-    Map<String, String> splitData =
-        Splitter.on(",")
-            .withKeyValueSeparator(Splitter.onPattern("(?<!\\\\):"))
-            .split(mergeArgs.get(mergeArgs.indexOf("--mergeeManifests") + 1));
-    ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, String> manifestAndLabel : splitData.entrySet()) {
-      results.put(manifestAndLabel.getKey(), manifestAndLabel.getValue().replace("\\:", ":"));
-    }
-    return results.build();
-  }
-
-  private Artifact getLibraryManifest(ConfiguredTarget target) throws Exception {
-    if (target.get(AndroidManifestInfo.PROVIDER) != null) {
-      return target.get(AndroidManifestInfo.PROVIDER).getManifest();
-    }
-    return null;
   }
 
   @Test

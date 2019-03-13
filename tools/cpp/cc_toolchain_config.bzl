@@ -285,7 +285,7 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
-    random_seed_feature = feature(name = "random_seed")
+    random_seed_feature = feature(name = "random_seed", enabled = True)
 
     compiler_output_flags_feature = feature(
         name = "compiler_output_flags",
@@ -1060,6 +1060,7 @@ def _impl(ctx):
 
     include_paths_feature = feature(
         name = "include_paths",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -1089,6 +1090,7 @@ def _impl(ctx):
 
     dependency_file_feature = feature(
         name = "dependency_file",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [

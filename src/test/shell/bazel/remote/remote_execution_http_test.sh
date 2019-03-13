@@ -50,7 +50,7 @@ function set_up() {
 }
 
 function tear_down() {
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
     kill "${pid}" || true
@@ -76,7 +76,7 @@ EOF
     || fail "Failed to build //a:test without remote cache"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --remote_http_cache=http://localhost:${http_port} \
       //a:test \
@@ -109,7 +109,7 @@ EOF
     || fail "Failed to build //a:test without remote cache"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge >& $TEST_log
+  bazel clean >& $TEST_log
   bazel build \
       --remote_http_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
@@ -248,7 +248,7 @@ function test_directory_artifact_skylark() {
       || fail "Failed to build //a:test with remote execution"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote execution generated different result"
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
@@ -268,7 +268,7 @@ function test_directory_artifact_skylark_grpc_cache() {
       || fail "Failed to build //a:test with remote gRPC cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
@@ -287,7 +287,7 @@ function test_directory_artifact_skylark_rest_cache() {
       || fail "Failed to build //a:test with remote REST cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --remote_rest_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
@@ -306,7 +306,7 @@ function test_directory_artifact_in_runfiles_skylark_rest_cache() {
       || fail "Failed to build //a:test2 with remote REST cache"
   diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
-  bazel clean --expunge
+  bazel clean
   bazel build \
       --remote_rest_cache=http://localhost:${http_port} \
       //a:test2 >& $TEST_log \
@@ -314,6 +314,96 @@ function test_directory_artifact_in_runfiles_skylark_rest_cache() {
   expect_log "remote cache hit"
   diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache hit generated different result"
+}
+
+
+function test_remote_state_cleared() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/7555
+  # Test that the remote cache state is properly reset, so that building without
+  # a remote cache works after previously building with a remote cache.
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "gen1",
+  outs = ["out1"],
+  cmd = "touch $@",
+)
+EOF
+
+  bazel build \
+      --remote_http_cache=http://localhost:${http_port} \
+      //a:gen1 \
+    || fail "Failed to build //a:gen1 with remote cache"
+
+  bazel clean
+
+  bazel build //a:gen1 \
+    || fail "Failed to build //a:gen1 without remote cache"
+}
+
+function test_genrule_combined_disk_http_cache() {
+  # Test for the combined disk and http cache.
+  # Built items should be pushed to both the disk and http cache.
+  # If an item is missing on disk cache, but present on http cache,
+  # then bazel should copy it from http cache to disk cache on fetch.
+
+  local cache="${TEST_TMPDIR}/cache"
+  local disk_flags="--disk_cache=$cache"
+  local http_flags="--remote_http_cache=http://localhost:${http_port}"
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+genrule(
+name = 'test',
+cmd = 'echo "Hello world" > \$@',
+outs = [ 'test.txt' ],
+)
+EOF
+  rm -rf $cache
+  mkdir $cache
+
+  # Build and push to disk and http cache
+  bazel build $disk_flags $http_flags //a:test \
+    || fail "Failed to build //a:test with combined disk http cache"
+  cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  # Fetch from http cache
+  bazel clean
+  bazel build $http_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from http cache"
+  expect_log "1 remote cache hit"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "HTTP cache generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # Copy from http cache to disk cache
+  bazel clean
+  bazel build $disk_flags $http_flags //a:test &> $TEST_log \
+    || fail "Failed to copy //a:test from http cache to disk cache"
+  expect_log "1 remote cache hit"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "HTTP cache generated different result"
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  rm -rf $cache
 }
 
 run_suite "Remote execution and remote cache tests"

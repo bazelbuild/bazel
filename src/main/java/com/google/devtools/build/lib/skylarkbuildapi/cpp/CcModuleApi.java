@@ -622,8 +622,8 @@ public interface CcModuleApi<
             name = "system_includes",
             doc =
                 "Set of search paths for header files referenced by angle brackets, i.e. "
-                    + "#include <foo/bar/header.h>. They can be either relative to the exec root "
-                    + "or absolute. Usually passed with -isystem",
+                    + "#include &lt;foo/bar/header.h&gt;. They can be either relative to the exec "
+                    + "root or absolute. Usually passed with -isystem",
             positional = false,
             named = true,
             defaultValue = "unbound",

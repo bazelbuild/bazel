@@ -36,6 +36,16 @@ sh_test(
 )
 
 sh_test(
+    name = "implicit_dependency_reporting_test",
+    size = "medium",
+    srcs = ["implicit_dependency_reporting_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "execution_strategies_test",
     size = "medium",
     srcs = ["execution_strategies_test.sh"],
@@ -225,6 +235,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 5,
     tags = ["no_windows"],
 )
 
@@ -580,6 +591,13 @@ sh_test(
     srcs = ["bazel_java_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "jvm_flags_escaping_test",
+    srcs = ["jvm_flags_escaping_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 ########################################################################

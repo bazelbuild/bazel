@@ -162,6 +162,27 @@ public final class RuleConfiguredTargetBuilder {
       addProvider(new DepCountInfo(transitiveDepCount()));
     }
 
+    if (ruleContext.getRule().hasAnalysisTestTransition()) {
+      int depCount = transitiveDepCount();
+      if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
+        ruleContext.ruleError(
+            String.format(
+                "analysis test rule excedeed maximum dependency edge count. "
+                    + "Count: %s. Limit is %s. This limit is imposed on analysis test rules which "
+                    + "use analysis_test_transition attribute transitions. Exceeding this limit "
+                    + "indicates either the analysis_test has too many dependencies, or the "
+                    + "underlying toolchains may be large. Try decreasing the number of test "
+                    + "dependencies, (Analysis tests should not be very large!) or, if possible, "
+                    + "try not using configuration transitions. If underlying toolchain size is "
+                    + "to blame, it might be worth considering increasing "
+                    + "--analysis_testing_deps_limit. (Beware, however, that large values of "
+                    + "this flag can lead to no safeguards against giant "
+                    + "test suites that can lead to Out Of Memory exceptions in the build server.)",
+                depCount, ruleContext.getConfiguration().analysisTestingDepsLimit()));
+        return null;
+      }
+    }
+
     TransitiveInfoProviderMap providers = providersBuilder.build();
 
     if (ruleContext.getRule().isAnalysisTest()) {
@@ -177,22 +198,6 @@ public final class RuleConfiguredTargetBuilder {
       }
 
       AnalysisTestActionBuilder.writeAnalysisTestAction(ruleContext, testResultInfo);
-
-      int depCount = transitiveDepCount();
-      if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
-        ruleContext.ruleError(
-            String.format(
-                "analysis test rule excedeed maximum dependency edge count. "
-                    + "Count: %s. Limit is %s. This indicates either the analysis_test has too "
-                    + "many dependencies, or the underlying toolchains may be large. Try "
-                    + "decreasing the number of test dependencies. (Analysis tests should not be "
-                    + "very large!) If underlying toolchain size is to blame, it might be worth "
-                    + "considering increasing --analysis_testing_deps_limit. (Beware, however, "
-                    + "that large values of this flag can lead to no safeguards against giant "
-                    + "test suites that can lead to Out Of Memory exceptions in the build server.)",
-                depCount, ruleContext.getConfiguration().analysisTestingDepsLimit()));
-        return null;
-      }
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();

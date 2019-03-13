@@ -44,7 +44,8 @@ public class CppActionConfigs {
       ImmutableSet<String> existingFeatureNames,
       String cppLinkDynamicLibraryToolPath,
       boolean supportsEmbeddedRuntimes,
-      boolean supportsInterfaceSharedLibraries) {
+      boolean supportsInterfaceSharedLibraries,
+      boolean doNotSplitLinkingCmdline) {
 
     ImmutableList.Builder<CToolchain.Feature> featureBuilder = ImmutableList.builder();
     try {
@@ -145,6 +146,7 @@ public class CppActionConfigs {
                 Joiner.on("\n")
                     .join(
                         "  name: 'pic'",
+                        "  enabled: true",
                         "  flag_set {",
                         "    action: 'assemble'",
                         "    action: 'preprocess-assemble'",
@@ -553,6 +555,12 @@ public class CppActionConfigs {
                         "    action: 'c++-link-executable'",
                         "    action: 'c++-link-dynamic-library'",
                         "    action: 'c++-link-nodeps-dynamic-library'",
+                        ifTrue(
+                            doNotSplitLinkingCmdline,
+                            "    flag_group {",
+                            "      expand_if_true: 'thinlto_param_file'",
+                            "      flag: '-Wl,@%{thinlto_param_file}'",
+                            "    }"),
                         "    flag_group {",
                         "      expand_if_all_available: 'libraries_to_link'",
                         "      iterate_over: 'libraries_to_link'",
@@ -697,10 +705,12 @@ public class CppActionConfigs {
                         "        flag: '-Wl,--end-lib'",
                         "      }",
                         "    }",
-                        "    flag_group {",
-                        "      expand_if_true: 'thinlto_param_file'",
-                        "      flag: '-Wl,@%{thinlto_param_file}'",
-                        "    }",
+                        ifTrue(
+                            !doNotSplitLinkingCmdline,
+                            "    flag_group {",
+                            "      expand_if_true: 'thinlto_param_file'",
+                            "      flag: '-Wl,@%{thinlto_param_file}'",
+                            "    }"),
                         "  }")));
       }
       if (!existingFeatureNames.contains("force_pic_flags")) {
@@ -1125,7 +1135,7 @@ public class CppActionConfigs {
   // Note:  these feaures won't be added to the crosstools that defines no_legacy_features feature
   // (e.g. ndk, apple, enclave crosstools). Those need to be modified separately.
   public static ImmutableList<CToolchain.Feature> getFeaturesToAppearLastInFeaturesList(
-      ImmutableSet<String> existingFeatureNames) {
+      ImmutableSet<String> existingFeatureNames, boolean doNotSplitLinkingCmdline) {
     ImmutableList.Builder<CToolchain.Feature> featureBuilder = ImmutableList.builder();
     try {
       if (!existingFeatureNames.contains("fully_static_link")) {
@@ -1222,6 +1232,11 @@ public class CppActionConfigs {
                         "  }")));
       }
       if (!existingFeatureNames.contains("linker_param_file")) {
+        String dynamicLibraryParamFile = "      flag: '-Wl,@%{linker_param_file}'";
+        if (doNotSplitLinkingCmdline
+            || existingFeatureNames.contains(CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE)) {
+          dynamicLibraryParamFile = "      flag: '@%{linker_param_file}'";
+        }
         featureBuilder.add(
             getFeature(
                 Joiner.on("\n")
@@ -1233,7 +1248,7 @@ public class CppActionConfigs {
                         "    action: 'c++-link-nodeps-dynamic-library'",
                         "    flag_group {",
                         "      expand_if_all_available: 'linker_param_file'",
-                        "      flag: '-Wl,@%{linker_param_file}'",
+                        dynamicLibraryParamFile,
                         "    }",
                         "  }",
                         "  flag_set {",

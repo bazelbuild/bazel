@@ -684,8 +684,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
         "t.exe");
     @SuppressWarnings("unchecked")
-    CompositeRunfilesSupplier runfilesSupplier =
-        new CompositeRunfilesSupplier((List<RunfilesSupplier>) lookup("input_manifests"));
+    RunfilesSupplier runfilesSupplier =
+        CompositeRunfilesSupplier.fromSuppliers((List<RunfilesSupplier>) lookup("input_manifests"));
     assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
   }
 
@@ -759,8 +759,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
         "t.exe");
     @SuppressWarnings("unchecked")
-    CompositeRunfilesSupplier runfilesSupplier =
-        new CompositeRunfilesSupplier((List<RunfilesSupplier>) lookup("input_manifests"));
+    RunfilesSupplier runfilesSupplier =
+        CompositeRunfilesSupplier.fromSuppliers((List<RunfilesSupplier>) lookup("input_manifests"));
     assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
 
     SpawnAction action =

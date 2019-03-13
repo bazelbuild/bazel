@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaHostRuntimeBaseRule;
 
 /** A base rule for building the java_import rule. */
 public class JavaImportBaseRule implements RuleDefinition {
@@ -75,7 +75,9 @@ public class JavaImportBaseRule implements RuleDefinition {
         .name("$java_import_base")
         .type(RuleClassType.ABSTRACT)
         .ancestors(
-            BaseRuleClasses.RuleBase.class, ProguardLibraryRule.class, JavaRuntimeBaseRule.class)
+            BaseRuleClasses.RuleBase.class,
+            ProguardLibraryRule.class,
+            JavaHostRuntimeBaseRule.class)
         .build();
   }
 }

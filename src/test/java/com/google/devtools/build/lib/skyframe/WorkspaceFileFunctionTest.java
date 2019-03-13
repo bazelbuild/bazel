@@ -304,7 +304,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBindFunction() throws Exception {
-    String lines[] = {"bind(name = 'foo/bar',", "actual = '//foo:bar')"};
+    String[] lines = {"bind(name = 'foo/bar',", "actual = '//foo:bar')"};
     RootedPath workspacePath = createWorkspaceFile(lines);
 
     SkyKey key = ExternalPackageFunction.key(workspacePath);
@@ -317,7 +317,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBindArgsReversed() throws Exception {
-    String lines[] = {"bind(actual = '//foo:bar', name = 'foo/bar')"};
+    String[] lines = {"bind(actual = '//foo:bar', name = 'foo/bar')"};
     RootedPath workspacePath = createWorkspaceFile(lines);
 
     SkyKey key = ExternalPackageFunction.key(workspacePath);
@@ -331,7 +331,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   @Test
   public void testNonExternalBinding() throws Exception {
     // name must be a valid label name.
-    String lines[] = {"bind(name = 'foo:bar', actual = '//bar/baz')"};
+    String[] lines = {"bind(name = 'foo:bar', actual = '//bar/baz')"};
     RootedPath workspacePath = createWorkspaceFile(lines);
 
     PackageValue value =
@@ -345,7 +345,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   @Test
   public void testWorkspaceFileParsingError() throws Exception {
     // //external:bar:baz is not a legal package.
-    String lines[] = {"bind(name = 'foo/bar', actual = '//external:bar:baz')"};
+    String[] lines = {"bind(name = 'foo/bar', actual = '//external:bar:baz')"};
     RootedPath workspacePath = createWorkspaceFile(lines);
 
     PackageValue value =
@@ -359,7 +359,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   @Test
   public void testNoWorkspaceFile() throws Exception {
     // Even though the WORKSPACE exists, Skyframe thinks it doesn't, so it doesn't.
-    String lines[] = {"bind(name = 'foo/bar', actual = '//foo:bar')"};
+    String[] lines = {"bind(name = 'foo/bar', actual = '//foo:bar')"};
     RootedPath workspacePath = createWorkspaceFile(lines);
     fakeWorkspaceFileValue.setExists(false);
 
@@ -373,8 +373,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testListBindFunction() throws Exception {
-    String lines[] = {
-        "L = ['foo', 'bar']", "bind(name = '%s/%s' % (L[0], L[1]),", "actual = '//foo:bar')"};
+    String[] lines = {
+      "L = ['foo', 'bar']", "bind(name = '%s/%s' % (L[0], L[1]),", "actual = '//foo:bar')"
+    };
     RootedPath workspacePath = createWorkspaceFile(lines);
 
     SkyKey key = ExternalPackageFunction.key(workspacePath);

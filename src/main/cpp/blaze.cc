@@ -75,6 +75,8 @@
 
 using blaze_util::GetLastErrorString;
 
+extern char** environ;
+
 namespace blaze {
 
 using std::map;
@@ -683,6 +685,8 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
                         BlazeServerStartup **server_startup) {
   vector<string> jvm_args_vector = GetArgumentArray(workspace_layout);
   string argument_string = GetArgumentString(jvm_args_vector);
+  const string binaries_dir =
+      GetEmbeddedBinariesRoot(globals->options->install_base);
   string server_dir =
       blaze_util::JoinPath(globals->options->output_base, "server");
   // Write the cmdline argument string to the server dir. If we get to this
@@ -706,7 +710,7 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 
   return ExecuteDaemon(exe, jvm_args_vector, PrepareEnvironmentForJvm(),
                        globals->jvm_log_file, globals->jvm_log_file_append,
-                       server_dir, server_startup);
+                       binaries_dir, server_dir, server_startup);
 }
 
 // Replace this process with blaze in standalone/batch mode.
@@ -1416,6 +1420,26 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
 static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   map<string, EnvVarValue> result;
 
+  // Make sure all existing environment variables appear as part of the
+  // resulting map unless they are overridden below by UNSET values.
+  //
+  // Even though the map we return is intended to represent a "delta" of
+  // environment variables to modify the current process, we may actually use
+  // such map to configure a process from scratch (via interfaces like execvpe
+  // or posix_spawn), so we need to inherit any untouched variables.
+  for (char** entry = environ; *entry != NULL; entry++) {
+    const std::string var_value = *entry;
+    std::string::size_type equals = var_value.find('=');
+    if (equals == std::string::npos) {
+      // Ignore possibly-bad environment. We don't control what we see in this
+      // global variable, so it could be invalid.
+      continue;
+    }
+    const std::string var = var_value.substr(0, equals);
+    const std::string value = var_value.substr(equals + 1);
+    result[var] = EnvVarValue(EnvVarAction::SET, value);
+  }
+
   if (!blaze::GetEnv("LD_ASSUME_KERNEL").empty()) {
     // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
     // specified, the JVM fails to create threads.  See thread_stack_regtest.
@@ -1522,7 +1546,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // Must be done before command line parsing.
   // ParseOptions already populate --client_env, so detect bash before it
   // happens.
-  DetectBashOrDie();
+  (void)DetectBashAndExportBazelSh();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);

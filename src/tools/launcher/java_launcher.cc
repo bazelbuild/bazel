@@ -43,6 +43,7 @@ static constexpr const char* JAR_BIN_PATH = "jar_bin_path";
 static constexpr const char* CLASSPATH = "classpath";
 static constexpr const char* JAVA_START_CLASS = "java_start_class";
 static constexpr const char* JVM_FLAGS = "jvm_flags";
+static constexpr const char* WINDOWS_STYLE_ESCAPE_JVM_FLAGS = "escape_jvmflags";
 
 // Check if a string start with a certain prefix.
 // If it's true, store the substring without the prefix in value.
@@ -408,10 +409,15 @@ ExitCode JavaBinaryLauncher::Launch() {
     arguments.push_back(arg);
   }
 
+  wstring (*const escape_arg_func)(const wstring&) =
+      this->GetLaunchInfoByKey(WINDOWS_STYLE_ESCAPE_JVM_FLAGS) == L"1"
+          ? WindowsEscapeArg2
+          : WindowsEscapeArg;
+
   vector<wstring> escaped_arguments;
   // Quote the arguments if having spaces
   for (const auto& arg : arguments) {
-    escaped_arguments.push_back(WindowsEscapeArg(arg));
+    escaped_arguments.push_back(escape_arg_func(arg));
   }
 
   ExitCode exit_code = this->LaunchProcess(java_bin, escaped_arguments);

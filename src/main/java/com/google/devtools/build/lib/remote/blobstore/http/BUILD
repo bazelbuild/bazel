@@ -15,6 +15,7 @@ java_library(
         "//third_party:netty_tcnative",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/common/options",

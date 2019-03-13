@@ -374,6 +374,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       StarlarkDefinedConfigTransition starlarkDefinedConfigTransition =
           (StarlarkDefinedConfigTransition) cfg;
       builder.cfg(new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition));
+      builder.setHasStarlarkRuleTransition();
     }
 
     for (Object o : providesArg) {
@@ -668,7 +669,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         throw new EvalException(definitionLocation, "Invalid rule class name '" + ruleClassName
             + "', test rule class names must end with '_test' and other rule classes must not");
       }
-      boolean hasStarlarkDefinedTransition = false;
+      // Thus far, we only know if we have a rule transition. While iterating through attributes,
+      // check if we have an attribute transition.
+      boolean hasStarlarkDefinedTransition = builder.hasStarlarkRuleTransition();
       boolean hasFunctionTransitionWhitelist = false;
       for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
         String name = attribute.getFirst();
@@ -677,11 +680,14 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         Attribute attr = descriptor.build(name);
 
         hasStarlarkDefinedTransition |= attr.hasStarlarkDefinedTransition();
-        if (attr.hasAnalysisTestTransition() && !builder.isAnalysisTest()) {
-          throw new EvalException(
-              location,
-              "Only rule definitions with analysis_test=True may have attributes with "
-                  + "analysis_test_transition transitions");
+        if (attr.hasAnalysisTestTransition()) {
+          if (!builder.isAnalysisTest()) {
+            throw new EvalException(
+                location,
+                "Only rule definitions with analysis_test=True may have attributes with "
+                    + "analysis_test_transition transitions");
+          }
+          builder.setHasAnalysisTestTransition();
         }
         // Check for existence of the function transition whitelist attribute.
         // TODO(b/121385274): remove when we stop whitelisting starlark transitions

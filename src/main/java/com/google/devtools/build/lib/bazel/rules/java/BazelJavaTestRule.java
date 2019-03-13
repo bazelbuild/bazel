@@ -73,7 +73,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
                         "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main")))
         .add(
             attr("$jacocorunner", LABEL)
-                .value(Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:JacocoCoverage")))
+                .value(env.getToolsLabel("//tools/jdk:JacocoCoverageRunner")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
         <p>

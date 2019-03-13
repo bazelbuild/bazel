@@ -210,7 +210,7 @@ _bazel__expand_rules_in_package() {
   if _bazel_completion_use_query; then
     package_name=$(echo "$package_name" | tr -d "'\"") # remove quotes
     result=$(${BAZEL} --output_base=/tmp/${BAZEL}-completion-$USER query \
-                   --keep_going --noshow_progress \
+                   --keep_going --noshow_progress --output=label \
       "kind('$pattern rule', '$package_name:*')" 2>/dev/null |
       cut -f2 -d: | "grep" "^$rule_prefix")
   else

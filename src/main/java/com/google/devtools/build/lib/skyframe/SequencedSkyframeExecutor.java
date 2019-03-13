@@ -138,8 +138,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private int modifiedFiles;
   private int outputDirtyFiles;
   private int modifiedFilesDuringPreviousBuild;
-  private Duration sourceDiffCheckingDuration;
-  private Duration outputTreeDiffCheckingDuration;
+  private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
+  private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
   private SequencedSkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,

@@ -27,8 +27,8 @@ package com.google.devtools.build.skyframe;
  */
 public enum ShareabilityOfValue {
   /**
-   * Indicates that values produced by the function are shareable unless they are an instance of
-   * {@link com.google.devtools.build.lib.skyframe.serialization.UnshareableValue}.
+   * Indicates that values produced by the function are shareable unless they override {@link
+   * SkyValue#dataIsShareable}.
    */
   SOMETIMES,
   /** Indicates that values produced by the function are not shareable. */

@@ -16,12 +16,14 @@ test_suite(
         ":PyInfoTest",
         ":PyLibraryConfiguredTargetTest",
         ":PyProviderUtilsTest",
-        ":PyRuntimeTest",
+        ":PyRuntimeConfiguredTargetTest",
+        ":PyRuntimeInfoTest",
         ":PyStructUtilsTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
         ":PythonSrcsVersionAspectTest",
         ":PythonStarlarkApiTest",
+        ":PythonToolchainTest",
         ":PythonVersionSelectTest",
         ":PythonVersionTest",
     ],
@@ -54,9 +56,10 @@ java_test(
 )
 
 java_test(
-    name = "PyRuntimeTest",
-    srcs = ["PyRuntimeTest.java"],
+    name = "PyRuntimeConfiguredTargetTest",
+    srcs = ["PyRuntimeConfiguredTargetTest.java"],
     deps = [
+        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
@@ -147,12 +150,12 @@ java_test(
     name = "PythonVersionSelectTest",
     srcs = ["PythonVersionSelectTest.java"],
     deps = [
-        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -164,6 +167,19 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PythonToolchainTest",
+    srcs = ["PythonToolchainTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
@@ -214,7 +230,21 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PyRuntimeInfoTest",
+    srcs = ["PyRuntimeInfoTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//third_party:junit4",
         "//third_party:truth",

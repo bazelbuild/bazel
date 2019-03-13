@@ -117,8 +117,8 @@ public class BlazeVersionInfo {
   }
 
   /**
-   * Returns the version, if any, or HEAD. The returned version number is easier to
-   * process than the version returned by #getReleaseName().
+   * Returns the version, if any, or {@code ""}. The returned version number is easier to process
+   * than the version returned by #getReleaseName().
    */
   public String getVersion() {
     String buildLabel = buildData.get(BUILD_LABEL);

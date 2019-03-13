@@ -1,0 +1,105 @@
+## my_module.assert_non_empty
+
+<pre>
+my_module.assert_non_empty(<a href="#my_module.assert_non_empty-some_list">some_list</a>, <a href="#my_module.assert_non_empty-other_list">other_list</a>)
+</pre>
+
+Asserts the two given lists are not empty.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="my_module.assert_non_empty-some_list">
+      <td><code>some_list</code></td>
+      <td>
+        required.
+        <p>
+          The first list
+        </p>
+      </td>
+    </tr>
+    <tr id="my_module.assert_non_empty-other_list">
+      <td><code>other_list</code></td>
+      <td>
+        required.
+        <p>
+          The second list
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+## my_module.min
+
+<pre>
+my_module.min(<a href="#my_module.min-integers">integers</a>)
+</pre>
+
+Returns the minimum of given elements.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="my_module.min-integers">
+      <td><code>integers</code></td>
+      <td>
+        required.
+        <p>
+          A list of integers. Must not be empty.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+## my_module.join_strings
+
+<pre>
+my_module.join_strings(<a href="#my_module.join_strings-strings">strings</a>, <a href="#my_module.join_strings-delimiter">delimiter</a>)
+</pre>
+
+Joins the given strings with a delimiter.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="my_module.join_strings-strings">
+      <td><code>strings</code></td>
+      <td>
+        required.
+        <p>
+          A list of strings to join.
+        </p>
+      </td>
+    </tr>
+    <tr id="my_module.join_strings-delimiter">
+      <td><code>delimiter</code></td>
+      <td>
+        optional. default is <code>", "</code>
+        <p>
+          The delimiter to use
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

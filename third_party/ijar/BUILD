@@ -7,6 +7,8 @@ package(
 
 licenses(["notice"])  # Apache 2.0
 
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
 cc_library(
     name = "zip",
     srcs = [
@@ -96,4 +98,32 @@ filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]),
     visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "ijar_with_deps_archive",
+    extension = "tar.gz",
+    mode = "755",
+    visibility = ["//third_party:__pkg__"],
+    deps = [
+        ":ijar_archive",
+        "//src/main/cpp/util:cpp_util_with_deps_archive",
+    ],
+)
+
+pkg_tar(
+    name = "ijar_archive",
+    srcs = glob(
+        ["**"],
+        exclude = ["BUILD"]
+    ) + [
+        # Also archive the binaries.
+        ":ijar",
+        ":zipper",
+    ],
+    extension = "tar.gz",
+    mode = "755",
+    # Create a new pkg_tar to preserve the directory structure (ijar/).
+    package_dir = "ijar",
+    visibility = ["//visibility:private"],
 )

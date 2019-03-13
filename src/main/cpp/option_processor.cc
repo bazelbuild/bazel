@@ -220,7 +220,7 @@ std::vector<std::string> DedupeBlazercPaths(
 
 std::string FindSystemWideRc(const std::string& system_bazelrc_path) {
   const std::string path =
-      blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path);
+      blaze_util::MakeAbsoluteAndResolveEnvvars(system_bazelrc_path);
   if (blaze_util::CanReadFile(path)) {
     return path;
   }
@@ -325,11 +325,11 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
   // Get the system rc (unless --nosystem_rc).
   if (SearchNullaryOption(cmd_line->startup_args, "system_rc", true)) {
-    // MakeAbsoluteAndResolveWindowsEnvvars will standardize the form of the
+    // MakeAbsoluteAndResolveEnvvars will standardize the form of the
     // provided path. This also means we accept relative paths, which is
     // is convenient for testing.
     const std::string system_rc =
-        blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path_);
+        blaze_util::MakeAbsoluteAndResolveEnvvars(system_bazelrc_path_);
     rc_files.push_back(system_rc);
   }
 

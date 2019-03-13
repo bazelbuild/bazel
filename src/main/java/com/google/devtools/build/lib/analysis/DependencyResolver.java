@@ -378,8 +378,7 @@ public abstract class DependencyResolver {
       Target toTarget = targetMap.get(dep.getLabel());
       if (toTarget == null) {
         // Dependency pointing to non-existent target. This error was reported in getTargets(), so
-        // we can just ignore this dependency. Toolchain dependencies always have toTarget == null
-        // since we do not depend on their package.
+        // we can just ignore this dependency.
         continue;
       }
 
@@ -392,9 +391,7 @@ public abstract class DependencyResolver {
 
       outgoingEdges.put(
           entry.getKey(),
-          transition == NullTransition.INSTANCE
-              ? Dependency.withNullConfiguration(dep.getLabel())
-              : Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
+          Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
     }
     return outgoingEdges;
   }
@@ -471,7 +468,14 @@ public abstract class DependencyResolver {
     Label ruleLabel = rule.getLabel();
     for (AttributeDependencyKind dependencyKind : getAttributes(rule, aspects)) {
       Attribute attribute = dependencyKind.getAttribute();
-      if (!attribute.getCondition().apply(attributeMap)) {
+      if (!attribute.getCondition().apply(attributeMap)
+          // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
+          // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
+          // breaks trimming as shown by
+          // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
+          // because it resolves a dep that trimming (correctly) doesn't account for because it's
+          // part of an unchosen select() branch.
+          || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
         continue;
       }
 
@@ -631,9 +635,9 @@ public abstract class DependencyResolver {
    * Filter the set of aspects that are to be propagated according to the set of advertised
    * providers of the dependency.
    */
-  private AspectCollection filterPropagatingAspects(Iterable<Aspect> aspects, Target toTarget)
+  private AspectCollection filterPropagatingAspects(ImmutableList<Aspect> aspects, Target toTarget)
       throws InconsistentAspectOrderException {
-    if (!(toTarget instanceof Rule)) {
+    if (!(toTarget instanceof Rule) || aspects.isEmpty()) {
       return AspectCollection.EMPTY;
     }
 

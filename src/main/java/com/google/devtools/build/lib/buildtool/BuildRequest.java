@@ -223,7 +223,7 @@ public class BuildRequest implements OptionsProvider {
   }
 
   /** Returns the value of the --keep_going option. */
-  boolean getKeepGoing() {
+  public boolean getKeepGoing() {
     return getOptions(KeepGoingOption.class).keepGoing;
   }
 

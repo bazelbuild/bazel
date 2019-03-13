@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
@@ -274,7 +275,11 @@ public class NotifyingHelper {
     public MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException {
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, dirtyType);
       MarkedDirtyResult result = super.markDirty(dirtyType);
-      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, dirtyType);
+      graphListener.accept(
+          myKey,
+          EventType.MARK_DIRTY,
+          Order.AFTER,
+          MarkDirtyAfterContext.create(dirtyType, result != null));
       return result;
     }
 
@@ -329,6 +334,23 @@ public class NotifyingHelper {
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this).add("delegate", getThinDelegate()).toString();
+    }
+  }
+
+  /**
+   * A pair of {@link ThinNodeEntry.DirtyType} and a bit saying whether the dirtying was successful,
+   * emitted to the graph listener as the context {@link Order#AFTER} a call to {@link
+   * EventType#MARK_DIRTY} a node.
+   */
+  @AutoValue
+  public abstract static class MarkDirtyAfterContext {
+    public abstract ThinNodeEntry.DirtyType dirtyType();
+
+    public abstract boolean actuallyDirtied();
+
+    static MarkDirtyAfterContext create(
+        ThinNodeEntry.DirtyType dirtyType, boolean actuallyDirtied) {
+      return new AutoValue_NotifyingHelper_MarkDirtyAfterContext(dirtyType, actuallyDirtied);
     }
   }
 }

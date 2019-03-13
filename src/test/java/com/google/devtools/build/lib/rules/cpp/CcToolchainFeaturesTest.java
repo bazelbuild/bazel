@@ -1141,7 +1141,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFlagSetWithMissingVariableIsNotExpanded() throws Exception {
+  public void testFlagGroupsWithMissingVariableIsNotExpanded() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
                 ruleContext,
@@ -1149,8 +1149,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
                 "  name: 'a'",
                 "  flag_set {",
                 "     action: 'c++-compile'",
-                "     expand_if_all_available: 'v'",
-                "     flag_group { flag: '%{v}' }",
+                "     flag_group { expand_if_all_available: 'v' flag: '%{v}' }",
                 "  }",
                 "  flag_set {",
                 "     action: 'c++-compile'",
@@ -1164,7 +1163,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOnlyFlagSetsWithAllVariablesPresentAreExpanded() throws Exception {
+  public void testOnlyFlagGroupsWithAllVariablesPresentAreExpanded() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
                 ruleContext,
@@ -1172,14 +1171,15 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
                 "  name: 'a'",
                 "  flag_set {",
                 "     action: 'c++-compile'",
-                "     expand_if_all_available: 'v'",
-                "     flag_group { flag: '%{v}' }",
+                "     flag_group { expand_if_all_available: 'v' flag: '%{v}' }",
                 "  }",
                 "  flag_set {",
                 "     action: 'c++-compile'",
-                "     expand_if_all_available: 'v'",
-                "     expand_if_all_available: 'w'",
-                "     flag_group { flag: '%{v}%{w}' }",
+                "     flag_group {",
+                "       expand_if_all_available: 'v'",
+                "       expand_if_all_available: 'w'",
+                "       flag: '%{v}%{w}'",
+                "     }",
                 "  }",
                 "  flag_set {",
                 "     action: 'c++-compile'",
@@ -1193,7 +1193,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOnlyInnerFlagSetIsIteratedWithSequenceVariable() throws Exception {
+  public void testOnlyInnerFlagGroupIsIteratedWithSequenceVariable() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
                 ruleContext,
@@ -1201,14 +1201,16 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
                 "  name: 'a'",
                 "  flag_set {",
                 "     action: 'c++-compile'",
-                "     expand_if_all_available: 'v'",
-                "     flag_group { iterate_over: 'v' flag: '%{v}' }",
+                "     flag_group { expand_if_all_available: 'v' iterate_over: 'v' flag: '%{v}' }",
                 "  }",
                 "  flag_set {",
                 "     action: 'c++-compile'",
-                "     expand_if_all_available: 'v'",
-                "     expand_if_all_available: 'w'",
-                "     flag_group { iterate_over: 'v' flag: '%{v}%{w}' }",
+                "     flag_group { ",
+                "       iterate_over: 'v'",
+                "       expand_if_all_available: 'v'",
+                "       expand_if_all_available: 'w'",
+                "       flag: '%{v}%{w}'",
+                "     }",
                 "  }",
                 "  flag_set {",
                 "     action: 'c++-compile'",
@@ -1233,14 +1235,16 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
                 "  name: 'a'",
                 "  flag_set {",
                 "     action: 'c++-compile'",
-                "     expand_if_all_available: 'v'",
-                "     flag_group { iterate_over: 'v' flag: '%{v}' }",
+                "     flag_group { expand_if_all_available: 'v' iterate_over: 'v' flag: '%{v}' }",
                 "  }",
                 "  flag_set {",
                 "     action: 'c++-compile'",
-                "     expand_if_all_available: 'v'",
-                "     expand_if_all_available: 'w'",
-                "     flag_group { iterate_over: 'v' flag: '%{v}%{w}' }",
+                "     flag_group { ",
+                "       iterate_over: 'v'",
+                "       expand_if_all_available: 'v'",
+                "       expand_if_all_available: 'w'",
+                "       flag: '%{v}%{w}'",
+                "     }",
                 "  }",
                 "  flag_set {",
                 "     action: 'c++-compile'",

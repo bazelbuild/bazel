@@ -22,7 +22,6 @@ java_test(
     resources = [
         "//tools/build_defs/cc:action_names.bzl",
         "//tools/cpp:cc_toolchain_config_lib.bzl",
-        "//tools/cpp:crosstool_utils",
         "//tools/cpp:lib_cc_configure",
     ],
     tags = ["rules"],
@@ -37,6 +36,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:core-workspace-rules",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",

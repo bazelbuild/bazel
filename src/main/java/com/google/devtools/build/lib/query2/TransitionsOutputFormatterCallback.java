@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -138,8 +140,11 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
         throw new InterruptedException(e.getMessage());
       }
       for (Map.Entry<DependencyKind, Dependency> attributeAndDep : deps.entries()) {
-        if (attributeAndDep.getValue().hasExplicitConfiguration()
-            || attributeAndDep.getValue().getTransition() instanceof NoTransition) {
+        // DependencyResolver should only ever return Dependency instances with transitions and not
+        // with explicit configurations
+        Preconditions.checkState(!attributeAndDep.getValue().hasExplicitConfiguration());
+        if (attributeAndDep.getValue().getTransition() == NoTransition.INSTANCE
+            || attributeAndDep.getValue().getTransition() == NullTransition.INSTANCE) {
           continue;
         }
         Dependency dep = attributeAndDep.getValue();

@@ -296,8 +296,9 @@ public class SkylarkRepositoryContext
       Integer timeout,
       SkylarkDict<String, String> environment,
       boolean quiet,
+      String workingDirectory,
       Location location)
-      throws EvalException, RepositoryFunctionException {
+      throws EvalException, RepositoryFunctionException, InterruptedException {
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExecuteEvent(
             arguments,
@@ -310,9 +311,15 @@ public class SkylarkRepositoryContext
             location);
     env.getListener().post(w);
     createDirectory(outputDirectory);
+
+    Path workingDirectoryPath = outputDirectory;
+    if (workingDirectory != null && !workingDirectory.isEmpty()) {
+      workingDirectoryPath = getPath("execute()", workingDirectory).getPath();
+    }
+    createDirectory(workingDirectoryPath);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
         .addArguments(arguments)
-        .setDirectory(outputDirectory.getPathFile())
+        .setDirectory(workingDirectoryPath.getPathFile())
         .addEnvironmentVariables(environment)
         .setTimeout(Math.round(timeout.longValue() * 1000 * timeoutScaling))
         .setQuiet(quiet)
@@ -399,7 +406,8 @@ public class SkylarkRepositoryContext
               Optional.<String>absent(),
               outputPath.getPath(),
               env.getListener(),
-              osObject.getEnvironmentVariables());
+              osObject.getEnvironmentVariables(),
+              getName());
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
@@ -429,7 +437,17 @@ public class SkylarkRepositoryContext
   public void extract(Object archive, Object output, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     SkylarkPath archivePath = getPath("extract()", archive);
+
+    if (!archivePath.exists()) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              Location.fromFile(archivePath.getPath()),
+              String.format("Archive path '%s' does not exist.", archivePath.toString())),
+          Transience.TRANSIENT);
+    }
+
     SkylarkPath outputPath = getPath("extract()", output);
+    checkInOutputDirectory(outputPath);
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExtractEvent(
@@ -485,7 +503,8 @@ public class SkylarkRepositoryContext
               Optional.of(type),
               outputPath.getPath(),
               env.getListener(),
-              osObject.getEnvironmentVariables());
+              osObject.getEnvironmentVariables(),
+              getName());
     } catch (InterruptedException e) {
       env.getListener().post(w);
       throw new RepositoryFunctionException(

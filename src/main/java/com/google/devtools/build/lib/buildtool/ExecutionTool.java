@@ -163,9 +163,14 @@ public class ExecutionTool {
     // independently from each other, for example, to run genrules locally and Java compile action
     // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
     // context class, but also the mnemonic of the action.
+    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     spawnActionContextMaps =
-        builder.getSpawnActionContextMapsBuilder().build(
-            actionContextProviders, request.getOptions(ExecutionOptions.class).testStrategy);
+        builder
+            .getSpawnActionContextMapsBuilder()
+            .build(
+                actionContextProviders,
+                options.testStrategy,
+                options.incompatibleListBasedExecutionStrategySelection);
   }
 
   Executor getExecutor() throws ExecutorInitException {

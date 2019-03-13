@@ -28,33 +28,86 @@ set -eu
 E_LINKER_COMMAND_NOT_FOUND=12
 E_INTERFACE_BUILDER_NOT_FOUND=13
 
-# Should generate interface library switch (<yes|no>); if the value is "no",
-# following 3 args are ignored (but must be present)
-GENERATE_INTERFACE_LIBRARY="$1"
-# Tool which can generate interface library from dynamic library file
-INTERFACE_LIBRARY_BUILDER="$2"
-# Dynamic library from which we want to generate interface library
-DYNAMIC_LIBRARY="$3"
-# Resulting interface library
-INTERFACE_LIBRARY="$4"
-# The command used to generate the dynamic library
-LINKER_COMMAND="$5"
 
-shift 5
+SUFFIX=".rewritten"
 
-if [ ! -e "$LINKER_COMMAND" ]; then
-  echo "Linker command ($LINKER_COMMAND) not found." 1>&2;
-  exit "$E_LINKER_COMMAND_NOT_FOUND"
-fi
+other_args=""
 
-if [ "no" == "$GENERATE_INTERFACE_LIBRARY" ]; then
-    INTERFACE_GENERATION=:
+if [[ "$#" -eq 1 ]]; then
+  if [[ "$1" != @* ]]; then
+    echo "Parameter file must start with @" 1>&2;
+    exit "$E_LINKER_COMMAND_NOT_FOUND"
+  fi
+
+  filename=$(echo "$1" | cut -c2-)
+  first_five_lines=$(head -n 5 $filename)
+
+  # Should generate interface library switch (<yes|no>); if the value is "no",
+  # following 3 args are ignored (but must be present)
+  GENERATE_INTERFACE_LIBRARY=$(echo "$first_five_lines" | head -n1 | tail -n1)
+  # Tool which can generate interface library from dynamic library file
+  INTERFACE_LIBRARY_BUILDER=$(echo "$first_five_lines" | head -n2 | tail -n1)
+  # Dynamic library from which we want to generate interface library
+  DYNAMIC_LIBRARY=$(echo "$first_five_lines" | head -n3 | tail -n1)
+  # Resulting interface library
+  INTERFACE_LIBRARY=$(echo "$first_five_lines" | head -n4 | tail -n1)
+  # The command used to generate the dynamic library
+  LINKER_COMMAND=$(echo "$first_five_lines" | head -n5 | tail -n1)
+
+  rest_of_lines=$(tail -n +6 $filename)
+  new_param_file="${filename}${SUFFIX}"
+  echo "$rest_of_lines" > $new_param_file
+  other_args="@$new_param_file"
+
+  if [[ ! -e "$LINKER_COMMAND" ]]; then
+    echo "Linker command ($LINKER_COMMAND) not found." 1>&2;
+    exit "$E_LINKER_COMMAND_NOT_FOUND"
+  fi
+
+  if [[ "no" == "$GENERATE_INTERFACE_LIBRARY" ]]; then
+      INTERFACE_GENERATION=:
+  else
+      if [[ ! -e "$INTERFACE_LIBRARY_BUILDER" ]]; then
+        echo "Interface library builder ($INTERFACE_LIBRARY_BUILDER)
+        not found." 1>&2;
+        exit "$E_INTERFACE_BUILDER_NOT_FOUND"
+      fi
+      INTERFACE_GENERATION="${INTERFACE_LIBRARY_BUILDER} ${DYNAMIC_LIBRARY}
+      ${INTERFACE_LIBRARY}"
+  fi
+
+  ${LINKER_COMMAND} "$other_args" && ${INTERFACE_GENERATION}
 else
-    if [ ! -e "$INTERFACE_LIBRARY_BUILDER" ]; then
-      echo "Interface library builder ($INTERFACE_LIBRARY_BUILDER) not found." 1>&2;
-      exit "$E_INTERFACE_BUILDER_NOT_FOUND"
-    fi
-    INTERFACE_GENERATION="${INTERFACE_LIBRARY_BUILDER} ${DYNAMIC_LIBRARY} ${INTERFACE_LIBRARY}"
-fi
+  # TODO(b/113358321): Remove this branch once projects are migrated to not
+  #  splitting the linking command line.
+  # Should generate interface library switch (<yes|no>); if the value is "no",
+  # following 3 args are ignored (but must be present)
+  GENERATE_INTERFACE_LIBRARY="$1"
+  # Tool which can generate interface library from dynamic library file
+  INTERFACE_LIBRARY_BUILDER="$2"
+  # Dynamic library from which we want to generate interface library
+  DYNAMIC_LIBRARY="$3"
+  # Resulting interface library
+  INTERFACE_LIBRARY="$4"
+  # The command used to generate the dynamic library
+  LINKER_COMMAND="$5"
+  shift 5
+  if [[ ! -e "$LINKER_COMMAND" ]]; then
+    echo "Linker command ($LINKER_COMMAND) not found." 1>&2;
+    exit "$E_LINKER_COMMAND_NOT_FOUND"
+  fi
 
-${LINKER_COMMAND} "$@" && ${INTERFACE_GENERATION}
+  if [[ "no" == "$GENERATE_INTERFACE_LIBRARY" ]]; then
+      INTERFACE_GENERATION=:
+  else
+      if [[ ! -e "$INTERFACE_LIBRARY_BUILDER" ]]; then
+        echo "Interface library builder ($INTERFACE_LIBRARY_BUILDER)
+        not found." 1>&2;
+        exit "$E_INTERFACE_BUILDER_NOT_FOUND"
+      fi
+      INTERFACE_GENERATION="${INTERFACE_LIBRARY_BUILDER} ${DYNAMIC_LIBRARY}
+      ${INTERFACE_LIBRARY}"
+  fi
+
+  ${LINKER_COMMAND} "$@" && ${INTERFACE_GENERATION}
+fi

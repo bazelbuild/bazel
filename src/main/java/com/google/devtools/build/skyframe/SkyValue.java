@@ -41,4 +41,13 @@ public interface SkyValue extends Serializable {
   default boolean mustBeReferenceComparedOnRecomputation() {
     return false;
   }
+
+  /**
+   * Returns true for values that can be reused across builds. Some values are inherently "flaky",
+   * like test statuses or stamping information, and in certain circumstances, those values cannot
+   * be shared across builds/servers.
+   */
+  default boolean dataIsShareable() {
+    return true;
+  }
 }

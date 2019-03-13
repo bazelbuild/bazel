@@ -1410,6 +1410,99 @@ EOF
   expect_log '@ext//:foo'
 }
 
+function test_cache_hit_reported() {
+  # Verify that information about a chache hit is reported
+  # if an error happend in that repository. This information
+  # is useful as users sometimes change the URL but do not
+  # update the hash.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir ext-1.1
+  cat > ext-1.1/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  zip ext-1.1.zip ext-1.1/*
+  rm -rf ext-1.1
+  sha256=$(sha256sum ext-1.1.zip | head -c 64)
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-1.1",
+  urls=["file://${WRKDIR}/ext-1.1.zip"],
+  sha256="${sha256}",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:foo"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@"
+)
+EOF
+  # build to fill the cache
+  bazel build //:it || fail "Expected success"
+
+  # go offline and clean everything
+  bazel clean --expunge
+  rm "${WRKDIR}/ext-1.1.zip"
+
+  # We still should be able to build, as the file is in cache
+  bazel build //:it > "${TEST_log}" 2>&1 || fail "Expected success"
+  # As a cache hit is a perfectly normal thing, we don't expect it to be
+  # reported.
+  expect_not_log 'cache hit'
+  expect_not_log "${sha256}"
+  expect_not_log 'file:.*/ext-1.1.zip'
+
+  # Now update ext-1.1 to ext-1.2, while forgetting to update the checksum
+  ed WORKSPACE <<EOI
+%s/ext-1\.1/ext-1\.2/g
+w
+q
+EOI
+  # The build should fail, as the prefix is not found. The available prefix
+  # should be reported as well as the information that the file was taken
+  # from cache.
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Should not succeed" || :
+  expect_log 'ext-1.2.*not found'
+  expect_log 'prefixes.*ext-1.1'
+  expect_log 'cache hit'
+  expect_log "${sha256}"
+  expect_log 'file:.*/ext-1.2.zip'
+
+  # Now consider the case where no prefix is specified (and hence, the
+  # download_and_extract call will succeed), but a patch command has
+  # an assumption on a wrong path. As the fetching of the external
+  # repository will fail, we still expect being hinted at the
+  # cache hit.
+  ed WORKSPACE <<'EOI'
+/strip_prefix
+d
+a
+patch_cmds = ["cp ext-1.2/foo.txt ext-1.2/BUILD ."],
+.
+w
+q
+EOI
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Should not succeed" || :
+  expect_not_log 'prefix'
+  expect_log 'cp ext-1.2/foo.txt ext-1.2/BUILD'
+  expect_log 'cache hit'
+  expect_log "${sha256}"
+  expect_log 'file:.*/ext-1.2.zip'
+}
+
 function test_distdir() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"

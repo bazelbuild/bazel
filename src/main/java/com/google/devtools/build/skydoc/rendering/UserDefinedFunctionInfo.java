@@ -116,28 +116,57 @@ public class UserDefinedFunctionInfo {
     ImmutableList.Builder<FunctionParamInfo> parameterInfos = ImmutableList.builder();
 
     List<String> paramNames = signature.getSignature().getNames();
+    int numMandatoryParams = signature.getSignature().getShape().getMandatoryPositionals();
+
+    int paramIndex;
+    // Mandatory parameters.
     // Mandatory parameters must always come before optional parameters, so this counts
     // down until all mandatory parameters have been exhausted, and then starts filling in
-    // the default parameters accordingly.
-    int numMandatoryParamsLeft =
-        signature.getDefaultValues() != null
-            ? paramNames.size() - signature.getDefaultValues().size()
-            : paramNames.size();
-    int optionalParamIndex = 0;
+    // the optional parameters accordingly.
+    for (paramIndex = 0; paramIndex < numMandatoryParams; paramIndex++) {
+      String paramName = paramNames.get(paramIndex);
+      String paramDoc = paramNameToDocMap.getOrDefault(paramName, "");
+      parameterInfos.add(FunctionParamInfo.forParam(paramName, paramDoc, /*default param*/ null));
+    }
 
-    for (String paramName : paramNames) {
-      Object defaultParamValue = null;
-      String paramDoc = "";
-      if (numMandatoryParamsLeft == 0) {
-        defaultParamValue = signature.getDefaultValues().get(optionalParamIndex);
-        optionalParamIndex++;
-      } else {
-        numMandatoryParamsLeft--;
+    // Parameters with defaults.
+    if (signature.getDefaultValues() != null) {
+      for (Object element : signature.getDefaultValues()) {
+        String paramName = paramNames.get(paramIndex);
+        String paramDoc = "";
+        Object defaultParamValue = element;
+        if (paramNameToDocMap.containsKey(paramName)) {
+          paramDoc = paramNameToDocMap.get(paramName);
+        }
+        parameterInfos.add(FunctionParamInfo.forParam(paramName, paramDoc, defaultParamValue));
+        paramIndex++;
       }
+    }
+
+    // *arg
+    if (signature.getSignature().getShape().hasStarArg()) {
+      String paramName = paramNames.get(paramIndex);
+      String paramDoc = "";
       if (paramNameToDocMap.containsKey(paramName)) {
         paramDoc = paramNameToDocMap.get(paramName);
+      } else if (paramNameToDocMap.containsKey("*" + paramName)) {
+        paramDoc = paramNameToDocMap.get("*" + paramName);
       }
-      parameterInfos.add(new FunctionParamInfo(paramName, paramDoc, defaultParamValue));
+      parameterInfos.add(FunctionParamInfo.forSpecialParam(paramName, paramDoc));
+      paramIndex++;
+    }
+
+    // **kwargs
+    if (signature.getSignature().getShape().hasKwArg()) {
+      String paramName = paramNames.get(paramIndex);
+      String paramDoc = "";
+      if (paramNameToDocMap.containsKey(paramName)) {
+        paramDoc = paramNameToDocMap.get(paramName);
+      } else if (paramNameToDocMap.containsKey("**" + paramName)) {
+        paramDoc = paramNameToDocMap.get("**" + paramName);
+      }
+      parameterInfos.add(FunctionParamInfo.forSpecialParam(paramName, paramDoc));
+      paramIndex++;
     }
     return parameterInfos.build();
   }

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.MoreCollectors;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -48,6 +49,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -235,6 +237,54 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         .getJavaClassJar();
   }
 
+  protected Map<String, String> getBinaryMergeeManifests(ConfiguredTarget target) throws Exception {
+    return getMergeeManifests(target.get(ApkInfo.PROVIDER).getMergedManifest());
+  }
+
+  protected Map<String, String> getLocalTestMergeeManifests(ConfiguredTarget target)
+      throws Exception {
+    return getMergeeManifests(
+        ImmutableList.copyOf(collectRunfiles(target)).stream()
+            .filter(
+                (artifact) ->
+                    artifact.getFilename().equals("AndroidManifest.xml")
+                        && artifact.getOwnerLabel().equals(target.getLabel()))
+            .collect(MoreCollectors.onlyElement()));
+  }
+
+  /** Gets the map of mergee manifests in the order specified on the command line. */
+  protected Map<String, String> getMergeeManifests(Artifact processedManifest) throws Exception {
+    List<String> processingActionArgs = getGeneratingSpawnActionArgs(processedManifest);
+    assertThat(processingActionArgs).contains("--primaryData");
+    String primaryData =
+        processingActionArgs.get(processingActionArgs.indexOf("--primaryData") + 1);
+    String mergedManifestExecPathString = Splitter.on(":").splitToList(primaryData).get(2);
+    SpawnAction processingAction = getGeneratingSpawnAction(processedManifest);
+    Artifact mergedManifest =
+        Iterables.find(
+            processingAction.getInputs(),
+            (artifact) -> artifact.getExecPath().toString().equals(mergedManifestExecPathString));
+    List<String> mergeArgs = getGeneratingSpawnActionArgs(mergedManifest);
+    assertThat(mergeArgs).contains("--mergeeManifests");
+    Map<String, String> splitData =
+        Splitter.on(",")
+            .withKeyValueSeparator(Splitter.onPattern("(?<!\\\\):"))
+            .split(mergeArgs.get(mergeArgs.indexOf("--mergeeManifests") + 1));
+    ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+    for (Map.Entry<String, String> manifestAndLabel : splitData.entrySet()) {
+      results.put(manifestAndLabel.getKey(), manifestAndLabel.getValue().replace("\\:", ":"));
+    }
+    return results.build();
+  }
+
+  /** Gets the processed manifest exported by the given library. */
+  protected Artifact getLibraryManifest(ConfiguredTarget target) throws Exception {
+    if (target.get(AndroidManifestInfo.PROVIDER) != null) {
+      return target.get(AndroidManifestInfo.PROVIDER).getManifest();
+    }
+    return null;
+  }
+
   // Returns an artifact that will be generated when a rule has assets that are processed seperately
   static Artifact getDecoupledAssetArtifact(ConfiguredTarget target) {
     return target.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
@@ -288,7 +338,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return getAndroidSdk().getProguard().getExecutable();
   }
 
-  private AndroidSdkProvider getAndroidSdk() {
+  private AndroidSdkProvider getAndroidSdk() throws Exception {
     Label sdk = targetConfig.getFragment(AndroidConfiguration.class).getSdk();
     return getConfiguredTarget(sdk, targetConfig).get(AndroidSdkProvider.PROVIDER);
   }

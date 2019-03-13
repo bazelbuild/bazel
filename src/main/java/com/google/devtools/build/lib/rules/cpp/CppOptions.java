@@ -360,16 +360,18 @@ public class CppOptions extends FragmentOptions {
   public Label customMalloc;
 
   @Option(
-    name = "legacy_whole_archive",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "When on, use --whole-archive for cc_binary rules that have "
-            + "linkshared=1 and either linkstatic=1 or '-static' in linkopts. "
-            + "This is for backwards compatibility only. "
-            + "A better alternative is to use alwayslink=1 where required."
-  )
+      name = "legacy_whole_archive",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help =
+          "Deprecated, superseded by --incompatible_remove_legacy_whole_archive "
+              + "(see https://github.com/bazelbuild/bazel/issues/7362 for details). "
+              + "When on, use --whole-archive for cc_binary rules that have "
+              + "linkshared=1 and either linkstatic=1 or '-static' in linkopts. "
+              + "This is for backwards compatibility only. "
+              + "A better alternative is to use alwayslink=1 where required.")
   public boolean legacyWholeArchive;
 
   @Option(
@@ -684,6 +686,14 @@ public class CppOptions extends FragmentOptions {
   public boolean useLLVMCoverageMapFormat;
 
   @Option(
+      name = "experimental_disable_cc_context_quote_includes_hook",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
+  public boolean disableCcContextQuoteIncludesHook;
+
+  @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -711,6 +721,20 @@ public class CppOptions extends FragmentOptions {
           "If true, Bazel will not read crosstool flags from legacy crosstool fields "
               + "(see https://github.com/bazelbuild/bazel/issues/6861 for migration instructions).")
   public boolean disableLegacyCrosstoolFields;
+
+  @Option(
+      name = "incompatible_remove_legacy_whole_archive",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will not link library dependencies as whole archive by default "
+              + "(see https://github.com/bazelbuild/bazel/issues/7362 for migration instructions).")
+  public boolean removeLegacyWholeArchive;
 
   @Option(
       name = "incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain",
@@ -883,6 +907,7 @@ public class CppOptions extends FragmentOptions {
     host.disableLegacyCrosstoolFields = disableLegacyCrosstoolFields;
     host.disableCrosstool = disableCrosstool;
     host.enableCcToolchainResolution = enableCcToolchainResolution;
+    host.removeLegacyWholeArchive = removeLegacyWholeArchive;
     host.dontEnableHostNonhost = dontEnableHostNonhost;
     return host;
   }

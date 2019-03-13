@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventservice;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
@@ -29,7 +30,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.ExitFunction;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.AckReceivedCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.EventLoopCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.OpenStreamCommand;
@@ -46,10 +46,12 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Sleeper;
@@ -103,7 +105,7 @@ public final class BuildEventServiceUploader implements Runnable {
   private final BuildEventProtocolOptions buildEventProtocolOptions;
   private final boolean publishLifecycleEvents;
   private final Duration closeTimeout;
-  private final ExitFunction exitFunc;
+  private final BuildEventServiceAbruptExitCallback abruptExitCallback;
   private final Sleeper sleeper;
   private final Clock clock;
   private final ArtifactGroupNamer namer;
@@ -148,27 +150,27 @@ public final class BuildEventServiceUploader implements Runnable {
 
   private StreamContext streamContext;
 
-  BuildEventServiceUploader(
+  private BuildEventServiceUploader(
       BuildEventServiceClient besClient,
       BuildEventArtifactUploader localFileUploader,
       BuildEventServiceProtoUtil besProtoUtil,
       BuildEventProtocolOptions buildEventProtocolOptions,
       boolean publishLifecycleEvents,
       Duration closeTimeout,
-      ExitFunction exitFunc,
+      BuildEventServiceAbruptExitCallback abruptExitCallback,
       Sleeper sleeper,
       Clock clock,
       ArtifactGroupNamer namer,
       EventBus eventBus) {
-    this.besClient = Preconditions.checkNotNull(besClient);
-    this.localFileUploader = Preconditions.checkNotNull(localFileUploader);
-    this.besProtoUtil = Preconditions.checkNotNull(besProtoUtil);
+    this.besClient = besClient;
+    this.localFileUploader = localFileUploader;
+    this.besProtoUtil = besProtoUtil;
     this.buildEventProtocolOptions = buildEventProtocolOptions;
     this.publishLifecycleEvents = publishLifecycleEvents;
-    this.closeTimeout = Preconditions.checkNotNull(closeTimeout);
-    this.exitFunc = Preconditions.checkNotNull(exitFunc);
-    this.sleeper = Preconditions.checkNotNull(sleeper);
-    this.clock = Preconditions.checkNotNull(clock);
+    this.closeTimeout = closeTimeout;
+    this.abruptExitCallback = abruptExitCallback;
+    this.sleeper = sleeper;
+    this.clock = clock;
     this.namer = namer;
     this.eventBus = eventBus;
   }
@@ -251,6 +253,12 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
+  private void logAndExitAbruptly(String message, ExitCode exitCode, Throwable cause) {
+    checkState(exitCode != ExitCode.SUCCESS);
+    logger.info(message);
+    abruptExitCallback.accept(new AbruptExitException(message, exitCode, cause));
+  }
+
   @Override
   public void run() {
     try {
@@ -271,10 +279,6 @@ public final class BuildEventServiceUploader implements Runnable {
           publishLifecycleEvent(besProtoUtil.buildFinished(currentTime(), buildStatus));
         }
       }
-      exitFunc.accept(
-          "The Build Event Protocol upload finished successfully",
-          /*cause=*/ null,
-          ExitCode.SUCCESS);
       synchronized (lock) {
         // Invariant: closeFuture is not null.
         // publishBuildEvents() only terminates successfully after SendLastBuildEventCommand
@@ -288,10 +292,10 @@ public final class BuildEventServiceUploader implements Runnable {
         synchronized (lock) {
           Preconditions.checkState(
               interruptCausedByTimeout, "Unexpected interrupt on BES uploader thread");
-          exitFunc.accept(
+          logAndExitAbruptly(
               "The Build Event Protocol upload timed out",
-              e,
-              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
+              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+              e);
         }
       } finally {
         // TODO(buchgr): Due to b/113035235 exitFunc needs to be called before the close future
@@ -300,24 +304,22 @@ public final class BuildEventServiceUploader implements Runnable {
       }
     } catch (StatusException e) {
       try {
-        String message =
-            "The Build Event Protocol upload failed: " + besClient.userReadableError(e);
-        logger.info(message);
-        ExitCode code =
+        logAndExitAbruptly(
+            "The Build Event Protocol upload failed: " + besClient.userReadableError(e),
             shouldRetryStatus(e.getStatus())
                 ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
-                : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR;
-        exitFunc.accept(message, e, code);
+                : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+            e);
       } finally {
         failCloseFuture(e);
       }
     } catch (LocalFileUploadException e) {
       Throwables.throwIfUnchecked(e.getCause());
       try {
-        String message =
-            "The Build Event Protocol local file upload failed: " + e.getCause().getMessage();
-        logger.info(message);
-        exitFunc.accept(message, e.getCause(), ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
+        logAndExitAbruptly(
+            "The Build Event Protocol local file upload failed: " + e.getCause().getMessage(),
+            ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+            e.getCause());
       } finally {
         failCloseFuture(e.getCause());
       }
@@ -748,6 +750,90 @@ public final class BuildEventServiceUploader implements Runnable {
   private class LocalFileUploadException extends Exception {
     LocalFileUploadException(Throwable cause) {
       super(cause);
+    }
+  }
+
+  static class Builder {
+    private BuildEventServiceClient besClient;
+    private BuildEventArtifactUploader localFileUploader;
+    private BuildEventServiceProtoUtil besProtoUtil;
+    private BuildEventProtocolOptions bepOptions;
+    private boolean publishLifecycleEvents;
+    private Duration closeTimeout;
+    private BuildEventServiceAbruptExitCallback abruptExitCallback;
+    private Sleeper sleeper;
+    private Clock clock;
+    private ArtifactGroupNamer artifactGroupNamer;
+    private EventBus eventBus;
+
+    Builder besClient(BuildEventServiceClient value) {
+      this.besClient = value;
+      return this;
+    }
+
+    Builder localFileUploader(BuildEventArtifactUploader value) {
+      this.localFileUploader = value;
+      return this;
+    }
+
+    Builder besProtoUtil(BuildEventServiceProtoUtil value) {
+      this.besProtoUtil = value;
+      return this;
+    }
+
+    Builder bepOptions(BuildEventProtocolOptions value) {
+      this.bepOptions = value;
+      return this;
+    }
+
+    Builder publishLifecycleEvents(boolean value) {
+      this.publishLifecycleEvents = value;
+      return this;
+    }
+
+    Builder closeTimeout(Duration value) {
+      this.closeTimeout = value;
+      return this;
+    }
+
+    Builder clock(Clock value) {
+      this.clock = value;
+      return this;
+    }
+
+    Builder abruptExitCallback(BuildEventServiceAbruptExitCallback value) {
+      this.abruptExitCallback = value;
+      return this;
+    }
+
+    Builder sleeper(Sleeper value) {
+      this.sleeper = value;
+      return this;
+    }
+
+    Builder artifactGroupNamer(ArtifactGroupNamer value) {
+      this.artifactGroupNamer = value;
+      return this;
+    }
+
+    Builder eventBus(EventBus value) {
+      this.eventBus = value;
+      return this;
+    }
+
+    BuildEventServiceUploader build() {
+      return new BuildEventServiceUploader(
+          checkNotNull(besClient),
+          checkNotNull(localFileUploader),
+          checkNotNull(besProtoUtil),
+          checkNotNull(bepOptions),
+          publishLifecycleEvents,
+          checkNotNull(closeTimeout),
+          checkNotNull(abruptExitCallback),
+          checkNotNull(sleeper),
+          checkNotNull(clock),
+          checkNotNull(artifactGroupNamer),
+          checkNotNull(eventBus));
     }
   }
 }

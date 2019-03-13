@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -837,6 +838,9 @@ public class Package {
     private final List<String> registeredExecutionPlatforms = new ArrayList<>();
     private final List<String> registeredToolchains = new ArrayList<>();
 
+    private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
+        ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
+
     /**
      * True iff the "package" function has already been called in this package.
      */
@@ -1014,6 +1018,15 @@ public class Package {
     public Builder setWorkspaceName(String workspaceName) {
       pkg.workspaceName = workspaceName;
       return this;
+    }
+
+    public Builder setThirdPartyLicenceExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
+      this.thirdPartyLicenceExistencePolicy = policy;
+      return this;
+    }
+
+    public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
+      return thirdPartyLicenceExistencePolicy;
     }
 
     /**

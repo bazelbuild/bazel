@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,6 +35,16 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link AndroidInstrumentationTest}. */
 @RunWith(JUnit4.class)
 public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
+
+  @Before
+  public void setupCcToolchain() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            /* appendToCurrentToolchain=*/ false,
+            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
+  }
 
   @Before
   public void setup() throws Exception {

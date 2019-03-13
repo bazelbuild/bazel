@@ -1317,6 +1317,42 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectParametersDontSupportSelect() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectMismatch = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.string(values=['aaa']) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectMismatch]),",
+        "              'my_attr' : attr.string() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx', my_attr = select({'//conditions:default': 'foo'}))");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (Exception e) {
+      // expect to fail.
+    }
+    assertContainsEvent(
+        "//test:xxx: attribute 'my_attr' has a select() and aspect "
+            + "//test:aspect.bzl%MyAspectMismatch also declares '//test:xxx'. Aspect attributes "
+            + "don't currently support select().");
+  }
+
+  @Test
   public void aspectParametersBadDefault() throws Exception {
     scratch.file(
         "test/aspect.bzl",

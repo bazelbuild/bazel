@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -37,6 +38,9 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
     Artifact interpreter = ruleContext.getPrerequisiteArtifact("interpreter", Mode.TARGET);
     PathFragment interpreterPath =
         PathFragment.create(ruleContext.attributes().get("interpreter_path", Type.STRING));
+    PythonVersion pythonVersion =
+        PythonVersion.parseTargetOrSentinelValue(
+            ruleContext.attributes().get("python_version", Type.STRING));
 
     // Determine whether we're pointing to an in-build target (hermetic) or absolute system path
     // (non-hermetic).
@@ -53,19 +57,26 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("interpreter_path", "must be an absolute path.");
     }
 
+    if (pythonVersion == PythonVersion._INTERNAL_SENTINEL) {
+      // Use the same default as py_binary/py_test would use for their python_version attribute.
+      // (Of course, in our case there's no configuration transition involved.)
+      pythonVersion = ruleContext.getFragment(PythonConfiguration.class).getDefaultPythonVersion();
+    }
+    Preconditions.checkState(pythonVersion.isTargetValue());
+
     if (ruleContext.hasErrors()) {
       return null;
     }
 
-    PyRuntimeProvider provider =
+    PyRuntimeInfo provider =
         hermetic
-            ? PyRuntimeProvider.create(files, interpreter, /*interpreterPath=*/ null)
-            : PyRuntimeProvider.create(/*files=*/ null, /*interpreter=*/ null, interpreterPath);
+            ? PyRuntimeInfo.createForInBuildRuntime(interpreter, files, pythonVersion)
+            : PyRuntimeInfo.createForPlatformRuntime(interpreterPath, pythonVersion);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(files)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(PyRuntimeProvider.class, provider)
+        .addNativeDeclaredProvider(provider)
         .build();
   }
 

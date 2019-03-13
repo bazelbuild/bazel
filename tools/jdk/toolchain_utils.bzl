@@ -34,8 +34,7 @@ def find_java_toolchain(ctx, target):
       A JavaToolchainInfo.
     """
 
-    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        return ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]
+    _ignore = [ctx]
 
     return target[java_common.JavaToolchainInfo]
 
@@ -54,7 +53,6 @@ def find_java_runtime_toolchain(ctx, target):
       A JavaRuntimeInfo.
     """
 
-    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+    _ignore = [ctx]
 
     return target[java_common.JavaRuntimeInfo]

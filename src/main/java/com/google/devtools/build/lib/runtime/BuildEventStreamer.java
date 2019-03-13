@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.devtools.build.lib.events.Event.of;
@@ -27,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -142,13 +142,11 @@ public class BuildEventStreamer implements EventHandler {
   }
 
   /** Creates a new build event streamer. */
-  public BuildEventStreamer(
+  private BuildEventStreamer(
       Collection<BuildEventTransport> transports,
       @Nullable Reporter reporter,
       BuildEventStreamOptions options,
       CountingArtifactGroupNamer artifactGroupNamer) {
-    checkArgument(transports.size() > 0);
-    checkNotNull(options);
     this.transports = transports;
     this.reporter = reporter;
     this.options = options;
@@ -462,6 +460,7 @@ public class BuildEventStreamer implements EventHandler {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void buildEvent(BuildEvent event) {
     if (finalEventsToCome != null) {
       synchronized (this) {
@@ -727,5 +726,41 @@ public class BuildEventStreamer implements EventHandler {
   /** Return true if the test summary contains no actual test runs. */
   private boolean isVacuousTestSummary(BuildEvent event) {
     return event instanceof TestSummary && (((TestSummary) event).totalRuns() == 0);
+  }
+
+  /** A builder for {@link BuildEventStreamer}. */
+  public static class Builder {
+    private Set<BuildEventTransport> buildEventTransports;
+    private Reporter cmdLineReporter;
+    private BuildEventStreamOptions besStreamOptions;
+    private CountingArtifactGroupNamer artifactGroupNamer;
+
+    public Builder buildEventTransports(Set<BuildEventTransport> value) {
+      this.buildEventTransports = value;
+      return this;
+    }
+
+    public Builder cmdLineReporter(Reporter value) {
+      this.cmdLineReporter = value;
+      return this;
+    }
+
+    public Builder besStreamOptions(BuildEventStreamOptions value) {
+      this.besStreamOptions = value;
+      return this;
+    }
+
+    public Builder artifactGroupNamer(CountingArtifactGroupNamer value) {
+      this.artifactGroupNamer = value;
+      return this;
+    }
+
+    public BuildEventStreamer build() {
+      return new BuildEventStreamer(
+          checkNotNull(buildEventTransports),
+          checkNotNull(cmdLineReporter),
+          checkNotNull(besStreamOptions),
+          checkNotNull(artifactGroupNamer));
+    }
   }
 }

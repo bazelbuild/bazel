@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -59,6 +60,7 @@ class MetricsCollector {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void onActionComplete(ActionCompletionEvent event) {
     executedActionCount.incrementAndGet();
   }

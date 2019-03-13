@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
-import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -58,6 +58,18 @@ public class ExecutionOptions extends OptionsBase {
   public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
 
   @Option(
+      name = "incompatible_list_based_execution_strategy_selection",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "See https://github.com/bazelbuild/bazel/issues/7480")
+  public boolean incompatibleListBasedExecutionStrategySelection;
+
+  @Option(
       name = "spawn_strategy",
       defaultValue = "",
       converter = CommaSeparatedNonEmptyOptionListConverter.class,
@@ -73,7 +85,7 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "genrule_strategy",
       defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
+      converter = CommaSeparatedNonEmptyOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

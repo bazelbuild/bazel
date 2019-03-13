@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -136,6 +137,15 @@ public class MobileInstallCommand implements BlazeCommand {
       help = "The aspect to use for mobile-install."
     )
     public String mobileInstallAspect;
+
+    @Option(
+        name = "mobile_install_supported_rules",
+        defaultValue = "",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "The supported rules for mobile-install.")
+    public List<String> mobileInstallSupportedRules;
   }
 
   private static final String SINGLE_TARGET_MESSAGE =
@@ -214,7 +224,12 @@ public class MobileInstallCommand implements BlazeCommand {
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     ConfiguredTarget targetToRun = Iterables.getOnlyElement(targetsBuilt);
-    validateTargetType(env, targetToRun);
+
+    if (!mobileInstallOptions.mobileInstallSupportedRules.isEmpty()) {
+      if (!isTargetSupported(env, targetToRun, mobileInstallOptions.mobileInstallSupportedRules)) {
+        return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
+      }
+    }
 
     List<String> cmdLine = new ArrayList<>();
     // TODO(bazel-team): Get the executable path from the filesToRun provider from the aspect.
@@ -330,20 +345,30 @@ public class MobileInstallCommand implements BlazeCommand {
     }
   }
 
-  private void validateTargetType(CommandEnvironment env, ConfiguredTarget target) {
+  private boolean isTargetSupported(
+      CommandEnvironment env, ConfiguredTarget target, List<String> mobileInstallSupportedRules) {
     while (target instanceof AliasConfiguredTarget) {
       target = ((AliasConfiguredTarget) target).getActual();
     }
-    // This should always be the case, but check to ensure future ConfiguredTarget types won't cause
-    // exceptions
     if (target instanceof AbstractConfiguredTarget) {
       String ruleType = ((AbstractConfiguredTarget) target).getRuleClassString();
-      if (!ruleType.equals("android_binary")) {
-        env.getReporter()
-            .handle(
-                Event.error(
-                    "mobile-install can only be run on android_binary targets. Got: " + ruleType));
-      }
+      return isRuleSupported(env, mobileInstallSupportedRules, ruleType);
+    }
+    return false;
+  }
+
+  private boolean isRuleSupported(
+      CommandEnvironment env, List<String> mobileInstallSupportedRules, String ruleType) {
+    if (!mobileInstallSupportedRules.contains(ruleType)) {
+      env.getReporter()
+          .handle(
+              Event.error(
+                  String.format(
+                      "mobile-install can only be run on %s targets. Got: %s",
+                      mobileInstallSupportedRules, ruleType)));
+      return false;
+    } else {
+      return true;
     }
   }
 }

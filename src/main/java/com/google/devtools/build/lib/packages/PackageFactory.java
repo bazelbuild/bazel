@@ -20,8 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -85,10 +85,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -300,7 +298,7 @@ public final class PackageFactory {
     @Override
     public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
         throws BadGlobException {
-      for (String pattern : Iterables.concat(includes, excludes)) {
+      for (String pattern : includes) {
         @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError = globCache.getGlobUnsortedAsync(pattern, excludeDirs);
       }
@@ -342,7 +340,7 @@ public final class PackageFactory {
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
 
-  private final ThreadPoolExecutor threadPool;
+  private ForkJoinPool executor;
 
   private int maxDirectoriesToEagerlyVisitInGlobbing;
 
@@ -397,16 +395,7 @@ public final class PackageFactory {
     this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
-    threadPool =
-        new ThreadPoolExecutor(
-            100,
-            Integer.MAX_VALUE,
-            15L,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>(),
-            new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").setDaemon(true).build());
-    // Do not consume threads when not in use.
-    threadPool.allowCoreThreadTimeOut(true);
+    setGlobbingThreads(100);
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
     this.packageArguments = createPackageArguments();
     this.nativeModule = newNativeModule();
@@ -425,7 +414,9 @@ public final class PackageFactory {
    * Sets the max number of threads to use for globbing.
    */
   public void setGlobbingThreads(int globbingThreads) {
-    threadPool.setCorePoolSize(globbingThreads);
+    if (executor == null || executor.getParallelism() != globbingThreads) {
+      executor = NamedForkJoinPool.newNamedPool("globbing pool", globbingThreads);
+    }
   }
 
   /**
@@ -745,7 +736,23 @@ public final class PackageFactory {
               String.format("licenses for exported file '%s' declared twice",
                   inputFile.getName()));
         }
-        if (env.getSemantics().checkThirdPartyTargetsHaveLicenses()
+
+        // See if we should check third-party licenses: first checking for any hard-coded policy,
+        // then falling back to user-settable flags.
+        boolean checkLicenses;
+        if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
+            == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
+          checkLicenses = true;
+        } else if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
+            == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
+          checkLicenses = false;
+        } else {
+          checkLicenses =
+              env.getSemantics().checkThirdPartyTargetsHaveLicenses()
+                  && !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
+        }
+
+        if (checkLicenses
             && license == null
             && !pkgBuilder.getDefaultLicense().isSpecified()
             && RuleClass.isThirdPartyPackage(pkgBuilder.getPackageIdentifier())) {
@@ -1425,7 +1432,7 @@ public final class PackageFactory {
             packageId,
             locator,
             syscalls,
-            threadPool,
+            executor,
             maxDirectoriesToEagerlyVisitInGlobbing));
   }
 
@@ -1449,7 +1456,7 @@ public final class PackageFactory {
             packageId,
             locator,
             syscalls,
-            threadPool,
+            executor,
             maxDirectoriesToEagerlyVisitInGlobbing),
         /*sort=*/ false);
   }
@@ -1564,8 +1571,10 @@ public final class PackageFactory {
           "error getting package_name or repository_name functions from the native module",
           exception);
     }
+    if (!pkgEnv.getSemantics().incompatibleDisallowNativeInBuildFile()) {
+      pkgEnv.setup("native", nativeModule);
+    }
     pkgEnv
-        .setup("native", nativeModule)
         .setup("distribs", newDistribsFunction.apply(context))
         .setup("glob", newGlobFunction.apply(context))
         .setup("licenses", newLicensesFunction.apply(context))
@@ -1674,6 +1683,9 @@ public final class PackageFactory {
         pkgBuilder.setContainsErrors();
       }
 
+      pkgBuilder.setThirdPartyLicenceExistencePolicy(
+          ruleClassProvider.getThirdPartyLicenseExistencePolicy());
+
       if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
         GlobPatternExtractor extractor = new GlobPatternExtractor();
         extractor.visit(buildFileAST);
@@ -1732,11 +1744,13 @@ public final class PackageFactory {
           }
           continue;
         }
-        if (arg.getValue() instanceof ListLiteral) {
-          ListLiteral list = (ListLiteral) arg.getValue();
-          for (Expression elem : list.getElements()) {
-            if (elem instanceof StringLiteral) {
-              globStrings.add(((StringLiteral) elem).getValue());
+        if (arg.getIdentifier() == null || arg.getIdentifier().getName().equals("include")) {
+          if (arg.getValue() instanceof ListLiteral) {
+            ListLiteral list = (ListLiteral) arg.getValue();
+            for (Expression elem : list.getElements()) {
+              if (elem instanceof StringLiteral) {
+                globStrings.add(((StringLiteral) elem).getValue());
+              }
             }
           }
         }

@@ -203,10 +203,7 @@ def _serialize_given_rule_import(rule_name, import_attr, name, path, srcpath, at
 jvm_import_external = repository_rule(
     attrs = {
         "rule_name": attr.string(mandatory = True),
-        "licenses": attr.string_list(
-            mandatory = True,
-            allow_empty = False,
-        ),
+        "licenses": attr.string_list(default = ["none"]),
         "artifact_urls": attr.string_list(
             mandatory = True,
             allow_empty = False,

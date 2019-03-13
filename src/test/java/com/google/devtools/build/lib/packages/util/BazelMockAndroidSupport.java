@@ -31,6 +31,6 @@ public class BazelMockAndroidSupport {
                 BazelMockAndroidSupport.class, "MOCK_ANDROID_CROSSTOOL"))
         .setSupportedArchs(ImmutableList.of("x86", "armeabi-v7a"))
         .setSupportsHeaderParsing(false)
-        .write();
+        .write(/* disableCrosstool= */ false);
   }
 }

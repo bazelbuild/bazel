@@ -26,13 +26,13 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -138,7 +139,7 @@ public final class JavaCompileActionBuilder {
   private Artifact nativeHeaderOutput;
   private Artifact gensrcOutputJar;
   private Artifact manifestProtoOutput;
-  private Artifact outputDepsProto;
+  private PathFragment outputDepsProto;
   private Collection<Artifact> additionalOutputs;
   private Artifact metadata;
   private Artifact artifactForExperimentalCoverage;
@@ -160,7 +161,6 @@ public final class JavaCompileActionBuilder {
   private FilesToRunProvider javaBuilder;
   private Artifact langtoolsJar;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private ImmutableList<Artifact> instrumentationJars = ImmutableList.of();
   private PathFragment sourceGenDirectory;
   private PathFragment tempDirectory;
   private PathFragment classDirectory;
@@ -169,7 +169,7 @@ public final class JavaCompileActionBuilder {
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
 
-  public void build(RuleContext ruleContext, JavaSemantics javaSemantics) {
+  public JavaCompileAction build(RuleContext ruleContext, JavaSemantics javaSemantics) {
     // TODO(bazel-team): all the params should be calculated before getting here, and the various
     // aggregation code below should go away.
     ImmutableList<String> internedJcopts =
@@ -197,7 +197,6 @@ public final class JavaCompileActionBuilder {
             metadata,
             gensrcOutputJar,
             manifestProtoOutput,
-            outputDepsProto,
             nativeHeaderOutput)
         .filter(x -> x != null)
         .forEachOrdered(outputs::add);
@@ -217,22 +216,7 @@ public final class JavaCompileActionBuilder {
       executableLine.addPath(javaBuilder.getExecutable().getExecPath());
       runfilesSupplier = javaBuilder.getRunfilesSupplier();
       toolsBuilder.addTransitive(javaBuilder.getFilesToRun());
-    } else if (!instrumentationJars.isEmpty()) {
-      toolsBuilder.add(javaBuilderJar);
-      executableLine
-          .addPath(javaExecutable)
-          .addAll(javacJvmOpts)
-          .addExecPaths(
-              "-cp",
-              VectorArg.join(ruleContext.getConfiguration().getHostPathSeparator())
-                  .each(
-                      ImmutableList.<Artifact>builder()
-                          .addAll(instrumentationJars)
-                          .add(javaBuilderJar)
-                          .build()))
-          .addDynamicString(javaSemantics.getJavaBuilderMainClass());
     } else {
-      // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
       toolsBuilder.add(javaBuilderJar);
       executableLine
           .addPath(javaExecutable)
@@ -240,7 +224,7 @@ public final class JavaCompileActionBuilder {
           .add("-jar")
           .addPath(javaBuilderJar.getExecPath());
     }
-    toolsBuilder.add(langtoolsJar).addTransitive(toolsJars).addAll(instrumentationJars);
+    toolsBuilder.add(langtoolsJar).addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
         ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
@@ -284,6 +268,25 @@ public final class JavaCompileActionBuilder {
       classpathMode = JavaClasspathMode.OFF;
     }
 
+    Artifact outputDepsProto = null;
+    if (this.outputDepsProto != null) {
+      outputDepsProto =
+          ruleContext.getDerivedArtifact(
+              FileSystemUtils.replaceExtension(
+                  this.outputDepsProto.relativeTo(outputJar.getRoot().getExecPath()), ".jdeps"),
+              outputJar.getRoot());
+      outputs.add(outputDepsProto);
+      if (javaConfiguration.inmemoryJdepsFiles()) {
+        executionInfo =
+            ImmutableMap.<String, String>builderWithExpectedSize(this.executionInfo.size() + 1)
+                .putAll(this.executionInfo)
+                .put(
+                    ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+                    outputDepsProto.getExecPathString())
+                .build();
+      }
+    }
+
     NestedSet<Artifact> tools = toolsBuilder.build();
     mandatoryInputs.addTransitive(tools);
     JavaCompileAction javaCompileAction =
@@ -308,6 +311,7 @@ public final class JavaCompileActionBuilder {
             /* outputDepsProto= */ outputDepsProto,
             /* classpathMode= */ classpathMode);
     ruleContext.getAnalysisEnvironment().registerAction(javaCompileAction);
+    return javaCompileAction;
   }
 
   private CustomCommandLine buildParamFileContents(
@@ -327,7 +331,7 @@ public final class JavaCompileActionBuilder {
     if (compressJar) {
       result.add("--compress_jar");
     }
-    result.addExecPath("--output_deps_proto", outputDepsProto);
+    result.addPath("--output_deps_proto", outputDepsProto);
     result.addExecPaths("--extclasspath", extdirInputs);
     result.addExecPaths("--bootclasspath", bootclasspathEntries);
     result.addExecPaths("--sourcepath", sourcePathEntries);
@@ -406,7 +410,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setOutputDepsProto(Artifact outputDepsProto) {
+  public JavaCompileActionBuilder setOutputDepsProto(PathFragment outputDepsProto) {
     this.outputDepsProto = outputDepsProto;
     return this;
   }
@@ -544,11 +548,6 @@ public final class JavaCompileActionBuilder {
 
   public JavaCompileActionBuilder setJavaBuilder(FilesToRunProvider javaBuilder) {
     this.javaBuilder = javaBuilder;
-    return this;
-  }
-
-  public JavaCompileActionBuilder setInstrumentationJars(Iterable<Artifact> instrumentationJars) {
-    this.instrumentationJars = ImmutableList.copyOf(instrumentationJars);
     return this;
   }
 

@@ -20,7 +20,7 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.common.truth.IterableSubject;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo.DuplicateConstraintException;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
@@ -265,7 +265,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatformsValue_equalsAndHashCode()
-      throws DuplicateConstraintException {
+      throws ConstraintCollection.DuplicateConstraintException {
     ConfiguredTargetKey executionPlatformKey1 =
         ConfiguredTargetKey.of(makeLabel("//test:executionPlatform1"), null, false);
     ConfiguredTargetKey executionPlatformKey2 =

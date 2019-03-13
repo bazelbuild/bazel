@@ -83,7 +83,7 @@ public final class LtoBackendArtifacts {
       FdoContext fdoContext,
       boolean usePic,
       boolean generateDwo,
-      List<String> commandLine) {
+      List<String> userCompileFlags) {
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
 
@@ -112,7 +112,7 @@ public final class LtoBackendArtifacts {
         generateDwo,
         configuration,
         linkArtifactFactory,
-        commandLine,
+        userCompileFlags,
         allBitCodeFiles);
   }
 
@@ -129,7 +129,7 @@ public final class LtoBackendArtifacts {
       FdoContext fdoContext,
       boolean usePic,
       boolean generateDwo,
-      List<String> commandLine) {
+      List<String> userCompileFlags) {
     this.bitcodeFile = bitcodeFile;
 
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
@@ -148,7 +148,7 @@ public final class LtoBackendArtifacts {
         generateDwo,
         configuration,
         linkArtifactFactory,
-        commandLine,
+        userCompileFlags,
         null);
   }
 
@@ -185,7 +185,7 @@ public final class LtoBackendArtifacts {
       boolean generateDwo,
       BuildConfiguration configuration,
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
-      List<String> commandLine,
+      List<String> userCompileFlags,
       Map<PathFragment, Artifact> bitcodeFiles) {
     LtoBackendAction.Builder builder = new LtoBackendAction.Builder();
 
@@ -241,12 +241,19 @@ public final class LtoBackendArtifacts {
               FileSystemUtils.replaceExtension(objectFile.getRootRelativePath(), ".dwo"));
       builder.addOutput(dwoFile);
       buildVariablesBuilder.addStringVariable(
-          "per_object_debug_info_file", dwoFile.getExecPathString());
+          CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
+          dwoFile.getExecPathString());
+      buildVariablesBuilder.addStringVariable(
+          CompileBuildVariables.IS_USING_FISSION.getVariableName(), "");
     }
+    buildVariablesBuilder.addStringSequenceVariable(
+        CompileBuildVariables.LEGACY_COMPILE_FLAGS.getVariableName(),
+        ccToolchain.getLegacyCompileOptions());
+    buildVariablesBuilder.addStringSequenceVariable(
+        CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
-    List<String> execArgs = new ArrayList<>(commandLine);
+    List<String> execArgs = new ArrayList<>();
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
-    // Feature options should go after --copt for consistency with compile actions.
     execArgs.addAll(
         featureConfiguration.getCommandLine(CppActionNames.LTO_BACKEND, buildVariables));
     // If this is a PIC compile (set based on the CppConfiguration), the PIC

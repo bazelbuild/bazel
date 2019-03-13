@@ -18,12 +18,11 @@ import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.protobuf.TextFormat;
-import java.io.IOException;
-import java.util.function.Consumer;
+import java.io.BufferedOutputStream;
 
 /**
  * A simple {@link BuildEventTransport} that writes the text representation of the protocol-buffer
@@ -33,13 +32,12 @@ import java.util.function.Consumer;
  */
 public final class TextFormatFileTransport extends FileTransport {
   public TextFormatFileTransport(
-      String path,
+      BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      Consumer<AbruptExitException> exitFunc,
-      ArtifactGroupNamer namer)
-      throws IOException {
-    super(path, options, uploader, exitFunc, namer);
+      BuildEventServiceAbruptExitCallback abruptExitCallback,
+      ArtifactGroupNamer namer) {
+    super(outputStream, options, uploader, abruptExitCallback, namer);
   }
 
   @Override

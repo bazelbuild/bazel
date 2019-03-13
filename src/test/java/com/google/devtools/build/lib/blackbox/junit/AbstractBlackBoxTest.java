@@ -51,6 +51,7 @@ public abstract class AbstractBlackBoxTest {
           new JavaToolsSetup(),
           new CxxToolsSetup(),
           new CrossToolsSetup());
+  protected static final String WORKSPACE = "WORKSPACE";
 
   @Rule public TestName testName = new TestName();
 

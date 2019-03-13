@@ -1406,7 +1406,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "foo",
         "bad",
         "in config_setting rule //foo:bad: "
-            + "Duplicate constraint_values detected: "
+            + "Duplicate constraint values detected: "
             + "constraint_setting //foo:notable_building has "
             + "[//foo:empire_state, //foo:space_needle], "
             + "constraint_setting //foo:museum has "

@@ -83,6 +83,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
     }
     HttpRequest request = buildRequest((UploadCommand) msg);
     addCredentialHeaders(request, ((UploadCommand) msg).uri());
+    addUserAgentHeader(request);
     HttpChunkedInput body = buildBody((UploadCommand) msg);
     ctx.writeAndFlush(request)
         .addListener(

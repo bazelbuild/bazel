@@ -101,7 +101,7 @@ public class CppCompileAction extends AbstractAction
   private final Iterable<Artifact> inputsForInvalidation;
 
   /**
-   * The set of input files that in addition to {@link CcCompilationContext#declaredIncludeSrcs}
+   * The set of input files that in addition to {@link CcCompilationContext#getDeclaredIncludeSrcs}
    * need to be added to the set of input artifacts of the action if we don't use input discovery.
    * They may be pruned after execution. See {@link #findUsedHeaders} for more details.
    */
@@ -220,7 +220,7 @@ public class CppCompileAction extends AbstractAction
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> additionalPrunableHeaders,
       Artifact outputFile,
-      DotdFile dotdFile,
+      Artifact dotdFile,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
@@ -237,12 +237,7 @@ public class CppCompileAction extends AbstractAction
     super(
         owner,
         createInputsBuilder(mandatoryInputs, inputsForInvalidation).build(),
-        CollectionUtils.asSetWithoutNulls(
-            outputFile,
-            dotdFile == null ? null : dotdFile.artifact(),
-            gcnoFile,
-            dwoFile,
-            ltoIndexingFile),
+        CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
         env);
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
     this.outputFile = Preconditions.checkNotNull(outputFile);
@@ -254,10 +249,6 @@ public class CppCompileAction extends AbstractAction
     this.mandatoryInputs = mandatoryInputs;
     this.inputsForInvalidation = inputsForInvalidation;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
-    // inputsKnown begins as the logical negation of shouldScanIncludes.
-    // When scanning includes, the inputs begin as not known, and become
-    // known after inclusion scanning. When *not* scanning includes,
-    // the inputs are as declared, hence known, and remain so.
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
     this.usePic = usePic;
@@ -302,6 +293,10 @@ public class CppCompileAction extends AbstractAction
 
   private boolean shouldScanDotdFiles() {
     return !useHeaderModules || !shouldPruneModules;
+  }
+
+  public boolean useInMemoryDotdFiles() {
+    return cppConfiguration.getInmemoryDotdFiles();
   }
 
   @Override
@@ -570,11 +565,8 @@ public class CppCompileAction extends AbstractAction
     return discoveredModules;
   }
 
-  /**
-   * Returns the path where gcc should put the discovered dependency
-   * information.
-   */
-  public DotdFile getDotdFile() {
+  /** Returns the path where the compiler should put the discovered dependency information. */
+  public Artifact getDotdFile() {
     return compileCommandLine.getDotdFile();
   }
 
@@ -1290,24 +1282,11 @@ public class CppCompileAction extends AbstractAction
       ActionExecutionContext actionExecutionContext, Path execRoot, Reply reply)
       throws ActionExecutionException {
     try {
-      DotdFile dotdFile = getDotdFile();
-      Preconditions.checkNotNull(dotdFile);
       DependencySet depSet = new DependencySet(execRoot);
-      // artifact() is null if we are using in-memory .d files. We also want to prepare for the
-      // case where we expected an in-memory .d file, but we did not get an appropriate response.
-      // Perhaps we produced the file locally.
-      if (dotdFile.artifact() != null || reply == null) {
-        Path dotdPath;
-        if (dotdFile.artifact() != null) {
-          dotdPath = dotdFile.getPath(actionExecutionContext);
-        } else {
-          dotdPath = execRoot.getRelative(dotdFile.getSafeExecPath());
-        }
-        return depSet.read(dotdPath);
-      } else {
-        // This is an in-memory .d file.
+      if (reply != null && cppConfiguration.getInmemoryDotdFiles()) {
         return depSet.process(reply.getContents());
       }
+      return depSet.read(actionExecutionContext.getInputPath(getDotdFile()));
     } catch (IOException e) {
       // Some kind of IO or parse exception--wrap & rethrow it to stop the build.
       throw new ActionExecutionException("error while parsing .d file", e, this, false);
@@ -1502,47 +1481,5 @@ public class CppCompileAction extends AbstractAction
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(mandatoryInputs)
         .addAll(inputsForInvalidation);
-  }
-
-  /**
-   * A reference to a .d file. There are two modes:
-   *
-   * <ol>
-   *   <li>an Artifact that represents a real on-disk file
-   *   <li>just an execPath that refers to a virtual .d file that is not written to disk
-   * </ol>
-   */
-  public static class DotdFile {
-    private final Artifact artifact;
-    private final PathFragment execPath;
-
-    public DotdFile(Artifact artifact) {
-      this.artifact = artifact;
-      this.execPath = null;
-    }
-
-    public DotdFile(PathFragment execPath) {
-      this.artifact = null;
-      this.execPath = execPath;
-    }
-
-    /**
-     * @return the Artifact or null
-     */
-    public Artifact artifact() {
-      return artifact;
-    }
-
-    /**
-     * @return Gets the execPath regardless of whether this is a real Artifact
-     */
-    public PathFragment getSafeExecPath() {
-      return execPath == null ? artifact.getExecPath() : execPath;
-    }
-
-    /** @return the on-disk location of the .d file or null */
-    public Path getPath(ActionExecutionContext actionExecutionContext) {
-      return actionExecutionContext.getInputPath(artifact);
-    }
   }
 }

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -60,7 +58,6 @@ public final class JavaCompilationHelper {
   private final RuleContext ruleContext;
   private final JavaToolchainProvider javaToolchain;
   private final JavaRuntimeInfo hostJavabase;
-  private final Iterable<Artifact> jacocoInstrumentation;
   private final JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
   private final ImmutableList<String> customJavacOpts;
@@ -83,13 +80,11 @@ public final class JavaCompilationHelper {
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
       JavaRuntimeInfo hostJavabase,
-      Iterable<Artifact> jacocoInstrumentation,
       ImmutableList<Artifact> additionalJavaBaseInputs,
       boolean disableStrictDeps) {
     this.ruleContext = ruleContext;
     this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
     this.hostJavabase = Preconditions.checkNotNull(hostJavabase);
-    this.jacocoInstrumentation = jacocoInstrumentation;
     this.attributes = attributes;
     this.customJavacOpts = javacOpts;
     this.customJavacJvmOpts = javaToolchain.getJvmOptions();
@@ -107,8 +102,7 @@ public final class JavaCompilationHelper {
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
-      JavaRuntimeInfo hostJavabase,
-      Iterable<Artifact> jacocoInstrumentation) {
+      JavaRuntimeInfo hostJavabase) {
     this(
         ruleContext,
         semantics,
@@ -116,7 +110,6 @@ public final class JavaCompilationHelper {
         attributes,
         javaToolchainProvider,
         hostJavabase,
-        jacocoInstrumentation,
         ImmutableList.<Artifact>of(),
         false);
   }
@@ -132,8 +125,7 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         JavaToolchainProvider.from(ruleContext),
-        JavaRuntimeInfo.forHost(ruleContext),
-        getInstrumentationJars(ruleContext));
+        JavaRuntimeInfo.forHost(ruleContext));
   }
 
   public JavaCompilationHelper(
@@ -150,7 +142,6 @@ public final class JavaCompilationHelper {
         attributes,
         JavaToolchainProvider.from(ruleContext),
         JavaRuntimeInfo.forHost(ruleContext),
-        getInstrumentationJars(ruleContext),
         additionalJavaBaseInputs,
         disableStrictDeps);
   }
@@ -191,17 +182,14 @@ public final class JavaCompilationHelper {
    * @param manifestProtoOutput the output artifact for the manifest proto emitted from JavaBuilder
    * @param gensrcOutputJar the generated sources jar Artifact to create with the Action (null if no
    *     sources will be generated).
-   * @param outputDepsProto the compiler-generated jdeps file to create with the Action (null if not
-   *     requested)
    * @param instrumentationMetadataJar metadata file (null if no instrumentation is needed or if
    *     --experimental_java_coverage is true).
    * @param nativeHeaderOutput an archive of generated native header files.
    */
-  public void createCompileAction(
+  public JavaCompileAction createCompileAction(
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcOutputJar,
-      @Nullable Artifact outputDepsProto,
       @Nullable Artifact instrumentationMetadataJar,
       @Nullable Artifact nativeHeaderOutput) {
 
@@ -242,10 +230,9 @@ public final class JavaCompilationHelper {
     builder.setNativeHeaderOutput(nativeHeaderOutput);
     builder.setManifestProtoOutput(manifestProtoOutput);
     builder.setGensrcOutputJar(gensrcOutputJar);
-    builder.setOutputDepsProto(outputDepsProto);
+    builder.setOutputDepsProto(getOutputDepsProtoPath(outputJar));
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
     builder.setMetadata(instrumentationMetadataJar);
-    builder.setInstrumentationJars(jacocoInstrumentation);
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.setSourceJars(attributes.getSourceJars());
     builder.setJavacOpts(customJavacOpts);
@@ -264,7 +251,7 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? ruleContext.getLabel() : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
-    builder.build(ruleContext, semantics);
+    return builder.build(ruleContext, semantics);
   }
 
   private ImmutableMap<String, String> getExecutionInfo() {
@@ -327,22 +314,19 @@ public final class JavaCompilationHelper {
    * @param outputJar the class jar Artifact to create with the Action
    * @param manifestProtoOutput the output artifact for the manifest proto emitted from JavaBuilder
    * @param gensrcJar the generated sources jar Artifact to create with the Action
-   * @param outputDepsProto the compiler-generated jdeps file to create with the Action
    * @param javaArtifactsBuilder the build to store the instrumentation metadata in
    * @param nativeHeaderOutput an archive of generated native header files.
    */
-  public void createCompileActionWithInstrumentation(
+  public JavaCompileAction createCompileActionWithInstrumentation(
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcJar,
-      @Nullable Artifact outputDepsProto,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       @Nullable Artifact nativeHeaderOutput) {
-    createCompileAction(
+    return createCompileAction(
         outputJar,
         manifestProtoOutput,
         gensrcJar,
-        outputDepsProto,
         createInstrumentationMetadata(outputJar, javaArtifactsBuilder),
         nativeHeaderOutput);
   }
@@ -568,26 +552,17 @@ public final class JavaCompilationHelper {
   }
 
   /**
-   * Creates the jdeps file artifact if needed. Returns null if the target can't emit dependency
+   * Creates the jdeps file path if needed. Returns null if the target can't emit dependency
    * information (i.e there is no compilation step, the target acts as an alias).
    *
    * @param outputJar output jar artifact used to derive the name
    * @return the jdeps file artifact or null if the target can't generate such a file
    */
-  public Artifact createOutputDepsProtoArtifact(
-      Artifact outputJar, JavaCompilationArtifacts.Builder builder) {
+  public PathFragment getOutputDepsProtoPath(Artifact outputJar) {
     if (!generatesOutputDeps()) {
       return null;
     }
-
-    Artifact outputDepsProtoArtifact =
-        getRuleContext()
-            .getDerivedArtifact(
-                FileSystemUtils.replaceExtension(outputJar.getRootRelativePath(), ".jdeps"),
-                outputJar.getRoot());
-
-    builder.setCompileTimeDependencies(outputDepsProtoArtifact);
-    return outputDepsProtoArtifact;
+    return FileSystemUtils.replaceExtension(outputJar.getExecPath(), ".jdeps");
   }
 
   /**
@@ -846,17 +821,6 @@ public final class JavaCompilationHelper {
   private ImmutableList<Artifact> getTranslations() {
     translationsFrozen = true;
     return ImmutableList.copyOf(translations);
-  }
-
-  /** Returns the instrumentation jar in the given semantics. */
-  public static Iterable<Artifact> getInstrumentationJars(RuleContext ruleContext) {
-    TransitiveInfoCollection instrumentationTarget =
-        ruleContext.getPrerequisite("$jacoco_instrumentation", Mode.HOST);
-    if (instrumentationTarget == null) {
-      return ImmutableList.<Artifact>of();
-    }
-    return FileType.filter(
-        instrumentationTarget.getProvider(FileProvider.class).getFilesToBuild(), JavaSemantics.JAR);
   }
 
   /**

@@ -142,7 +142,18 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   public void createFileSystem() throws IOException {
     sandboxScratchDir.createDirectory();
 
-    reconfigure(inputs, writableDirs, outputs);
+    List<Mapping> mappings = createMappings(innerExecRoot, sandboxScratchDir, inputs);
+
+    Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
+    for (PathFragment output : outputs.files()) {
+      dirsToCreate.add(output.getParentDirectory());
+    }
+    dirsToCreate.addAll(outputs.dirs());
+    for (PathFragment dir : dirsToCreate) {
+      sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
+    }
+
+    process.map(mappings);
   }
 
   @Override
@@ -181,20 +192,25 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /**
    * Creates a new set of mappings to sandbox the given inputs.
    *
-   * @param inputs collection of paths to expose within the sandbox as read-only mappings, given
-   *     as a map of mapped path to target path. The target path may be null, in which case an empty
+   * @param root unique working directory for the command, specified as an absolute path anchored at
+   *     the sandboxfs' mount point
+   * @param scratchDir writable used as the target for all writable mappings
+   * @param inputs collection of paths to expose within the sandbox as read-only mappings, given as
+   *     a map of mapped path to target path. The target path may be null, in which case an empty
    *     read-only file is mapped.
    * @return the collection of mappings to use for reconfiguration
    * @throws IOException if we fail to resolve symbolic links
    */
-  private List<Mapping> createMappings(Map<PathFragment, Path> inputs) throws IOException {
+  private static List<Mapping> createMappings(
+      PathFragment root, Path scratchDir, Map<PathFragment, Path> inputs) throws IOException {
     List<Mapping> mappings = new ArrayList<>();
 
-    mappings.add(Mapping.builder()
-        .setPath(innerExecRoot)
-        .setTarget(sandboxScratchDir.asFragment())
-        .setWritable(true)
-        .build());
+    mappings.add(
+        Mapping.builder()
+            .setPath(root)
+            .setTarget(scratchDir.asFragment())
+            .setWritable(true)
+            .build());
 
     // Path to the empty file used as the target of mappings that don't provide one.  This is
     // lazily created and initialized only when we need such a mapping.  It's safe to share the
@@ -208,48 +224,21 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       PathFragment target;
       if (entry.getValue() == null) {
         if (emptyFile == null) {
-          emptyFile = sandboxScratchDir.getRelative("empty");
+          emptyFile = scratchDir.getRelative("empty");
           FileSystemUtils.createEmptyFile(emptyFile);
         }
         target = emptyFile.asFragment();
       } else {
         target = entry.getValue().asFragment();
       }
-      mappings.add(Mapping.builder()
-          .setPath(innerExecRoot.getRelative(entry.getKey()))
-          .setTarget(target)
-          .setWritable(false)
-          .build());
+      mappings.add(
+          Mapping.builder()
+              .setPath(root.getRelative(entry.getKey()))
+              .setTarget(target)
+              .setWritable(false)
+              .build());
     }
 
     return mappings;
-  }
-
-  /**
-   * Pushes a new configuration to sandboxfs and waits for acceptance.
-   *
-   * @param inputs collection of paths to expose within the sandbox as read-only mappings, given as
-   *     a map of mapped path to target path. The target path may be null, in which case an empty
-   *     file is mapped.
-   * @param writableDirs collection of writable paths to create within the read-write portion of the
-   *     sandbox
-   * @param outputs collection of outputs to expect within the read-write portion of the sandbox
-   * @throws IOException if reconfiguration fails
-   */
-  private void reconfigure(
-      Map<PathFragment, Path> inputs, Set<PathFragment> writableDirs, SandboxOutputs outputs)
-      throws IOException {
-    List<Mapping> mappings = createMappings(inputs);
-
-    Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
-    for (PathFragment output : outputs.files()) {
-      dirsToCreate.add(output.getParentDirectory());
-    }
-    dirsToCreate.addAll(outputs.dirs());
-    for (PathFragment dir : dirsToCreate) {
-      sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
-    }
-
-    process.map(mappings);
   }
 }

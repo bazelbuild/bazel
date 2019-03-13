@@ -13,36 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
-import com.google.devtools.build.lib.actions.ExecException;
-import java.io.IOException;
 
-/**
- * Context for actions that do include scanning.
- */
+/** Context for actions that do include scanning. */
 public interface CppIncludeExtractionContext extends ActionContext {
-  /**
-   * Extracts the set of include files from a source file.
-   *
-   * @param actionExecutionContext the execution context
-   * @param resourceOwner the resource owner
-   * @param primaryInput the source file to be include scanned
-   * @param primaryOutput the output file where the results should be put
-   */
-  void extractIncludes(
-      ActionExecutionContext actionExecutionContext,
-      Action resourceOwner,
-      Artifact primaryInput,
-      Artifact primaryOutput,
-      Artifact grepIncludes)
-      throws IOException, ExecException, InterruptedException;
-
-  /**
-   * Returns the artifact resolver.
-   */
+  /** Returns the artifact resolver. */
   ArtifactResolver getArtifactResolver();
 }

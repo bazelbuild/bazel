@@ -23,8 +23,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,12 +37,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   public void testSkylarkCallables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            CrosstoolConfig.CToolchain.newBuilder()
-                .setBuiltinSysroot("/usr/local/custom-sysroot")
-                .addToolPath(ToolPath.newBuilder().setName("ar").setPath("foo/ar/path").build())
-                .buildPartial());
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
     useConfiguration("--cpu=k8", "--force_pic");
     scratch.file(
         "test/rule.bzl",
@@ -72,11 +66,11 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
     ConfiguredTarget ct = getConfiguredTarget("//test:target");
 
-    assertThat((String) ct.get("ar_executable")).endsWith("foo/ar/path");
+    assertThat((String) ct.get("ar_executable")).endsWith("/usr/bin/mock-ar");
 
     assertThat(ct.get("cpu")).isEqualTo("k8");
 
-    assertThat(ct.get("sysroot")).isEqualTo("/usr/local/custom-sysroot");
+    assertThat(ct.get("sysroot")).isEqualTo("/usr/grte/v1");
 
     @SuppressWarnings("unchecked")
     boolean usePicForDynamicLibraries = (boolean) ct.get("use_pic_for_dynamic_libraries");

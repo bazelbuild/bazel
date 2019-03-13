@@ -584,21 +584,14 @@ sh_binary(
     srcs = ['2to3.sh']
 )
 
-config_setting(
-    name = "py3_mode",
-    values = {"force_python": "PY3"},
-)
-
-# TODO(brandjon): Replace dependency on "force_python" with a 2-valued feature
-# flag instead
 py_runtime(
     name = "default_runtime",
     files = select({
-        "py3_mode": [":${PYTHON3_FILENAME}"],
+        "@bazel_tools//tools/python:PY3": [":${PYTHON3_FILENAME}"],
         "//conditions:default": [":${PYTHON2_FILENAME}"],
     }),
     interpreter = select({
-        "py3_mode": ":${PYTHON3_FILENAME}",
+        "@bazel_tools//tools/python:PY3": ":${PYTHON3_FILENAME}",
         "//conditions:default": ":${PYTHON2_FILENAME}",
     }),
 )

@@ -221,7 +221,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     boolean allowNonDefaultPositionalNext = true;
 
     for (Param parameter : annotation.parameters()) {
-      if ((!parameter.positional()) && (!isParamNamed(parameter))) {
+      if (!parameter.positional() && !parameter.named()) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format("Parameter '%s' must be either positional or named",

@@ -119,8 +119,27 @@ public class PythonOptions extends FragmentOptions {
           "If true, `py_binary` and `py_test` targets that do not set their `python_version` (or "
               + "`default_python_version`) attribute will default to PY3 rather than to PY2. It is "
               + "an error to set this flag without also enabling "
-              + "`--incompatible_allow_python_version_transitions`.")
+              + "`--incompatible_allow_python_version_transitions`. If you set this flag it is "
+              + "also recommended to set `--incompatible_py2_outputs_are_suffixed`.")
   public boolean incompatiblePy3IsDefault;
+
+  @Option(
+      name = "incompatible_py2_outputs_are_suffixed",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, targets built in the Python 2 configuration will appear under an output root "
+              + "that includes the suffix '-py2', while targets built for Python 3 will appear "
+              + "in a root with no Python-related suffix. This means that the `bazel-bin` "
+              + "convenience symlink will point to Python 3 targets rather than Python 2. "
+              + "If you enable this option it is also recommended to enable "
+              + "`--incompatible_py3_is_default`.")
+  public boolean incompatiblePy2OutputsAreSuffixed;
 
   /**
    * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
@@ -209,6 +228,18 @@ public class PythonOptions extends FragmentOptions {
               + "provider. Use PyInfo instead. Under this flag, passing the legacy provider to a "
               + "Python target will be an error.")
   public boolean incompatibleDisallowLegacyPyProvider;
+
+  @Option(
+      // TODO(brandjon): Rename to --incompatible_use_python_toolchains when ready to make available
+      name = "experimental_use_python_toolchains",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set to true, executable native Python rules will use the Python runtime specified by "
+              + "the Python toolchain, rather than the runtime given by legacy flags like "
+              + "--python_top.")
+  public boolean incompatibleUsePythonToolchains;
 
   @Option(
       name = "experimental_build_transitive_python_runfiles",
@@ -336,8 +367,10 @@ public class PythonOptions extends FragmentOptions {
         (hostForcePython != null) ? hostForcePython : getDefaultPythonVersion();
     hostPythonOptions.setPythonVersion(hostVersion);
     hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
+    hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;
     hostPythonOptions.buildPythonZip = buildPythonZip;
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
+    hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
     return hostPythonOptions;
   }
 }

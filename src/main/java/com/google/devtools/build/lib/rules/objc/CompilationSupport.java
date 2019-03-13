@@ -343,7 +343,8 @@ public class CompilationSupport {
             .setPropagateModuleMapToCompileAction(false)
             .addVariableExtension(extension)
             .setPurpose(purpose)
-            .addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext))
+            .addQuoteIncludeDirs(
+                ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
 
     if (pchHdr != null) {
@@ -454,7 +455,8 @@ public class CompilationSupport {
             nonObjcArcCompilationInfo.getCcCompilationContext()));
     ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
-    ccCompilationContextBuilder.addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext));
+    ccCompilationContextBuilder.addQuoteIncludeDirs(
+        ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()));
 
     CcCompilationOutputs precompiledFilesObjects =
         new CcCompilationOutputs.Builder()
@@ -1095,9 +1097,13 @@ public class CompilationSupport {
   }
 
   private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
-    return Iterables.contains(extraLinkArgs, "-dynamiclib")
-        ? StrippingType.DYNAMIC_LIB
-        : StrippingType.DEFAULT;
+    if (Iterables.contains(extraLinkArgs, "-dynamiclib")) {
+      return StrippingType.DYNAMIC_LIB;
+    }
+    if (Iterables.contains(extraLinkArgs, "-kext")) {
+      return StrippingType.KERNEL_EXTENSION;
+    }
+    return StrippingType.DEFAULT;
   }
 
   /**
@@ -1553,7 +1559,9 @@ public class CompilationSupport {
 
   /** Signals if stripping should include options for dynamic libraries. */
   private enum StrippingType {
-    DEFAULT, DYNAMIC_LIB
+    DEFAULT,
+    DYNAMIC_LIB,
+    KERNEL_EXTENSION
   }
 
   /**
@@ -1566,11 +1574,19 @@ public class CompilationSupport {
       // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
       // to strip off all symbols in XCTest bundle.
       stripArgs = ImmutableList.of("-S");
-    } else if (strippingType == StrippingType.DYNAMIC_LIB) {
-      // For dynamic libs must pass "-x" to strip only local symbols.
-      stripArgs = ImmutableList.of("-x");
     } else {
-      stripArgs = ImmutableList.<String>of();
+      switch (strippingType) {
+        case DYNAMIC_LIB:
+        case KERNEL_EXTENSION:
+          // For dylibs and kexts, must strip only local symbols.
+          stripArgs = ImmutableList.of("-x");
+          break;
+        case DEFAULT:
+          stripArgs = ImmutableList.<String>of();
+          break;
+        default:
+          throw new IllegalArgumentException("Unsupported stripping type " + strippingType);
+      }
     }
 
     Artifact strippedBinary = intermediateArtifacts.strippedSingleArchitectureBinary();

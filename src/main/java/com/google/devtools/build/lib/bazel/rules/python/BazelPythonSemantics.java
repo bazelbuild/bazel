@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
-import com.google.devtools.build.lib.rules.python.PyRuntimeProvider;
+import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Functionality specific to the Python rules in Bazel.
@@ -73,12 +74,13 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public void collectRunfilesForBinary(
       RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo) {
-    addRuntime(ruleContext, builder);
+    addRuntime(ruleContext, common, builder);
   }
 
   @Override
-  public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder) {
-    addRuntime(ruleContext, builder);
+  public void collectDefaultRunfilesForBinary(
+      RuleContext ruleContext, PyCommon common, Runfiles.Builder builder) {
+    addRuntime(ruleContext, common, builder);
   }
 
   @Override
@@ -136,7 +138,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
     Artifact executable = common.getExecutable();
     BazelPythonConfiguration config = ruleContext.getFragment(BazelPythonConfiguration.class);
-    String pythonBinary = getPythonBinary(ruleContext, config);
+    String pythonBinary = getPythonBinary(ruleContext, common, config);
 
     if (!ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       Artifact stubOutput = executable;
@@ -313,10 +315,25 @@ public class BazelPythonSemantics implements PythonSemantics {
             .build(ruleContext));
   }
 
-  private static void addRuntime(RuleContext ruleContext, Runfiles.Builder builder) {
-    PyRuntimeProvider provider =
-        ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeProvider.class);
-    if (provider != null && provider.isHermetic()) {
+  /**
+   * Returns the Python runtime to use, either from the toolchain or the legacy flag-based
+   * mechanism.
+   *
+   * <p>Can only be called for an executable Python rule.
+   *
+   * <p>Returns {@code null} if there's a problem retrieving the runtime.
+   */
+  @Nullable
+  private static PyRuntimeInfo getRuntime(RuleContext ruleContext, PyCommon common) {
+    return common.shouldGetRuntimeFromToolchain()
+        ? common.getRuntimeFromToolchain()
+        : ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeInfo.PROVIDER);
+  }
+
+  private static void addRuntime(
+      RuleContext ruleContext, PyCommon common, Runfiles.Builder builder) {
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
+    if (provider != null && provider.isInBuild()) {
       builder.addArtifact(provider.getInterpreter());
       // WARNING: we are adding the all Python runtime files here,
       // and it would fail if the filenames of them contain spaces.
@@ -329,17 +346,12 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static String getPythonBinary(
-      RuleContext ruleContext,
-      BazelPythonConfiguration config) {
-
+      RuleContext ruleContext, PyCommon common, BazelPythonConfiguration config) {
     String pythonBinary;
-
-    PyRuntimeProvider provider =
-        ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeProvider.class);
-
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
     if (provider != null) {
       // make use of py_runtime defined by --python_top
-      if (!provider.isHermetic()) {
+      if (!provider.isInBuild()) {
         // absolute Python path in py_runtime
         pythonBinary = provider.getInterpreterPath().getPathString();
       } else {

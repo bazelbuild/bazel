@@ -182,6 +182,14 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   }
 
   /**
+   * Returns true if this rule has at least one attribute with an analysis test transition. (A
+   * starlark-defined transition using analysis_test_transition()).
+   */
+  public boolean hasAnalysisTestTransition() {
+    return ruleClass.hasAnalysisTestTransition();
+  }
+
+  /**
    * Returns true iff there were errors while constructing this rule, such as
    * attributes with missing values or values of the wrong type.
    */

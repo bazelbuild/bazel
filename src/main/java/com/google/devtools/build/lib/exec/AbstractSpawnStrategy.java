@@ -20,18 +20,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
+import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
@@ -74,6 +76,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
   public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return exec(spawn, actionExecutionContext, null);
+  }
+
+  @Override
+  public boolean canExec(Spawn spawn) {
+    return spawnRunner.canExec(spawn);
   }
 
   @Override
@@ -181,17 +188,22 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     }
 
     @Override
-    public void prefetchInputs() throws IOException {
+    public void prefetchInputs() throws IOException, InterruptedException {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         actionExecutionContext
             .getActionInputPrefetcher()
-            .prefetchFiles(getInputMapping(true).values());
+            .prefetchFiles(getInputMapping(true).values(), getMetadataProvider());
       }
     }
 
     @Override
     public MetadataProvider getMetadataProvider() {
       return actionExecutionContext.getMetadataProvider();
+    }
+
+    @Override
+    public MetadataHandler getMetadataInjector() {
+      return actionExecutionContext.getMetadataHandler();
     }
 
     @Override
@@ -262,10 +274,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       switch (state) {
         case EXECUTING:
         case CHECKING_CACHE:
-          eventHandler.post(ActionStatusMessage.runningStrategy(action, name));
+          eventHandler.post(new RunningActionEvent(action, name));
           break;
         case SCHEDULING:
-          eventHandler.post(ActionStatusMessage.schedulingStrategy(action));
+          eventHandler.post(new SchedulingActionEvent(action, name));
           break;
         default:
           break;

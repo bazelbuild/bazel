@@ -341,13 +341,21 @@ public final class TargetPatternValue implements SkyValue {
     public ImmutableSet<PathFragment> getAllBlacklistedSubdirectoriesToExclude(
         InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
         throws InterruptedException {
+      return getAllBlacklistedSubdirectoriesToExclude(parsedPattern, blacklistedPackagePrefixes);
+    }
+
+    public static ImmutableSet<PathFragment> getAllBlacklistedSubdirectoriesToExclude(
+        TargetPattern pattern,
+        InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
+        throws InterruptedException {
       ImmutableSet.Builder<PathFragment> blacklistedPathsBuilder = ImmutableSet.builder();
-      if (parsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
+      if (pattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
         for (PathFragment blacklistedPackagePrefix : blacklistedPackagePrefixes.get()) {
-          PackageIdentifier pkgIdForBlacklistedDirectorPrefix = PackageIdentifier.create(
-              parsedPattern.getDirectoryForTargetsUnderDirectory().getRepository(),
-              blacklistedPackagePrefix);
-          if (parsedPattern.containsAllTransitiveSubdirectoriesForTBD(
+          PackageIdentifier pkgIdForBlacklistedDirectorPrefix =
+              PackageIdentifier.create(
+                  pattern.getDirectoryForTargetsUnderDirectory().getRepository(),
+                  blacklistedPackagePrefix);
+          if (pattern.containsAllTransitiveSubdirectoriesForTBD(
               pkgIdForBlacklistedDirectorPrefix)) {
             blacklistedPathsBuilder.add(blacklistedPackagePrefix);
           }

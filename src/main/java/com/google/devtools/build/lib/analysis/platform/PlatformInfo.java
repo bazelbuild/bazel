@@ -14,16 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import static com.google.common.collect.ImmutableListMultimap.flatteningToImmutableListMultimap;
-import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
-import static java.util.stream.Collectors.joining;
-
-import com.google.common.base.Functions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -35,10 +27,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -115,9 +103,9 @@ public class PlatformInfo extends NativeInfo
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
   public static class Builder {
 
-    private PlatformInfo parent = null;
+    @Nullable private PlatformInfo parent = null;
     private Label label;
-    private final List<ConstraintValueInfo> constraints = new ArrayList<>();
+    private final ConstraintCollection.Builder constraints = ConstraintCollection.builder();
     private String remoteExecutionProperties = null;
     private Location location = Location.BUILTIN;
 
@@ -129,8 +117,13 @@ public class PlatformInfo extends NativeInfo
      * @param parent the platform that is the parent of this platform
      * @return the {@link Builder} instance for method chaining
      */
-    public Builder setParent(PlatformInfo parent) {
+    public Builder setParent(@Nullable PlatformInfo parent) {
       this.parent = parent;
+      if (parent == null) {
+        this.constraints.parent(null);
+      } else {
+        this.constraints.parent(parent.constraints);
+      }
       return this;
     }
 
@@ -152,7 +145,7 @@ public class PlatformInfo extends NativeInfo
      * @return the {@link Builder} instance for method chaining
      */
     public Builder addConstraint(ConstraintValueInfo constraint) {
-      this.constraints.add(constraint);
+      this.constraints.addConstraints(constraint);
       return this;
     }
 
@@ -163,10 +156,7 @@ public class PlatformInfo extends NativeInfo
      * @return the {@link Builder} instance for method chaining
      */
     public Builder addConstraints(Iterable<ConstraintValueInfo> constraints) {
-      for (ConstraintValueInfo constraint : constraints) {
-        this.addConstraint(constraint);
-      }
-
+      this.constraints.addConstraints(constraints);
       return this;
     }
 
@@ -221,26 +211,10 @@ public class PlatformInfo extends NativeInfo
      *     constraint setting
      */
     public PlatformInfo build() throws DuplicateConstraintException {
-      // Validate that there are no collisions in the directly set constraint values.
-      ImmutableList<ConstraintValueInfo> validatedConstraints = validateConstraints(constraints);
-
-      // Merge parent constraints and the validated constraints to a single set and create a
-      // collection.
-      ConstraintCollection platformConstraints =
-          new ConstraintCollection(parentConstraints(), validatedConstraints);
-
       // Merge the remote execution properties.
       String remoteExecutionProperties =
           mergeRemoteExecutionProperties(parent, this.remoteExecutionProperties);
-      return new PlatformInfo(label, platformConstraints, remoteExecutionProperties, location);
-    }
-
-    @Nullable
-    private ConstraintCollection parentConstraints() {
-      if (parent == null) {
-        return null;
-      }
-      return parent.constraints();
+      return new PlatformInfo(label, constraints.build(), remoteExecutionProperties, location);
     }
 
     private static String mergeRemoteExecutionProperties(
@@ -256,31 +230,6 @@ public class PlatformInfo extends NativeInfo
 
       return StringUtilities.replaceAllLiteral(
           remoteExecutionProperties, PARENT_REMOTE_EXECUTION_KEY, parentRemoteExecutionProperties);
-    }
-
-    public static ImmutableList<ConstraintValueInfo> validateConstraints(
-        Iterable<ConstraintValueInfo> constraintValues) throws DuplicateConstraintException {
-
-      // Collect the constraints by the settings.
-      ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo> constraints =
-          Streams.stream(constraintValues)
-              .collect(
-                  toImmutableListMultimap(ConstraintValueInfo::constraint, Functions.identity()));
-
-      // Find settings with duplicate values.
-      ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicates =
-          constraints
-              .asMap()
-              .entrySet()
-              .stream()
-              .filter(e -> e.getValue().size() > 1)
-              .collect(
-                  flatteningToImmutableListMultimap(Map.Entry::getKey, e -> e.getValue().stream()));
-
-      if (!duplicates.isEmpty()) {
-        throw new DuplicateConstraintException(duplicates);
-      }
-      return ImmutableList.copyOf(constraints.values());
     }
   }
 
@@ -298,47 +247,5 @@ public class PlatformInfo extends NativeInfo
   @Override
   public int hashCode() {
     return Objects.hash(label, constraints, remoteExecutionProperties);
-  }
-
-  /**
-   * Exception class used when more than one {@link ConstraintValueInfo} for the same {@link
-   * ConstraintSettingInfo} is added to a {@link Builder}.
-   */
-  public static class DuplicateConstraintException extends Exception {
-    private final ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo>
-        duplicateConstraints;
-
-    DuplicateConstraintException(
-        ListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicateConstraints) {
-      super(formatError(duplicateConstraints));
-      this.duplicateConstraints = ImmutableListMultimap.copyOf(duplicateConstraints);
-    }
-
-    public ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo>
-        duplicateConstraints() {
-      return duplicateConstraints;
-    }
-
-    public static String formatError(
-        ListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicateConstraints) {
-      return String.format(
-          "Duplicate constraint_values detected: %s",
-          duplicateConstraints.asMap().entrySet().stream()
-              .map(DuplicateConstraintException::describeSingleDuplicateConstraintSetting)
-              .collect(joining(", ")));
-    }
-
-    private static String describeSingleDuplicateConstraintSetting(
-        Map.Entry<ConstraintSettingInfo, Collection<ConstraintValueInfo>> duplicate) {
-      return String.format(
-          "constraint_setting %s has [%s]",
-          duplicate.getKey().label(),
-          duplicate
-              .getValue()
-              .stream()
-              .map(ConstraintValueInfo::label)
-              .map(Label::toString)
-              .collect(joining(", ")));
-    }
   }
 }

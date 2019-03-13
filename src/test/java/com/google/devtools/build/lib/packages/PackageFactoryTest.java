@@ -241,6 +241,14 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testPackageConstantIsForbidden() throws Exception {
+    events.setFailFast(false);
+    Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
+    packages.createPackage("pina", RootedPath.toRootedPath(root, buildFile));
+    events.assertContainsError("The value 'PACKAGE_NAME' has been removed");
+  }
+
+  @Test
   public void testPackageNameFunction() throws Exception {
     Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=package_name() + '-colada')");
 
@@ -250,6 +258,19 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.getRule("pina-colada")).isNotNull();
     assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameAs(1);
+  }
+
+  @Test
+  public void testPackageConstantInExternalRepositoryIsForbidden() throws Exception {
+    events.setFailFast(false);
+    Path buildFile =
+        scratch.file(
+            "/external/a/b/BUILD", "genrule(name='c', srcs=[], outs=['ao'], cmd=REPOSITORY_NAME)");
+    packages.createPackage(
+        PackageIdentifier.create("@a", PathFragment.create("b")),
+        RootedPath.toRootedPath(root, buildFile),
+        events.reporter());
+    events.assertContainsError("The value 'REPOSITORY_NAME' has been removed");
   }
 
   @Test
@@ -373,29 +394,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             + "declaration with one of the following types: "
             + "notice, reciprocal, permissive, restricted, unencumbered, by_exception_only");
     assertThat(pkg.containsErrors()).isTrue();
-  }
-
-  @Test
-  public void testThirdPartyNoLicenseChecking() throws Exception {
-    Path buildFile =
-        scratch.file("/third_party/foo/BUILD", "# line 1", "cc_library(name='bar')", "# line 3");
-    Package pkg =
-        packages.createPackage(
-            "third_party/foo",
-            RootedPath.toRootedPath(root, buildFile),
-            "--nocheck_third_party_targets_have_licenses");
-    assertThat(pkg.containsErrors()).isFalse();
-  }
-
-  @Test
-  public void testThirdPartyExportsFileNoLicenseChecking() throws Exception {
-    Path buildFile = scratch.file("/third_party/foo/BUILD", "exports_files(['bar'])");
-    Package pkg =
-        packages.createPackage(
-            "third_party/foo",
-            RootedPath.toRootedPath(root, buildFile),
-            "--nocheck_third_party_targets_have_licenses");
-    assertThat(pkg.containsErrors()).isFalse();
   }
 
   @Test
@@ -849,6 +847,29 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testNativeModuleIsAvailable() throws Exception {
+    Path buildFile = scratch.file("/pkg/BUILD", "native.cc_library(name='bar')");
+    Package pkg =
+        packages.createPackage(
+            "pkg",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disallow_native_in_build_file=false");
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  @Test
+  public void testNativeModuleIsDisabled() throws Exception {
+    events.setFailFast(false);
+    Path buildFile = scratch.file("/pkg/BUILD", "native.cc_library(name='bar')");
+    Package pkg =
+        packages.createPackage(
+            "pkg",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disallow_native_in_build_file=true");
+    assertThat(pkg.containsErrors()).isTrue();
+  }
+
+  @Test
   public void testPackageGroupSpecMinimal() throws Exception {
     expectEvalSuccess("package_group(name='skin', packages=[])");
   }
@@ -1250,7 +1271,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "other_variable = glob(include = ['a'], exclude = ['b'])",
             "third_variable = glob(['c'], exclude_directories = 0)"));
     assertThat(globPatternExtractor.getExcludeDirectoriesPatterns())
-        .containsExactly("ab", "a", "b", "**/*");
+        .containsExactly("ab", "a", "**/*");
     assertThat(globPatternExtractor.getIncludeDirectoriesPatterns()).containsExactly("c");
   }
 }

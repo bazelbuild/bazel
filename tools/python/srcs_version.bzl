@@ -125,9 +125,9 @@ def _has_version_requirement(target, version):
         _PY3: "has_py3_only_sources",
     }[version]
 
-    if not hasattr(target, "py"):
+    if not PyInfo in target:
         return False
-    field_value = getattr(target.py, field, False)
+    field_value = getattr(target[PyInfo], field, False)
     if not type(field_value) == "bool":
         fail("Invalid type for provider field '%s': %r" % (field, field_value))
     return field_value

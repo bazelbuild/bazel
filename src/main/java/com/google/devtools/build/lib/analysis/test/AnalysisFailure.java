@@ -47,4 +47,9 @@ public class AnalysisFailure implements AnalysisFailureApi {
   public void repr(SkylarkPrinter printer) {
     printer.append("<AnalyisFailure object>");
   }
+
+  @Override
+  public String toString() {
+    return "AnalysisFailure(" + label + ", " + message + ")";
+  }
 }

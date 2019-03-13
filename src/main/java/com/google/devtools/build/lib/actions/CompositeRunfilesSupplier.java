@@ -18,38 +18,59 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 
 /** A {@link RunfilesSupplier} implementation for composing multiple instances. */
-// TODO(michajlo): Move creation to factory constructor and optimize structure of the returned
-// supplier, ie: [] -> EmptyRunfilesSupplier, [singleSupplier] -> supplier,
-// [Empty, single] -> single, and so on.
 @AutoCodec
 public class CompositeRunfilesSupplier implements RunfilesSupplier {
 
   private final ImmutableList<RunfilesSupplier> suppliers;
 
-  /** Create an instance with {@code first} taking precedence over {@code second}. */
-  public CompositeRunfilesSupplier(RunfilesSupplier first, RunfilesSupplier second) {
-    this(ImmutableList.of(first, second));
+  /**
+   * Create a composite {@link RunfilesSupplier} from a collection of suppliers. Suppliers earlier
+   * in the collection take precedence over later suppliers.
+   */
+  public static RunfilesSupplier fromSuppliers(Collection<RunfilesSupplier> suppliers) {
+    ImmutableList<RunfilesSupplier> finalSuppliers =
+        suppliers.stream()
+            .filter((s) -> s != EmptyRunfilesSupplier.INSTANCE)
+            .collect(ImmutableList.toImmutableList());
+    if (finalSuppliers.isEmpty()) {
+      return EmptyRunfilesSupplier.INSTANCE;
+    }
+    if (finalSuppliers.size() == 1) {
+      return finalSuppliers.get(0);
+    }
+    return new CompositeRunfilesSupplier(finalSuppliers);
+  }
+
+  /**
+   * Convenience method for creating a composite {@link RunfilesSupplier} from two other suppliers.
+   */
+  public static RunfilesSupplier of(RunfilesSupplier supplier1, RunfilesSupplier supplier2) {
+    return fromSuppliers(ImmutableList.of(supplier1, supplier2));
   }
 
   /**
    * Create an instance combining all of {@code suppliers}, with earlier elements taking precedence.
    */
   @AutoCodec.Instantiator
-  public CompositeRunfilesSupplier(Iterable<RunfilesSupplier> suppliers) {
-    this.suppliers = ImmutableList.copyOf(suppliers);
+  @AutoCodec.VisibleForSerialization
+  CompositeRunfilesSupplier(ImmutableList<RunfilesSupplier> suppliers) {
+    this.suppliers = suppliers;
   }
 
   @Override
-  public Iterable<Artifact> getArtifacts() {
-    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
+  public NestedSet<Artifact> getArtifacts() {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     for (RunfilesSupplier supplier : suppliers) {
-      result.addAll(supplier.getArtifacts());
+      result.addTransitive(supplier.getArtifacts());
     }
     return result.build();
   }

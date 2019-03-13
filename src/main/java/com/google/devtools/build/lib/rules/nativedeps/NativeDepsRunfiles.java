@@ -14,13 +14,9 @@
 
 package com.google.devtools.build.lib.rules.nativedeps;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
-import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -31,17 +27,13 @@ import javax.annotation.Nullable;
 @Immutable @ThreadSafe
 public class NativeDepsRunfiles {
   /** An object that represents no native deps. */
-  public static final NativeDepsRunfiles EMPTY = new NativeDepsRunfiles(null, null);
+  public static final NativeDepsRunfiles EMPTY = new NativeDepsRunfiles(null);
 
   @Nullable
   private final Artifact library;
 
-  @Nullable
-  private final List<Artifact> runtimeSymlinks;
-
-  public NativeDepsRunfiles(@Nullable Artifact library, @Nullable List<Artifact> runtimeSymlinks) {
+  public NativeDepsRunfiles(@Nullable Artifact library) {
     this.library = library;
-    this.runtimeSymlinks = runtimeSymlinks == null ? null : ImmutableList.copyOf(runtimeSymlinks);
   }
 
   /**
@@ -51,14 +43,5 @@ public class NativeDepsRunfiles {
   @Nullable
   public Artifact getLibrary() {
     return library;
-  }
-
-  /**
-   * Returns the symlinks to the dynamic C++ runtime libraries needed by this library and findable
-   * via this library's RPATH, may be null.
-   */
-  @Nullable
-  public List<Artifact> getRuntimeSymlinks() {
-    return runtimeSymlinks;
   }
 }

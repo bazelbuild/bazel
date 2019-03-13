@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -98,33 +99,9 @@ public final class GlobFunction implements SkyFunction {
 
     boolean globMatchesBareFile = patternTail == null;
 
-    // "**" also matches an empty segment, so try the case where it is not present.
-    if ("**".equals(patternHead)) {
-      if (globMatchesBareFile) {
-        // Recursive globs aren't supposed to match the package's directory.
-        if (!glob.excludeDirs() && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
-          matches.add(globSubdir);
-        }
-      } else {
-        SkyKey globKey =
-            GlobValue.internalKey(
-                glob.getPackageId(),
-                glob.getPackageRoot(),
-                globSubdir,
-                patternTail,
-                glob.excludeDirs());
-        GlobValue globValue = (GlobValue) env.getValue(globKey);
-        if (globValue == null) {
-          return null;
-        }
-        matches.addTransitive(globValue.getMatches());
-      }
-    }
-
     PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
     RootedPath dirRootedPath = RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment);
     if (alwaysUseDirListing || containsGlobs(patternHead)) {
-      String subdirPattern = "**".equals(patternHead) ? glob.getPattern() : patternTail;
       // Pattern contains globs, so a directory listing is required.
       //
       // Note that we have good reason to believe the directory exists: if this is the
@@ -132,13 +109,51 @@ public final class GlobFunction implements SkyFunction {
       // existence; if this is a lower-level directory in the package, then we got here from
       // previous directory listings. Filesystem operations concurrent with build could mean the
       // directory no longer exists, but DirectoryListingFunction handles that gracefully.
-      DirectoryListingValue listingValue = (DirectoryListingValue)
-          env.getValue(DirectoryListingValue.key(dirRootedPath));
-      if (listingValue == null) {
-        return null;
+      SkyKey directoryListingKey = DirectoryListingValue.key(dirRootedPath);
+      DirectoryListingValue listingValue = null;
+
+      boolean patternHeadIsStarStar = "**".equals(patternHead);
+      if (patternHeadIsStarStar) {
+        // "**" also matches an empty segment, so try the case where it is not present.
+        if (globMatchesBareFile) {
+          // Recursive globs aren't supposed to match the package's directory.
+          if (!glob.excludeDirs() && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
+            matches.add(globSubdir);
+          }
+        } else {
+          // Optimize away a Skyframe restart by requesting the DirectoryListingValue dep and
+          // recursive GlobValue dep in a single batch.
+
+          SkyKey keyForRecursiveGlobInCurrentDirectory =
+              GlobValue.internalKey(
+                  glob.getPackageId(),
+                  glob.getPackageRoot(),
+                  globSubdir,
+                  patternTail,
+                  glob.excludeDirs());
+          Map<SkyKey, SkyValue> listingAndRecursiveGlobMap =
+              env.getValues(
+                  ImmutableList.of(keyForRecursiveGlobInCurrentDirectory, directoryListingKey));
+          if (env.valuesMissing()) {
+            return null;
+          }
+          GlobValue globValue =
+              (GlobValue) listingAndRecursiveGlobMap.get(keyForRecursiveGlobInCurrentDirectory);
+          matches.addTransitive(globValue.getMatches());
+          listingValue =
+              (DirectoryListingValue) listingAndRecursiveGlobMap.get(directoryListingKey);
+        }
       }
 
-      // In order to batch Skyframe requests, we do three passes over the directory:
+      if (listingValue == null) {
+        listingValue = (DirectoryListingValue) env.getValue(directoryListingKey);
+        if (listingValue == null) {
+          return null;
+        }
+      }
+
+      // Now that we have the directory listing, we do three passes over it so as to maximize
+      // skyframe batching:
       // (1) Process every dirent, keeping track of values we need to request if the dirent cannot
       //     be processed with current information (symlink targets and subdirectory globs/package
       //     lookups for some subdirectories).
@@ -149,6 +164,7 @@ public final class GlobFunction implements SkyFunction {
       Map<SkyKey, Dirent> symlinkFileMap = Maps.newHashMapWithExpectedSize(direntsSize);
       Map<SkyKey, Dirent> subdirMap = Maps.newHashMapWithExpectedSize(direntsSize);
       Map<Dirent, Object> sortedResultMap = Maps.newTreeMap();
+      String subdirPattern = patternHeadIsStarStar ? glob.getPattern() : patternTail;
       // First pass: do normal files and collect SkyKeys to request for subdirectories and symlinks.
       for (Dirent dirent : listingValue.getDirents()) {
         Dirent.Type direntType = dirent.getType();

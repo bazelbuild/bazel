@@ -553,10 +553,7 @@ public final class FuncallExpression extends Expression {
           }
         } else { // Param not specified by user. Use default value.
           if (param.getDefaultValue().isEmpty()) {
-            throw argumentMismatchException(
-                String.format("parameter '%s' has no default value", param.getName()),
-                method,
-                objClass);
+            throw unspecifiedParameterException(param, method, objClass, kwargs);
           }
           value =
               SkylarkSignatureProcessor.getDefaultValue(
@@ -611,6 +608,22 @@ public final class FuncallExpression extends Expression {
     appendExtraInterpreterArgs(builder, method, this, getLocation(), environment);
 
     return builder.build().toArray();
+  }
+
+  private EvalException unspecifiedParameterException(
+      ParamDescriptor param,
+      MethodDescriptor method,
+      Class<?> objClass,
+      Map<String, Object> kwargs) {
+    if (kwargs.containsKey(param.getName())) {
+      return argumentMismatchException(
+          String.format("parameter '%s' may not be specified by name", param.getName()),
+          method,
+          objClass);
+    } else {
+      return argumentMismatchException(
+          String.format("parameter '%s' has no default value", param.getName()), method, objClass);
+    }
   }
 
   private EvalException unexpectedKeywordArgumentException(

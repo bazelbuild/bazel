@@ -415,6 +415,31 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testWithNonExistentRepository_And_DisallowLoadUsingLabelThatCrossesBoundaryOfPackage()
+      throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
+
+    scratch.file("BUILD", "load(\"@repository//dir:file.bzl\", \"foo\")");
+
+    SkyKey skylarkImportLookupKey = key("@repository//dir:file.bzl");
+    EvaluationResult<com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .isInstanceOf(SkylarkImportFailedException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "Unable to find package for @repository//dir:file.bzl: The repository '@repository' "
+                + "could not be resolved.");
+  }
+
+  @Test
   public void testLoadBzlFileFromWorkspaceWithRemapping() throws Exception {
     scratch.deleteFile(preludeLabelRelativePath);
     Path p =

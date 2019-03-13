@@ -77,7 +77,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
               "Target '%s' depends on toolchain '%s', which cannot be found: %s'",
               from.getLabel(), to, e.getMessage());
     } else {
-      message = TargetUtils.formatMissingEdge(from, to, e);
+      message = TargetUtils.formatMissingEdge(from, to, e, dependencyKind.getAttribute());
     }
 
     env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(from), message));

@@ -16,25 +16,18 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
-import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests Skylark API for {@link PlatformInfo} providers. */
 @RunWith(JUnit4.class)
-public class PlatformInfoApiTest extends BuildViewTestCase {
+public class PlatformInfoApiTest extends PlatformTestCase {
 
   @Test
   public void testPlatform() throws Exception {
@@ -71,7 +64,7 @@ public class PlatformInfoApiTest extends BuildViewTestCase {
     checkError(
         "foo",
         "my_platform",
-        "Duplicate constraint_values detected: "
+        "Duplicate constraint values detected: "
             + "constraint_setting //foo:basic has [//foo:value1, //foo:value2]",
         lines.toArray(new String[] {}));
   }
@@ -181,124 +174,4 @@ public class PlatformInfoApiTest extends BuildViewTestCase {
         lines.toArray(new String[] {}));
   }
 
-  ConstraintBuilder constraintBuilder(String name) {
-    return new ConstraintBuilder(name);
-  }
-
-  final class ConstraintBuilder {
-    private final Label label;
-    private final List<String> constraintValues = new ArrayList<>();
-    private String defaultConstraintValue = null;
-
-    public ConstraintBuilder(String name) {
-      this.label = Label.parseAbsoluteUnchecked(name);
-    }
-
-    public ConstraintBuilder defaultConstraintValue(String defaultConstraintValue) {
-      this.defaultConstraintValue = defaultConstraintValue;
-      this.constraintValues.add(defaultConstraintValue);
-      return this;
-    }
-
-    public ConstraintBuilder addConstraintValue(String constraintValue) {
-      this.constraintValues.add(constraintValue);
-      return this;
-    }
-
-    public List<String> lines() {
-      ImmutableList.Builder<String> lines = ImmutableList.builder();
-
-      // Add the constraint setting.
-      lines.add("constraint_setting(name = '" + label.getName() + "',");
-      if (!Strings.isNullOrEmpty(defaultConstraintValue)) {
-        lines.add("  default_constraint_value = ':" + defaultConstraintValue + "',");
-      }
-      lines.add(")");
-
-      // Add the constraint values.
-      for (String constraintValue : constraintValues) {
-        lines.add(
-            "constraint_value(",
-            "  name = '" + constraintValue + "',",
-            "  constraint_setting = ':" + label.getName() + "',",
-            ")");
-      }
-
-      return lines.build();
-    }
-
-    public void write() throws Exception {
-      List<String> lines = lines();
-      String filename = label.getPackageFragment().getRelative("BUILD").getPathString();
-      scratch.appendFile(filename, lines.toArray(new String[] {}));
-    }
-  }
-
-  PlatformBuilder platformBuilder(String name) {
-    return new PlatformBuilder(name);
-  }
-
-  final class PlatformBuilder {
-    private final Label label;
-    private final List<String> constraintValues = new ArrayList<>();
-    private Label parentLabel = null;
-    private String remoteExecutionProperties = "";
-
-    public PlatformBuilder(String name) {
-      this.label = Label.parseAbsoluteUnchecked(name);
-    }
-
-    public PlatformBuilder setParent(String parentLabel) {
-      this.parentLabel = Label.parseAbsoluteUnchecked(parentLabel);
-      return this;
-    }
-
-    public PlatformBuilder addConstraint(String value) {
-      this.constraintValues.add(value);
-      return this;
-    }
-
-    public PlatformBuilder setRemoteExecutionProperties(String value) {
-      this.remoteExecutionProperties = value;
-      return this;
-    }
-
-    public List<String> lines() {
-      ImmutableList.Builder<String> lines = ImmutableList.builder();
-
-      lines.add("platform(", "  name = '" + label.getName() + "',");
-      if (parentLabel != null) {
-        lines.add("  parents = ['" + parentLabel + "'],");
-      }
-      lines.add("  constraint_values = [");
-      for (String name : constraintValues) {
-        lines.add("    ':" + name + "',");
-      }
-      lines.add("  ],");
-      if (!Strings.isNullOrEmpty(remoteExecutionProperties)) {
-        lines.add("  remote_execution_properties = '" + remoteExecutionProperties + "',");
-      }
-      lines.add(")");
-
-      return lines.build();
-    }
-
-    public void write() throws Exception {
-      List<String> lines = lines();
-      String filename = label.getPackageFragment().getRelative("BUILD").getPathString();
-      scratch.appendFile(filename, lines.toArray(new String[] {}));
-    }
-  }
-
-  @Nullable
-  ConstraintSettingInfo fetchConstraintSettingInfo(String label) throws Exception {
-    ConfiguredTarget target = getConfiguredTarget(label);
-    return PlatformProviderUtils.constraintSetting(target);
-  }
-
-  @Nullable
-  PlatformInfo fetchPlatformInfo(String platformLabel) throws Exception {
-    ConfiguredTarget target = getConfiguredTarget(platformLabel);
-    return PlatformProviderUtils.platform(target);
-  }
 }

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -37,11 +37,8 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -72,14 +69,15 @@ abstract class FileTransport implements BuildEventTransport {
   private final ArtifactGroupNamer namer;
 
   FileTransport(
-      String path,
+      BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      Consumer<AbruptExitException> exitFunc,
+      BuildEventServiceAbruptExitCallback abruptExitCallback,
       ArtifactGroupNamer namer) {
     this.uploader = uploader;
     this.options = options;
-    this.writer = new SequentialWriter(path, this::serializeEvent, exitFunc, uploader);
+    this.writer =
+        new SequentialWriter(outputStream, this::serializeEvent, abruptExitCallback, uploader);
     this.namer = namer;
   }
 
@@ -94,7 +92,9 @@ abstract class FileTransport implements BuildEventTransport {
     @VisibleForTesting OutputStream out;
     @VisibleForTesting static final Duration FLUSH_INTERVAL = Duration.ofMillis(250);
     private final Function<BuildEventStreamProtos.BuildEvent, byte[]> serializeFunc;
-    private final Consumer<AbruptExitException> exitFunc;
+    /** A callback function to notify the main thread about errors in the writer */
+    private final Consumer<AbruptExitException> abruptExitCallback;
+
     private final BuildEventArtifactUploader uploader;
 
     @VisibleForTesting
@@ -104,24 +104,19 @@ abstract class FileTransport implements BuildEventTransport {
     private final SettableFuture<Void> closeFuture = SettableFuture.create();
 
     SequentialWriter(
-        String path,
+        BufferedOutputStream outputStream,
         Function<BuildEventStreamProtos.BuildEvent, byte[]> serializeFunc,
-        Consumer<AbruptExitException> exitFunc,
+        BuildEventServiceAbruptExitCallback abruptExitCallback,
         BuildEventArtifactUploader uploader) {
-      try {
-        this.out = new BufferedOutputStream(Files.newOutputStream(Paths.get(path)));
-      } catch (IOException e) {
-        this.out = new ByteArrayOutputStream(0);
-        closeNow();
-        exitFunc.accept(
-            new AbruptExitException(
-                format("Couldn't open BEP file '%s' for writing.", path),
-                ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-                e));
-      }
+      checkNotNull(outputStream);
+      checkNotNull(serializeFunc);
+      checkNotNull(uploader);
+      checkNotNull(abruptExitCallback);
+
+      this.out = outputStream;
       this.writerThread = new Thread(this, "bep-local-writer");
       this.serializeFunc = serializeFunc;
-      this.exitFunc = exitFunc;
+      this.abruptExitCallback = abruptExitCallback;
       this.uploader = uploader;
       writerThread.start();
     }
@@ -166,7 +161,7 @@ abstract class FileTransport implements BuildEventTransport {
     }
 
     private void exitFailure(Throwable e) {
-      exitFunc.accept(
+      abruptExitCallback.accept(
           new AbruptExitException(
               "Failed to write BEP events to file.",
               ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,

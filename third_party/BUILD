@@ -605,6 +605,32 @@ filegroup(
     ],
 )
 
+# Part of the Java tools remote archive. Not embedded or used in Bazel.
+pkg_tar(
+    name = "zlib_pkg",
+    srcs = ["//third_party/zlib:embedded_tools"],
+    extension = "tar.gz",
+    mode = "755",
+    # Create a new pkg_tar to preserve the directory structure (zlib/).
+    package_dir = "zlib",
+)
+
+# Part of the Java tools remote archive. Not embedded or used in Bazel.
+pkg_tar(
+    name = "ijar_pkg",
+    srcs = [
+        "//third_party/ijar",
+        "//third_party/ijar:embed_into_java_tools",
+        "//third_party/ijar:zipper",
+    ],
+    extension = "tar.gz",
+    mode = "755",
+    # Create a new pkg_tar to preserve the directory structure (ijar/).
+    package_dir = "ijar",
+)
+
+# Builds the remote Java tools archive. Not embedded or used in Bazel, but used
+# by the Java tools release process.
 pkg_tar(
     name = "java_tools_pkg-gz",
     srcs = [
@@ -614,9 +640,14 @@ pkg_tar(
         "//third_party/java/jdk/langtools:jdk_compiler_jar",
     ],
     extension = "tar.gz",
-    # Permissions -rwxr-xr-x
     mode = "755",
     package_dir = "java_tools",
+    # Pass these as dependencies rather than srcs to preserve their directory
+    # structures and avoid packaging all the files under the same directory.
+    deps = [
+        ":zlib_pkg",
+        "//third_party/ijar:ijar_with_deps_archive",
+    ],
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")

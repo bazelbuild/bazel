@@ -17,18 +17,23 @@ package com.google.devtools.build.lib.skylarkbuildapi.python;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.python.PyRuntimeInfoApi.PyRuntimeInfoProviderApi;
 
 /** {@link Bootstrap} for Starlark objects related to the Python rules. */
 public class PyBootstrap implements Bootstrap {
 
   private final PyInfoProviderApi pyInfoProviderApi;
+  private final PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi;
 
-  public PyBootstrap(PyInfoProviderApi pyInfoProviderApi) {
+  public PyBootstrap(
+      PyInfoProviderApi pyInfoProviderApi, PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi) {
     this.pyInfoProviderApi = pyInfoProviderApi;
+    this.pyRuntimeInfoProviderApi = pyRuntimeInfoProviderApi;
   }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put("PyInfo", pyInfoProviderApi);
+    builder.put("PyRuntimeInfo", pyRuntimeInfoProviderApi);
   }
 }
