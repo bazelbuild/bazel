@@ -119,7 +119,7 @@ C:\projects\bazel> bazel build //examples/cpp:hello-world
 C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
 ```
 
-To use DLL files, see [this
+To build and use dynamic library (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
 
 ### Build Java
