@@ -622,7 +622,7 @@ genrule(
     srcs = [
         "//third_party/ijar:ijar_with_deps_zip",
         "//third_party/java/java_tools:java_tools_zip",
-        "//third_party/zlib:zlib_zip",
+        ":zlib_zip",
     ],
     outs = ["java_tools.zip"],
     cmd = "$(location :merge_zip_files.sh) java_tools $(OUTS) $(SRCS)",
@@ -646,9 +646,27 @@ pkg_tar(
     # Pass these as dependencies rather than srcs to preserve their directory
     # structures and avoid packaging all the files under the same directory.
     deps = [
-        "//third_party:zlib_pkg",
+        ":zlib_pkg",
         "//third_party/ijar:ijar_with_deps_archive",
     ],
+)
+
+# Part of the Java tools remote archive. Not embedded or used in Bazel.
+pkg_tar(
+    name = "zlib_pkg",
+    srcs = ["//third_party/zlib:embedded_tools"],
+    extension = "tar.gz",
+    mode = "755",
+    # Create a new pkg_tar to preserve the directory structure (zlib/).
+    package_dir = "zlib",
+)
+
+genrule(
+    name = "zlib_zip",
+    srcs = ["//third_party/zlib:embedded_tools"],
+    outs = ["zlib.zip"],
+    cmd = "$(location //third_party:zip_java_tools.sh) zlib $(OUTS) $(SRCS)",
+    tools = ["//third_party:zip_java_tools.sh"],
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
