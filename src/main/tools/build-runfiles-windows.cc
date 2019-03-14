@@ -278,8 +278,7 @@ class RunfilesCreator {
 
           if (expected_target == manifest_file_map.end() ||
               expected_target->second.empty()
-              || !blaze_util::CompareAbsolutePaths(target,
-                                                   expected_target->second) ||
+              || !_wcsicmp(target.c_str(), expected_target->second.c_str()) ||
               blaze_util::IsDirectoryW(target) != is_dir) {
             if (is_dir) {
               RemoveDirectoryOrDie(subpath);
