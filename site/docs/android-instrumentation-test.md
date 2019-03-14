@@ -369,10 +369,10 @@ To run tests, add these lines to your project's `<project root>/.bazelrc` file.
 ```
 # Configurations for testing with Bazel
 # Select a configuration by running
-# `bazel test //my:target --config={no_gui, gui, local_device}`
+# `bazel test //my:target --config={headless, gui, local_device}`
 
 # Headless instrumentation tests (No GUI)
-test:no_gui --test_arg=--enable_display=false
+test:headless --test_arg=--enable_display=false
 
 # Graphical instrumentation tests. Ensure that $DISPLAY is set.
 test:gui --test_env=DISPLAY
@@ -391,7 +391,7 @@ test:local_device --test_arg=--device_broker_type=LOCAL_ADB_SERVER
 Then, use one of the configurations to run tests:
 
 - `bazel test //my/test:target --config=gui`
-- `bazel test //my/test:target --config=no_gui`
+- `bazel test //my/test:target --config=headless`
 - `bazel test //my/test:target --config=local_device`
 
 Use __only one configuration__ or tests will fail.
@@ -435,7 +435,7 @@ for projects using Espresso and UIAutomator.
 ```
 $ git clone https://github.com/googlesamples/android-testing && cd android-testing
 # Set path to Android SDK in WORKSPACE
-$ bazel test //ui/... --config=no_gui
+$ bazel test //ui/... --config=headless
 INFO: Analysed 45 targets (1 packages loaded).
 INFO: Found 36 targets and 9 test targets...
 
