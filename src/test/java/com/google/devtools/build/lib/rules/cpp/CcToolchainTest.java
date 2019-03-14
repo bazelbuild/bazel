@@ -573,7 +573,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   private void loadCcToolchainConfigLib() throws IOException {
     scratch.appendFile("tools/cpp/BUILD", "");
-    scratch.file(
+    scratch.overwriteFile(
         "tools/cpp/cc_toolchain_config_lib.bzl",
         ResourceLoader.readFromResources(
             TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));

@@ -24,13 +24,13 @@ import java.io.IOException;
 public class BazelMockAndroidSupport {
 
   public static void setupNdk(MockToolsConfig config) throws IOException {
-    new Crosstool(config, "android/crosstool")
+    new Crosstool(config, "android/crosstool", /* disableCrosstool= */ false)
         .setCrosstoolFile(
             /*version=*/ "mock_version",
             ResourceFileLoader.loadResource(
                 BazelMockAndroidSupport.class, "MOCK_ANDROID_CROSSTOOL"))
         .setSupportedArchs(ImmutableList.of("x86", "armeabi-v7a"))
         .setSupportsHeaderParsing(false)
-        .write(/* disableCrosstool= */ false);
+        .write();
   }
 }

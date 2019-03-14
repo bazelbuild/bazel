@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -660,6 +661,31 @@ public abstract class MockCcSupport {
         crosstoolFile);
   }
 
+  public void setupCcToolchainConfigForCpu(MockToolsConfig config, String... cpus)
+      throws IOException {
+    String crosstoolTop = getCrosstoolTopPathForConfig(config);
+    ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
+    toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
+    for (String cpu : cpus) {
+      toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
+    }
+    new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+        .setSupportedArchs(getCrosstoolArchs())
+        .setToolchainConfigs(toolchainConfigBuilder.build())
+        .setSupportsHeaderParsing(true)
+        .write();
+  }
+
+  public void setupCcToolchainConfig(MockToolsConfig config, CcToolchainConfig ccToolchainConfig)
+      throws IOException {
+    String crosstoolTop = getCrosstoolTopPathForConfig(config);
+    new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+        .setSupportedArchs(getCrosstoolArchs())
+        .setToolchainConfigs(ImmutableList.of(ccToolchainConfig))
+        .setSupportsHeaderParsing(true)
+        .write();
+  }
+
   protected void createCrosstoolPackage(
       MockToolsConfig config,
       String crosstoolFile)
@@ -668,11 +694,11 @@ public abstract class MockCcSupport {
     if (config.isRealFileSystem()) {
       config.linkTools(getRealFilesystemTools(crosstoolTop));
     } else {
-      new Crosstool(config, crosstoolTop)
+      new Crosstool(config, crosstoolTop, /* disableCrosstool= */ false)
           .setCrosstoolFile(getMockCrosstoolVersion(), crosstoolFile)
           .setSupportedArchs(getCrosstoolArchs())
           .setSupportsHeaderParsing(true)
-          .write(/* disableCrosstool= */ false);
+          .write();
     }
   }
 
