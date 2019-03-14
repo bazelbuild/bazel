@@ -31,7 +31,7 @@ import java.util.Set;
  * A helper class to create a crosstool package containing a CROSSTOOL file, and the various rules
  * needed for a mock - use this only for configured target tests, not for execution tests.
  */
-final class Crosstool {
+public final class Crosstool {
   private static final ImmutableList<String> CROSSTOOL_BINARIES =
       ImmutableList.of("ar", "as", "compile", "dwp", "link", "objcopy", "llvm-profdata");
 
@@ -39,7 +39,7 @@ final class Crosstool {
    * A class that contains relevant fields from either the CROSSTOOL file or the Starlark rule
    * implementation that are needed in order to generate the BUILD file.
    */
-  static final class CcToolchainConfig {
+  public static final class CcToolchainConfig {
     private final String cpu;
     private final String compiler;
     private final String toolchainIdentifier;

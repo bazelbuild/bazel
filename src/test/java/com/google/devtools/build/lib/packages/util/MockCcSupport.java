@@ -571,6 +571,8 @@ public abstract class MockCcSupport {
   public static final String EMPTY_CROSSTOOL =
       "major_version: 'foo'\nminor_version:' foo'\n" + emptyToolchainForCpu("k8");
 
+  public static final String SIMPLE_COMPILE_FEATURE = "simple_compile_feature";
+
   public static String emptyToolchainForCpu(String cpu, String... append) {
     return Joiner.on("\n")
         .join(
@@ -676,12 +678,12 @@ public abstract class MockCcSupport {
         .write();
   }
 
-  public void setupCcToolchainConfig(MockToolsConfig config, CcToolchainConfig ccToolchainConfig)
-      throws IOException {
+  public void setupCcToolchainConfig(
+      MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
     String crosstoolTop = getCrosstoolTopPathForConfig(config);
     new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
         .setSupportedArchs(getCrosstoolArchs())
-        .setToolchainConfigs(ImmutableList.of(ccToolchainConfig))
+        .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
         .setSupportsHeaderParsing(true)
         .write();
   }
