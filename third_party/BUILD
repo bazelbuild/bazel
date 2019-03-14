@@ -605,18 +605,8 @@ filegroup(
     ],
 )
 
-filegroup(
-    name = "java_tools_archive",
-    srcs = select({
-        "//src/conditions:windows": [
-            ":java_tools.zip",
-        ],
-        "//conditions:default": [
-            ":java_tools.tar.gz",
-        ],
-    }),
-)
-
+# Builds the remote Java tools archive. Not embedded or used in Bazel, but used
+# by the Java tools release process.
 genrule(
     name = "java_tools_zip",
     srcs = [
@@ -630,43 +620,14 @@ genrule(
     tools = [":merge_zip_files.sh"],
 )
 
-# Builds the remote Java tools archive. Not embedded or used in Bazel, but used
-# by the Java tools release process.
-pkg_tar(
-    name = "java_tools_tar",
-    srcs = [
-        "//third_party/java/java_tools",
-        "//third_party/java/jdk/langtools:java_compiler_jar",
-        "//third_party/java/jdk/langtools:javac_jar",
-        "//third_party/java/jdk/langtools:jdk_compiler_jar",
-    ],
-    extension = "tar.gz",
-    mode = "755",
-    package_dir = "java_tools",
-    # Pass these as dependencies rather than srcs to preserve their directory
-    # structures and avoid packaging all the files under the same directory.
-    deps = [
-        ":zlib_pkg",
-        "//third_party/ijar:ijar_with_deps_archive",
-    ],
-)
-
 # Part of the Java tools remote archive. Not embedded or used in Bazel.
-pkg_tar(
-    name = "zlib_pkg",
-    srcs = ["//third_party/zlib:embedded_tools"],
-    extension = "tar.gz",
-    mode = "755",
-    # Create a new pkg_tar to preserve the directory structure (zlib/).
-    package_dir = "zlib",
-)
-
 genrule(
     name = "zlib_zip",
     srcs = ["//third_party/zlib:embedded_tools"],
     outs = ["zlib.zip"],
     cmd = "$(location //third_party:zip_files.sh) zlib $(OUTS) $(SRCS)",
     tools = ["//third_party:zip_files.sh"],
+    visibility = ["//visibility:private"],
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")

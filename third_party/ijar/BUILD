@@ -123,31 +123,17 @@ genrule(
     visibility = ["//third_party:__pkg__"],
 )
 
-IJAR_SOURCES_AND_BINARIES = glob(
-    ["**"],
-    exclude = ["BUILD"],
-) + [
-    ":ijar",
-    ":zipper",
-]
-
-IJAR_ARCHIVE_PACKAGE_DIR = "ijar"
-
 genrule(
     name = "ijar_srcs_zip",
-    srcs = IJAR_SOURCES_AND_BINARIES,
+    srcs = glob(
+        ["**"],
+        exclude = ["BUILD"],
+    ) + [
+        ":ijar",
+        ":zipper",
+    ],
     outs = ["ijar_srcs.zip"],
-    cmd = "$(location //third_party:zip_files.sh) " + IJAR_ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
+    cmd = "$(location //third_party:zip_files.sh) ijar $(OUTS) $(SRCS)",
     tools = ["//third_party:zip_files.sh"],
-    visibility = ["//third_party:__pkg__"],
-)
-
-pkg_tar(
-    name = "ijar_archive",
-    srcs = IJAR_SOURCES_AND_BINARIES,
-    extension = "tar.gz",
-    mode = "755",
-    # Create a new pkg_tar to preserve the directory structure (ijar/).
-    package_dir = IJAR_ARCHIVE_PACKAGE_DIR,
     visibility = ["//visibility:private"],
 )

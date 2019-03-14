@@ -196,8 +196,7 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-ARCHIVE_PACKAGE_DIR = "src/main/cpp/util"
-
+# A zip containing source files used by ijar.
 genrule(
     name = "cpp_util_with_deps_zip",
     srcs = [
@@ -214,28 +213,7 @@ genrule(
     name = "cpp_util_zip",
     srcs = glob(["*.cc"]) + glob(["*.h"]),
     outs = ["cpp_util.zip"],
-    cmd = "$(location //third_party:zip_files.sh) " + ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
+    cmd = "$(location //third_party:zip_files.sh) src/main/cpp/util $(OUTS) $(SRCS)",
     tools = ["//third_party:zip_files.sh"],
-    visibility = ["//visibility:private"],
-)
-
-pkg_tar(
-    name = "cpp_util_with_deps_archive",
-    extension = "tar.gz",
-    mode = "755",
-    visibility = ["//third_party/ijar:__pkg__"],
-    deps = [
-        ":cpp_util_archive",
-        "//src/main/native/windows:src_main_native_windows",
-    ],
-)
-
-pkg_tar(
-    name = "cpp_util_archive",
-    srcs = glob(["*.cc"]) + glob(["*.h"]),
-    extension = "tar.gz",
-    mode = "755",
-    # Create a pkg_tar to preserve the directory structure.
-    package_dir = ARCHIVE_PACKAGE_DIR,
     visibility = ["//visibility:private"],
 )
