@@ -59,7 +59,7 @@ if [[ "$directory_structure" == "nodir" ]]; then
   done
 
   cd "$tmp_dir"
-  zip -r -q "$tmp_zip" "."
+  zip -9 -r -q "$tmp_zip" "."
 else
   mkdir -p "$tmp_dir/$directory_structure"
   for curr_zip in "$@"
@@ -68,16 +68,9 @@ else
   done
 
   cd "$tmp_dir"
-  zip -r -q "$tmp_zip" "$directory_structure"
+  zip -9 -r -q "$tmp_zip" "$directory_structure"
 fi
 
 cd "$initial_pwd"
 mv -f "$tmp_zip" "$output"
 rm -r "$tmp_dir"
-
-
-
-
-
-
-
