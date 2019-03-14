@@ -292,6 +292,32 @@ function test_file() {
   ensure_contains_exactly 'executable: true' 1
 }
 
+function test_file_nonascii() {
+  set_workspace_command 'repository_ctx.file("filefile.sh", "echo fïlëfïlë", True)'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+
+  # There are 3 file_event in external:repo as it is currently set up
+  ensure_contains_exactly 'file_event' 3
+  ensure_contains_exactly 'path: ".*filefile.sh"' 1
+  ensure_contains_exactly 'executable: true' 1
+
+  # This test file is in UTF-8, so the string passed to file() is UTF-8.
+  # Protobuf strings are Unicode encoded in UTF-8, so the logged text
+  # is double-encoded relative to the workspace command.
+  #
+  # >>> content = "echo f\u00EFl\u00EBf\u00EFl\u00EB".encode("utf8")
+  # >>> proto_content = content.decode("iso-8859-1").encode("utf8")
+  # >>> print("".join(chr(c) if c <= 0x7F else ("\\" + oct(c)[2:]) for c in proto_content))
+  # echo f\303\203\302\257l\303\203\302\253f\303\203\302\257l\303\203\302\253
+  # >>>
+
+  ensure_contains_exactly 'content: "echo f\\303\\203\\302\\257l\\303\\203\\302\\253f\\303\\203\\302\\257l\\303\\203\\302\\253"' 1
+}
+
 function test_read() {
   set_workspace_command '
   content = "echo filefile"
@@ -308,6 +334,31 @@ function test_read() {
 
   ensure_contains_exactly 'read_event' 1
   ensure_contains_exactly 'path: ".*filefile.sh"' 2
+}
+
+function test_read_roundtrip_legacy_utf8() {
+  # See discussion on https://github.com/bazelbuild/bazel/pull/7309
+  set_workspace_command '
+  content = "echo fïlëfïlë"
+  repository_ctx.file("filefile.sh", content, True, legacy_utf8=True)
+  read_result = repository_ctx.read("filefile.sh")
+
+  corrupted_content = "echo fÃ¯lÃ«fÃ¯lÃ«"
+  if read_result != corrupted_content:
+    fail("read(): expected %r, got %r" % (corrupted_content, read_result))'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+}
+
+function test_read_roundtrip_nolegacy_utf8() {
+  set_workspace_command '
+  content = "echo fïlëfïlë"
+  repository_ctx.file("filefile.sh", content, True, legacy_utf8=False)
+  read_result = repository_ctx.read("filefile.sh")
+  if read_result != content:
+    fail("read(): expected %r, got %r" % (content, read_result))'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
 }
 
 function test_os() {

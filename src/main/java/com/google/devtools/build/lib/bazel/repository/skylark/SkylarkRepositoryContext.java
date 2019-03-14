@@ -203,14 +203,14 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void createFile(Object path, String rawContent, Boolean executable, Boolean legacyUtf8, Location location)
+  public void createFile(Object path, String content, Boolean executable, Boolean legacyUtf8, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("file()", path);
-    byte[] content;
+    byte[] contentBytes;
     if (legacyUtf8) {
-      content = rawContent.getBytes(StandardCharsets.UTF_8);
+      contentBytes = content.getBytes(StandardCharsets.UTF_8);
     } else {
-      content = rawContent.getBytes(StandardCharsets.ISO_8859_1);
+      contentBytes = content.getBytes(StandardCharsets.ISO_8859_1);
     }
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newFileEvent(
@@ -221,7 +221,7 @@ public class SkylarkRepositoryContext
       makeDirectories(p.getPath());
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
-        stream.write(content);
+        stream.write(contentBytes);
       }
       if (executable) {
         p.getPath().setExecutable(true);

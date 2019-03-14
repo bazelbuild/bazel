@@ -77,7 +77,7 @@ message FileEvent {
   // Path to the created file
   string path = 1;
   // Content of the created file
-  bytes content = 4;
+  string content = 2;
   // Whether the file is executable
   bool executable = 3;
 }

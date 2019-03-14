@@ -43,7 +43,6 @@ java_library(
     deps = [
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 
