@@ -83,71 +83,58 @@ std::pair<std::wstring, std::wstring> SplitPathW(const std::wstring &path);
 
 bool IsRootDirectoryW(const std::wstring &path);
 
-namespace testing {
-
 bool TestOnly_NormalizeWindowsPath(const std::string &path,
                                    std::string *result);
 
-}
+// Converts 'path' to Windows style.
+//
+// 'path' is UTF-8 encoded, absolute or relative or current-drive-relative (e.g.
+// "\foo"), non-normalized, possibly using slash as separator. If it starts with
+// the UNC prefix, the function won't process it further, just copies it to
+// 'result'.
+//
+// 'result' is UTF-8 encoded, normalized, using backslash as separator.
+bool AsWindowsPath(const std::string &path, std::string *result,
+                   std::string *error);
 
-// Converts a UTF8-encoded `path` to a normalized, widechar Windows path.
+// Converts 'path' to Windows style.
 //
-// Returns true if conversion succeeded and sets the contents of `result` to it.
-//
-// The input `path` may be an absolute or relative Windows path.
-//
-// The returned path is normalized (see NormalizeWindowsPath).
-//
-// If `path` had a "\\?\" prefix then the function assumes it's already Windows
-// style and converts it to wstring without any alterations.
-// Otherwise `path` is normalized and converted to a Windows path and the result
-// won't have a "\\?\" prefix even if it's longer than MAX_PATH (adding the
-// prefix is the caller's responsibility).
-//
-// The method recognizes current-drive-relative Windows paths ("\foo") turning
-// them into absolute paths ("c:\foo").
+// Same as the other AsWindowsPath methods, but 'path' is UTF-8 encoded and
+// 'result' is widechar.
 bool AsWindowsPath(const std::string &path, std::wstring *result,
                    std::string *error);
 
-template <typename char_type>
-bool AsWindowsPath(const std::basic_string<char_type> &path,
-                   std::basic_string<char_type> *result, std::string *error);
+// Converts 'path' to Windows style.
+//
+// Same as the other AsWindowsPath methods, but 'path' and 'result' are
+// widechar.
+bool AsWindowsPath(const std::wstring &path, std::wstring *result,
+                   std::string *error);
 
-template <typename char_type>
-bool AsWindowsPath(const char_type *path, std::basic_string<char_type> *result,
-                   std::string *error) {
-  return AsWindowsPath(std::basic_string<char_type>(path), result, error);
-}
+// Converts 'path' to absolute, Windows-style path.
+//
+// Same as AsWindowsPath, but 'result' is always absolute and always has a UNC
+// prefix.
+bool AsAbsoluteWindowsPath(const std::string& path, std::wstring *result,
+                           std::string *error);
 
-template <typename char_type>
-bool AsAbsoluteWindowsPath(const std::basic_string<char_type> &path,
-                           std::wstring *result, std::string *error);
+// Converts 'path' to absolute, Windows-style path.
+//
+// Same as AsWindowsPath, but 'result' is always absolute and always has a UNC
+// prefix.
+bool AsAbsoluteWindowsPath(const std::wstring& path, std::wstring *result,
+                           std::string *error);
 
-template <typename char_type>
-bool AsAbsoluteWindowsPath(const char_type *path, std::wstring *result,
-                           std::string *error) {
-  return AsAbsoluteWindowsPath(std::basic_string<char_type>(path), result,
-                               error);
-}
-
-// Explicit instantiate AsAbsoluteWindowsPath for char and wchar_t.
-template bool AsAbsoluteWindowsPath<char>(const char *, std::wstring *,
-                                          std::string *);
-template bool AsAbsoluteWindowsPath<wchar_t>(const wchar_t *, std::wstring *,
-                                             std::string *);
-
-// Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
-// Result will never have a UNC prefix, nor a trailing "/" or "\".
-// Works also for non-existent paths; shortens as much of them as it can.
-// Also works for non-existent drives.
+// Converts 'path' to absolute, shortened, Windows-style path.
+//
+// Same as `AsWindowsPath`, but 'result' is always absolute, lowercase,
+// 8dot3-style shortened path, without trailing backslash and without UNC
+// prefix.
+//
+// Works even for non-existent paths (and non-existent drives), shortening the
+// existing segments and leaving the rest unshortened.
 bool AsShortWindowsPath(const std::string &path, std::string *result,
                         std::string *error);
-
-template <typename char_type>
-bool IsPathSeparator(char_type ch);
-
-template <typename char_type>
-bool HasDriveSpecifierPrefix(const char_type *ch);
 
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 }  // namespace blaze_util
