@@ -53,6 +53,7 @@ _FEATURE_NAMES = struct(
     thin_lto_linkstatic_tests_use_shared_nonlto_backends = "thin_lto_linkstatic_tests_use_shared_nonlto_backends",
     thin_lto_all_linkstatic_use_shared_nonlto_backends = "thin_lto_all_linkstatic_use_shared_nonlto_backends",
     enable_afdo_thinlto = "enable_afdo_thinlto",
+    autofdo_implicit_thinlto = "autofdo_implicit_thinlto",
     enable_fdo_thinlto = "enable_fdo_thinlto",
     xbinaryfdo_implicit_thinlto = "xbinaryfdo_implicit_thinlto",
     enable_xbinaryfdo_thinlto = "enable_xbinaryfdo_thinlto",
@@ -67,6 +68,11 @@ _FEATURE_NAMES = struct(
     per_object_debug_info = "per_object_debug_info",
     supports_start_end_lib = "supports_start_end_lib",
     targets_windows = "targets_windows",
+    static_link_cpp_runtimes = "static_link_cpp_runtimes",
+    simple_compile_feature = "simple_compile_feature",
+    link_env = "link_env",
+    dynamic_linking_mode = "dynamic_linking_mode",
+    static_linking_mode = "static_linking_mode",
 )
 
 _no_legacy_features_feature = feature(name = _FEATURE_NAMES.no_legacy_features)
@@ -122,7 +128,7 @@ _parse_headers_feature = feature(
 )
 
 _layering_check_feature = feature(
-    name = FEATURE_NAMES.layering_check,
+    name = _FEATURE_NAMES.layering_check,
     flag_sets = [
         flag_set(
             actions = [
@@ -430,7 +436,7 @@ _enable_afdo_thinlto_feature = feature(
     implies = ["thin_lto"],
 )
 
-_autofdo_implicit_thinlto_feature = feature(name = "autofdo_implicit_thinlto")
+_autofdo_implicit_thinlto_feature = feature(name = _FEATURE_NAMES.autofdo_implicit_thinlto)
 
 _enable_fdo_thin_lto_feature = feature(
     name = _FEATURE_NAMES.enable_fdo_thinlto,
@@ -528,7 +534,7 @@ _fdo_instrument_feature = feature(
                 ACTION_NAMES.c_compile,
                 ACTION_NAMES.cpp_compile,
                 ACTION_NAMES.cpp_link_dynamic_library,
-                ACTION_NAMES.link_nodeps_dynamic_library,
+                ACTION_NAMES.cpp_link_nodeps_dynamic_library,
                 ACTION_NAMES.cpp_link_executable,
             ],
             flag_groups = [
@@ -586,6 +592,67 @@ _static_link_cpp_runtimes_feature = feature(
     enabled = True,
 )
 
+_simple_compile_feature = feature(
+    name = _FEATURE_NAMES.simple_compile_feature,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(flags = ["<flag>"]),
+            ],
+        ),
+    ],
+)
+
+_link_env_feature = feature(
+    name = _FEATURE_NAMES.link_env,
+    env_sets = [
+        env_set(
+            actions = [
+                ACTION_NAMES.cpp_link_static_library,
+                ACTION_NAMES.cpp_link_dynamic_library,
+                ACTION_NAMES.cpp_link_executable,
+            ],
+            env_entries = [
+                env_entry(
+                    key = "foo",
+                    value = "bar",
+                ),
+            ],
+        ),
+    ],
+)
+
+_static_linking_mode_feature = feature(
+    name = _FEATURE_NAMES.static_linking_mode,
+    env_sets = [
+        env_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            env_entries = [
+                env_entry(
+                    key = "linking_mode",
+                    value = "static",
+                ),
+            ],
+        ),
+    ],
+)
+
+_dynamic_linking_mode_feature = feature(
+    name = _FEATURE_NAMES.dynamic_linking_mode,
+    env_sets = [
+        env_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            env_entries = [
+                env_entry(
+                    key = "linking_mode",
+                    value = "dynamic",
+                ),
+            ],
+        ),
+    ],
+)
+
 _feature_name_to_feature = {
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
@@ -596,10 +663,10 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.layering_check: _layering_check_feature,
     _FEATURE_NAMES.module_map_home_cwd: _module_map_home_cwd_feature,
     _FEATURE_NAMES.user_compile_flags: _user_compile_flags_feature,
-    _FEATURE_NAMES.thin_lto_feature: _thin_lto_feature,
-    _FEATURE_NAMES.thin_lto_linkstatic_tests_use_shared_nonlto_backend: _thin_lto_linkstatic_tests_use_shared_nonlto_backends_feature,
+    _FEATURE_NAMES.thin_lto: _thin_lto_feature,
+    _FEATURE_NAMES.thin_lto_linkstatic_tests_use_shared_nonlto_backends: _thin_lto_linkstatic_tests_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.thin_lto_all_linkstatic_use_shared_nonlto_backends: _thin_lto_all_linkstatic_use_shared_nonlto_backends_feature,
-    _FEATURE_NAMES.enable_afdo_thin_lto: _enable_afdo_thinlto_feature,
+    _FEATURE_NAMES.enable_afdo_thinlto: _enable_afdo_thinlto_feature,
     _FEATURE_NAMES.autofdo_implicit_thinlto: _autofdo_implicit_thinlto_feature,
     _FEATURE_NAMES.enable_fdo_thinlto: _enable_fdo_thin_lto_feature,
     _FEATURE_NAMES.fdo_implicit_thinlto: _fdo_implicit_thinlto_feature,
@@ -609,7 +676,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.is_cc_fake_binary: _is_cc_fake_binary_feature,
     _FEATURE_NAMES.xbinaryfdo: _xbinaryfdo_feature,
     _FEATURE_NAMES.fdo_optimize: _fdo_optimize_feature,
-    _FEATURE_NAMES.fdo_instrument_feature: _fdo_instrument_feature,
+    _FEATURE_NAMES.fdo_instrument: _fdo_instrument_feature,
     _FEATURE_NAMES.per_object_debug_info: _per_object_debug_info_feature,
     _FEATURE_NAMES.copy_dynamic_libraries_to_binary: _copy_dynamic_libraries_to_binary_feature,
     _FEATURE_NAMES.supports_start_end_lib: _supports_start_end_lib_feature,
@@ -617,6 +684,10 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
     _FEATURE_NAMES.module_maps: _module_maps_feature,
     _FEATURE_NAMES.static_link_cpp_runtimes: _static_link_cpp_runtimes_feature,
+    _FEATURE_NAMES.simple_compile_feature: _simple_compile_feature,
+    _FEATURE_NAMES.link_env: _link_env_feature,
+    _FEATURE_NAMES.static_linking_mode: _static_linking_mode_feature,
+    _FEATURE_NAMES.dynamic_linking_mode: _dynamic_linking_mode_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
@@ -651,7 +722,7 @@ def _get_features_for_configuration(name):
 def _get_action_config(name):
     return action_config(
         action_name = name,
-        tools = [tool(tool_path = "DUMMY_TOOL")],
+        tools = [tool(path = "DUMMY_TOOL")],
     )
 
 def _get_artifact_name_pattern(name):
@@ -710,7 +781,7 @@ def _impl(ctx):
 
     features = [default_compile_flags_feature, default_link_flags_feature]
 
-    for name in ctx.attr.features:
+    for name in ctx.attr.feature_names:
         features.extend(_get_features_for_configuration(name))
 
     cxx_builtin_include_directories = ["/usr/lib/gcc/", "/usr/local/include", "/usr/include"]
@@ -786,7 +857,7 @@ cc_toolchain_config = rule(
         "target_libc": attr.string(default = "local"),
         "abi_version": attr.string(default = "local"),
         "abi_libc_version": attr.string(default = "local"),
-        "features": attr.string_list(),
+        "feature_names": attr.string_list(),
         "action_configs": attr.string_list(),
         "artifact_name_patterns": attr.string_list(),
         "cc_target_os": attr.string(),
