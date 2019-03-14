@@ -63,7 +63,7 @@ public class BazelFileSystemModule extends BlazeModule {
 
   @Override
   public ModuleFileSystem getFileSystem(
-      OptionsParsingResult startupOptions, PathFragment realExecRootBase)
+      OptionsParsingResult startupOptions, PathFragment realExecRootBase, String relativeOutputPath)
       throws DefaultHashFunctionNotSetException {
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
