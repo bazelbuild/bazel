@@ -642,7 +642,6 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
   AutoHandle proc;
 };
 
-
 int ExecuteDaemon(const string& exe,
                   const std::vector<string>& args_vector,
                   const std::map<string, EnvVarValue>& env,
@@ -650,6 +649,7 @@ int ExecuteDaemon(const string& exe,
                   const bool daemon_out_append,
                   const string& binaries_dir,
                   const string& server_dir,
+                  const StartupOptions* options,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
   string error;

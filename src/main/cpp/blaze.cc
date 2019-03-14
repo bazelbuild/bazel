@@ -710,7 +710,8 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 
   return ExecuteDaemon(exe, jvm_args_vector, PrepareEnvironmentForJvm(),
                        globals->jvm_log_file, globals->jvm_log_file_append,
-                       binaries_dir, server_dir, server_startup);
+                       binaries_dir, server_dir, globals->options,
+                       server_startup);
 }
 
 // Replace this process with blaze in standalone/batch mode.

@@ -21,7 +21,9 @@
 #include <sys/un.h>
 
 #include <libproc.h>
+#include <pthread/spawn.h>
 #include <signal.h>
+#include <spawn.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -32,6 +34,7 @@
 #include <cstring>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -191,6 +194,11 @@ string GetSystemJavabase() {
 
   // The output ends with a \n, trim it off.
   return javabase.substr(0, javabase.length()-1);
+}
+
+int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
+                           const StartupOptions *options) {
+  return posix_spawnattr_set_qos_class_np(attrp, options->macos_qos_class);
 }
 
 void WriteSystemSpecificProcessIdentifier(

@@ -70,6 +70,7 @@ Dumper* Create(std::string* error = nullptr);
 }  // namespace embedded_binaries
 
 struct GlobalVariables;
+class StartupOptions;
 
 class SignalHandler {
  public:
@@ -157,6 +158,7 @@ int ExecuteDaemon(const std::string& exe,
                   const bool daemon_output_append,
                   const std::string& binaries_dir,
                   const std::string& server_dir,
+                  const StartupOptions* options,
                   BlazeServerStartup** server_startup);
 
 // A character used to separate paths in a list.
