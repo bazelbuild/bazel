@@ -138,8 +138,17 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             type = Boolean.class,
             defaultValue = "True",
             doc = "set the executable flag on the created file, true by default."),
+        @Param(
+            name = "legacy_utf8",
+            named = true,
+            type = Boolean.class,
+            defaultValue = "True",
+            doc =
+                "encode file content to UTF-8, true by default. Future versions will change"
+                    + " the default and remove this parameter."),
       })
-  public void createFile(Object path, String content, Boolean executable, Location location)
+  public void createFile(
+      Object path, String content, Boolean executable, Boolean legacyUtf8, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -187,6 +196,23 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       SkylarkDict<String, String> substitutions,
       Boolean executable,
       Location location)
+      throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "read",
+      doc = "Reads the content of a file on the filesystem.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path of the file to read from."),
+      })
+  public String readFile(Object path, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
