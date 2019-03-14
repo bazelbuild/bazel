@@ -40,7 +40,10 @@ title: Installing Bazel on Windows
         Example: `c:\msys64\usr\bin\bash.exe`
     1.  **Add `JAVA_HOME`** (if you will build **Java** code). Its value must be
         the directory where you installed the Java JDK 8, for example
-        `C:\Program Files\Java\jdk1.8.0_152`
+        `C:\Program Files\Java\jdk1.8.0_152`. In order to use this with the
+        default local_jdk javabase, it must be installed on a volume which
+        Windows considers to be **local**, network mounted filesystems will not
+        work.
 
     **None of these paths should contain spaces or non-ASCII characters.**
 
