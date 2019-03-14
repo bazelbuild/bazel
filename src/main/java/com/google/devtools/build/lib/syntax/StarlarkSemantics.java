@@ -130,8 +130,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalStarlarkConfigTransitions();
 
-  public abstract String experimentalTransitionWhitelistLocation();
-
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetIsNotIterable();
@@ -213,7 +211,6 @@ public abstract class StarlarkSemantics {
           .experimentalPlatformsApi(false)
           .experimentalRestrictNamedParams(false)
           .experimentalStarlarkConfigTransitions(false)
-          .experimentalTransitionWhitelistLocation("")
           .incompatibleUseToolchainProvidersInJavaCommon(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
@@ -265,8 +262,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalRestrictNamedParams(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
-
-    public abstract Builder experimentalTransitionWhitelistLocation(String value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 

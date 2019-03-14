@@ -153,18 +153,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalStarlarkConfigTransitions;
 
   @Option(
-      name = "experimental_transition_whitelist_location",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If not empty, turns on whitelist checking for starlark-defined split transitions "
-              + "using package groups from the specified location. If empty, starlark-defined split"
-              + "transitions are enabled in all locations.")
-  public String experimentalTransitionWhitelistLocation;
-
-  @Option(
       name = "incompatible_bzl_disallow_load_after_statement",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -580,7 +568,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .experimentalPlatformsApi(experimentalPlatformsApi)
         .experimentalRestrictNamedParams(experimentalRestrictNamedParams)
         .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
-        .experimentalTransitionWhitelistLocation(experimentalTransitionWhitelistLocation)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
