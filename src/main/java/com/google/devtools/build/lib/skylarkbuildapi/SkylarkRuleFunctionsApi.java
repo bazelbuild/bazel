@@ -374,110 +374,104 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "Please see the <a href=\"../aspects.md\">introduction to Aspects</a> for more "
               + "details.",
       parameters = {
-          @Param(
-              name = "implementation",
-              type = BaseFunction.class,
-              legacyNamed = true,
-              doc =
-                  "the function implementing this aspect. Must have two parameters: "
-                      + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                      + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
-                      + "available via ctx.rule field. The function is called during the analysis "
-                      + "phase for each application of an aspect to a target."
-          ),
-          @Param(
-              name = "attr_aspects",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc = "List of attribute names.  The aspect propagates along dependencies specified "
-                  + "by attributes of a target with this name. The list can also contain a single "
-                  + "string '*': in that case aspect propagates along all dependencies of a target."
-          ),
-          @Param(
-              name = "attrs",
-              type = SkylarkDict.class,
-              legacyNamed = true,
-              noneable = true,
-              defaultValue = "None",
-              doc = "dictionary to declare all the attributes of the aspect.  "
-                  + "It maps from an attribute name to an attribute object "
-                  + "(see <a href=\"attr.html\">attr</a> module). "
-                  + "Aspect attributes are available to implementation function as fields of ctx "
-                  + "parameter. Implicit attributes starting with <code>_</code> must have default "
-                  + "values, and have type <code>label</code> or <code>label_list</code>. "
-                  + "Explicit attributes must have type <code>string</code>, and must use the "
-                  + "<code>values</code> restriction. If explicit attributes are present, the "
-                  + "aspect can only be used with rules that have attributes of the same name and "
-                  + "type, with valid values."
-          ),
-          @Param(
-              name = "required_aspect_providers",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              defaultValue = "[]",
-              doc = "Allow the aspect to inspect other aspects. If the aspect propagates along "
-                  + "a dependency, and the underlying rule sends a different aspect along that "
-                  + "dependency, and that aspect provides one of the providers listed here, this "
-                  + "aspect will see the providers provided by that aspect. "
-                  + "<p>The value should be either a list of providers, or a "
-                  + "list of lists of providers. This aspect will 'see'  the underlying aspects "
-                  + "that provide  ALL providers from at least ONE of these lists. A single list "
-                  + "of providers will be automatically converted to a list containing one list of "
-                  + "providers."
-          ),
-          @Param(
-              name = "provides",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              defaultValue = "[]",
-              doc = PROVIDES_DOC
-          ),
-          @Param(
-              name = "fragments",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the aspect requires "
-                      + "in target configuration."
-          ),
-          @Param(
-              name = "host_fragments",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the aspect requires "
-                      + "in host configuration."
-          ),
-          @Param(
-              name = "toolchains",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "<i>(Experimental)</i><br/><br/>"
-                      + "If set, the set of toolchains this rule requires. Toolchains will be "
-                      + "found by checking the current platform, and provided to the rule "
-                      + "implementation via <code>ctx.toolchain</code>."
-          ),
-          @Param(
-              name = "doc",
-              type = String.class,
-              legacyNamed = true,
-              defaultValue = "''",
-              doc = "A description of the aspect that can be extracted by documentation generating "
-                  + "tools."
-          )
+        @Param(
+            name = "implementation",
+            type = BaseFunction.class,
+            legacyNamed = true,
+            doc =
+                "the function implementing this aspect. Must have two parameters: "
+                    + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
+                    + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
+                    + "available via ctx.rule field. The function is called during the analysis "
+                    + "phase for each application of an aspect to a target."),
+        @Param(
+            name = "attr_aspects",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "List of attribute names.  The aspect propagates along dependencies specified by"
+                    + " attributes of a target with this name. The list can also contain a single "
+                    + "string '*': in that case aspect propagates along all dependencies of a"
+                    + " target."),
+        @Param(
+            name = "attrs",
+            type = SkylarkDict.class,
+            legacyNamed = true,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "dictionary to declare all the attributes of the aspect.  It maps from an"
+                    + " attribute name to an attribute object (see <a href=\"attr.html\">attr</a>"
+                    + " module). Aspect attributes are available to implementation function as"
+                    + " fields of ctx parameter. Implicit attributes starting with <code>_</code>"
+                    + " must have default values, and have type <code>label</code> or"
+                    + " <code>label_list</code>. Explicit attributes must have type"
+                    + " <code>string</code>, and must use the <code>values</code> restriction. If"
+                    + " explicit attributes are present, the aspect can only be used with rules"
+                    + " that have attributes of the same name and type, with valid values."),
+        @Param(
+            name = "required_aspect_providers",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            defaultValue = "[]",
+            doc =
+                "Allow the aspect to inspect other aspects. If the aspect propagates along a"
+                    + " dependency, and the underlying rule sends a different aspect along that "
+                    + "dependency, and that aspect provides one of the providers listed here, this"
+                    + " aspect will see the providers provided by that aspect. <p>The value should"
+                    + " be either a list of providers, or a list of lists of providers. This"
+                    + " aspect will 'see'  the underlying aspects that provide  ALL providers from"
+                    + " at least ONE of these lists. A single list of providers will be"
+                    + " automatically converted to a list containing one list of providers."),
+        @Param(
+            name = "provides",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            defaultValue = "[]",
+            doc = PROVIDES_DOC),
+        @Param(
+            name = "fragments",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "List of names of configuration fragments that the aspect requires "
+                    + "in target configuration."),
+        @Param(
+            name = "host_fragments",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "List of names of configuration fragments that the aspect requires "
+                    + "in host configuration."),
+        @Param(
+            name = "toolchains",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "<i>(Experimental)</i><br/><br/>"
+                    + "If set, the set of toolchains this rule requires. Toolchains will be "
+                    + "found by checking the current platform, and provided to the rule "
+                    + "implementation via <code>ctx.toolchain</code>."),
+        @Param(
+            name = "doc",
+            type = String.class,
+            legacyNamed = true,
+            defaultValue = "''",
+            doc =
+                "A description of the aspect that can be extracted by documentation generating "
+                    + "tools.")
       },
       useEnvironment = true,
-      useAst = true
-  )
+      useAst = true,
+      useContext = true)
   public SkylarkAspectApi aspect(
       BaseFunction implementation,
       SkylarkList<?> attributeAspects,
@@ -489,7 +483,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
