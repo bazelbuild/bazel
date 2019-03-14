@@ -138,7 +138,8 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
+  public boolean containsKey(Object key, Location loc, StarlarkContext context)
+      throws EvalException {
     if (!(key instanceof Provider)) {
       throw new EvalException(loc, String.format(
           "Type Target only supports querying by object constructors, got %s instead",

@@ -268,7 +268,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     }
 
     @Override
-    public boolean containsKey(Object key, Location loc) throws EvalException {
+    public boolean containsKey(Object key, Location loc, StarlarkContext context)
+        throws EvalException {
       return false;
     }
   }

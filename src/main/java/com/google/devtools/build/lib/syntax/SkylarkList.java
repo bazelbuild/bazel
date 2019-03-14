@@ -70,7 +70,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
+  public boolean containsKey(Object key, Location loc, StarlarkContext context)
+      throws EvalException {
     for (Object obj : this) {
       if (obj.equals(key)) {
         return true;

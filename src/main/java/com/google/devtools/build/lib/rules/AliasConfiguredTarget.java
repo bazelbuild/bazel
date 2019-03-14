@@ -115,8 +115,9 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
-    return actual.containsKey(key, loc);
+  public boolean containsKey(Object key, Location loc, StarlarkContext context)
+      throws EvalException {
+    return actual.containsKey(key, loc, context);
   }
 
   @Override

@@ -236,7 +236,8 @@ public final class OutputGroupInfo extends NativeInfo
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
+  public boolean containsKey(Object key, Location loc, StarlarkContext context)
+      throws EvalException {
     return outputGroups.containsKey(key);
   }
 
