@@ -315,14 +315,6 @@ filegroup(
 )
 
 java_import(
-    name = "byte_buddy",
-    jars = [
-        "bytebuddy/byte-buddy-1.9.7.jar",
-        "bytebuddy/byte-buddy-agent-1.9.7.jar",
-    ],
-)
-
-java_import(
     name = "compile_testing",
     jars = ["compile_testing/compile-testing-0.13.jar"],
 )
@@ -565,9 +557,8 @@ java_import(
 
 java_import(
     name = "mockito",
-    jars = ["mockito/mockito-core-2.25.0.jar"],
+    jars = ["mockito/mockito-all-1.10.19.jar"],
     deps = [
-        ":byte_buddy",
         ":objenesis",
     ],
 )
