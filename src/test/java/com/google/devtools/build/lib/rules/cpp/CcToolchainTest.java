@@ -15,10 +15,15 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MoreCollectors;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -34,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -642,5 +648,85 @@ public class CcToolchainTest extends BuildViewTestCase {
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
     assertThat(toolchainProvider.getSysroot()).isEqualTo("/usr/grte/v1");
+  }
+
+  @Test
+  public void correctToolFilesUsed() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'a')",
+        "cc_library(name = 'l', srcs = ['l.c'])",
+        "cc_library(name = 'asm', srcs = ['a.s'])",
+        "cc_library(name = 'preprocessed-asm', srcs = ['a.S'])");
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    useConfiguration("--incompatible_use_specific_tool_files");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    // Check that the mock toolchain tool file sets are an antichain, so that our subset assertions
+    // below are meaningful.
+    ImmutableList<Set<Artifact>> fileGroups =
+        ImmutableList.of(
+            toolchainProvider.getArFiles().toSet(),
+            toolchainProvider.getLinkerFiles().toSet(),
+            toolchainProvider.getCompilerFiles().toSet(),
+            toolchainProvider.getAsFiles().toSet(),
+            toolchainProvider.getAllFiles().toSet());
+    for (int i = 0; i < fileGroups.size(); i++) {
+      for (int j = 0; j < fileGroups.size(); j++) {
+        if (i == j) {
+          continue;
+        }
+        Set<Artifact> one = fileGroups.get(i);
+        Set<Artifact> two = fileGroups.get(j);
+        assertWithMessage(String.format("%s should not contain %s", one, two))
+            .that(one.containsAll(two))
+            .isFalse();
+      }
+    }
+    assertThat(
+            Sets.difference(
+                toolchainProvider.getArFiles().toSet(), toolchainProvider.getLinkerFiles().toSet()))
+        .isNotEmpty();
+    assertThat(
+            Sets.difference(
+                toolchainProvider.getLinkerFiles().toSet(), toolchainProvider.getArFiles().toSet()))
+        .isNotEmpty();
+
+    RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
+    Artifact staticLib =
+        getOutputGroup(libTarget, "archive").toList().stream()
+            .collect(MoreCollectors.onlyElement());
+    ActionAnalysisMetadata staticAction = getGeneratingAction(staticLib);
+    assertThat(staticAction.getInputs()).containsAtLeastElementsIn(toolchainProvider.getArFiles());
+    Artifact dynamicLib =
+        getOutputGroup(libTarget, "dynamic_library").toList().stream()
+            .collect(MoreCollectors.onlyElement());
+    ActionAnalysisMetadata dynamicAction = getGeneratingAction(dynamicLib);
+    assertThat(dynamicAction.getInputs())
+        .containsAtLeastElementsIn(toolchainProvider.getLinkerFiles());
+    ActionAnalysisMetadata cCompileAction =
+        libTarget.getActions().stream()
+            .filter((a) -> a.getMnemonic().equals("CppCompile"))
+            .collect(MoreCollectors.onlyElement());
+    assertThat(cCompileAction.getInputs())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
+    ActionAnalysisMetadata asmAction =
+        ((RuleConfiguredTarget) getConfiguredTarget("//a:asm"))
+            .getActions().stream()
+                .filter((a) -> a.getMnemonic().equals("CppCompile"))
+                .collect(MoreCollectors.onlyElement());
+    assertThat(asmAction.getInputs()).containsAtLeastElementsIn(toolchainProvider.getAsFiles());
+    ActionAnalysisMetadata preprocessedAsmAction =
+        ((RuleConfiguredTarget) getConfiguredTarget("//a:preprocessed-asm"))
+            .getActions().stream()
+                .filter((a) -> a.getMnemonic().equals("CppCompile"))
+                .collect(MoreCollectors.onlyElement());
+    assertThat(preprocessedAsmAction.getInputs())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
   }
 }
