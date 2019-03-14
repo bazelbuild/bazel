@@ -49,7 +49,7 @@ output="$1"; shift
 
 initial_pwd="$(pwd)"
 
-tmp_dir=$(mktemp -d -t)
+tmp_dir=$(mktemp -d -t 'tmpdirXXXXX')
 tmp_zip="$tmp_dir/archive.zip"
 
 if [[ "$directory_structure" == "nodir" ]]; then
