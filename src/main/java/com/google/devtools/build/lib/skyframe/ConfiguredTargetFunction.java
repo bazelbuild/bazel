@@ -697,11 +697,20 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 aliasDepsToRedo.add(dep);
                 continue;
               } else {
-                pkgValue =
-                    Preconditions.checkNotNull(
-                        (PackageValue) packageResult.get(),
-                        "Package should have been loaded during dep resolution: %s",
-                        dep);
+                pkgValue = (PackageValue) packageResult.get();
+                if (pkgValue == null) {
+                  // In a race, the getValuesOrThrow call above may have retrieved the package
+                  // before it was done but the configured target after it was done. However, the
+                  // configured target being done implies that the package is now done, so we can
+                  // retrieve it from the graph.
+                  pkgValue =
+                      Preconditions.checkNotNull(
+                          (PackageValue) env.getValue(packageKey),
+                          "Package should have been loaded during dep resolution: %s (%s %s %s)",
+                          dep,
+                          depValue,
+                          packageResult);
+                }
               }
             } else {
               // We were doing AliasConfiguredTarget mop-up.
