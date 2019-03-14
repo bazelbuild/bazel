@@ -665,8 +665,8 @@ genrule(
     name = "zlib_zip",
     srcs = ["//third_party/zlib:embedded_tools"],
     outs = ["zlib.zip"],
-    cmd = "$(location //third_party:zip_java_tools.sh) zlib $(OUTS) $(SRCS)",
-    tools = ["//third_party:zip_java_tools.sh"],
+    cmd = "$(location //third_party:zip_files.sh) zlib $(OUTS) $(SRCS)",
+    tools = ["//third_party:zip_files.sh"],
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")

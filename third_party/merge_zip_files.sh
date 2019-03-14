@@ -14,6 +14,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# A script that zips the content of the inputs zip files under a given directory
+# structure in the output zip file. "nodir" can be passed if no top-level directory
+# structure is required.
+
+# Usage: third_party/merge_zip_files.sh directory_structure output_zip [input_zip_files]
+#
+# For example, if we have the following zips and their content:
+# a.zip:
+#    dir1/a1.cc
+#    a2.cc
+# b.zip:
+#    dir2/b1.cc
+#    b2.cc
+#
+# third_party_zip_files.sh src/main/cpp my_archive.zip a.zip b.zip
+# will create the archive my_archive.zip containing:
+# src/main/cpp/a2.cc
+# src/main/cpp/b2.cc
+# src/main/cpp/dir1/a1.cc
+# src/main/cpp/dir2/b1.cc
+#
+# third_party_zip_files.sh nodir my_archive.zip a.zip b.zip
+# will create the archive my_archive.zip containing:
+# a2.cc
+# b2.cc
+# dir1/a1.cc
+# dir2/b1.cc
+
 set -euo pipefail
 
 directory_structure="$1"; shift

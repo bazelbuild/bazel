@@ -214,8 +214,8 @@ genrule(
     name = "cpp_util_zip",
     srcs = glob(["*.cc"]) + glob(["*.h"]),
     outs = ["cpp_util.zip"],
-    cmd = "$(location //third_party:zip_java_tools.sh) " + ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
-    tools = ["//third_party:zip_java_tools.sh"],
+    cmd = "$(location //third_party:zip_files.sh) " + ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
+    tools = ["//third_party:zip_files.sh"],
     visibility = ["//visibility:private"],
 )
 

@@ -19,8 +19,8 @@ genrule(
         "util.h",
     ],
     outs = ["native_windows.zip"],
-    cmd = "$(location //third_party:zip_java_tools.sh) " + ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
-    tools = ["//third_party:zip_java_tools.sh"],
+    cmd = "$(location //third_party:zip_files.sh) " + ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
+    tools = ["//third_party:zip_files.sh"],
     visibility = ["//src/main/cpp/util:__pkg__"],
 )
 

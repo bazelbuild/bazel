@@ -137,8 +137,8 @@ genrule(
     name = "ijar_srcs_zip",
     srcs = IJAR_SOURCES_AND_BINARIES,
     outs = ["ijar_srcs.zip"],
-    cmd = "$(location //third_party:zip_java_tools.sh) " + IJAR_ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
-    tools = ["//third_party:zip_java_tools.sh"],
+    cmd = "$(location //third_party:zip_files.sh) " + IJAR_ARCHIVE_PACKAGE_DIR + " $(OUTS) $(SRCS)",
+    tools = ["//third_party:zip_files.sh"],
     visibility = ["//third_party:__pkg__"],
 )
 

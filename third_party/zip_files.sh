@@ -14,6 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# A script that zips all the inputs files under the given directory structure
+# in the output zip file.
+
+# Usage: third_party/zip_files.sh directory_structure output_zip [input_files]
+#
+# For example: third_party_zip_files.sh src/main/cpp my_archive.zip a.cc b.cc
+# will create the archive my_archive.zip containing:
+# src/main/cpp/a.cc
+# src/main/cpp/b.cc
+
 set -euo pipefail
 
 directory_structure="$1"; shift
