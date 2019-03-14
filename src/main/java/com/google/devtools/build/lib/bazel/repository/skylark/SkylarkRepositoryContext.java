@@ -180,7 +180,7 @@ public class SkylarkRepositoryContext
             fromPath.toString(), toPath.toString(), rule.getLabel().toString(), location);
     env.getListener().post(w);
     try {
-      checkInOutputDirectory(toPath);
+      checkInOutputDirectory("write", toPath);
       makeDirectories(toPath.getPath());
       toPath.getPath().createSymbolicLink(fromPath.getPath());
     } catch (IOException e) {
@@ -192,12 +192,12 @@ public class SkylarkRepositoryContext
     }
   }
 
-  private void checkInOutputDirectory(SkylarkPath path) throws RepositoryFunctionException {
+  private void checkInOutputDirectory(String operation, SkylarkPath path) throws RepositoryFunctionException {
     if (!path.getPath().getPathString().startsWith(outputDirectory.getPathString())) {
       throw new RepositoryFunctionException(
           new EvalException(
               Location.fromFile(path.getPath()),
-              "Cannot write outside of the repository directory for path " + path),
+              "Cannot " + operation + " outside of the repository directory for path " + path),
           Transience.PERSISTENT);
     }
   }
@@ -217,7 +217,7 @@ public class SkylarkRepositoryContext
             p.toString(), content, executable, rule.getLabel().toString(), location);
     env.getListener().post(w);
     try {
-      checkInOutputDirectory(p);
+      checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
@@ -251,7 +251,7 @@ public class SkylarkRepositoryContext
             location);
     env.getListener().post(w);
     try {
-      checkInOutputDirectory(p);
+      checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
       String tpl = FileSystemUtils.readContent(t.getPath(), StandardCharsets.UTF_8);
       for (Map.Entry<String, String> substitution : substitutions.entrySet()) {
@@ -279,6 +279,7 @@ public class SkylarkRepositoryContext
             p.toString(), rule.getLabel().toString(), location);
     env.getListener().post(w);
     try {
+      checkInOutputDirectory("read", p);
       return FileSystemUtils.readContent(p.getPath(), StandardCharsets.ISO_8859_1);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -418,7 +419,7 @@ public class SkylarkRepositoryContext
     env.getListener().post(w);
     Path downloadedPath;
     try {
-      checkInOutputDirectory(outputPath);
+      checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
       downloadedPath =
           httpDownloader.download(
@@ -502,7 +503,7 @@ public class SkylarkRepositoryContext
 
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
-    checkInOutputDirectory(outputPath);
+    checkInOutputDirectory("write", outputPath);
     createDirectory(outputPath.getPath());
 
     Path downloadedPath;
