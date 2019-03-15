@@ -95,8 +95,26 @@ filegroup(
 )
 
 filegroup(
-    name = "embedded_tools",
-    srcs = glob(["**"]),
+    name = "embedded_zipper_sources",
+    srcs = [
+        "zip.cc",
+        "zip.h",
+        "zip_main.cc",
+        "common.h",
+        "mapped_file.h",
+        "platform_utils.cc",
+        "platform_utils.h",
+        "zlib_client.cc",
+        "zlib_client.h",
+        "BUILD",
+    ] + select({
+        "//src:windows": [
+            "mapped_file_windows.cc",
+        ],
+        "//conditions:default": [
+            "mapped_file_unix.cc",
+        ],
+    }),
     visibility = ["//visibility:public"],
 )
 
@@ -115,7 +133,7 @@ pkg_tar(
     name = "ijar_archive",
     srcs = glob(
         ["**"],
-        exclude = ["BUILD"]
+        exclude = ["BUILD"],
     ) + [
         # Also archive the binaries.
         ":ijar",
