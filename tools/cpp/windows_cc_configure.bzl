@@ -224,8 +224,8 @@ def setup_vc_env_vars(repository_ctx, vc_path):
 
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
-    if "BAZEL_CV_TOOL" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["BAZEL_CV_TOOL"] + "\\" + tool
+    if "BAZEL_VC_TOOL" in repository_ctx.os.environ:
+        return repository_ctx.os.environ["BAZEL_VC_TOOL"] + "\\" + tool
 
     tool_path = ""
     if _is_vs_2017(vc_path):
@@ -238,9 +238,9 @@ def find_msvc_tool(repository_ctx, vc_path, tool):
         # but we might have number of subdirs.
         # Each directory represents different VC++ version. We'd like to select latest one if possible.
         vc_version_paths = sorted([str(path) for path in dirs], key=repository_ctx.path.basename, reverse=True)
-        vc_tool_paths =  [vc_ver_path + "\\bin\\HostX64\\x64\\" + tool for vc_ver_path in vc_version_paths]
+        vc_tool_paths = [vc_ver_path + "\\bin\\HostX64\\x64\\" + tool for vc_ver_path in vc_version_paths]
         # VC tools should exist in the directory with the newest version,
-        # bbut iterate every directory to be more robust. (from newest to oldest)
+        # but iterate every directory to be more robust. (from newest to oldest)
         for path in vc_tool_paths:
             if repository_ctx.path(path).exists:
                 tool_path = path
