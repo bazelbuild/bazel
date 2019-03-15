@@ -293,6 +293,40 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return directoryValue.setDigest(digest).build();
   }
 
+  // Escape a value for the marker file
+  @VisibleForTesting
+  static String escape(String str) {
+    return str == null ? "\\0" : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
+  }
+
+  // Unescape a value from the marker file
+  @VisibleForTesting
+  static String unescape(String str) {
+    if (str.equals("\\0")) {
+      return null; // \0 == null string
+    }
+    StringBuilder result = new StringBuilder();
+    boolean escaped = false;
+    for (int i = 0; i < str.length(); i++) {
+      char c = str.charAt(i);
+      if (escaped) {
+        if (c == 'n') {  // n means new line
+          result.append("\n");
+        } else if (c == 's') { // s means space
+          result.append(" ");
+        } else {  // Any other escaped characters are just un-escaped
+          result.append(c);
+        }
+        escaped = false;
+      } else if (c == '\\') {
+        escaped = true;
+      } else {
+        result.append(c);
+      }
+    }
+    return result.toString();
+  }
+
   private static class DigestWriter {
     private final Path markerPath;
     private final Rule rule;
@@ -408,40 +442,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     private static Path getMarkerPath(BlazeDirectories directories, String ruleName) {
       return RepositoryFunction.getExternalRepositoryDirectory(directories)
           .getChild("@" + ruleName + ".marker");
-    }
-
-    // Escape a value for the marker file
-    @VisibleForTesting
-    static String escape(String str) {
-      return str == null ? "\\0" : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
-    }
-
-    // Unescape a value from the marker file
-    @VisibleForTesting
-    static String unescape(String str) {
-      if (str.equals("\\0")) {
-        return null; // \0 == null string
-      }
-      StringBuilder result = new StringBuilder();
-      boolean escaped = false;
-      for (int i = 0; i < str.length(); i++) {
-        char c = str.charAt(i);
-        if (escaped) {
-          if (c == 'n') {  // n means new line
-            result.append("\n");
-          } else if (c == 's') { // s means space
-            result.append(" ");
-          } else {  // Any other escaped characters are just un-escaped
-            result.append(c);
-          }
-          escaped = false;
-        } else if (c == '\\') {
-          escaped = true;
-        } else {
-          result.append(c);
-        }
-      }
-      return result.toString();
     }
   }
 
