@@ -1,9 +1,11 @@
 package(default_visibility = ["//visibility:public"])
 
-filegroup(
+load(
+    "//tools/jdk:remote_java_tools_aliases.bzl",
+    "remote_java_tools_filegroup",
+)
+
+remote_java_tools_filegroup(
     name = "zipper",
-    srcs = select({
-        "//src/conditions:remote": ["//third_party/ijar:zipper"],
-        "//conditions:default": glob(["zipper/*"]),
-   }),
+    target = ":zipper",
 )

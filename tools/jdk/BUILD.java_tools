@@ -96,12 +96,12 @@ alias(
   name = "ijar",
   actual = select({
       ":remote": ":ijar_cc_binary",
-      "//conditions:default": ":prebuilt_binary_or_cc_binary",
+      "//conditions:default": ":ijar_prebuilt_binary_or_cc_binary",
   })
 )
 
 alias(
-  name = "prebuilt_binary_or_cc_binary",
+  name = "ijar_prebuilt_binary_or_cc_binary",
   actual = select({
       ":linux_x86_64": ":ijar_prebuilt_binary",
       ":darwin": ":ijar_prebuilt_binary",
@@ -125,6 +125,39 @@ cc_binary(
         "java_tools/ijar/classfile.cc",
         "java_tools/ijar/ijar.cc",
     ],
+    deps = [":zip"],
+)
+
+alias(
+  name = "zipper",
+  actual = select({
+      ":remote": ":zipper_cc_binary",
+      "//conditions:default": ":zipper_prebuilt_binary_or_cc_binary",
+  })
+)
+
+alias(
+  name = "zipper_prebuilt_binary_or_cc_binary",
+  actual = select({
+      ":linux_x86_64": ":zipper_prebuilt_binary",
+      ":darwin": ":zipper_prebuilt_binary",
+      ":darwin_x86_64": ":zipper_prebuilt_binary",
+      ":windows": ":zipper_prebuilt_binary",
+      "//conditions:default": ":zipper_cc_binary",
+  })
+)
+
+filegroup(
+    name = "zipper_prebuilt_binary",
+    srcs = select({
+       ":windows": ["java_tools/ijar/zipper.exe"],
+       "//conditions:default": ["java_tools/ijar/zipper"],
+   }),
+)
+
+cc_binary(
+    name = "zipper_cc_binary",
+    srcs = ["java_tools/ijar/zip_main.cc"],
     deps = [":zip"],
 )
 

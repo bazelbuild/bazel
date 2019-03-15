@@ -123,8 +123,6 @@ JAVA_TOOLS = [
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/tools/singlejar:embedded_tools",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-    # TODO(#6316): Move this target to the remote java tools archive.
-    "//third_party/ijar:zipper",
     "//third_party/java/jacoco:srcs",
 ] + select({
     "//src/conditions:arm": [],

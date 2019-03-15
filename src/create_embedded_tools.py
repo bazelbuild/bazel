@@ -40,8 +40,6 @@ output_paths = [
     ('*singlejar_local', lambda x: 'tools/jdk/singlejar/singlejar'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
-    ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),
-    ('*zipper', lambda x: 'tools/zip/zipper/zipper'),
     ('*src/objc_tools/*',
      lambda x: 'tools/objc/precomp_' + os.path.basename(x)),
     ('*xcode*StdRedirect.dylib', lambda x: 'tools/objc/StdRedirect.dylib'),
