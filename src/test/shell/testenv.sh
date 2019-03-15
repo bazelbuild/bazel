@@ -133,12 +133,6 @@ EOF
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
   cp -RL ${tools_dir}/* tools
-  # tools/jdk/BUILD file for JDK 7 is generated.
-  # Only works if there's 0 or 1 matches.
-  # If there are multiple, the test fails.
-  if [ -f tools/jdk/BUILD.* ]; then
-    cp tools/jdk/BUILD.* tools/jdk/BUILD
-  fi
   if [ -f tools/jdk/BUILD ]; then
     chmod +w tools/jdk/BUILD
   fi
