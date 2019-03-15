@@ -1,10 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-#alias(
-#    name = "all_android_tools",
-#    actual = "@remote_all_android_tools//jar",
-#)
-
 java_import(
     name = "all_android_tools",
     jars = ["@legacy_android_tools//:all_android_tools_deploy.jar"],
