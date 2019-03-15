@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -290,7 +289,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       throws EvalException, ConversionException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
 
-    Preconditions.checkArgument(context instanceof BazelStarlarkContext);
     BazelStarlarkContext bazelContext = (BazelStarlarkContext) context;
     // analysis_test=true implies test=true.
     test |= Boolean.TRUE.equals(analysisTest);
@@ -357,9 +355,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
     builder.addRequiredToolchains(
         collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"),
-            bazelContext.getRepoMapping(),
-            ast.getLocation()));
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
 
     if (!buildSetting.equals(Runtime.NONE) && !cfg.equals(Runtime.NONE)) {
       throw new EvalException(
@@ -435,14 +431,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   }
 
   private static ImmutableList<Label> collectToolchainLabels(
-      Iterable<String> rawLabels,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
-      Location loc)
-      throws EvalException {
+      Iterable<String> rawLabels, Location loc) throws EvalException {
     ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
-        Label toolchainLabel = Label.parseAbsolute(rawLabel, repoMapping);
+        Label toolchainLabel = Label.parseAbsolute(rawLabel, ImmutableMap.of());
         requiredToolchains.add(toolchainLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
@@ -481,10 +474,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
-      Environment funcallEnv,
-      StarlarkContext context)
+      Environment funcallEnv)
       throws EvalException {
-    Preconditions.checkArgument(context instanceof BazelStarlarkContext);
     Location location = ast.getLocation();
     ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
     for (Object attributeAspect : attributeAspects) {
@@ -572,9 +563,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
         collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"),
-            ((BazelStarlarkContext) context).getRepoMapping(),
-            ast.getLocation()));
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
   }
 
   /**
