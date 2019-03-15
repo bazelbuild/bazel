@@ -6,7 +6,6 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        ":all_android_tools_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/scan:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:embedded_tools",
