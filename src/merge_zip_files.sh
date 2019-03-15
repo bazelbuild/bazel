@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 The Bazel Authors. All rights reserved.
+# Copyright 2019 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 # limitations under the License.
 
 # A script that zips the content of the inputs zip files under a given directory
-# structure in the output zip file. "nodir" can be passed if no top-level directory
+# structure in the output zip file. "-" can be passed if no top-level directory
 # structure is required.
 
-# Usage: third_party/merge_zip_files.sh directory_structure output_zip [input_zip_files]
+# Usage: third_party/merge_zip_files.sh directory_prefix output_zip [input_zip_files]
 #
 # For example, if we have the following zips and their content:
 # a.zip:
@@ -35,7 +35,7 @@
 # src/main/cpp/dir1/a1.cc
 # src/main/cpp/dir2/b1.cc
 #
-# third_party_zip_files.sh nodir my_archive.zip a.zip b.zip
+# third_party_zip_files.sh - my_archive.zip a.zip b.zip
 # will create the archive my_archive.zip containing:
 # a2.cc
 # b2.cc
@@ -44,15 +44,16 @@
 
 set -euo pipefail
 
-directory_structure="$1"; shift
+directory_prefix="$1"; shift
 output="$1"; shift
 
 initial_pwd="$(pwd)"
 
 tmp_dir=$(mktemp -d -t 'tmpdirXXXXX')
+trap "rm -fr $tmp_dir" EXIT
 tmp_zip="$tmp_dir/archive.zip"
 
-if [[ "$directory_structure" == "nodir" ]]; then
+if [[ "$directory_prefix" == "-" ]]; then
   for curr_zip in "$@"
   do
     unzip -q "$curr_zip" -d "$tmp_dir"
@@ -61,16 +62,15 @@ if [[ "$directory_structure" == "nodir" ]]; then
   cd "$tmp_dir"
   zip -9 -r -q "$tmp_zip" "."
 else
-  mkdir -p "$tmp_dir/$directory_structure"
+  mkdir -p "$tmp_dir/$directory_prefix"
   for curr_zip in "$@"
   do
-    unzip -q "$curr_zip" -d "$tmp_dir/$directory_structure"
+    unzip -q "$curr_zip" -d "$tmp_dir/$directory_prefix"
   done
 
   cd "$tmp_dir"
-  zip -9 -r -q "$tmp_zip" "$directory_structure"
+  zip -9 -r -q "$tmp_zip" "$directory_prefix"
 fi
 
 cd "$initial_pwd"
 mv -f "$tmp_zip" "$output"
-rm -r "$tmp_dir"

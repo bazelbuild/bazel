@@ -615,9 +615,9 @@ genrule(
         ":zlib_zip",
     ],
     outs = ["java_tools.zip"],
-    cmd = "$(location :merge_zip_files.sh) java_tools $(OUTS) $(SRCS)",
+    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
     output_to_bindir = 1,
-    tools = [":merge_zip_files.sh"],
+    tools = ["//src:merge_zip_files"],
 )
 
 # Part of the Java tools remote archive. Not embedded or used in Bazel.
@@ -625,8 +625,8 @@ genrule(
     name = "zlib_zip",
     srcs = ["//third_party/zlib:embedded_tools"],
     outs = ["zlib.zip"],
-    cmd = "$(location //third_party:zip_files.sh) zlib $(OUTS) $(SRCS)",
-    tools = ["//third_party:zip_files.sh"],
+    cmd = "$(location //src:zip_files) zlib $@ $(SRCS)",
+    tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
 )
 

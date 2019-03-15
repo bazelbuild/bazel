@@ -82,7 +82,7 @@ genrule(
         "util.h",
     ],
     outs = ["native_windows.zip"],
-    cmd = "$(location //third_party:zip_files.sh) src/main/native/windows $(OUTS) $(SRCS)",
-    tools = ["//third_party:zip_files.sh"],
+    cmd = "$(location //src:zip_files) src/main/native/windows $@ $(SRCS)",
+    tools = ["//src:zip_files"],
     visibility = ["//src/main/cpp/util:__pkg__"],
 )

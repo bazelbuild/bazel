@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 The Bazel Authors. All rights reserved.
+# Copyright 2019 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # A script that zips all the inputs files under the given directory structure
 # in the output zip file.
 
-# Usage: third_party/zip_files.sh directory_structure output_zip [input_files]
+# Usage: third_party/zip_files.sh directory_prefix output_zip [input_files]
 #
 # For example: third_party_zip_files.sh src/main/cpp my_archive.zip a.cc b.cc
 # will create the archive my_archive.zip containing:
@@ -26,22 +26,23 @@
 
 set -euo pipefail
 
-directory_structure="$1"; shift
+directory_prefix="$1"; shift
 output="$1"; shift
 
 initial_pwd="$(pwd)"
 
 tmp_dir=$(mktemp -d -t 'tmpdirXXXXX')
+trap "rm -fr $tmp_dir" EXIT
 tmp_zip="$tmp_dir/archive.zip"
 
 zip -j -q "$tmp_zip" "$@"
 
-mkdir -p "$tmp_dir/$directory_structure"
-cd "$tmp_dir/$directory_structure"
+mkdir -p "$tmp_dir/$directory_prefix"
+cd "$tmp_dir/$directory_prefix"
 unzip -q "$tmp_zip"
 rm -f "$tmp_zip"
 cd "$tmp_dir"
-zip -r -q "$tmp_zip" "$directory_structure"
+zip -r -q "$tmp_zip" "$directory_prefix"
 
 cd "$initial_pwd"
 mv -f "$tmp_zip" "$output"

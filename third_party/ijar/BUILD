@@ -118,8 +118,8 @@ genrule(
         "//src/main/cpp/util:cpp_util_with_deps_zip",
     ],
     outs = ["ijar_srcs_with_deps.zip"],
-    cmd = "$(location //third_party:merge_zip_files.sh) nodir $(OUTS) $(SRCS)",
-    tools = ["//third_party:merge_zip_files.sh"],
+    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
+    tools = ["//src:merge_zip_files"],
     visibility = ["//third_party:__pkg__"],
 )
 
@@ -133,7 +133,7 @@ genrule(
         ":zipper",
     ],
     outs = ["ijar_srcs.zip"],
-    cmd = "$(location //third_party:zip_files.sh) ijar $(OUTS) $(SRCS)",
-    tools = ["//third_party:zip_files.sh"],
+    cmd = "$(location //src:zip_files) ijar $@ $(SRCS)",
+    tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
 )

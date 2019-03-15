@@ -204,8 +204,8 @@ genrule(
         "//src/main/native/windows:native_windows_zip",
     ],
     outs = ["cpp_util_with_deps.zip"],
-    cmd = "$(location //third_party:merge_zip_files.sh) nodir $(OUTS) $(SRCS)",
-    tools = ["//third_party:merge_zip_files.sh"],
+    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
+    tools = ["//src:merge_zip_files"],
     visibility = ["//third_party/ijar:__pkg__"],
 )
 
@@ -213,7 +213,7 @@ genrule(
     name = "cpp_util_zip",
     srcs = glob(["*.cc"]) + glob(["*.h"]),
     outs = ["cpp_util.zip"],
-    cmd = "$(location //third_party:zip_files.sh) src/main/cpp/util $(OUTS) $(SRCS)",
-    tools = ["//third_party:zip_files.sh"],
+    cmd = "$(location //src:zip_files) src/main/cpp/util $@ $(SRCS)",
+    tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
 )
