@@ -79,7 +79,7 @@ public interface TestActionContext extends ActionContext {
     /** Post the final test result based on the last attempt and the list of failed attempts. */
     void finalizeTest(
         TestAttemptResult lastTestAttemptResult, List<FailedAttemptResult> failedAttempts)
-        throws IOException, ExecException;
+        throws IOException;
 
     /**
      * Return a {@link TestRunnerSpawn} object if test fallback is enabled, or {@code null}
