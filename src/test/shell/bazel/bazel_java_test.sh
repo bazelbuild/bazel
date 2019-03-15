@@ -571,7 +571,7 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_library(name = "test_runner",
              srcs = ['TestRunner.java'],
-             deps = ['@remote_java_tools//:java_tools/Runner_deploy.jar'],
+             deps = ['@bazel_tools//tools/jdk:TestRunner'],
 )
 
 java_test(name = "Tests",

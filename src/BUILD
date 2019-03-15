@@ -123,9 +123,8 @@ JAVA_TOOLS = [
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/tools/singlejar:embedded_tools",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-    "//third_party/ijar",
+    # TODO(#6316): Move this target to the remote java tools archive.
     "//third_party/ijar:zipper",
-    "//third_party/ijar:embedded_tools",
     "//third_party/java/jacoco:srcs",
 ] + select({
     "//src/conditions:arm": [],
@@ -142,7 +141,6 @@ JAVA_TOOLS = [
                "BUILD.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
-               "//third_party/java/java_tools:bazel_embedded_java_tools",
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/concurrent:srcs",
                "//third_party/py/gflags:srcs",

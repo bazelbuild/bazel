@@ -28,21 +28,18 @@ from src.create_embedded_tools_lib import copy_zip_to_zip
 from src.create_embedded_tools_lib import is_executable
 
 output_paths = [
-    ('*tools/jdk/BUILD*', lambda x: 'tools/jdk/BUILD'),
+    ('*tools/jdk/BUILD', lambda x: 'tools/jdk/BUILD'),
     ('*tools/platforms/platforms.BUILD', lambda x: 'platforms/BUILD'),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*tools/cpp/runfiles/generated_*',
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
     ('*jarjar_command_deploy.jar',
      lambda x: 'tools/jdk/jarjar_command_deploy.jar'),
-    ('*BUILD.pkg', lambda x: 'tools/jdk/BUILD.pkg'),
-    ('*BUILD.javalangtools', lambda x: 'third_party/java/jdk/langtools/BUILD'),
+    ('*BUILD.java_langtools', lambda x: 'third_party/java/jdk/langtools/BUILD'),
     ('*singlejar_local.exe', lambda x: 'tools/jdk/singlejar/singlejar.exe'),
     ('*singlejar_local', lambda x: 'tools/jdk/singlejar/singlejar'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
-    ('*ijar.exe', lambda x: 'tools/jdk/ijar/ijar.exe'),
-    ('*ijar', lambda x: 'tools/jdk/ijar/ijar'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),
     ('*zipper', lambda x: 'tools/zip/zipper/zipper'),
     ('*src/objc_tools/*',
