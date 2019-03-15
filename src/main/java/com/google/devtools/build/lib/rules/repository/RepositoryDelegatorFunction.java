@@ -163,7 +163,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     boolean fetchLocalRepositoryAlways = isFetch.get() && handler.isLocal(rule);
     if (!fetchLocalRepositoryAlways) {
       if (doNotFetchUnconditionally && repoRoot.exists()) {
-        byte[] markerHash = digestWriter.isFileSystemUpToDate(handler, env);
+        byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
         if (env.valuesMissing()) {
           return null;
         }
@@ -374,7 +374,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
      * because it's possible that we eventually create that directory in which case the FileValue
      * and the state of the file system would be inconsistent.
      */
-    byte[] isFileSystemUpToDate(RepositoryFunction handler, Environment env)
+    byte[] areRepositoryAndMarkerFileConsistent(RepositoryFunction handler, Environment env)
         throws RepositoryFunctionException, InterruptedException {
       if (!markerPath.exists()) {
         return null;
