@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -47,6 +48,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ActionExecutionException, InterruptedException {
+    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, null));
     try (AutoProfiler p =
         AutoProfiler.logged(
             "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
