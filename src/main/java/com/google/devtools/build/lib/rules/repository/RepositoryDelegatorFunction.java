@@ -162,6 +162,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     // try to cache them from across server instances.
     boolean fetchLocalRepositoryAlways = isFetch.get() && handler.isLocal(rule);
     if (!fetchLocalRepositoryAlways) {
+      // For the non-local repositories, check if they are already up-to-date:
+      // 1) unconditional fetching is not enabled, AND
+      // 2) repository directory exists, AND
+      // 3) marker file correctly describes the current repository state
       if (doNotFetchUnconditionally && repoRoot.exists()) {
         byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
         if (env.valuesMissing()) {
