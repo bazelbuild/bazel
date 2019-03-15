@@ -196,6 +196,14 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
+   * Returns the repository name without the leading "{@literal @}".  For the default repository,
+   * returns "".
+   */
+  public static String stripName(String repoName) {
+    return repoName.startsWith("@") ? repoName.substring(1) : repoName;
+  }
+
+  /**
    * Returns if this is the default repository, that is, {@link #name} is "".
    */
   public boolean isDefault() {

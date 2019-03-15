@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.repository;
 
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 
 /**
