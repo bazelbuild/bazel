@@ -41,12 +41,11 @@ using std::unique_ptr;
 using std::wstring;
 
 TEST(PathWindowsTest, TestNormalizeWindowsPath) {
-#define ASSERT_NORMALIZE(x, y)                                           \
-  {                                                                      \
-    std::string result;                                                  \
-    EXPECT_TRUE(                                                         \
-        blaze_util::testing::TestOnly_NormalizeWindowsPath(x, &result)); \
-    EXPECT_EQ(result, y);                                                \
+#define ASSERT_NORMALIZE(x, y)                                          \
+  {                                                                     \
+    std::string result;                                                 \
+    EXPECT_TRUE(blaze_util::TestOnly_NormalizeWindowsPath(x, &result)); \
+    EXPECT_EQ(result, y);                                               \
   }
 
   ASSERT_NORMALIZE("", "");

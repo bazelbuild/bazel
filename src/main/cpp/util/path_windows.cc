@@ -65,7 +65,7 @@ std::string ConvertPath(const std::string& path) {
   // The path may not be Windows-style and may not be normalized, so convert it.
   std::string converted_path;
   std::string error;
-  if (!blaze_util::AsWindowsPath(path, &converted_path, &error)) {
+  if (!AsWindowsPath(path, &converted_path, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ConvertPath(" << path << "): AsWindowsPath failed: " << error;
   }
@@ -372,8 +372,9 @@ static bool NormalizeWindowsPath(const std::basic_string<char_type>& path,
 }
 
 template <typename char_type>
-bool AsWindowsPath(const std::basic_string<char_type>& path,
-                   std::basic_string<char_type>* result, std::string* error) {
+static bool AsWindowsPathImpl(const std::basic_string<char_type>& path,
+                              std::basic_string<char_type>* result,
+                              std::string* error) {
   if (path.empty()) {
     result->clear();
     return true;
@@ -428,20 +429,25 @@ bool AsWindowsPath(const std::basic_string<char_type>& path,
   return true;
 }
 
-bool AsWindowsPath(const std::string& path, std::wstring* result,
+bool AsWindowsPath(const std::string& path, std::string* result,
                    std::string* error) {
-  std::string normalized_win_path;
-  if (!AsWindowsPath(path, &normalized_win_path, error)) {
-    return false;
-  }
-
-  result->assign(CstringToWstring(normalized_win_path.c_str()).get());
-  return true;
+  return AsWindowsPathImpl(path, result, error);
 }
 
-template <typename char_type>
-bool AsAbsoluteWindowsPath(const std::basic_string<char_type>& path,
-                           std::wstring* result, std::string* error) {
+bool AsWindowsPath(const std::string& path, std::wstring* result,
+                   std::string* error) {
+  return AsWindowsPathImpl(std::wstring(CstringToWstring(path.c_str()).get()),
+                           result, error);
+}
+
+bool AsWindowsPath(const std::wstring& path, std::wstring* result,
+                   std::string* error) {
+  return AsWindowsPathImpl(path, result, error);
+}
+
+static bool AsAbsoluteWindowsPathImpl(const std::wstring& path,
+                                      std::wstring* result,
+                                      std::string* error) {
   if (path.empty()) {
     result->clear();
     return true;
@@ -464,6 +470,17 @@ bool AsAbsoluteWindowsPath(const std::basic_string<char_type>& path,
     *result = std::wstring(L"\\\\?\\") + *result;
   }
   return true;
+}
+
+bool AsAbsoluteWindowsPath(const std::string& path, std::wstring* result,
+                           std::string* error) {
+  return AsAbsoluteWindowsPathImpl(CstringToWstring(path.c_str()).get(), result,
+                                   error);
+}
+
+bool AsAbsoluteWindowsPath(const std::wstring& path, std::wstring* result,
+                           std::string* error) {
+  return AsAbsoluteWindowsPathImpl(path, result, error);
 }
 
 bool AsShortWindowsPath(const std::string& path, std::string* result,
@@ -573,13 +590,9 @@ static char GetCurrentDrive() {
   return 'a' + wdrive - offset;
 }
 
-namespace testing {
-
 bool TestOnly_NormalizeWindowsPath(const std::string& path,
                                    std::string* result) {
   return NormalizeWindowsPath(path, result);
 }
-
-}  // namespace testing
 
 }  // namespace blaze_util
