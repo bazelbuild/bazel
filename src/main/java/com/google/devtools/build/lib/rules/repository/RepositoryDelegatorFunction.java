@@ -159,7 +159,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     // Local repositories are fetched regardless of the marker file because the operation is
     // generally fast and they do not depend on non-local data, so it does not make much sense to
-    // try to cache from across server instances.
+    // try to cache them from across server instances.
     boolean fetchLocalRepositoryAlways = isFetch.get() && handler.isLocal(rule);
     if (!fetchLocalRepositoryAlways) {
       if (doNotFetchUnconditionally && repoRoot.exists()) {
@@ -335,6 +335,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
      * <p>
      * Returns null if the file system is not up to date and a hash of the marker file if the file
      * system is up to date.
+     *
+     * We check the repository root for existence here, but we can't depend on the FileValue,
+     * because it's possible that we eventually create that directory in which case the FileValue
+     * and the state of the file system would be inconsistent.
      */
     byte[] isFileSystemUpToDate(RepositoryFunction handler, Environment env)
         throws RepositoryFunctionException, InterruptedException {
@@ -346,28 +350,24 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       String content;
       try {
         content = FileSystemUtils.readContent(markerPath, StandardCharsets.UTF_8);
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-      String markerRuleKey = readMarkerFile(content, markerData);
-      boolean verified = false;
-      if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
-        verified = handler.verifyMarkerData(rule, markerData, env);
-        if (env.valuesMissing()) {
+        String markerRuleKey = readMarkerFile(content, markerData);
+        boolean verified = false;
+        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
+          verified = handler.verifyMarkerData(rule, markerData, env);
+          if (env.valuesMissing()) {
+            return null;
+          }
+        }
+
+        if (verified) {
+          return new Fingerprint().addString(content).digestAndReset();
+        } else {
+          // So that we are in a consistent state if something happens while fetching the repository
+          markerPath.delete();
           return null;
         }
-      }
-
-      if (verified) {
-        return new Fingerprint().addString(content).digestAndReset();
-      } else {
-        // So that we are in a consistent state if something happens while fetching the repository
-        try {
-          markerPath.delete();
-        } catch (IOException e) {
-          throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-        }
-        return null;
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
     }
 
