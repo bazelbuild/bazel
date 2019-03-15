@@ -545,6 +545,11 @@ public class StandaloneTestStrategy extends TestStrategy {
       this.execRoot = execRoot;
     }
 
+    @Override
+    public ActionExecutionContext getActionExecutionContext() {
+      return actionExecutionContext;
+    }
+
     public StandaloneTestResult execute() throws InterruptedException, IOException, ExecException {
       prepareFileSystem(testAction, tmpDir, coverageDir, workingDirectory);
       return executeTestAttempt(testAction, spawn, actionExecutionContext, execRoot);

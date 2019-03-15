@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -21,6 +22,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.IOException;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A context for the execution of test actions ({@link TestRunnerAction}).
@@ -61,10 +63,76 @@ public interface TestActionContext extends ActionContext {
    */
   interface FailedAttemptResult {}
 
+  /** A continuation that represents a single test attempt. */
+  abstract class TestAttemptContinuation {
+    public static TestAttemptContinuation of(TestAttemptResult testAttemptResult) {
+      return new Finished(testAttemptResult);
+    }
+
+    /** Returns true if this is a final result. */
+    public boolean isDone() {
+      return false;
+    }
+
+    /** Returns a future representing any ongoing concurrent work, or {@code null} otherwise. */
+    @Nullable
+    public abstract ListenableFuture<?> getFuture();
+
+    /** Performs the next step in the process of executing the test attempt. */
+    public abstract TestAttemptContinuation execute()
+        throws InterruptedException, IOException, ExecException;
+
+    /** Returns the final result. */
+    public TestAttemptResult get() {
+      throw new IllegalStateException();
+    }
+
+    /** Represents a finished test attempt. */
+    private static final class Finished extends TestAttemptContinuation {
+      private final TestAttemptResult testAttemptResult;
+
+      private Finished(TestAttemptResult testAttemptResult) {
+        this.testAttemptResult = testAttemptResult;
+      }
+
+      @Override
+      public boolean isDone() {
+        return true;
+      }
+
+      @Override
+      public ListenableFuture<?> getFuture() {
+        throw new IllegalStateException();
+      }
+
+      @Override
+      public TestAttemptContinuation execute() {
+        throw new IllegalStateException();
+      }
+
+      @Override
+      public TestAttemptResult get() {
+        return testAttemptResult;
+      }
+    }
+  }
+
   /** A delegate to run a test. This may include running multiple spawns, renaming outputs, etc. */
   interface TestRunnerSpawn {
+    ActionExecutionContext getActionExecutionContext();
+
     /** Execute the test, and handle the test runner protocol. */
     TestAttemptResult execute() throws InterruptedException, IOException, ExecException;
+
+    /**
+     * Begin the test attempt execution. This may block until the test attempt is complete and
+     * return a completed result, or it may return a continuation with a non-null future
+     * representing asynchronous execution.
+     */
+    default TestAttemptContinuation beginExecution()
+        throws InterruptedException, IOException, ExecException {
+      return TestAttemptContinuation.of(execute());
+    }
 
     /**
      * After the first attempt has run, this method is called to determine the maximum number of
