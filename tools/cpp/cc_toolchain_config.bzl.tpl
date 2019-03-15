@@ -325,6 +325,10 @@ def _windows_msvc_impl(ctx):
         ],
     )
 
+    compiler_param_file_feature = feature(
+        name = "compiler_param_file",
+    )
+
     copy_dynamic_libraries_to_binary_feature = feature(name = "copy_dynamic_libraries_to_binary")
 
     input_param_flags_feature = feature(
@@ -1054,6 +1058,7 @@ def _windows_msvc_impl(ctx):
         user_compile_flags_feature,
         sysroot_feature,
         unfiltered_compile_flags_feature,
+        compiler_param_file_feature,
         compiler_output_flags_feature,
         compiler_input_flags_feature,
         def_file_feature,
@@ -1226,6 +1231,10 @@ def _windows_msys_mingw_impl(ctx):
         ],
     )
 
+    compiler_param_file_feature = feature(
+        name = "compiler_param_file",
+    )
+
     default_link_flags_feature = feature(
         name = "default_link_flags",
         enabled = True,
@@ -1244,6 +1253,7 @@ def _windows_msys_mingw_impl(ctx):
         copy_dynamic_libraries_to_binary_feature,
         gcc_env_feature,
         default_compile_flags_feature,
+        compiler_param_file_feature,
         default_link_flags_feature,
         supports_dynamic_linker_feature,
     ]

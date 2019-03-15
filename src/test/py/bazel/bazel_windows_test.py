@@ -45,6 +45,23 @@ class BazelWindowsTest(test_base.TestBase):
         ['--batch', 'build', '//foo:x', '--cpu=x64_windows_msys'])
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testWindowsParameterFile(self):
+    self.createProjectFiles()
+
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '--materialize_param_files',
+        '--features=compiler_param_file',
+        '//foo:x',
+    ])
+
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertTrue(
+        os.path.exists(os.path.join(bazel_bin, 'foo\\_objs\\x\\x.obj.params')))
+
   def testWindowsCompilesAssembly(self):
     self.ScratchFile('WORKSPACE')
     exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])

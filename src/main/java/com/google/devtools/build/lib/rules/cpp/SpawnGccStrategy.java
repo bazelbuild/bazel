@@ -58,11 +58,14 @@ public class SpawnGccStrategy implements CppCompileActionContext {
       throws ExecException, InterruptedException {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
-    ImmutableList<ActionInput> inputs =
+    ImmutableList.Builder<ActionInput> inputsBuilder =
         new ImmutableList.Builder<ActionInput>()
             .addAll(action.getMandatoryInputs())
-            .addAll(action.getAdditionalInputs())
-            .build();
+            .addAll(action.getAdditionalInputs());
+    if (action.getParamFileActionInput() != null) {
+      inputsBuilder.add(action.getParamFileActionInput());
+    }
+    ImmutableList<ActionInput> inputs = inputsBuilder.build();
     action.clearAdditionalInputs();
 
     ImmutableMap<String, String> executionInfo = action.getExecutionInfo();

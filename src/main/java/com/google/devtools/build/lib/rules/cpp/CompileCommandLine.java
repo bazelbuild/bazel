@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -79,14 +80,20 @@ public final class CompileCommandLine {
    * @param overwrittenVariables: Variables that will overwrite original build variables. When null,
    *     unmodified original variables are used.
    */
-  protected List<String> getArguments(@Nullable CcToolchainVariables overwrittenVariables) {
+  protected List<String> getArguments(
+      @Nullable PathFragment parameterFilePath,
+      @Nullable CcToolchainVariables overwrittenVariables) {
     List<String> commandLine = new ArrayList<>();
 
     // first: The command name.
     commandLine.add(getToolPath());
 
     // second: The compiler options.
-    commandLine.addAll(getCompilerOptions(overwrittenVariables));
+    if (parameterFilePath != null) {
+      commandLine.add("@" + parameterFilePath.getSafePathString());
+    } else {
+      commandLine.addAll(getCompilerOptions(overwrittenVariables));
+    }
     return commandLine;
   }
 

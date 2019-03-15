@@ -73,6 +73,7 @@ _FEATURE_NAMES = struct(
     link_env = "link_env",
     dynamic_linking_mode = "dynamic_linking_mode",
     static_linking_mode = "static_linking_mode",
+    compiler_param_file = "compiler_param_file",
 )
 
 _no_legacy_features_feature = feature(name = _FEATURE_NAMES.no_legacy_features)
@@ -587,6 +588,11 @@ _targets_windows_feature = feature(
     implies = ["copy_dynamic_libraries_to_binary"],
 )
 
+_compiler_param_file_feature = feature(
+    name = _FEATURE_NAMES.compiler_param_file,
+    enabled = True,
+)
+
 _static_link_cpp_runtimes_feature = feature(
     name = _FEATURE_NAMES.static_link_cpp_runtimes,
     enabled = True,
@@ -682,6 +688,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.supports_start_end_lib: _supports_start_end_lib_feature,
     _FEATURE_NAMES.supports_pic: _supports_pic_feature,
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
+    _FEATURE_NAMES.compiler_param_file: _compiler_param_file_feature,
     _FEATURE_NAMES.module_maps: _module_maps_feature,
     _FEATURE_NAMES.static_link_cpp_runtimes: _static_link_cpp_runtimes_feature,
     _FEATURE_NAMES.simple_compile_feature: _simple_compile_feature,

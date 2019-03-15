@@ -395,6 +395,8 @@ public class CppRuleClasses {
    */
   public static final String DO_NOT_SPLIT_LINKING_CMDLINE = "do_not_split_linking_cmdline";
 
+  public static final String COMPIILER_PARAM_FILE = "compiler_param_file";
+
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     @Override

@@ -38,9 +38,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
@@ -73,6 +75,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -173,6 +176,9 @@ public class CppCompileAction extends AbstractAction
   private NestedSet<Artifact> topLevelModules = null;
 
   private CcToolchainVariables overwrittenVariables = null;
+
+  private ParamFileActionInput paramFileActionInput;
+  private PathFragment paramFilePath;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -275,6 +281,13 @@ public class CppCompileAction extends AbstractAction
     this.topLevelModules = null;
     this.overwrittenVariables = null;
     this.grepIncludes = grepIncludes;
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+      paramFilePath =
+          outputFile
+              .getExecPath()
+              .getParentDirectory()
+              .getChild(outputFile.getFilename() + ".params");
+    }
   }
 
   /**
@@ -684,7 +697,11 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public List<String> getArguments() {
-    return compileCommandLine.getArguments(overwrittenVariables);
+    return compileCommandLine.getArguments(paramFilePath, overwrittenVariables);
+  }
+
+  public ParamFileActionInput getParamFileActionInput() {
+    return paramFileActionInput;
   }
 
   @Override
@@ -1106,6 +1123,15 @@ public class CppCompileAction extends AbstractAction
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     setModuleFileFlags();
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+      paramFileActionInput =
+          new ParamFileActionInput(
+              paramFilePath,
+              compileCommandLine.getCompilerOptions(overwrittenVariables),
+              ParameterFileType.SHELL_QUOTED,
+              StandardCharsets.ISO_8859_1);
+    }
+
     CppCompileActionContext.Reply reply;
 
     if (!shouldScanDotdFiles()) {
