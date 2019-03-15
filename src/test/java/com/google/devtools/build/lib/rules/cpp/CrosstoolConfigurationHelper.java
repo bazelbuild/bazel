@@ -70,6 +70,8 @@ public class CrosstoolConfigurationHelper {
           return "arm";
         case S390X:
           return "s390x";
+        case MIPS64:
+          return "mips64";
         default:
           return "unknown";
       }

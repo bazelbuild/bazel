@@ -53,6 +53,12 @@ config_setting(
 )
 
 config_setting(
+    name = "mips64",
+    values = {"cpu": "mips64"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_aarch64",
     values = {"cpu": "aarch64"},
     visibility = ["//visibility:public"],

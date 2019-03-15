@@ -27,6 +27,7 @@ public enum CPU {
   ARM("arm", ImmutableSet.of("arm", "armv7l")),
   AARCH64("aarch64", ImmutableSet.of("aarch64")),
   S390X("s390x", ImmutableSet.of("s390x", "s390")),
+  MIPS64("mips64", ImmutableSet.of("mips64el", "mips64")),
   UNKNOWN("unknown", ImmutableSet.<String>of());
 
   private final String canonicalName;

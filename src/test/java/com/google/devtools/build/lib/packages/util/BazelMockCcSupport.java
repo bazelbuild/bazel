@@ -36,7 +36,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   private BazelMockCcSupport() {}
 
   private static final ImmutableList<String> CROSSTOOL_ARCHS =
-      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc");
+      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc", "mips64");
 
   protected static void createBasePackage(MockToolsConfig config) throws IOException {
     config.create(
