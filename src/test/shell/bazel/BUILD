@@ -526,13 +526,6 @@ filegroup(
     ],
 )
 
-filegroup(
-    name = "android_WORKSPACE",
-    srcs = [
-        "@android_WORKSPACE_files//:archives",
-    ],
-)
-
 sh_test(
     name = "workspace_resolved_test",
     size = "large",
