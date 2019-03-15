@@ -3517,13 +3517,15 @@ def _impl(ctx):
                     ],
                 ),
                 flag_set(
-                    actions = [ACTION_NAMES.cpp_link_nodeps_dynamic_library],
+                    actions = [
+                      ACTION_NAMES.cpp_link_dynamic_library,
+                      ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                    ],
                     flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
                 ),
                 flag_set(
                     actions = [
                         ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
                         "objc-executable",
                         "objc++-executable",
                     ],
