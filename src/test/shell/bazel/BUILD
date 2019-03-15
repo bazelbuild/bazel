@@ -532,7 +532,6 @@ sh_test(
     srcs = ["workspace_resolved_test.sh"],
     data = [
         ":test_WORKSPACE",
-        ":android_WORKSPACE",
         ":test-deps",
     ],
     shard_count = 20,
