@@ -103,4 +103,52 @@ EOF
   bazel build :ok || fail "Should have found include at synthetic path"
 }
 
+# This test tests that Bazel can produce dynamic libraries that have undefined
+# symbols on Mac and Linux. Not sure it is a sane default to allow undefined
+# symbols, but it's the default we had historically. This test creates
+# an executable (main) that defines bar(), and a shared library (plugin) that
+# calls bar(). When linking the libplugin.so, symbol 'bar' is undefined.
+#    +-----------------------------+     +----------------------------------+
+#    |  main                       |     |  libplugin.so                    |
+#    |                             |     |                                  |
+#    |   main() { return foo(); } +---------> foo() { return bar() - 42; }  |
+#    |                             |     |       +                          |
+#    |                             |     |       |                          |
+#    |   bar() { return 42; } <------------------+                          |
+#    |                             |     |                                  |
+#    +-----------------------------+     +----------------------------------+
+function test_undefined_dynamic_lookup() {
+  if is_windows; then
+    # Windows doesn't allow undefined symbols in shared libraries.
+    return 0
+  fi
+  mkdir -p "dynamic_lookup"
+  cat > "dynamic_lookup/BUILD" <<EOF
+cc_binary(
+  name = "libplugin.so",
+  srcs = ["plugin.cc"],
+  linkshared = 1,
+)
+
+cc_binary(
+    name = "main",
+    srcs = ["main.cc", "libplugin.so"],
+)
+EOF
+
+  cat > "dynamic_lookup/plugin.cc" <<EOF
+int bar();
+int foo() { return bar() - 42; }
+EOF
+
+  cat > "dynamic_lookup/main.cc" <<EOF
+int foo();
+int bar() { return 42; }
+int main() { return foo(); }
+EOF
+
+  bazel build //dynamic_lookup:main || fail "Bazel couldn't build the binary."
+  bazel run //dynamic_lookup:main || fail "Run of the binary failed."
+}
+
 run_suite "cc_integration_test"
