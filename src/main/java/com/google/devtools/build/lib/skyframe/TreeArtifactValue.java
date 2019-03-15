@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -54,55 +53,30 @@ public class TreeArtifactValue implements SkyValue {
         }
       };
 
-  private static final TreeArtifactValue EMPTY =
-      new TreeArtifactValue(
-          DigestUtils.fromMetadata(ImmutableMap.of()).getDigestBytesUnsafe(),
-          ImmutableMap.of(),
-          /* remote= */ false);
-
   private final byte[] digest;
   private final Map<TreeFileArtifact, FileArtifactValue> childData;
   private BigInteger valueFingerprint;
-  private final boolean remote;
 
   @AutoCodec.VisibleForSerialization
-  TreeArtifactValue(
-      byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData, boolean remote) {
+  TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData) {
     this.digest = digest;
     this.childData = ImmutableMap.copyOf(childData);
-    this.remote = remote;
   }
 
   /**
    * Returns a TreeArtifactValue out of the given Artifact-relative path fragments and their
    * corresponding FileArtifactValues.
-   *
-   * <p>All {@code childFileValues} must return the same value for {@link
-   * FileArtifactValue#isRemote()}.
    */
   static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
-    if (childFileValues.isEmpty()) {
-      return EMPTY;
-    }
     Map<String, FileArtifactValue> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
-    Boolean remote = null;
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
-      FileArtifactValue value = e.getValue();
-      if (remote == null) {
-        remote = value.isRemote();
-      }
-      Preconditions.checkArgument(
-          value.isRemote() == remote,
-          "files in a tree artifact must either be all remote or all local. '%v', remote=%b",
-          value,
-          value.isRemote());
-      digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), value);
+      digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), e.getValue());
     }
+
     return new TreeArtifactValue(
         DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe(),
-        ImmutableMap.copyOf(childFileValues),
-        Preconditions.checkNotNull(remote));
+        ImmutableMap.copyOf(childFileValues));
   }
 
   FileArtifactValue getSelfData() {
@@ -128,11 +102,6 @@ public class TreeArtifactValue implements SkyValue {
 
   Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
     return childData;
-  }
-
-  /** Returns true if the {@link TreeFileArtifact}s are only stored remotely. */
-  public boolean isRemote() {
-    return remote;
   }
 
   @Override
@@ -181,7 +150,7 @@ public class TreeArtifactValue implements SkyValue {
    * Java's concurrent collections disallow null members.
    */
   static final TreeArtifactValue MISSING_TREE_ARTIFACT =
-      new TreeArtifactValue(null, ImmutableMap.<TreeFileArtifact, FileArtifactValue>of(), false) {
+      new TreeArtifactValue(null, ImmutableMap.<TreeFileArtifact, FileArtifactValue>of()) {
         @Override
         FileArtifactValue getSelfData() {
           throw new UnsupportedOperationException();
