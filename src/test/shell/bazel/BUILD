@@ -530,9 +530,16 @@ sh_test(
 )
 
 filegroup(
-    name = "jdk_WORKSPACE",
+    name = "test_WORKSPACE",
     srcs = [
-        "@jdk_WORKSPACE_files//:archives",
+        "@test_WORKSPACE_files//:archives",
+    ],
+)
+
+filegroup(
+    name = "android_WORKSPACE",
+    srcs = [
+        "@android_WORKSPACE_files//:archives",
     ],
 )
 
@@ -541,7 +548,8 @@ sh_test(
     size = "large",
     srcs = ["workspace_resolved_test.sh"],
     data = [
-        ":jdk_WORKSPACE",
+        ":test_WORKSPACE",
+        ":android_WORKSPACE",
         ":test-deps",
     ],
     shard_count = 20,

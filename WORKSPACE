@@ -322,25 +322,11 @@ http_archive(
     ],
 )
 
-# distdir_tar(
-#     name = "android_WORKSPACE_files",
-#     archives = [
-#         "54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip",
-#     ],
-#     dirname = "android_WORKSPACE/distdir",
-#     sha256 = {
-#         "54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip": "c4cd965983b22272d20f5038f6fd8d143d344fac1bb638d765ec7f62e652486f",
-#     },
-#     urls = {
-#         "54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip": ["https://github.com/jin/legacy_android_tools/archive/54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip"],
-#     },
-# )
-
 # For testing, have an distdir_tar with all the archives implicit in every
 # WORKSPACE, to that they don't have to be refetched for every test
 # calling `bazel sync`.
 distdir_tar(
-    name = "jdk_WORKSPACE_files",
+    name = "test_WORKSPACE_files",
     archives = [
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz",
         "zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz",
@@ -359,9 +345,9 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip",
-        "54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip",
+        "54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip", # TODO(jin): do a proper release
     ],
-    dirname = "jdk_WORKSPACE/distdir",
+    dirname = "test_WORKSPACE/distdir",
     sha256 = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
         "zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz": "404e7058ff91f956612f47705efbee8e175a38b505fb1b52d8c1ea98718683de",
