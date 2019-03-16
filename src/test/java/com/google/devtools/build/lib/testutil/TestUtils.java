@@ -112,7 +112,7 @@ public class TestUtils {
         randomSeed = Integer.parseInt(value);
       } catch (NumberFormatException e) {
         // throw new AssertionError("TEST_RANDOM_SEED must be an integer");
-        throw new RuntimeException("TEST_RANDOM_SEED must be an integer");
+        throw new RuntimeException("TEST_RANDOM_SEED must be an integer", e);
       }
     }
 
