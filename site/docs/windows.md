@@ -65,17 +65,19 @@ To build C++ targets, you need:
         [known issue](https://github.com/bazelbuild/bazel/issues/3949),
         please upgrade your VS 2017 to the latest version.
 
-*   The `BAZEL_VS` or `BAZEL_VC` environment variable. (They are *not* the same!)
+*   The `BAZEL_VS` , `BAZEL_VC` and `BAZEL_VC_TOOL` environment variable. (They are *not* the same!)
 
     Bazel tries to locate the C++ compiler the first time you build any
-    target. To tell Bazel where the compiler is, you can set one of the
+    target. To tell Bazel where the compiler is, we provide the
     following environment variables:
 
     *   `BAZEL_VS` storing the Visual Studio installation directory
 
     *   `BAZEL_VC` storing the Visual C++ Build Tools installation directory
 
-    Setting one of these variables is enough. For example:
+    *   `BAZEL_VC_TOOL` storing the Visual C++ tools directory (directory with ```cl.exe```)
+
+    For Visual Studio 2015 or older, setting one of `BAZEL_VC` or `BAZEL_VS` is enough. For example:
 
     ```
     set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio 14.0
@@ -90,7 +92,9 @@ To build C++ targets, you need:
     The first command sets the path to Visual Studio (BAZEL\_V<b>S</b>), the other
     sets the path to Visual C++ (BAZEL\_V<b>C</b>).
 
-    For Visual Studio 2017, with a default install, instead you might want
+    For Visual Studio 2017, you might have ambiguity with VC++ version.
+    In case if you have more than one VC++ version installed you also need
+    to set `BAZEL_VC_TOOL` to tell Bazel which version of VC++ you would like to use.
 
     ```
     set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools
@@ -101,6 +105,20 @@ To build C++ targets, you need:
      ```
     set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC
     ```
+
+    and (to specify exact VC++ version)
+
+     ```
+    set BAZEL_VC_TOOL=C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\bin\Hostx64\x64
+    ```
+
+    The last command sets the path to Visual C++ tools.
+
+    If you have multiple VC++ versions installed, but you did not set `BAZEL_VC_TOOL` bazel will use latest VC++ version.
+
+    If you set `BAZEL_VC_TOOL` but you did not set any of `BAZEL_VS` or `BAZEL_VS` bazel will only search
+    for Visual C++ directory based on path provided in `BAZEL_VC_TOOL`
+    and will not check for register keys or any other directories.
 
 *   The [Windows
     SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
