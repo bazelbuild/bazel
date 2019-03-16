@@ -45,6 +45,18 @@ java_test(
 )
 
 java_test(
+    name = "AndroidSkylarkCommonTest",
+    srcs = ["AndroidSkylarkCommonTest.java"],
+    deps = [
+        ":AndroidBuildViewTestCase",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "AndroidCommonTest",
     srcs = ["AndroidCommonTest.java"],
     deps = [
