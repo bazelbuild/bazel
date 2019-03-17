@@ -149,14 +149,21 @@ Genrule=+requires-a,CppCompile=+requires-b,CppCompile=+requires-c \
   assert_contains "ExecutionInfo: {requires-a: ''" output
 }
 
+# TODO(davido): Find a way to re-use the same protobuf's BUILD file
 function test_modify_execution_info_various_types() {
   if [[ "$PRODUCT_NAME" = "bazel" ]]; then
     # proto_library requires this external workspace.
     cat >> WORKSPACE << EOF
+workspace(name = "io_bazel")
 new_local_repository(
     name = "com_google_protobuf",
-    path = "$(dirname $(rlocation io_bazel/third_party/protobuf/3.7.1/BUILD))",
-    build_file = "$(rlocation io_bazel/third_party/protobuf/3.7.1/BUILD)",
+    path = "$(dirname $(rlocation io_bazel/third_party/protobuf/3.7.1/BUILD_without_zlib_dep.bazel))",
+    build_file = "$(rlocation io_bazel/third_party/protobuf/3.7.1/BUILD_without_zlib_dep.bazel)",
+)
+new_local_repository(
+    name = "zlib",
+    path = "$(dirname $(rlocation io_bazel/third_party/zlib/BUILD))",
+    build_file = "$(rlocation io_bazel/third_party/zlib/BUILD)",
 )
 EOF
   fi
