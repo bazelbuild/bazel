@@ -262,25 +262,29 @@ def CreateChanges(output,
   debsize = str(os.path.getsize(deb_file))
   deb_basename = os.path.basename(deb_file)
 
-  changesdata = ''.join(
-      MakeDebianControlField(*x)
-      for x in [('Format', '1.8'), ('Date', time.ctime(timestamp)), (
-          'Source', package
-      ), ('Binary', package
-         ), ('Architecture', architecture), ('Version', version), (
-             'Distribution', distribution
-         ), ('Urgency', urgency), ('Maintainer', maintainer), (
-             'Changed-By', maintainer
-         ), ('Description', '\n%s - %s' % (package, short_description)
-            ), ('Changes', ('\n%s (%s) %s; urgency=%s'
-                            '\nChanges are tracked in revision control.'
-                           ) % (package, version, distribution, urgency)
-               ), ('Files', '\n' + ' '.join(
-                   [checksums['md5'], debsize, section, priority, deb_basename])
-                  ), ('Checksums-Sha1', '\n' + ' '.join(
-                      [checksums['sha1'], debsize, deb_basename])
-                     ), ('Checksums-Sha256', '\n' + ' '.join(
-                         [checksums['sha256'], debsize, deb_basename]))])
+  changesdata = ''.join([
+    MakeDebianControlField('Format', '1.8'),
+    MakeDebianControlField('Date', time.ctime(timestamp)),
+    MakeDebianControlField('Source', package),
+    MakeDebianControlField('Binary', package),
+    MakeDebianControlField('Architecture', architecture),
+    MakeDebianControlField('Version', version),
+    MakeDebianControlField('Distribution', distribution),
+    MakeDebianControlField('Urgency', urgency),
+    MakeDebianControlField('Maintainer', maintainer),
+    MakeDebianControlField('Changed-By', maintainer),
+    MakeDebianControlField('Description', '\n%s - %s' % (
+      package, short_description)),
+    MakeDebianControlField('Changes', (
+      '\n%s (%s) %s; urgency=%s'
+      '\nChanges are tracked in revision control.') % (
+      package, version, distribution, urgency)),
+    MakeDebianControlField('Files', '\n' + ' '.join(
+      [checksums['md5'], debsize, section, priority, deb_basename])),
+    MakeDebianControlField('Checksums-Sha1', '\n' + ' '.join(
+      [checksums['sha1'], debsize, deb_basename])),
+    MakeDebianControlField('Checksums-Sha256', '\n' + ' '.join(
+      [checksums['sha256'], debsize, deb_basename]))])
   with open(output, 'w') as changes_fh:
     changes_fh.write(changesdata.encode("utf-8"))
 
