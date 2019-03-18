@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -70,7 +71,8 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   }
 
   @Override
-  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+  public boolean verifyMarkerData(RepositoryName repositoryName, Rule rule,
+      Map<String, String> markerData, Environment env)
       throws InterruptedException {
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     if (attributes.isAttributeValueExplicitlySpecified("path")) {

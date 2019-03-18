@@ -163,6 +163,22 @@ public final class BlackBoxTestContext {
   }
 
   /**
+   * Resolve a path relative to "execution_root".
+   * Useful for checking the contents of the generated external repositories.
+   *
+   * <p>Calls <code>bazel info execution_root</code>
+   *
+   * @param bazel the instance of BuilderRunner to run info with
+   * @param subPathUnderBin path to the file under execution_root directory
+   * @return full path to the resolved file
+   * @throws Exception if <code>bazel info</code> command fails
+   */
+  public Path resolveExecRootPath(BuilderRunner bazel, String subPathUnderBin) throws Exception {
+    Path binPath = PathUtils.resolve(workDir, bazel.info("execution_root").outString());
+    return PathUtils.resolve(binPath, subPathUnderBin);
+  }
+
+  /**
    * Runs the built executable. Calls <code>bazel info</code> to get the information about bazel-bin
    * directory location.
    *
