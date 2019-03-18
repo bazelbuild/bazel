@@ -39,6 +39,9 @@ def _clone_or_update(ctx):
         if ctx.attr.branch:
             fail("shallow_since not allowed if a branch is specified; --depth=1 will be used for branches")
         shallow = "--shallow-since=%s" % ctx.attr.shallow_since
+    single_branch = ""
+    if ctx.attr.single_branch:
+        single_branch = "-b {} --single-branch".format(ctx.attr.single_branch)
 
     ctx.report_progress("Cloning %s of %s" % (ref, ctx.attr.remote))
     if (ctx.attr.verbose):
@@ -55,7 +58,7 @@ set -ex
 ( cd {working_dir} &&
     if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
       rm -rf '{directory}' '{dir_link}'
-      git clone '{shallow}' '{remote}' '{directory}' || git clone '{remote}' '{directory}'
+      git clone '{shallow}' '{single_branch}' '{remote}' '{directory}' || git clone '{remote}' '{directory}'
     fi
     git -C '{directory}' reset --hard {ref} || \
     ((git -C '{directory}' fetch '{shallow}' origin {ref}:{ref} || \
@@ -68,6 +71,7 @@ set -ex
         remote = ctx.attr.remote,
         ref = ref,
         shallow = shallow,
+        single_branch = single_branch,
     )], environment = ctx.os.environ)
 
     if st.return_code:
@@ -132,6 +136,7 @@ _common_attrs = {
     "remote": attr.string(mandatory = True),
     "commit": attr.string(default = ""),
     "shallow_since": attr.string(default = ""),
+    "single_branch": attr.string(default = ""),
     "tag": attr.string(default = ""),
     "branch": attr.string(default = ""),
     "init_submodules": attr.bool(default = False),
@@ -213,6 +218,12 @@ Args:
     allows for a more shallow clone of the repository, saving bandwidth and
     wall-clock time.
 
+  single_branch: An optional branch to pass to Git's --single-branch flag.
+    Passing this flag will only clone history for that branch, rather than all
+    branches in the repo, which can make cloning faster. The specified
+    commit/branch/tag must be part of the history of the branch given to
+    "single_branch".
+
   init_submodules: Whether to clone submodules in the repository.
 
   remote: The URI of the remote Git repository.
@@ -258,6 +269,12 @@ Args:
     (which allows cloning with depth 1). Setting such a date close to the
     specified commit allows for a more shallow clone of the repository, saving
     bandwidth and wall-clock time.
+
+  single_branch: An optional branch to pass to Git's --single-branch flag.
+    Passing this flag will only clone history for that branch, rather than all
+    branches in the repo, which can make cloning faster. The specified
+    commit/branch/tag must be part of the history of the branch given to
+    "single_branch".
 
   strip_prefix: A directory prefix to strip from the extracted files.
 
