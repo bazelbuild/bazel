@@ -118,6 +118,8 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String SIMPLE_LAYERING_CHECK_FEATURE_CONFIGURATION = "simple_layering_check";
+
   /** A feature configuration snippet useful for testing header modules. */
   public static final String HEADER_MODULES_FEATURE_CONFIGURATION =
       "feature {"
@@ -246,6 +248,9 @@ public abstract class MockCcSupport {
           + "    }"
           + "  }"
           + "}";
+
+  public static final String HOST_AND_NONHOST_CONFIGURATION_FEATURES =
+      "host_and_nonhost_configuration";
 
   public static final String USER_COMPILE_FLAGS_CONFIGURATION =
       "feature {"

@@ -74,6 +74,8 @@ _FEATURE_NAMES = struct(
     dynamic_linking_mode = "dynamic_linking_mode",
     static_linking_mode = "static_linking_mode",
     compiler_param_file = "compiler_param_file",
+    objcopy_embed_flags = "objcopy_embed_flags",
+    ld_embed_flags = "ld_embed_flags",
 )
 
 _no_legacy_features_feature = feature(name = _FEATURE_NAMES.no_legacy_features)
@@ -146,6 +148,16 @@ _layering_check_feature = feature(
                     ],
                 ),
             ],
+        ),
+    ],
+)
+
+_simple_layering_check_feature = feature(
+    name = _FEATURE_NAMES.layering_check,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [flag_group(flags = ["<flag>"])],
         ),
     ],
 )
@@ -659,6 +671,32 @@ _dynamic_linking_mode_feature = feature(
     ],
 )
 
+_objcopy_embed_flags_feature = feature(
+    name = _FEATURE_NAMES.objcopy_embed_flags,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = ["objcopy_embed_data"],
+            flag_groups = [
+                flag_group(flags = ["-objcopy-flag-1", "foo"]),
+            ],
+        ),
+    ],
+)
+
+_ld_embed_flags_feature = feature(
+    name = _FEATURE_NAMES.ld_embed_flags,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = ["ld_embed_data"],
+            flag_groups = [
+                flag_group(flags = ["-ld-flag-1", "bar"]),
+            ],
+        ),
+    ],
+)
+
 _feature_name_to_feature = {
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
@@ -695,9 +733,12 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.link_env: _link_env_feature,
     _FEATURE_NAMES.static_linking_mode: _static_linking_mode_feature,
     _FEATURE_NAMES.dynamic_linking_mode: _dynamic_linking_mode_feature,
+    _FEATURE_NAMES.objcopy_embed_flags: _objcopy_embed_flags_feature,
+    _FEATURE_NAMES.ld_embed_flags: _ld_embed_flags_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
+    "simple_layering_check": _simple_layering_check_feature,
 }
 
 _static_link_as_dot_lib_pattern = artifact_name_pattern(
@@ -717,6 +758,11 @@ _artifact_name_to_artifact_pattern = {
     "static_link_as_dot_a": _static_link_as_dot_a_pattern,
 }
 
+_tool_for_action_config = {
+    "objcopy_embed_data": "objcopy_embed_data_tool",
+    "ld_embed_data": "ld_embed_data_tool",
+}
+
 def _get_features_for_configuration(name):
     f = _feature_name_to_feature[name]
     if f == None:
@@ -726,10 +772,11 @@ def _get_features_for_configuration(name):
     else:
         return [f]
 
-def _get_action_config(name):
+def _get_action_config(name, path):
     return action_config(
         action_name = name,
-        tools = [tool(path = "DUMMY_TOOL")],
+        enabled = True,
+        tools = [tool(path = path)],
     )
 
 def _get_artifact_name_pattern(name):
@@ -737,6 +784,9 @@ def _get_artifact_name_pattern(name):
     if artifact == None:
         fail("Artifact name pattern not defined: " + name)
     return artifact
+
+def _get_tool_path(name, path):
+    return tool_path(name = name, path = path)
 
 def _impl(ctx):
     toolchain_identifier = ctx.attr.toolchain_identifier
@@ -801,30 +851,35 @@ def _impl(ctx):
     action_configs = []
 
     for name in ctx.attr.action_configs:
-        action_configs.append(_get_action_config(name))
+        action_configs.append(
+            _get_action_config(name, _tool_for_action_config.get(name, default = "DUMMY_TOOL")),
+        )
 
     make_variables = []
 
-    tool_paths = [
-        tool_path(name = "ar", path = "/usr/bin/mock-ar"),
-        tool_path(
-            name = "compat-ld",
-            path = "/usr/bin/mock-compat-ld",
-        ),
-        tool_path(name = "cpp", path = "/usr/bin/mock-cpp"),
-        tool_path(name = "dwp", path = "/usr/bin/mock-dwp"),
-        tool_path(name = "gcc", path = "/usr/bin/mock-gcc"),
-        tool_path(name = "gcov", path = "/usr/bin/mock-gcov"),
-        tool_path(name = "ld", path = "/usr/bin/mock-ld"),
-        tool_path(name = "nm", path = "/usr/bin/mock-nm"),
-        tool_path(name = "objcopy", path = "/usr/bin/mock-objcopy"),
-        tool_path(name = "objdump", path = "/usr/bin/mock-objdump"),
-        tool_path(name = "strip", path = "/usr/bin/mock-strip"),
-        tool_path(
-            name = "llvm-profdata",
-            path = "/usr/bin/mock-llvm-profdata",
-        ),
-    ]
+    if ctx.attr.tool_paths == {}:
+        tool_paths = [
+            tool_path(name = "ar", path = "/usr/bin/mock-ar"),
+            tool_path(
+                name = "compat-ld",
+                path = "/usr/bin/mock-compat-ld",
+            ),
+            tool_path(name = "cpp", path = "/usr/bin/mock-cpp"),
+            tool_path(name = "dwp", path = "/usr/bin/mock-dwp"),
+            tool_path(name = "gcc", path = "/usr/bin/mock-gcc"),
+            tool_path(name = "gcov", path = "/usr/bin/mock-gcov"),
+            tool_path(name = "ld", path = "/usr/bin/mock-ld"),
+            tool_path(name = "nm", path = "/usr/bin/mock-nm"),
+            tool_path(name = "objcopy", path = "/usr/bin/mock-objcopy"),
+            tool_path(name = "objdump", path = "/usr/bin/mock-objdump"),
+            tool_path(name = "strip", path = "/usr/bin/mock-strip"),
+            tool_path(
+                name = "llvm-profdata",
+                path = "/usr/bin/mock-llvm-profdata",
+            ),
+        ]
+    else:
+        tool_paths = [_get_tool_path(name, path) for name, path in ctx.attr.tool_paths.items()]
 
     out = ctx.actions.declare_file(ctx.label.name)
     ctx.actions.write(out, "Fake executable")
@@ -869,6 +924,7 @@ cc_toolchain_config = rule(
         "artifact_name_patterns": attr.string_list(),
         "cc_target_os": attr.string(),
         "builtin_sysroot": attr.string(default = "/usr/grte/v1"),
+        "tool_paths": attr.string_dict(),
     },
     provides = [CcToolchainConfigInfo],
     executable = True,
