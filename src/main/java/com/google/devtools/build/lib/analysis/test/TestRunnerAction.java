@@ -1073,8 +1073,17 @@ public class TestRunnerAction extends AbstractAction
         spawnResults.addAll(result.spawnResults());
         if (!result.hasPassed()) {
           boolean runAnotherAttempt = failedAttempts.size() + 1 < actualMaxAttempts;
-          TestRunnerSpawn nextRunner =
-              runAnotherAttempt ? testRunnerSpawn : testRunnerSpawn.getFallbackRunner();
+          TestRunnerSpawn nextRunner;
+          if (runAnotherAttempt) {
+            nextRunner = testRunnerSpawn;
+          } else {
+            nextRunner = testRunnerSpawn.getFallbackRunner();
+            if (nextRunner != null) {
+              // We only support one level of fallback, in which case this gets doubled once. We
+              // don't support a different number of max attempts for the fallback strategy.
+              actualMaxAttempts = 2 * actualMaxAttempts;
+            }
+          }
           if (nextRunner != null) {
             failedAttempts.add(
                 testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
