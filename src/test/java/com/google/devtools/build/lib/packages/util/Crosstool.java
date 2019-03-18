@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
@@ -397,6 +398,15 @@ public final class Crosstool {
           crosstoolTop + "/cc_toolchain_config.bzl",
           ResourceLoader.readFromResources(
               "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
+      config.overwrite(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
+          ResourceLoader.readFromResources(
+              TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+      config.overwrite(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
+          ResourceLoader.readFromResources(
+              TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
     } else {
       config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
     }

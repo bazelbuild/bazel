@@ -636,6 +636,7 @@ java_library(
     ],
     resources = [
         "analysis/mock/MOCK_CROSSTOOL",
+        "analysis/mock/cc_toolchain_config.bzl",
     ],
     tags = ["analysis"],
     exports = [
