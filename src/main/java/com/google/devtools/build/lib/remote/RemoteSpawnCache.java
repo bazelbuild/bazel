@@ -135,8 +135,9 @@ final class RemoteSpawnCache implements SpawnCache {
         try (SilentCloseable c = Profiler.instance().profile("RemoteCache.getCachedActionResult")) {
           result = remoteCache.getCachedActionResult(actionKey);
         }
-        if (result != null) {
-          // We don't cache failed actions, so we know the outputs exist.
+        if (result != null && result.getExitCode() == 0) {
+          // In case if failed action returned (exit code != 0) we treat it as a cache miss
+          // Otherwise, we know that result exists.
           try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {
             remoteCache.download(result, execRoot, context.getFileOutErr());
           }

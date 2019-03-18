@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -330,16 +328,14 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
-  public void dontAcceptFailedCachedAction() throws Exception {
-    // Test that bazel fails if the remote cache serves a failed action.
+  @SuppressWarnings("unchecked")
+  public void treatFailedCachedActionAsCacheMiss_local() throws Exception {
+    // Test that bazel treats failed cache action as a cache miss and attempts to execute action
+    // locally
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
-
-    Spawn spawn = newSimpleSpawn();
-    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     RemoteSpawnRunner runner =
         spy(
@@ -349,7 +345,7 @@ public class RemoteSpawnRunnerTest {
                 Options.getDefaults(ExecutionOptions.class),
                 new AtomicReference<>(localRunner),
                 true,
-                /*cmdlineReporter=*/ null,
+                /* cmdlineReporter= */ null,
                 "build-req-id",
                 "command-id",
                 cache,
@@ -357,8 +353,78 @@ public class RemoteSpawnRunnerTest {
                 retrier,
                 digestUtil,
                 logDir));
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
-    assertThrows(EnvironmentalExecException.class, () -> runner.exec(spawn, policy));
+    SpawnResult succeeded =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("test")
+            .build();
+    when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(succeeded);
+
+    runner.exec(spawn, policy);
+
+    verify(localRunner).exec(eq(spawn), eq(policy));
+    verify(runner)
+        .execLocallyAndUpload(
+            eq(spawn),
+            eq(policy),
+            any(SortedMap.class),
+            eq(cache),
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache)
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class));
+    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
+  }
+
+  @Test
+  public void treatFailedCachedActionAsCacheMiss_remote() throws Exception {
+    // Test that bazel treats failed cache action as a cache miss and attempts to execute action
+    // remotely
+
+    ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            Options.getDefaults(ExecutionOptions.class),
+            new AtomicReference<>(localRunner),
+            true,
+            /* cmdlineReporter= */ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor,
+            retrier,
+            digestUtil,
+            logDir);
+
+    ExecuteResponse succeeded =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(0).build())
+            .build();
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+
+    runner.exec(spawn, policy);
+
+    ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
+    verify(executor).executeRemotely(requestCaptor.capture());
+    assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
   }
 
   @Test
