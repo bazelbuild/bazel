@@ -112,6 +112,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path sandboxBase;
   private final Duration timeoutKillDelay;
   private final @Nullable SandboxfsProcess sandboxfsProcess;
+  private final boolean sandboxfsMapSymlinkTargets;
 
   /**
    * The set of directories that always should be writable, independent of the Spawn itself.
@@ -130,12 +131,14 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param timeoutKillDelay additional grace period before killing timing out commands
    * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
    *     which case the runner uses a symlinked sandbox
+   * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
    */
   DarwinSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
-      @Nullable SandboxfsProcess sandboxfsProcess)
+      @Nullable SandboxfsProcess sandboxfsProcess,
+      boolean sandboxfsMapSymlinkTargets)
       throws IOException {
     super(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
@@ -146,6 +149,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.sandboxBase = sandboxBase;
     this.timeoutKillDelay = timeoutKillDelay;
     this.sandboxfsProcess = sandboxfsProcess;
+    this.sandboxfsMapSymlinkTargets = sandboxfsMapSymlinkTargets;
   }
 
   private static void addPathToSetIfExists(FileSystem fs, Set<Path> paths, String path)
@@ -277,7 +281,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               environment,
               inputs,
               outputs,
-              ImmutableSet.of()) {
+              ImmutableSet.of(),
+              sandboxfsMapSymlinkTargets) {
             @Override
             public void createFileSystem() throws IOException {
               super.createFileSystem();

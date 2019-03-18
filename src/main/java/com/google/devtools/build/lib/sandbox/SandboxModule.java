@@ -216,7 +216,11 @@ public final class SandboxModule extends BlazeModule {
           withFallback(
               cmdEnv,
               LinuxSandboxedStrategy.create(
-                  cmdEnv, sandboxBase, timeoutKillDelay, sandboxfsProcess));
+                  cmdEnv,
+                  sandboxBase,
+                  timeoutKillDelay,
+                  sandboxfsProcess,
+                  options.sandboxfsMapSymlinkTargets));
       builder.addActionContext(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
@@ -226,7 +230,11 @@ public final class SandboxModule extends BlazeModule {
           withFallback(
               cmdEnv,
               new DarwinSandboxedSpawnRunner(
-                  cmdEnv, sandboxBase, timeoutKillDelay, sandboxfsProcess));
+                  cmdEnv,
+                  sandboxBase,
+                  timeoutKillDelay,
+                  sandboxfsProcess,
+                  options.sandboxfsMapSymlinkTargets));
       builder.addActionContext(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
