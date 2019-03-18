@@ -303,6 +303,25 @@ public class MoreAsserts {
   }
 
   /**
+   * If {@code eventCollector} does not contain an event which matches {@code expectedEventRegex},
+   * fails with an informative assertion.
+   */
+  public static void assertContainsEventRegex(
+      Iterable<Event> eventCollector, String expectedEventRegex) {
+    for (Event event : eventCollector) {
+      if (event.toString().matches(expectedEventRegex)) {
+        return;
+      }
+    }
+    String eventsString = eventsToString(eventCollector);
+    String failureMessage = "Event matching '" + expectedEventRegex + "' not found";
+    if (!eventsString.isEmpty()) {
+      failureMessage += "; found these though: " + eventsString;
+    }
+    fail(failureMessage);
+  }
+
+  /**
    * If the specified EventCollector contains an event which has
    * 'expectedEvent' as a substring, an informative assertion fails.
    */
