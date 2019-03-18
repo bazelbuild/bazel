@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.Options;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
+import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -89,12 +91,19 @@ public class MacOSXFsEventsDiffAwarenessTest {
     scratchFile(path, "");
   }
 
-  private void assertDiff(View view1, View view2, Object... paths)
-      throws IncompatibleViewException, BrokenDiffAwarenessException {
-    ImmutableSet<PathFragment> modifiedSourceFiles =
-        underTest.getDiff(view1, view2).modifiedSourceFiles();
-    ImmutableSet<String> toStringSourceFiles = toString(modifiedSourceFiles);
-    assertThat(toStringSourceFiles).containsExactly(paths);
+  private View awaitDiffAndGetView(View view1, CheckedSupplier<View> nextViewSupplier,
+      String... expectedPaths) throws Exception {
+    Set<PathFragment> modifiedSourceFiles = Sets.newHashSetWithExpectedSize(expectedPaths.length);
+    while (modifiedSourceFiles.size() != expectedPaths.length) {
+      View view2 = nextViewSupplier.get();
+      ImmutableSet<PathFragment> diff = underTest.getDiff(view1, view2).modifiedSourceFiles();
+      modifiedSourceFiles.addAll(diff);
+      view1 = view2;
+      Thread.sleep(100);
+    }
+    ImmutableSet<String> toStringSourceFiles = toString(ImmutableSet.copyOf(modifiedSourceFiles));
+    assertThat(toStringSourceFiles).containsExactly(expectedPaths);
+    return view1;
   }
 
   private static ImmutableSet<String> toString(ImmutableSet<PathFragment> modifiedSourceFiles) {
@@ -107,19 +116,22 @@ public class MacOSXFsEventsDiffAwarenessTest {
     return builder.build();
   }
 
-  @Test
+  @Test(timeout = 5000)
   public void testSimple() throws Exception {
-    View view1 = underTest.getCurrentView(watchFsEnabledProvider);
+    CheckedSupplier<View> viewSupplier = () -> underTest.getCurrentView(watchFsEnabledProvider);
+    View view1 = viewSupplier.get();
     scratchFile("a/b/c");
     scratchFile("b/c/d");
-    Thread.sleep(200); // Wait until the events propagate
-    View view2 = underTest.getCurrentView(watchFsEnabledProvider);
-    assertDiff(view1, view2, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
+    String[] expectedPaths = new String[]{"a", "a/b", "a/b/c", "b", "b/c", "b/c/d"};
+    View view2 = awaitDiffAndGetView(view1, viewSupplier, expectedPaths);
     rmdirs(watchedPath.resolve("a"));
     rmdirs(watchedPath.resolve("b"));
-    Thread.sleep(200); // Wait until the events propagate
-    View view3 = underTest.getCurrentView(watchFsEnabledProvider);
-    assertDiff(view2, view3, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
+    awaitDiffAndGetView(view2, viewSupplier, expectedPaths);
+  }
+
+  @FunctionalInterface
+  private interface CheckedSupplier<T> {
+    T get() throws Exception;
   }
 
   /**
