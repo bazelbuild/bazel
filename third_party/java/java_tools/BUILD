@@ -37,6 +37,6 @@ genrule(
         "//third_party/java/jdk/langtools:jdk_compiler_jar",
     ],
     outs = ["java_tools.zip"],
-    cmd = "zip -j $@ cat $(SRCS) | sort",
+    cmd = "zip -q -j $@ cat $(SRCS) | sort",
     visibility = ["//third_party:__pkg__"],
 )
