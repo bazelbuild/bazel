@@ -39,4 +39,9 @@ public class EmptyConfiguredTarget extends AbstractConfiguredTarget {
   protected Object rawGetSkylarkProvider(String providerKey) {
     return null;
   }
+
+  @Override
+  public String toString() {
+    return "Empty" + super.toString();
+  }
 }
