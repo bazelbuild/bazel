@@ -62,6 +62,17 @@ assert_eq(foo, bar)
 assert_eq(foo, baz)
 assert_eq(foo, quz)
 
+d = {"b": 0}
+d.update({"a": 1}, b = 2)
+d.update({"c": 0}, c = 3)
+d.update(d, d = 4)
+d.update([("e", 5)])
+d.update((["f", 0],), f = 6)
+
+expected = {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6}
+assert_eq(d, expected)
+
+
 # creation with repeated keys
 
 d1 = dict([('a', 1)], a=2)
