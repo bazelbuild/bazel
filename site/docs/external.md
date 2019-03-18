@@ -114,8 +114,8 @@ cc_library(
 )
 ```
 
-You can then depend on `@coworkers_project//:some-lib` from your project's BUILD
-files.
+After putting `coworker.BUILD` in `my-project/external/`, you can then depend on
+`@coworkers_project//:some-lib` from your project's BUILD files.
 
 <a name="external-packages"></a>
 ### Depending on external packages
