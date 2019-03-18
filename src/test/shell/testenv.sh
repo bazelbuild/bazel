@@ -133,12 +133,6 @@ EOF
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
   cp -RL ${tools_dir}/* tools
-  # tools/jdk/BUILD file for JDK 7 is generated.
-  # Only works if there's 0 or 1 matches.
-  # If there are multiple, the test fails.
-  if [ -f tools/jdk/BUILD.* ]; then
-    cp tools/jdk/BUILD.* tools/jdk/BUILD
-  fi
   if [ -f tools/jdk/BUILD ]; then
     chmod +w tools/jdk/BUILD
   fi
@@ -584,21 +578,14 @@ sh_binary(
     srcs = ['2to3.sh']
 )
 
-config_setting(
-    name = "py3_mode",
-    values = {"force_python": "PY3"},
-)
-
-# TODO(brandjon): Replace dependency on "force_python" with a 2-valued feature
-# flag instead
 py_runtime(
     name = "default_runtime",
     files = select({
-        "py3_mode": [":${PYTHON3_FILENAME}"],
+        "@bazel_tools//tools/python:PY3": [":${PYTHON3_FILENAME}"],
         "//conditions:default": [":${PYTHON2_FILENAME}"],
     }),
     interpreter = select({
-        "py3_mode": ":${PYTHON3_FILENAME}",
+        "@bazel_tools//tools/python:PY3": ":${PYTHON3_FILENAME}",
         "//conditions:default": ":${PYTHON2_FILENAME}",
     }),
 )

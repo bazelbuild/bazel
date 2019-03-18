@@ -790,7 +790,7 @@ ZipExtractor* ZipExtractor::Create(const char* filename,
                                    ZipExtractorProcessor *processor) {
   InputZipFile* result = new InputZipFile(processor, filename);
   if (!result->Open()) {
-    fprintf(stderr, "%s\n", result->GetError());
+    fprintf(stderr, "Opening zip \"%s\": %s\n", filename, result->GetError());
     delete result;
     return NULL;
   }

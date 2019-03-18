@@ -529,8 +529,9 @@ public class InMemoryNodeEntry implements NodeEntry {
       return new MarkedDirtyResult(ReverseDepsUtility.getReverseDeps(this));
     }
     if (dirtyType.equals(DirtyType.FORCE_REBUILD)) {
-      Preconditions.checkNotNull(dirtyBuildingState, this);
-      dirtyBuildingState.markForceRebuild();
+      if (dirtyBuildingState != null) {
+        dirtyBuildingState.markForceRebuild();
+      }
       return null;
     }
     // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty

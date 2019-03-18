@@ -202,12 +202,13 @@ public class CcToolchainProviderHelper {
             "fdo",
             prefetchHintsFile.getAbsolutePath().getBaseName(),
             ruleContext.getBinOrGenfilesDirectory());
-    ruleContext.registerAction(SymlinkAction.toAbsolutePath(
-        ruleContext.getActionOwner(),
-        PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
-        prefetchHintsArtifact,
-        "Symlinking LLVM Cache Prefetch Hints Profile "
-            + prefetchHintsFile.getAbsolutePath().getPathString()));
+    ruleContext.registerAction(
+        SymlinkAction.toAbsolutePath(
+            ruleContext.getActionOwner(),
+            PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
+            prefetchHintsArtifact,
+            "Symlinking LLVM Cache Prefetch Hints Profile "
+                + prefetchHintsFile.getAbsolutePath().getPathString()));
     return prefetchHintsArtifact;
   }
 
@@ -394,12 +395,10 @@ public class CcToolchainProviderHelper {
       return null;
     }
 
-
     if (fdoInputs != null) {
       fdoInputFile = fdoInputs.getFirst();
       protoProfileArtifact = fdoInputs.getSecond();
     }
-
 
     CcSkyframeSupportValue ccSkyframeSupportValue = null;
     SkyKey ccSupportKey = null;
@@ -700,7 +699,7 @@ public class CcToolchainProviderHelper {
       CcSkyframeSupportValue ccSkyframeSupportValue,
       CToolchain toolchainFromCcToolchainAttribute,
       CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
 
     CcToolchainConfigInfo configInfo = attributes.getCcToolchainConfigInfo();
 
@@ -732,7 +731,12 @@ public class CcToolchainProviderHelper {
     try {
       toolchain =
           CppToolchainInfo.addLegacyFeatures(
-              toolchain, CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
+              toolchain,
+              ruleContext
+                  .getAnalysisEnvironment()
+                  .getSkylarkSemantics()
+                  .incompatibleDoNotSplitLinkingCmdline(),
+              CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
       CcToolchainConfigInfo ccToolchainConfigInfo =
           CcToolchainConfigInfo.fromToolchain(ruleContext, toolchain);
       return CppToolchainInfo.create(

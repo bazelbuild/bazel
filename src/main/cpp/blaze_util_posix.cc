@@ -206,7 +206,7 @@ string GetProcessIdAsString() {
   return ToString(getpid());
 }
 
-string GetHomeDir() { return GetEnv("HOME"); }
+string GetHomeDir() { return GetPathEnv("HOME"); }
 
 string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 
@@ -334,7 +334,8 @@ bool SocketBlazeServerStartup::IsStillAlive() {
 //
 // Returns zero on success or -1 on error, in which case errno is set to the
 // corresponding error details.
-int ConfigureDaemonProcess(posix_spawnattr_t* attrp);
+int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
+                           const StartupOptions* options);
 
 void WriteSystemSpecificProcessIdentifier(
     const string& server_dir, pid_t server_pid);
@@ -346,6 +347,7 @@ int ExecuteDaemon(const string& exe,
                   const bool daemon_output_append,
                   const string& binaries_dir,
                   const string& server_dir,
+                  const StartupOptions* options,
                   BlazeServerStartup** server_startup) {
   const string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
   const string daemonize = blaze_util::JoinPath(binaries_dir, "daemonize");
@@ -380,16 +382,16 @@ int ExecuteDaemon(const string& exe,
   posix_spawnattr_t attrp;
   if (posix_spawnattr_init(&attrp) == -1) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "Failed to create posix_spawnattr: "<< GetLastErrorString();
+        << "Failed to create posix_spawnattr: " << GetLastErrorString();
   }
-  if (ConfigureDaemonProcess(&attrp) == -1) {
+  if (ConfigureDaemonProcess(&attrp, options) == -1) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "Failed to modify posix_spawnattr: "<< GetLastErrorString();
+        << "Failed to modify posix_spawnattr: " << GetLastErrorString();
   }
 
   pid_t transient_pid;
   if (posix_spawn(&transient_pid, daemonize.c_str(), &file_actions, &attrp,
-      CharPP(daemonize_args).get(), CharPP(env).get()) == -1) {
+                  CharPP(daemonize_args).get(), CharPP(env).get()) == -1) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
       << "Failed to execute JVM via " << daemonize
       << ": " << GetLastErrorString();
@@ -480,6 +482,8 @@ string GetEnv(const string& name) {
   char* result = getenv(name.c_str());
   return result != NULL ? string(result) : "";
 }
+
+string GetPathEnv(const string& name) { return GetEnv(name); }
 
 bool ExistsEnv(const string& name) {
   return getenv(name.c_str()) != NULL;
@@ -698,12 +702,11 @@ string GetUserName() {
 
 bool IsEmacsTerminal() {
   string emacs = GetEnv("EMACS");
-  string inside_emacs = GetEnv("INSIDE_EMACS");
   // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
   // do that and instead sets INSIDE_EMACS=<stuff> (where <stuff> can look like
   // e.g. "25.1.1,comint").  So we check both variables for maximum
   // compatibility.
-  return emacs == "t" || !inside_emacs.empty();
+  return emacs == "t" || ExistsEnv("INSIDE_EMACS");
 }
 
 // Returns true if stderr is connected to a terminal, and it can support color

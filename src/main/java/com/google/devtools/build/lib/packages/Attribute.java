@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
@@ -1323,9 +1324,9 @@ public final class Attribute implements Comparable<Attribute> {
         Rule rule,
         ComputationLimiter<TLimitException> limiter)
         throws TComputeException, TLimitException {
+      AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
       // This will hold every (value1, value2, ..) combination of the declared dependencies.
       // Collect those combinations.
-      AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
       List<Map<String, Object>> depMaps = mapper.visitAttributes(dependencies, limiter);
       // For each combination, call compute() on a specialized AttributeMap providing those
       // values.
@@ -1424,6 +1425,11 @@ public final class Attribute implements Comparable<Attribute> {
 
     <T> Iterable<T> getPossibleValues(Type<T> type, Rule rule) {
       final ComputedDefault owner = ComputedDefault.this;
+      if (dependencies.isEmpty()) {
+        AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+        Object value = owner.getDefault(mapper.createMapBackedAttributeMap(ImmutableMap.of()));
+        return Lists.newArrayList(type.cast(value));
+      }
       ComputationStrategy<RuntimeException> strategy =
           new ComputationStrategy<RuntimeException>() {
             @Override

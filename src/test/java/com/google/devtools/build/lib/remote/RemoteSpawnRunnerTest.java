@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -1177,6 +1178,11 @@ public class RemoteSpawnRunnerTest {
     @Override
     public void report(ProgressStatus state, String name) {
       assertThat(state).isEqualTo(ProgressStatus.EXECUTING);
+    }
+
+    @Override
+    public MetadataInjector getMetadataInjector() {
+      throw new UnsupportedOperationException();
     }
   }
 }

@@ -6,7 +6,6 @@
 //tools/test:tw_lib
 //tools/test:xml
 //third_party/ijar:zipper
-//third_party/ijar:ijar
 //third_party/ijar:zip
 //third_party/ijar:zlib_client
 //third_party/ijar:platform_utils

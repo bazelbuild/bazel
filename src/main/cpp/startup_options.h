@@ -14,6 +14,10 @@
 #ifndef BAZEL_SRC_MAIN_CPP_STARTUP_OPTIONS_H_
 #define BAZEL_SRC_MAIN_CPP_STARTUP_OPTIONS_H_
 
+#if defined(__APPLE__)
+#include <sys/qos.h>
+#endif
+
 #include <map>
 #include <memory>
 #include <set>
@@ -309,6 +313,11 @@ class StartupOptions {
 
   // Whether to raise the soft coredump limit to the hard one or not.
   bool unlimit_coredumps;
+
+#if defined(__APPLE__)
+  // The QoS class to apply to the Bazel server process.
+  qos_class_t macos_qos_class;
+#endif
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

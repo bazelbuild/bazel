@@ -70,13 +70,24 @@ public abstract class TestStrategy implements TestActionContext {
       recreateDirectory(coverageDir);
     }
     recreateDirectory(tmpDir);
-    FileSystemUtils.createDirectoryAndParents(workingDirectory);
+    workingDirectory.createDirectoryAndParents();
+  }
+
+  /**
+   * Ensures that all directories used to run test are in the correct state and their content will
+   * not result in stale files. Only use this if no local tmp and working directory are required.
+   */
+  protected void prepareFileSystem(TestRunnerAction testAction, Path coverageDir)
+      throws IOException {
+    if (testAction.isCoverageMode()) {
+      recreateDirectory(coverageDir);
+    }
   }
 
   /** Removes directory if it exists and recreates it. */
-  protected void recreateDirectory(Path directory) throws IOException {
+  private void recreateDirectory(Path directory) throws IOException {
     FileSystemUtils.deleteTree(directory);
-    FileSystemUtils.createDirectoryAndParents(directory);
+    directory.createDirectoryAndParents();
   }
 
   /** An enum for specifying different formats of test output. */

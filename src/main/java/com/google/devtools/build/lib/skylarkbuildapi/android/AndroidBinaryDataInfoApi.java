@@ -42,4 +42,11 @@ public interface AndroidBinaryDataInfoApi<FileT extends FileApi> extends StructA
       doc = "The resource apk.",
       documented = false)
   FileT getApk();
+
+  @SkylarkCallable(
+      name = "resource_proguard_config",
+      structField = true,
+      doc = "Proguard config generated for the resources.",
+      documented = false)
+  FileT getResourceProguardConfig();
 }

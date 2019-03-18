@@ -81,6 +81,12 @@ public interface WalkableGraph {
   Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys) throws InterruptedException;
 
   /**
+   * Returns the direct dependencies of the node with the given key. A node for that key must exist
+   * in the graph and be done.
+   */
+  Iterable<SkyKey> getDirectDeps(SkyKey key) throws InterruptedException;
+
+  /**
    * Returns a map giving the reverse dependencies of the nodes with the given keys. A node for each
    * given key must be done in the graph if it exists.
    */

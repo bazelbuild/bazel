@@ -17,6 +17,7 @@ import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -111,24 +112,28 @@ public final class ActionExecutionStatusReporter {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void updateStatus(ActionStartedEvent event) {
     ActionExecutionMetadata action = event.getAction();
     setStatus(action, PREPARING_MESSAGE);
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void updateStatus(AnalyzingActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
     setStatus(action, "Analyzing");
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void updateStatus(SchedulingActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
     setStatus(action, "Scheduling");
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void updateStatus(RunningActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
     setStatus(action, String.format("Running (%s)", event.getStrategy()));

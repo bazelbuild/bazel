@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Common utilities for Skylark rules related to Android. */
-public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact> {
+public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact, JavaInfo> {
 
   @Override
   public AndroidDeviceBrokerInfo createDeviceBrokerInfo(String deviceBrokerType) {
@@ -34,5 +36,22 @@ public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact> {
   @Override
   public AndroidSplitTransititionApi getAndroidSplitTransition() {
     return AndroidRuleClasses.ANDROID_SPLIT_TRANSITION;
+  }
+
+  /**
+   * TODO(b/14473160): Provides a Starlark compatibility layer for the sourceless deps bug. When a
+   * sourceless target is defined, the deps of the target are implicitly exported. Specifically only
+   * the {@link JavaCompilationArgsProvider} is propagated. This method takes the existing JavaInfo
+   * and produces a new one, only containing the {@link JavaCompilationArgsProvider} to be added to
+   * the exports field of the java_common.compile method. Remove this method once the bug has been
+   * fixed.
+   */
+  @Override
+  public JavaInfo enableImplicitSourcelessDepsExportsCompatibility(JavaInfo javaInfo) {
+    return JavaInfo.Builder.create()
+        .addProvider(
+            JavaCompilationArgsProvider.class,
+            javaInfo.getProvider(JavaCompilationArgsProvider.class))
+        .build();
   }
 }

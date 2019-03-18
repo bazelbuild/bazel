@@ -8,15 +8,6 @@ filegroup(
 )
 
 filegroup(
-    name = "bazel_embedded_java_tools",
-    srcs = [
-        "BUILD.javalangtools",
-        "BUILD.pkg",
-        "BUILD-new.pkg",
-    ],
-)
-
-filegroup(
     name = "java_tools",
     srcs = glob(
         ["*.jar"],
@@ -24,8 +15,5 @@ filegroup(
     ) + select({
         "//src/conditions:arm": ["bazel-singlejar_deploy.jar"],
         "//conditions:default": [],
-    }) + [
-        "BUILD.pkg",
-        "BUILD-new.pkg",
-    ],
+    }),
 )

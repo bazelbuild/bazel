@@ -1,3 +1,24 @@
+## Release 0.23.2 (2019-03-11)
+
+```
+Baseline: 441fd75d0047f8a998d784c557736ab9075db893
+
+Cherry picks:
+
+   + 6ca7763669728253606578a56a205bca3ea883e9:
+     Fix a typo
+   + 2310b1c2c8b2f32db238f667747e7d5672480f4a:
+     Ignore SIGCHLD in test setup script
+   + f9eb1b56706f91063e9d080b850fa56964e77324:
+     Complete channel initialization in the event loop
+   + f0a1597cca2252754daf1d53ff76cf1a9b3dd9b9:
+     remote: properly reset state when using remote cache. Fixes #7555
+   + 56366ee3a73e2c92b2fa36a9840478202b9618ca:
+     Set non-empty values for msvc_env_* when VC not installed
+```
+
+Release 0.23.2
+
 ## Release 0.23.1 (2019-03-04)
 
 ```

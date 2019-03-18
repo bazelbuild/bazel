@@ -16,11 +16,14 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -41,6 +44,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptContinuation;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
@@ -746,6 +750,37 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
+  public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
+      throws InterruptedException, ActionExecutionException {
+    TestActionContext testActionContext =
+        actionExecutionContext.getContext(TestActionContext.class);
+    try {
+      TestRunnerSpawn testRunnerSpawn =
+          testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
+      TestAttemptContinuation beginContinuation =
+          new TestAttemptContinuation() {
+            @Nullable
+            @Override
+            public ListenableFuture<?> getFuture() {
+              return null;
+            }
+
+            @Override
+            public TestAttemptContinuation execute()
+                throws InterruptedException, IOException, ExecException {
+              return testRunnerSpawn.beginExecution();
+            }
+          };
+      RunAttemptsContinuation continuation =
+          new RunAttemptsContinuation(
+              testRunnerSpawn, beginContinuation, testActionContext.isTestKeepGoing());
+      return continuation.execute();
+    } catch (ExecException e) {
+      throw e.toActionExecutionException(this);
+    }
+  }
+
+  @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     TestActionContext context = actionExecutionContext.getContext(TestActionContext.class);
@@ -955,6 +990,138 @@ public class TestRunnerAction extends AbstractAction
 
     public Path getCoverageDataPath() {
       return getPath(getCoverageData().getExecPath());
+    }
+  }
+
+  /** Implements test retries. */
+  private final class RunAttemptsContinuation extends ActionContinuationOrResult {
+    private final TestRunnerSpawn testRunnerSpawn;
+    private final TestAttemptContinuation testContinuation;
+    private final boolean keepGoing;
+    // Careful: We can only determine this value _after_ the first attempt is done, so we initially
+    // set it to 0, but then we need to make sure not to use this value.
+    private final int maxAttempts;
+    private final List<SpawnResult> spawnResults;
+    private final List<FailedAttemptResult> failedAttempts;
+
+    private RunAttemptsContinuation(
+        TestRunnerSpawn testRunnerSpawn,
+        TestAttemptContinuation testContinuation,
+        boolean keepGoing,
+        int maxAttempts,
+        List<SpawnResult> spawnResults,
+        List<FailedAttemptResult> failedAttempts) {
+      Preconditions.checkArgument(!testContinuation.isDone());
+      this.testRunnerSpawn = testRunnerSpawn;
+      this.testContinuation = testContinuation;
+      this.keepGoing = keepGoing;
+      this.maxAttempts = maxAttempts;
+      this.spawnResults = spawnResults;
+      this.failedAttempts = failedAttempts;
+    }
+
+    RunAttemptsContinuation(
+        TestRunnerSpawn testRunnerSpawn,
+        TestAttemptContinuation testContinuation,
+        boolean keepGoing) {
+      this(testRunnerSpawn, testContinuation, keepGoing, 0, new ArrayList<>(), new ArrayList<>());
+    }
+
+    @Nullable
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return testContinuation.getFuture();
+    }
+
+    @Override
+    public ActionContinuationOrResult execute()
+        throws ActionExecutionException, InterruptedException {
+      try {
+        TestAttemptContinuation nextContinuation = testContinuation.execute();
+        if (!nextContinuation.isDone()) {
+          return new RunAttemptsContinuation(
+              testRunnerSpawn,
+              nextContinuation,
+              keepGoing,
+              maxAttempts,
+              spawnResults,
+              failedAttempts);
+        }
+
+        TestAttemptResult result = nextContinuation.get();
+        int actualMaxAttempts =
+            failedAttempts.isEmpty() ? testRunnerSpawn.getMaxAttempts(result) : maxAttempts;
+        Preconditions.checkState(actualMaxAttempts != 0);
+        return process(result, actualMaxAttempts);
+      } catch (ExecException e) {
+        throw e.toActionExecutionException(TestRunnerAction.this);
+      } catch (IOException e) {
+        // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
+        // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
+        testRunnerSpawn
+            .getActionExecutionContext()
+            .getEventHandler()
+            .handle(Event.error(Throwables.getStackTraceAsString(e)));
+        throw new EnvironmentalExecException("unexpected I/O exception", e)
+            .toActionExecutionException(TestRunnerAction.this);
+      }
+    }
+
+    private ActionContinuationOrResult process(TestAttemptResult result, int actualMaxAttempts)
+        throws ActionExecutionException, InterruptedException {
+      try {
+        spawnResults.addAll(result.spawnResults());
+        if (!result.hasPassed()) {
+          boolean runAnotherAttempt = failedAttempts.size() + 1 < actualMaxAttempts;
+          TestRunnerSpawn nextRunner;
+          if (runAnotherAttempt) {
+            nextRunner = testRunnerSpawn;
+          } else {
+            nextRunner = testRunnerSpawn.getFallbackRunner();
+            if (nextRunner != null) {
+              // We only support one level of fallback, in which case this gets doubled once. We
+              // don't support a different number of max attempts for the fallback strategy.
+              actualMaxAttempts = 2 * actualMaxAttempts;
+            }
+          }
+          if (nextRunner != null) {
+            failedAttempts.add(
+                testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
+
+            TestAttemptContinuation nextContinuation = nextRunner.beginExecution();
+            if (nextContinuation.isDone()) {
+              // This avoids unnecessary creation of RunAttemptsContinuation objects, but does a
+              // recursive call in exchange. We don't allow more than 10 flaky attempts, so that
+              // should be fine.
+              return process(nextContinuation.get(), actualMaxAttempts);
+            }
+            return new RunAttemptsContinuation(
+                nextRunner,
+                nextContinuation,
+                keepGoing,
+                actualMaxAttempts,
+                spawnResults,
+                failedAttempts);
+          }
+        }
+        testRunnerSpawn.finalizeTest(result, failedAttempts);
+
+        if (!keepGoing && !result.hasPassed()) {
+          throw new TestExecException("Test failed: aborting");
+        }
+        return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
+      } catch (ExecException e) {
+        throw e.toActionExecutionException(TestRunnerAction.this);
+      } catch (IOException e) {
+        // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
+        // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
+        testRunnerSpawn
+            .getActionExecutionContext()
+            .getEventHandler()
+            .handle(Event.error(Throwables.getStackTraceAsString(e)));
+        throw new EnvironmentalExecException("unexpected I/O exception", e)
+            .toActionExecutionException(TestRunnerAction.this);
+      }
     }
   }
 }

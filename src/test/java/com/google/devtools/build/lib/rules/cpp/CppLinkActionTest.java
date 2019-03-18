@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -52,6 +51,7 @@ import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -86,6 +86,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
+          public StarlarkSemantics getSkylarkSemantics() {
+            return StarlarkSemantics.DEFAULT_SEMANTICS;
+          }
+
+          @Override
           public Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
@@ -117,8 +122,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     ImmutableSet.of(),
                     "dynamic_library_linker_tool",
                     /* supportsEmbeddedRuntimes= */ true,
-                    /* supportsInterfaceSharedLibraries= */ false))
-            .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
+                    /* supportsInterfaceSharedLibraries= */ false,
+                    /* doNotSplitLinkingCmdline= */ true))
+            .addAll(
+                CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
+                    ImmutableSet.of(), /* doNotSplitLinkingCmdline= */ true))
             .add(linkCppStandardLibrary)
             .build();
 
@@ -281,7 +289,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
   }
 
-  private List<String> getLibfooArguments() throws LabelSyntaxException {
+  private List<String> getLibfooArguments() throws Exception {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:libfoo.so");
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/libfoo.so");
     return linkAction.getArguments();
@@ -299,9 +307,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction =
-        (CppLinkAction)
-            getGeneratingAction(configuredTarget, "x/foo");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo");
 
     Iterable<? extends VariableValue> runtimeLibrarySearchDirectories =
         linkAction
@@ -339,8 +345,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     useConfiguration("--experimental_link_compile_output_separately", "--force_pic");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    CppLinkAction linkAction =
-        (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
     assertThat(artifactsToStrings(linkAction.getInputs()))
         .contains("bin _solib_k8/libx_Sliba.ifso");
     assertThat(linkAction.getArguments())
@@ -575,14 +580,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
   @Test
   public void testCommandLineSplitting() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
-    Artifact output = getDerivedArtifact(
-        PathFragment.create("output/path.xyz"), getTargetConfiguration().getBinDirectory(
-            RepositoryName.MAIN),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    final Artifact outputIfso = getDerivedArtifact(
-        PathFragment.create("output/path.ifso"), getTargetConfiguration().getBinDirectory(
-            RepositoryName.MAIN),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    Artifact output =
+        getDerivedArtifact(
+            PathFragment.create("output/path.xyz"),
+            getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    final Artifact outputIfso =
+        getDerivedArtifact(
+            PathFragment.create("output/path.ifso"),
+            getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder builder =
@@ -608,8 +615,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   /**
-   * Links a small target.
-   * Checks that resource estimates are above the minimum and scale correctly.
+   * Links a small target. Checks that resource estimates are above the minimum and scale correctly.
    */
   @Test
   public void testSmallLocalLinkResourceEstimate() throws Exception {
@@ -617,9 +623,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   /**
-   * Fake links a large target.
-   * Checks that resource estimates are above the minimum and scale correctly.
-   * The actual link action is irrelevant; we are just checking the estimate.
+   * Fake links a large target. Checks that resource estimates are above the minimum and scale
+   * correctly. The actual link action is irrelevant; we are just checking the estimate.
    */
   @Test
   public void testLargeLocalLinkResourceEstimate() throws Exception {
@@ -653,16 +658,20 @@ public class CppLinkActionTest extends BuildViewTestCase {
         .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage());
 
     final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputArtifacts());
-    ResourceSet scaledSet = ResourceSet.createWithRamCpu(
-        CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
-        CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize
-    );
+    ResourceSet scaledSet =
+        ResourceSet.createWithRamCpu(
+            CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
+            CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize);
 
     // Ensure that anything above the minimum is properly scaled.
-    assertThat(resources.getMemoryMb() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb()
-        || resources.getMemoryMb() == scaledSet.getMemoryMb()).isTrue();
-    assertThat(resources.getCpuUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage()
-        || resources.getCpuUsage() == scaledSet.getCpuUsage()).isTrue();
+    assertThat(
+            resources.getMemoryMb() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb()
+                || resources.getMemoryMb() == scaledSet.getMemoryMb())
+        .isTrue();
+    assertThat(
+            resources.getCpuUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage()
+                || resources.getCpuUsage() == scaledSet.getCpuUsage())
+        .isTrue();
   }
 
   private CppLinkActionBuilder createLinkBuilder(
@@ -1084,7 +1093,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSplitExecutableLinkCommand() throws Exception {
+  public void testSplitExecutableLinkCommandStatic() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.DO_NOT_SPLIT_LINKING_CMDLINE_FEATURE);
+
     RuleContext ruleContext = createDummyRuleContext();
 
     CppLinkAction linkAction = createLinkBuilder(ruleContext, LinkTargetType.EXECUTABLE).build();
@@ -1097,5 +1110,86 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(linkCommandLine).contains("path.a-2.params");
 
     assertThat(result.second).contains("-lcpp_standard_library");
+  }
+
+  private String removeOutDirectory(String s) {
+    return s.replace("blaze-out", "").replace("bazel-out", "");
+  }
+
+  @Test
+  public void testSplitExecutableLinkCommandDynamicWithNoSplitting() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.DO_NOT_SPLIT_LINKING_CMDLINE_FEATURE);
+    RuleContext ruleContext = createDummyRuleContext();
+
+    FeatureConfiguration featureConfiguration = getMockFeatureConfiguration(ruleContext);
+
+    CppLinkAction linkAction =
+        createLinkBuilder(
+                ruleContext,
+                LinkTargetType.DYNAMIC_LIBRARY,
+                "dummyRuleContext/out.so",
+                ImmutableList.of(),
+                ImmutableList.of(),
+                featureConfiguration)
+            .setLibraryIdentifier("library")
+            .build();
+    Pair<List<String>, List<String>> result = linkAction.getLinkCommandLine().splitCommandline();
+
+    assertThat(
+            result.first.stream()
+                .map(x -> removeOutDirectory(x))
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly(
+            "crosstool/gcc_tool", "@/k8-fastbuild/bin/dummyRuleContext/out.so-2.params")
+        .inOrder();
+    assertThat(
+            result.second.stream()
+                .map(x -> removeOutDirectory(x))
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly(
+            "-shared",
+            "-o",
+            "/k8-fastbuild/bin/dummyRuleContext/out.so",
+            "-Wl,-S",
+            "--sysroot=/usr/grte/v1")
+        .inOrder();
+  }
+
+  @Test
+  @Deprecated
+  // TODO(b/113358321): Remove once #7670 is finished.
+  public void testSplitExecutableLinkCommandDynamicWithSplitting() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
+    FeatureConfiguration featureConfiguration = getMockFeatureConfiguration(ruleContext);
+
+    CppLinkAction linkAction =
+        createLinkBuilder(
+                ruleContext,
+                LinkTargetType.DYNAMIC_LIBRARY,
+                "dummyRuleContext/out.so",
+                ImmutableList.of(),
+                ImmutableList.of(),
+                featureConfiguration)
+            .setLibraryIdentifier("library")
+            .build();
+    Pair<List<String>, List<String>> result = linkAction.getLinkCommandLine().splitCommandline();
+
+    assertThat(
+            result.first.stream()
+                .map(x -> removeOutDirectory(x))
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly(
+            "crosstool/gcc_tool",
+            "-shared",
+            "-o",
+            "/k8-fastbuild/bin/dummyRuleContext/out.so",
+            "-Wl,-S",
+            "--sysroot=/usr/grte/v1",
+            "@/k8-fastbuild/bin/dummyRuleContext/out.so-2.params")
+        .inOrder();
+    assertThat(result.second).isEmpty();
   }
 }

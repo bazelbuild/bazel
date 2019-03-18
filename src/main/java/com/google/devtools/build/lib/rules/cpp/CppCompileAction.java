@@ -38,9 +38,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
@@ -73,6 +75,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -101,7 +104,7 @@ public class CppCompileAction extends AbstractAction
   private final Iterable<Artifact> inputsForInvalidation;
 
   /**
-   * The set of input files that in addition to {@link CcCompilationContext#declaredIncludeSrcs}
+   * The set of input files that in addition to {@link CcCompilationContext#getDeclaredIncludeSrcs}
    * need to be added to the set of input artifacts of the action if we don't use input discovery.
    * They may be pruned after execution. See {@link #findUsedHeaders} for more details.
    */
@@ -174,6 +177,9 @@ public class CppCompileAction extends AbstractAction
 
   private CcToolchainVariables overwrittenVariables = null;
 
+  private ParamFileActionInput paramFileActionInput;
+  private PathFragment paramFilePath;
+
   /**
    * Creates a new action to compile C/C++ source files.
    *
@@ -220,7 +226,7 @@ public class CppCompileAction extends AbstractAction
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> additionalPrunableHeaders,
       Artifact outputFile,
-      DotdFile dotdFile,
+      Artifact dotdFile,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
@@ -237,12 +243,7 @@ public class CppCompileAction extends AbstractAction
     super(
         owner,
         createInputsBuilder(mandatoryInputs, inputsForInvalidation).build(),
-        CollectionUtils.asSetWithoutNulls(
-            outputFile,
-            dotdFile == null ? null : dotdFile.artifact(),
-            gcnoFile,
-            dwoFile,
-            ltoIndexingFile),
+        CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
         env);
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
     this.outputFile = Preconditions.checkNotNull(outputFile);
@@ -280,6 +281,13 @@ public class CppCompileAction extends AbstractAction
     this.topLevelModules = null;
     this.overwrittenVariables = null;
     this.grepIncludes = grepIncludes;
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+      paramFilePath =
+          outputFile
+              .getExecPath()
+              .getParentDirectory()
+              .getChild(outputFile.getFilename() + ".params");
+    }
   }
 
   /**
@@ -298,6 +306,10 @@ public class CppCompileAction extends AbstractAction
 
   private boolean shouldScanDotdFiles() {
     return !useHeaderModules || !shouldPruneModules;
+  }
+
+  public boolean useInMemoryDotdFiles() {
+    return cppConfiguration.getInmemoryDotdFiles();
   }
 
   @Override
@@ -566,11 +578,8 @@ public class CppCompileAction extends AbstractAction
     return discoveredModules;
   }
 
-  /**
-   * Returns the path where gcc should put the discovered dependency
-   * information.
-   */
-  public DotdFile getDotdFile() {
+  /** Returns the path where the compiler should put the discovered dependency information. */
+  public Artifact getDotdFile() {
     return compileCommandLine.getDotdFile();
   }
 
@@ -688,7 +697,11 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public List<String> getArguments() {
-    return compileCommandLine.getArguments(overwrittenVariables);
+    return compileCommandLine.getArguments(paramFilePath, overwrittenVariables);
+  }
+
+  public ParamFileActionInput getParamFileActionInput() {
+    return paramFileActionInput;
   }
 
   @Override
@@ -1110,6 +1123,15 @@ public class CppCompileAction extends AbstractAction
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     setModuleFileFlags();
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+      paramFileActionInput =
+          new ParamFileActionInput(
+              paramFilePath,
+              compileCommandLine.getCompilerOptions(overwrittenVariables),
+              ParameterFileType.SHELL_QUOTED,
+              StandardCharsets.ISO_8859_1);
+    }
+
     CppCompileActionContext.Reply reply;
 
     if (!shouldScanDotdFiles()) {
@@ -1286,24 +1308,11 @@ public class CppCompileAction extends AbstractAction
       ActionExecutionContext actionExecutionContext, Path execRoot, Reply reply)
       throws ActionExecutionException {
     try {
-      DotdFile dotdFile = getDotdFile();
-      Preconditions.checkNotNull(dotdFile);
       DependencySet depSet = new DependencySet(execRoot);
-      // artifact() is null if we are using in-memory .d files. We also want to prepare for the
-      // case where we expected an in-memory .d file, but we did not get an appropriate response.
-      // Perhaps we produced the file locally.
-      if (dotdFile.artifact() != null || reply == null) {
-        Path dotdPath;
-        if (dotdFile.artifact() != null) {
-          dotdPath = dotdFile.getPath(actionExecutionContext);
-        } else {
-          dotdPath = execRoot.getRelative(dotdFile.getSafeExecPath());
-        }
-        return depSet.read(dotdPath);
-      } else {
-        // This is an in-memory .d file.
+      if (reply != null && cppConfiguration.getInmemoryDotdFiles()) {
         return depSet.process(reply.getContents());
       }
+      return depSet.read(actionExecutionContext.getInputPath(getDotdFile()));
     } catch (IOException e) {
       // Some kind of IO or parse exception--wrap & rethrow it to stop the build.
       throw new ActionExecutionException("error while parsing .d file", e, this, false);
@@ -1498,47 +1507,5 @@ public class CppCompileAction extends AbstractAction
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(mandatoryInputs)
         .addAll(inputsForInvalidation);
-  }
-
-  /**
-   * A reference to a .d file. There are two modes:
-   *
-   * <ol>
-   *   <li>an Artifact that represents a real on-disk file
-   *   <li>just an execPath that refers to a virtual .d file that is not written to disk
-   * </ol>
-   */
-  public static class DotdFile {
-    private final Artifact artifact;
-    private final PathFragment execPath;
-
-    public DotdFile(Artifact artifact) {
-      this.artifact = artifact;
-      this.execPath = null;
-    }
-
-    public DotdFile(PathFragment execPath) {
-      this.artifact = null;
-      this.execPath = execPath;
-    }
-
-    /**
-     * @return the Artifact or null
-     */
-    public Artifact artifact() {
-      return artifact;
-    }
-
-    /**
-     * @return Gets the execPath regardless of whether this is a real Artifact
-     */
-    public PathFragment getSafeExecPath() {
-      return execPath == null ? artifact.getExecPath() : execPath;
-    }
-
-    /** @return the on-disk location of the .d file or null */
-    public Path getPath(ActionExecutionContext actionExecutionContext) {
-      return actionExecutionContext.getInputPath(artifact);
-    }
   }
 }

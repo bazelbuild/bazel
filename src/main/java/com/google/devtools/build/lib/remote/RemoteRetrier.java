@@ -84,7 +84,7 @@ public class RemoteRetrier extends Retrier {
   }
 
   @VisibleForTesting
-  RemoteRetrier(
+  public RemoteRetrier(
       Supplier<Backoff> backoff,
       Predicate<? super Exception> shouldRetry,
       ListeningScheduledExecutorService retryScheduler,

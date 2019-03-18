@@ -30,7 +30,7 @@ class OptionProcessorTest : public ::testing::Test {
  protected:
   OptionProcessorTest()
       : workspace_(
-            blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "testdir")),
+            blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "testdir")),
         cwd_("cwd"),
         workspace_layout_(new WorkspaceLayout()) {}
 

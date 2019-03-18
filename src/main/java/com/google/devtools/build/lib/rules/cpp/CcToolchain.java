@@ -36,6 +36,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   /** Default attribute name where rules store the reference to cc_toolchain */
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
 
+  public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK = "$cc_toolchain";
+
   /** Default attribute name for the c++ toolchain type */
   public static final String CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$cc_toolchain_type";
 

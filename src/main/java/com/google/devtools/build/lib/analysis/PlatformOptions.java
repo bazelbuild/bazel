@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -101,23 +102,22 @@ public class PlatformOptions extends FragmentOptions {
   public List<String> extraToolchains;
 
   @Option(
-    name = "toolchain_resolution_override",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS
-    },
-    deprecationWarning =
-        "toolchain_resolution_override is now a no-op and will be removed in"
-            + " an upcoming release",
-    help =
-        "Override toolchain resolution for a toolchain type with a specific toolchain. "
-            + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
-            + "@io_bazel_rules_go//:linux-arm64-toolchain"
-  )
+      name = "toolchain_resolution_override",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      deprecationWarning =
+          "toolchain_resolution_override is now a no-op and will be removed in"
+              + " an upcoming release",
+      help =
+          "Override toolchain resolution for a toolchain type with a specific toolchain. "
+              + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
+              + "@io_bazel_rules_go//:linux-arm64-toolchain")
   public List<String> toolchainResolutionOverrides;
 
   @Option(
@@ -183,5 +183,40 @@ public class PlatformOptions extends FragmentOptions {
     host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
     host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     return host;
+  }
+
+  /** Returns the intended target platform value based on options defined in this fragment. */
+  public Label computeTargetPlatform() {
+    // Handle default values for the host and target platform.
+    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
+    // directly.
+
+    if (!platforms.isEmpty()) {
+      return Iterables.getFirst(platforms, null);
+    } else if (autoConfigureHostPlatform) {
+      // Default to the host platform, whatever it is.
+      return computeHostPlatform();
+    } else {
+      // Use the legacy target platform
+      return LEGACY_DEFAULT_TARGET_PLATFORM;
+    }
+  }
+
+  /** Returns the intended host platform value based on options defined in this fragment. */
+  public Label computeHostPlatform() {
+    // Handle default values for the host and target platform.
+    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
+    // directly.
+
+    Label hostPlatform;
+    if (this.hostPlatform != null) {
+      return this.hostPlatform;
+    } else if (autoConfigureHostPlatform) {
+      // Use the auto-configured host platform.
+      return DEFAULT_HOST_PLATFORM;
+    } else {
+      // Use the legacy host platform.
+      return LEGACY_DEFAULT_HOST_PLATFORM;
+    }
   }
 }

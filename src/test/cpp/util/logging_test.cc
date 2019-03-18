@@ -40,7 +40,7 @@ class LoggingTest : public ::testing::Test {
     // Set the value of $TMP first, because CaptureStderr retrieves a temp
     // directory path and on Windows, the corresponding function (GetTempPathA)
     // reads $TMP.
-    blaze::SetEnv("TMP", blaze::GetEnv("TEST_TMPDIR"));
+    blaze::SetEnv("TMP", blaze::GetPathEnv("TEST_TMPDIR"));
   }
   void TearDown() { blaze_util::SetLogHandler(nullptr); }
 };
@@ -530,7 +530,7 @@ TEST(LoggingDeathTest, BazelLogHandler_Stderr_BazelDieDiesWithCustomExitCode) {
 TEST(LoggingDeathTest,
      BazelLogHandler_CustomStream_BazelDiePrintsToStderrAndCustomStream) {
   std::string logfile =
-      blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "logfile");
+      blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "logfile");
 
   ASSERT_EXIT(
       {

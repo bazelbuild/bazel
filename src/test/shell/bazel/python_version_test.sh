@@ -129,12 +129,12 @@ function test_can_run_py_binaries() {
   cat > test/BUILD << EOF
 py_binary(
     name = "main2",
-    default_python_version = "PY2",
+    python_version = "PY2",
     srcs = ['main2.py'],
 )
 py_binary(
     name = "main3",
-    default_python_version = "PY3",
+    python_version = "PY3",
     srcs = ["main3.py"],
 )
 EOF
@@ -198,26 +198,26 @@ function test_pybin_can_have_different_version_pybin_as_data_dep() {
 py_binary(
   name = "py2bin",
   srcs = ["py2bin.py"],
-  default_python_version = "PY2",
+  python_version = "PY2",
 )
 py_binary(
   name = "py3bin",
   srcs = ["py3bin.py"],
-  default_python_version = "PY3",
+  python_version = "PY3",
 )
 py_binary(
   name = "py2bin_calling_py3bin",
   srcs = ["py2bin_calling_py3bin.py"],
   deps = ["@bazel_tools//tools/python/runfiles"],
   data = [":py3bin"],
-  default_python_version = "PY2",
+  python_version = "PY2",
 )
 py_binary(
   name = "py3bin_calling_py2bin",
   srcs = ["py3bin_calling_py2bin.py"],
   deps = ["@bazel_tools//tools/python/runfiles"],
   data = [":py2bin"],
-  default_python_version = "PY3",
+  python_version = "PY3",
 )
 EOF
 
@@ -248,7 +248,7 @@ EOF
   bazel build $EXPFLAG //test:py2bin_calling_py3bin //test:py3bin_calling_py2bin \
       || fail "bazel build failed"
   PY2_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG)/test/py2bin_calling_py3bin
-  PY3_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG --force_python=PY3)/test/py3bin_calling_py2bin
+  PY3_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG --python_version=PY3)/test/py3bin_calling_py2bin
 
   RUNFILES_MANIFEST_FILE= RUNFILES_DIR= $PY2_OUTER_BIN &> $TEST_log
   expect_log "Outer bin uses Python 2"
@@ -266,12 +266,12 @@ function test_shbin_can_have_different_version_pybins_as_data_deps() {
 py_binary(
   name = "py2bin",
   srcs = ["py2bin.py"],
-  default_python_version = "PY2",
+  python_version = "PY2",
 )
 py_binary(
   name = "py3bin",
   srcs = ["py3bin.py"],
-  default_python_version = "PY3",
+  python_version = "PY3",
 )
 sh_binary(
   name = "shbin_calling_py23bins",
@@ -392,13 +392,13 @@ py_binary(
   name = "py2bin",
   srcs = ["py2bin.py"],
   deps = [":common"],
-  default_python_version = "PY2",
+  python_version = "PY2",
 )
 py_binary(
   name = "py3bin",
   srcs = ["py3bin.py"],
   deps = [":common"],
-  default_python_version = "PY3",
+  python_version = "PY3",
 )
 sh_binary(
   name = "shbin",

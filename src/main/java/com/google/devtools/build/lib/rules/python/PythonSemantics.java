@@ -49,7 +49,8 @@ public interface PythonSemantics {
    * Extends the default runfiles of {@code py_binary} and {@code py_test} rules with custom
    * elements.
    */
-  void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder)
+  void collectDefaultRunfilesForBinary(
+      RuleContext ruleContext, PyCommon common, Runfiles.Builder builder)
       throws InterruptedException;
 
   /** Collects a rule's default runfiles. */

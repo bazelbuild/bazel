@@ -464,8 +464,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
                 (SkylarkList<JavaInfo>) runtimeDeps,
                 (SkylarkList<JavaInfo>) exports,
                 actions,
-                (JavaToolchainProvider) javaToolchain,
-                (JavaRuntimeInfo) hostJavabase,
+                javaToolchain,
+                hostJavabase,
                 jdeps,
                 env.getSemantics(),
                 loc);

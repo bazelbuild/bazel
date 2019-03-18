@@ -18,6 +18,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -36,7 +37,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -100,14 +101,9 @@ final class RemoteSpawnCache implements SpawnCache {
     }
 
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
-    // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
-    TreeNodeRepository repository =
-        new TreeNodeRepository(execRoot, context.getMetadataProvider(), digestUtil);
-    TreeNode inputRoot;
-    try (SilentCloseable c = Profiler.instance().profile("RemoteCache.computeMerkleDigests")) {
-      inputRoot = repository.buildFromActionInputs(inputMap);
-      repository.computeMerkleDigests(inputRoot);
-    }
+    MerkleTree merkleTree =
+        MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+    Digest merkleTreeRoot = merkleTree.getRootDigest();
 
     // Get the remote platform properties.
     Platform platform =
@@ -122,10 +118,7 @@ final class RemoteSpawnCache implements SpawnCache {
     try (SilentCloseable c = Profiler.instance().profile("RemoteCache.buildAction")) {
       action =
           RemoteSpawnRunner.buildAction(
-              digestUtil.compute(command),
-              repository.getMerkleDigest(inputRoot),
-              context.getTimeout(),
-              true);
+              digestUtil.compute(command), merkleTreeRoot, context.getTimeout(), true);
       // Look up action cache, and reuse the action output if it is found.
       actionKey = digestUtil.computeActionKey(action);
     }
@@ -145,8 +138,6 @@ final class RemoteSpawnCache implements SpawnCache {
         if (result != null && result.getExitCode() == 0) {
           // In case if failed action returned (exit code != 0) we treat it as a cache miss
           // Otherwise, we know that result exists.
-          // For now, download all outputs locally; in the future, we can reuse the digests to
-          // just update the TreeNodeRepository and continue the build.
           try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {
             remoteCache.download(result, execRoot, context.getFileOutErr());
           }

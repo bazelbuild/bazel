@@ -1300,4 +1300,94 @@ EOF
   expect_log "@x_repo//x to @x_repo//a"
 }
 
+# This test verifies that the //... pattern includes external dependencies
+#
+# ${WORKSPACE_DIR}/
+#     WORKSPACE
+#     green/
+#       BUILD
+# repo2/
+#   blue/
+#     BUILD
+#
+# repo2 contains a .sh file whose visibility is set to //...
+# we verify that we can use this file from ${WORKSPACE_DIR} by running it as
+# part of the "run-the-thing" binary.
+function test_slashslashdotdotdot_includes_external_dependencies() {
+  create_new_workspace
+  repo2=${new_workspace_dir}
+  mkdir -p blue
+  cat > blue/BUILD <<EOF
+package_group(
+    name = "slash-slash-dot-dot-dot",
+    packages = ["//..."],
+)
+filegroup(
+    name = "do-the-thing",
+    srcs = ["do-the-thing.sh"],
+    visibility = [":slash-slash-dot-dot-dot"]
+)
+EOF
+  cat > blue/do-the-thing.sh <<EOF
+#!/bin/sh
+echo "WE DID IT FAM"
+EOF
+  chmod +x blue/do-the-thing.sh
+
+  cd ${WORKSPACE_DIR}
+  mkdir -p green
+  cat > WORKSPACE <<EOF
+local_repository(name = 'blue', path = "${repo2}")
+EOF
+  cat > green/BUILD <<EOF
+sh_binary(
+    name = "run-the-thing",
+    srcs = ["@blue//blue:do-the-thing"],
+)
+EOF
+
+  bazel run //green:run-the-thing >& $TEST_log || fail "failed to run the thing"
+  expect_log "WE DID IT FAM"
+}
+
+## Like test above, but testing an external dep can depend on a local target
+## with //... visibility
+function test_slashslashdotdotdot_includes_main_repo_from_external_dep() {
+  create_new_workspace
+  repo2=${new_workspace_dir}
+  mkdir -p blue
+  cat > blue/BUILD <<EOF
+sh_binary(
+    name = "run-the-thing",
+    srcs = ["@//green:do-the-thing"],
+)
+EOF
+
+  cd ${WORKSPACE_DIR}
+  mkdir -p green
+  cat > WORKSPACE <<EOF
+local_repository(name = 'blue', path = "${repo2}")
+EOF
+  cat > green/BUILD <<EOF
+package_group(
+    name = "slash-slash-dot-dot-dot",
+    packages = ["//..."],
+)
+filegroup(
+    name = "do-the-thing",
+    srcs = ["do-the-thing.sh"],
+    visibility = [":slash-slash-dot-dot-dot"]
+)
+
+EOF
+  cat > green/do-the-thing.sh <<EOF
+#!/bin/sh
+echo "WE DID IT FAM"
+EOF
+  chmod +x green/do-the-thing.sh
+
+  bazel run @blue//blue:run-the-thing >& $TEST_log || fail "failed to run the thing"
+  expect_log "WE DID IT FAM"
+}
+
 run_suite "local repository tests"

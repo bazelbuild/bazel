@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -396,15 +394,26 @@ final class LabelVisitor {
     private void visitAspectsIfRequired(
         Target from, Attribute attribute, final Target to, int depth, int count) {
       // TODO(bazel-team): The getAspects call below is duplicate work for each direct dep entailed
-      // by an attribute's value. Consider doing a slight refactor where we make this method call
-      // exactly once per Attribute.
-      ImmutableList<Aspect> aspectsOfAttribute =
-          (from instanceof Rule) ? attribute.getAspects((Rule) from) : ImmutableList.of();
-      ImmutableMultimap<Attribute, Label> labelsFromAspects =
-          AspectDefinition.visitAspectsIfRequired(from, aspectsOfAttribute, to, edgeFilter);
-      // Create an edge from target to the attribute value.
-      for (Map.Entry<Attribute, Label> entry : labelsFromAspects.entries()) {
-        enqueueTarget(from, entry.getKey(), entry.getValue(), depth, count);
+      // by an attribute's value. Additionally, we might end up enqueueing the same exact visitation
+      // multiple times: consider the case where the same direct dependency is entailed by aspects
+      // of *different* attributes. These visitations get culled later, but we still have to pay the
+      // overhead for all that.
+
+      if (!(from instanceof Rule) || !(to instanceof Rule)) {
+        return;
+      }
+      Rule fromRule = (Rule) from;
+      Rule toRule = (Rule) to;
+      for (Aspect aspect : attribute.getAspects(fromRule)) {
+        if (AspectDefinition.satisfies(
+            aspect, toRule.getRuleClassObject().getAdvertisedProviders())) {
+          AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+              fromRule,
+              aspect,
+              edgeFilter,
+              (aspectAttribute, aspectLabel) ->
+                  enqueueTarget(from, aspectAttribute, aspectLabel, depth, count));
+        }
       }
     }
 

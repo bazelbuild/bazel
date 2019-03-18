@@ -64,8 +64,8 @@ public class TreeArtifactValue implements SkyValue {
   }
 
   /**
-   * Returns a TreeArtifactValue out of the given Artifact-relative path fragments
-   * and their corresponding FileArtifactValues.
+   * Returns a TreeArtifactValue out of the given Artifact-relative path fragments and their
+   * corresponding FileArtifactValues.
    */
   static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
     Map<String, FileArtifactValue> digestBuilder =

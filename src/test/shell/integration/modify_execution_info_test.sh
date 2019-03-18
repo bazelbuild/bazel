@@ -248,4 +248,54 @@ SkylarkAction=+requires-skylark-action \
   fi
 }
 
+# Regression test for b/127874955. We use --output=textproto since --output=text
+# sorts the execution info.
+function test_modify_execution_info_deterministic_order() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg/x" "$pkg/y" || fail "mkdir failed"
+  touch "$pkg/BUILD"
+  cat > "$pkg/build_defs.bzl" <<'EOF' || fail "Couldn't cat"
+def _rule_x_impl(ctx):
+    output = ctx.outputs.out
+    ctx.actions.run_shell(
+        outputs = [output],
+        command = "touch %s" % output.path,
+        mnemonic = "RuleX",
+        execution_requirements = {"requires-x": ""},
+    )
+
+rule_x = rule(outputs = {"out": "%{name}.out"}, implementation = _rule_x_impl)
+
+def _rule_y_impl(ctx):
+    output = ctx.outputs.out
+    ctx.actions.run_shell(
+        outputs = [output],
+        command = "touch %s" % output.path,
+        mnemonic = "RuleY",
+        execution_requirements = {"requires-y": ""},
+    )
+
+rule_y = rule(outputs = {"out": "%{name}.out"}, implementation = _rule_y_impl)
+EOF
+  echo "load('//$pkg:build_defs.bzl', 'rule_x')" > "$pkg/x/BUILD"
+  echo 'rule_x(name = "x")' >> "$pkg/x/BUILD"
+  echo "load('//$pkg:build_defs.bzl', 'rule_y')" > "$pkg/y/BUILD"
+  echo 'rule_y(name = "y")' >> "$pkg/y/BUILD"
+
+  mod='Rule(X|Y)=+requires-x,Rule(X|Y)=+requires-y'
+
+  bazel aquery "//$pkg/x" --output=textproto --modify_execution_info="$mod" \
+    > output1 2> "$TEST_log" || fail "Expected success"
+
+  bazel shutdown >& "$TEST_log" || fail "Couldn't shutdown"
+
+  bazel aquery "//$pkg/y" --modify_execution_info="$mod" \
+    >& "$TEST_log" || fail "Expected success"
+
+  bazel aquery "//$pkg/x" --output=textproto --modify_execution_info="$mod" \
+    > output2 2> "$TEST_log" || fail "Expected success"
+
+  assert_equals "$(cat output1)" "$(cat output2)"
+}
+
 run_suite "Integration tests of the --modify_execution_info option."

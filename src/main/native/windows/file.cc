@@ -12,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <stdint.h>  // uint8_t
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
+#include <WinIoCtl.h>
+
+#include <stdint.h>  // uint8_t
 
 #include <memory>
 #include <sstream>

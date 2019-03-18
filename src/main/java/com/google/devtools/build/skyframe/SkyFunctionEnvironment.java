@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -440,7 +441,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         Preconditions.checkState(
             newlyRegisteredDeps.contains(key),
             "Dep was not previously or newly requested, nor registered, nor error transient: %s",
-            key);
+            key,
+            this);
         missingKeys.add(key);
       } else if (value == NULL_MARKER) {
         Preconditions.checkState(!assertDone, "%s had not done %s", skyKey, key);
@@ -856,6 +858,27 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         maxChildVersion = depVersion;
       }
     }
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("skyKey", skyKey)
+        .add("oldDeps", oldDeps)
+        .add("value", value)
+        .add("errorInfo", errorInfo)
+        .add("previouslyRequestedDepsValues", previouslyRequestedDepsValues)
+        .add("newlyRequestedDepsValues", newlyRequestedDepsValues)
+        .add("newlyRegisteredDeps", newlyRegisteredDeps)
+        .add("newlyRequestedDeps", newlyRequestedDeps)
+        .add("childErrorInfos", childErrorInfos)
+        .add("depErrorKey", depErrorKey)
+        .add("hermeticity", hermeticity)
+        .add("maxChildVersion", maxChildVersion)
+        .add("injectedVersion", injectedVersion)
+        .add("bubbleErrorInfo", bubbleErrorInfo)
+        .add("evaluatorContext", evaluatorContext)
+        .toString();
   }
 
   /** Thrown during environment construction if a previously requested dep is no longer done. */

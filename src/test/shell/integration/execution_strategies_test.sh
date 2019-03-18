@@ -58,6 +58,17 @@ function test_multiple_strategies() {
   expect_log "\"\" = \[.*, .*\]"
 }
 
+# Tests that the hardcoded Worker strategies are not introduced with the new
+# strategy selection
+function test_no_worker_defaults() {
+  bazel build --incompatible_list_based_execution_strategy_selection \
+      --debug_print_action_contexts &> $TEST_log || fail
+  # Can't test for exact strategy names here, because they differ between platforms and products.
+  expect_not_log "\"Closure\""
+  expect_not_log "\"DexBuilder\""
+  expect_not_log "\"Javac\""
+}
+
 # Tests that Bazel catches an invalid strategy list that has an empty string as an element.
 function test_empty_strategy_in_list_is_forbidden() {
   bazel build --incompatible_list_based_execution_strategy_selection \

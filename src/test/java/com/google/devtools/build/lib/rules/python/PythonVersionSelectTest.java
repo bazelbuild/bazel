@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -103,8 +104,6 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
    */
   @Test
   public void selectOnPythonVersionTarget() throws Exception {
-    // Expected results assume the default is PY2.
-    ensureDefaultIsPY2();
     // getRuleContext() doesn't populate the information needed to resolve select()s, and
     // ConfiguredTarget doesn't allow us to test an end-to-end view of the behavior of a select().
     // So this test has the select() control srcs and asserts on which one's in the files to build.
@@ -120,11 +119,19 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
         "    }),",
         ")");
 
-    // Default.
-    doTestSelectOnPythonVersionTarget(py2);
+    // Neither --python_version nor --force_python, use default value.
+    doTestSelectOnPythonVersionTarget(py2, "--incompatible_py3_is_default=false");
+    doTestSelectOnPythonVersionTarget(
+        py3,
+        "--incompatible_py3_is_default=true",
+        // PythonConfiguration has a validation check requiring that the new transition semantics be
+        // enabled before we're allowed to set the default to PY3.
+        "--incompatible_allow_python_version_transitions=true");
+
     // No --python_version, trust --force_python.
     doTestSelectOnPythonVersionTarget(py2, "--force_python=PY2");
     doTestSelectOnPythonVersionTarget(py3, "--force_python=PY3");
+
     // --python_version overrides --force_python.
     doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2");
     doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2", "--force_python=PY2");
@@ -136,7 +143,12 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
 
   private void doTestSelectOnPythonVersionTarget(Artifact expected, String... flags)
       throws Exception {
-    useConfiguration(flags);
+    ImmutableList<String> modifiedFlags =
+        ImmutableList.<String>builder()
+            .addAll(Arrays.asList(flags))
+            .add("--incompatible_remove_old_python_version_api=false")
+            .build();
+    useConfiguration(modifiedFlags.toArray(new String[] {}));
     NestedSet<Artifact> files =
         getConfiguredTarget("//pkg:foo").getProvider(FileProvider.class).getFilesToBuild();
     assertThat(files).contains(expected);

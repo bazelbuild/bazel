@@ -605,9 +605,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
     metadataHandler.discardOutputMetadata();
 
-    // This may be recreated if we discover inputs.
-    // TODO(shahan): this isn't used when using ActionFileSystem so we can avoid creating some
-    // unused objects.
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {

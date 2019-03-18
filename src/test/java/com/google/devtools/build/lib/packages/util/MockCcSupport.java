@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import java.io.IOException;
 
 /**
@@ -62,6 +61,9 @@ public abstract class MockCcSupport {
   public static final String DYNAMIC_LINKING_MODE_FEATURE =
       "feature { name: '" + CppRuleClasses.DYNAMIC_LINKING_MODE + "'}";
 
+  public static final String DO_NOT_SPLIT_LINKING_CMDLINE_FEATURE =
+      "feature { name: '" + CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE + "' enabled: true}";
+
   public static final String SUPPORTS_DYNAMIC_LINKER_FEATURE =
       "feature { name: '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + "' enabled: true}";
 
@@ -70,8 +72,7 @@ public abstract class MockCcSupport {
 
   /** Feature expected by the C++ rules when pic build is requested */
   public static final String PIC_FEATURE =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'pic'"
           + "  enabled: true"
           + "  flag_set {"
@@ -91,8 +92,7 @@ public abstract class MockCcSupport {
 
   /** A feature configuration snippet useful for testing header processing. */
   public static final String PARSE_HEADERS_FEATURE_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'parse_headers'"
           + "  flag_set {"
           + "    action: 'c++-header-parsing'"
@@ -104,8 +104,7 @@ public abstract class MockCcSupport {
 
   /** A feature configuration snippet useful for testing the layering check. */
   public static final String LAYERING_CHECK_FEATURE_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'layering_check'"
           + "  flag_set {"
           + "    action: 'c-compile'"
@@ -121,8 +120,7 @@ public abstract class MockCcSupport {
 
   /** A feature configuration snippet useful for testing header modules. */
   public static final String HEADER_MODULES_FEATURE_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'header_modules'"
           + "  implies: 'use_header_modules'"
           + "  implies: 'header_module_compile'"
@@ -177,8 +175,7 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String MODULE_MAP_HOME_CWD_FEATURE =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'module_map_home_cwd'"
           + "  enabled: true"
           + "  flag_set {"
@@ -195,8 +192,7 @@ public abstract class MockCcSupport {
 
   /** A feature configuration snippet useful for testing environment variables. */
   public static final String ENV_VAR_FEATURE_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'env_feature'"
           + "  implies: 'static_env_feature'"
           + "  implies: 'module_maps'"
@@ -230,8 +226,7 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String HOST_AND_NONHOST_CONFIGURATION =
-      ""
-          + "feature { "
+      "feature { "
           + "  name: 'host'"
           + "  flag_set {"
           + "    action: 'c-compile'"
@@ -252,18 +247,64 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String USER_COMPILE_FLAGS_CONFIGURATION =
+      "feature {"
+          + "  name: 'user_compile_flags'"
+          + "  enabled: true"
+          + "  flag_set {"
+          + "    action: 'assemble'"
+          + "    action: 'preprocess-assemble'"
+          + "    action: 'linkstamp-compile'"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-module-compile'"
+          + "    action: 'c++-module-codegen'"
+          + "    action: 'lto-backend'"
+          + "    action: 'clif-match'"
+          + "    flag_group {"
+          + "      flag: '%{user_compile_flags}'"
+          + "      iterate_over: 'user_compile_flags'"
+          + "      expand_if_all_available: 'user_compile_flags'"
+          + "    }"
+          + "  }"
+          + "}";
+
+  public static final String LEGACY_COMPILE_FLAGS_CONFIGURATION =
+      "feature {"
+          + "  name: 'legacy_compile_flags'"
+          + "  enabled: true"
+          + "  flag_set {"
+          + "    action: 'assemble'"
+          + "    action: 'preprocess-assemble'"
+          + "    action: 'linkstamp-compile'"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-module-compile'"
+          + "    action: 'c++-module-codegen'"
+          + "    action: 'lto-backend'"
+          + "    action: 'clif-match'"
+          + "    flag_group {"
+          + "      flag: '%{legacy_compile_flags}'"
+          + "      iterate_over: 'legacy_compile_flags'"
+          + "      expand_if_all_available: 'legacy_compile_flags'"
+          + "    }"
+          + "  }"
+          + "}"
+          + "compiler_flag: 'legacy_compile_flag'";
+
   public static final String THIN_LTO_CONFIGURATION =
-      ""
-          + "feature { "
+      "feature { "
           + "  name: 'thin_lto'"
           + "  requires { feature: 'nonhost' }"
           + "  flag_set {"
-          + "    expand_if_all_available: 'thinlto_param_file'"
           + "    action: 'c++-link-executable'"
           + "    action: 'c++-link-dynamic-library'"
           + "    action: 'c++-link-nodeps-dynamic-library'"
           + "    action: 'c++-link-static-library'"
           + "    flag_group {"
+          + "      expand_if_all_available: 'thinlto_param_file'"
           + "      flag: 'thinlto_param_file=%{thinlto_param_file}'"
           + "    }"
           + "  }"
@@ -304,47 +345,43 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
-      "" + "feature {  name: 'thin_lto_linkstatic_tests_use_shared_nonlto_backends'}";
+      "feature {  name: 'thin_lto_linkstatic_tests_use_shared_nonlto_backends'}";
 
   public static final String THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
-      "" + "feature {  name: 'thin_lto_all_linkstatic_use_shared_nonlto_backends'}";
+      "feature {  name: 'thin_lto_all_linkstatic_use_shared_nonlto_backends'}";
 
   public static final String ENABLE_AFDO_THINLTO_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'enable_afdo_thinlto'"
           + "  requires { feature: 'autofdo_implicit_thinlto' }"
           + "  implies: 'thin_lto'"
           + "}";
 
   public static final String AUTOFDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "" + "feature {  name: 'autofdo_implicit_thinlto'}";
+      "feature {  name: 'autofdo_implicit_thinlto'}";
 
   public static final String ENABLE_FDO_THINLTO_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'enable_fdo_thinlto'"
           + "  requires { feature: 'fdo_implicit_thinlto' }"
           + "  implies: 'thin_lto'"
           + "}";
 
   public static final String FDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "" + "feature {  name: 'fdo_implicit_thinlto'}";
+      "feature {  name: 'fdo_implicit_thinlto'}";
 
   public static final String ENABLE_XFDO_THINLTO_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'enable_xbinaryfdo_thinlto'"
           + "  requires { feature: 'xbinaryfdo_implicit_thinlto' }"
           + "  implies: 'thin_lto'"
           + "}";
 
   public static final String XFDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "" + "feature {  name: 'xbinaryfdo_implicit_thinlto'}";
+      "feature {  name: 'xbinaryfdo_implicit_thinlto'}";
 
   public static final String AUTO_FDO_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'autofdo'"
           + "  provides: 'profile'"
           + "  flag_set {"
@@ -363,8 +400,7 @@ public abstract class MockCcSupport {
       "feature { name: 'is_cc_fake_binary' }";
 
   public static final String XBINARY_FDO_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'xbinaryfdo'"
           + "  provides: 'profile'"
           + "  flag_set {"
@@ -372,8 +408,8 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'lto-backend'"
-          + "    expand_if_all_available: 'fdo_profile_path'"
           + "    flag_group {"
+          + "      expand_if_all_available: 'fdo_profile_path'"
           + "      flag: '-fauto-profile=%{fdo_profile_path}'"
           + "      flag: '-fprofile-correction'"
           + "    }"
@@ -381,8 +417,7 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String FDO_OPTIMIZE_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'fdo_optimize'"
           + "  provides: 'profile'"
           + "  flag_set {"
@@ -400,8 +435,7 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String FDO_INSTRUMENT_CONFIGURATION =
-      ""
-          + "feature { "
+      "feature { "
           + "  name: 'fdo_instrument'"
           + "  provides: 'profile'"
           + "  flag_set {"
@@ -418,8 +452,7 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String PER_OBJECT_DEBUG_INFO_CONFIGURATION =
-      ""
-          + "feature { "
+      "feature { "
           + "  name: 'per_object_debug_info'"
           + "  enabled: true"
           + "  flag_set {"
@@ -437,41 +470,37 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION =
-      "" + "feature { name: 'copy_dynamic_libraries_to_binary' }";
+      "feature { name: 'copy_dynamic_libraries_to_binary' }";
 
   public static final String SUPPORTS_START_END_LIB_FEATURE =
-      "" + "feature { name: 'supports_start_end_lib' enabled: true }";
+      "feature { name: 'supports_start_end_lib' enabled: true }";
 
   public static final String SUPPORTS_PIC_FEATURE =
-      "" + "feature { name: 'supports_pic' enabled: true }";
+      "feature { name: 'supports_pic' enabled: true }";
 
   public static final String TARGETS_WINDOWS_CONFIGURATION =
-      ""
-          + "feature {"
+      "feature {"
           + "   name: 'targets_windows'"
           + "   implies: 'copy_dynamic_libraries_to_binary'"
           + "   enabled: true"
           + "}";
 
   public static final String STATIC_LINK_TWEAKED_CONFIGURATION =
-      ""
-          + "artifact_name_pattern {"
+      "artifact_name_pattern {"
           + "   category_name: 'static_library'"
           + "   prefix: 'lib'"
           + "   extension: '.lib'"
           + "}";
 
   public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =
-      ""
-          + "artifact_name_pattern {"
+      "artifact_name_pattern {"
           + "   category_name: 'static_library'"
           + "   prefix: 'lib'"
           + "   extension: '.a'"
           + "}";
 
   public static final String MODULE_MAPS_FEATURE =
-      ""
-          + "feature {"
+      "feature {"
           + "  name: 'module_maps'"
           + "  enabled: true"
           + "  flag_set {"
@@ -485,6 +514,9 @@ public abstract class MockCcSupport {
           + "    }"
           + "  }"
           + "}";
+
+  public static final String COMPILER_PARAM_FILE =
+      "feature { name: 'compiler_param_file' enabled: true }";
 
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
       emptyActionConfigFor(CppActionNames.CPP_COMPILE);
@@ -511,10 +543,14 @@ public abstract class MockCcSupport {
       emptyActionConfigFor(CppActionNames.CLIF_MATCH);
 
   public static final String EMPTY_STRIP_ACTION_CONFIG = emptyActionConfigFor(CppActionNames.STRIP);
+
   public static final String STATIC_LINK_CPP_RUNTIMES_FEATURE =
       "feature { name: 'static_link_cpp_runtimes' enabled: true }";
+
   public static final String EMPTY_CROSSTOOL =
       "major_version: 'foo'\nminor_version:' foo'\n" + emptyToolchainForCpu("k8");
+
+  public static final String SIMPLE_COMPILE_FEATURE = "simple_compile_feature";
 
   public static String emptyToolchainForCpu(String cpu, String... append) {
     return Joiner.on("\n")
@@ -571,40 +607,6 @@ public abstract class MockCcSupport {
     return TextFormat.printToString(builder.build());
   }
 
-  /** Applies the given function to the first toolchain that applies to the given cpu. */
-  public static String applyToToolchain(
-      String original,
-      String targetCpu,
-      Function<CToolchain.Builder, CToolchain.Builder> transformation)
-      throws ParseException {
-    CrosstoolConfig.CrosstoolRelease.Builder crosstoolBuilder =
-        CrosstoolConfig.CrosstoolRelease.newBuilder();
-    TextFormat.merge(original, crosstoolBuilder);
-    for (int i = 0; i < crosstoolBuilder.getToolchainCount(); i++) {
-      if (crosstoolBuilder.getToolchain(i).getTargetCpu().equals(targetCpu)) {
-        CToolchain.Builder toolchainBuilder =
-            CToolchain.newBuilder(crosstoolBuilder.getToolchain(i));
-        transformation.apply(toolchainBuilder);
-        crosstoolBuilder.removeToolchain(i);
-        crosstoolBuilder.addToolchain(toolchainBuilder.build());
-        break;
-      }
-    }
-
-    return TextFormat.printToString(crosstoolBuilder.build());
-  }
-
-  public static String addLibcLabelToCrosstool(String original, String label)
-      throws TextFormat.ParseException {
-    CrosstoolConfig.CrosstoolRelease.Builder builder =
-        CrosstoolConfig.CrosstoolRelease.newBuilder();
-    TextFormat.merge(original, builder);
-    for (CrosstoolConfig.CToolchain.Builder toolchain : builder.getToolchainBuilderList()) {
-      toolchain.setDefaultGrteTop(label);
-    }
-    return TextFormat.printToString(builder.build());
-  }
-
   public abstract Predicate<String> labelNameFilter();
 
   /**
@@ -640,6 +642,31 @@ public abstract class MockCcSupport {
         crosstoolFile);
   }
 
+  public void setupCcToolchainConfigForCpu(MockToolsConfig config, String... cpus)
+      throws IOException {
+    String crosstoolTop = getCrosstoolTopPathForConfig(config);
+    ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
+    toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
+    for (String cpu : cpus) {
+      toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
+    }
+    new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+        .setSupportedArchs(getCrosstoolArchs())
+        .setToolchainConfigs(toolchainConfigBuilder.build())
+        .setSupportsHeaderParsing(true)
+        .write();
+  }
+
+  public void setupCcToolchainConfig(
+      MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
+    String crosstoolTop = getCrosstoolTopPathForConfig(config);
+    new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+        .setSupportedArchs(getCrosstoolArchs())
+        .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
+        .setSupportsHeaderParsing(true)
+        .write();
+  }
+
   protected void createCrosstoolPackage(
       MockToolsConfig config,
       String crosstoolFile)
@@ -648,7 +675,7 @@ public abstract class MockCcSupport {
     if (config.isRealFileSystem()) {
       config.linkTools(getRealFilesystemTools(crosstoolTop));
     } else {
-      new Crosstool(config, crosstoolTop)
+      new Crosstool(config, crosstoolTop, /* disableCrosstool= */ false)
           .setCrosstoolFile(getMockCrosstoolVersion(), crosstoolFile)
           .setSupportedArchs(getCrosstoolArchs())
           .setSupportsHeaderParsing(true)

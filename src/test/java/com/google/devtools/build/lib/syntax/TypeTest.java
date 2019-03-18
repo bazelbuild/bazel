@@ -142,12 +142,14 @@ public class TypeTest {
     assertThat(BuildType.TRISTATE.convert(1, null)).isEqualTo(TriState.YES);
     assertThat(BuildType.TRISTATE.convert(0, null)).isEqualTo(TriState.NO);
     assertThat(BuildType.TRISTATE.convert(-1, null)).isEqualTo(TriState.AUTO);
-    assertThat(BuildType.TRISTATE.convert(true, null)).isEqualTo(TriState.YES);
-    assertThat(BuildType.TRISTATE.convert(false, null)).isEqualTo(TriState.NO);
     assertThat(BuildType.TRISTATE.convert(TriState.YES, null)).isEqualTo(TriState.YES);
     assertThat(BuildType.TRISTATE.convert(TriState.NO, null)).isEqualTo(TriState.NO);
     assertThat(BuildType.TRISTATE.convert(TriState.AUTO, null)).isEqualTo(TriState.AUTO);
     assertThat(collectLabels(BuildType.TRISTATE, TriState.YES)).isEmpty();
+
+    // deprecated:
+    assertThat(BuildType.TRISTATE.convert(true, null)).isEqualTo(TriState.YES);
+    assertThat(BuildType.TRISTATE.convert(false, null)).isEqualTo(TriState.NO);
   }
 
   @Test
@@ -165,7 +167,8 @@ public class TypeTest {
 
   @Test
   public void testTriStateDoesNotAcceptStrings() throws Exception {
-    List<String> listOfCases = Lists.newArrayList("bad", "true", "auto", "false");
+    List<?> listOfCases = Lists.newArrayList("bad", "true", "auto", "false");
+    // TODO(adonovan): add booleans true, false to this list; see b/116691720.
     for (Object entry : listOfCases) {
       try {
         BuildType.TRISTATE.convert(entry, null);

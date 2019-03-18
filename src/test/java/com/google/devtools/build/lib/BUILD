@@ -44,6 +44,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/buildeventstream:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
+        "//src/test/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2:srcs",
@@ -1084,31 +1085,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
-    ],
-)
-
-java_test(
-    name = "profiler-tests",
-    srcs = glob(
-        [
-            "profiler/*.java",
-        ],
-        exclude = ["profiler/*Benchmark.java"],
-    ),
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":foundations_testutil",
-        ":guava_junit_truth",
-        ":syntax_testutil",
-        ":test_runner",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:mockito",
     ],
 )
 

@@ -55,10 +55,10 @@ set -ex
 ( cd {working_dir} &&
     if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
       rm -rf '{directory}' '{dir_link}'
-      git clone {shallow} '{remote}' '{directory}' || git clone '{remote}' '{directory}'
+      git clone '{shallow}' '{remote}' '{directory}' || git clone '{remote}' '{directory}'
     fi
     git -C '{directory}' reset --hard {ref} || \
-    ((git -C '{directory}' fetch {shallow} origin {ref}:{ref} || \
+    ((git -C '{directory}' fetch '{shallow}' origin {ref}:{ref} || \
       git -C '{directory}' fetch origin {ref}:{ref}) && git -C '{directory}' reset --hard {ref})
       git -C '{directory}' clean -xdf )
   """.format(

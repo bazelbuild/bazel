@@ -154,9 +154,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   // The following fields are set in the #beforeEvaluateQuery method.
   private MultisetSemaphore<PackageIdentifier> packageSemaphore;
   protected WalkableGraph graph;
-  private InterruptibleSupplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
-  private GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider;
-  private ListeningExecutorService executor;
+  protected InterruptibleSupplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
+  protected GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider;
+  protected ListeningExecutorService executor;
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
   protected final SkyKey universeKey;
   private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;

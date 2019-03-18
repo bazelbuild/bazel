@@ -52,6 +52,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -74,17 +75,30 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private String invocationId;
   private String buildRequestId;
   private EventHandler cmdLineReporter;
+  private final AtomicReference<AbruptExitException> pendingAbruptExitException =
+      new AtomicReference<>();
 
   protected BESOptionsT besOptions;
 
   /** Callback used by the transports to report errors and possible exit abruptly. */
   protected BuildEventServiceAbruptExitCallback getAbruptExitCallback(
       ModuleEnvironment moduleEnvironment) {
-    return moduleEnvironment::exit;
+    return (e) -> {
+      // Request exiting early for the first abrupt exception we find.
+      if (this.pendingAbruptExitException.compareAndSet(null, e)) {
+        moduleEnvironment.exit(pendingAbruptExitException.get());
+      }
+    };
+  }
+
+  protected void reportCommandLineError(EventHandler commandLineReporter, Exception exception) {
+    // Don't hide unchecked exceptions as part of the error reporting.
+    Throwables.throwIfUnchecked(exception);
+    commandLineReporter.handle(Event.error(exception.getMessage()));
   }
 
   /** Report errors in the command line and possibly fail the build. */
-  protected void reportError(
+  private void reportError(
       EventHandler commandLineReporter,
       ModuleEnvironment moduleEnvironment,
       String msg,
@@ -95,7 +109,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
     logger.log(Level.SEVERE, msg, exception);
     AbruptExitException abruptException = new AbruptExitException(msg, exitCode, exception);
-    commandLineReporter.handle(Event.error(exception.getMessage()));
+    reportCommandLineError(commandLineReporter, exception);
     moduleEnvironment.exit(abruptException);
   }
 
@@ -199,6 +213,12 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
   @Override
   public void afterCommand() {
+    AbruptExitException e = pendingAbruptExitException.getAndSet(null);
+    if (e != null) {
+      logger.severe(e.getMessage());
+      reportCommandLineError(cmdLineReporter, e);
+    }
+
     if (streamer != null) {
       if (!Strings.isNullOrEmpty(besOptions.besBackend)) {
         constructAndMaybeReportInvocationIdUrl();

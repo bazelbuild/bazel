@@ -849,19 +849,35 @@ public final class UnixGlob {
    */
   public static void removeExcludes(Set<String> paths, Collection<String> excludes) {
     ArrayList<String> complexPatterns = new ArrayList<>(excludes.size());
+    Map<String, List<String>> starstarSlashStarHeadTailPairs = new HashMap<>();
     for (String exclude : excludes) {
       if (isWildcardFree(exclude)) {
         paths.remove(exclude);
         continue;
       }
-      if (exclude.startsWith("**/*")) {
-        String tail = exclude.substring(4);
-        if (isWildcardFree(tail)) {
-          paths.removeIf(path -> path.endsWith(tail));
+      int patternPos = exclude.indexOf("**/*");
+      if (patternPos != -1) {
+        String head = exclude.substring(0, patternPos);
+        String tail = exclude.substring(patternPos + 4);
+        if (isWildcardFree(head) && isWildcardFree(tail)) {
+          starstarSlashStarHeadTailPairs.computeIfAbsent(head, h -> new ArrayList<>()).add(tail);
           continue;
         }
       }
       complexPatterns.add(exclude);
+    }
+    for (Map.Entry<String, List<String>> headTailPair : starstarSlashStarHeadTailPairs.entrySet()) {
+      paths.removeIf(
+          path -> {
+            if (path.startsWith(headTailPair.getKey())) {
+              for (String tail : headTailPair.getValue()) {
+                if (path.endsWith(tail)) {
+                  return true;
+                }
+              }
+            }
+            return false;
+          });
     }
     if (complexPatterns.isEmpty()) {
       return;

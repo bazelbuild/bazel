@@ -43,7 +43,7 @@ public final class SkylarkCcCommonTestHelper {
     if (AnalysisMock.get().isThisBazel()) {
       fragments = "    fragments = ['cpp'],";
     }
-    scratch.file(bzlFilePath + "/BUILD");
+    scratch.overwriteFile(bzlFilePath + "/BUILD");
     scratch.file(
         bzlFilePath + "/extension.bzl",
         "def _cc_skylark_library_impl(ctx):",

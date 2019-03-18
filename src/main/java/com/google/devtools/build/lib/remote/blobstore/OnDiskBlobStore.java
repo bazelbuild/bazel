@@ -26,7 +26,7 @@ import java.io.OutputStream;
 import java.util.UUID;
 
 /** A on-disk store for the remote action cache. */
-public final class OnDiskBlobStore implements SimpleBlobStore {
+public class OnDiskBlobStore implements SimpleBlobStore {
   private final Path root;
   static final String ACTION_KEY_PREFIX = "ac_";
 
@@ -63,7 +63,8 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void put(String key, long length, InputStream in) throws IOException {
+  public void put(String key, long length, InputStream in)
+      throws IOException, InterruptedException {
     Path target = toPath(key);
     if (target.exists()) {
       return;
@@ -87,7 +88,7 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
   @Override
   public void close() {}
 
-  private Path toPath(String key) {
+  protected Path toPath(String key) {
     return root.getChild(key);
   }
 }

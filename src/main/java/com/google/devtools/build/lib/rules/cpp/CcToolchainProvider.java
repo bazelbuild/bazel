@@ -608,6 +608,12 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.supportsEmbeddedRuntimes();
   }
 
+  public boolean doNotSplitLinkingCmdline() {
+    return getFeatures()
+        .getActivatableNames()
+        .contains(CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE);
+  }
+
   /** Returns whether the toolchain supports the --start-lib/--end-lib options. */
   public boolean supportsStartEndLib(FeatureConfiguration featureConfiguration) {
     return toolchainInfo.supportsStartEndLib()

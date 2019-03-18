@@ -1068,4 +1068,22 @@ public class CcCommonTest extends BuildViewTestCase {
         "PIC compilation is requested but the toolchain does not support it"
             + " (feature named 'supports_pic' is not enabled");
   }
+
+  @Test
+  public void testCompilationParameterFile() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.COMPILER_PARAM_FILE);
+    scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+    assertThat(
+            cppCompileAction.getArguments().stream()
+                .map(x -> removeOutDirectory(x))
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
+  }
+
+  private String removeOutDirectory(String s) {
+    return s.replace("blaze-out", "").replace("bazel-out", "");
+  }
 }

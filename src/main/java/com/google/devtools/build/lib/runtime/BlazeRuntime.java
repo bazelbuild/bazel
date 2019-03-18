@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.Profiler.Format;
-import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
@@ -279,7 +279,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       long waitTimeInMs) {
     OutputStream out = null;
     boolean recordFullProfilerData = false;
-    ProfiledTaskKinds profiledTasks = ProfiledTaskKinds.NONE;
+    ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
     Path profilePath = null;
     try {
@@ -300,20 +300,37 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         recordFullProfilerData = false;
         out = profilePath.getOutputStream();
         eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
-        profiledTasks = ProfiledTaskKinds.ALL_FOR_TRACE;
+        for (ProfilerTask profilerTask : ProfilerTask.values()) {
+          if (!profilerTask.isVfs()
+              // CRITICAL_PATH corresponds to writing the file.
+              && profilerTask != ProfilerTask.CRITICAL_PATH
+              && profilerTask != ProfilerTask.SKYFUNCTION
+              && profilerTask != ProfilerTask.ACTION_COMPLETE
+              && !profilerTask.isStarlark()) {
+            profiledTasksBuilder.add(profilerTask);
+          }
+        }
+        profiledTasksBuilder.addAll(options.additionalProfileTasks);
       } else if (options.profilePath != null) {
         profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 
         recordFullProfilerData = options.recordFullProfilerData;
         out = profilePath.getOutputStream();
         eventHandler.handle(Event.info("Writing profile data to '" + profilePath + "'"));
-        profiledTasks = ProfiledTaskKinds.ALL;
+        for (ProfilerTask profilerTask : ProfilerTask.values()) {
+          profiledTasksBuilder.add(profilerTask);
+        }
       } else if (options.alwaysProfileSlowOperations) {
         recordFullProfilerData = false;
         out = null;
-        profiledTasks = ProfiledTaskKinds.SLOWEST;
+        for (ProfilerTask profilerTask : ProfilerTask.values()) {
+          if (profilerTask.collectsSlowestInstances()) {
+            profiledTasksBuilder.add(profilerTask);
+          }
+        }
       }
-      if (profiledTasks != ProfiledTaskKinds.NONE) {
+      ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
+      if (!profiledTasks.isEmpty()) {
         Profiler profiler = Profiler.instance();
         profiler.start(
             profiledTasks,
@@ -548,7 +565,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // commands might also need to notify the SkyframeExecutor. It's called in #stopRequest so that
     // timing metrics for builds can be more accurate (since this call can be slow).
     try {
-      workspace.getSkyframeExecutor().notifyCommandComplete();
+      workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
     } catch (InterruptedException e) {
       afterCommandResult = BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
       Thread.currentThread().interrupt();
@@ -1140,7 +1157,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     try {
       for (BlazeModule module : blazeModules) {
         BlazeModule.ModuleFileSystem moduleFs =
-            module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
+            module.getFileSystem(
+                options,
+                outputBase.getRelative(ServerDirectories.EXECROOT),
+                BlazeDirectories.getRelativeOutputPath(productName));
         if (moduleFs != null) {
           execRootBasePath = moduleFs.virtualExecRootBase();
           Preconditions.checkState(fs == null, "more than one module returns a file system");

@@ -130,8 +130,8 @@ public class SkylarkSemanticsConsistencyTest {
             + ","
             + rand.nextDouble(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
+        "--experimental_restrict_named_params=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
-        "--experimental_transition_whitelist_location=" + rand.nextDouble(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
@@ -159,7 +159,8 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_require_feature_configuration_for_pic=" + rand.nextBoolean(),
         "--incompatible_strict_argument_ordering=" + rand.nextBoolean(),
         "--incompatible_use_toolchain_providers_in_java_common=" + rand.nextBoolean(),
-        "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
+        "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
+        "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean());
   }
 
   /**
@@ -177,8 +178,8 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalJavaCommonCreateProviderEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalPlatformsApi(rand.nextBoolean())
+        .experimentalRestrictNamedParams(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
-        .experimentalTransitionWhitelistLocation(String.valueOf(rand.nextDouble()))
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
@@ -207,6 +208,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleStricArgumentOrdering(rand.nextBoolean())
         .incompatibleUseToolchainProvidersInJavaCommon(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
+        .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())
         .build();
   }
 

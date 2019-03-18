@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -28,10 +29,12 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.FileNotFoundException;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -279,5 +282,67 @@ public class ActionMetadataHandlerTest {
     // Reset this output, which will make the handler stat the file again.
     handler.resetOutputs(ImmutableList.of(artifact));
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
+  }
+
+  @Test
+  public void injectRemoteArtifactMetadata() throws Exception {
+    PathFragment path = PathFragment.create("foo/bar");
+    Artifact artifact = new Artifact(path, outputRoot);
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            /* inputArtifactData= */ new ActionInputMap(0),
+            /* missingArtifactsAllowed= */ false,
+            /* outputs= */ ImmutableList.of(artifact),
+            /* tsgm= */ null,
+            ArtifactPathResolver.IDENTITY,
+            new OutputStore());
+    handler.discardOutputMetadata();
+
+    byte[] digest = new byte[] {1, 2, 3};
+    int size = 10;
+    handler.injectRemoteFile(artifact, digest, size, /* locationIndex= */ 1);
+
+    FileArtifactValue v = handler.getMetadata(artifact);
+    assertThat(v).isNotNull();
+    assertThat(v.getDigest()).isEqualTo(digest);
+    assertThat(v.getSize()).isEqualTo(size);
+  }
+
+  @Test
+  public void injectRemoteTreeArtifactMetadata() throws Exception {
+    PathFragment path = PathFragment.create("bin/dir");
+    SpecialArtifact treeArtifact =
+        new SpecialArtifact(
+            outputRoot, path, ArtifactOwner.NullArtifactOwner.INSTANCE, SpecialArtifactType.TREE);
+    OutputStore store = new OutputStore();
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            /* inputArtifactData= */ new ActionInputMap(0),
+            /* missingArtifactsAllowed= */ false,
+            /* outputs= */ ImmutableList.of(treeArtifact),
+            /* tsgm= */ null,
+            ArtifactPathResolver.IDENTITY,
+            store);
+    handler.discardOutputMetadata();
+
+    RemoteFileArtifactValue fooValue = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
+    RemoteFileArtifactValue barValue = new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1);
+    Map<PathFragment, RemoteFileArtifactValue> children =
+        ImmutableMap.<PathFragment, RemoteFileArtifactValue>builder()
+            .put(PathFragment.create("foo"), fooValue)
+            .put(PathFragment.create("bar"), barValue)
+            .build();
+
+    handler.injectRemoteDirectory(treeArtifact, children);
+
+    FileArtifactValue value = handler.getMetadata(treeArtifact);
+    assertThat(value).isNotNull();
+    TreeArtifactValue treeValue = store.getTreeArtifactData(treeArtifact);
+    assertThat(treeValue).isNotNull();
+    assertThat(treeValue.getDigest()).isEqualTo(value.getDigest());
+
+    assertThat(treeValue.getChildPaths())
+        .containsExactly(PathFragment.create("foo"), PathFragment.create("bar"));
+    assertThat(treeValue.getChildValues().values()).containsExactly(fooValue, barValue);
   }
 }

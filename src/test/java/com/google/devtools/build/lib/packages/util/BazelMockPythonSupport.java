@@ -38,6 +38,7 @@ public class BazelMockPythonSupport extends MockPythonSupport {
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "load(':python_version.bzl', 'define_python_version_flag')",
+        "load('//tools/python:toolchain.bzl', 'py_runtime_pair')",
         "define_python_version_flag(",
         "    name = 'python_version',",
         ")",
@@ -52,6 +53,12 @@ public class BazelMockPythonSupport extends MockPythonSupport {
         "toolchain_type(name = 'toolchain_type')",
         "constraint_setting(name = 'py2_interpreter_path')",
         "constraint_setting(name = 'py3_interpreter_path')",
+        "py_runtime_pair(name = 'dummy_py_runtime_pair')",
+        "toolchain(",
+        "    name = 'dummy_toolchain',",
+        "    toolchain = ':dummy_py_runtime_pair',",
+        "    toolchain_type = ':toolchain_type',",
+        ")",
         "exports_files(['precompile.py'])",
         "sh_binary(name='2to3', srcs=['2to3.sh'])");
   }

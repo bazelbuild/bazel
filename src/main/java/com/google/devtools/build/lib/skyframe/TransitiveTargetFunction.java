@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -24,11 +23,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
-import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -219,36 +216,38 @@ public class TransitiveTargetFunction
     }
   }
 
+  @Nullable
   @Override
-  protected Collection<Label> getAspectLabels(
-      Rule fromRule,
-      ImmutableList<Aspect> aspectsOfAttribute,
+  protected AdvertisedProviderSet getAdvertisedProviderSet(
       Label toLabel,
-      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
-      final Environment env)
+      @Nullable ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+      Environment env)
       throws InterruptedException {
     SkyKey packageKey = PackageValue.key(toLabel.getPackageIdentifier());
+    Target toTarget;
     try {
       PackageValue pkgValue =
           (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
       if (pkgValue == null) {
-        return ImmutableList.of();
+        return null;
       }
       Package pkg = pkgValue.getPackage();
       if (pkg.containsErrors()) {
-        // Do nothing. This error was handled when we computed the corresponding
+        // Do nothing interesting. This error was handled when we computed the corresponding
         // TransitiveTargetValue.
-        return ImmutableList.of();
+        return null;
       }
-      Target dependedTarget = pkgValue.getPackage().getTarget(toLabel.getName());
-      return AspectDefinition.visitAspectsIfRequired(
-              fromRule, aspectsOfAttribute, dependedTarget, DependencyFilter.ALL_DEPS)
-          .values();
+      toTarget = pkgValue.getPackage().getTarget(toLabel.getName());
     } catch (NoSuchThingException e) {
-      // Do nothing. This error was handled when we computed the corresponding
+      // Do nothing interesting. This error was handled when we computed the corresponding
       // TransitiveTargetValue.
-      return ImmutableList.of();
+      return null;
     }
+    if (!(toTarget instanceof Rule)) {
+      // Aspect can be declared only for Rules.
+      return null;
+    }
+    return ((Rule) toTarget).getRuleClassObject().getAdvertisedProviders();
   }
 
   @Override

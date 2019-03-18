@@ -710,7 +710,8 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 
   return ExecuteDaemon(exe, jvm_args_vector, PrepareEnvironmentForJvm(),
                        globals->jvm_log_file, globals->jvm_log_file_append,
-                       binaries_dir, server_dir, server_startup);
+                       binaries_dir, server_dir, globals->options,
+                       server_startup);
 }
 
 // Replace this process with blaze in standalone/batch mode.
@@ -1440,7 +1441,7 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
     result[var] = EnvVarValue(EnvVarAction::SET, value);
   }
 
-  if (!blaze::GetEnv("LD_ASSUME_KERNEL").empty()) {
+  if (blaze::ExistsEnv("LD_ASSUME_KERNEL")) {
     // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
     // specified, the JVM fails to create threads.  See thread_stack_regtest.
     // This is also provoked by LD_LIBRARY_PATH=/usr/lib/debug,
@@ -1449,12 +1450,12 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
     result["LD_ASSUME_KERNEL"] = EnvVarValue(EnvVarAction::UNSET, "");
   }
 
-  if (!blaze::GetEnv("LD_PRELOAD").empty()) {
+  if (blaze::ExistsEnv("LD_PRELOAD")) {
     BAZEL_LOG(WARNING) << "ignoring LD_PRELOAD in environment.";
     result["LD_PRELOAD"] = EnvVarValue(EnvVarAction::UNSET, "");
   }
 
-  if (!blaze::GetEnv("_JAVA_OPTIONS").empty()) {
+  if (blaze::ExistsEnv("_JAVA_OPTIONS")) {
     // This would override --host_jvm_args
     BAZEL_LOG(WARNING) << "ignoring _JAVA_OPTIONS in environment.";
     result["_JAVA_OPTIONS"] = EnvVarValue(EnvVarAction::UNSET, "");
@@ -1546,7 +1547,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // Must be done before command line parsing.
   // ParseOptions already populate --client_env, so detect bash before it
   // happens.
-  DetectBashOrDie();
+  (void)DetectBashAndExportBazelSh();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);

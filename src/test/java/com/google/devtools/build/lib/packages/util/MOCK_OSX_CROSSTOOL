@@ -84,48 +84,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -228,6 +186,62 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -804,20 +818,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
       }
     }
     enabled: true
@@ -1868,48 +1868,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -2013,6 +1971,62 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -2589,20 +2603,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
       }
     }
     enabled: true
@@ -3661,48 +3661,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -3805,6 +3763,64 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+        flag: "-target"
+        flag: "x86_64-apple-ios"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -4381,22 +4397,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-        flag: "-target"
-        flag: "x86_64-apple-ios"
       }
     }
     enabled: true
@@ -5469,48 +5469,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -5613,6 +5571,64 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+        flag: "-target"
+        flag: "i386-apple-ios"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -6191,22 +6207,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-        flag: "-target"
-        flag: "i386-apple-ios"
       }
     }
     enabled: true
@@ -7279,48 +7279,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -7424,6 +7382,64 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+        flag: "-target"
+        flag: "x86_64-apple-tvos"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -8000,22 +8016,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-        flag: "-target"
-        flag: "x86_64-apple-tvos"
       }
     }
     enabled: true
@@ -9118,48 +9118,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -9262,6 +9220,64 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+        flag: "-target"
+        flag: "i386-apple-ios"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -9838,22 +9854,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-        flag: "-target"
-        flag: "i386-apple-ios"
       }
     }
     enabled: true
@@ -10926,48 +10926,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -11070,6 +11028,64 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+        flag: "-target"
+        flag: "armv7-apple-ios"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -11646,22 +11662,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-        flag: "-target"
-        flag: "armv7-apple-ios"
       }
     }
     enabled: true
@@ -12754,48 +12754,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -12898,6 +12856,64 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+        flag: "-target"
+        flag: "armv7-apple-watchos"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -13476,22 +13492,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-        flag: "-target"
-        flag: "armv7-apple-watchos"
       }
     }
     enabled: true
@@ -14584,48 +14584,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -14729,6 +14687,64 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+        flag: "-target"
+        flag: "arm64-apple-tvos"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -15305,22 +15321,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-        flag: "-target"
-        flag: "arm64-apple-tvos"
       }
     }
     enabled: true
@@ -16443,48 +16443,6 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   feature {
-    name: "no_legacy_features"
-  }
-  feature {
-    name: "fastbuild"
-    implies: "fastbuild_only_flag"
-  }
-  feature {
-    name: "opt"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-g0"
-      }
-      with_feature {
-        feature: "no_generate_debug_symbols"
-      }
-    }
-    implies: "opt_only_flag"
-  }
-  feature {
-    name: "dbg"
-    implies: "dbg_only_flag"
-  }
-  feature {
-    name: "compile_all_modules"
-  }
-  feature {
-    name: "exclude_private_headers_in_module_maps"
-  }
-  feature {
-    name: "has_configured_linker_path"
-  }
-  feature {
-    name: "only_doth_headers_in_module_maps"
-  }
-  feature {
-    name: "is_not_test_target"
-  }
-  feature {
     name: "default_compile_flags"
     flag_set {
       action: "assemble"
@@ -16587,6 +16545,64 @@ toolchain {
       }
     }
     enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-lc++"
+        flag: "-target"
+        flag: "arm64-apple-ios"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
   }
   feature {
     name: "generate_dsym_file"
@@ -17163,22 +17179,6 @@ toolchain {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
         expand_if_all_available: "user_link_flags"
-      }
-    }
-    enabled: true
-  }
-  feature {
-    name: "default_link_flags"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-        flag: "-target"
-        flag: "arm64-apple-ios"
       }
     }
     enabled: true

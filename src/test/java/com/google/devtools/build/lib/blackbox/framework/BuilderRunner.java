@@ -50,6 +50,8 @@ public final class BuilderRunner {
   private boolean useDefaultRc = true;
   private int errorCode = 0;
   private List<String> flags;
+  private boolean shouldFail;
+  private boolean enableDebug;
 
   /**
    * Creates the BuilderRunner
@@ -106,6 +108,16 @@ public final class BuilderRunner {
   }
 
   /**
+   * Expect Bazel to fail. This method is needed when the exact error code can not be specified.
+   *
+   * @return this BuildRunner instance
+   */
+  public BuilderRunner shouldFail() {
+    this.shouldFail = true;
+    return this;
+  }
+
+  /**
    * Sets timeout value for the Bazel process invocation. If not called, default value is used,
    * which is calculated from the test parameters. See {@link
    * BlackBoxTestContext#getTestTimeoutMillis()}. If the invocation time exceeds timeout, {@link
@@ -117,6 +129,17 @@ public final class BuilderRunner {
   public BuilderRunner withTimeout(long timeoutMillis) {
     Preconditions.checkState(this.timeoutMillis > 0);
     this.timeoutMillis = timeoutMillis;
+    return this;
+  }
+
+  /**
+   * Should be used ONLY FOR TESTS DEBUG. Adds "--host_jvm_debug" to the Bazel startup options, so
+   * that the JVM waits for the debugger process to connect before executing any code.
+   *
+   * @return this BuilderRunner instance
+   */
+  public BuilderRunner enableDebug() {
+    this.enableDebug = true;
     return this;
   }
 
@@ -256,6 +279,9 @@ public final class BuilderRunner {
         list.add(bazelRc.toAbsolutePath().toString());
       }
     }
+    if (enableDebug) {
+      list.add("--host_jvm_debug");
+    }
     list.add(command);
     list.addAll(this.flags);
     Collections.addAll(list, args);
@@ -271,6 +297,7 @@ public final class BuilderRunner {
             // we need to allow the error output stream be not empty
             .setExpectedEmptyError(false)
             .setExpectedExitCode(errorCode)
+            .setExpectedToFail(shouldFail)
             .build();
     return new ProcessRunner(parameters, executorService).runSynchronously();
   }

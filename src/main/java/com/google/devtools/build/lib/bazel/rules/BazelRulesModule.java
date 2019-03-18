@@ -44,7 +44,7 @@ public class BazelRulesModule extends BlazeModule {
         name = "incompatible_dont_emit_static_libgcc",
         oldName = "experimental_dont_emit_static_libgcc",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.DEPRECATED,
@@ -57,7 +57,7 @@ public class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_linkopts_in_user_link_flags",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.DEPRECATED,
@@ -70,7 +70,7 @@ public class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_disable_runtimes_filegroups",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.DEPRECATED,

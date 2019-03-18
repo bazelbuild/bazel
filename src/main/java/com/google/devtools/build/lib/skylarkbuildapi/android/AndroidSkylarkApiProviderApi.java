@@ -46,6 +46,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       allowReturnNones = true,
       doc = "Returns an APK produced by this target.",
       documented = false)
+  @Nullable
   FileT getApk();
 
   @SkylarkCallable(
@@ -54,6 +55,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       allowReturnNones = true,
       doc = "Returns a java package for this target.",
       documented = false)
+  @Nullable
   String getJavaPackage();
 
   @SkylarkCallable(
@@ -62,6 +64,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       allowReturnNones = true,
       doc = "Returns a manifest file for this target.",
       documented = false)
+  @Nullable
   FileT getManifest();
 
   @SkylarkCallable(
@@ -70,6 +73,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       allowReturnNones = true,
       doc = "Returns a manifest file for this target after all processing, e.g.: merging, etc.",
       documented = false)
+  @Nullable
   FileT getMergedManifest();
 
   @SkylarkCallable(
@@ -86,7 +90,9 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       name = "resource_apk",
       structField = true,
       doc = "Returns the resources container for the target.",
-      documented = false)
+      documented = false,
+      allowReturnNones = true)
+  @Nullable
   FileT getResourceApk();
 
   @SkylarkCallable(
@@ -95,6 +101,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       allowReturnNones = true,
       doc = "Returns a collection of APKs that this target tests.",
       documented = false)
+  @Nullable
   ImmutableCollection<FileT> getApksUnderTest();
 
   @SkylarkCallable(
@@ -133,6 +140,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       allowReturnNones = true,
       doc = "Returns the aar output of this target.",
       documented = false)
+  @Nullable
   FileT getAar();
 
   /** Helper class to provide information about IDLs related to this rule. */
@@ -151,6 +159,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
         allowReturnNones = true,
         doc = "Returns the root of IDL packages if not the java root.",
         documented = false)
+    @Nullable
     String getImportRoot();
 
     @SkylarkCallable(

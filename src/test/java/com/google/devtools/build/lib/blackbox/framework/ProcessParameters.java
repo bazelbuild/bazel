@@ -34,6 +34,8 @@ public abstract class ProcessParameters {
 
   abstract int expectedExitCode();
 
+  abstract boolean expectedToFail();
+
   abstract boolean expectedEmptyError();
 
   abstract Optional<ImmutableMap<String, String>> environment();
@@ -48,6 +50,7 @@ public abstract class ProcessParameters {
     return new AutoValue_ProcessParameters.Builder()
         .setExpectedExitCode(0)
         .setExpectedEmptyError(true)
+        .setExpectedToFail(false)
         .setTimeoutMillis(30 * 1000)
         .setArguments();
   }
@@ -69,6 +72,8 @@ public abstract class ProcessParameters {
     public abstract Builder setWorkingDirectory(File value);
 
     public abstract Builder setExpectedExitCode(int value);
+
+    public abstract Builder setExpectedToFail(boolean value);
 
     public abstract Builder setExpectedEmptyError(boolean value);
 

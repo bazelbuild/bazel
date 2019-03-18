@@ -2123,4 +2123,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
         "objc_library(name = 'x', xibs = ['fg.xib'])");
   }
+
+  @Test
+  public void testIncompatibleResourceAttributeFlag_resourcesEmpty() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=true");
+
+    checkError(
+        "x",
+        "x",
+        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
+        "objc_library(name = 'x', resources = [])");
+  }
 }

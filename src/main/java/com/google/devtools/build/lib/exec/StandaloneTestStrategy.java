@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -232,13 +230,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action,
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      Path execRoot,
-      Path coverageDir,
-      Path tmpDir,
-      Path workingDirectory)
-      throws IOException, ExecException, InterruptedException {
-    prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
-
+      Path execRoot)
+      throws ExecException, IOException, InterruptedException {
     Closeable streamed = null;
     Path testLogPath = actionExecutionContext.getInputPath(action.getTestLog());
     // We have two protos to represent test attempts:
@@ -264,100 +257,96 @@ public class StandaloneTestStrategy extends TestStrategy {
     Path out = actionExecutionContext.getInputPath(action.getTestLog());
     Path err = action.resolve(execRoot).getTestStderr();
     try (FileOutErr testOutErr = new FileOutErr(out, err)) {
+      if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
+        streamed =
+            new StreamedTestOutput(
+                Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), testLogPath);
+      }
       try {
-        if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
-          streamed =
-              new StreamedTestOutput(
-                  Reporter.outErrForReporter(actionExecutionContext.getEventHandler()),
-                  testLogPath);
+        spawnResults.addAll(
+            spawnActionContext.exec(spawn, actionExecutionContext.withFileOutErr(testOutErr)));
+        builder
+            .setTestPassed(true)
+            .setStatus(BlazeTestStatus.PASSED)
+            .setPassedLog(testLogPath.getPathString());
+      } catch (SpawnExecException e) {
+        // If this method returns normally, then the higher level will rerun the test (up to
+        // --flaky_test_attempts times).
+        if (e.isCatastrophic()) {
+          // Rethrow as the error was catastrophic and thus the build has to be halted.
+          throw e;
         }
-        try {
-          spawnResults.addAll(
-              spawnActionContext.exec(spawn, actionExecutionContext.withFileOutErr(testOutErr)));
-          builder
-              .setTestPassed(true)
-              .setStatus(BlazeTestStatus.PASSED)
-              .setPassedLog(testLogPath.getPathString());
-        } catch (SpawnExecException e) {
-          // If this method returns normally, then the higher level will rerun the test (up to
-          // --flaky_test_attempts times).
-          if (e.isCatastrophic()) {
-            // Rethrow as the error was catastrophic and thus the build has to be halted.
-            throw e;
-          }
-          if (!e.getSpawnResult().setupSuccess()) {
-            // Rethrow as the test could not be run and thus there's no point in retrying.
-            throw e;
-          }
-          builder
-              .setTestPassed(false)
-              .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
-              .addFailedLogs(testLogPath.getPathString());
-          spawnResults.add(e.getSpawnResult());
-        } finally {
-          if (!testOutErr.hasRecordedOutput()) {
-            // Make sure that the test.log exists.
-            FileSystemUtils.touchFile(out);
-          }
+        if (!e.getSpawnResult().setupSuccess()) {
+          // Rethrow as the test could not be run and thus there's no point in retrying.
+          throw e;
         }
-        // Append any error output to the test.log. This is very rare.
-        appendStderr(out, err);
-        // If the test did not create a test.xml, and --experimental_split_xml_generation is
-        // enabled, then we run a separate action to create a test.xml from test.log.
-        if (executionOptions.splitXmlGeneration
-            && action.getTestLog().getPath().exists()
-            && !xmlOutputPath.exists()) {
-          SpawnResult result = Iterables.getOnlyElement(spawnResults);
-          Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(action, result);
-          // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
-          // the test if this fails. We redirect the output to a temporary file.
-          try (FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr()) {
-            spawnResults.addAll(
-                spawnActionContext.exec(
-                    xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr)));
-          }
-        }
-      } finally {
-        long endTime = actionExecutionContext.getClock().currentTimeMillis();
-        long duration = endTime - startTime;
-        // If execution fails with an exception other SpawnExecException, there is no result here.
-        if (!spawnResults.isEmpty()) {
-          // The SpawnResult of a remotely cached or remotely executed action may not have walltime
-          // set. We fall back to the time measured here for backwards compatibility.
-          SpawnResult primaryResult = spawnResults.iterator().next();
-          duration = primaryResult.getWallTime().orElse(Duration.ofMillis(duration)).toMillis();
-          extractExecutionInfo(primaryResult, builder, executionInfo);
-        }
-
-        builder.setStartTimeMillisEpoch(startTime);
-        builder.addTestTimes(duration);
-        builder.addTestProcessTimes(duration);
-        builder.setRunDurationMillis(duration);
-        if (streamed != null) {
-          streamed.close();
-        }
+        builder
+            .setTestPassed(false)
+            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
+            .addFailedLogs(testLogPath.getPathString());
+        spawnResults.add(e.getSpawnResult());
       }
-
-      TestCase details = parseTestResult(xmlOutputPath);
-      if (details != null) {
-        builder.setTestCase(details);
+      if (!testOutErr.hasRecordedOutput()) {
+        // Make sure that the test.log exists.
+        FileSystemUtils.touchFile(out);
       }
-
-      if (action.isCoverageMode()) {
-        builder.setHasCoverage(true);
-      }
-
-      return StandaloneTestResult.builder()
-          .setSpawnResults(spawnResults)
-          // We return the TestResultData.Builder rather than the finished TestResultData instance,
-          // as we may have to rename the output files in case the test needs to be rerun (if it
-          // failed here _and_ is marked flaky _and_ the number of flaky attempts is larger than 1).
-          .setTestResultDataBuilder(builder)
-          .setExecutionInfo(executionInfo.build())
-          .build();
-    } catch (IOException e) {
-      throw new TestExecException(e.getMessage());
+      // Append any error output to the test.log. This is very rare.
+      appendStderr(out, err);
     }
+
+    long endTime = actionExecutionContext.getClock().currentTimeMillis();
+    long duration = endTime - startTime;
+    // SpawnActionContext guarantees the first entry to correspond to the spawn passed in (there may
+    // be additional entries due to tree artifact handling).
+    SpawnResult primaryResult = spawnResults.get(0);
+
+    // The SpawnResult of a remotely cached or remotely executed action may not have walltime
+    // set. We fall back to the time measured here for backwards compatibility.
+    duration = primaryResult.getWallTime().orElse(Duration.ofMillis(duration)).toMillis();
+    extractExecutionInfo(primaryResult, builder, executionInfo);
+
+    builder.setStartTimeMillisEpoch(startTime);
+    builder.addTestTimes(duration);
+    builder.addTestProcessTimes(duration);
+    builder.setRunDurationMillis(duration);
+    if (streamed != null) {
+      streamed.close();
+    }
+
+    // If the test did not create a test.xml, and --experimental_split_xml_generation is enabled,
+    // then we run a separate action to create a test.xml from test.log. We do this as a spawn
+    // rather than doing it locally in-process, as the test.log file may only exist remotely (when
+    // remote execution is enabled), and we do not want to have to download it.
+    if (executionOptions.splitXmlGeneration
+        && action.getTestLog().getPath().exists()
+        && !xmlOutputPath.exists()) {
+      Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(action, primaryResult);
+      // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
+      // the test if this fails. We redirect the output to a temporary file.
+      try (FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr()) {
+        spawnResults.addAll(
+            spawnActionContext.exec(
+                xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr)));
+      }
+    }
+
+    TestCase details = parseTestResult(xmlOutputPath);
+    if (details != null) {
+      builder.setTestCase(details);
+    }
+
+    if (action.isCoverageMode()) {
+      builder.setHasCoverage(true);
+    }
+
+    return StandaloneTestResult.builder()
+        .setSpawnResults(spawnResults)
+        // We return the TestResultData.Builder rather than the finished TestResultData instance,
+        // as we may have to rename the output files in case the test needs to be rerun (if it
+        // failed here _and_ is marked flaky _and_ the number of flaky attempts is larger than 1).
+        .setTestResultDataBuilder(builder)
+        .setExecutionInfo(executionInfo.build())
+        .build();
   }
 
   /** In rare cases, we might write something to stderr. Append it to the real test.log. */
@@ -482,7 +471,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       ActionExecutionContext actionExecutionContext,
       StandaloneTestResult standaloneTestResult,
       List<FailedAttemptResult> failedAttempts)
-      throws IOException, ExecException {
+      throws IOException {
     TestResultData.Builder dataBuilder = standaloneTestResult.testResultDataBuilder();
     for (FailedAttemptResult failedAttempt : failedAttempts) {
       TestResultData failedAttemptData =
@@ -514,12 +503,6 @@ public class StandaloneTestStrategy extends TestStrategy {
         result,
         result.getTestLogPath());
     // TODO(bazel-team): handle --test_output=errors, --test_output=all.
-
-    if (!executionOptions.testKeepGoing
-        && data.getStatus() != BlazeTestStatus.FLAKY
-        && data.getStatus() != BlazeTestStatus.PASSED) {
-      throw new TestExecException("Test failed: aborting");
-    }
   }
 
   @Override
@@ -562,15 +545,14 @@ public class StandaloneTestStrategy extends TestStrategy {
       this.execRoot = execRoot;
     }
 
+    @Override
+    public ActionExecutionContext getActionExecutionContext() {
+      return actionExecutionContext;
+    }
+
     public StandaloneTestResult execute() throws InterruptedException, IOException, ExecException {
-      return executeTestAttempt(
-          testAction,
-          spawn,
-          actionExecutionContext,
-          execRoot,
-          coverageDir,
-          tmpDir,
-          workingDirectory);
+      prepareFileSystem(testAction, tmpDir, coverageDir, workingDirectory);
+      return executeTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
 
     @Override
@@ -588,7 +570,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     @Override
     public void finalizeTest(
         TestAttemptResult finalResult, List<FailedAttemptResult> failedAttempts)
-        throws IOException, ExecException {
+        throws IOException {
       StandaloneTestStrategy.this.finalizeTest(
           testAction, actionExecutionContext, (StandaloneTestResult) finalResult, failedAttempts);
     }

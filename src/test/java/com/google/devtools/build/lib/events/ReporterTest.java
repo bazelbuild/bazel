@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -96,4 +97,30 @@ public class ReporterTest extends EventTestTemplate {
     assertThat(out.toString()).isEmpty();
   }
 
+  @Test
+  public void propagatePostCalls() {
+    FakeExtendedEventHandler extendedEventHandler = new FakeExtendedEventHandler();
+    assertThat(extendedEventHandler.calledPost).isEqualTo(0);
+
+    reporter.addHandler(extendedEventHandler);
+    reporter.post(new FakePostable());
+
+    assertThat(extendedEventHandler.calledPost).isEqualTo(1);
+  }
+
+  private static class FakeExtendedEventHandler implements ExtendedEventHandler {
+    int calledPost = 0;
+
+    @Override
+    public void post(Postable obj) {
+      calledPost++;
+    }
+
+    @Override
+    public void handle(Event event) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private static class FakePostable implements Postable {}
 }

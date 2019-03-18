@@ -96,27 +96,28 @@ using std::wstring;
   }
 
 TEST(BlazeUtilWindowsTest, TestGetEnv) {
-  ASSERT_ENVVAR_UNSET("DOES_not_EXIST");
+#define _STR(x) #x
+#define STR(x) _STR(x)
+  const char* envvar = "BAZEL_TEST_" STR(__LINE__);
+#undef STR
+#undef _STR
 
-  string actual(GetEnv("TEST_SRCDIR"));
-  ASSERT_NE(actual, "");
+  ASSERT_TRUE(SetEnvironmentVariableA(envvar, "A\\B c"));
+  ASSERT_EQ(GetEnv(envvar), "A\\B c");
+}
 
-  std::replace(actual.begin(), actual.end(), '/', '\\');
-  ASSERT_NE(actual.find(":\\"), string::npos);
+TEST(BlazeUtilWindowsTest, TestGetPathEnv) {
+#define _STR(x) #x
+#define STR(x) _STR(x)
+  const char* envvar = "BAZEL_TEST_" STR(__LINE__);
+#undef STR
+#undef _STR
 
-  ASSERT_ENVVAR_UNSET("Bazel_TEST_Key1");
-  ASSERT_TRUE(::SetEnvironmentVariableA("Bazel_TEST_Key1", "some_VALUE"));
-  ASSERT_ENVVAR("Bazel_TEST_Key1", "some_VALUE");
-  ASSERT_TRUE(::SetEnvironmentVariableA("Bazel_TEST_Key1", NULL));
+  ASSERT_TRUE(SetEnvironmentVariableA(envvar, "A\\B c"));
+  ASSERT_EQ(GetPathEnv(envvar), "A/B c");
 
-  string long_string(MAX_PATH, 'a');
-  string long_key = string("Bazel_TEST_Key2_") + long_string;
-  string long_value = string("Bazel_TEST_Value2_") + long_string;
-
-  ASSERT_ENVVAR_UNSET(long_key.c_str());
-  ASSERT_TRUE(::SetEnvironmentVariableA(long_key.c_str(), long_value.c_str()));
-  ASSERT_ENVVAR(long_key, long_value);
-  ASSERT_TRUE(::SetEnvironmentVariableA(long_key.c_str(), NULL));
+  ASSERT_TRUE(SetEnvironmentVariableA(envvar, "\\\\?\\A:\\B c"));
+  ASSERT_EQ(GetPathEnv(envvar), "A:/B c");
 }
 
 TEST(BlazeUtilWindowsTest, TestSetEnv) {
