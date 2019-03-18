@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -703,13 +704,20 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   // before it was done but the configured target after it was done. However, the
                   // configured target being done implies that the package is now done, so we can
                   // retrieve it from the graph.
-                  pkgValue =
-                      Preconditions.checkNotNull(
-                          (PackageValue) env.getValue(packageKey),
-                          "Package should have been loaded during dep resolution: %s (%s %s %s)",
-                          dep,
-                          depValue,
-                          packageResult);
+                  pkgValue = (PackageValue) env.getValue(packageKey);
+                  if (pkgValue == null) {
+                    BugReport.sendBugReport(
+                        new IllegalStateException(
+                            "Package should have been loaded during dep resolution: "
+                                + dep
+                                + ", ("
+                                + depValue
+                                + ", "
+                                + packageResult
+                                + ")"));
+                    missedValues = true;
+                    continue;
+                  }
                 }
               }
             } else {
