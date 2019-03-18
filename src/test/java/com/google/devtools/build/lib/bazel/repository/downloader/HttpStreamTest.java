@@ -74,7 +74,7 @@ public class HttpStreamTest {
   @Before
   public void before() throws Exception {
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(data));
-    when(progress.create(any(InputStream.class), any(URL.class), any(URL.class))).thenAnswer(
+    when(progress.create(any(InputStream.class), any(), any(URL.class))).thenAnswer(
         new Answer<InputStream>() {
           @Override
           public InputStream answer(InvocationOnMock invocation) throws Throwable {

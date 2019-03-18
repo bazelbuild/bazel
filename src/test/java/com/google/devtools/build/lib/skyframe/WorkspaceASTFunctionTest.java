@@ -36,8 +36,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Matchers;
 import org.mockito.Mockito;
+import org.mockito.hamcrest.MockitoHamcrest;
 
 /**
  * Test for WorkspaceASTFunction.
@@ -69,9 +69,9 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
 
   private SkyFunction.Environment getEnv() throws InterruptedException {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(FileValue.FILE))))
+    Mockito.when(env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(FileValue.FILE))))
         .thenReturn(fakeWorkspaceFileValue);
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
+    Mockito.when(env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
         .thenReturn(new PrecomputedValue(Optional.<RootedPath>absent()));
     return env;
   }
