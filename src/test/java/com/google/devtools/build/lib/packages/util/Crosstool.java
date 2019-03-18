@@ -187,6 +187,7 @@ public final class Crosstool {
       return Joiner.on("\n")
           .join(
               "cc_toolchain_config(",
+              "  toolchain_identifier = '" + toolchainIdentifier + "',",
               "  name = '" + cpu + "-" + compiler + "_config',",
               "  cpu = '" + cpu + "',",
               "  compiler = '" + compiler + "',",

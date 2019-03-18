@@ -622,26 +622,17 @@ public abstract class MockCcSupport {
   /**
    * Creates a crosstool package by merging {@code toolchain} with the default mock CROSSTOOL file.
    *
-   * @param partialToolchain A string representation of a CToolchain protocol buffer; note that
-   *        this is allowed to be a partial buffer (required fields may be omitted).
+   * @param partialToolchain A string representation of a CToolchain protocol buffer; note that this
+   *     is allowed to be a partial buffer (required fields may be omitted).
    */
   public void setupCrosstool(MockToolsConfig config, String... partialToolchain)
       throws IOException {
-    setupCrosstool(config, /* appendToCurrentToolchain= */ true, partialToolchain);
-  }
-
-  public void setupCrosstool(
-      MockToolsConfig config, boolean appendToCurrentToolchain, String... partialToolchain)
-      throws IOException {
     String toolchainString = Joiner.on("\n").join(partialToolchain);
-    String crosstoolFile;
-    if (appendToCurrentToolchain) {
-      CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-      TextFormat.merge(toolchainString, toolchainBuilder);
-      crosstoolFile = mergeCrosstoolConfig(readCrosstoolFile(), toolchainBuilder.buildPartial());
-    } else {
-      crosstoolFile = readCrosstoolFile() + toolchainString;
-    }
+
+    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
+    TextFormat.merge(toolchainString, toolchainBuilder);
+    String crosstoolFile =
+        mergeCrosstoolConfig(readCrosstoolFile(), toolchainBuilder.buildPartial());
     createCrosstoolPackage(
         config,
         crosstoolFile);
