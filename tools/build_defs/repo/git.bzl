@@ -218,7 +218,7 @@ Args:
     allows for a more shallow clone of the repository, saving bandwidth and
     wall-clock time.
 
-  single_branch: An optional branch to pass to Git's --single-branch flag.
+  single_branch: An optional branch to use with Git's --single-branch flag.
     Passing this flag will only clone history for that branch, rather than all
     branches in the repo, which can make cloning faster. The specified
     commit/branch/tag must be part of the history of the branch given to
@@ -270,7 +270,7 @@ Args:
     specified commit allows for a more shallow clone of the repository, saving
     bandwidth and wall-clock time.
 
-  single_branch: An optional branch to pass to Git's --single-branch flag.
+  single_branch: An optional branch use with to Git's --single-branch flag.
     Passing this flag will only clone history for that branch, rather than all
     branches in the repo, which can make cloning faster. The specified
     commit/branch/tag must be part of the history of the branch given to
