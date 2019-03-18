@@ -100,10 +100,20 @@ class Starlark {
   }
 
   /** Execute a Starlark file. */
-  public int execute(String path) {
+  public int executeFile(String path) {
     String content;
     try {
       content = new String(Files.readAllBytes(Paths.get(path)), CHARSET);
+      return execute(content);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return 1;
+    }
+  }
+
+  /** Execute a Starlark command. */
+  public int execute(String content) {
+    try {
       BuildFileAST.eval(env, content);
       return 0;
     } catch (EvalException e) {
@@ -119,10 +129,12 @@ class Starlark {
     int ret = 0;
     if (args.length == 0) {
       new Starlark().readEvalPrintLoop();
-    } else if (args.length == 1) {
-      ret = new Starlark().execute(args[0]);
+    } else if (args.length == 1 && !args[0].equals("-c")) {
+      ret = new Starlark().executeFile(args[0]);
+    } else if (args.length == 2 && args[0].equals("-c")) {
+      ret = new Starlark().execute(args[1]);
     } else {
-      System.err.println("too many arguments");
+      System.err.println("USAGE: Starlark [-c \"<cmdLineProgram>\" | <fileName>]");
       ret = 1;
     }
     System.exit(ret);
