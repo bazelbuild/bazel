@@ -1,0 +1,7 @@
+load(":test_rule.bzl", "test_rule")
+
+test_rule(
+    name = "test_generated_deps",
+    module_source = "@generated_node_modules//:example-module",
+    version = "0.2.0"
+)

@@ -124,8 +124,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
 
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
-    boolean doNotFetchUnconditionally =
-        DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
+    boolean doNotFetchUnconditionally = DONT_FETCH_UNCONDITIONALLY.equals(
+        DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
 
     Path repoRoot = RepositoryFunction.getExternalRepositoryDirectory(directories)
         .getRelative(repositoryName.strippedName());
@@ -154,9 +154,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    DigestWriter digestWriter =
-        new DigestWriter(
-            directories, repositoryName, rule, Preconditions.checkNotNull(ruleSpecificData));
+    DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule,
+        Preconditions.checkNotNull(ruleSpecificData));
+
+    boolean needsMarkerDirtinessCheck = handler.needsMarkerDirtinessCheck(repositoryName, env);
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     // Local repositories are fetched regardless of the marker file because the operation is
     // generally fast and they do not depend on non-local data, so it does not make much sense to
@@ -179,7 +183,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           if (env.valuesMissing()) {
             return null;
           }
-          return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).build();
+          return RepositoryDirectoryValue.builder()
+              .setPath(repoRoot)
+              .setDigest(markerHash)
+              .setNeedsMarkerDirtinessCheck(needsMarkerDirtinessCheck).build();
         }
       }
     }
@@ -197,7 +204,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
       byte[] digest = digestWriter.writeMarkerFile();
-      return builder.setDigest(digest).build();
+      return builder
+          .setDigest(digest)
+          .setNeedsMarkerDirtinessCheck(needsMarkerDirtinessCheck).build();
     }
 
     if (!repoRoot.exists()) {
@@ -223,7 +232,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                     + "run the build without the '--nofetch' command line option.",
                 rule.getName())));
 
-    return RepositoryDirectoryValue.builder().setPath(repoRoot).setFetchingDelayed().build();
+    return RepositoryDirectoryValue.builder()
+        .setPath(repoRoot)
+        .setFetchingDelayed()
+        .setNeedsMarkerDirtinessCheck(needsMarkerDirtinessCheck).build();
   }
 
   private RepositoryFunction getHandler(Rule rule) {
@@ -240,13 +252,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return handler;
   }
 
-  private RepositoryDirectoryValue.Builder fetchRepository(
-      SkyKey skyKey,
-      Path repoRoot,
-      Environment env,
-      Map<String, String> markerData,
-      RepositoryFunction handler,
-      Rule rule)
+  private RepositoryDirectoryValue.Builder fetchRepository(SkyKey skyKey,
+      Path repoRoot, Environment env, Map<String, String> markerData,
+      RepositoryFunction handler, Rule rule)
       throws SkyFunctionException, InterruptedException {
 
     setupRepositoryRoot(repoRoot);
@@ -293,12 +301,12 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       PathFragment sourcePath, Environment env, Path repoRoot)
       throws RepositoryFunctionException, InterruptedException {
     setupRepositoryRoot(repoRoot);
-    RepositoryDirectoryValue.Builder directoryValue =
-        LocalRepositoryFunction.symlink(repoRoot, sourcePath, env);
+    RepositoryDirectoryValue.Builder directoryValue = LocalRepositoryFunction.symlink(
+        repoRoot, sourcePath, env);
     if (directoryValue == null) {
       return null;
     }
-    byte[] digest = new byte[] {};
+    byte[] digest = new byte[]{};
     return directoryValue.setDigest(digest).build();
   }
 
@@ -341,16 +349,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     private final Rule rule;
     private final Map<String, String> markerData;
     private final String ruleKey;
+    private final RepositoryName repositoryName;
 
-    DigestWriter(
-        BlazeDirectories directories,
-        RepositoryName repositoryName,
-        Rule rule,
+    DigestWriter(BlazeDirectories directories, RepositoryName repositoryName, Rule rule,
         byte[] ruleSpecificData) {
+      this.repositoryName = repositoryName;
       ruleKey = computeRuleKey(rule, ruleSpecificData);
       markerPath = getMarkerPath(directories, repositoryName.strippedName());
       this.rule = rule;
-      markerData = Maps.newHashMap();
+      this.markerData = Maps.newHashMap();
     }
 
     byte[] writeMarkerFile() throws RepositoryFunctionException {
@@ -374,18 +381,20 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
      * Checks if the state of the repository in the file system is consistent with the rule in the
      * WORKSPACE file.
      *
-     * <p>Deletes the marker file if not so that no matter what happens after, the state of the file
+     * <p>
+     * Deletes the marker file if not so that no matter what happens after, the state of the file
      * system stays consistent.
      *
-     * <p>Returns null if the file system is not up to date and a hash of the marker file if the
-     * file system is up to date.
+     * <p>
+     * Returns null if the file system is not up to date and a hash of the marker file if the file
+     * system is up to date.
      *
-     * <p>We check the repository root for existence here, but we can't depend on the FileValue,
+     * We check the repository root for existence here, but we can't depend on the FileValue,
      * because it's possible that we eventually create that directory in which case the FileValue
      * and the state of the file system would be inconsistent.
      */
     byte[] areRepositoryAndMarkerFileConsistent(RepositoryFunction handler, Environment env)
-        throws RepositoryFunctionException, InterruptedException {
+        throws RepositoryFunctionException, InterruptedException, ExternalPackageException {
       if (!markerPath.exists()) {
         return null;
       }
@@ -397,7 +406,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         String markerRuleKey = readMarkerFile(content, markerData);
         boolean verified = false;
         if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
-          verified = handler.verifyMarkerData(rule, markerData, env);
+          verified = handler.verifyMarkerData(repositoryName, rule, markerData, env);
           if (env.valuesMissing()) {
             return null;
           }
@@ -444,11 +453,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     private String computeRuleKey(Rule rule, byte[] ruleSpecificData) {
-      return new Fingerprint()
-          .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
+      return new Fingerprint().addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
           .addBytes(ruleSpecificData)
-          .addInt(MARKER_FILE_VERSION)
-          .hexDigestAndReset();
+          .addInt(MARKER_FILE_VERSION).hexDigestAndReset();
     }
 
     private static Path getMarkerPath(BlazeDirectories directories, String ruleName) {

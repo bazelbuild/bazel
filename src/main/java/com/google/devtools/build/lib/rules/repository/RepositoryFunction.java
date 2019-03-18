@@ -86,8 +86,14 @@ import javax.annotation.Nullable;
  * {@link RepositoryDirectoryValue} is invalidated using the usual Skyframe route.
  */
 public abstract class RepositoryFunction {
+  private static final byte[] EMPTY_BYTES = {};
 
   protected Map<String, String> clientEnvironment;
+
+  public boolean needsMarkerDirtinessCheck(RepositoryName repositoryName, Environment env)
+      throws InterruptedException {
+    return false;
+  }
 
   /**
    * Exception thrown when something goes wrong accessing a remote repository.
@@ -195,8 +201,9 @@ public abstract class RepositoryFunction {
    * the data is up to date and no refetch is needed and false if the data is obsolete and a refetch
    * is needed.
    */
-  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
-      throws InterruptedException, RepositoryFunctionException {
+  public boolean verifyMarkerData(RepositoryName repositoryName, Rule rule,
+      Map<String, String> markerData, Environment env)
+      throws InterruptedException, RepositoryFunctionException, ExternalPackageException, IOException {
     return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
         && verifyMarkerDataForFiles(rule, markerData, env);
   }
@@ -314,7 +321,7 @@ public abstract class RepositoryFunction {
   /**
    * Verify marker data previously saved by
    * {@link #declareEnvironmentDependencies(Map, Environment, Iterable)}. This function is to be
-   * called from a {@link #verifyMarkerData(Rule, Map, Environment)} function to verify the values
+   * called from a {@link #verifyMarkerData(RepositoryName, Rule, Map, Environment)} function to verify the values
    * for environment variables.
    */
   protected boolean verifyEnvironMarkerData(Map<String, String> markerData, Environment env,
@@ -348,7 +355,8 @@ public abstract class RepositoryFunction {
    * <p>If this is false, Bazel may decide not to re-fetch the repository, for example when the
    * {@code --nofetch} command line option is used.
    */
-  protected abstract boolean isLocal(Rule rule);
+  protected abstract boolean isLocal(Rule rule)
+      throws InterruptedException, RepositoryFunctionException;
 
   /**
    * Returns a block of data that must be equal for two Rules for them to be considered the same.
@@ -359,7 +367,7 @@ public abstract class RepositoryFunction {
    */
   protected byte[] getRuleSpecificMarkerData(Rule rule, Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    return new byte[] {};
+    return EMPTY_BYTES;
   }
 
   protected Path prepareLocalRepositorySymlinkTree(Rule rule, Path repositoryDirectory)
