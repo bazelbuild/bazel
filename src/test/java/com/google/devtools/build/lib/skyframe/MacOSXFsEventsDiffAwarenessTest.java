@@ -102,7 +102,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
       Thread.sleep(100);
     }
     ImmutableSet<String> toStringSourceFiles = toString(ImmutableSet.copyOf(modifiedSourceFiles));
-    assertThat(toStringSourceFiles).containsExactly(expectedPaths);
+    assertThat(toStringSourceFiles).containsExactly((Object[]) expectedPaths);
     return view1;
   }
 
