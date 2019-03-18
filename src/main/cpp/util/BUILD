@@ -196,23 +196,24 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-pkg_tar(
-    name = "cpp_util_with_deps_archive",
-    extension = "tar.gz",
-    mode = "755",
-    visibility = ["//third_party/ijar:__pkg__"],
-    deps = [
-        ":cpp_util_archive",
-        "//src/main/native/windows:src_main_native_windows",
+# A zip containing source files used by ijar.
+genrule(
+    name = "cpp_util_with_deps_zip",
+    srcs = [
+        ":cpp_util_zip",
+        "//src/main/native/windows:native_windows_zip",
     ],
+    outs = ["cpp_util_with_deps.zip"],
+    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
+    tools = ["//src:merge_zip_files"],
+    visibility = ["//third_party/ijar:__pkg__"],
 )
 
-pkg_tar(
-    name = "cpp_util_archive",
+genrule(
+    name = "cpp_util_zip",
     srcs = glob(["*.cc"]) + glob(["*.h"]),
-    extension = "tar.gz",
-    mode = "755",
-    # Create a pkg_tar to preserve the directory structure src/main/cpp/util.
-    package_dir = "src/main/cpp/util",
+    outs = ["cpp_util.zip"],
+    cmd = "$(location //src:zip_files) src/main/cpp/util $@ $(SRCS)",
+    tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
 )

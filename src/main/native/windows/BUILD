@@ -8,21 +8,6 @@ filegroup(
     visibility = ["//src/main/native:__pkg__"],
 )
 
-pkg_tar(
-    name = "src_main_native_windows",
-    srcs = [
-        "file.cc",
-        "file.h",
-        "util.cc",
-        "util.h",
-    ],
-    extension = "tar.gz",
-    mode = "755",
-    # Create a pkg_tar to preserve the directory structure src/main/native/windows.
-    package_dir = "src/main/native/windows",
-    visibility = ["//src/main/cpp/util:__pkg__"],
-)
-
 filegroup(
     name = "embedded_tools",
     srcs = glob([
@@ -85,4 +70,19 @@ cc_library(
     srcs = ["resources.o"],
     linkstatic = 1,
     visibility = ["//src/main/cpp:__pkg__"],
+)
+
+# A zip containing source files used by ijar.
+genrule(
+    name = "native_windows_zip",
+    srcs = [
+        "file.cc",
+        "file.h",
+        "util.cc",
+        "util.h",
+    ],
+    outs = ["native_windows.zip"],
+    cmd = "$(location //src:zip_files) src/main/native/windows $@ $(SRCS)",
+    tools = ["//src:zip_files"],
+    visibility = ["//src/main/cpp/util:__pkg__"],
 )

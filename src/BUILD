@@ -547,3 +547,15 @@ alias(
     actual = "//src/conditions:windows",
     visibility = ["//visibility:public"],
 )
+
+sh_binary(
+    name = "zip_files",
+    srcs = ["zip_files.sh"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "merge_zip_files",
+    srcs = ["merge_zip_files.sh"],
+    visibility = ["//visibility:public"],
+)

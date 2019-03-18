@@ -118,30 +118,29 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-pkg_tar(
-    name = "ijar_with_deps_archive",
-    extension = "tar.gz",
-    mode = "755",
-    visibility = ["//third_party:__pkg__"],
-    deps = [
-        ":ijar_archive",
-        "//src/main/cpp/util:cpp_util_with_deps_archive",
+genrule(
+    name = "ijar_with_deps_zip",
+    srcs = [
+        ":ijar_srcs_zip",
+        "//src/main/cpp/util:cpp_util_with_deps_zip",
     ],
+    outs = ["ijar_srcs_with_deps.zip"],
+    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
+    tools = ["//src:merge_zip_files"],
+    visibility = ["//third_party:__pkg__"],
 )
 
-pkg_tar(
-    name = "ijar_archive",
+genrule(
+    name = "ijar_srcs_zip",
     srcs = glob(
         ["**"],
         exclude = ["BUILD"],
     ) + [
-        # Also archive the binaries.
         ":ijar",
         ":zipper",
     ],
-    extension = "tar.gz",
-    mode = "755",
-    # Create a new pkg_tar to preserve the directory structure (ijar/).
-    package_dir = "ijar",
+    outs = ["ijar_srcs.zip"],
+    cmd = "$(location //src:zip_files) ijar $@ $(SRCS)",
+    tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
 )
