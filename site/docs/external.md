@@ -42,7 +42,8 @@ filesystem or downloaded from the internet. Users can also write custom
 
 This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
 different set of rules. The full list of built-in rules are in the Build
-Encyclopedia's [Workspace Rules](be/workspace.html).
+Encyclopedia's [Workspace Rules](be/workspace.html) and the documentation
+for [Embedded Starklark Repository Rules](repo/index.html).
 
 <a name="types"></a>
 ## Supported types of external dependencies

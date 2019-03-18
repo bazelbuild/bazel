@@ -136,6 +136,9 @@ function copy_tools_directory() {
   if [ -f tools/jdk/BUILD ]; then
     chmod +w tools/jdk/BUILD
   fi
+  if [ -f tools/build_defs/repo/BUILD.repo ]; then
+      cp tools/build_defs/repo/BUILD.repo tools/build_defs/repo/BUILD
+  fi
   # To support custom langtools
   cp ${langtools} tools/jdk/langtools.jar
   cat >>tools/jdk/BUILD <<'EOF'

@@ -106,24 +106,36 @@ distdir_tar(
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "java_tools_pkg-0.5.1.tar.gz",
         "java_tools_javac10_linux-x86_64-v1.0.tar.gz",
         "java_tools_javac10_windows-x86_64-v1.0.zip",
         "java_tools_javac10_darwin-v1.0.tar.gz",
+        "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
+        "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
+        "0.16.2.zip",
     ],
     dirname = "derived/distdir",
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
+        "java_tools_pkg-0.5.1.tar.gz": "bcfc1a3dd0d638a49fed50f17f0f1f7d77101debf19ae2c82119c82459a9a8d1",
         "java_tools_javac10_linux-x86_64-v1.0.tar.gz": "1be7503530ce263f6c90139281f45e9ae4f681a8a362b93ad1ddef4f6db74ce5",
         "java_tools_javac10_windows-x86_64-v1.0.zip": "15840585eb4db06c2ecc0e14749f96a0e253d9cee2c17b724fc60340d35c6a07",
         "java_tools_javac10_darwin-v1.0.tar.gz": "a7d292c13c1dbd7def969ddafdf0207a0be5a3e2280fab9164b2c44fd37a82c6",
+        "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz":  "4a1318fed4831697b83ce879b3ab70ae09592b167e5bda8edaff45132d1c3b3f",
+        "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
+        "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": ["https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip"],
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz"],
+        "java_tools_pkg-0.5.1.tar.gz": ["https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.5.1.tar.gz"],
         "java_tools_javac10_linux-x86_64-v1.0.tar.gz": ["https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_linux-x86_64-v1.0.tar.gz"],
         "java_tools_javac10_windows-x86_64-v1.0.zip": ["https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_windows-x86_64-v1.0.zip"],
         "java_tools_javac10_darwin-v1.0.tar.gz": ["https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_darwin-v1.0.tar.gz"],
+        "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz": ["https://github.com/bazelbuild/skydoc/archive/2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz"],
+        "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": ["https://github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz"  ],
+        "0.16.2.zip": ["https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip"],
     },
 )
 
@@ -270,8 +282,10 @@ http_archive(
     ],
 )
 
+# Note that skydoc depends on being called io_bazel_skydoc (and not just skydoc)
+# to work without being patched, as it hard-codes this name in its sources.
 http_archive(
-    name = "skydoc",
+    name = "io_bazel_skydoc",
     sha256 = "4a1318fed4831697b83ce879b3ab70ae09592b167e5bda8edaff45132d1c3b3f",
     strip_prefix = "skydoc-2d9566b21fbe405acf5f7bf77eda30df72a4744c",
     urls = [
@@ -351,3 +365,38 @@ load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
     sha256 = DOC_VERSION["sha256"],
     urls = ["https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-%s.tar" % DOC_VERSION["version"]],
 ) for DOC_VERSION in DOC_VERSIONS]
+
+# Skydoc recommends declaring its dependencies via "*_dependencies" functions.
+# This requires that the repositories these functions come from need to be
+# fetched unconditionally for everything (including just building bazel!), so
+# provide them as http_archives that can be shiped in the distdir, to keep the
+# distribution archive self-contained.
+http_archive(
+    name = "io_bazel_rules_sass",
+    strip_prefix = "rules_sass-8ccf4f1c351928b55d5dddf3672e3667f6978d60",
+    urls = [
+        "https://github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
+    ],
+    sha256 = "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
+)
+http_archive(
+    name = "build_bazel_rules_nodejs",
+    strip_prefix = "rules_nodejs-0.16.2",
+    urls = [
+        "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
+    ],
+    sha256 = "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
+)
+
+
+load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")
+skydoc_repositories()
+
+load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
+rules_sass_dependencies()
+
+load("@build_bazel_rules_nodejs//:defs.bzl", "node_repositories")
+node_repositories()
+
+load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
+sass_repositories()

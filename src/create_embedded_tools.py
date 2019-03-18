@@ -29,6 +29,8 @@ from src.create_embedded_tools_lib import is_executable
 
 output_paths = [
     ('*tools/jdk/BUILD', lambda x: 'tools/jdk/BUILD'),
+    ('*tools/build_defs/repo/BUILD.repo',
+     lambda x: 'tools/build_defs/repo/BUILD'),
     ('*tools/platforms/platforms.BUILD', lambda x: 'platforms/BUILD'),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*tools/cpp/runfiles/generated_*',
