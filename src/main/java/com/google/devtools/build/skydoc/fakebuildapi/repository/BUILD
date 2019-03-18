@@ -16,5 +16,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
+        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
