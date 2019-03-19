@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -43,10 +43,10 @@ public class IgnoredAndRefreshedConfigurationHelper {
 
   IgnoredAndRefreshedConfigurationHelper(PathFragment blacklistPrefixesFile) {
     blacklistConfiguration = new ConfigurationFile(BlacklistedPackagePrefixesValue.key(),
-        BlacklistedPackagePrefixesValue.EMPTY, LabelConstants.WORKSPACE_FILE_NAME,
+        LabelConstants.WORKSPACE_FILE_NAME,
         value -> ((BlacklistedPackagePrefixesValue) value).getPatterns());
     refreshRootsConfiguration = new ConfigurationFile(RefreshRootsValue.key(),
-        RefreshRootsValue.EMPTY, blacklistPrefixesFile,
+        blacklistPrefixesFile,
         value -> ((RefreshRootsValue) value).getRoots().keySet());
   }
 
@@ -74,28 +74,28 @@ public class IgnoredAndRefreshedConfigurationHelper {
 
     SkyValue computeValue(ConfigurationFile file) throws InterruptedException {
       SkyValue oldValue = partner.getOld(file.key);
-      oldValue = oldValue == null ? file.emptyValue : oldValue;
-
-      refreshConfigurationFile(file.key, file.configurationFile);
-
+      refreshConfigurationFile(oldValue, file.configurationFile);
       SkyValue newValue = partner.getNew(file.key);
-      // needed for some tests
-      newValue = newValue == null ? file.emptyValue : newValue;
-
-      invalidateFragments(file.rootsProvider.apply(oldValue),
-          Preconditions.checkNotNull(file.rootsProvider.apply(newValue)));
+      invalidateFragments(getRootsFromValue(file, oldValue), getRootsFromValue(file, newValue));
 
       return newValue;
     }
 
-    private void refreshConfigurationFile(SkyKey key, PathFragment configurationFile) throws InterruptedException {
-      RootedPath path = RootedPath.toRootedPath(workspaceRoot, configurationFile);
-      SkyKey fileStateKey = FileStateValue.key(path);
-      SkyValue oldValue = partner.getOld(key);
+    private Collection<PathFragment> getRootsFromValue(ConfigurationFile file, SkyValue value) {
+      if (value == null) {
+        return Collections.emptySet();
+      }
+      return file.rootsProvider.apply(value);
+    }
+
+    private void refreshConfigurationFile(SkyValue oldValue, PathFragment configurationFile)
+        throws InterruptedException {
       // if we do not have the value cached, we do not need to invalidate it
       if (oldValue == null) {
         return;
       }
+      RootedPath path = RootedPath.toRootedPath(workspaceRoot, configurationFile);
+      SkyKey fileStateKey = FileStateValue.key(path);
       boolean isDirty = partner.checkDirtiness(fileStateKey, oldValue);
       if (isDirty) {
         partner.refreshUnder(ImmutableSet.of(path));
@@ -115,21 +115,21 @@ public class IgnoredAndRefreshedConfigurationHelper {
       onlyInOld.forEach(adder);
       onlyInNew.forEach(adder);
 
-      partner.refreshUnder(roots);
+      if (!roots.isEmpty()) {
+        partner.refreshUnder(roots);
+      }
     }
   }
 
   private static class ConfigurationFile {
     private final SkyKey key;
-    private final SkyValue emptyValue;
     private final PathFragment configurationFile;
     private final Function<SkyValue, Set<PathFragment>> rootsProvider;
 
-    ConfigurationFile(SkyKey key, SkyValue emptyValue,
+    ConfigurationFile(SkyKey key,
         PathFragment configurationFile,
         Function<SkyValue, Set<PathFragment>> rootsProvider) {
       this.key = key;
-      this.emptyValue = emptyValue;
       this.configurationFile = configurationFile;
       this.rootsProvider = rootsProvider;
     }

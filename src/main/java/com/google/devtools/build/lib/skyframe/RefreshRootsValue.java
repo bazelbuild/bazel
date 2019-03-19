@@ -32,8 +32,6 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public class RefreshRootsValue implements SkyValue {
-  public static final RefreshRootsValue EMPTY = new RefreshRootsValue(new TreeMap<>());
-
   private final TreeMap<PathFragment, RepositoryName> roots;
 
   @AutoCodec.VisibleForSerialization @AutoCodec
