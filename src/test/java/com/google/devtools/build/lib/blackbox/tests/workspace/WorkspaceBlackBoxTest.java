@@ -237,7 +237,8 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
             "load(':rule.bzl', 'debug_rule')",
             "debug_rule(name = 'check', dep = '@abc//:debug_id')");
 
-    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context())
+        .withFlags("--experimental_ui_debug_all_events", "--curses=yes");
 
     bazel.withEnv("DEBUG_ID", "1").build("//...");
     Path debugIdPath = context().resolveExecRootPath(bazel, "external/abc/debug_id");

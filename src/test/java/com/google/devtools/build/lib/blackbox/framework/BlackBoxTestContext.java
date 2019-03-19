@@ -142,7 +142,7 @@ public final class BlackBoxTestContext {
    */
   public Path resolveGenPath(BuilderRunner bazel, String subPathUnderGen) throws Exception {
     if (genFilesPath == null) {
-      genFilesPath = PathUtils.resolve(workDir, bazel.info(productName + "-genfiles").outString());
+      genFilesPath = PathUtils.resolve(workDir, getInfoValue(bazel, productName + "-genfiles"));
     }
     return PathUtils.resolve(genFilesPath, subPathUnderGen);
   }
@@ -158,7 +158,7 @@ public final class BlackBoxTestContext {
    * @throws Exception if <code>bazel info</code> command fails
    */
   public Path resolveBinPath(BuilderRunner bazel, String subPathUnderBin) throws Exception {
-    Path binPath = PathUtils.resolve(workDir, bazel.info(productName + "-bin").outString());
+    Path binPath = PathUtils.resolve(workDir, getInfoValue(bazel, productName + "-bin"));
     return PathUtils.resolve(binPath, subPathUnderBin);
   }
 
@@ -174,8 +174,13 @@ public final class BlackBoxTestContext {
    * @throws Exception if <code>bazel info</code> command fails
    */
   public Path resolveExecRootPath(BuilderRunner bazel, String subPathUnderBin) throws Exception {
-    Path binPath = PathUtils.resolve(workDir, bazel.info("execution_root").outString());
+    Path binPath = PathUtils.resolve(workDir, getInfoValue(bazel, "execution_root"));
     return PathUtils.resolve(binPath, subPathUnderBin);
+  }
+
+  private String getInfoValue(BuilderRunner bazel, String key) throws Exception {
+    String[] parts = bazel.info(key).outString().trim().split(" ");
+    return parts[parts.length - 1];
   }
 
   /**

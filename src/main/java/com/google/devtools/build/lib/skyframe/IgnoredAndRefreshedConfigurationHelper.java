@@ -74,7 +74,7 @@ public class IgnoredAndRefreshedConfigurationHelper {
 
     SkyValue computeValue(ConfigurationFile file) throws InterruptedException {
       SkyValue oldValue = partner.getOld(file.key);
-      refreshConfigurationFile(oldValue, file.configurationFile);
+      refreshConfigurationFile(file.configurationFile);
       SkyValue newValue = partner.getNew(file.key);
       invalidateFragments(getRootsFromValue(file, oldValue), getRootsFromValue(file, newValue));
 
@@ -88,14 +88,15 @@ public class IgnoredAndRefreshedConfigurationHelper {
       return file.rootsProvider.apply(value);
     }
 
-    private void refreshConfigurationFile(SkyValue oldValue, PathFragment configurationFile)
+    private void refreshConfigurationFile(PathFragment configurationFile)
         throws InterruptedException {
+      RootedPath path = RootedPath.toRootedPath(workspaceRoot, configurationFile);
+      SkyKey fileStateKey = FileStateValue.key(path);
+      SkyValue oldValue = partner.getOld(fileStateKey);
       // if we do not have the value cached, we do not need to invalidate it
       if (oldValue == null) {
         return;
       }
-      RootedPath path = RootedPath.toRootedPath(workspaceRoot, configurationFile);
-      SkyKey fileStateKey = FileStateValue.key(path);
       boolean isDirty = partner.checkDirtiness(fileStateKey, oldValue);
       if (isDirty) {
         partner.refreshUnder(ImmutableSet.of(path));
