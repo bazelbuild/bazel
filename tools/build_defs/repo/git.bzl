@@ -133,13 +133,6 @@ def _update_git_attrs(orig, keys, override):
     return result
 
 _common_attrs = {
-    "remote": attr.string(mandatory = True),
-    "commit": attr.string(default = ""),
-    "shallow_since": attr.string(default = ""),
-    "single_branch": attr.string(default = ""),
-    "tag": attr.string(default = ""),
-    "branch": attr.string(default = ""),
-    "init_submodules": attr.bool(default = False),
     "remote": attr.string(
         mandatory = True,
         doc = "The URI of the remote Git repository",
