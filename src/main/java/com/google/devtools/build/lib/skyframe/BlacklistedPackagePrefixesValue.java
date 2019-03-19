@@ -24,9 +24,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 /** An immutable set of package name prefixes that should be blacklisted. */
 @AutoCodec
 public class BlacklistedPackagePrefixesValue implements SkyValue {
-  public static final BlacklistedPackagePrefixesValue EMPTY =
-      new BlacklistedPackagePrefixesValue(ImmutableSet.of());
-
   private final ImmutableSet<PathFragment> patterns;
 
   @AutoCodec.VisibleForSerialization @AutoCodec
