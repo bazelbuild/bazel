@@ -56,9 +56,6 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
 
       if (coreInterface != null) {
         String coreInterfaceName = coreInterface.getName().replace('.', '/');
-        name =
-            InterfaceDesugaring.normalizeInterfaceMethodName(
-                name, name.startsWith("lambda$"), opcode == Opcodes.INVOKESTATIC);
         if (opcode == Opcodes.INVOKESTATIC) {
           checkState(owner.equals(coreInterfaceName));
         } else {
@@ -68,9 +65,14 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
         if (opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL) {
           checkArgument(itf || opcode == Opcodes.INVOKESPECIAL,
               "Expected interface to rewrite %s.%s : %s", owner, name, desc);
-          owner = coreInterface.isInterface()
-              ? InterfaceDesugaring.getCompanionClassName(coreInterfaceName)
-              : checkNotNull(support.getMoveTarget(coreInterfaceName, name));
+          if (coreInterface.isInterface()) {
+            owner = InterfaceDesugaring.getCompanionClassName(coreInterfaceName);
+            name =
+                InterfaceDesugaring.normalizeInterfaceMethodName(
+                    name, name.startsWith("lambda$"), opcode);
+          } else {
+            owner = checkNotNull(support.getMoveTarget(coreInterfaceName, name));
+          }
         } else {
           checkState(coreInterface.isInterface());
           owner = coreInterfaceName + "$$Dispatch";
