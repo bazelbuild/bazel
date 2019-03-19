@@ -224,6 +224,7 @@ public class SkydocMain {
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
     try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
+      printWriter.println(renderer.renderMarkdownHeader());
       printRuleInfos(printWriter, renderer, filteredRuleInfos);
       printProviderInfos(printWriter, renderer, filteredProviderInfos);
       printUserDefinedFunctions(printWriter, renderer, filteredUserDefinedFunctions);
