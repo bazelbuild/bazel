@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -2122,5 +2123,21 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "x",
         "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
         "objc_library(name = 'x', xibs = ['fg.xib'])");
+  }
+
+  /** Regression test for https://github.com/bazelbuild/bazel/issues/7721. */
+  @Test
+  public void testToolchainRuntimeLibrariesSolibDir() throws Exception {
+    MockObjcSupport.setup(
+        mockToolsConfig,
+        MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
+        MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+    scratch.file(
+        "foo/BUILD",
+        "cc_test(name = 'd', deps = [':b'])",
+        "objc_library(name = 'b', deps = [':a'])",
+        "cc_library(name = 'a', srcs = ['a.c'])");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:d");
+    assertThat(configuredTarget).isNotNull();
   }
 }

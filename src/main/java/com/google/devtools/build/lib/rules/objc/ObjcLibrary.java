@@ -136,7 +136,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
                   FileSystemUtils.removeExtension(library.getRootRelativePathString()))
               .build());
     }
-    libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));
+
+    libraries.addAll(convertLibrariesToStaticLibraries(objcProvider.get(ObjcProvider.CC_LIBRARY)));
 
     CcLinkingContext.Builder ccLinkingContext =
         CcLinkingContext.builder()
@@ -151,6 +152,27 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     ccLinkingContext.addUserLinkFlags(userLinkFlags.build());
 
     return ccLinkingContext.build();
+  }
+
+  /**
+   * This method removes dynamic libraries from LibraryToLink objects coming from C++ dependencies.
+   * The reason for this is that objective-C rules do not support linking the dynamic version of the
+   * libraries.
+   */
+  private ImmutableList<LibraryToLink> convertLibrariesToStaticLibraries(
+      Iterable<LibraryToLink> librariesToLink) {
+    ImmutableList.Builder<LibraryToLink> libraries = ImmutableList.builder();
+    for (LibraryToLink libraryToLink : librariesToLink) {
+      LibraryToLink.Builder staticLibraryToLink = libraryToLink.toBuilder();
+      if (libraryToLink.getPicStaticLibrary() != null || libraryToLink.getStaticLibrary() != null) {
+        staticLibraryToLink.setDynamicLibrary(null);
+        staticLibraryToLink.setResolvedSymlinkDynamicLibrary(null);
+        staticLibraryToLink.setInterfaceLibrary(null);
+        staticLibraryToLink.setResolvedSymlinkInterfaceLibrary(null);
+      }
+      libraries.add(staticLibraryToLink.build());
+    }
+    return libraries.build();
   }
 
   /** Throws errors or warnings for bad attribute state. */

@@ -159,4 +159,41 @@ EOF
     || fail "should fail to find symbol addOne"
 }
 
+function test_cc_test_depending_on_objc() {
+  setup_objc_test_support
+
+  rm -rf foo
+  mkdir -p foo
+
+  cat >foo/a.cc <<EOF
+#include <iostream>
+int main(int argc, char** argv) {
+  std::cout << "Hello! I'm a test!\n";
+  return 0;
+}
+EOF
+
+  cat >foo/BUILD <<EOF
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+)
+
+objc_library(
+    name = "b",
+    deps = [
+        ":a",
+    ],
+)
+
+cc_test(
+    name = "d",
+    deps = [":b"],
+)
+EOF
+
+  bazel test --verbose_failures \
+      //foo:d>$TEST_log 2>&1 || fail "should pass"
+}
+
 run_suite "objc/ios test suite"
