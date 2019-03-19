@@ -17,7 +17,7 @@ load(":utils.bzl", "patch", "update_attrs", "workspace_and_buildfile")
 
 
 def _if_debug(cond, st, what="Action"):
-    "Print if 'cont'."
+    "Print if 'cond'."
     if cond:
         print("{} returned {}\n{}\n----\n{}".format(what, st.return_code, st.stdout, st.stderr))
 
@@ -71,7 +71,8 @@ def _populate_cache(ctx, git_cache, remote_name, ref, shallow):
                       git -C {git_cache} remote set-url '{remote_name}' '{remote}'
   git -C {git_cache} fetch '{shallow}' '{remote_name}' {ref} || \
                       git -C {git_cache} fetch '{remote_name}' {ref} || \
-                      git -C {git_cache} '{shallow}' fetch '{remote_name}'
+                      git -C {git_cache} '{shallow}' fetch '{remote_name}' || \
+                      git -C {git_cache} fetch '{remote_name}'
   """.format(
       git_cache=git_cache,
       remote_name=remote_name,
