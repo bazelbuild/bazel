@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.truth.Truth8;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
@@ -29,6 +30,18 @@ import org.junit.Test;
 
 /** End to end test of workspace-related functionality. */
 public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
+  private static final String[] RULE_TO_DEPEND_ON_FILE = {"def _impl(ctx):",
+      "  out = ctx.actions.declare_file('does_not_matter')",
+      "  ctx.actions.do_nothing(mnemonic = 'UseInput', inputs = ctx.attr.dep.files)",
+      "  ctx.actions.write(out, 'Hi')",
+      "  return [DefaultInfo(files = depset([out]))]",
+      "",
+      "debug_rule = rule(",
+      "    implementation = _impl,",
+      "    attrs = {",
+      "        \"dep\": attr.label(allow_single_file = True),",
+      "    }",
+      ")"};
 
   @Test
   public void testNotInMsys() throws Exception {
@@ -56,21 +69,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
             "load(':rule.bzl', 'debug_rule')",
             "debug_rule(name = 'check', dep = '@check_bash_target//:out.txt')");
 
-    context()
-        .write(
-            "rule.bzl",
-            "def _impl(ctx):",
-            "  out = ctx.actions.declare_file('does_not_matter')",
-            "  ctx.actions.do_nothing(mnemonic = 'UseInput', inputs = ctx.attr.dep.files)",
-            "  ctx.actions.write(out, 'Hi')",
-            "  return [DefaultInfo(files = depset([out]))]",
-            "",
-            "debug_rule = rule(",
-            "    implementation = _impl,",
-            "    attrs = {",
-            "        \"dep\": attr.label(allow_single_file = True),",
-            "    }",
-            ")");
+    context().write("rule.bzl", RULE_TO_DEPEND_ON_FILE);
 
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     // The build using "bash" should fail on Windows, and pass on Linux and Mac OS
@@ -212,6 +211,45 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     result = bazel.query("@ext//:all");
     assertThat(result.outString()).doesNotContain(progressMessage);
+  }
+
+  @Test
+  public void testLocalRepositoryRuleNotRegeneratedIfNothingChanged() throws Exception {
+    context().write("repo_rule.bzl",
+        "def _impl(rctx):",
+        "  debug_id = rctx.os.environ['DEBUG_ID']",
+        "  rctx.file('debug_id', debug_id)",
+        "  rctx.file('BUILD', \"exports_files(['debug_id'])\")",
+        "local_rule = repository_rule(",
+        "  implementation = _impl,",
+        "  local = True,",
+        ")"
+    );
+    context().write(WORKSPACE,
+        "load(':repo_rule.bzl', 'local_rule')",
+        "local_rule(name = 'abc')"
+    );
+    context().write("rule.bzl", RULE_TO_DEPEND_ON_FILE);
+    // To make repository rule target be computed, depend on it in debug_rule
+    context()
+        .write(
+            "BUILD",
+            "load(':rule.bzl', 'debug_rule')",
+            "debug_rule(name = 'check', dep = '@abc//:debug_id')");
+
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+
+    bazel.withEnv("DEBUG_ID", "1").build("//...");
+    Path debugIdPath = context().resolveExecRootPath(bazel, "external/abc/debug_id");
+    List<String> lines = PathUtils.readFile(debugIdPath);
+    assertThat(lines.size()).isEqualTo(1);
+    assertThat(lines.get(0)).isEqualTo("1");
+
+    bazel.withEnv("DEBUG_ID", "2").build("//...");
+    Path debugIdPath2 = context().resolveExecRootPath(bazel, "external/abc/debug_id");
+    List<String> lines2 = PathUtils.readFile(debugIdPath2);
+    assertThat(lines2.size()).isEqualTo(1);
+    assertThat(lines2.get(0)).isEqualTo("1");
   }
 
   @Test
