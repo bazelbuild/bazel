@@ -219,7 +219,7 @@ http_archive(
     build_file = "@bazel_tools//tools/jdk:BUILD.java_tools",
     sha256 = "56adebe4a120dea79c7cc1c0249490d3fcbadb1874d8b58020ab032d99b7fcf4",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_windows-x86_64-v1.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_windows-x86_64-v1.0_copy.zip",
     ],
 )
 
