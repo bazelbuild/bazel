@@ -72,7 +72,7 @@ public class ParserInputSourceTest {
       fail();
     } catch (IOException e) {
       String expected = "/does/not/exist (No such file or directory)";
-      assertThat(e).hasMessage(expected);
+      assertThat(e).hasMessageThat().isEqualTo(expected);
     }
   }
 

@@ -116,7 +116,8 @@ public class BuildTypeTest {
       fail("Expected a conversion exception to be thrown.");
     } catch (ConversionException expected) {
       assertThat(expected)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "expected value of type 'dict(label, string)', "
                   + "but got \"//actually/a:label\" (string)");
     }
@@ -130,7 +131,8 @@ public class BuildTypeTest {
       fail("Expected a conversion exception to be thrown.");
     } catch (ConversionException expected) {
       assertThat(expected)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "expected value of type 'dict(label, string)', "
                   + "but got [\"//actually/a:label\"] (List)");
     }
@@ -143,7 +145,8 @@ public class BuildTypeTest {
       fail("Expected a conversion exception to be thrown.");
     } catch (ConversionException expected) {
       assertThat(expected)
-          .hasMessage("expected value of type 'string' for dict key element, but got 1 (int)");
+          .hasMessageThat()
+          .isEqualTo("expected value of type 'string' for dict key element, but got 1 (int)");
     }
   }
 
@@ -155,7 +158,8 @@ public class BuildTypeTest {
       fail("Expected a conversion exception to be thrown.");
     } catch (ConversionException expected) {
       assertThat(expected)
-          .hasMessage("expected value of type 'string' for dict value element, but got 3 (int)");
+          .hasMessageThat()
+          .isEqualTo("expected value of type 'string' for dict value element, but got 3 (int)");
     }
   }
 
@@ -168,7 +172,8 @@ public class BuildTypeTest {
       fail("Expected a conversion exception to be thrown.");
     } catch (ConversionException expected) {
       assertThat(expected)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "invalid label '//uplevel/references/are:../../forbidden' in "
                   + "dict key element: invalid target name '../../forbidden': "
                   + "target names may not contain up-level references '..'");
@@ -188,7 +193,8 @@ public class BuildTypeTest {
       fail("Expected a conversion exception to be thrown.");
     } catch (ConversionException expected) {
       assertThat(expected)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "duplicate labels: //current/package:reference "
                   + "(as [\":reference\", \"//current/package:reference\"])");
     }
@@ -212,7 +218,8 @@ public class BuildTypeTest {
       fail("Expected a conversion exception to be thrown.");
     } catch (ConversionException expected) {
       assertThat(expected)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "duplicate labels: //current/rule:rule "
                   + "(as [\":rule\", \"//current/rule:rule\", \"//current/rule\"]), "
                   + "//other/package:package "
@@ -233,7 +240,8 @@ public class BuildTypeTest {
       fail("Expected a conversion exception to be thrown.");
     } catch (ConversionException expected) {
       assertThat(expected)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "duplicate labels in flag map: //current/package:reference "
                   + "(as [\":reference\", \"//current/package:reference\"])");
     }

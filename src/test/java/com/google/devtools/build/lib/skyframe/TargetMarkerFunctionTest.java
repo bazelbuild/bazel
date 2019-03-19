@@ -111,7 +111,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
     String expectedMessage =
         "no such package 'no/such/package': BUILD file not found on "
             + "package path for 'no/such/package'";
-    assertThat(exn).hasMessage(expectedMessage);
+    assertThat(exn).hasMessageThat().isEqualTo(expectedMessage);
   }
 
   @Test

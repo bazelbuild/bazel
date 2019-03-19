@@ -90,7 +90,7 @@ public class PrinterTest {
       Printer.format(format, arguments);
       fail();
     } catch (IllegalFormatException e) {
-      assertThat(e).hasMessage(errorMessage);
+      assertThat(e).hasMessageThat().isEqualTo(errorMessage);
     }
   }
 

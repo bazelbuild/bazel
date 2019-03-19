@@ -803,7 +803,7 @@ public class FilesystemValueCheckerTest {
       getDirtyFilesystemKeys(evaluator, checker);
       fail();
     } catch (RuntimeException e) {
-      assertThat(e).hasMessage("bork");
+      assertThat(e).hasMessageThat().isEqualTo("bork");
     }
   }
 

@@ -86,7 +86,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(cachingBuilder(), hello);
       fail("Expected input file to be missing");
     } catch (BuildFailedException e) {
-      assertThat(e).hasMessage("missing input file '" + hello.getPath() + "'");
+      assertThat(e).hasMessageThat().isEqualTo("missing input file '" + hello.getPath() + "'");
     }
   }
 
