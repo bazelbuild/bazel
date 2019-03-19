@@ -44,7 +44,7 @@ def _setup_cache(ctx, git_cache):
     if st.return_code:
         fail("Error ... {}:\n{}\n---\n{}".format(ctx.name, st.stdout, st.stderr))
 
-def _get_repository_from_cache(ctx, directory, ref, shallow, git_cache):
+def _get_repository_from_cache(ctx, directory, ref, git_cache):
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     exec_result = ctx.execute([bash_exe, "-c", """
   cd {working_dir}
@@ -57,7 +57,6 @@ def _get_repository_from_cache(ctx, directory, ref, shallow, git_cache):
         dir_link = ctx.path("."),
         directory = directory,
         ref = ref,
-        shallow = shallow,
         git_cache = git_cache,
     )], environment = ctx.os.environ)
     _if_debug(cond=ctx.attr.verbose, st=exec_result, what='Checkout')
@@ -70,9 +69,9 @@ def _populate_cache(ctx, git_cache, remote_name, ref, shallow):
     st = ctx.execute([bash_exe, "-c", """set -ex
   git -C {git_cache} remote add '{remote_name}' '{remote}' || \
                       git -C {git_cache} remote set-url '{remote_name}' '{remote}'
-  git -C {git_cache} fetch {shallow} '{remote_name}' {ref} || \
+  git -C {git_cache} fetch '{shallow}' '{remote_name}' {ref} || \
                       git -C {git_cache} fetch '{remote_name}' {ref} || \
-                      git -C {git_cache} {shallow} fetch '{remote_name}'
+                      git -C {git_cache} '{shallow}' fetch '{remote_name}'
   """.format(
       git_cache=git_cache,
       remote_name=remote_name,
@@ -123,11 +122,11 @@ def _clone_or_update(ctx):
 
     if git_cache:
         _setup_cache(ctx, git_cache)
-        st = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
+        st = _get_repository_from_cache(ctx, directory, ref, git_cache)
 
         if st.return_code:
             _populate_cache(ctx, git_cache, remote_name, ref, shallow)
-            st = _get_repository_from_cache(ctx, directory, ref, shallow, git_cache)
+            st = _get_repository_from_cache(ctx, directory, ref, git_cache)
 
             if st.return_code:
                 fail("Error checking out worktree %s. Maybe you have a too old git version?:\n%s" % (ctx.name, st.stderr))
