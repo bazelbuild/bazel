@@ -237,6 +237,22 @@ public final class BuilderRunner {
   }
 
   /**
+   * Runs <code>bazel query &lt;args&gt;</code> and returns the result. Asserts that the process
+   * exit code is zero. Does not assert that the error stream is empty.
+   *
+   * @param args arguments to pass to query command
+   * @return ProcessResult with process exit code, strings with stdout and error streams contents
+   * @throws TimeoutException in case of timeout
+   * @throws IOException in case of the process startup/interaction problems
+   * @throws InterruptedException if the current thread is interrupted while waiting
+   * @throws ProcessRunnerException if the process return code is not zero or error stream is not
+   *     empty when it was expected
+   */
+  public ProcessResult query(String... args) throws Exception {
+    return runBinary("query", args);
+  }
+
+  /**
    * Runs <code>bazel run &lt;args&gt;</code> and returns the result. Asserts that the process exit
    * code is zero. Does not assert that the error stream is empty.
    *

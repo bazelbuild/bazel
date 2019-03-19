@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
+import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import com.google.devtools.build.lib.util.OS;
 import java.nio.file.Files;
@@ -181,6 +182,36 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
     WorkspaceTestUtils.assertLinesExactly(xPath, "bye");
+  }
+
+  @Test
+  public void testNoPackageLoadingOnBenignWorkspaceChanges() throws Exception {
+    Path repo = context().getTmpDir().resolve(testName.getMethodName());
+    new RepoWithRuleWritingTextGenerator(repo).withOutputText("hi").setupRepository();
+
+    context()
+        .write(
+            WORKSPACE,
+            String.format(
+                "local_repository(name = 'ext', path = '%s',)",
+                PathUtils.pathForStarlarkFile(repo)));
+
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context())
+        .withFlags("--experimental_ui_debug_all_events", "--curses=yes");
+
+    final String progressMessage = "PROGRESS <no location>: Loading package: @ext//";
+
+    ProcessResult result = bazel.query("@ext//:all");
+    assertThat(result.outString()).contains(progressMessage);
+
+    result = bazel.query("@ext//:all");
+    assertThat(result.outString()).doesNotContain(progressMessage);
+
+    Path workspaceFile = context().getWorkDir().resolve(WORKSPACE);
+    PathUtils.append(workspaceFile, "# comment");
+
+    result = bazel.query("@ext//:all");
+    assertThat(result.outString()).doesNotContain(progressMessage);
   }
 
   @Test
