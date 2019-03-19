@@ -34,6 +34,7 @@ public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extend
   @SkylarkCallable(
       name = "create_device_broker_info",
       documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       parameters = {@Param(name = "type", type = String.class)})
   AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType);
 
@@ -46,6 +47,7 @@ public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extend
               + "a directory that designates resource kind (cf. "
               + "http://developer.android.com/guide/topics/resources/providing-resources.html).",
       documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       parameters = {
         @Param(
             name = "resource",
@@ -62,6 +64,7 @@ public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extend
           "A configuration for rule attributes that compiles native code according to "
               + "the --fat_apk_cpu and --android_crosstool_top flags.",
       documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       structField = true)
   AndroidSplitTransititionApi getAndroidSplitTransition();
 

@@ -231,6 +231,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
   @Test
   public void testAndroidInstrumentationTestWithSkylarkDevice()
       throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "javatests/com/app/skylarkdevice/local_adb_device.bzl",
         "def _impl(ctx):",

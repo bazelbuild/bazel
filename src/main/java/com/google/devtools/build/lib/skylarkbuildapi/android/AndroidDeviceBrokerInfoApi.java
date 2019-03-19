@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** Supplies the device broker type string, passed to the Android test runtime. */
 @SkylarkModule(
@@ -57,7 +58,8 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
                   "The type of device broker that is appropriate to use to interact with "
                       + "devices")
         },
-        selfCall = true)
+        selfCall = true,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
     @SkylarkConstructor(objectType = AndroidDeviceBrokerInfoApi.class)
     public AndroidDeviceBrokerInfoApi createInfo(String type) throws EvalException;
   }
