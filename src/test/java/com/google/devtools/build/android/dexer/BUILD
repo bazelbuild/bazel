@@ -32,7 +32,7 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/dexer",
         "//third_party:guava",
         "//third_party:junit4",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party:truth",
         "@bazel_tools//tools/java/runfiles",
     ] + select({
