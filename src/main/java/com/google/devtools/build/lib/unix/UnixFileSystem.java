@@ -29,7 +29,9 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -429,6 +431,75 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
         NativePosixFiles.deleteTreesBelow(dir.toString());
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
+      }
+    }
+  }
+
+  @Override
+  protected OutputStream createFileOutputStream(Path path, boolean append)
+      throws FileNotFoundException {
+    final String name = path.toString();
+    if (profiler.isActive()
+        && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
+            || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        return new ProfiledNativeFileOutputStream(NativePosixFiles.openWrite(name, append), name);
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
+      }
+    } else {
+      return new NativeFileOutputStream(NativePosixFiles.openWrite(name, append));
+    }
+  }
+
+  private static class NativeFileOutputStream extends OutputStream {
+    private final int fd;
+    private boolean closed = false;
+
+    NativeFileOutputStream(int fd) {
+      this.fd = fd;
+    }
+
+    @Override
+    public void close() throws IOException {
+      if (!closed) {
+        closed = true;
+        NativePosixFiles.close(fd);
+      }
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      write(new byte[] {(byte) (b & 0xFF)});
+    }
+
+    @Override
+    public void write(byte b[]) throws IOException {
+      write(b, 0, b.length);
+    }
+
+    @Override
+    public void write(byte b[], int off, int len) throws IOException {
+      NativePosixFiles.write(fd, b, off, len);
+    }
+  }
+
+  private static final class ProfiledNativeFileOutputStream extends NativeFileOutputStream {
+    private final String name;
+
+    public ProfiledNativeFileOutputStream(int fd, String name) throws FileNotFoundException {
+      super(fd);
+      this.name = name;
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        super.write(b, off, len);
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
       }
     }
   }

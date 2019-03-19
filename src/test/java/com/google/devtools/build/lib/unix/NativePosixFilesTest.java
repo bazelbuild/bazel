@@ -37,9 +37,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * This class tests the FilesystemUtils class.
- */
+/** Tests for the {@link NativePosixFiles} class. */
 @RunWith(JUnit4.class)
 public class NativePosixFilesTest {
   private FileSystem testFS;
@@ -155,5 +153,31 @@ public class NativePosixFilesTest {
         FileNotFoundException.class, () -> NativePosixFiles.getxattr(nonexistentFile, "foo"));
     assertThrows(
         FileNotFoundException.class, () -> NativePosixFiles.lgetxattr(nonexistentFile, "foo"));
+  }
+
+  @Test
+  public void writing() throws Exception {
+    java.nio.file.Path myfile = Files.createTempFile("myfile", null);
+    int fd1 = NativePosixFiles.openWrite(myfile.toString(), false);
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 5, 1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, -1, 1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, -1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, 5));
+    NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, 4);
+    NativePosixFiles.close(fd1);
+    assertThat(Files.readAllBytes(myfile)).isEqualTo(new byte[] {0, 1, 2, 3});
+    // Try appending.
+    int fd2 = NativePosixFiles.openWrite(myfile.toString(), true);
+    NativePosixFiles.write(fd2, new byte[] {5, 6, 7, 8, 9}, 1, 3);
+    NativePosixFiles.close(fd2);
+    assertThat(Files.readAllBytes(myfile)).isEqualTo(new byte[] {0, 1, 2, 3, 6, 7, 8});
   }
 }
