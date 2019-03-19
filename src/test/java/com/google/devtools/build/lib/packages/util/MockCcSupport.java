@@ -425,19 +425,11 @@ public abstract class MockCcSupport {
           + "   enabled: true"
           + "}";
 
-  public static final String STATIC_LINK_TWEAKED_CONFIGURATION =
-      "artifact_name_pattern {"
-          + "   category_name: 'static_library'"
-          + "   prefix: 'lib'"
-          + "   extension: '.lib'"
-          + "}";
+  public static final ImmutableList<String> STATIC_LINK_TWEAKED_ARTIFACT_NAME_PATTERN =
+      ImmutableList.of("static_library", "lib", ".lib");
 
-  public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =
-      "artifact_name_pattern {"
-          + "   category_name: 'static_library'"
-          + "   prefix: 'lib'"
-          + "   extension: '.a'"
-          + "}";
+  public static final ImmutableList<String> STATIC_LINK_AS_DOT_A_ARTIFACT_NAME_PATTERN =
+      ImmutableList.of("static_library", "lib", ".a");
 
   public static final String MODULE_MAPS_FEATURE =
       "feature {"
@@ -486,6 +478,26 @@ public abstract class MockCcSupport {
 
   public static final String STATIC_LINK_CPP_RUNTIMES_FEATURE =
       "feature { name: 'static_link_cpp_runtimes' enabled: true }";
+
+  public static final String EMPTY_CC_TOOLCHAIN =
+      Joiner.on("\n")
+          .join(
+              "def _impl(ctx):",
+              "    return cc_common.create_cc_toolchain_config_info(",
+              "                ctx = ctx,",
+              "                toolchain_identifier = 'mock-llvm-toolchain-k8',",
+              "                host_system_name = 'mock-system-name-for-k8',",
+              "                target_system_name = 'mock-target-system-name-for-k8',",
+              "                target_cpu = 'k8',",
+              "                target_libc = 'mock-libc-for-k8',",
+              "                compiler = 'mock-compiler-for-k8',",
+              "                abi_libc_version = 'mock-abi-libc-for-k8',",
+              "                abi_version = 'mock-abi-version-for-k8')",
+              "cc_toolchain_config = rule(",
+              "    implementation = _impl,",
+              "    attrs = {},",
+              "    provides = [CcToolchainConfigInfo],",
+              ")");
 
   public static final String EMPTY_CROSSTOOL =
       "major_version: 'foo'\nminor_version:' foo'\n" + emptyToolchainForCpu("k8");

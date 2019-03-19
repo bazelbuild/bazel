@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -52,7 +53,7 @@ public final class Crosstool {
     private final String targetLibc;
     private final ImmutableList<String> features;
     private final ImmutableList<String> actionConfigs;
-    private final ImmutableList<String> artifactNamePatterns;
+    private final ImmutableList<ImmutableList<String>> artifactNamePatterns;
     private final ImmutableList<Pair<String, String>> toolPaths;
 
     private CcToolchainConfig(
@@ -66,7 +67,7 @@ public final class Crosstool {
         String targetLibc,
         ImmutableList<String> features,
         ImmutableList<String> actionConfigs,
-        ImmutableList<String> artifactNamePatterns,
+        ImmutableList<ImmutableList<String>> artifactNamePatterns,
         ImmutableList<Pair<String, String>> toolPaths) {
       this.cpu = cpu;
       this.compiler = compiler;
@@ -90,7 +91,7 @@ public final class Crosstool {
     public static class Builder {
       private ImmutableList<String> features = ImmutableList.of();
       private ImmutableList<String> actionConfigs = ImmutableList.of();
-      private ImmutableList<String> artifactNamePatterns = ImmutableList.of();
+      private ImmutableList<ImmutableList<String>> artifactNamePatterns = ImmutableList.of();
       private ImmutableList<Pair<String, String>> toolPaths = ImmutableList.of();
 
       public Builder withFeatures(String... features) {
@@ -103,7 +104,13 @@ public final class Crosstool {
         return this;
       }
 
-      public Builder withArtifactNamePatterns(String... artifactNamePatterns) {
+      public Builder withArtifactNamePatterns(ImmutableList<String>... artifactNamePatterns) {
+        for (ImmutableList<String> pattern : artifactNamePatterns) {
+          Preconditions.checkArgument(
+              pattern.size() == 3,
+              "Artifact name pattern should have three attributes: category_name, prefix and"
+                  + " extension");
+        }
         this.artifactNamePatterns = ImmutableList.copyOf(artifactNamePatterns);
         return this;
       }
@@ -177,7 +184,10 @@ public final class Crosstool {
               .collect(ImmutableList.toImmutableList());
       ImmutableList<String> patternsList =
           artifactNamePatterns.stream()
-              .map(pattern -> "'" + pattern + "'")
+              .map(
+                  pattern ->
+                      String.format(
+                          "'%s': ['%s', '%s']", pattern.get(0), pattern.get(1), pattern.get(2)))
               .collect(ImmutableList.toImmutableList());
       ImmutableList<String> toolPathsList =
           toolPaths.stream()
@@ -200,7 +210,7 @@ public final class Crosstool {
               String.format(
                   "  action_configs = [%s],", Joiner.on(",\n    ").join(actionConfigsList)),
               String.format(
-                  "  artifact_name_patterns = [%s],", Joiner.on(",\n    ").join(patternsList)),
+                  "  artifact_name_patterns = {%s},", Joiner.on(",\n    ").join(patternsList)),
               String.format("  tool_paths = {%s},", Joiner.on(",\n    ").join(toolPathsList)),
               "  )");
     }

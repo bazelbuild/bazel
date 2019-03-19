@@ -76,6 +76,9 @@ _FEATURE_NAMES = struct(
     compiler_param_file = "compiler_param_file",
     objcopy_embed_flags = "objcopy_embed_flags",
     ld_embed_flags = "ld_embed_flags",
+    opt = "opt",
+    fastbuild = "fastbuild",
+    dbg = "dbg",
 )
 
 _no_legacy_features_feature = feature(name = _FEATURE_NAMES.no_legacy_features)
@@ -698,6 +701,55 @@ _ld_embed_flags_feature = feature(
     ],
 )
 
+_dbg_compilation_feature = feature(
+    name = _FEATURE_NAMES.dbg,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(flags = ["-dbg"]),
+            ],
+        ),
+    ],
+)
+
+_fastbuild_compilation_feature = feature(
+    name = _FEATURE_NAMES.fastbuild,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(flags = ["-fastbuild"]),
+            ],
+        ),
+    ],
+)
+
+_opt_compilation_feature = feature(
+    name = _FEATURE_NAMES.opt,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(flags = ["-opt"]),
+            ],
+        ),
+    ],
+)
+
+_compilation_mode_features = [
+    _dbg_compilation_feature,
+    _fastbuild_compilation_feature,
+    _opt_compilation_feature,
+]
+
+_compile_header_modules_feature_configuration = [
+    _supports_pic_feature,
+    feature(name = "header_modules", implies = ["use_header_modules"]),
+    _module_maps_feature,
+    feature(name = "use_header_modules"),
+]
+
 _feature_name_to_feature = {
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
@@ -740,23 +792,8 @@ _feature_name_to_feature = {
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
     "simple_layering_check": _simple_layering_check_feature,
-}
-
-_static_link_as_dot_lib_pattern = artifact_name_pattern(
-    category_name = "static_library",
-    prefix = "lib",
-    extension = ".lib",
-)
-
-_static_link_as_dot_a_pattern = artifact_name_pattern(
-    category_name = "static_library",
-    prefix = "lib",
-    extension = ".a",
-)
-
-_artifact_name_to_artifact_pattern = {
-    "static_link_as_dot_lib": _static_link_as_dot_lib_pattern,
-    "static_link_as_dot_a": _static_link_as_dot_a_pattern,
+    "compilation_mode_features": _compilation_mode_features,
+    "compile_header_modules": _compile_header_modules_feature_configuration,
 }
 
 _tool_for_action_config = {
@@ -780,11 +817,12 @@ def _get_action_config(name, path):
         tools = [tool(path = path)],
     )
 
-def _get_artifact_name_pattern(name):
-    artifact = _artifact_name_to_artifact_pattern[name]
-    if artifact == None:
-        fail("Artifact name pattern not defined: " + name)
-    return artifact
+def _get_artifact_name_pattern(category, prefix, extension):
+    return artifact_name_pattern(
+        category_name = category,
+        prefix = prefix,
+        extension = extension,
+    )
 
 def _get_tool_path(name, path):
     return tool_path(name = name, path = path)
@@ -846,8 +884,8 @@ def _impl(ctx):
 
     artifact_name_patterns = []
 
-    for name in ctx.attr.artifact_name_patterns:
-        artifact_name_patterns.append(_get_artifact_name_pattern(name))
+    for category, values in ctx.attr.artifact_name_patterns.items():
+        artifact_name_patterns.append(_get_artifact_name_pattern(category, values[0], values[1]))
 
     action_configs = []
 
@@ -922,7 +960,7 @@ cc_toolchain_config = rule(
         "abi_libc_version": attr.string(default = "local"),
         "feature_names": attr.string_list(),
         "action_configs": attr.string_list(),
-        "artifact_name_patterns": attr.string_list(),
+        "artifact_name_patterns": attr.string_list_dict(),
         "cc_target_os": attr.string(),
         "builtin_sysroot": attr.string(default = "/usr/grte/v1"),
         "tool_paths": attr.string_dict(),
