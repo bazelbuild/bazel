@@ -54,16 +54,16 @@ public class AndroidDataBindingProcessingAction {
     public List<Path> resourceRoots;
 
     @Option(
-        name = "output_resource_root",
-        defaultValue =  "null",
-        converter =  PathConverter.class,
-        allowMultiple =  true,
+        name = "output_resource_directory",
+        defaultValue = "null",
+        converter = PathConverter.class,
         category = "input",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        help = "The output resource root. A corresponding input resource root must be passed to "
-            + "--resource_root. Multiple roots will be paired in the order they're passed.")
-    public List<Path> outputResourceRoots;
+        help =
+            "The output resource directory. Input source roots will be appended to this to "
+                + "create the output resource roots.")
+    public Path outputResourceDirectory;
 
     @Option(
         name = "packageType",
@@ -114,28 +114,22 @@ public class AndroidDataBindingProcessingAction {
       throw new IllegalArgumentException("--appId is required");
     }
 
+    if (options.outputResourceDirectory == null) {
+      throw new IllegalArgumentException("--output_resource_directory is required");
+    }
+
     List<Path> resourceRoots = options.resourceRoots == null
         ? Collections.emptyList()
         : options.resourceRoots;
-    List<Path> outputResourceRoots = options.outputResourceRoots == null
-        ? Collections.emptyList()
-        : options.outputResourceRoots;
-
-    if (resourceRoots.size() != outputResourceRoots.size()) {
-      throw new IllegalArgumentException("--resource_root and --output_resource_root must be "
-          + "specified the same number of times");
-    }
 
     try (ScopedTemporaryDirectory dataBindingInfoOutDir =
         new ScopedTemporaryDirectory("android_data_binding_layout_info_tmp")) {
 
       // 1. Process databinding resources for each source root.
-      for (int i = 0; i < resourceRoots.size(); i++) {
+      for (Path resourceRoot : resourceRoots) {
 
-        Path resourceRoot = resourceRoots.get(i);
-        Path outputResourceRoot = outputResourceRoots.get(i);
         AndroidResourceProcessor.processDataBindings(
-            outputResourceRoot,
+            options.outputResourceDirectory,
             resourceRoot,
             dataBindingInfoOutDir.getPath(),
             options.appId,
