@@ -79,6 +79,8 @@ public class IgnoredAndRefreshedConfigurationHelper {
       refreshConfigurationFile(file.key, file.configurationFile);
 
       SkyValue newValue = partner.getNew(file.key);
+      // needed for some tests
+      newValue = newValue == null ? file.emptyValue : newValue;
 
       invalidateFragments(file.rootsProvider.apply(oldValue),
           Preconditions.checkNotNull(file.rootsProvider.apply(newValue)));
