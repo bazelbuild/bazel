@@ -88,19 +88,19 @@ public class MoreAssertsTest {
       assertDoesNotContainSublist(actual, "a");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e).hasMessage("Found [a] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().isEqualTo("Found [a] as a sublist of [a, b, c]");
     }
     try {
       assertDoesNotContainSublist(actual, "b");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e).hasMessage("Found [b] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().isEqualTo("Found [b] as a sublist of [a, b, c]");
     }
     try {
       assertDoesNotContainSublist(actual, "c");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e).hasMessage("Found [c] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().isEqualTo("Found [c] as a sublist of [a, b, c]");
     }
 
     // All two-string combinations.
@@ -108,13 +108,13 @@ public class MoreAssertsTest {
       assertDoesNotContainSublist(actual, "a", "b");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e).hasMessage("Found [a, b] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().isEqualTo("Found [a, b] as a sublist of [a, b, c]");
     }
     try {
       assertDoesNotContainSublist(actual, "b", "c");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e).hasMessage("Found [b, c] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().isEqualTo("Found [b, c] as a sublist of [a, b, c]");
     }
 
     // The whole list.
@@ -122,7 +122,7 @@ public class MoreAssertsTest {
       assertDoesNotContainSublist(actual, "a", "b", "c");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e).hasMessage("Found [a, b, c] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().isEqualTo("Found [a, b, c] as a sublist of [a, b, c]");
     }
   }
 

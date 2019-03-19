@@ -41,7 +41,7 @@ public class ResourceFileLoaderTest {
           "does_not_exist.txt");
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessage("does_not_exist.txt not found.");
+      assertThat(e).hasMessageThat().isEqualTo("does_not_exist.txt not found.");
     }
   }
 

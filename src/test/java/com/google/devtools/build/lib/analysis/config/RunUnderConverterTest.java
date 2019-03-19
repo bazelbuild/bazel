@@ -55,7 +55,7 @@ public class RunUnderConverterTest {
       new RunUnderConverter().convert(input);
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e).hasMessage(expectedError);
+      assertThat(e).hasMessageThat().isEqualTo(expectedError);
     }
   }
 }

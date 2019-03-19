@@ -437,7 +437,7 @@ public class BuildViewTest extends BuildViewTestBase {
       useConfiguration("--output directory name=foo");
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e).hasMessage("Unrecognized option: --output directory name=foo");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --output directory name=foo");
     }
   }
 

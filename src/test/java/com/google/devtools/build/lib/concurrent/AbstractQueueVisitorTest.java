@@ -152,7 +152,7 @@ public class AbstractQueueVisitorTest {
       counter.awaitQuiescence(/*interruptWorkers=*/ false);
       fail();
     } catch (Error expected) {
-      assertThat(expected).hasMessage("Could not create thread (fakeout)");
+      assertThat(expected).hasMessageThat().isEqualTo("Could not create thread (fakeout)");
     }
     assertThat(counter.getCount()).isSameAs(5);
 
