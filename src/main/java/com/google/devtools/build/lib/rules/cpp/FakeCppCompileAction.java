@@ -131,12 +131,9 @@ public class FakeCppCompileAction extends CppCompileAction {
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
     logger.info("Generating " + getDotdFile());
-    CppCompileActionContext context =
-        actionExecutionContext.getContext(CppCompileActionContext.class);
-    CppCompileActionContext.Reply reply = null;
+    CppCompileActionResult.Reply reply = null;
     try {
-      CppCompileActionResult cppCompileActionResult =
-          context.execWithReply(this, actionExecutionContext);
+      CppCompileActionResult cppCompileActionResult = execWithReply(actionExecutionContext);
       reply = cppCompileActionResult.contextReply();
       spawnResults = cppCompileActionResult.spawnResults();
     } catch (ExecException e) {

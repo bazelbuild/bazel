@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -39,11 +40,15 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -59,7 +64,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
+import com.google.devtools.build.lib.rules.cpp.CppCompileActionResult.Reply;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.util.DependencySet;
@@ -1132,8 +1137,6 @@ public class CppCompileAction extends AbstractAction
               StandardCharsets.ISO_8859_1);
     }
 
-    CppCompileActionContext.Reply reply;
-
     if (!shouldScanDotdFiles()) {
       updateActionInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs));
     }
@@ -1185,12 +1188,10 @@ public class CppCompileAction extends AbstractAction
       }
     }
 
+    CppCompileActionResult.Reply reply;
     List<SpawnResult> spawnResults;
     try (Defer ignored = new Defer()) {
-      CppCompileActionResult cppCompileActionResult =
-          actionExecutionContext
-              .getContext(CppCompileActionContext.class)
-              .execWithReply(this, spawnContext);
+      CppCompileActionResult cppCompileActionResult = execWithReply(spawnContext);
       reply = cppCompileActionResult.contextReply();
       spawnResults = cppCompileActionResult.spawnResults();
     } catch (ExecException e) {
@@ -1248,6 +1249,77 @@ public class CppCompileAction extends AbstractAction
       validateInclusions(actionExecutionContext, discoveredInputs);
     }
     return ActionResult.create(spawnResults);
+  }
+
+  protected CppCompileActionResult execWithReply(ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
+    // for execution.
+    ImmutableList.Builder<ActionInput> inputsBuilder =
+        new ImmutableList.Builder<ActionInput>()
+            .addAll(getMandatoryInputs())
+            .addAll(getAdditionalInputs());
+    if (getParamFileActionInput() != null) {
+      inputsBuilder.add(getParamFileActionInput());
+    }
+    ImmutableList<ActionInput> inputs = inputsBuilder.build();
+    clearAdditionalInputs();
+
+    ImmutableMap<String, String> executionInfo = getExecutionInfo();
+    ImmutableList.Builder<ActionInput> outputs =
+        ImmutableList.builderWithExpectedSize(getOutputs().size() + 1);
+    outputs.addAll(getOutputs());
+    if (getDotdFile() != null && useInMemoryDotdFiles()) {
+      outputs.add(getDotdFile());
+      /*
+       * CppCompileAction does dotd file scanning locally inside the Bazel process and thus
+       * requires the dotd file contents to be available locally. In remote execution, we
+       * generally don't want to stage all remote outputs on the local file system and thus
+       * we need to tell the remote strategy (if any) to at least make the .d file available
+       * in-memory. We can do that via
+       * {@link ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS}.
+       */
+      executionInfo =
+          ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
+              .putAll(executionInfo)
+              .put(
+                  ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+                  getDotdFile().getExecPathString())
+              .build();
+    }
+
+    Spawn spawn =
+        new SimpleSpawn(
+            this,
+            ImmutableList.copyOf(getArguments()),
+            getEnvironment(actionExecutionContext.getClientEnv()),
+            executionInfo,
+            inputs,
+            outputs.build(),
+            estimateResourceConsumptionLocal());
+
+    SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
+    List<SpawnResult> spawnResults = context.exec(spawn, actionExecutionContext);
+    // The SpawnActionContext guarantees that the first list entry is the successful one.
+    SpawnResult spawnResult = spawnResults.get(0);
+
+    CppCompileActionResult.Builder cppCompileActionResultBuilder =
+        CppCompileActionResult.builder().setSpawnResults(spawnResults);
+
+    if (getDotdFile() != null) {
+      InputStream in = spawnResult.getInMemoryOutput(getDotdFile());
+      if (in != null) {
+        byte[] contents;
+        try {
+          contents = ByteStreams.toByteArray(in);
+        } catch (IOException e) {
+          throw new EnvironmentalExecException("Reading in-memory .d file failed", e);
+        }
+        cppCompileActionResultBuilder.setContextReply(
+            new CppCompileActionResult.InMemoryFile(contents));
+      }
+    }
+    return cppCompileActionResultBuilder.build();
   }
 
   @VisibleForTesting
