@@ -386,6 +386,7 @@ _thin_lto_feature = feature(
             ],
             flag_groups = [
                 flag_group(
+                    expand_if_available = "thinlto_param_file",
                     flags = ["thinlto_param_file=%{thinlto_param_file}"],
                 ),
             ],

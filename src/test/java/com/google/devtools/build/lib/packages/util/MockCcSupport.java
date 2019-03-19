@@ -120,6 +120,8 @@ public abstract class MockCcSupport {
 
   public static final String SIMPLE_LAYERING_CHECK_FEATURE_CONFIGURATION = "simple_layering_check";
 
+  public static final String HEADER_MODULES_FEATURES = "header_modules_feature_configuration";
+
   /** A feature configuration snippet useful for testing header modules. */
   public static final String HEADER_MODULES_FEATURE_CONFIGURATION =
       "feature {"
@@ -252,28 +254,7 @@ public abstract class MockCcSupport {
   public static final String HOST_AND_NONHOST_CONFIGURATION_FEATURES =
       "host_and_nonhost_configuration";
 
-  public static final String USER_COMPILE_FLAGS_CONFIGURATION =
-      "feature {"
-          + "  name: 'user_compile_flags'"
-          + "  enabled: true"
-          + "  flag_set {"
-          + "    action: 'assemble'"
-          + "    action: 'preprocess-assemble'"
-          + "    action: 'linkstamp-compile'"
-          + "    action: 'c-compile'"
-          + "    action: 'c++-compile'"
-          + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-module-compile'"
-          + "    action: 'c++-module-codegen'"
-          + "    action: 'lto-backend'"
-          + "    action: 'clif-match'"
-          + "    flag_group {"
-          + "      flag: '%{user_compile_flags}'"
-          + "      iterate_over: 'user_compile_flags'"
-          + "      expand_if_all_available: 'user_compile_flags'"
-          + "    }"
-          + "  }"
-          + "}";
+  public static final String USER_COMPILE_FLAGS = "user_compile_flags";
 
   public static final String LEGACY_COMPILE_FLAGS_CONFIGURATION =
       "feature {"
@@ -349,57 +330,11 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  public static final String THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
-      "feature {  name: 'thin_lto_linkstatic_tests_use_shared_nonlto_backends'}";
+  public static final String AUTOFDO_IMPLICIT_THINLTO = "autofdo_implicit_thinlto";
 
-  public static final String THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
-      "feature {  name: 'thin_lto_all_linkstatic_use_shared_nonlto_backends'}";
+  public static final String FDO_IMPLICIT_THINLTO = "fdo_implicit_thinlto";
 
-  public static final String ENABLE_AFDO_THINLTO_CONFIGURATION =
-      "feature {"
-          + "  name: 'enable_afdo_thinlto'"
-          + "  requires { feature: 'autofdo_implicit_thinlto' }"
-          + "  implies: 'thin_lto'"
-          + "}";
-
-  public static final String AUTOFDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "feature {  name: 'autofdo_implicit_thinlto'}";
-
-  public static final String ENABLE_FDO_THINLTO_CONFIGURATION =
-      "feature {"
-          + "  name: 'enable_fdo_thinlto'"
-          + "  requires { feature: 'fdo_implicit_thinlto' }"
-          + "  implies: 'thin_lto'"
-          + "}";
-
-  public static final String FDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "feature {  name: 'fdo_implicit_thinlto'}";
-
-  public static final String ENABLE_XFDO_THINLTO_CONFIGURATION =
-      "feature {"
-          + "  name: 'enable_xbinaryfdo_thinlto'"
-          + "  requires { feature: 'xbinaryfdo_implicit_thinlto' }"
-          + "  implies: 'thin_lto'"
-          + "}";
-
-  public static final String XFDO_IMPLICIT_THINLTO_CONFIGURATION =
-      "feature {  name: 'xbinaryfdo_implicit_thinlto'}";
-
-  public static final String AUTO_FDO_CONFIGURATION =
-      "feature {"
-          + "  name: 'autofdo'"
-          + "  provides: 'profile'"
-          + "  flag_set {"
-          + "    action: 'c-compile'"
-          + "    action: 'c++-compile'"
-          + "    action: 'lto-backend'"
-          + "    flag_group {"
-          + "      expand_if_all_available: 'fdo_profile_path'"
-          + "      flag: '-fauto-profile=%{fdo_profile_path}'"
-          + "      flag: '-fprofile-correction'"
-          + "    }"
-          + "  }"
-          + "}";
+  public static final String XFDO_IMPLICIT_THINLTO = "xbinaryfdo_implicit_thinlto";
 
   public static final String IS_CC_FAKE_BINARY_CONFIGURATION =
       "feature { name: 'is_cc_fake_binary' }";
