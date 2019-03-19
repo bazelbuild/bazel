@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-￼
 licenses(["notice"])  # Apache 2.0
 
 filegroup(

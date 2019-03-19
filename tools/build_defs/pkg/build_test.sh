@@ -1,4 +1,5 @@
 #!/bin/bash
+# -*- coding: utf-8 -*-
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
