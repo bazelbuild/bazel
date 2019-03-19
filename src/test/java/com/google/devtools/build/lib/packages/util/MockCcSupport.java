@@ -195,39 +195,7 @@ public abstract class MockCcSupport {
           + "}";
 
   /** A feature configuration snippet useful for testing environment variables. */
-  public static final String ENV_VAR_FEATURE_CONFIGURATION =
-      "feature {"
-          + "  name: 'env_feature'"
-          + "  implies: 'static_env_feature'"
-          + "  implies: 'module_maps'"
-          + "}"
-          + "feature {"
-          + "  name: 'static_env_feature'"
-          + "  env_set {"
-          + "    action: 'c-compile'"
-          + "    action: 'c++-compile'"
-          + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-module-compile'"
-          + "    env_entry {"
-          + "      key: 'cat'"
-          + "      value: 'meow'"
-          + "    }"
-          + "  }"
-          + "}"
-          + "feature {"
-          + "  name: 'module_maps'"
-          + "  enabled: true"
-          + "  env_set {"
-          + "    action: 'c-compile'"
-          + "    action: 'c++-compile'"
-          + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-module-compile'"
-          + "    env_entry {"
-          + "      key: 'module'"
-          + "      value: 'module_name:%{module_name}'"
-          + "    }"
-          + "  }"
-          + "}";
+  public static final String ENV_VAR_FEATURES = "env_var_feature_configuration";
 
   public static final String HOST_AND_NONHOST_CONFIGURATION =
       "feature { "
@@ -336,61 +304,6 @@ public abstract class MockCcSupport {
 
   public static final String XFDO_IMPLICIT_THINLTO = "xbinaryfdo_implicit_thinlto";
 
-  public static final String IS_CC_FAKE_BINARY_CONFIGURATION =
-      "feature { name: 'is_cc_fake_binary' }";
-
-  public static final String XBINARY_FDO_CONFIGURATION =
-      "feature {"
-          + "  name: 'xbinaryfdo'"
-          + "  provides: 'profile'"
-          + "  flag_set {"
-          + "    with_feature { not_feature: 'is_cc_fake_binary' }"
-          + "    action: 'c-compile'"
-          + "    action: 'c++-compile'"
-          + "    action: 'lto-backend'"
-          + "    flag_group {"
-          + "      expand_if_all_available: 'fdo_profile_path'"
-          + "      flag: '-fauto-profile=%{fdo_profile_path}'"
-          + "      flag: '-fprofile-correction'"
-          + "    }"
-          + "  }"
-          + "}";
-
-  public static final String FDO_OPTIMIZE_CONFIGURATION =
-      "feature {"
-          + "  name: 'fdo_optimize'"
-          + "  provides: 'profile'"
-          + "  flag_set {"
-          + "    action: 'c-compile'"
-          + "    action: 'c++-compile'"
-          + "    flag_group {"
-          + "      expand_if_all_available: 'fdo_profile_path'"
-          + "      flag: '-fprofile-use=%{fdo_profile_path}'"
-          + "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'"
-          + "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'"
-          + "      flag: '-Xclang-only=-Wno-backend-plugin'"
-          + "      flag: '-fprofile-correction'"
-          + "    }"
-          + "  }"
-          + "}";
-
-  public static final String FDO_INSTRUMENT_CONFIGURATION =
-      "feature { "
-          + "  name: 'fdo_instrument'"
-          + "  provides: 'profile'"
-          + "  flag_set {"
-          + "    action: 'c-compile'"
-          + "    action: 'c++-compile'"
-          + "    action: 'c++-link-dynamic-library'"
-          + "    action: 'c++-link-nodeps-dynamic-library'"
-          + "    action: 'c++-link-executable'"
-          + "    flag_group {"
-          + "      flag: 'fdo_instrument_option'"
-          + "      flag: 'path=%{fdo_instrument_path}'"
-          + "    }"
-          + "  }"
-          + "}";
-
   public static final String PER_OBJECT_DEBUG_INFO_CONFIGURATION =
       "feature { "
           + "  name: 'per_object_debug_info'"
@@ -453,20 +366,12 @@ public abstract class MockCcSupport {
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
       emptyActionConfigFor(CppActionNames.CPP_COMPILE);
 
-  public static final String EMPTY_MODULE_CODEGEN_ACTION_CONFIG =
-      emptyActionConfigFor(CppActionNames.CPP_MODULE_CODEGEN);
-
-  public static final String EMPTY_MODULE_COMPILE_ACTION_CONFIG =
-      emptyActionConfigFor(CppActionNames.CPP_MODULE_COMPILE);
 
   public static final String EMPTY_EXECUTABLE_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
 
   public static final String EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());
-
-  public static final String EMPTY_TRANSITIVE_DYNAMIC_LIBRARY_ACTION_CONFIG =
-      emptyActionConfigFor(LinkTargetType.DYNAMIC_LIBRARY.getActionName());
 
   public static final String EMPTY_STATIC_LIBRARY_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.STATIC_LIBRARY.getActionName());

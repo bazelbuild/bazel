@@ -79,6 +79,12 @@ _FEATURE_NAMES = struct(
     opt = "opt",
     fastbuild = "fastbuild",
     dbg = "dbg",
+    fission_flags_for_lto_backend = "fission_flags_for_lto_backend",
+    min_os_version_flag = "min_os_version_flag",
+    include_directories = "include_directories",
+    absolute_path_directories = "absolute_path_directories",
+    from_package = "from_package",
+    change_tool = "change_tool",
 )
 
 _no_legacy_features_feature = feature(name = _FEATURE_NAMES.no_legacy_features)
@@ -750,6 +756,109 @@ _compile_header_modules_feature_configuration = [
     feature(name = "use_header_modules"),
 ]
 
+_fission_flags_for_lto_backend_feature = feature(
+    name = _FEATURE_NAMES.fission_flags_for_lto_backend,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.lto_backend],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "is_using_fission",
+                    flags = ["-<IS_USING_FISSION>"],
+                ),
+                flag_group(
+                    expand_if_available = "per_object_debug_info_file",
+                    flags = ["-<PER_OBJECT_DEBUG_INFO_FILE>"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_min_os_version_flag_feature = feature(
+    name = _FEATURE_NAMES.min_os_version_flag,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "min_os_version_flag",
+                    flags = ["-DMIN_OS=%{minimum_os_version}"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_include_directories_feature = feature(
+    name = _FEATURE_NAMES.include_directories,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-isysteminclude_1",
+                        "-isystem",
+                        "-include_2",
+                        "-iquoteinclude_2",
+                        "-Iinclude_3",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+_from_package_feature = feature(
+    name = _FEATURE_NAMES.from_package,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.c_compile],
+            flag_groups = [
+                flag_group(flags = ["<flag>"]),
+            ],
+        ),
+    ],
+)
+
+_absolute_path_directories_feature = feature(
+    name = _FEATURE_NAMES.absolute_path_directories,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-isystem",
+                        "/some/absolute/path/subdir",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+_change_tool_feature = feature(
+    name = _FEATURE_NAMES.change_tool,
+)
+
+_multiple_tools_action_config = action_config(
+    action_name = ACTION_NAMES.cpp_compile,
+    tools = [
+        tool(
+            path = "SPECIAL_TOOL",
+            with_features = [
+                with_feature_set(features = [_FEATURE_NAMES.change_tool]),
+            ],
+        ),
+        tool(path = "DEFAULT_TOOL"),
+    ],
+)
+
 _feature_name_to_feature = {
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
@@ -788,6 +897,12 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.dynamic_linking_mode: _dynamic_linking_mode_feature,
     _FEATURE_NAMES.objcopy_embed_flags: _objcopy_embed_flags_feature,
     _FEATURE_NAMES.ld_embed_flags: _ld_embed_flags_feature,
+    _FEATURE_NAMES.fission_flags_for_lto_backend: _fission_flags_for_lto_backend_feature,
+    _FEATURE_NAMES.min_os_version_flag: _min_os_version_flag_feature,
+    _FEATURE_NAMES.include_directories: _include_directories_feature,
+    _FEATURE_NAMES.from_package: _from_package_feature,
+    _FEATURE_NAMES.absolute_path_directories: _absolute_path_directories_feature,
+    _FEATURE_NAMES.change_tool: _change_tool_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
@@ -877,10 +992,18 @@ def _impl(ctx):
 
     features = [default_compile_flags_feature, default_link_flags_feature]
 
+    should_add_multiple_tools_action_config = False
+
     for name in ctx.attr.feature_names:
+        if name == _FEATURE_NAMES.change_tool:
+            should_add_multiple_tools_action_config = True
+
         features.extend(_get_features_for_configuration(name))
 
     cxx_builtin_include_directories = ["/usr/lib/gcc/", "/usr/local/include", "/usr/include"]
+
+    for directory in ctx.attr.cxx_builtin_include_directories:
+        cxx_builtin_include_directories.append(directory)
 
     artifact_name_patterns = []
 
@@ -893,6 +1016,8 @@ def _impl(ctx):
         action_configs.append(
             _get_action_config(name, _tool_for_action_config.get(name, default = "DUMMY_TOOL")),
         )
+    if should_add_multiple_tools_action_config:
+        action_configs.append(_multiple_tools_action_config)
 
     make_variables = []
 
@@ -964,6 +1089,7 @@ cc_toolchain_config = rule(
         "cc_target_os": attr.string(),
         "builtin_sysroot": attr.string(default = "/usr/grte/v1"),
         "tool_paths": attr.string_dict(),
+        "cxx_builtin_include_directories": attr.string_list(),
     },
     provides = [CcToolchainConfigInfo],
     executable = True,

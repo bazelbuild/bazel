@@ -26,10 +26,11 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -66,10 +67,12 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void basic() throws Exception {
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
-            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     scratch.file(
         "x/BUILD",
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
@@ -203,10 +206,12 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void commandLineControlsOutputFileSuffixes() throws Exception {
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE,
-            MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE);
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--cc_proto_library_header_suffixes=.pb.h,.proto.h",
         "--cc_proto_library_source_suffixes=.pb.cc,.pb.cc.meta");
