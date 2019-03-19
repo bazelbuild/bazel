@@ -531,7 +531,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     SkyframeExecutorAdapter skyframeExecutorAdapter =
         createPartner(evaluationContext, missingDiffDirtinessChecker);
 
-    Root workspaceRoot = getRoot();
+    Root workspaceRoot = Root.fromPath(pkgLocator.get().getWorkspaceFile().getParentDirectory());
     BlacklistedPackagePrefixesValue blacklistedPrefixes =
         configurationHelper.computeBlacklist(skyframeExecutorAdapter, workspaceRoot);
     RefreshRootsValue refreshRoots =
@@ -605,12 +605,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
       return false;
     }
-  }
-
-  private Root getRoot() {
-    ImmutableList<Root> roots = pkgLocator.get().getPathEntries();
-    Preconditions.checkState(roots.size() == 1);
-    return roots.get(0);
   }
 
   private void handleChangedFiles(
