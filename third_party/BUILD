@@ -573,7 +573,7 @@ java_import(
 
 java_import(
     name = "mockito2",
-    jars = ["mockito/mockito-core-2.25.0.jar"],
+    jars = ["mockito/mockito-core-2.25.1.jar"],
     deps = [
         ":byte_buddy",
         ":objenesis",
