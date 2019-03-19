@@ -398,7 +398,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
       a.stat();
       fail("Expected IOException");
     } catch (IOException e) {
-      assertThat(e).hasMessage(aName + " (Too many levels of symbolic links)");
+      assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
     }
   }
 
@@ -413,7 +413,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
       a.stat();
       fail("Expected IOException");
     } catch (IOException e) {
-      assertThat(e).hasMessage(aName + " (Too many levels of symbolic links)");
+      assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
     }
   }
 }

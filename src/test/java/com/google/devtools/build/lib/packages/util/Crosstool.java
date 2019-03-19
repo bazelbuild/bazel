@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -50,10 +51,12 @@ public final class Crosstool {
     private final String abiVersion;
     private final String abiLibcVersion;
     private final String targetLibc;
+    private final String builtinSysroot;
     private final ImmutableList<String> features;
     private final ImmutableList<String> actionConfigs;
-    private final ImmutableList<String> artifactNamePatterns;
+    private final ImmutableList<ImmutableList<String>> artifactNamePatterns;
     private final ImmutableList<Pair<String, String>> toolPaths;
+    private final ImmutableList<String> cxxBuiltinIncludeDirectories;
 
     private CcToolchainConfig(
         String cpu,
@@ -64,10 +67,12 @@ public final class Crosstool {
         String abiVersion,
         String abiLibcVersion,
         String targetLibc,
+        String builtinSysroot,
         ImmutableList<String> features,
         ImmutableList<String> actionConfigs,
-        ImmutableList<String> artifactNamePatterns,
-        ImmutableList<Pair<String, String>> toolPaths) {
+        ImmutableList<ImmutableList<String>> artifactNamePatterns,
+        ImmutableList<Pair<String, String>> toolPaths,
+        ImmutableList<String> cxxBuiltinIncludeDirectories) {
       this.cpu = cpu;
       this.compiler = compiler;
       this.toolchainIdentifier = toolchainIdentifier;
@@ -80,6 +85,8 @@ public final class Crosstool {
       this.actionConfigs = actionConfigs;
       this.artifactNamePatterns = artifactNamePatterns;
       this.toolPaths = toolPaths;
+      this.builtinSysroot = builtinSysroot;
+      this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
     }
 
     public static Builder builder() {
@@ -90,8 +97,10 @@ public final class Crosstool {
     public static class Builder {
       private ImmutableList<String> features = ImmutableList.of();
       private ImmutableList<String> actionConfigs = ImmutableList.of();
-      private ImmutableList<String> artifactNamePatterns = ImmutableList.of();
+      private ImmutableList<ImmutableList<String>> artifactNamePatterns = ImmutableList.of();
       private ImmutableList<Pair<String, String>> toolPaths = ImmutableList.of();
+      private String builtinSysroot = "/usr/grte/v1";
+      private ImmutableList<String> cxxBuiltinIncludeDirectories = ImmutableList.of();
 
       public Builder withFeatures(String... features) {
         this.features = ImmutableList.copyOf(features);
@@ -103,13 +112,29 @@ public final class Crosstool {
         return this;
       }
 
-      public Builder withArtifactNamePatterns(String... artifactNamePatterns) {
+      public Builder withArtifactNamePatterns(ImmutableList<String>... artifactNamePatterns) {
+        for (ImmutableList<String> pattern : artifactNamePatterns) {
+          Preconditions.checkArgument(
+              pattern.size() == 3,
+              "Artifact name pattern should have three attributes: category_name, prefix and"
+                  + " extension");
+        }
         this.artifactNamePatterns = ImmutableList.copyOf(artifactNamePatterns);
         return this;
       }
 
       public Builder withToolPaths(Pair<String, String>... toolPaths) {
         this.toolPaths = ImmutableList.copyOf(toolPaths);
+        return this;
+      }
+
+      public Builder withSysroot(String sysroot) {
+        this.builtinSysroot = sysroot;
+        return this;
+      }
+
+      public Builder withCxxBuiltinIncludeDirectories(String... directories) {
+        this.cxxBuiltinIncludeDirectories = ImmutableList.copyOf(directories);
         return this;
       }
 
@@ -123,10 +148,12 @@ public final class Crosstool {
             /* abiVersion= */ "local",
             /* abiLibcVersion= */ "local",
             /* targetLibc= */ "local",
+            /* builtinSysroot= */ builtinSysroot,
             features,
             actionConfigs,
             artifactNamePatterns,
-            toolPaths);
+            toolPaths,
+            cxxBuiltinIncludeDirectories);
       }
     }
 
@@ -156,10 +183,12 @@ public final class Crosstool {
           /* abiVersion= */ "mock-abi-version-for-" + cpu,
           /* abiLibcVersion= */ "mock-abi-libc-for-" + cpu,
           /* targetLibc= */ "mock-libc-for-" + cpu,
+          /* builtinSysroot= */ "",
           /* features= */ ImmutableList.of(),
           /* actionConfigs= */ ImmutableList.of(),
           /* artifactNamePatterns= */ ImmutableList.of(),
-          /* toolPaths= */ ImmutableList.of());
+          /* toolPaths= */ ImmutableList.of(),
+          /* cxxBuiltinIncludeDirectories= */ ImmutableList.of());
     }
 
     public static CcToolchainConfig getDefaultCcToolchainConfig() {
@@ -177,16 +206,24 @@ public final class Crosstool {
               .collect(ImmutableList.toImmutableList());
       ImmutableList<String> patternsList =
           artifactNamePatterns.stream()
-              .map(pattern -> "'" + pattern + "'")
+              .map(
+                  pattern ->
+                      String.format(
+                          "'%s': ['%s', '%s']", pattern.get(0), pattern.get(1), pattern.get(2)))
               .collect(ImmutableList.toImmutableList());
       ImmutableList<String> toolPathsList =
           toolPaths.stream()
               .map(toolPath -> String.format("'%s': '%s'", toolPath.first, toolPath.second))
               .collect(ImmutableList.toImmutableList());
+      ImmutableList<String> directoriesList =
+          cxxBuiltinIncludeDirectories.stream()
+              .map(directory -> "'" + directory + "'")
+              .collect(ImmutableList.toImmutableList());
 
       return Joiner.on("\n")
           .join(
               "cc_toolchain_config(",
+              "  toolchain_identifier = '" + toolchainIdentifier + "',",
               "  name = '" + cpu + "-" + compiler + "_config',",
               "  cpu = '" + cpu + "',",
               "  compiler = '" + compiler + "',",
@@ -199,8 +236,12 @@ public final class Crosstool {
               String.format(
                   "  action_configs = [%s],", Joiner.on(",\n    ").join(actionConfigsList)),
               String.format(
-                  "  artifact_name_patterns = [%s],", Joiner.on(",\n    ").join(patternsList)),
+                  "  artifact_name_patterns = {%s},", Joiner.on(",\n    ").join(patternsList)),
               String.format("  tool_paths = {%s},", Joiner.on(",\n    ").join(toolPathsList)),
+              "  builtin_sysroot = '" + builtinSysroot + "',",
+              String.format(
+                  "  cxx_builtin_include_directories = [%s]",
+                  Joiner.on(",\n    ").join(directoriesList)),
               "  )");
     }
   }
@@ -281,12 +322,14 @@ public final class Crosstool {
                 toolchain.getAbiVersion(),
                 toolchain.getAbiLibcVersion(),
                 toolchain.getTargetLibc(),
+                toolchain.getBuiltinSysroot(),
                 toolchain.getFeatureList().stream()
                     .map(feature -> feature.getName())
                     .collect(ImmutableList.toImmutableList()),
                 /* actionConfigs= */ ImmutableList.of(),
                 /* artifactNamePatterns= */ ImmutableList.of(),
-                /* toolPaths= */ ImmutableList.of()));
+                /* toolPaths= */ ImmutableList.of(),
+                /* cxxBuiltinIncludeDirectories= */ ImmutableList.of()));
       }
       ccToolchainConfigs = toolchainConfigInfoBuilder.build();
     }

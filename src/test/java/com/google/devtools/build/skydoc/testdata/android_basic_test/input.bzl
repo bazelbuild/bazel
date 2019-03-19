@@ -1,15 +1,3 @@
-def exercise_the_api():
-    _var1 = android_common.create_device_broker_info("")
-    _var2 = ApkInfo
-    _var3 = AndroidInstrumentationInfo
-    _var4 = AndroidDeviceBrokerInfo
-    _var5 = AndroidResourcesInfo
-    _var6 = AndroidNativeLibsInfo
-    _var7 = AndroidSdkInfo
-    _var8 = android_data
-
-exercise_the_api()
-
 def my_rule_impl(ctx):
     return struct()
 

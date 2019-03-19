@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A provider that supplies resource information from its transitive closure. */
 @SkylarkModule(
@@ -51,10 +52,16 @@ public interface AndroidResourcesInfoApi<
       name = "label",
       doc = "Returns the label that is associated with this piece of information.",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   Label getLabel();
 
-  @SkylarkCallable(name = "manifest", doc = "", documented = false, structField = true)
+  @SkylarkCallable(
+      name = "manifest",
+      doc = "",
+      documented = false,
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   AndroidManifestInfoT getManifest();
 
   /** Returns the compiletime r.txt file for the target. */
@@ -65,7 +72,8 @@ public interface AndroidResourcesInfoApi<
               + " stubbed out compiletime file and should not be built into APKs, inherited from"
               + " dependencies, or used at runtime.",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getRTxt();
 
   /** Returns the transitive ResourceContainers for the label. */
@@ -73,7 +81,8 @@ public interface AndroidResourcesInfoApi<
       name = "transitive_android_resources",
       doc = "Returns the transitive ResourceContainers for the label.",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<ValidatedAndroidDataT> getTransitiveAndroidResources();
 
   /** Returns the immediate ResourceContainers for the label. */
@@ -81,40 +90,64 @@ public interface AndroidResourcesInfoApi<
       name = "direct_android_resources",
       doc = "Returns the immediate ResourceContainers for the label.",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<ValidatedAndroidDataT> getDirectAndroidResources();
 
-  @SkylarkCallable(name = "transitive_resources", doc = "", documented = false, structField = true)
+  @SkylarkCallable(
+      name = "transitive_resources",
+      doc = "",
+      documented = false,
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveResources();
 
-  @SkylarkCallable(name = "transitive_manifests", doc = "", documented = false, structField = true)
+  @SkylarkCallable(
+      name = "transitive_manifests",
+      doc = "",
+      documented = false,
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveManifests();
 
   @SkylarkCallable(
       name = "transitive_aapt2_r_txt",
       doc = "",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveAapt2RTxt();
 
   @SkylarkCallable(
       name = "transitive_symbols_bin",
       doc = "",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveSymbolsBin();
 
   @SkylarkCallable(
       name = "transitive_compiled_symbols",
       doc = "",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveCompiledSymbols();
 
-  @SkylarkCallable(name = "transitive_static_lib", doc = "", documented = false, structField = true)
+  @SkylarkCallable(
+      name = "transitive_static_lib",
+      doc = "",
+      documented = false,
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveStaticLib();
 
-  @SkylarkCallable(name = "transitive_r_txt", doc = "", documented = false, structField = true)
+  @SkylarkCallable(
+      name = "transitive_r_txt",
+      doc = "",
+      documented = false,
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveRTxt();
 
   /** Provider for {@link AndroidResourcesInfoApi}. */
@@ -134,6 +167,7 @@ public interface AndroidResourcesInfoApi<
         name = "AndroidResourcesInfo",
         doc = "The <code>AndroidResourcesInfo</code> constructor.",
         documented = false,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "label",

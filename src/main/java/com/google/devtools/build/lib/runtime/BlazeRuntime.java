@@ -1157,10 +1157,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     try {
       for (BlazeModule module : blazeModules) {
         BlazeModule.ModuleFileSystem moduleFs =
-            module.getFileSystem(
-                options,
-                outputBase.getRelative(ServerDirectories.EXECROOT),
-                BlazeDirectories.getRelativeOutputPath(productName));
+            module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
         if (moduleFs != null) {
           execRootBasePath = moduleFs.virtualExecRootBase();
           Preconditions.checkState(fs == null, "more than one module returns a file system");

@@ -84,10 +84,9 @@ public abstract class BlazeModule {
    *
    * @param startupOptions the server's startup options
    * @param realExecRootBase absolute path fragment of the actual, underlying execution root
-   * @param relativeOutputPath output path relative to the execution root
    */
   public ModuleFileSystem getFileSystem(
-      OptionsParsingResult startupOptions, PathFragment realExecRootBase, String relativeOutputPath)
+      OptionsParsingResult startupOptions, PathFragment realExecRootBase)
       throws AbruptExitException, DefaultHashFunctionNotSetException {
     return null;
   }

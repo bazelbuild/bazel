@@ -45,8 +45,8 @@ public class AndroidDataBindingProcessorBuilder {
       // <bazel-pkg>/databinding-processed-resources/<rule-name>/<bazal-pkg>/<resource-dir>
 
       Artifact databindingProcessedResource =
-          dataContext.getUniqueDirectoryArtifact("databinding-processed-resources",
-              resource.getRootRelativePath());
+          dataContext.getUniqueDirectoryArtifact(
+              "databinding-processed-resources", resource.getExecPath());
 
       databindingProcessedResourcesBuilder.add(databindingProcessedResource);
     }
@@ -58,28 +58,24 @@ public class AndroidDataBindingProcessorBuilder {
     // Create output resource roots that correspond to the paths of the resources created above:
     //
     //   <bazel-pkg>/databinding-processed-resources/<rule-name>/<resource-root>
-    //
-    // AndroidDataBindingProcessingAction will append each value of --resource_root to its
-    // corresponding --output_resource_root, so the only part that needs to be constructed here is
-    //
-    //   <bazel-pkg>/databinding-processed-resources/<rule-name>
     ArtifactRoot binOrGenfiles = dataContext.getBinOrGenfilesDirectory();
     PathFragment uniqueDir =
         dataContext.getUniqueDirectory(PathFragment.create("databinding-processed-resources"));
     PathFragment outputResourceRoot = binOrGenfiles.getExecPath().getRelative(uniqueDir);
 
+    // AndroidDataBindingProcessingAction will append each value of --resource_root to its
+    // corresponding --output_resource_directory, so the only part that needs to be constructed here
+    // is:
+    //
+    //   <bazel-pkg>/databinding-processed-resources/<rule-name>
+    builder.addFlag("--output_resource_directory", outputResourceRoot.toString());
+
     ImmutableList.Builder<PathFragment> outputResourceRootsBuilder = ImmutableList.builder();
     for (PathFragment resourceRoot : androidResources.getResourceRoots()) {
 
-      outputResourceRootsBuilder.add(outputResourceRoot);
-
-      // The order of these matter, the input root and the output root have to be matched up
-      // because the resource processor will iterate over them in pairs.
-      // TODO(ahumesky): This is currently sets the output resource root to the same root for
-      // all input roots, but separate output roots may still need to be maintained since this
-      // is doing a sort of merge before the real resource merger runs.
       builder.addFlag("--resource_root", resourceRoot.toString());
-      builder.addFlag("--output_resource_root", outputResourceRoot.toString());
+
+      outputResourceRootsBuilder.add(outputResourceRoot.getRelative(resourceRoot));
     }
 
     // Even though the databinding processor really only cares about layout files, we send

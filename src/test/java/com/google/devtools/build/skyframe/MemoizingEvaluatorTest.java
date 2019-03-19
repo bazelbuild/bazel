@@ -1362,7 +1362,9 @@ public class MemoizingEvaluatorTest {
       } else {
         assertThatErrorInfo(errorInfo).isNotTransient();
       }
-      assertThat(errorInfo.getException()).hasMessage(NODE_TYPE.getName() + ":errorKey");
+      assertThat(errorInfo.getException())
+          .hasMessageThat()
+          .isEqualTo(NODE_TYPE.getName() + ":errorKey");
       assertThat(errorInfo.getRootCauseOfException()).isEqualTo(errorKey);
     } else {
       // When errors are not stored alongside values, transient errors that are recovered from do

@@ -241,7 +241,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -364,7 +364,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party:truth8",
     ],
 )
@@ -386,7 +386,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:out-err",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/protobuf:bazel_flags_java_proto",
-        "//third_party:mockito",
+        "//third_party:mockito2",
     ],
 )
 
@@ -574,7 +574,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:action_cache_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
     ],
 )
 
@@ -614,7 +614,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:action_cache_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party:truth8",
     ],
 )
@@ -699,7 +699,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party/protobuf:protobuf_java",
         "@bazel_tools//tools/java/runfiles",
     ],
@@ -754,7 +754,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
     ],
 )
 
@@ -793,7 +793,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/skyframe/trimming:trimmable_test_fragments",
         "//third_party:auto_value",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
     ],
 )
 
@@ -892,7 +892,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:auto_value",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
     ],
 )
 
@@ -955,7 +955,7 @@ java_library(
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -995,7 +995,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:build_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -1054,7 +1054,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:command_server_java_proto",
         "//third_party:jsr305",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
     ],
@@ -1275,7 +1275,7 @@ java_test(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//src/test/java/com/google/devtools/common/options:testutils",
-        "//third_party:mockito",
+        "//third_party:mockito2",
     ],
 )
 
@@ -1406,7 +1406,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -1434,7 +1434,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/tools:process-wrapper",
         "//src/test/shell/integration:spend_cpu_time",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party:truth8",
     ],
 )
@@ -1455,7 +1455,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//third_party:mockito",
+        "//third_party:mockito2",
     ],
 )
 

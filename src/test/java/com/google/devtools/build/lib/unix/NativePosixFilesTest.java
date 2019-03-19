@@ -90,7 +90,7 @@ public class NativePosixFilesTest {
       NativePosixFiles.md5sum(testFile.getPathString());
       fail("Expected FileAccessException, but wasn't thrown.");
     } catch (FileAccessException e) {
-      assertThat(e).hasMessage(testFile + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(testFile + " (Permission denied)");
     }
   }
 
@@ -100,7 +100,7 @@ public class NativePosixFilesTest {
       NativePosixFiles.md5sum(testFile.getPathString());
       fail("Expected FileNotFoundException, but wasn't thrown.");
     } catch (FileNotFoundException e) {
-      assertThat(e).hasMessage(testFile + " (No such file or directory)");
+      assertThat(e).hasMessageThat().isEqualTo(testFile + " (No such file or directory)");
     }
   }
 
@@ -111,10 +111,10 @@ public class NativePosixFilesTest {
       NativePosixFiles.setWritable(foo);
       fail("Expected FilePermissionException or IOException, but wasn't thrown.");
     } catch (FilePermissionException e) {
-      assertThat(e).hasMessage(foo + " (Operation not permitted)");
+      assertThat(e).hasMessageThat().isEqualTo(foo + " (Operation not permitted)");
     } catch (IOException e) {
       // When running in a sandbox, /bin might actually be a read-only file system.
-      assertThat(e).hasMessage(foo + " (Read-only file system)");
+      assertThat(e).hasMessageThat().isEqualTo(foo + " (Read-only file system)");
     }
   }
 

@@ -35,7 +35,7 @@ readonly SL_ZIP=${PWD}/$1
 shift
 readonly CLR_HTML=${PWD}/$1
 shift
-readonly REPO_ZIP="${PWD}/$1"
+readonly REPO_TAR="${PWD}/$1"
 
 # Create temporary directory that is removed when this script exits.
 readonly TMP=$(mktemp -d "${TMPDIR:-/tmp}/tmp.XXXXXXXX")
@@ -70,7 +70,7 @@ function setup {
   # Unpack the the documentation for the repository rules to repo subdirectory
   local repo_dir="${VERSION_DIR}/repo"
   mkdir -p "${repo_dir}"
-  unzip -qq "${REPO_ZIP}" -d "${repo_dir}"
+  tar -C "${repo_dir}" -xf "${REPO_TAR}"
 
   # Copy the command line reference.
   cp "$CLR_HTML" "$VERSION_DIR"

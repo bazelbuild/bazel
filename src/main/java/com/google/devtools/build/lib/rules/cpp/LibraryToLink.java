@@ -566,6 +566,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     return dynamicLibrariesForLinkingBuilder.build();
   }
 
+  public abstract Builder toBuilder();
+
   /** Builder for LibraryToLink. */
   @AutoValue.Builder
   public abstract static class Builder {
@@ -592,11 +594,13 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
     public abstract Builder setDynamicLibrary(Artifact dynamicLibrary);
 
-    abstract Builder setResolvedSymlinkDynamicLibrary(Artifact resolvedSymlinkDynamicLibrary);
+    public abstract Builder setResolvedSymlinkDynamicLibrary(
+        Artifact resolvedSymlinkDynamicLibrary);
 
-    abstract Builder setInterfaceLibrary(Artifact interfaceLibrary);
+    public abstract Builder setInterfaceLibrary(Artifact interfaceLibrary);
 
-    abstract Builder setResolvedSymlinkInterfaceLibrary(Artifact resolvedSymlinkInterfaceLibrary);
+    public abstract Builder setResolvedSymlinkInterfaceLibrary(
+        Artifact resolvedSymlinkInterfaceLibrary);
 
     public abstract Builder setAlwayslink(boolean alwayslink);
 

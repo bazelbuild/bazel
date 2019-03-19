@@ -166,7 +166,9 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
       new RuleClass.Builder("ruleC", RuleClassType.NORMAL, false, a, b).build();
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessage("Attribute a is inherited multiple times in ruleC ruleclass");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Attribute a is inherited multiple times in ruleC ruleclass");
     }
   }
 

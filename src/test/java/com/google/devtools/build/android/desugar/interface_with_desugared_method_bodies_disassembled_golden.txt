@@ -5,4 +5,5 @@ public interface com.google.devtools.build.android.desugar.testdata.java8.Interf
   public abstract java.util.List<java.lang.String> staticMethodReference(java.util.List<java.lang.String>);
   public abstract java.util.List<java.lang.String> lambdaCallsDefaultMethod(java.util.List<java.lang.String>);
   public abstract boolean startsWithS(java.lang.String);
+  public abstract boolean startsWithS(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.lang.String);
 }

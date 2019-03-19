@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A provider for targets that produce an apk file. */
 @SkylarkModule(
@@ -53,7 +54,8 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       name = "unsigned_apk",
       doc = "Returns a unsigned APK built from the target.",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getUnsignedApk();
 
   /** Returns keystore that was used to sign the APK */
@@ -61,7 +63,8 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       name = "keystore",
       doc = "Returns a keystore that was used to sign the APK.",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getKeystore();
 
   /** Provider for {@link ApkInfoApi}. */
@@ -77,6 +80,7 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
         name = "ApkInfo",
         // This is left undocumented as it throws a "not-implemented in Skylark" error when invoked.
         documented = false,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         extraKeywords = @Param(name = "kwargs"),
         useLocation = true,
         selfCall = true)

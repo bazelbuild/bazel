@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.Set;
@@ -201,6 +202,23 @@ public class PlatformMappingValueTest {
         mappingValue.map(keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
     assertThat(keyForOptions(modifiedOptions)).isEqualTo(mapped);
+  }
+
+  @Test
+  public void testDefaultKey() {
+    PlatformMappingValue.Key key = PlatformMappingValue.Key.create(null);
+
+    assertThat(key.getWorkspaceRelativeMappingPath())
+        .isEqualTo(PlatformOptions.DEFAULT_PLATFORM_MAPPINGS);
+    assertThat(key.wasExplicitlySetByUser()).isFalse();
+  }
+
+  @Test
+  public void testCustomKey() {
+    PlatformMappingValue.Key key = PlatformMappingValue.Key.create(PathFragment.create("my/path"));
+
+    assertThat(key.getWorkspaceRelativeMappingPath()).isEqualTo(PathFragment.create("my/path"));
+    assertThat(key.wasExplicitlySetByUser()).isTrue();
   }
 
   private BuildOptions toMappedOptions(BuildConfigurationValue.Key mapped) {

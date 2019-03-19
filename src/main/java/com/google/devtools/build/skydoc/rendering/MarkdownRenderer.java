@@ -29,6 +29,8 @@ import org.apache.velocity.runtime.resource.loader.JarResourceLoader;
  */
 public class MarkdownRenderer {
 
+  private static final String HEADER_TEMPLATE_FILENAME =
+      "com/google/devtools/build/skydoc/rendering/templates/header.vm";
   private static final String RULE_TEMPLATE_FILENAME =
       "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
   private static final String PROVIDER_TEMPLATE_FILENAME =
@@ -47,6 +49,21 @@ public class MarkdownRenderer {
     velocityEngine.setProperty("input.encoding", "UTF-8");
     velocityEngine.setProperty("output.encoding", "UTF-8");
     velocityEngine.setProperty("runtime.references.strict", true);
+  }
+
+  /**
+   * Returns a markdown header string that should appear at the top of all markdown files generated
+   * by Stardoc.
+   */
+  public String renderMarkdownHeader() throws IOException {
+    StringWriter stringWriter = new StringWriter();
+    try {
+      velocityEngine.mergeTemplate(
+          HEADER_TEMPLATE_FILENAME, "UTF-8", new VelocityContext(), stringWriter);
+    } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
+      throw new IOException(e);
+    }
+    return stringWriter.toString();
   }
 
   /**

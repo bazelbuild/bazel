@@ -97,6 +97,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAndroidSplitTransitionWithInvalidCpu() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "test/skylark/my_rule.bzl",
         "def impl(ctx): ",
@@ -3314,6 +3315,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     useConfiguration(
         "--experimental_dynamic_configs=notrim",
         "--enforce_transitive_configs_for_config_feature_flag");
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "java/com/foo/reader.bzl",
         "def _impl(ctx):",
@@ -4139,6 +4141,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testApkInfoAccessibleFromSkylark() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "java/com/google/android/BUILD",
         "load(':postprocess.bzl', 'postprocess')",
@@ -4161,6 +4164,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testInstrumentationInfoAccessibleFromSkylark() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "java/com/google/android/instr/BUILD",
         "load(':instr.bzl', 'instr')",
@@ -4189,6 +4193,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testInstrumentationInfoCreatableFromSkylark() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "java/com/google/android/instr/BUILD",
         "load(':instr.bzl', 'instr')",
@@ -4460,6 +4465,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void skylarkJavaInfoToAndroidBinaryAttributes() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "java/r/android/extension.bzl",
         "def _impl(ctx):",

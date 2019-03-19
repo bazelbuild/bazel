@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
-import com.google.devtools.build.lib.rules.cpp.SpawnGccStrategy;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -62,7 +61,6 @@ public class StandaloneModule extends BlazeModule {
     // last one from strategies list will be used
     builder.addActionContext(
         new StandaloneSpawnStrategy(env.getExecRoot(), createLocalRunner(env)));
-    builder.addActionContext(new SpawnGccStrategy());
     builder.addActionContext(testStrategy);
     builder.addActionContext(new ExclusiveTestStrategy(testStrategy));
     builder.addActionContext(new FileWriteStrategy());

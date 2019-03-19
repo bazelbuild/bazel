@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A target that can provide local proguard specifications. */
 @SkylarkModule(
@@ -39,7 +40,8 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
       name = "local_proguard_specs",
       structField = true,
       doc = "Returns the local proguard specs defined by this target.",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   ImmutableList<FileT> getLocalProguardSpecs();
 
   /** The provider implementing this can construct the AndroidProguardInfo provider. */
@@ -55,6 +57,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
         name = NAME,
         doc = "The <code>AndroidProguardInfo</code> constructor.",
         documented = false,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "local_proguard_specs",

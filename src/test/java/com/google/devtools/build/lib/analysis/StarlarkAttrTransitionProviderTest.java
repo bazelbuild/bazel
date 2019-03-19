@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -49,12 +48,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   private void writeBasicTestFiles() throws Exception {
     setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            /* appendToCurrentToolchain= */ false,
-            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
         "test/skylark/my_rule.bzl",
         "def transition_func(settings, attr):",
@@ -247,12 +241,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     //   "k8": ConfiguredTarget,
     //   "armeabi-v7a": ConfiguredTarget,
     // }
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            /* appendToCurrentToolchain= */ false,
-            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     writeReadSettingsTestFiles();
 
     useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");

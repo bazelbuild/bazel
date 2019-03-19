@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -35,6 +36,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * Stores contents of a platforms/flags mapping file for transforming one {@link
@@ -46,22 +48,54 @@ import java.util.Objects;
  */
 public final class PlatformMappingValue implements SkyValue {
 
+  public static final PlatformMappingValue EMPTY =
+      new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of());
+
   /** Key for {@link PlatformMappingValue} based on the location of the mapping file. */
   @ThreadSafety.Immutable
   @AutoCodec
   public static final class Key implements SkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    private final RootedPath path;
-
-    private Key(RootedPath path) {
-      this.path = path;
+    /**
+     * Creates a new platform mappings key with the given, main workspace-relative path to the
+     * mappings file, typically derived from the {@code --platform_mappings} flag.
+     *
+     * <p>If the path is {@code null} the {@link PlatformOptions#DEFAULT_PLATFORM_MAPPINGS default
+     * path} will be used and the key marked as not having been set by a user.
+     *
+     * @param workspaceRelativeMappingPath main workspace relative path to the mappings file or
+     *     {@code null} if the default location should be used
+     */
+    public static Key create(@Nullable PathFragment workspaceRelativeMappingPath) {
+      if (workspaceRelativeMappingPath == null) {
+        return create(PlatformOptions.DEFAULT_PLATFORM_MAPPINGS, false);
+      } else {
+        return create(workspaceRelativeMappingPath, true);
+      }
     }
 
-    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static Key create(RootedPath path) {
-      return interner.intern(new Key(path));
+    @AutoCodec.VisibleForSerialization
+    static Key create(PathFragment workspaceRelativeMappingPath, boolean wasExplicitlySetByUser) {
+      return interner.intern(new Key(workspaceRelativeMappingPath, wasExplicitlySetByUser));
+    }
+
+    private final PathFragment path;
+    private final boolean wasExplicitlySetByUser;
+
+    private Key(PathFragment path, boolean wasExplicitlySetByUser) {
+      this.path = path;
+      this.wasExplicitlySetByUser = wasExplicitlySetByUser;
+    }
+
+    /** Returns the main-workspace relative path this mapping's mapping file can be found at. */
+    public PathFragment getWorkspaceRelativeMappingPath() {
+      return path;
+    }
+
+    public boolean wasExplicitlySetByUser() {
+      return wasExplicitlySetByUser;
     }
 
     @Override
@@ -78,17 +112,21 @@ public final class PlatformMappingValue implements SkyValue {
         return false;
       }
       Key key = (Key) o;
-      return Objects.equals(path, key.path);
+      return Objects.equals(path, key.path) && wasExplicitlySetByUser == key.wasExplicitlySetByUser;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(path);
+      return Objects.hash(path, wasExplicitlySetByUser);
     }
 
     @Override
     public String toString() {
-      return "PlatformMappingValue.Key{" + "path=" + path + '}';
+      return "PlatformMappingValue.Key{path="
+          + path
+          + ", wasExplicitlySetByUser="
+          + wasExplicitlySetByUser
+          + "}";
     }
   }
 

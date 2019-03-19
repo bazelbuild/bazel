@@ -588,7 +588,7 @@ public abstract class FileSystemTest {
       xFile.createDirectory();
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessage(xFile + " (File exists)");
+      assertThat(e).hasMessageThat().isEqualTo(xFile + " (File exists)");
     }
   }
 
@@ -611,7 +611,7 @@ public abstract class FileSystemTest {
       xChildOfReadonlyDir.createDirectory();
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessage(xChildOfReadonlyDir + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(xChildOfReadonlyDir + " (Permission denied)");
     }
   }
 
@@ -634,7 +634,7 @@ public abstract class FileSystemTest {
       FileSystemUtils.createEmptyFile(xChildOfReadonlyDir);
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessage(xChildOfReadonlyDir + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(xChildOfReadonlyDir + " (Permission denied)");
     }
   }
 
@@ -689,7 +689,7 @@ public abstract class FileSystemTest {
       if (ex instanceof FileNotFoundException) {
         fail("The method should throw an object of class IOException.");
       }
-      assertThat(ex).hasMessage(xFile + " (Not a directory)");
+      assertThat(ex).hasMessageThat().isEqualTo(xFile + " (Not a directory)");
     }
   }
 
@@ -700,7 +700,7 @@ public abstract class FileSystemTest {
       somePath.getDirectoryEntries();
       fail("FileNotFoundException not thrown.");
     } catch (Exception x) {
-      assertThat(x).hasMessage(somePath + " (No such file or directory)");
+      assertThat(x).hasMessageThat().isEqualTo(somePath + " (No such file or directory)");
     }
   }
 
@@ -774,7 +774,7 @@ public abstract class FileSystemTest {
       xNonEmptyDirectory.delete();
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessage(xNonEmptyDirectory + " (Directory not empty)");
+      assertThat(e).hasMessageThat().isEqualTo(xNonEmptyDirectory + " (Directory not empty)");
     }
   }
 
@@ -860,7 +860,7 @@ public abstract class FileSystemTest {
       newPath.getLastModifiedTime();
       fail("FileNotFoundException not thrown!");
     } catch (FileNotFoundException x) {
-      assertThat(x).hasMessage(newPath + " (No such file or directory)");
+      assertThat(x).hasMessageThat().isEqualTo(newPath + " (No such file or directory)");
     }
   }
 
@@ -872,7 +872,7 @@ public abstract class FileSystemTest {
       newPath.getFileSize();
       fail("FileNotFoundException not thrown.");
     } catch (FileNotFoundException e) {
-      assertThat(e).hasMessage(newPath + " (No such file or directory)");
+      assertThat(e).hasMessageThat().isEqualTo(newPath + " (No such file or directory)");
     }
   }
 
@@ -976,7 +976,7 @@ public abstract class FileSystemTest {
       xEmptyDirectory.getOutputStream();
       fail("The Exception was not thrown!");
     } catch (IOException ex) {
-      assertThat(ex).hasMessage(xEmptyDirectory + " (Is a directory)");
+      assertThat(ex).hasMessageThat().isEqualTo(xEmptyDirectory + " (Is a directory)");
     }
   }
 
@@ -986,7 +986,7 @@ public abstract class FileSystemTest {
       xEmptyDirectory.getInputStream();
       fail("The Exception was not thrown!");
     } catch (IOException ex) {
-      assertThat(ex).hasMessage(xEmptyDirectory + " (Is a directory)");
+      assertThat(ex).hasMessageThat().isEqualTo(xEmptyDirectory + " (Is a directory)");
     }
   }
 
@@ -1046,7 +1046,9 @@ public abstract class FileSystemTest {
       xEmptyDirectory.renameTo(xFile);
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessage(xEmptyDirectory + " -> " + xFile + " (Not a directory)");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(xEmptyDirectory + " -> " + xFile + " (Not a directory)");
     }
   }
 
@@ -1069,7 +1071,9 @@ public abstract class FileSystemTest {
       xFile.renameTo(xEmptyDirectory);
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessage(xFile + " -> " + xEmptyDirectory + " (Is a directory)");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(xFile + " -> " + xEmptyDirectory + " (Is a directory)");
     }
   }
 
@@ -1142,7 +1146,7 @@ public abstract class FileSystemTest {
       xNothing.isExecutable();
       fail("No exception thrown.");
     } catch (FileNotFoundException ex) {
-      assertThat(ex).hasMessage(xNothing + " (No such file or directory)");
+      assertThat(ex).hasMessageThat().isEqualTo(xNothing + " (No such file or directory)");
     }
   }
 
@@ -1152,7 +1156,7 @@ public abstract class FileSystemTest {
       xNothing.setExecutable(true);
       fail("No exception thrown.");
     } catch (FileNotFoundException ex) {
-      assertThat(ex).hasMessage(xNothing + " (No such file or directory)");
+      assertThat(ex).hasMessageThat().isEqualTo(xNothing + " (No such file or directory)");
     }
   }
 
@@ -1162,7 +1166,7 @@ public abstract class FileSystemTest {
       xNothing.isWritable();
       fail("No exception thrown.");
     } catch (FileNotFoundException ex) {
-      assertThat(ex).hasMessage(xNothing + " (No such file or directory)");
+      assertThat(ex).hasMessageThat().isEqualTo(xNothing + " (No such file or directory)");
     }
   }
 
@@ -1172,7 +1176,7 @@ public abstract class FileSystemTest {
       xNothing.setWritable(false);
       fail("No exception thrown.");
     } catch (FileNotFoundException ex) {
-      assertThat(ex).hasMessage(xNothing + " (No such file or directory)");
+      assertThat(ex).hasMessageThat().isEqualTo(xNothing + " (No such file or directory)");
     }
   }
 
@@ -1220,7 +1224,7 @@ public abstract class FileSystemTest {
       FileSystemUtils.writeContent(xFile, "hello, world!".getBytes(UTF_8));
       fail("No exception thrown.");
     } catch (IOException e) {
-      assertThat(e).hasMessage(xFile + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(xFile + " (Permission denied)");
     }
   }
 
@@ -1232,7 +1236,7 @@ public abstract class FileSystemTest {
       FileSystemUtils.readContent(xFile);
       fail("No exception thrown.");
     } catch (IOException e) {
-      assertThat(e).hasMessage(xFile + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(xFile + " (Permission denied)");
     }
   }
 
@@ -1245,7 +1249,7 @@ public abstract class FileSystemTest {
       FileSystemUtils.createEmptyFile(xNonEmptyDirectoryBar);
       fail("No exception thrown.");
     } catch (IOException e) {
-      assertThat(e).hasMessage(xNonEmptyDirectoryBar + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(xNonEmptyDirectoryBar + " (Permission denied)");
     }
   }
 
@@ -1258,7 +1262,7 @@ public abstract class FileSystemTest {
       xNonEmptyDirectoryBar.createDirectory();
       fail("No exception thrown.");
     } catch (IOException e) {
-      assertThat(e).hasMessage(xNonEmptyDirectoryBar + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(xNonEmptyDirectoryBar + " (Permission denied)");
     }
   }
 
@@ -1295,7 +1299,7 @@ public abstract class FileSystemTest {
       xNonEmptyDirectoryFoo.delete();
       fail("No exception thrown.");
     } catch (IOException e) {
-      assertThat(e).hasMessage(xNonEmptyDirectoryFoo + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(xNonEmptyDirectoryFoo + " (Permission denied)");
     }
   }
 
@@ -1309,7 +1313,7 @@ public abstract class FileSystemTest {
         createSymbolicLink(xNonEmptyDirectoryBar, xNonEmptyDirectoryFoo);
         fail("No exception thrown.");
       } catch (IOException e) {
-        assertThat(e).hasMessage(xNonEmptyDirectoryBar + " (Permission denied)");
+        assertThat(e).hasMessageThat().isEqualTo(xNonEmptyDirectoryBar + " (Permission denied)");
       }
     }
   }
@@ -1406,7 +1410,9 @@ public abstract class FileSystemTest {
       xFile.createHardLink(xLink);
       fail("expected FileNotFoundException: File \"xFile\" linked from \"xLink\" does not exist");
     } catch (FileNotFoundException expected) {
-      assertThat(expected).hasMessage("File \"xFile\" linked from \"xLink\" does not exist");
+      assertThat(expected)
+          .hasMessageThat()
+          .isEqualTo("File \"xFile\" linked from \"xLink\" does not exist");
     }
     assertThat(xFile.exists()).isFalse();
     assertThat(xLink.exists()).isFalse();
@@ -1427,7 +1433,9 @@ public abstract class FileSystemTest {
       xFile.createHardLink(xLink);
       fail("expected FileNotFoundException: File \"xFile\" linked from \"xLink\" does not exist");
     } catch (FileNotFoundException expected) {
-      assertThat(expected).hasMessage("File \"xFile\" linked from \"xLink\" does not exist");
+      assertThat(expected)
+          .hasMessageThat()
+          .isEqualTo("File \"xFile\" linked from \"xLink\" does not exist");
     }
     assertThat(xFile.exists()).isFalse();
     assertThat(xLink.exists()).isTrue();
@@ -1446,7 +1454,7 @@ public abstract class FileSystemTest {
       xFile.createHardLink(xLink);
       fail("expected FileAlreadyExistsException: New link file \"xLink\" already exists");
     } catch (FileAlreadyExistsException expected) {
-      assertThat(expected).hasMessage("New link file \"xLink\" already exists");
+      assertThat(expected).hasMessageThat().isEqualTo("New link file \"xLink\" already exists");
     }
     assertThat(xFile.exists()).isTrue();
     assertThat(xLink.exists()).isTrue();

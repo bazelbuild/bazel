@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -38,6 +40,13 @@ public class PlatformOptions extends FragmentOptions {
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
   public static final Label LEGACY_DEFAULT_TARGET_PLATFORM =
       Label.parseAbsoluteUnchecked("@bazel_tools//platforms:target_platform");
+
+  /**
+   * Main workspace-relative location to use when the user does not explicitly set {@code
+   * --platform_mappings}.
+   */
+  public static final PathFragment DEFAULT_PLATFORM_MAPPINGS =
+      PathFragment.create("platform_mappings");
 
   @Option(
       name = "host_platform",
@@ -168,6 +177,23 @@ public class PlatformOptions extends FragmentOptions {
           "If set to true, toolchain resolution will be used to resolve java_toolchain and"
               + " java_runtime.")
   public boolean useToolchainResolutionForJavaRules;
+
+  @Option(
+      name = "platform_mappings",
+      converter = OptionsUtils.EmptyToNullRelativePathFragmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "The location of a mapping file that describes which platform to use if none is set or "
+              + "which flags to set when a platform already exists. Must be relative to the main "
+              + "workspace root. Defaults to 'platform_mappings' (a file directly under the "
+              + "workspace root).")
+  public PathFragment platformMappings;
 
   @Override
   public PlatformOptions getHost() {

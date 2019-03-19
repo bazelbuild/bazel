@@ -205,7 +205,7 @@ public class DesugarFunctionalTest {
       stringer.call();
       fail("IOException expected");
     } catch (IOException expected) {
-      assertThat(expected).hasMessage("SergeyLarry");
+      assertThat(expected).hasMessageThat().isEqualTo("SergeyLarry");
     } catch (Exception e) {
       throw e;
     }
@@ -249,7 +249,7 @@ public class DesugarFunctionalTest {
       ConstructorReference unused = ConstructorReference.emptyThroughJavacGeneratedBridge().get();
       fail("RuntimeException expected");
     } catch (RuntimeException expected) {
-      assertThat(expected).hasMessage("got it!");
+      assertThat(expected).hasMessageThat().isEqualTo("got it!");
     }
   }
 

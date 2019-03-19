@@ -1,4 +1,7 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
 <a name="#my_repo"></a>
+
 ## my_repo
 
 <pre>

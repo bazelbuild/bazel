@@ -441,10 +441,10 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(spawnActionContext.exec(any(), any()))
         .thenAnswer(
             (invocation) -> {
-              Spawn spawn = invocation.getArgumentAt(0, Spawn.class);
+              Spawn spawn = invocation.getArgument(0);
               if (spawn.getOutputFiles().size() != 1) {
-                FileOutErr outErr =
-                    invocation.getArgumentAt(1, ActionExecutionContext.class).getFileOutErr();
+                ActionExecutionContext context = invocation.getArgument(1);
+                FileOutErr outErr = context.getFileOutErr();
                 try (OutputStream stream = outErr.getOutputStream()) {
                   stream.write("This will not appear in the test output: bla\n".getBytes(UTF_8));
                   stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
@@ -537,9 +537,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(spawnActionContext.exec(any(), any()))
         .thenAnswer(
             (invocation) -> {
-              Spawn spawn = invocation.getArgumentAt(0, Spawn.class);
-              FileOutErr outErr =
-                  invocation.getArgumentAt(1, ActionExecutionContext.class).getFileOutErr();
+              Spawn spawn = invocation.getArgument(0);
+              ActionExecutionContext context = invocation.getArgument(1);
+              FileOutErr outErr = context.getFileOutErr();
               called.add(outErr);
               if (spawn.getOutputFiles().size() != 1) {
                 try (OutputStream stream = outErr.getOutputStream()) {
