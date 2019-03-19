@@ -66,6 +66,7 @@ public final class SkydocTest extends SkylarkTestCase {
                 return fileSystem.exists(fileSystem.getPath("/" + pathString));
               }
             },
+            "io_bazel",
             ImmutableList.of("/other_root", "."));
   }
 
@@ -239,6 +240,34 @@ public final class SkydocTest extends SkylarkTestCase {
         "/test/main.bzl",
         "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
         "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
+        "",
+        "main_rule = rule(",
+        "    doc = 'Main rule',",
+        "    implementation = rule_impl,",
+        ")");
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT_SEMANTICS,
+        Label.parseAbsoluteUnchecked("//test:main.bzl"),
+        ruleInfoMapBuilder,
+        ImmutableMap.builder(),
+        ImmutableMap.builder());
+
+    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
+
+    assertThat(ruleInfoMap.keySet()).containsExactly("main_rule");
+    assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
+  }
+
+  @Test
+  public void testLoadOwnRepository() throws Exception {
+    scratch.file("/deps/foo/dep_rule.bzl", "def rule_impl(ctx):", "  return []");
+
+    scratch.file(
+        "/test/main.bzl",
+        "load('@io_bazel//deps/foo:dep_rule.bzl', 'rule_impl')",
         "",
         "main_rule = rule(",
         "    doc = 'Main rule',",

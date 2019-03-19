@@ -146,9 +146,11 @@ public class SkydocMain {
   private final Map<Path, Environment> loaded = new HashMap<>();
   private final SkylarkFileAccessor fileAccessor;
   private final List<String> depRoots;
+  private final String workspaceName;
 
-  public SkydocMain(SkylarkFileAccessor fileAccessor, List<String> depRoots) {
+  public SkydocMain(SkylarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
+    this.workspaceName = workspaceName;
     if (depRoots.isEmpty()) {
       // For backwards compatibility, if no dep_roots are specified, use the current
       // directory as the only root.
@@ -199,7 +201,7 @@ public class SkydocMain {
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctions = ImmutableMap.builder();
 
-    new SkydocMain(new FilesystemFileAccessor(), depRoots)
+    new SkydocMain(new FilesystemFileAccessor(), skydocOptions.workspaceName, depRoots)
         .eval(
             semanticsOptions.toSkylarkSemantics(),
             targetFileLabel,
@@ -431,9 +433,10 @@ public class SkydocMain {
   }
 
   private Path pathOfLabel(Label label) {
-    String workspacePrefix = label.getWorkspaceRoot().isEmpty()
-        ? ""
-        : label.getWorkspaceRoot() + "/";
+    String workspacePrefix = "";
+    if (!label.getWorkspaceRoot().isEmpty() && !label.getWorkspaceName().equals(workspaceName)) {
+      workspacePrefix = label.getWorkspaceRoot() + "/";
+    }
 
     return Paths.get(workspacePrefix + label.toPathFragment());
   }
