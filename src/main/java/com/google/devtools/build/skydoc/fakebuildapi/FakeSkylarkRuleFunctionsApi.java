@@ -206,7 +206,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
    * A comparator for {@link AttributeInfo} objects which sorts by attribute name alphabetically,
    * except that any attribute named "name" is placed first.
    */
-  private static class AttributeNameComparator implements Comparator<AttributeInfo> {
+  public static class AttributeNameComparator implements Comparator<AttributeInfo> {
 
     @Override
     public int compare(AttributeInfo o1, AttributeInfo o2) {

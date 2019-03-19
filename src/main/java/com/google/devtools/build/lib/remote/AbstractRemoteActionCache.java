@@ -152,7 +152,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws IOException in case of a cache miss or if the remote cache is unavailable.
    * @throws ExecException in case clean up after a failed download failed.
    */
-  // TODO(olaola): will need to amend to include the TreeNodeRepository for updating.
   public void download(ActionResult result, Path execRoot, FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
     Context ctx = Context.current();

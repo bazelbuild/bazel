@@ -422,11 +422,17 @@ class CoreLibrarySupport {
     for (Class<?> tested : typechecks) {
       Label fallthrough = new Label();
       String testedName = tested.getName().replace('.', '/');
+
       // In case of a class this must be a member move; for interfaces use the companion.
-      String target =
-          tested.isInterface()
-              ? InterfaceDesugaring.getCompanionClassName(testedName)
-              : checkNotNull(memberMoves.get(rewriter.unprefix(testedName) + '#' + method.name()));
+      String target;
+      String calledMethod = method.name();
+      if (tested.isInterface()) {
+        target = InterfaceDesugaring.getCompanionClassName(testedName);
+        calledMethod += InterfaceDesugaring.DEFAULT_COMPANION_METHOD_SUFFIX;
+      } else {
+        target = checkNotNull(memberMoves.get(rewriter.unprefix(testedName) + '#' + method.name()));
+      }
+
       dispatchMethod.visitVarInsn(Opcodes.ALOAD, 0);  // load "receiver"
       dispatchMethod.visitTypeInsn(Opcodes.INSTANCEOF, testedName);
       dispatchMethod.visitJumpInsn(Opcodes.IFEQ, fallthrough);
@@ -437,7 +443,7 @@ class CoreLibrarySupport {
       dispatchMethod.visitMethodInsn(
           Opcodes.INVOKESTATIC,
           target,
-          method.name(),
+          calledMethod,
           InterfaceDesugaring.companionDefaultMethodDescriptor(testedName, method.descriptor()),
           /*isInterface=*/ false);
       dispatchMethod.visitInsn(methodType.getReturnType().getOpcode(Opcodes.IRETURN));
@@ -453,7 +459,7 @@ class CoreLibrarySupport {
     dispatchMethod.visitMethodInsn(
         Opcodes.INVOKESTATIC,
         InterfaceDesugaring.getCompanionClassName(owner),
-        method.name(),
+        method.name() + InterfaceDesugaring.DEFAULT_COMPANION_METHOD_SUFFIX,
         companionDesc,
         /*isInterface=*/ false);
     dispatchMethod.visitInsn(methodType.getReturnType().getOpcode(Opcodes.IRETURN));

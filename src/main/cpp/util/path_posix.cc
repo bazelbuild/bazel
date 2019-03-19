@@ -16,6 +16,7 @@
 
 #include <limits.h>  // PATH_MAX
 
+#include <stdlib.h>  // getenv
 #include <string.h>  // strncmp
 #include <unistd.h>  // access, open, close, fsync
 #include "src/main/cpp/util/errors.h"
@@ -67,8 +68,30 @@ std::string MakeAbsolute(const std::string &path) {
   return JoinPath(blaze_util::GetCwd(), path);
 }
 
-std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string &path) {
-  return MakeAbsolute(path);
+std::string ResolveEnvvars(const std::string &path) {
+  std::string result = path;
+  size_t start = 0;
+  while ((start = result.find("${", start)) != std::string::npos) {
+    // Just match to the next }
+    size_t end = result.find("}", start + 1);
+    if (end == std::string::npos) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "ResolveEnvvars(" << path << "): incomplete variable at position "
+          << start;
+    }
+    // Extract the variable name
+    const std::string name = result.substr(start + 2, end - start - 2);
+    // Get the value from the environment
+    const char *c_value = getenv(name.c_str());
+    const std::string value = std::string(c_value ? c_value : "");
+    result.replace(start, end - start + 1, value);
+    start += value.length();
+  }
+  return result;
+}
+
+std::string MakeAbsoluteAndResolveEnvvars(const std::string &path) {
+  return MakeAbsolute(ResolveEnvvars(path));
 }
 
 }  // namespace blaze_util

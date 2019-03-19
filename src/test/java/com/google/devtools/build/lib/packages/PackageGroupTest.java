@@ -248,6 +248,25 @@ public class PackageGroupTest {
         .containsExactly(PackageSpecification.everything().toString());
   }
 
+  @Test
+  public void testDuplicatePackage() throws Exception {
+    scratch.file("pkg/BUILD");
+    scratch.file("one/two/BUILD");
+
+    scratch.file(
+        "test/BUILD",
+        "package_group(",
+        "  name = 'packages',",
+        "    packages = [",
+        "        '//one/two',",
+        "        '//one/two',",
+        "    ],",
+        ")");
+
+    PackageGroup grp = getPackageGroup("test", "packages");
+    assertThat(grp.contains(getPackage("one/two"))).isTrue();
+  }
+
   private Package getPackage(String packageName) throws Exception {
     PathFragment buildFileFragment = PathFragment.create(packageName).getRelative("BUILD");
 

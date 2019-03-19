@@ -79,7 +79,9 @@ public final class BuildCommand implements BlazeCommand {
                   "Usage: "
                       + runtime.getProductName()
                       + " build <options> <targets>."
-                      + "\nInvoke `bazel help build` for full description of usage and options."
+                      + "\nInvoke `"
+                      + runtime.getProductName()
+                      + " help build` for full description of usage and options."
                       + "\nYour request is correct, but requested an empty set of targets."
                       + " Nothing will be built."));
     }

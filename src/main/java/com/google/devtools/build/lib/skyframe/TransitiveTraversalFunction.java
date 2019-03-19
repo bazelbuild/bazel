@@ -14,17 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalFunction.FirstErrorMessageAccumulator;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -89,30 +85,21 @@ public class TransitiveTraversalFunction
     }
   }
 
+  @Nullable
   @Override
-  protected Collection<Label> getAspectLabels(
-      Rule fromRule,
-      ImmutableList<Aspect> aspectsOfAttribute,
+  protected AdvertisedProviderSet getAdvertisedProviderSet(
       Label toLabel,
-      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+      @Nullable ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
       Environment env) {
+    if (toVal == null) {
+      return null;
+    }
     try {
-      if (toVal == null) {
-        return ImmutableList.of();
-      }
-      TransitiveTraversalValue traversalVal = (TransitiveTraversalValue) toVal.get();
-      if (traversalVal == null || traversalVal.getProviders() == null) {
-        return ImmutableList.of();
-      }
-      // Retrieve the providers of the dep from the TransitiveTraversalValue, so we can avoid
-      // issuing a dep on its defining Package.
-      return AspectDefinition.visitAspectsIfRequired(
-              fromRule, aspectsOfAttribute, traversalVal.getProviders(), DependencyFilter.ALL_DEPS)
-          .values();
+      return ((TransitiveTraversalValue) toVal.get()).getProviders();
     } catch (NoSuchThingException e) {
-      // Do nothing. This error was handled when we computed the corresponding
+      // Do nothing interesting. This error was handled when we computed the corresponding
       // TransitiveTargetValue.
-      return ImmutableList.of();
+      return null;
     }
   }
 

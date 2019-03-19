@@ -46,10 +46,12 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Sleeper;
@@ -103,7 +105,7 @@ public final class BuildEventServiceUploader implements Runnable {
   private final BuildEventProtocolOptions buildEventProtocolOptions;
   private final boolean publishLifecycleEvents;
   private final Duration closeTimeout;
-  private final ExitFunction exitFunc;
+  private final BuildEventServiceAbruptExitCallback abruptExitCallback;
   private final Sleeper sleeper;
   private final Clock clock;
   private final ArtifactGroupNamer namer;
@@ -155,7 +157,7 @@ public final class BuildEventServiceUploader implements Runnable {
       BuildEventProtocolOptions buildEventProtocolOptions,
       boolean publishLifecycleEvents,
       Duration closeTimeout,
-      ExitFunction exitFunc,
+      BuildEventServiceAbruptExitCallback abruptExitCallback,
       Sleeper sleeper,
       Clock clock,
       ArtifactGroupNamer namer,
@@ -166,7 +168,7 @@ public final class BuildEventServiceUploader implements Runnable {
     this.buildEventProtocolOptions = buildEventProtocolOptions;
     this.publishLifecycleEvents = publishLifecycleEvents;
     this.closeTimeout = closeTimeout;
-    this.exitFunc = exitFunc;
+    this.abruptExitCallback = abruptExitCallback;
     this.sleeper = sleeper;
     this.clock = clock;
     this.namer = namer;
@@ -251,6 +253,12 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
+  private void logAndExitAbruptly(String message, ExitCode exitCode, Throwable cause) {
+    checkState(exitCode != ExitCode.SUCCESS);
+    logger.info(message);
+    abruptExitCallback.accept(new AbruptExitException(message, exitCode, cause));
+  }
+
   @Override
   public void run() {
     try {
@@ -271,10 +279,6 @@ public final class BuildEventServiceUploader implements Runnable {
           publishLifecycleEvent(besProtoUtil.buildFinished(currentTime(), buildStatus));
         }
       }
-      exitFunc.accept(
-          "The Build Event Protocol upload finished successfully",
-          /*cause=*/ null,
-          ExitCode.SUCCESS);
       synchronized (lock) {
         // Invariant: closeFuture is not null.
         // publishBuildEvents() only terminates successfully after SendLastBuildEventCommand
@@ -288,10 +292,10 @@ public final class BuildEventServiceUploader implements Runnable {
         synchronized (lock) {
           Preconditions.checkState(
               interruptCausedByTimeout, "Unexpected interrupt on BES uploader thread");
-          exitFunc.accept(
+          logAndExitAbruptly(
               "The Build Event Protocol upload timed out",
-              e,
-              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
+              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+              e);
         }
       } finally {
         // TODO(buchgr): Due to b/113035235 exitFunc needs to be called before the close future
@@ -300,24 +304,22 @@ public final class BuildEventServiceUploader implements Runnable {
       }
     } catch (StatusException e) {
       try {
-        String message =
-            "The Build Event Protocol upload failed: " + besClient.userReadableError(e);
-        logger.info(message);
-        ExitCode code =
+        logAndExitAbruptly(
+            "The Build Event Protocol upload failed: " + besClient.userReadableError(e),
             shouldRetryStatus(e.getStatus())
                 ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
-                : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR;
-        exitFunc.accept(message, e, code);
+                : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+            e);
       } finally {
         failCloseFuture(e);
       }
     } catch (LocalFileUploadException e) {
       Throwables.throwIfUnchecked(e.getCause());
       try {
-        String message =
-            "The Build Event Protocol local file upload failed: " + e.getCause().getMessage();
-        logger.info(message);
-        exitFunc.accept(message, e.getCause(), ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
+        logAndExitAbruptly(
+            "The Build Event Protocol local file upload failed: " + e.getCause().getMessage(),
+            ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+            e.getCause());
       } finally {
         failCloseFuture(e.getCause());
       }
@@ -758,7 +760,7 @@ public final class BuildEventServiceUploader implements Runnable {
     private BuildEventProtocolOptions bepOptions;
     private boolean publishLifecycleEvents;
     private Duration closeTimeout;
-    private ExitFunction exitFunc;
+    private BuildEventServiceAbruptExitCallback abruptExitCallback;
     private Sleeper sleeper;
     private Clock clock;
     private ArtifactGroupNamer artifactGroupNamer;
@@ -799,8 +801,8 @@ public final class BuildEventServiceUploader implements Runnable {
       return this;
     }
 
-    Builder exitFunc(ExitFunction value) {
-      this.exitFunc = value;
+    Builder abruptExitCallback(BuildEventServiceAbruptExitCallback value) {
+      this.abruptExitCallback = value;
       return this;
     }
 
@@ -827,7 +829,7 @@ public final class BuildEventServiceUploader implements Runnable {
           checkNotNull(bepOptions),
           publishLifecycleEvents,
           checkNotNull(closeTimeout),
-          checkNotNull(exitFunc),
+          checkNotNull(abruptExitCallback),
           checkNotNull(sleeper),
           checkNotNull(clock),
           checkNotNull(artifactGroupNamer),

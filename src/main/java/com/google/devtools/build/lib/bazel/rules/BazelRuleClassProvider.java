@@ -353,6 +353,13 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new PyRuntimeRule());
 
           builder.addSkylarkBootstrap(new PyBootstrap(PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER));
+
+          try {
+            builder.addWorkspaceFileSuffix(
+                ResourceFileLoader.loadResource(BazelPyBinaryRule.class, "python.WORKSPACE"));
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
         }
 
         @Override

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.ChannelPromise;
@@ -33,6 +34,9 @@ import java.util.Map;
 /** Common functionality shared by concrete classes. */
 abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelInboundHandler<T>
     implements ChannelOutboundHandler {
+
+  private static final String USER_AGENT_VALUE =
+      "bazel/" + BlazeVersionInfo.instance().getVersion();
 
   private final Credentials credentials;
 
@@ -76,6 +80,10 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
         request.headers().add(name, value);
       }
     }
+  }
+
+  protected void addUserAgentHeader(HttpRequest request) {
+    request.headers().set(HttpHeaderNames.USER_AGENT, USER_AGENT_VALUE);
   }
 
   protected String constructPath(URI uri, String hash, boolean isCas) {

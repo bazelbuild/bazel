@@ -423,9 +423,8 @@ public class BuildViewForTesting {
     if (target instanceof Rule && ((Rule) target).containsErrors()) {
       return null;
     }
-    return TransitionResolver.evaluateTopLevelTransition(
-        new TargetAndConfiguration(target, config),
-        ruleClassProvider.getTrimmingTransitionFactory());
+    return TransitionResolver.evaluateTransition(
+        config, NoTransition.INSTANCE, target, ruleClassProvider.getTrimmingTransitionFactory());
   }
 
   /**
@@ -437,18 +436,14 @@ public class BuildViewForTesting {
    */
   @VisibleForTesting
   public ConfiguredTarget getConfiguredTargetForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration config) {
+      ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
+      throws TransitionException {
     ConfigurationTransition transition =
         getTopLevelTransitionForTarget(label, config, eventHandler);
     if (transition == null) {
       return null;
     }
-    try {
-      return skyframeExecutor.getConfiguredTargetForTesting(
-          eventHandler, label, config, transition);
-    } catch (TransitionException e) {
-      return null;
-    }
+    return skyframeExecutor.getConfiguredTargetForTesting(eventHandler, label, config, transition);
   }
 
   @VisibleForTesting

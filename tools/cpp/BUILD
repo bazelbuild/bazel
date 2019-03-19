@@ -420,16 +420,12 @@ filegroup(
     srcs = ["lib_cc_configure.bzl"],
 )
 
-filegroup(
-    name = "crosstool_utils",
-    srcs = ["crosstool_utils.bzl"],
-)
-
-filegroup(
-    name = "crosstool_lib",
-    srcs = ["crosstool_lib.bzl"],
-)
-
 load(":compiler_flag.bzl", "compiler_flag")
 
 compiler_flag(name = "compiler")
+
+# Target that can provide the CC_FLAGS variable based on the current
+# cc_toolchain.
+load("@bazel_tools//tools/cpp:cc_flags_supplier.bzl", "cc_flags_supplier")
+
+cc_flags_supplier(name = "cc_flags")

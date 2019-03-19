@@ -62,7 +62,7 @@ public class SingleBuildFileCache implements MetadataProvider {
               () -> {
                 Path path = ActionInputHelper.toInputPath(input, execRoot);
                 try {
-                  FileArtifactValue metadata = FileArtifactValue.create(path);
+                  FileArtifactValue metadata = FileArtifactValue.createShareable(path);
                   if (metadata.getType().isDirectory()) {
                     throw new DigestOfDirectoryException(
                         "Input is a directory: " + input.getExecPathString());

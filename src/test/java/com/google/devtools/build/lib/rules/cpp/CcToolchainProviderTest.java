@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,7 +37,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   public void testSkylarkCallables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     useConfiguration("--cpu=k8", "--force_pic");
     scratch.file(
         "test/rule.bzl",
@@ -229,7 +230,9 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "linking_mode_flags { mode: MOSTLY_STATIC linker_flag: '-foo_from_linking_mode' }");
     scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
 
-    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
+    useConfiguration(
+        "--noincompatible_disable_legacy_crosstool_fields",
+        "--noincompatible_disable_crosstool_file");
     CcToolchainProvider ccToolchainProvider = getCcToolchainProvider();
     assertThat(ccToolchainProvider.getLegacyMostlyStaticLinkFlags(CompilationMode.OPT))
         .contains("-foo_from_linking_mode");

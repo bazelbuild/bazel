@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -117,10 +117,12 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   public void testWrongCcImportDefinitionsOnWindows() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
-            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION);
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.TARGETS_WINDOWS));
     useConfiguration();
     checkError(
         "a",

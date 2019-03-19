@@ -48,6 +48,10 @@ public final class BuilderRunner {
   private final ExecutorService executorService;
   private long timeoutMillis;
   private boolean useDefaultRc = true;
+  private int errorCode = 0;
+  private List<String> flags;
+  private boolean shouldFail;
+  private boolean enableDebug;
 
   /**
    * Creates the BuilderRunner
@@ -77,6 +81,7 @@ public final class BuilderRunner {
     this.env = Maps.newHashMap(env);
     this.executorService = executorService;
     this.timeoutMillis = defaultTimeoutMillis;
+    this.flags = Lists.newArrayList();
   }
 
   /**
@@ -88,6 +93,27 @@ public final class BuilderRunner {
    */
   public BuilderRunner withEnv(String name, String value) {
     env.put(name, value);
+    return this;
+  }
+
+  /**
+   * Sets the expected error code.
+   *
+   * @param errorCode the value of the error code
+   * @return this BuildRunner instance
+   */
+  public BuilderRunner withErrorCode(int errorCode) {
+    this.errorCode = errorCode;
+    return this;
+  }
+
+  /**
+   * Expect Bazel to fail. This method is needed when the exact error code can not be specified.
+   *
+   * @return this BuildRunner instance
+   */
+  public BuilderRunner shouldFail() {
+    this.shouldFail = true;
     return this;
   }
 
@@ -107,6 +133,17 @@ public final class BuilderRunner {
   }
 
   /**
+   * Should be used ONLY FOR TESTS DEBUG. Adds "--host_jvm_debug" to the Bazel startup options, so
+   * that the JVM waits for the debugger process to connect before executing any code.
+   *
+   * @return this BuilderRunner instance
+   */
+  public BuilderRunner enableDebug() {
+    this.enableDebug = true;
+    return this;
+  }
+
+  /**
    * Specifies that Bazel should not pass the default .bazelrc (in the test working directory) as
    * parameter
    *
@@ -118,10 +155,25 @@ public final class BuilderRunner {
   }
 
   /**
-   * Runs <code>bazel info &lt;parameter&gt;</code> and returns the result. Asserts that the process
-   * exit code is zero. Does not assert that the error stream is empty.
+   * Specifies the flags to pass to Bazel.
    *
-   * @param parameter info command parameter
+   * <p>We need it as a builder method, so that several consequent Bazel calls with the same set of
+   * flags could be performed: bazel build --flag1 --flag2 //... bazel info --flag1 --flag2
+   * bazel-bin
+   *
+   * @return this BuilderRunner instance
+   */
+  public BuilderRunner withFlags(String... flags) {
+    Collections.addAll(this.flags, flags);
+    return this;
+  }
+
+  /**
+   * Runs <code>bazel info &lt;parameter&gt;</code> and returns the result. Asserts the process exit
+   * code. Does not assert that the error stream is empty.
+   *
+   * @param parameters - info command parameter (can be omitted) and the Bazel flags. If Bazel was
+   *     invoked with some flags, the same set of flags should be used with info.
    * @return ProcessResult with process exit code, strings with stdout and error streams contents
    * @throws TimeoutException in case of timeout
    * @throws IOException in case of the process startup/interaction problems
@@ -129,10 +181,27 @@ public final class BuilderRunner {
    * @throws ProcessRunnerException if the process return code is not zero or error stream is not
    *     empty when it was expected
    */
-  public ProcessResult info(String parameter) throws Exception {
+  public ProcessResult info(String... parameters) throws Exception {
     // additional expectations for the info time to be under the default timeout
     withTimeout(Math.min(DEFAULT_TIMEOUT_MILLIS, timeoutMillis));
-    return runBinary("info", parameter);
+    return runBinary("info", parameters);
+  }
+
+  /**
+   * Runs <code>bazel help</code> and returns the result. Asserts the process exit code. Does not
+   * assert that the error stream is empty.
+   *
+   * @return ProcessResult with process exit code, strings with stdout and error streams contents
+   * @throws TimeoutException in case of timeout
+   * @throws IOException in case of the process startup/interaction problems
+   * @throws InterruptedException if the current thread is interrupted while waiting
+   * @throws ProcessRunnerException if the process return code is not zero or error stream is not
+   *     empty when it was expected
+   */
+  public ProcessResult help() throws Exception {
+    // additional expectations for the info time to be under the default timeout
+    withTimeout(Math.min(DEFAULT_TIMEOUT_MILLIS, timeoutMillis));
+    return runBinary("help");
   }
 
   /**
@@ -210,7 +279,11 @@ public final class BuilderRunner {
         list.add(bazelRc.toAbsolutePath().toString());
       }
     }
+    if (enableDebug) {
+      list.add("--host_jvm_debug");
+    }
     list.add(command);
+    list.addAll(this.flags);
     Collections.addAll(list, args);
 
     ProcessParameters parameters =
@@ -223,6 +296,8 @@ public final class BuilderRunner {
             // bazel writes info messages to error stream, so
             // we need to allow the error output stream be not empty
             .setExpectedEmptyError(false)
+            .setExpectedExitCode(errorCode)
+            .setExpectedToFail(shouldFail)
             .build();
     return new ProcessRunner(parameters, executorService).runSynchronously();
   }

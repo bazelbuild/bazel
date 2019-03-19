@@ -61,7 +61,7 @@ public final class IndexExpression extends Expression {
   public static Object evaluate(Object object, Object key, Environment env, Location loc)
       throws EvalException, InterruptedException {
     if (object instanceof SkylarkIndexable) {
-      Object result = ((SkylarkIndexable) object).getIndex(key, loc);
+      Object result = ((SkylarkIndexable) object).getIndex(key, loc, env.getStarlarkContext());
       // TODO(bazel-team): We shouldn't have this convertToSkylark call here. If it's needed at all,
       // it should go in the implementations of SkylarkIndexable#getIndex that produce non-Skylark
       // values.

@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -48,23 +48,26 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
   @Override
   public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    List<SpawnActionContext> strategies = resolve(spawn, actionExecutionContext.getEventHandler());
-
-    // Because the strategies are ordered by preference, we can execute the spawn with the best
-    // possible one by simply filtering out the ones that can't execute it and then picking the
-    // first one from the remaining strategies in the list.
-    return strategies.get(0).exec(spawn, actionExecutionContext);
+    return resolveOne(spawn, actionExecutionContext.getEventHandler())
+        .exec(spawn, actionExecutionContext);
   }
 
   @Override
-  public FutureSpawn execMaybeAsync(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  public SpawnContinuation beginExecution(
+      Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    List<SpawnActionContext> strategies = resolve(spawn, actionExecutionContext.getEventHandler());
+    return resolveOne(spawn, actionExecutionContext.getEventHandler())
+        .beginExecution(spawn, actionExecutionContext);
+  }
+
+  private SpawnActionContext resolveOne(Spawn spawn, EventHandler eventHandler)
+      throws UserExecException {
+    List<SpawnActionContext> strategies = resolve(spawn, eventHandler);
 
     // Because the strategies are ordered by preference, we can execute the spawn with the best
     // possible one by simply filtering out the ones that can't execute it and then picking the
     // first one from the remaining strategies in the list.
-    return strategies.get(0).execMaybeAsync(spawn, actionExecutionContext);
+    return strategies.get(0);
   }
 
   /**

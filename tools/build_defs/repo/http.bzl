@@ -30,7 +30,7 @@ These rules are improved versions of the native http rules and will eventually
 replace the native rules.
 """
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "update_attrs", "workspace_and_buildfile")
+load(":utils.bzl", "patch", "update_attrs", "workspace_and_buildfile")
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -122,26 +122,115 @@ def _http_jar_impl(ctx):
     return update_attrs(ctx.attr, _http_jar_attrs.keys(), {"sha256": download_info.sha256})
 
 _http_archive_attrs = {
-    "url": attr.string(),
-    "urls": attr.string_list(),
-    "sha256": attr.string(),
-    "strip_prefix": attr.string(),
-    "type": attr.string(),
-    "build_file": attr.label(allow_single_file = True),
-    "build_file_content": attr.string(),
-    "patches": attr.label_list(default = []),
-    "patch_tool": attr.string(default = "patch"),
-    "patch_args": attr.string_list(default = ["-p0"]),
-    "patch_cmds": attr.string_list(default = []),
-    "workspace_file": attr.label(allow_single_file = True),
-    "workspace_file_content": attr.string(),
+    "url": attr.string(
+        doc =
+            """A URL to a file that will be made available to Bazel.
+
+This must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+This parameter is to simplify the transition from the native http_archive
+rule. More flexibility can be achieved by the urls parameter that allows
+to specify alternative URLs to fetch from.
+""",
+    ),
+    "urls": attr.string_list(
+        doc =
+            """A list of URLs to a file that will be made available to Bazel.
+
+Each entry must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.""",
+    ),
+    "sha256": attr.string(
+        doc = """The expected SHA-256 of the file downloaded.
+
+This must match the SHA-256 of the file downloaded. _It is a security risk
+to omit the SHA-256 as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but should be set before shipping.""",
+    ),
+    "strip_prefix": attr.string(
+        doc = """A directory prefix to strip from the extracted files.
+
+Many archives contain a top-level directory that contains all of the useful
+files in archive. Instead of needing to specify this prefix over and over
+in the `build_file`, this field can be used to strip it from all of the
+extracted files.
+
+For example, suppose you are using `foo-lib-latest.zip`, which contains the
+directory `foo-lib-1.2.3/` under which there is a `WORKSPACE` file and are
+`src/`, `lib/`, and `test/` directories that contain the actual code you
+wish to build. Specify `strip_prefix = "foo-lib-1.2.3"` to use the
+`foo-lib-1.2.3` directory as your top-level directory.
+
+Note that if there are files outside of this directory, they will be
+discarded and inaccessible (e.g., a top-level license file). This includes
+files/directories that start with the prefix but are not in the directory
+(e.g., `foo-lib-1.2.3.release-notes`). If the specified prefix does not
+match a directory in the archive, Bazel will return an error.""",
+    ),
+    "type": attr.string(
+        doc = """The archive type of the downloaded file.
+
+By default, the archive type is determined from the file extension of the
+URL. If the file has no extension, you can explicitly specify one of the
+following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
+`"tar.xz"`, or `tar.bz2`.""",
+    ),
+    "patches": attr.label_list(
+        default = [],
+        doc =
+            "A list of files that are to be applied as patches afer " +
+            "extracting the archive.",
+    ),
+    "patch_tool": attr.string(
+        default = "patch",
+        doc = "The patch(1) utility to use.",
+    ),
+    "patch_args": attr.string_list(
+        default = ["-p0"],
+        doc = "The arguments given to the patch tool",
+    ),
+    "patch_cmds": attr.string_list(
+        default = [],
+        doc = "Sequence of commands to be applied after patches are applied.",
+    ),
+    "build_file": attr.label(
+        allow_single_file = True,
+        doc =
+            "The file to use as the BUILD file for this repository." +
+            "This attribute is an absolute label (use '@//' for the main " +
+            "repo). The file does not need to be named BUILD, but can " +
+            "be (something like BUILD.new-repo-name may work well for " +
+            "distinguishing it from the repository's actual BUILD files. " +
+            "Either build_file or build_file_content can be specified, but " +
+            "not both.",
+    ),
+    "build_file_content": attr.string(
+        doc =
+            "The content for the BUILD file for this repository. " +
+            "Either build_file or build_file_content can be specified, but " +
+            "not both.",
+    ),
+    "workspace_file": attr.label(
+        doc =
+            "The file to use as the `WORKSPACE` file for this repository. " +
+            "Either `workspace_file` or `workspace_file_content` can be " +
+            "specified, or neither, but not both.",
+    ),
+    "workspace_file_content": attr.string(
+        doc =
+            "The content for the WORKSPACE file for this repository. " +
+            "Either `workspace_file` or `workspace_file_content` can be " +
+            "specified, or neither, but not both.",
+    ),
 }
 
 http_archive = repository_rule(
     implementation = _http_archive_impl,
     attrs = _http_archive_attrs,
-)
-"""Downloads a Bazel repository as a compressed archive file, decompresses it,
+    doc =
+        """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
 It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"tar"`,
@@ -179,95 +268,44 @@ Examples:
       name = "my_ssl",
       urls = ["http://example.com/openssl.zip"],
       sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
-      build_file = "//:openssl.BUILD",
+      build_file = "@//:openssl.BUILD",
   )
   ```
 
   Then targets would specify `@my_ssl//:openssl-lib` as a dependency.
-
-Args:
-  name: A unique name for this repository.
-  build_file: The file to use as the `BUILD` file for this repository.
-
-    Either `build_file` or `build_file_content` can be specified.
-
-    This attribute is an absolute label (use '@//' for the main repo). The file
-    does not need to be named `BUILD`, but can be (something like
-    `BUILD.new-repo-name` may work well for distinguishing it from the
-    repository's actual `BUILD` files.
-
-  build_file_content: The content for the BUILD file for this repository.
-
-    Either `build_file` or `build_file_content` can be specified.
-  workspace_file: The file to use as the `WORKSPACE` file for this repository.
-
-    Either `workspace_file` or `workspace_file_content` can be specified, or
-    neither, but not both.
-  workspace_file_content: The content for the WORKSPACE file for this repository.
-
-    Either `workspace_file` or `workspace_file_content` can be specified, or
-    neither, but not both.
-  sha256: The expected SHA-256 of the file downloaded.
-
-    This must match the SHA-256 of the file downloaded. _It is a security risk
-    to omit the SHA-256 as remote files can change._ At best omitting this
-    field will make your build non-hermetic. It is optional to make development
-    easier but should be set before shipping.
-  strip_prefix: A directory prefix to strip from the extracted files.
-
-    Many archives contain a top-level directory that contains all of the useful
-    files in archive. Instead of needing to specify this prefix over and over
-    in the `build_file`, this field can be used to strip it from all of the
-    extracted files.
-
-    For example, suppose you are using `foo-lib-latest.zip`, which contains the
-    directory `foo-lib-1.2.3/` under which there is a `WORKSPACE` file and are
-    `src/`, `lib/`, and `test/` directories that contain the actual code you
-    wish to build. Specify `strip_prefix = "foo-lib-1.2.3"` to use the
-    `foo-lib-1.2.3` directory as your top-level directory.
-
-    Note that if there are files outside of this directory, they will be
-    discarded and inaccessible (e.g., a top-level license file). This includes
-    files/directories that start with the prefix but are not in the directory
-    (e.g., `foo-lib-1.2.3.release-notes`). If the specified prefix does not
-    match a directory in the archive, Bazel will return an error.
-  type: The archive type of the downloaded file.
-
-    By default, the archive type is determined from the file extension of the
-    URL. If the file has no extension, you can explicitly specify one of the
-    following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-    `"tar.xz"`, or `tar.bz2`.
-  url: A URL to a file that will be made available to Bazel.
-
-    This must be a file, http or https URL. Redirections are followed.
-    Authentication is not supported.
-
-    This parameter is to simplify the transition from the native http_archive
-    rule. More flexibility can be achieved by the urls parameter that allows
-    to specify alternative URLs to fetch from.
-  urls: A list of URLs to a file that will be made available to Bazel.
-
-    Each entry must be a file, http or https URL. Redirections are followed.
-    Authentication is not supported.
-  patches: A list of files that are to be applied as patches after extracting
-    the archive.
-  patch_tool: the patch(1) utility to use.
-  patch_args: arguments given to the patch tool, defaults to ["-p0"]
-  patch_cmds: sequence of commands to be applied after patches are applied.
-"""
+""",
+)
 
 _http_file_attrs = {
-    "executable": attr.bool(),
-    "downloaded_file_path": attr.string(default = "downloaded"),
-    "sha256": attr.string(),
-    "urls": attr.string_list(mandatory = True),
+    "executable": attr.bool(
+        doc = "If the downloaded file should be made executable.",
+    ),
+    "downloaded_file_path": attr.string(
+        default = "downloaded",
+        doc = "Path assigned to the file downloaded",
+    ),
+    "sha256": attr.string(
+        doc = """The expected SHA-256 of the file downloaded.
+
+This must match the SHA-256 of the file downloaded. _It is a security risk
+to omit the SHA-256 as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but should be set before shipping.""",
+    ),
+    "urls": attr.string_list(
+        mandatory = True,
+        doc = """A list of URLs to a file that will be made available to Bazel.
+
+Each entry must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.""",
+    ),
 }
 
 http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = _http_file_attrs,
-)
-"""Downloads a file from a URL and makes it available to be used as a file
+    doc =
+        """Downloads a file from a URL and makes it available to be used as a file
 group.
 
 Examples:
@@ -284,35 +322,29 @@ Examples:
   ```
 
   Targets would specify `@my_deb//file` as a dependency to depend on this file.
-
-Args:
-  name: A unique name for this repository.
-  executable: If the downloaded file should be made executable. Defaults to
-    False.
-  downloaded_file_path: Path assigned to the file downloaded.
-  sha256: The expected SHA-256 of the file downloaded.
-
-    This must match the SHA-256 of the file downloaded. _It is a security risk
-    to omit the SHA-256 as remote files can change._ At best omitting this
-    field will make your build non-hermetic. It is optional to make development
-    easier but should be set before shipping.
-  urls: A list of URLs to a file that will be made available to Bazel.
-
-    Each entry must be a file, http or https URL. Redirections are followed.
-    Authentication is not supported.
-"""
+""",
+)
 
 _http_jar_attrs = {
-    "sha256": attr.string(),
-    "url": attr.string(),
-    "urls": attr.string_list(),
+    "sha256": attr.string(
+        doc = "The expected SHA-256 of the file downloaded.",
+    ),
+    "url": attr.string(
+        doc =
+            "The URL to fetch the jar from. It must end in `.jar`.",
+    ),
+    "urls": attr.string_list(
+        doc =
+            "A list of URLS the jar can be fetched from. They have to end " +
+            "in `.jar`.",
+    ),
 }
 
 http_jar = repository_rule(
     implementation = _http_jar_impl,
     attrs = _http_jar_attrs,
-)
-"""Downloads a jar from a URL and makes it available as java_import
+    doc =
+        """Downloads a jar from a URL and makes it available as java_import
 
 Downloaded files must have a .jar extension.
 
@@ -338,11 +370,5 @@ Examples:
   if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both
   examples, note the three slashes (`/`) -- the first two slashes belong to `file://` and the third
   one belongs to the absolute path to the file.
-
-
-Args:
-  name: A unique name for this repository.
-  sha256: The expected SHA-256 of the file downloaded.
-  url: The URL to fetch the jar from. It must end in `.jar`.
-  urls: A list of URLS the jar can be fetched from. They have to end in `.jar`.
-"""
+""",
+)

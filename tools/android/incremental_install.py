@@ -173,6 +173,8 @@ class Adb(object):
 
     # Check these first so that the more specific error gets raised instead of
     # the more generic AdbError.
+    stdout = stdout.decode()
+    stderr = stderr.decode()
     if "device not found" in stderr:
       raise DeviceNotFoundError()
     elif "device unauthorized" in stderr:

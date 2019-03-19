@@ -77,6 +77,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -272,6 +273,33 @@ public class RuleClass {
    */
   public static final String DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR =
       "$" + COMPATIBLE_ENVIRONMENT_ATTR;
+
+  /**
+   * Name of the attribute that stores all {@link
+   * com.google.devtools.build.lib.rules.config.ConfigRuleClasses} labels this rule references (i.e.
+   * select() keys). This is specially populated in {@link #populateRuleAttributeValues}.
+   *
+   * <p>This isn't technically necessary for builds: select() keys are evaluated in {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} instead of
+   * normal dependency resolution because they're needed to determine other dependencies. So there's
+   * no intrinsic reason why we need an extra attribute to store them.
+   *
+   * <p>There are three reasons why we still create this attribute:
+   *
+   * <ol>
+   *   <li>Collecting them once in {@link #populateRuleAttributeValues} instead of multiple times in
+   *       ConfiguredTargetFunction saves extra looping over the rule's attributes.
+   *   <li>Query's dependency resolution has no equivalent of {@link
+   *       com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} and
+   *       we need to make sure its coverage remains complete.
+   *   <li>Manual configuration trimming uses the normal dependency resolution process to work
+   *       correctly and config_setting keys are subject to this trimming.
+   * </ol>
+   *
+   * <p>It should be possible to clean up these issues if we decide we don't want an artificial
+   * attribute dependency. But care has to be taken to do that safely.
+   */
+  public static final String CONFIG_SETTING_DEPS_ATTRIBUTE = "$config_dependencies";
 
   /**
    * A support class to make it easier to create {@code RuleClass} instances.
@@ -647,8 +675,8 @@ public class RuleClass {
     private boolean isExecutableSkylark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
-    private boolean isConfigMatcher = false;
     private boolean hasFunctionTransitionWhitelist = false;
+    private boolean hasStarlarkRuleTransition = false;
     private boolean ignorePackageLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private RuleTransitionFactory transitionFactory;
@@ -839,7 +867,6 @@ public class RuleClass {
           hasFunctionTransitionWhitelist,
           ignorePackageLicenses,
           implicitOutputsFunction,
-          isConfigMatcher,
           transitionFactory,
           configuredTargetFactory,
           validityPredicate,
@@ -1046,6 +1073,14 @@ public class RuleClass {
       Preconditions.checkNotNull(transitionFactory);
       this.transitionFactory = transitionFactory;
       return this;
+    }
+
+    public void setHasStarlarkRuleTransition() {
+      hasStarlarkRuleTransition = true;
+    }
+
+    public boolean hasStarlarkRuleTransition() {
+      return hasStarlarkRuleTransition;
     }
 
     public Builder factory(ConfiguredTargetFactory<?, ?, ?> factory) {
@@ -1322,17 +1357,6 @@ public class RuleClass {
     }
 
     /**
-     * Causes rules of this type to be evaluated with the parent's configuration, always, so that
-     * rules which match against parts of the configuration will behave as expected.
-     *
-     * <p>This is only intended for use by {@code config_setting} - other rules should not use this!
-     */
-    public Builder setIsConfigMatcherForConfigSettingOnly() {
-      this.isConfigMatcher = true;
-      return this;
-    }
-
-    /**
      * Causes rules of this type to implicitly reference the configuration fragments associated with
      * the options its attributes reference.
      *
@@ -1438,7 +1462,6 @@ public class RuleClass {
   private final boolean isExecutableSkylark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
-  private final boolean isConfigMatcher;
   private final boolean hasFunctionTransitionWhitelist;
   private final boolean ignorePackageLicenses;
 
@@ -1573,7 +1596,6 @@ public class RuleClass {
       boolean hasFunctionTransitionWhitelist,
       boolean ignorePackageLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      boolean isConfigMatcher,
       RuleTransitionFactory transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
@@ -1604,7 +1626,6 @@ public class RuleClass {
     this.publicByDefault = publicByDefault;
     this.binaryOutput = binaryOutput;
     this.implicitOutputsFunction = implicitOutputsFunction;
-    this.isConfigMatcher = isConfigMatcher;
     this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
     this.validityPredicate = validityPredicate;
@@ -1825,14 +1846,6 @@ public class RuleClass {
    */
   public boolean supportsConstraintChecking() {
     return supportsConstraintChecking;
-  }
-
-  /**
-   * Returns true if rules of this type should be evaluated with the parent's configuration so that
-   * they can match on aspects of it.
-   */
-  public boolean isConfigMatcher() {
-    return isConfigMatcher;
   }
 
   /**
@@ -2091,19 +2104,18 @@ public class RuleClass {
    */
   private static void populateConfigDependenciesAttribute(Rule rule) {
     RawAttributeMapper attributes = RawAttributeMapper.of(rule);
-    Attribute configDepsAttribute = attributes.getAttributeDefinition("$config_dependencies");
+    Attribute configDepsAttribute =
+        attributes.getAttributeDefinition(CONFIG_SETTING_DEPS_ATTRIBUTE);
     if (configDepsAttribute == null) {
-      // Not currently compatible with Skylark rules.
       return;
     }
 
-    Set<Label> configLabels = new LinkedHashSet<>();
-    for (Attribute attr : rule.getAttributes()) {
-      SelectorList<?> selectors = attributes.getSelectorList(attr.getName(), attr.getType());
-      if (selectors != null) {
-        configLabels.addAll(selectors.getKeyLabels());
-      }
-    }
+    Set<Label> configLabels =
+        rule.getAttributes().stream()
+            .map(attr -> attributes.getSelectorList(attr.getName(), attr.getType()))
+            .filter(Predicates.notNull())
+            .flatMap(selectorList -> selectorList.getKeyLabels().stream())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
 
     rule.setAttributeValue(configDepsAttribute, ImmutableList.copyOf(configLabels),
         /*explicit=*/false);
@@ -2380,13 +2392,25 @@ public class RuleClass {
             PredicateWithMessage<Object> allowedValues = attrOfAspect.getAllowedValues();
             Object value = attrOfAspect.getDefaultValue(rule);
             if (!allowedValues.apply(value)) {
-              rule.reportError(
-                  String.format(
-                      "%s: invalid value in '%s' attribute: %s",
-                      rule.getLabel(),
-                      attrOfAspect.getName(),
-                      allowedValues.getErrorReason(value)),
-                  eventHandler);
+              if (RawAttributeMapper.of(rule).isConfigurable(attrOfAspect.getName())) {
+                rule.reportError(
+                    String.format(
+                        "%s: attribute '%s' has a select() and aspect %s also declares "
+                            + "'%s'. Aspect attributes don't currently support select().",
+                        rule.getLabel(),
+                        attrOfAspect.getName(),
+                        aspect.getDefinition().getName(),
+                        rule.getLabel()),
+                    eventHandler);
+              } else {
+                rule.reportError(
+                    String.format(
+                        "%s: invalid value in '%s' attribute: %s",
+                        rule.getLabel(),
+                        attrOfAspect.getName(),
+                        allowedValues.getErrorReason(value)),
+                    eventHandler);
+              }
             }
           }
         }

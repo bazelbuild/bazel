@@ -141,7 +141,7 @@ public abstract class DirtyBuildingState {
   }
 
   final void markForceRebuild() {
-    if (dirtyState == DirtyState.CHECK_DEPENDENCIES || dirtyState == DirtyState.NEEDS_REBUILDING) {
+    if (dirtyState == DirtyState.CHECK_DEPENDENCIES) {
       dirtyState = DirtyState.NEEDS_REBUILDING;
     }
   }

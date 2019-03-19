@@ -23,9 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -52,7 +50,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -73,13 +70,24 @@ public abstract class TestStrategy implements TestActionContext {
       recreateDirectory(coverageDir);
     }
     recreateDirectory(tmpDir);
-    FileSystemUtils.createDirectoryAndParents(workingDirectory);
+    workingDirectory.createDirectoryAndParents();
+  }
+
+  /**
+   * Ensures that all directories used to run test are in the correct state and their content will
+   * not result in stale files. Only use this if no local tmp and working directory are required.
+   */
+  protected void prepareFileSystem(TestRunnerAction testAction, Path coverageDir)
+      throws IOException {
+    if (testAction.isCoverageMode()) {
+      recreateDirectory(coverageDir);
+    }
   }
 
   /** Removes directory if it exists and recreates it. */
-  protected void recreateDirectory(Path directory) throws IOException {
+  private void recreateDirectory(Path directory) throws IOException {
     FileSystemUtils.deleteTree(directory);
-    FileSystemUtils.createDirectoryAndParents(directory);
+    directory.createDirectoryAndParents();
   }
 
   /** An enum for specifying different formats of test output. */
@@ -128,64 +136,8 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   @Override
-  public abstract List<SpawnResult> exec(
-      TestRunnerAction action, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException;
-
-  protected List<SpawnResult> runAttempts(
-      TestRunnerSpawn testRunnerSpawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
-    List<SpawnResult> spawnResults = new ArrayList<>();
-    runAttempts(testRunnerSpawn, actionExecutionContext, spawnResults, new ArrayList<>());
-    return spawnResults;
-  }
-
-  private void runAttempts(
-      TestRunnerSpawn testRunnerSpawn,
-      ActionExecutionContext actionExecutionContext,
-      List<SpawnResult> spawnResults,
-      List<FailedAttemptResult> failedAttempts)
-      throws ExecException, InterruptedException {
-    try {
-      TestAttemptResult testProcessResult = testRunnerSpawn.execute();
-      spawnResults.addAll(testProcessResult.spawnResults());
-      int maxAttempts = testRunnerSpawn.getMaxAttempts(testProcessResult);
-      // Failed test retry loop.
-      for (int attempt = 1; attempt < maxAttempts && !testProcessResult.hasPassed(); attempt++) {
-        failedAttempts.add(
-            testRunnerSpawn.finalizeFailedTestAttempt(
-                testProcessResult, failedAttempts.size() + 1));
-
-        testProcessResult = testRunnerSpawn.execute();
-        spawnResults.addAll(testProcessResult.spawnResults());
-      }
-
-      TestRunnerSpawn fallbackRunner;
-      if (!testProcessResult.hasPassed()
-          && (fallbackRunner = testRunnerSpawn.getFallbackRunner()) != null) {
-        // All attempts failed and fallback is enabled.
-        failedAttempts.add(
-            testRunnerSpawn.finalizeFailedTestAttempt(
-                testProcessResult, failedAttempts.size() + 1));
-        runAttempts(fallbackRunner, actionExecutionContext, spawnResults, failedAttempts);
-      } else {
-        testRunnerSpawn.finalizeTest(testProcessResult, failedAttempts);
-
-        if (!executionOptions.testKeepGoing && !testProcessResult.hasPassed()) {
-          throw new TestExecException("Test failed: aborting");
-        }
-      }
-    } catch (IOException e) {
-      // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-      // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-      StringBuilder sb = new StringBuilder();
-      sb.append("Caught I/O exception: ").append(e.getMessage());
-      for (Object s : e.getStackTrace()) {
-        sb.append("\n\t").append(s);
-      }
-      actionExecutionContext.getEventHandler().handle(Event.error(sb.toString()));
-      throw new EnvironmentalExecException("unexpected I/O exception", e);
-    }
+  public final boolean isTestKeepGoing() {
+    return executionOptions.testKeepGoing;
   }
 
   /**

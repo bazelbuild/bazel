@@ -21,7 +21,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:junit4",
-        "//third_party:mockito",
+        "//third_party:mockito2",
         "//third_party:truth",
     ],
 )

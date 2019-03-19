@@ -107,7 +107,7 @@ cc_library(
     linkstamp="linkstamped_library.cc")
 cc_test(
     name="verify_scm_status",
-    stamp=True,
+    stamp=1,
     srcs=["verify_scm_status.cc"],
     deps=[":linkstamped_library"])
 EOF

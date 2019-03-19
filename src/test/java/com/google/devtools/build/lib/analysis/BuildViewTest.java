@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
@@ -410,7 +411,10 @@ public class BuildViewTest extends BuildViewTestBase {
             NoTransition.INSTANCE,
             AspectCollection.EMPTY);
     Dependency fileDependency =
-        Dependency.withNullConfiguration(Label.parseAbsolute("//package:file", ImmutableMap.of()));
+        Dependency.withTransitionAndAspects(
+            Label.parseAbsolute("//package:file", ImmutableMap.of()),
+            NullTransition.INSTANCE,
+            AspectCollection.EMPTY);
 
     assertThat(targets).containsExactly(innerDependency, fileDependency);
   }

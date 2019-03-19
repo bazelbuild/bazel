@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -112,8 +111,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
 
-  private static final Interner<ImmutableMap<String, String>>
-      executionInfoInterner = BlazeInterners.newWeakInterner();
+  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   /** Compute the default shell environment for actions from the command line options. */
   public interface ActionEnvironmentProvider {
@@ -261,25 +260,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     @Override
     public String getTypeDescription() {
       return "a comma-separated list of keys optionally followed by '=' and a label";
-    }
-  }
-
-  /** TODO(bazel-team): document this */
-  public static class PluginOptionConverter implements Converter<Map.Entry<String, String>> {
-    @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
-      int index = input.indexOf('=');
-      if (index == -1) {
-        throw new OptionsParsingException("Plugin option not in the plugin=option format");
-      }
-      String option = input.substring(0, index);
-      String value = input.substring(index + 1);
-      return Maps.immutableEntry(option, value);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "An option for a plugin";
     }
   }
 
@@ -1843,9 +1823,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
     if (!options.executionInfoModifier.matches(mnemonic)) {
       return executionInfo;
     }
-    LinkedHashMap<String, String> mutableCopy = new LinkedHashMap<>(executionInfo);
+    Map<String, String> mutableCopy = new HashMap<>(executionInfo);
     modifyExecutionInfo(mutableCopy, mnemonic);
-    return executionInfoInterner.intern(ImmutableMap.copyOf(mutableCopy));
+    return executionInfoInterner.intern(ImmutableSortedMap.copyOf(mutableCopy));
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */

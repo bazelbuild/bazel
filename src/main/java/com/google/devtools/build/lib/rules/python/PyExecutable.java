@@ -69,7 +69,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
     Runfiles.Builder defaultRunfilesBuilder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
         .merge(commonRunfiles);
-    semantics.collectDefaultRunfilesForBinary(ruleContext, defaultRunfilesBuilder);
+    semantics.collectDefaultRunfilesForBinary(ruleContext, common, defaultRunfilesBuilder);
 
     Artifact realExecutable = common.createExecutable(ccInfo, defaultRunfilesBuilder);
 

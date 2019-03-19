@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.FileArtifactValue.create;
+import static com.google.devtools.build.lib.actions.FileArtifactValue.createShareable;
 import static org.junit.Assert.fail;
 
 import com.google.common.io.BaseEncoding;
@@ -60,16 +60,37 @@ public class FileArtifactValueTest {
     // and inequality with members of other equality groups.
     new EqualsTester()
         .addEqualityGroup(
-            FileArtifactValue.createNormalFile(toBytes("00112233445566778899AABBCCDDEEFF"), 1),
-            FileArtifactValue.createNormalFile(toBytes("00112233445566778899AABBCCDDEEFF"), 1))
+            FileArtifactValue.createNormalFile(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /*proxy=*/ null,
+                1L,
+                /*isShareable=*/ true),
+            FileArtifactValue.createNormalFile(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /*proxy=*/ null,
+                1L,
+                /*isShareable=*/ true))
         .addEqualityGroup(
-            FileArtifactValue.createNormalFile(toBytes("00112233445566778899AABBCCDDEEFF"), 2))
+            FileArtifactValue.createNormalFile(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /*proxy=*/ null,
+                2L,
+                /*isShareable=*/ true))
         .addEqualityGroup(FileArtifactValue.createDirectory(1))
         .addEqualityGroup(
-            FileArtifactValue.createNormalFile(toBytes("FFFFFF00000000000000000000000000"), 1))
+            FileArtifactValue.createNormalFile(
+                toBytes("FFFFFF00000000000000000000000000"),
+                /*proxy=*/ null,
+                1L,
+                /*isShareable=*/ true))
         .addEqualityGroup(
-            FileArtifactValue.createDirectory(2),
-            FileArtifactValue.createDirectory(2))
+            FileArtifactValue.createNormalFile(
+                toBytes("FFFFFF00000000000000000000000000"),
+                /*proxy=*/ null,
+                1L,
+                /*isShareable=*/ false))
+        .addEqualityGroup(
+            FileArtifactValue.createDirectory(2), FileArtifactValue.createDirectory(2))
         .addEqualityGroup(FileArtifactValue.OMITTED_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.DEFAULT_MIDDLEMAN)
@@ -94,33 +115,33 @@ public class FileArtifactValueTest {
 
     new EqualsTester()
         // We check for ctime and inode equality for paths.
-        .addEqualityGroup(create(path1))
-        .addEqualityGroup(create(path2))
-        .addEqualityGroup(create(mtimePath))
-        .addEqualityGroup(create(digestPath))
-        .addEqualityGroup(create(empty1))
-        .addEqualityGroup(create(empty2))
-        .addEqualityGroup(create(empty3))
+        .addEqualityGroup(createShareable(path1))
+        .addEqualityGroup(createShareable(path2))
+        .addEqualityGroup(createShareable(mtimePath))
+        .addEqualityGroup(createShareable(digestPath))
+        .addEqualityGroup(createShareable(empty1))
+        .addEqualityGroup(createShareable(empty2))
+        .addEqualityGroup(createShareable(empty3))
         // We check for mtime equality for directories.
-        .addEqualityGroup(create(dir1))
-        .addEqualityGroup(create(dir2), create(dir3))
+        .addEqualityGroup(createShareable(dir1))
+        .addEqualityGroup(createShareable(dir2), createShareable(dir3))
         .testEquals();
   }
 
   @Test
   public void testCtimeInEquality() throws Exception {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
-    FileArtifactValue before = create(path);
+    FileArtifactValue before = createShareable(path);
     clock.advanceMillis(1);
     path.chmod(0777);
-    FileArtifactValue after = create(path);
+    FileArtifactValue after = createShareable(path);
     assertThat(before).isNotEqualTo(after);
   }
 
   @Test
   public void testNoMtimeIfNonemptyFile() throws Exception {
     Path path = scratchFile("/root/non-empty", 1L, "abc");
-    FileArtifactValue value = create(path);
+    FileArtifactValue value = createShareable(path);
     assertThat(value.getDigest()).isEqualTo(path.getDigest());
     assertThat(value.getSize()).isEqualTo(3L);
     try {
@@ -134,7 +155,7 @@ public class FileArtifactValueTest {
   @Test
   public void testDirectory() throws Exception {
     Path path = scratchDir("/dir", /*mtime=*/ 1L);
-    FileArtifactValue value = create(path);
+    FileArtifactValue value = createShareable(path);
     assertThat(value.getDigest()).isNull();
     assertThat(value.getModifiedTime()).isEqualTo(1L);
   }
@@ -144,7 +165,7 @@ public class FileArtifactValueTest {
   public void testEmptyFile() throws Exception {
     Path path = scratchFile("/root/empty", 1L, "");
     path.setLastModifiedTime(1L);
-    FileArtifactValue value = create(path);
+    FileArtifactValue value = createShareable(path);
     assertThat(value.getDigest()).isEqualTo(path.getDigest());
     assertThat(value.getSize()).isEqualTo(0L);
     try {
@@ -174,7 +195,7 @@ public class FileArtifactValueTest {
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, "content");
     try {
-      create(path);
+      createShareable(path);
       fail();
     } catch (IOException e) {
       assertThat(e).isSameAs(exception);
@@ -184,7 +205,7 @@ public class FileArtifactValueTest {
   @Test
   public void testUptodateCheck() throws Exception {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
-    FileArtifactValue value = create(path);
+    FileArtifactValue value = createShareable(path);
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
@@ -199,7 +220,7 @@ public class FileArtifactValueTest {
   @Test
   public void testUptodateCheckDeleteFile() throws Exception {
     Path path = scratchFile("/dir/artifact1", 0L, "content");
-    FileArtifactValue value = create(path);
+    FileArtifactValue value = createShareable(path);
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     path.delete();
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -209,7 +230,7 @@ public class FileArtifactValueTest {
   public void testUptodateCheckDirectory() throws Exception {
     // For now, we don't attempt to detect changes to directories.
     Path path = scratchDir("/dir", 0L);
-    FileArtifactValue value = create(path);
+    FileArtifactValue value = createShareable(path);
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     path.delete();
     clock.advanceMillis(1);
@@ -220,7 +241,7 @@ public class FileArtifactValueTest {
   public void testUptodateChangeFileToDirectory() throws Exception {
     // For now, we don't attempt to detect changes to directories.
     Path path = scratchFile("/dir/file", 0L, "");
-    FileArtifactValue value = create(path);
+    FileArtifactValue value = createShareable(path);
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     // If we only check ctime, then we need to change the clock here, or we get a ctime match on the
     // stat.
@@ -239,7 +260,7 @@ public class FileArtifactValueTest {
 
   @Test
   public void testIsMarkerValue_notMarker() throws Exception {
-    FileArtifactValue value = create(scratchFile("/dir/artifact1", 0L, "content"));
+    FileArtifactValue value = createShareable(scratchFile("/dir/artifact1", 0L, "content"));
     assertThat(value.isMarkerValue()).isFalse();
   }
 }

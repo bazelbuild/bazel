@@ -17,12 +17,32 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** Contains information about the result of a CppCompileAction's execution. */
 @AutoValue
 public abstract class CppCompileActionResult {
+  /** Reply for the execution of a C++ compilation. */
+  public interface Reply {
+    /** Returns the contents of the .d file. */
+    byte[] getContents() throws IOException;
+  }
+
+  /** A simple in-memory implementation of Reply. */
+  public static class InMemoryFile implements Reply {
+    private final byte[] contents;
+
+    public InMemoryFile(byte[] contents) {
+      this.contents = contents;
+    }
+
+    @Override
+    public byte[] getContents() {
+      return contents;
+    }
+  }
 
   /** Returns the SpawnResults created by the action, if any. */
   public abstract List<SpawnResult> spawnResults();
@@ -34,7 +54,7 @@ public abstract class CppCompileActionResult {
    * statements are actually required.)
    */
   @Nullable
-  public abstract CppCompileActionContext.Reply contextReply();
+  public abstract Reply contextReply();
 
   /** Returns a builder that can be used to construct a {@link CppCompileActionResult} object. */
   public static Builder builder() {
@@ -52,7 +72,7 @@ public abstract class CppCompileActionResult {
     public abstract Builder setSpawnResults(List<SpawnResult> spawnResults);
 
     /** Sets the CppCompileActionContext.Reply for the action. */
-    public abstract Builder setContextReply(CppCompileActionContext.Reply reply);
+    public abstract Builder setContextReply(Reply reply);
 
     abstract CppCompileActionResult realBuild();
 

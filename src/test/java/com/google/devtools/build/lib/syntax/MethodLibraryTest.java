@@ -745,4 +745,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("None", "fail(msg=None)")
         .testEval("type(None)", "'NoneType'");
   }
+
+  @Test
+  public void testExperimentalStarlarkConfig() throws Exception {
+    new SkylarkTest("--experimental_restrict_named_params")
+        .testIfErrorContains(
+            "parameter 'elements' may not be specified by name, "
+                + "for call to method join(elements) of 'string'",
+            "','.join(elements=['foo', 'bar'])");
+  }
 }

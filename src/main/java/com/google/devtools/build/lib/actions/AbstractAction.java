@@ -425,22 +425,20 @@ public abstract class AbstractAction implements Action, ActionApi {
    * checking, this method must be called.
    */
   protected void checkInputsForDirectories(
-      EventHandler eventHandler, MetadataProvider metadataProvider) throws ExecException {
+      EventHandler eventHandler, MetadataProvider metadataProvider) throws IOException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs()) {
       // Assume that if the file did not exist, we would not have gotten here.
-      try {
-        if (input.isSourceArtifact()
-            && metadataProvider.getMetadata(input).getType().isDirectory()) {
-          // TODO(ulfjack): What about dependency checking of special files?
-          eventHandler.handle(Event.warn(getOwner().getLocation(),
-              String.format(
-                  "input '%s' to %s is a directory; dependency checking of directories is unsound",
-                  input.prettyPrint(), getOwner().getLabel())));
-        }
-      } catch (IOException e) {
-        throw new UserExecException(e);
+      if (input.isSourceArtifact() && metadataProvider.getMetadata(input).getType().isDirectory()) {
+        // TODO(ulfjack): What about dependency checking of special files?
+        eventHandler.handle(
+            Event.warn(
+                getOwner().getLocation(),
+                String.format(
+                    "input '%s' to %s is a directory; "
+                        + "dependency checking of directories is unsound",
+                    input.prettyPrint(), getOwner().getLabel())));
       }
     }
   }

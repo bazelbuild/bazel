@@ -315,6 +315,14 @@ filegroup(
 )
 
 java_import(
+    name = "byte_buddy",
+    jars = [
+        "bytebuddy/byte-buddy-1.9.7.jar",
+        "bytebuddy/byte-buddy-agent-1.9.7.jar",
+    ],
+)
+
+java_import(
     name = "compile_testing",
     jars = ["compile_testing/compile-testing-0.13.jar"],
 )
@@ -564,6 +572,15 @@ java_import(
 )
 
 java_import(
+    name = "mockito2",
+    jars = ["mockito/mockito-core-2.25.1.jar"],
+    deps = [
+        ":byte_buddy",
+        ":objenesis",
+    ],
+)
+
+java_import(
     name = "objenesis",
     jars = ["objenesis/objenesis-1_3.jar"],
 )
@@ -605,18 +622,29 @@ filegroup(
     ],
 )
 
-pkg_tar(
-    name = "java_tools_pkg-gz",
+# Builds the remote Java tools archive. Not embedded or used in Bazel, but used
+# by the Java tools release process.
+genrule(
+    name = "java_tools_zip",
     srcs = [
-        "//third_party/java/java_tools",
-        "//third_party/java/jdk/langtools:java_compiler_jar",
-        "//third_party/java/jdk/langtools:javac_jar",
-        "//third_party/java/jdk/langtools:jdk_compiler_jar",
+        "//third_party/ijar:ijar_with_deps_zip",
+        "//third_party/java/java_tools:java_tools_zip",
+        ":zlib_zip",
     ],
-    extension = "tar.gz",
-    # Permissions -rwxr-xr-x
-    mode = "755",
-    package_dir = "java_tools",
+    outs = ["java_tools.zip"],
+    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
+    output_to_bindir = 1,
+    tools = ["//src:merge_zip_files"],
+)
+
+# Part of the Java tools remote archive. Not embedded or used in Bazel.
+genrule(
+    name = "zlib_zip",
+    srcs = ["//third_party/zlib:embedded_tools"],
+    outs = ["zlib.zip"],
+    cmd = "$(location //src:zip_files) zlib $@ $(SRCS)",
+    tools = ["//src:zip_files"],
+    visibility = ["//visibility:private"],
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")

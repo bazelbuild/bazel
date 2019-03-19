@@ -66,12 +66,15 @@ import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -598,6 +601,13 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** The set of configuration fragment factories. */
   private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
 
+  /**
+   * Maps build option names to matching config fragments. This is used to determine correct
+   * fragment requirements for config_setting rules, which are unique in that their dependencies are
+   * triggered by string representations of option names.
+   */
+  private final Map<String, Class<? extends Fragment>> optionsToFragmentMap;
+
   /** The transition factory used to produce the transition that will trim targets. */
   @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
 
@@ -659,6 +669,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
     this.configurationFragmentFactories = configurationFragments;
+    this.optionsToFragmentMap = computeOptionsToFragmentMap(configurationFragments);
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
@@ -669,6 +680,37 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
+  }
+
+  /**
+   * Computes the option name --> config fragments map. Note that this mapping is technically
+   * one-to-many: a single option may be required by multiple fragments (e.g. Java options are used
+   * by both JavaConfiguration and Jvm). In such cases, we arbitrarily choose one fragment since
+   * that's all that's needed to satisfy the config_setting.
+   */
+  private static Map<String, Class<? extends Fragment>> computeOptionsToFragmentMap(
+      Iterable<ConfigurationFragmentFactory> configurationFragments) {
+    Map<String, Class<? extends Fragment>> result = new LinkedHashMap<>();
+    Map<Class<? extends FragmentOptions>, Integer> visitedOptionsClasses = new HashMap<>();
+    for (ConfigurationFragmentFactory factory : configurationFragments) {
+      Set<Class<? extends FragmentOptions>> requiredOpts = factory.requiredOptions();
+      for (Class<? extends FragmentOptions> optionsClass : requiredOpts) {
+        Integer previousBest = visitedOptionsClasses.get(optionsClass);
+        if (previousBest != null && previousBest <= requiredOpts.size()) {
+          // Multiple config fragments may require the same options class, but we only need one of
+          // them to guarantee that class makes it into the configuration. Pick one that depends
+          // on as few options classes as possible (not necessarily unique).
+          continue;
+        }
+        visitedOptionsClasses.put(optionsClass, requiredOpts.size());
+        for (Field field : optionsClass.getFields()) {
+          if (field.isAnnotationPresent(Option.class)) {
+            result.put(field.getAnnotation(Option.class).name(), factory.creates());
+          }
+        }
+      }
+    }
+    return result;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -717,6 +759,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   public ImmutableList<ConfigurationFragmentFactory> getConfigurationFragments() {
     return configurationFragmentFactories;
+  }
+
+  @Nullable
+  public Class<? extends Fragment> getConfigurationFragmentForOption(String requiredOption) {
+    return optionsToFragmentMap.get(requiredOption);
   }
 
   /**

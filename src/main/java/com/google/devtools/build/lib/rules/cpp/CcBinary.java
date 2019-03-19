@@ -247,6 +247,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static ConfiguredTarget init(CppSemantics semantics, RuleContext ruleContext, boolean fake)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
+    semantics.validateDeps(ruleContext);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
     ruleContext.checkSrcsSamePackage(true);
 
     CcCommon common = new CcCommon(ruleContext);

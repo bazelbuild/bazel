@@ -41,7 +41,7 @@ fi
 # latter depends on the bazel binary used to run the test.
 # Sort the targets for a deterministic diffing experience.
 current_deps="${TEST_TMPDIR}/current_deps"
-grep -v "^@bazel_tools//" \
+grep -v "^@bazel_tools//\|^@remote_java_tools" \
   "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/embedded_tools_deps" \
   | sort >"${current_deps}"
 

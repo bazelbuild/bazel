@@ -1450,12 +1450,17 @@ genrule(
   cmd = "cp $< $@"
 )
 EOF
+
+  echo "Build #1"
+
   # build to fill the cache
   bazel build //:it || fail "Expected success"
 
   # go offline and clean everything
   bazel clean --expunge
   rm "${WRKDIR}/ext-1.1.zip"
+
+  echo "Build #2"
 
   # We still should be able to build, as the file is in cache
   bazel build //:it > "${TEST_log}" 2>&1 || fail "Expected success"
@@ -1471,6 +1476,9 @@ EOF
 w
 q
 EOI
+
+  echo "Build #3"
+
   # The build should fail, as the prefix is not found. The available prefix
   # should be reported as well as the information that the file was taken
   # from cache.
@@ -1495,6 +1503,9 @@ patch_cmds = ["cp ext-1.2/foo.txt ext-1.2/BUILD ."],
 w
 q
 EOI
+
+  echo "Build #4"
+
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Should not succeed" || :
   expect_not_log 'prefix'
   expect_log 'cp ext-1.2/foo.txt ext-1.2/BUILD'

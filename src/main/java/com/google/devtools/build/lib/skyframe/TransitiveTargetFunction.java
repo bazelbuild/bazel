@@ -13,23 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
-import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -42,11 +38,7 @@ import com.google.devtools.build.lib.skyframe.TransitiveTargetFunction.Transitiv
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
-import com.google.devtools.common.options.Option;
-import java.lang.reflect.Field;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -61,47 +53,8 @@ public class TransitiveTargetFunction
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  /**
-   * Maps build option names to matching config fragments. This is used to determine correct
-   * fragment requirements for config_setting rules, which are unique in that their dependencies
-   * are triggered by string representations of option names.
-   */
-  private final Map<String, Class<? extends Fragment>> optionsToFragmentMap;
-
   TransitiveTargetFunction(RuleClassProvider ruleClassProvider) {
     this.ruleClassProvider = (ConfiguredRuleClassProvider) ruleClassProvider;
-    this.optionsToFragmentMap = computeOptionsToFragmentMap(this.ruleClassProvider);
-  }
-
-  /**
-   * Computes the option name --> config fragments map. Note that this mapping is technically
-   * one-to-many: a single option may be required by multiple fragments (e.g. Java options are
-   * used by both JavaConfiguration and Jvm). In such cases, we arbitrarily choose one fragment
-   * since that's all that's needed to satisfy the config_setting.
-   */
-  private static Map<String, Class<? extends Fragment>> computeOptionsToFragmentMap(
-      ConfiguredRuleClassProvider ruleClassProvider) {
-    Map<String, Class<? extends Fragment>> result = new LinkedHashMap<>();
-    Map<Class<? extends FragmentOptions>, Integer> visitedOptionsClasses = new HashMap<>();
-    for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
-      Set<Class<? extends FragmentOptions>> requiredOpts = factory.requiredOptions();
-      for (Class<? extends FragmentOptions> optionsClass : requiredOpts) {
-        Integer previousBest = visitedOptionsClasses.get(optionsClass);
-        if (previousBest != null && previousBest <= requiredOpts.size()) {
-          // Multiple config fragments may require the same options class, but we only need one of
-          // them to guarantee that class makes it into the configuration. Pick one that depends
-          // on as few options classes as possible (not necessarily unique).
-          continue;
-        }
-        visitedOptionsClasses.put(optionsClass, requiredOpts.size());
-        for (Field field : optionsClass.getFields()) {
-          if (field.isAnnotationPresent(Option.class)) {
-            result.put(field.getAnnotation(Option.class).name(), factory.creates());
-          }
-        }
-      }
-    }
-    return result;
   }
 
   @Override
@@ -233,7 +186,7 @@ public class TransitiveTargetFunction
         new ImmutableSet.Builder<>();
     for (String requiredOption : requiredOptions) {
       Class<? extends BuildConfiguration.Fragment> fragment =
-          optionsToFragmentMap.get(requiredOption);
+          ruleClassProvider.getConfigurationFragmentForOption(requiredOption);
       // Null values come from BuildConfiguration.Options, which is implicitly included.
       if (fragment != null) {
         optionsFragments.add(fragment);
@@ -263,36 +216,38 @@ public class TransitiveTargetFunction
     }
   }
 
+  @Nullable
   @Override
-  protected Collection<Label> getAspectLabels(
-      Rule fromRule,
-      ImmutableList<Aspect> aspectsOfAttribute,
+  protected AdvertisedProviderSet getAdvertisedProviderSet(
       Label toLabel,
-      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
-      final Environment env)
+      @Nullable ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+      Environment env)
       throws InterruptedException {
     SkyKey packageKey = PackageValue.key(toLabel.getPackageIdentifier());
+    Target toTarget;
     try {
       PackageValue pkgValue =
           (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
       if (pkgValue == null) {
-        return ImmutableList.of();
+        return null;
       }
       Package pkg = pkgValue.getPackage();
       if (pkg.containsErrors()) {
-        // Do nothing. This error was handled when we computed the corresponding
+        // Do nothing interesting. This error was handled when we computed the corresponding
         // TransitiveTargetValue.
-        return ImmutableList.of();
+        return null;
       }
-      Target dependedTarget = pkgValue.getPackage().getTarget(toLabel.getName());
-      return AspectDefinition.visitAspectsIfRequired(
-              fromRule, aspectsOfAttribute, dependedTarget, DependencyFilter.ALL_DEPS)
-          .values();
+      toTarget = pkgValue.getPackage().getTarget(toLabel.getName());
     } catch (NoSuchThingException e) {
-      // Do nothing. This error was handled when we computed the corresponding
+      // Do nothing interesting. This error was handled when we computed the corresponding
       // TransitiveTargetValue.
-      return ImmutableList.of();
+      return null;
     }
+    if (!(toTarget instanceof Rule)) {
+      // Aspect can be declared only for Rules.
+      return null;
+    }
+    return ((Rule) toTarget).getRuleClassObject().getAdvertisedProviders();
   }
 
   @Override

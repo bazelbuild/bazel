@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Collections.singletonMap;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.Collections;
@@ -63,5 +64,18 @@ public class BlazeVersionInfoTest {
     BlazeVersionInfo info = new BlazeVersionInfo(data);
     Map<String, String> sortedData = new TreeMap<>(data);
     assertThat(info.getSummary()).isEqualTo(StringUtilities.layoutTable(sortedData));
+  }
+
+  @Test
+  public void testVersionIsHeadIfBuildLabelIsNull() {
+    BlazeVersionInfo info = new BlazeVersionInfo(ImmutableMap.of());
+    assertThat(info.getVersion()).isEmpty();
+  }
+
+  @Test
+  public void testVersionsIIfBuildLabelIsPresent() {
+    Map<String, String> data = ImmutableMap.of("Build label", "123.4");
+    BlazeVersionInfo info = new BlazeVersionInfo(data);
+    assertThat(info.getVersion()).isEqualTo("123.4");
   }
 }

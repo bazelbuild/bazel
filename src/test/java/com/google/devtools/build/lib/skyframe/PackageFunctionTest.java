@@ -501,7 +501,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String expectedMsg =
         "error loading package 'test/skylark': "
             + "Unable to load file '//test/skylark:bad_extension.bzl': file doesn't exist";
-    assertThat(errorInfo.getException()).hasMessage(expectedMsg);
+    assertThat(errorInfo.getException()).hasMessageThat().isEqualTo(expectedMsg);
   }
 
   @Test
@@ -526,7 +526,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException())
-        .hasMessage(
+        .hasMessageThat()
+        .isEqualTo(
             "error loading package 'test/skylark': "
                 + "in /workspace/test/skylark/extension.bzl: "
                 + "Unable to load file '//test/skylark:bad_extension.bzl': file doesn't exist");
@@ -553,7 +554,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getRootCauseOfException()).isEqualTo(skyKey);
     assertThat(errorInfo.getException())
-        .hasMessage(
+        .hasMessageThat()
+        .isEqualTo(
             "error loading package 'test/skylark': Encountered error while reading extension "
                 + "file 'test/skylark/extension.bzl': Symlink cycle");
   }

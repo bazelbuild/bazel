@@ -17,6 +17,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -96,9 +97,12 @@ StartupOptions::StartupOptions(const string &product_name,
       digest_function(),
       idle_server_tasks(true),
       original_startup_options_(std::vector<RcStartupFlag>()),
+#if defined(__APPLE__)
+      macos_qos_class(QOS_CLASS_DEFAULT),
+#endif
       unlimit_coredumps(false) {
   if (blaze::IsRunningWithinTest()) {
-    output_root = blaze_util::MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
+    output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
     BAZEL_LOG(USER) << "$TEST_TMPDIR defined: output root default is '"
                     << output_root << "' and max_idle_secs default is '"
@@ -151,6 +155,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("invocation_policy");
   RegisterUnaryStartupFlag("io_nice_level");
   RegisterUnaryStartupFlag("install_base");
+  RegisterUnaryStartupFlag("macos_qos_class");
   RegisterUnaryStartupFlag("max_idle_secs");
   RegisterUnaryStartupFlag("output_base");
   RegisterUnaryStartupFlag("output_user_root");
@@ -290,6 +295,36 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["max_idle_secs"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--macos_qos_class")) !=
+             NULL) {
+    // We parse the value of this flag on all platforms even if it is
+    // macOS-specific to ensure that rc files mentioning it are valid.
+    if (strcmp(value, "user-interactive") == 0) {
+#if defined(__APPLE__)
+      macos_qos_class = QOS_CLASS_USER_INTERACTIVE;
+#endif
+    } else if (strcmp(value, "user-initiated") == 0) {
+#if defined(__APPLE__)
+      macos_qos_class = QOS_CLASS_USER_INITIATED;
+#endif
+    } else if (strcmp(value, "default") == 0) {
+#if defined(__APPLE__)
+      macos_qos_class = QOS_CLASS_DEFAULT;
+#endif
+    } else if (strcmp(value, "utility") == 0) {
+#if defined(__APPLE__)
+      macos_qos_class = QOS_CLASS_UTILITY;
+#endif
+    } else if (strcmp(value, "background") == 0) {
+#if defined(__APPLE__)
+      macos_qos_class = QOS_CLASS_BACKGROUND;
+#endif
+    } else {
+      blaze_util::StringPrintf(
+          error, "Invalid argument to --macos_qos_class: '%s'.", value);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["macos_qos_class"] = rcfile;
   } else if (GetNullaryOption(arg, "--shutdown_on_low_sys_mem")) {
     shutdown_on_low_sys_mem = true;
     option_sources["shutdown_on_low_sys_mem"] = rcfile;

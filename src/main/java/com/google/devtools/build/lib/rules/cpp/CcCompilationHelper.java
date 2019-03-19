@@ -1343,7 +1343,7 @@ public final class CcCompilationHelper {
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(
             actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    // TODO(rduan): Dotd file output is not supported yet.
+    // Dotd file output is specified in the execution phase.
     builder.setOutputs(outputFiles, /* dotdFile= */ null);
     builder.setVariables(
         setupCompileBuildVariables(
@@ -1363,6 +1363,8 @@ public final class CcCompilationHelper {
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
+            CppHelper.getDotdOutputTreeArtifact(
+                actionConstructionContext, label, sourceArtifact, outputName, usePic),
             builder,
             ccToolchain,
             outputCategories,
@@ -1420,7 +1422,7 @@ public final class CcCompilationHelper {
     Artifact sourceFile = builder.getSourceFile();
     String dotdFileExecPath = null;
     if (builder.getDotdFile() != null) {
-      dotdFileExecPath = builder.getDotdFile().getSafeExecPath().getPathString();
+      dotdFileExecPath = builder.getDotdFile().getExecPathString();
     }
     ImmutableMap.Builder<String, String> allAdditionalBuildVariables = ImmutableMap.builder();
     allAdditionalBuildVariables.putAll(additionalBuildVariables);

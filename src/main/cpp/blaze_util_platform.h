@@ -70,6 +70,7 @@ Dumper* Create(std::string* error = nullptr);
 }  // namespace embedded_binaries
 
 struct GlobalVariables;
+class StartupOptions;
 
 class SignalHandler {
  public:
@@ -95,7 +96,8 @@ void SigPrintf(const char *format, ...);
 
 std::string GetProcessIdAsString();
 
-// Get the absolute path to the binary being executed.
+// Get an absolute path to the binary being executed that is guaranteed to be
+// readable.
 std::string GetSelfPath();
 
 // Returns the directory Bazel can use to store output.
@@ -156,6 +158,7 @@ int ExecuteDaemon(const std::string& exe,
                   const bool daemon_output_append,
                   const std::string& binaries_dir,
                   const std::string& server_dir,
+                  const StartupOptions* options,
                   BlazeServerStartup** server_startup);
 
 // A character used to separate paths in a list.
@@ -212,6 +215,8 @@ void CreateSecureOutputRoot(const std::string& path);
 
 std::string GetEnv(const std::string& name);
 
+std::string GetPathEnv(const std::string& name);
+
 bool ExistsEnv(const std::string& name);
 
 void SetEnv(const std::string& name, const std::string& value);
@@ -263,7 +268,6 @@ bool UnlimitCoredumps();
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 std::string DetectBashAndExportBazelSh();
-void DetectBashOrDie();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
 // This function has no effect on Unix platforms.

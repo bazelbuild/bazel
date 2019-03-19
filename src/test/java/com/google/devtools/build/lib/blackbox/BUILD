@@ -29,6 +29,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party:truth8",
     ],
 )
 

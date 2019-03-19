@@ -123,9 +123,6 @@ JAVA_TOOLS = [
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/tools/singlejar:embedded_tools",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-    "//third_party/ijar",
-    "//third_party/ijar:zipper",
-    "//third_party/ijar:embedded_tools",
     "//third_party/java/jacoco:srcs",
 ] + select({
     "//src/conditions:arm": [],
@@ -142,7 +139,8 @@ JAVA_TOOLS = [
                "BUILD.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
-               "//third_party/java/java_tools:bazel_embedded_java_tools",
+               "//third_party/ijar:embedded_zipper_sources",
+               "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/concurrent:srcs",
                "//third_party/py/gflags:srcs",
@@ -547,5 +545,17 @@ test_suite(
 alias(
     name = "windows",
     actual = "//src/conditions:windows",
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "zip_files",
+    srcs = ["zip_files.sh"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "merge_zip_files",
+    srcs = ["merge_zip_files.sh"],
     visibility = ["//visibility:public"],
 )

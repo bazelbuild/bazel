@@ -104,11 +104,6 @@ public final class LtoBackendAction extends SpawnAction {
   }
 
   @Override
-  protected boolean mayExecuteAsync() {
-    return false;
-  }
-
-  @Override
   public boolean discoversInputs() {
     return imports != null;
   }

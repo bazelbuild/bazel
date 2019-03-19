@@ -102,18 +102,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       help = "If set to true, enables the APIs required to support the Android Starlark migration.")
   public boolean experimentalEnableAndroidMigrationApis;
 
-  @Option(
-      name = "experimental_enable_repo_mapping",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.NO_OP,
-      deprecationWarning =
-          "This behavior is on by default and the flag is a no-op. You can remove its usage",
-      help =
-          "This flag is a no-op. The use of the `repo_mapping` attribute in repository rules "
-              + "is enabled by default.")
-  public boolean experimentalEnableRepoMapping;
-
   // This flag is declared in StarlarkSemanticsOptions instead of JavaOptions because there is no
   // way to retrieve the java configuration from the Java implementation of
   // java_common.create_provider.
@@ -138,6 +126,19 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "debugging.")
   public boolean experimentalPlatformsApi;
 
+  // TODO(cparsons): Change this flag to --incompatible instead of --experimental when it is
+  // fully implemented.
+  @Option(
+      name = "experimental_restrict_named_params",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to true, restricts a number of Starlark built-in function parameters to be "
+              + "only specifiable positionally (and not by keyword).")
+  public boolean experimentalRestrictNamedParams;
+
   // TODO(cparsons): Resolve and finalize the transition() API. The transition implementation
   // function should accept two mandatory parameters, 'settings' and 'attr'.
   @Option(
@@ -150,18 +151,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
           "If set to true, enables creation of configuration transition objects (the "
               + "`transition()` function) in Starlark.")
   public boolean experimentalStarlarkConfigTransitions;
-
-  @Option(
-      name = "experimental_transition_whitelist_location",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If not empty, turns on whitelist checking for starlark-defined split transitions "
-              + "using package groups from the specified location. If empty, starlark-defined split"
-              + "transitions are enabled in all locations.")
-  public String experimentalTransitionWhitelistLocation;
 
   @Option(
       name = "incompatible_bzl_disallow_load_after_statement",
@@ -475,7 +464,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_no_transitive_loads",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -489,7 +478,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_remap_main_repo",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       metadataTags = {
@@ -530,11 +519,10 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
-    name = "internal_skylark_flag_test_canary",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN}
-  )
+      name = "internal_skylark_flag_test_canary",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN})
   public boolean internalSkylarkFlagTestCanary;
 
   @Option(
@@ -552,6 +540,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + " target.")
   public boolean incompatibleUseToolchainProvidersInJavaCommon;
 
+  @Option(
+      name = "incompatible_do_not_split_linking_cmdline",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "When true, Bazel no longer modifies command line flags used for linking, and also "
+              + "doesn't selectively decide which flags go to the param file and which don't.  "
+              + "See https://github.com/bazelbuild/bazel/issues/7670 for details.")
+  public boolean incompatibleDoNotSplitLinkingCmdline;
+
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
   public StarlarkSemantics toSkylarkSemantics() {
     return StarlarkSemantics.builder()
@@ -560,12 +563,11 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .experimentalBuildSettingApi(experimentalBuildSettingApi)
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
-        .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .experimentalJavaCommonCreateProviderEnabledPackages(
             experimentalJavaCommonCreateProviderEnabledPackages)
         .experimentalPlatformsApi(experimentalPlatformsApi)
+        .experimentalRestrictNamedParams(experimentalRestrictNamedParams)
         .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
-        .experimentalTransitionWhitelistLocation(experimentalTransitionWhitelistLocation)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
@@ -596,6 +598,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleUseToolchainProvidersInJavaCommon(
             incompatibleUseToolchainProvidersInJavaCommon)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
+        .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
         .build();
   }
 }

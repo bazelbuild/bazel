@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
@@ -44,10 +43,10 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -69,6 +67,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -228,22 +227,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (transitivePackagesForPackageRootResolution != null) {
       transitivePackagesForPackageRootResolution.add(pkg);
     }
-    // TODO(bazel-team): This is problematic - we create the right key, but then end up with a value
-    // that doesn't match; we can even have the same value multiple times. However, I think it's
-    // only triggered in tests (i.e., in normal operation, the configuration passed in is already
-    // null).
-    if (!target.isConfigurable()) {
-      configuration = null;
-    }
-
-    if (target.isConfigurable() && configuredTargetKey.getConfigurationKey() == null) {
+    if (target.isConfigurable() != (configuredTargetKey.getConfigurationKey() != null)) {
       // We somehow ended up in a target that requires a non-null configuration as a dependency of
-      // one that requires a null configuration. This is always an error, but we need to analyze
-      // the dependencies of the latter target to realize that. Short-circuit the evaluation to
-      // avoid doing useless work and running code with a null configuration that's not prepared for
-      // it.
+      // one that requires a null configuration or the other way round. This is always an error, but
+      // we need to analyze the dependencies of the latter target to realize that. Short-circuit the
+      // evaluation to avoid doing useless work and running code with a null configuration that's
+      // not prepared for it.
       return new NonRuleConfiguredTargetValue(
-          new EmptyConfiguredTarget(target.getLabel(), null),
+          new EmptyConfiguredTarget(target.getLabel(), configuredTargetKey.getConfigurationKey()),
           GeneratingActions.EMPTY,
           transitivePackagesForPackageRootResolution == null
               ? null
@@ -518,16 +509,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
-    if (ctgValue.getConfiguration() != null) {
-      depValueNames =
-          ConfigurationResolver.resolveConfigurations(
-              env,
-              ctgValue,
-              depValueNames,
-              hostConfiguration,
-              ruleClassProvider,
-              defaultBuildOptions);
-    }
+    depValueNames =
+        ConfigurationResolver.resolveConfigurations(
+            env,
+            ctgValue,
+            depValueNames,
+            hostConfiguration,
+            ruleClassProvider,
+            defaultBuildOptions);
 
     // Return early in case packages were not loaded yet. In theory, we could start configuring
     // dependent targets in loaded packages. However, that creates an artificial sync boundary
@@ -589,50 +578,28 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (!(target instanceof Rule)) {
       return NO_CONFIG_CONDITIONS;
     }
-
-    Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
-
-    // Collect the labels of the configured targets we need to resolve.
-    OrderedSetMultimap<DependencyKind, Label> configLabelMap = OrderedSetMultimap.create();
-    RawAttributeMapper attributeMap = RawAttributeMapper.of(((Rule) target));
-    for (Attribute a : ((Rule) target).getAttributes()) {
-      for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
-        if (!BuildType.Selector.isReservedLabel(configLabel)) {
-          configLabelMap.put(
-              AttributeDependencyKind.forRule(a),
-              target.getLabel().resolveRepositoryRelative(configLabel));
-        }
-      }
-    }
-    if (configLabelMap.isEmpty()) {
+    RawAttributeMapper attrs = RawAttributeMapper.of(((Rule) target));
+    if (!attrs.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
       return NO_CONFIG_CONDITIONS;
     }
 
-    Map<Label, Target> configurabilityTargets =
-        resolver.getTargets(configLabelMap, target, transitiveRootCauses);
-    if (configurabilityTargets == null) {
-      return null;
+    // Collect the labels of the configured targets we need to resolve.
+    List<Label> configLabels =
+        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).stream()
+            .map(configLabel -> target.getLabel().resolveRepositoryRelative(configLabel))
+            .collect(Collectors.toList());
+    if (configLabels.isEmpty()) {
+      return NO_CONFIG_CONDITIONS;
     }
 
-    // Collect the actual deps, hard-coded to the current configuration (since by definition config
-    // conditions evaluate over the current target's configuration).
+    // Collect the actual deps without a configuration transition (since by definition config
+    // conditions evaluate over the current target's configuration). If the dependency is
+    // (erroneously) something that needs the null configuration, its analysis will be
+    // short-circuited. That error will be reported later.
     ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
-    for (Label configurabilityLabel : configLabelMap.values()) {
-      Target configurabilityTarget = configurabilityTargets.get(configurabilityLabel);
-      Dependency configurabilityDependency;
-      if (TransitionResolver.usesNullConfiguration(configurabilityTarget)) {
-        // This is kinda awful: select conditions should be config_setting rules, but we don't know
-        // if they are one until after we analyzed them. However, we need to figure out which
-        // configuration we analyze them in and input files and package groups are supposed to have
-        // the null configuration.
-        //
-        // We can't check for the Target being a config_setting because configurability targets can
-        // also be aliases pointing to config_settig rules.
-        configurabilityDependency = Dependency.withNullConfiguration(configurabilityLabel);
-      } else {
-        configurabilityDependency =
-            Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
-      }
+    for (Label configurabilityLabel : configLabels) {
+      Dependency configurabilityDependency =
+          Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
       depsBuilder.add(configurabilityDependency);
     }
 
@@ -648,6 +615,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (configValues == null) {
       return null;
     }
+
+    Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configConditionDeps) {
@@ -729,11 +698,27 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 aliasDepsToRedo.add(dep);
                 continue;
               } else {
-                pkgValue =
-                    Preconditions.checkNotNull(
-                        (PackageValue) packageResult.get(),
-                        "Package should have been loaded during dep resolution: %s",
-                        dep);
+                pkgValue = (PackageValue) packageResult.get();
+                if (pkgValue == null) {
+                  // In a race, the getValuesOrThrow call above may have retrieved the package
+                  // before it was done but the configured target after it was done. However, the
+                  // configured target being done implies that the package is now done, so we can
+                  // retrieve it from the graph.
+                  pkgValue = (PackageValue) env.getValue(packageKey);
+                  if (pkgValue == null) {
+                    BugReport.sendBugReport(
+                        new IllegalStateException(
+                            "Package should have been loaded during dep resolution: "
+                                + dep
+                                + ", ("
+                                + depValue
+                                + ", "
+                                + packageResult
+                                + ")"));
+                    missedValues = true;
+                    continue;
+                  }
+                }
               }
             } else {
               // We were doing AliasConfiguredTarget mop-up.

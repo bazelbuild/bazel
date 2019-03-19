@@ -150,12 +150,12 @@ java_test(
     name = "PythonVersionSelectTest",
     srcs = ["PythonVersionSelectTest.java"],
     deps = [
-        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

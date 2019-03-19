@@ -34,6 +34,8 @@ shift
 readonly SL_ZIP=${PWD}/$1
 shift
 readonly CLR_HTML=${PWD}/$1
+shift
+readonly REPO_TAR="${PWD}/$1"
 
 # Create temporary directory that is removed when this script exits.
 readonly TMP=$(mktemp -d "${TMPDIR:-/tmp}/tmp.XXXXXXXX")
@@ -43,8 +45,7 @@ trap "rm -rf ${TMP}" EXIT
 readonly VERSION="${DOC_VERSION:-master}"
 readonly VERSION_DIR="$OUT_DIR/versions/$VERSION"
 
-# Unpacks the base Jekyll tree, Build Encyclopedia, Skylark Library, and
-# command line reference.
+# Unpacks the base Jekyll tree, Build Encyclopedia, etc.
 function setup {
   mkdir -p "$OUT_DIR"
   cd "$OUT_DIR"
@@ -65,6 +66,11 @@ function setup {
   mkdir -p "$sl_dir"
   unzip -qq "$SL_ZIP" -d "$sl_dir"
   mv "$sl_dir/skylark-nav.html" "$OUT_DIR/_includes"
+
+  # Unpack the the documentation for the repository rules to repo subdirectory
+  local repo_dir="${VERSION_DIR}/repo"
+  mkdir -p "${repo_dir}"
+  tar -C "${repo_dir}" -xf "${REPO_TAR}"
 
   # Copy the command line reference.
   cp "$CLR_HTML" "$VERSION_DIR"

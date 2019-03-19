@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -22,14 +21,19 @@ import java.io.ObjectOutputStream;
  * A value that represents "error transience", i.e. anything which may have caused an unexpected
  * failure. Is not equal to anything, including itself, in order to force re-evaluation.
  */
-public final class ErrorTransienceValue implements SkyValue, UnshareableValue {
-  public static final SkyFunctionName FUNCTION_NAME =
+public final class ErrorTransienceValue implements SkyValue {
+  private static final SkyFunctionName FUNCTION_NAME =
       SkyFunctionName.create(
           "ERROR_TRANSIENCE", ShareabilityOfValue.NEVER, FunctionHermeticity.NONHERMETIC);
   @AutoCodec public static final SkyKey KEY = () -> FUNCTION_NAME;
   @AutoCodec public static final ErrorTransienceValue INSTANCE = new ErrorTransienceValue();
 
   private ErrorTransienceValue() {}
+
+  @Override
+  public boolean dataIsShareable() {
+    return false;
+  }
 
   @Override
   public int hashCode() {

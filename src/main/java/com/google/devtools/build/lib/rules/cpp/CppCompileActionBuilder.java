@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -60,7 +59,7 @@ public class CppCompileActionBuilder {
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
   private PathFragment tempOutputFile;
-  private DotdFile dotdFile;
+  private Artifact dotdFile;
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
   private final List<String> pluginOpts = new ArrayList<>();
@@ -464,7 +463,7 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setOutputs(Artifact outputFile, Artifact dotdFile) {
     this.outputFile = outputFile;
-    this.dotdFile = dotdFile == null ? null : new DotdFile(dotdFile);
+    this.dotdFile = dotdFile;
     return this;
   }
 
@@ -486,21 +485,9 @@ public class CppCompileActionBuilder {
     if (generateDotd && !useHeaderModules()) {
       String dotdFileName =
           CppHelper.getDotdFileName(ruleErrorConsumer, ccToolchain, outputCategory, outputName);
-      if (cppConfiguration.getInmemoryDotdFiles()) {
-        // Just set the path, no artifact is constructed
-        dotdFile =
-            new DotdFile(
-                configuration
-                    .getBinDirectory(label.getPackageIdentifier().getRepository())
-                    .getExecPath()
-                    .getRelative(CppHelper.getObjDirectory(label))
-                    .getRelative(dotdFileName));
-      } else {
-        dotdFile =
-            new DotdFile(
-                CppHelper.getCompileOutputArtifact(
-                    actionConstructionContext, label, dotdFileName, configuration));
-      }
+      dotdFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext, label, dotdFileName, configuration);
     } else {
       dotdFile = null;
     }
@@ -539,7 +526,7 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public DotdFile getDotdFile() {
+  public Artifact getDotdFile() {
     return this.dotdFile;
   }
 

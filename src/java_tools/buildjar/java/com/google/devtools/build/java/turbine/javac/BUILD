@@ -3,10 +3,7 @@ package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"
 java_binary(
     name = "turbine",
     main_class = "com.google.devtools.build.java.turbine.javac.JavacTurbine",
-    visibility = [
-        "//:__subpackages__",
-        "//src/java_tools/buildjar:buildjar_package_group",
-    ],
+    visibility = ["//visibility:private"],
     runtime_deps = [":javac_turbine"],
 )
 

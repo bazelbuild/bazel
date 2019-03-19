@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
-import java.io.IOException;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -162,15 +161,19 @@ public class SpawnActionContextMapsTest {
   @ExecutionStrategy(contextType = TestActionContext.class, name = "actest")
   private static class ACTest implements TestActionContext {
     @Override
-    public List<SpawnResult> exec(
-        TestRunnerAction action, ActionExecutionContext actionExecutionContext)
-        throws ExecException, InterruptedException {
+    public TestRunnerSpawn createTestRunnerSpawn(
+        TestRunnerAction testRunnerAction, ActionExecutionContext actionExecutionContext) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isTestKeepGoing() {
       throw new UnsupportedOperationException();
     }
 
     @Override
     public TestResult newCachedTestResult(
-        Path execRoot, TestRunnerAction action, TestResultData cached) throws IOException {
+        Path execRoot, TestRunnerAction action, TestResultData cached) {
       throw new UnsupportedOperationException();
     }
   }

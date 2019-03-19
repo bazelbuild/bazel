@@ -68,6 +68,8 @@ import javax.annotation.Nullable;
  * Parser for WORKSPACE files.  Fills in an ExternalPackage.Builder
  */
 public class WorkspaceFactory {
+
+  // Must start with a letter and can contain letters, numbers, and underscores
   private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}\\w*$");
 
   // List of static function added by #addWorkspaceFunctions. Used to trim them out from the

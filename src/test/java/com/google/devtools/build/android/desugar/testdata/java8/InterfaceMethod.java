@@ -46,9 +46,19 @@ public interface InterfaceMethod {
     return input.startsWith("S");
   }
 
+  // Same descriptor as when method above is turned into static method
+  public default boolean startsWithS(InterfaceMethod receiver, String input) {
+    return startsWithS(input);
+  }
+
   /**
    * Empty class implementing {@link InterfaceMethod} so the test can instantiate and call default
    * methods.
    */
-  public static class Concrete implements InterfaceMethod {}
+  public static class Concrete implements InterfaceMethod {
+    // We will rewrite this class to subclass InterfaceMethod's companion class, and call its super
+    // constructor.  This field is here to make sure we don't also rewrite its constructor call.
+    @SuppressWarnings("unused")
+    private final Object o = new Object();
+  }
 }

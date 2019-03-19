@@ -42,24 +42,6 @@ public class HeaderDiscoveryTest {
   private final Path derivedRoot = execRoot.getRelative("derived");
   private final ArtifactRoot artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, derivedRoot);
 
-  /**
-   * Test that an included header is satisfied (=doesn't cause an error) if it provided by a tree
-   * artifact.
-   */
-  @Test
-  public void treeArtifactInclusionCheck() throws Exception {
-    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
-
-    checkHeaderInclusion(
-        artifactResolver,
-        ImmutableList.of(
-            derivedRoot.getRelative("tree_artifact/foo.h"),
-            derivedRoot.getRelative("tree_artifact/subdir/foo.h")),
-        ImmutableList.of(treeArtifact(derivedRoot.getRelative("tree_artifact"))));
-
-    // Implicitly check that there are no exceptions thrown.
-  }
-
   @Test
   public void errorsWhenMissingHeaders() {
     ArtifactResolver artifactResolver = mock(ArtifactResolver.class);

@@ -409,7 +409,7 @@ string GetHomeDir() {
   if (IsRunningWithinTest()) {
     // Bazel is running inside of a test. Respect $HOME that the test setup has
     // set instead of using the actual home directory of the current user.
-    return GetEnv("HOME");
+    return GetPathEnv("HOME");
   }
 
   PWSTR wpath;
@@ -424,12 +424,12 @@ string GetHomeDir() {
 
   // On Windows 2016 Server, Nano server: FOLDERID_Profile is unknown but
   // %USERPROFILE% is set. See https://github.com/bazelbuild/bazel/issues/6701
-  string userprofile = GetEnv("USERPROFILE");
+  string userprofile = GetPathEnv("USERPROFILE");
   if (!userprofile.empty()) {
     return userprofile;
   }
 
-  return GetEnv("HOME");  // only defined in MSYS/Cygwin
+  return GetPathEnv("HOME");  // only defined in MSYS/Cygwin
 }
 
 string FindSystemWideBlazerc() {
@@ -458,7 +458,7 @@ bool IsSharedLibrary(const string &filename) {
 }
 
 string GetSystemJavabase() {
-  string javahome(GetEnv("JAVA_HOME"));
+  string javahome(GetPathEnv("JAVA_HOME"));
   if (!javahome.empty()) {
     string javac = blaze_util::JoinPath(javahome, "bin/javac.exe");
     if (blaze_util::PathExists(javac.c_str())) {
@@ -642,7 +642,6 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
   AutoHandle proc;
 };
 
-
 int ExecuteDaemon(const string& exe,
                   const std::vector<string>& args_vector,
                   const std::map<string, EnvVarValue>& env,
@@ -650,6 +649,7 @@ int ExecuteDaemon(const string& exe,
                   const bool daemon_out_append,
                   const string& binaries_dir,
                   const string& server_dir,
+                  const StartupOptions* options,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
   string error;
@@ -1002,6 +1002,24 @@ string GetEnv(const string& name) {
   return string(value.get());
 }
 
+string GetPathEnv(const string& name) {
+  string value = GetEnv(name);
+  if (value.empty()) {
+    return value;
+  }
+  if (bazel::windows::HasUncPrefix(value.c_str())) {
+    value = value.substr(4);
+  }
+  string wpath, error;
+  if (!blaze_util::AsWindowsPath(value, &wpath, &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Invalid path in envvar \"" << name << "\": " << error;
+  }
+  // Callers of GetPathEnv expect a path with forward slashes.
+  std::replace(wpath.begin(), wpath.end(), '\\', '/');
+  return wpath;
+}
+
 bool ExistsEnv(const string& name) {
   return ::GetEnvironmentVariableA(name.c_str(), NULL, 0) != 0;
 }
@@ -1218,12 +1236,11 @@ string GetUserName() {
 
 bool IsEmacsTerminal() {
   string emacs = GetEnv("EMACS");
-  string inside_emacs = GetEnv("INSIDE_EMACS");
   // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
   // do that and instead sets INSIDE_EMACS=<stuff> (where <stuff> can look like
   // e.g. "25.1.1,comint").  So we check both variables for maximum
   // compatibility.
-  return emacs == "t" || !inside_emacs.empty();
+  return emacs == "t" || ExistsEnv("INSIDE_EMACS");
 }
 
 // Returns true if stderr is connected to a terminal, and it can support color
@@ -1418,7 +1435,7 @@ static string GetMsysBash() {
 
 static string GetBinaryFromPath(const string& binary_name) {
   char found[MAX_PATH];
-  string path_list = blaze::GetEnv("PATH");
+  string path_list = blaze::GetPathEnv("PATH");
 
   // We do not fully replicate all the quirks of search in PATH.
   // There is no system function to do so, and that way lies madness.
@@ -1452,54 +1469,32 @@ static string GetBinaryFromPath(const string& binary_name) {
   return string();
 }
 
-static string LocateBash() {
+static string LocateBashMaybe() {
   string msys_bash = GetMsysBash();
-  if (!msys_bash.empty()) {
-    return msys_bash;
-  }
-
-  string result = GetBinaryFromPath("bash.exe");
-  if (result.empty()) {
-    BAZEL_LOG(ERROR) << "bash.exe not found on PATH";
-  }
-  return result;
+  return msys_bash.empty() ? GetBinaryFromPath("bash.exe") : msys_bash;
 }
 
 string DetectBashAndExportBazelSh() {
-  string bash = blaze::GetEnv("BAZEL_SH");
+  string bash = blaze::GetPathEnv("BAZEL_SH");
   if (!bash.empty()) {
     return bash;
   }
 
   uint64_t start = blaze::GetMillisecondsMonotonic();
 
-  bash = LocateBash();
+  bash = LocateBashMaybe();
   uint64_t end = blaze::GetMillisecondsMonotonic();
-  BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
-                  << " msec, found " << bash.c_str();
-
-  if (!bash.empty()) {
+  if (bash.empty()) {
+    BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
+                    << " msec, not found";
+  } else {
+    BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
+                    << " msec, found " << bash.c_str();
     // Set process environment variable.
     blaze::SetEnv("BAZEL_SH", bash);
   }
-  return bash;
-}
 
-void DetectBashOrDie() {
-  string bash = DetectBashAndExportBazelSh();
-  if (bash.empty()) {
-    // TODO(bazel-team) should this be printed to stderr? If so, it should use
-    // BAZEL_LOG(ERROR)
-    printf(
-        "Bazel on Windows requires MSYS2 Bash, but we could not find it.\n"
-        "If you do not have it installed, you can install MSYS2 from\n"
-        "       http://repo.msys2.org/distrib/msys2-x86_64-latest.exe\n"
-        "\n"
-        "If you already have it installed but Bazel cannot find it,\n"
-        "set BAZEL_SH environment variable to its location:\n"
-        "       set BAZEL_SH=c:\\path\\to\\msys2\\usr\\bin\\bash.exe\n");
-    exit(1);
-  }
+  return bash;
 }
 
 void EnsurePythonPathOption(std::vector<string>* options) {

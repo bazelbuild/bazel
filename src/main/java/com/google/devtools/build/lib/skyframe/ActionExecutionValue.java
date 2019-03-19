@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -300,11 +299,11 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /**
-   * Marker subclass that indicates this value cannot be shared across servers. Note that this is
-   * unrelated to the concept of shared actions.
+   * Subclass that reports this value cannot be shared across servers. Note that this is unrelated
+   * to the concept of shared actions.
    */
-  private static class CrossServerUnshareableActionExecutionValue extends ActionExecutionValue
-      implements UnshareableValue {
+  private static final class CrossServerUnshareableActionExecutionValue
+      extends ActionExecutionValue {
     CrossServerUnshareableActionExecutionValue(
         Map<Artifact, ArtifactFileMetadata> artifactData,
         Map<Artifact, TreeArtifactValue> treeArtifactData,
@@ -313,6 +312,11 @@ public class ActionExecutionValue implements SkyValue {
         @Nullable NestedSet<Artifact> discoveredModules) {
       super(
           artifactData, treeArtifactData, additionalOutputData, outputSymlinks, discoveredModules);
+    }
+
+    @Override
+    public boolean dataIsShareable() {
+      return false;
     }
   }
 

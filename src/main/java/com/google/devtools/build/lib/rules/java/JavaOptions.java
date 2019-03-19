@@ -126,7 +126,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_jdk11_as_host_javabase",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {

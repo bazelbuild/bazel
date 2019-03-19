@@ -76,22 +76,21 @@ public abstract class StarlarkSemantics {
    * Returns true if a feature attached to the given toggling flags should be enabled.
    *
    * <ul>
-   *   <li>If both parameters are {@code NONE}, this indicates the feature is not
-   *       controlled by flags, and should thus be enabled.</li>
-   *   <li>If the {@code enablingFlag} parameter is non-{@code NONE}, this returns
-   *       true if and only if that flag is true. (This represents a feature that is only on
-   *       if a given flag is *on*).</li>
-   *   <li>If the {@code disablingFlag} parameter is non-{@code NONE}, this returns
-   *       true if and only if that flag is false. (This represents a feature that is only on
-   *       if a given flag is *off*).</li>
-   *   <li>It is illegal to pass both parameters as non-{@code NONE}.</li>
+   *   <li>If both parameters are {@code NONE}, this indicates the feature is not controlled by
+   *       flags, and should thus be enabled.
+   *   <li>If the {@code enablingFlag} parameter is non-{@code NONE}, this returns true if and only
+   *       if that flag is true. (This represents a feature that is only on if a given flag is
+   *       *on*).
+   *   <li>If the {@code disablingFlag} parameter is non-{@code NONE}, this returns true if and only
+   *       if that flag is false. (This represents a feature that is only on if a given flag is
+   *       *off*).
+   *   <li>It is illegal to pass both parameters as non-{@code NONE}.
    * </ul>
    */
   public boolean isFeatureEnabledBasedOnTogglingFlags(
-      FlagIdentifier enablingFlag,
-      FlagIdentifier disablingFlag) {
-    Preconditions.checkArgument(enablingFlag == FlagIdentifier.NONE
-        || disablingFlag == FlagIdentifier.NONE,
+      FlagIdentifier enablingFlag, FlagIdentifier disablingFlag) {
+    Preconditions.checkArgument(
+        enablingFlag == FlagIdentifier.NONE || disablingFlag == FlagIdentifier.NONE,
         "at least one of 'enablingFlag' or 'disablingFlag' must be NONE");
     if (enablingFlag != FlagIdentifier.NONE) {
       return enablingFlag.semanticsFunction.apply(this);
@@ -123,15 +122,13 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalEnableAndroidMigrationApis();
 
-  public abstract boolean experimentalEnableRepoMapping();
-
   public abstract ImmutableList<String> experimentalJavaCommonCreateProviderEnabledPackages();
 
   public abstract boolean experimentalPlatformsApi();
 
-  public abstract boolean experimentalStarlarkConfigTransitions();
+  public abstract boolean experimentalRestrictNamedParams();
 
-  public abstract String experimentalTransitionWhitelistLocation();
+  public abstract boolean experimentalStarlarkConfigTransitions();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
@@ -189,6 +186,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleUseToolchainProvidersInJavaCommon();
 
+  public abstract boolean incompatibleDoNotSplitLinkingCmdline();
+
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
 
@@ -208,11 +207,10 @@ public abstract class StarlarkSemantics {
           .experimentalBuildSettingApi(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableAndroidMigrationApis(false)
-          .experimentalEnableRepoMapping(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
+          .experimentalRestrictNamedParams(false)
           .experimentalStarlarkConfigTransitions(false)
-          .experimentalTransitionWhitelistLocation("")
           .incompatibleUseToolchainProvidersInJavaCommon(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
@@ -235,12 +233,13 @@ public abstract class StarlarkSemantics {
           .incompatibleNoOutputAttrDefault(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
-          .incompatibleNoTransitiveLoads(false)
-          .incompatibleRemapMainRepo(true)
+          .incompatibleNoTransitiveLoads(true)
+          .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRequireFeatureConfigurationForPic(true)
           .incompatibleStricArgumentOrdering(true)
           .internalSkylarkFlagTestCanary(false)
+          .incompatibleDoNotSplitLinkingCmdline(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -256,15 +255,13 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
 
-    public abstract Builder experimentalEnableRepoMapping(boolean value);
-
     public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 
     public abstract Builder experimentalPlatformsApi(boolean value);
 
-    public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
+    public abstract Builder experimentalRestrictNamedParams(boolean value);
 
-    public abstract Builder experimentalTransitionWhitelistLocation(String value);
+    public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
@@ -321,6 +318,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleUseToolchainProvidersInJavaCommon(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
+
+    public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
 
     public abstract StarlarkSemantics build();
   }

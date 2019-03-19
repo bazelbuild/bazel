@@ -23,7 +23,9 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
@@ -41,7 +43,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -186,40 +187,52 @@ abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements Sky
       Environment env)
       throws InterruptedException {
     if (!(target instanceof Rule)) {
+      // Aspects can be declared only for Rules.
       return ImmutableList.of();
     }
 
     Rule rule = (Rule) target;
-    Map<Label, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> labelDepMap =
-        new HashMap<>(depMap.size());
-    for (Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
-        depMap.entrySet()) {
-      labelDepMap.put(argumentFromKey(entry.getKey()), entry.getValue());
-    }
 
     List<SkyKey> depKeys = Lists.newArrayList();
     Multimap<Attribute, Label> transitions =
         rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
     for (Attribute attribute : transitions.keySet()) {
-      ImmutableList<Aspect> aspects = attribute.getAspects(rule);
-      for (Label toLabel : transitions.get(attribute)) {
-        ValueOrException2<NoSuchPackageException, NoSuchTargetException> value =
-            labelDepMap.get(toLabel);
-        getAspectLabels(rule, aspects, toLabel, value, env)
-            .forEach(aspectLabel -> depKeys.add(getKey(aspectLabel)));
+      for (Aspect aspect : attribute.getAspects(rule)) {
+        if (hasDepThatSatisfies(aspect, transitions.get(attribute), depMap, env)) {
+          AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+              rule,
+              aspect,
+              DependencyFilter.ALL_DEPS,
+              (aspectAttribute, aspectLabel) -> depKeys.add(getKey(aspectLabel)));
+        }
       }
     }
     return depKeys;
   }
 
-  /** Get the Aspect-related Label deps for the given edge. */
-  protected abstract Collection<Label> getAspectLabels(
-      Rule fromRule,
-      ImmutableList<Aspect> aspectsOfAttribute,
+  @Nullable
+  protected abstract AdvertisedProviderSet getAdvertisedProviderSet(
       Label toLabel,
-      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+      @Nullable ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
       Environment env)
       throws InterruptedException;
+
+  private final boolean hasDepThatSatisfies(
+      Aspect aspect,
+      Iterable<Label> depLabels,
+      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> fullDepMap,
+      Environment env)
+      throws InterruptedException {
+    for (Label depLabel : depLabels) {
+      AdvertisedProviderSet advertisedProviderSet =
+          getAdvertisedProviderSet(depLabel, fullDepMap.get(depLabel), env);
+      if (advertisedProviderSet != null
+          && AspectDefinition.satisfies(aspect, advertisedProviderSet)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   // TODO(bazel-team): Unify this logic with that in LabelVisitor, and possibly DependencyResolver.
   private static Collection<Label> getLabelDeps(Target target) throws InterruptedException {

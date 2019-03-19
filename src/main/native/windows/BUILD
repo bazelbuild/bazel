@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:private"])
 
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -66,5 +68,21 @@ cc_binary(
 cc_library(
     name = "resources",
     srcs = ["resources.o"],
+    linkstatic = 1,
     visibility = ["//src/main/cpp:__pkg__"],
+)
+
+# A zip containing source files used by ijar.
+genrule(
+    name = "native_windows_zip",
+    srcs = [
+        "file.cc",
+        "file.h",
+        "util.cc",
+        "util.h",
+    ],
+    outs = ["native_windows.zip"],
+    cmd = "$(location //src:zip_files) src/main/native/windows $@ $(SRCS)",
+    tools = ["//src:zip_files"],
+    visibility = ["//src/main/cpp/util:__pkg__"],
 )

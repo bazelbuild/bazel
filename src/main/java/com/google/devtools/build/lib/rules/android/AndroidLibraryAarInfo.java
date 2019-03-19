@@ -145,7 +145,7 @@ public class AndroidLibraryAarInfo extends NativeInfo
           .withClasses(libraryClassJar)
           .setAAROut(aarOut)
           .setProguardSpecs(localProguardSpecs)
-          .setThrowOnResourceConflict(dataContext.getAndroidConfig().throwOnResourceConflict())
+          .setThrowOnResourceConflict(dataContext.throwOnResourceConflict())
           .build(dataContext);
 
       return Aar.create(aarOut, manifest.getManifest());

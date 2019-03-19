@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -37,6 +40,13 @@ public class PlatformOptions extends FragmentOptions {
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
   public static final Label LEGACY_DEFAULT_TARGET_PLATFORM =
       Label.parseAbsoluteUnchecked("@bazel_tools//platforms:target_platform");
+
+  /**
+   * Main workspace-relative location to use when the user does not explicitly set {@code
+   * --platform_mappings}.
+   */
+  public static final PathFragment DEFAULT_PLATFORM_MAPPINGS =
+      PathFragment.create("platform_mappings");
 
   @Option(
       name = "host_platform",
@@ -101,23 +111,22 @@ public class PlatformOptions extends FragmentOptions {
   public List<String> extraToolchains;
 
   @Option(
-    name = "toolchain_resolution_override",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS
-    },
-    deprecationWarning =
-        "toolchain_resolution_override is now a no-op and will be removed in"
-            + " an upcoming release",
-    help =
-        "Override toolchain resolution for a toolchain type with a specific toolchain. "
-            + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
-            + "@io_bazel_rules_go//:linux-arm64-toolchain"
-  )
+      name = "toolchain_resolution_override",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      deprecationWarning =
+          "toolchain_resolution_override is now a no-op and will be removed in"
+              + " an upcoming release",
+      help =
+          "Override toolchain resolution for a toolchain type with a specific toolchain. "
+              + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
+              + "@io_bazel_rules_go//:linux-arm64-toolchain")
   public List<String> toolchainResolutionOverrides;
 
   @Option(
@@ -169,6 +178,23 @@ public class PlatformOptions extends FragmentOptions {
               + " java_runtime.")
   public boolean useToolchainResolutionForJavaRules;
 
+  @Option(
+      name = "platform_mappings",
+      converter = OptionsUtils.EmptyToNullRelativePathFragmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "The location of a mapping file that describes which platform to use if none is set or "
+              + "which flags to set when a platform already exists. Must be relative to the main "
+              + "workspace root. Defaults to 'platform_mappings' (a file directly under the "
+              + "workspace root).")
+  public PathFragment platformMappings;
+
   @Override
   public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();
@@ -183,5 +209,40 @@ public class PlatformOptions extends FragmentOptions {
     host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
     host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     return host;
+  }
+
+  /** Returns the intended target platform value based on options defined in this fragment. */
+  public Label computeTargetPlatform() {
+    // Handle default values for the host and target platform.
+    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
+    // directly.
+
+    if (!platforms.isEmpty()) {
+      return Iterables.getFirst(platforms, null);
+    } else if (autoConfigureHostPlatform) {
+      // Default to the host platform, whatever it is.
+      return computeHostPlatform();
+    } else {
+      // Use the legacy target platform
+      return LEGACY_DEFAULT_TARGET_PLATFORM;
+    }
+  }
+
+  /** Returns the intended host platform value based on options defined in this fragment. */
+  public Label computeHostPlatform() {
+    // Handle default values for the host and target platform.
+    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
+    // directly.
+
+    Label hostPlatform;
+    if (this.hostPlatform != null) {
+      return this.hostPlatform;
+    } else if (autoConfigureHostPlatform) {
+      // Use the auto-configured host platform.
+      return DEFAULT_HOST_PLATFORM;
+    } else {
+      // Use the legacy host platform.
+      return LEGACY_DEFAULT_HOST_PLATFORM;
+    }
   }
 }

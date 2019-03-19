@@ -16,7 +16,7 @@
 
 syntax = "proto2";
 
-// option java_api_version = 2;
+// option java_api_version = 2; // copybara-comment-this-out-please
 option java_package = "com.google.devtools.build.lib.view.config.crosstool";
 
 package com.google.devtools.build.lib.view.config.crosstool;

@@ -53,8 +53,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Matchers;
 import org.mockito.Mockito;
+import org.mockito.hamcrest.MockitoHamcrest;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
@@ -165,10 +165,11 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   private SkyFunction.Environment getEnv() throws InterruptedException {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(FileValue.FILE))))
+    Mockito.when(env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(FileValue.FILE))))
         .thenReturn(fakeWorkspaceFileValue);
     Mockito.when(
-            env.getValue(Matchers.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
+            env.getValue(
+                MockitoHamcrest.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
         .then(
             new Answer<SkyValue>() {
               @Override
@@ -177,7 +178,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
                 return workspaceSkyFunc.compute(key, getEnv());
               }
             });
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_AST))))
+    Mockito.when(
+            env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_AST))))
         .then(
             new Answer<SkyValue>() {
               @Override
@@ -186,7 +188,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
                 return astSkyFunc.compute(key, getEnv());
               }
             });
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
+    Mockito.when(
+            env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
         .then(
             new Answer<SkyValue>() {
               @Override
@@ -278,19 +281,17 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     RepositoryName b = RepositoryName.create("@b");
     RepositoryName x = RepositoryName.create("@x");
     RepositoryName y = RepositoryName.create("@y");
-    RepositoryName good = RepositoryName.create("@good");
-    RepositoryName main = RepositoryName.MAIN;
 
     SkyKey key0 = WorkspaceFileValue.key(workspace, 0);
     EvaluationResult<WorkspaceFileValue> result0 = eval(key0);
     WorkspaceFileValue value0 = result0.get(key0);
-    assertThat(value0.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y, good, main));
+    assertThat(value0.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y));
 
     SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
     EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
     WorkspaceFileValue value1 = result1.get(key1);
-    assertThat(value1.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y, good, main));
-    assertThat(value1.getRepositoryMapping()).containsEntry(b, ImmutableMap.of(x, y, good, main));
+    assertThat(value1.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y));
+    assertThat(value1.getRepositoryMapping()).containsEntry(b, ImmutableMap.of(x, y));
   }
 
   @Test
