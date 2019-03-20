@@ -478,7 +478,7 @@ public class IncrementalLoadingTest {
               workspace,
               /* defaultSystemJavabase= */ null,
               loadingMock.getProductName());
-      ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider(true);
+      ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
               loadingMock
