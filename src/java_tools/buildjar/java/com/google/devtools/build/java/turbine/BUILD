@@ -1,4 +1,4 @@
-package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
+package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"] + ["//src:__pkg__"])
 
 java_binary(
     name = "turbine_direct_binary",

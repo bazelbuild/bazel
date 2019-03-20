@@ -95,6 +95,12 @@ filegroup(
 )
 
 filegroup(
+    name = "transitive_sources",
+    srcs = [":srcs"] + ["//src/main/cpp/util:embedded_java_tools"],
+    visibility = ["//src:__pkg__"],
+)
+
+filegroup(
     name = "embedded_zipper_sources",
     srcs = [
         "zip.cc",
@@ -127,7 +133,7 @@ genrule(
     outs = ["ijar_srcs_with_deps.zip"],
     cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
     tools = ["//src:merge_zip_files"],
-    visibility = ["//third_party:__pkg__"],
+    visibility = ["//src:__pkg__"],
 )
 
 genrule(

@@ -559,3 +559,68 @@ sh_binary(
     srcs = ["merge_zip_files.sh"],
     visibility = ["//visibility:public"],
 )
+
+genrule(
+    name = "jars_java_tools_zip",
+    srcs = [
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+        "//third_party/java/jdk/langtools:java_compiler_jar",
+        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:jdk_compiler_jar",
+        "//third_party/jarjar:jarjar_command_deploy.jar",
+        ] + select({
+            "//src/conditions:arm": ["//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar"],
+            "//conditions:default": [],
+        }),
+    outs = ["jars_java_tools.zip"],
+    cmd = "zip -q -j $@ $$(echo $(SRCS) | sort)",
+    visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "java_tools_dist",
+    srcs = [
+        "//src/java_tools/buildjar:srcs",
+        "//src/java_tools/junitrunner:srcs",
+        "//src/java_tools/singlejar:srcs",
+        "//third_party/jarjar:srcs",
+        "//third_party/java/jdk/langtools:license-and-srcs",
+        "//third_party/zlib:embedded_tools",
+        "//third_party/ijar:transitive_sources",
+    ],
+    outs = ["java_tools_dist.zip"],
+    cmd = "zip -Xr $@ $$(echo $(SRCS) | sort)",
+    output_to_bindir = 1,
+)
+
+# Builds the remote Java tools archive. Not embedded or used in Bazel, but used
+# by the Java tools release process.
+genrule(
+    name = "java_tools_zip",
+    srcs = [
+        "//third_party/ijar:ijar_with_deps_zip",
+        ":jars_java_tools_zip",
+        ":zlib_zip",
+    ],
+    outs = ["java_tools.zip"],
+    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
+    output_to_bindir = 1,
+    tools = ["//src:merge_zip_files"],
+)
+
+# Part of the Java tools remote archive. Not embedded or used in Bazel.
+genrule(
+    name = "zlib_zip",
+    srcs = ["//third_party/zlib:embedded_tools"],
+    outs = ["zlib.zip"],
+    cmd = "$(location //src:zip_files) zlib $@ $(SRCS)",
+    tools = ["//src:zip_files"],
+    visibility = ["//visibility:private"],
+)
