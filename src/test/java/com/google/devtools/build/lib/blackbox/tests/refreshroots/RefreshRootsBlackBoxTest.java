@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.blackbox.tests.refreshRoots;
+package com.google.devtools.build.lib.blackbox.tests.refreshroots;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -222,7 +222,9 @@ public class RefreshRootsBlackBoxTest extends AbstractBlackBoxTest {
 
   private ProcessResult buildExpectUpdated(boolean debug) throws Exception {
     BuilderRunner bazel = bazel();
-    if (debug) bazel.enableDebug();
+    if (debug) {
+      bazel.enableDebug();
+    }
     ProcessResult result = bazel.build("//...");
     buildSucceeded(result);
     shouldBeUpdated(bazel);
@@ -235,7 +237,9 @@ public class RefreshRootsBlackBoxTest extends AbstractBlackBoxTest {
 
   private ProcessResult buildExpectNotUpdated(boolean debug) throws Exception {
     BuilderRunner bazel = bazel();
-    if (debug) bazel.enableDebug();
+    if (debug) {
+      bazel.enableDebug();
+    }
     ProcessResult result = bazel.build("//...");
     buildSucceeded(result);
     shouldNotBeUpdated(bazel);

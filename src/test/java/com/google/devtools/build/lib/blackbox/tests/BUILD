@@ -34,14 +34,14 @@ java_test(
 java_test(
     name = "RefreshRootsBlackBoxTest",
     timeout = "moderate",
-    srcs = ["refreshRoots/RefreshRootsBlackBoxTest.java"],
+    srcs = ["refreshroots/RefreshRootsBlackBoxTest.java"],
     resources = [
-        "refreshRoots/.bazelignore",
-        "refreshRoots/BUILD.test",
-        "refreshRoots/WORKSPACE.test",
-        "refreshRoots/package.json",
-        "refreshRoots/test_rule.bzl",
-        "refreshRoots/use_node_modules.bzl",
+        "refreshroots/.bazelignore",
+        "refreshroots/BUILD.test",
+        "refreshroots/WORKSPACE.test",
+        "refreshroots/package.json",
+        "refreshroots/test_rule.bzl",
+        "refreshroots/use_node_modules.bzl",
     ],
     tags = ["black_box_test"],
     deps = [
