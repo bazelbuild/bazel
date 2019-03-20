@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import static com.google.devtools.build.lib.analysis.skylark.FunctionTransitionUtil.COMMAND_LINE_OPTION_PREFIX;
+
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,8 +38,6 @@ import java.util.Map;
  * <p>A collection of top-level Starlark functions pertaining to configuration.
  */
 public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
-
-  private static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
   @Override
   public ConfigurationTransitionApi transition(

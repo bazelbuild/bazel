@@ -118,7 +118,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       }
       if (ruleClass.hasFunctionTransitionWhitelist()
           && !Whitelist.isAvailable(ruleContext, FunctionSplitTransitionWhitelist.WHITELIST_NAME)) {
-          ruleContext.ruleError("Non-whitelisted use of function-base split transition");
+        ruleContext.ruleError("Non-whitelisted use of Starlark transition");
       }
 
       Object target =

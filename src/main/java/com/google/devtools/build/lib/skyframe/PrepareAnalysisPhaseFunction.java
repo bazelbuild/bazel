@@ -304,14 +304,23 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
       if (depFragments != null) {
-        for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
-            fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
-          StarlarkTransition.postProcessStarlarkTransitions(env.getListener(), key.getTransition());
+        List<BuildOptions> toOptions =
+            ConfigurationResolver.applyTransition(
+                fromOptions, key.getTransition(), depFragments, ruleClassProvider, true);
+        for (BuildOptions toOption : toOptions) {
           configSkyKeys.add(
               BuildConfigurationValue.key(
-                  depFragments,
-                  BuildOptions.diffForReconstruction(defaultBuildOptions, toOptions)));
+                  depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, toOption)));
         }
+        // Post-process transitions on starlark build settings
+        ImmutableSet<SkyKey> buildSettingPackageKeys =
+            StarlarkTransition.getBuildSettingPackageKeys(key.getTransition());
+        Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        StarlarkTransition.validate(
+            key.getTransition(), buildSettingPackages, toOptions, env.getListener());
       }
     }
     Map<SkyKey, SkyValue> configsResult = env.getValues(configSkyKeys);
