@@ -176,7 +176,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         // A dependency is missing, cleanup and returns null
         try {
           if (outputDirectory.exists()) {
-            FileSystemUtils.deleteTree(outputDirectory);
+            outputDirectory.deleteTree();
           }
         } catch (IOException e1) {
           throw new RepositoryFunctionException(e1, Transience.TRANSIENT);

@@ -1083,7 +1083,7 @@ public class LoadingPhaseRunnerTest {
               workspace,
               /* defaultSystemJavabase= */ null,
               analysisMock.getProductName());
-      FileSystemUtils.deleteTree(workspace.getRelative("base"));
+      workspace.getRelative("base").deleteTree();
 
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =

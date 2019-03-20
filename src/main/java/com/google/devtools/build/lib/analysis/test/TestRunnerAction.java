@@ -461,9 +461,9 @@ public class TestRunnerAction extends AbstractAction
     execRoot.getRelative(unusedRunfilesLogPath).delete();
     // Note that splitLogsPath points to a file inside the splitLogsDir so
     // it's not necessary to delete it explicitly.
-    FileSystemUtils.deleteTree(execRoot.getRelative(splitLogsDir));
-    FileSystemUtils.deleteTree(execRoot.getRelative(undeclaredOutputsDir));
-    FileSystemUtils.deleteTree(execRoot.getRelative(undeclaredOutputsAnnotationsDir));
+    execRoot.getRelative(splitLogsDir).deleteTree();
+    execRoot.getRelative(undeclaredOutputsDir).deleteTree();
+    execRoot.getRelative(undeclaredOutputsAnnotationsDir).deleteTree();
     execRoot.getRelative(testStderr).delete();
     execRoot.getRelative(testExitSafe).delete();
     if (testShard != null) {
@@ -490,7 +490,7 @@ public class TestRunnerAction extends AbstractAction
       // entries, which prevent removing the directory.  As a workaround, code below will throw
       // IOException if it will fail to remove something inside testAttemptsDir, but will
       // silently suppress any exceptions when deleting testAttemptsDir itself.
-      FileSystemUtils.deleteTreesBelow(testAttemptsDir);
+      testAttemptsDir.deleteTreesBelow();
       try {
         testAttemptsDir.delete();
       } catch (IOException e) {

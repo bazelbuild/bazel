@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.io.IOException;
@@ -398,7 +397,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         // File deletion tends to be slow on Windows, so deleting this tree may take several
         // seconds. Delete it after having measured the wallTime.
         try {
-          FileSystemUtils.deleteTree(tmpDir);
+          tmpDir.deleteTree();
         } catch (IOException ignored) {
           // We can't handle this exception in any meaningful way, nor should we, but let's log it.
           stepLog(

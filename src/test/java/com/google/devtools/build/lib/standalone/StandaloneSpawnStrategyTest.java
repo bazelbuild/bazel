@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
@@ -89,7 +88,7 @@ public class StandaloneSpawnStrategyTest {
     fileSystem = FileSystems.getNativeFileSystem();
     Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
     try {
-      FileSystemUtils.deleteTreesBelow(testRoot);
+      testRoot.deleteTreesBelow();
     } catch (IOException e) {
       System.err.println("Failed to remove directory " + testRoot + ": " + e.getMessage());
       throw e;

@@ -200,6 +200,36 @@ public abstract class FileSystem {
   public abstract boolean delete(Path path) throws IOException;
 
   /**
+   * Deletes all directory trees recursively beneath the given path and removes that path as well.
+   *
+   * @param path the directory hierarchy to remove
+   * @throws IOException if the hierarchy cannot be removed successfully
+   */
+  public void deleteTree(Path path) throws IOException {
+    deleteTreesBelow(path);
+    path.delete();
+  }
+
+  /**
+   * Deletes all directory trees recursively beneath the given path. Does nothing if the given path
+   * is not a directory.
+   *
+   * @param dir the directory hierarchy to remove
+   * @throws IOException if the hierarchy cannot be removed successfully
+   */
+  public void deleteTreesBelow(Path dir) throws IOException {
+    if (dir.isDirectory(Symlinks.NOFOLLOW)) {
+      dir.setReadable(true);
+      dir.setWritable(true);
+      dir.setExecutable(true);
+      for (Path child : dir.getDirectoryEntries()) {
+        deleteTreesBelow(child);
+        child.delete();
+      }
+    }
+  }
+
+  /**
    * Returns the last modification time of the file denoted by {@code path}. See {@link
    * Path#getLastModifiedTime(Symlinks)} for specification.
    *

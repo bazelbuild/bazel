@@ -687,6 +687,25 @@ public class Path
   }
 
   /**
+   * Deletes all directory trees recursively beneath this path and removes the path as well.
+   *
+   * @throws IOException if the hierarchy cannot be removed successfully
+   */
+  public void deleteTree() throws IOException {
+    fileSystem.deleteTree(this);
+  }
+
+  /**
+   * Deletes all directory trees recursively beneath this path. Does nothing if the path is not a
+   * directory.
+   *
+   * @throws IOException if the hierarchy cannot be removed successfully
+   */
+  public void deleteTreesBelow() throws IOException {
+    fileSystem.deleteTreesBelow(this);
+  }
+
+  /**
    * Returns the last modification time of the file, in milliseconds since the UNIX epoch, of the
    * file denoted by the current path, following symbolic links.
    *

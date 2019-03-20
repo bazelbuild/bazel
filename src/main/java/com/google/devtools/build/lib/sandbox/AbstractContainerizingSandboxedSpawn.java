@@ -189,7 +189,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   @Override
   public void delete() {
     try {
-      FileSystemUtils.deleteTree(sandboxPath);
+      sandboxPath.deleteTree();
     } catch (IOException e) {
       // This usually means that the Spawn itself exited, but still has children running that
       // we couldn't wait for, which now block deletion of the sandbox directory. On Linux this

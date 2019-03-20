@@ -465,7 +465,7 @@ public class ExecutionTool {
     Path directory = env.getActionConsoleOutputDirectory();
     try {
       if (directory.exists()) {
-        FileSystemUtils.deleteTree(directory);
+        directory.deleteTree();
       }
       FileSystemUtils.createDirectoryAndParents(directory);
     } catch (IOException e) {

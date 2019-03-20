@@ -114,7 +114,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   private void setupRepositoryRoot(Path repoRoot) throws RepositoryFunctionException {
     try {
-      FileSystemUtils.deleteTree(repoRoot);
+      repoRoot.deleteTree();
       Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
