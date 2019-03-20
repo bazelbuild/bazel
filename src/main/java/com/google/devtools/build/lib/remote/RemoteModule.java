@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -292,7 +291,7 @@ public final class RemoteModule extends BlazeModule {
     try {
       // Clean out old logs files.
       if (logDir.exists()) {
-        FileSystemUtils.deleteTree(logDir);
+        logDir.deleteTree();
       }
       logDir.createDirectory();
     } catch (IOException e) {

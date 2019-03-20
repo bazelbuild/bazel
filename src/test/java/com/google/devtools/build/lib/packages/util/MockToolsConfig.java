@@ -93,7 +93,7 @@ public final class MockToolsConfig {
   public Path overwrite(String relativePath, String... lines) throws IOException {
     Path path = rootDirectory.getRelative(relativePath);
     if (path.exists()) {
-      FileSystemUtils.deleteTree(path);
+      path.deleteTree();
     }
     return create(relativePath, lines);
   }

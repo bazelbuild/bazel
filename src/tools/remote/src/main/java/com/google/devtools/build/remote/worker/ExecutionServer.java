@@ -234,7 +234,7 @@ final class ExecutionServer extends ExecutionImplBase {
         logger.log(INFO, "Preserving work directory {0}.", tempRoot);
       } else {
         try {
-          FileSystemUtils.deleteTree(tempRoot);
+          tempRoot.deleteTree();
         } catch (IOException e) {
           logger.log(
               SEVERE,

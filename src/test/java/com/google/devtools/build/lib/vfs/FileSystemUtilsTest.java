@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExt
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyTool;
-import static com.google.devtools.build.lib.vfs.FileSystemUtils.deleteTree;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.moveFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.relativePath;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.removeExtension;
@@ -652,56 +651,6 @@ public class FileSystemUtilsTest {
 
     paths = traverseTree(linkedDir, Predicates.alwaysTrue());
     assertThat(paths).containsExactly(fileSystem.getPath("/linked-dir/file"));
-  }
-
-  @Test
-  public void testDeleteTreeCommandDeletesTree() throws IOException {
-    createTestDirectoryTree();
-    Path toDelete = topDir;
-    deleteTree(toDelete);
-
-    assertThat(file4.exists()).isTrue();
-    assertThat(topDir.exists()).isFalse();
-    assertThat(file1.exists()).isFalse();
-    assertThat(file2.exists()).isFalse();
-    assertThat(aDir.exists()).isFalse();
-    assertThat(file3.exists()).isFalse();
-  }
-
-  @Test
-  public void testDeleteTreeCommandsDeletesUnreadableDirectories() throws IOException {
-    createTestDirectoryTree();
-    Path toDelete = topDir;
-
-    try {
-      aDir.setReadable(false);
-    } catch (UnsupportedOperationException e) {
-      // For file systems that do not support setting readable attribute to
-      // false, this test is simply skipped.
-
-      return;
-    }
-
-    deleteTree(toDelete);
-    assertThat(topDir.exists()).isFalse();
-    assertThat(aDir.exists()).isFalse();
-  }
-
-  @Test
-  public void testDeleteTreeCommandDoesNotFollowLinksOut() throws IOException {
-    createTestDirectoryTree();
-    Path toDelete = topDir;
-    Path outboundLink = fileSystem.getPath("/top-dir/outbound-link");
-    outboundLink.createSymbolicLink(file4);
-
-    deleteTree(toDelete);
-
-    assertThat(file4.exists()).isTrue();
-    assertThat(topDir.exists()).isFalse();
-    assertThat(file1.exists()).isFalse();
-    assertThat(file2.exists()).isFalse();
-    assertThat(aDir.exists()).isFalse();
-    assertThat(file3.exists()).isFalse();
   }
 
   @Test

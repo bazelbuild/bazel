@@ -802,6 +802,87 @@ public abstract class FileSystemTest {
     assertThat(xNonEmptyDirectoryFoo.isFile()).isTrue();
   }
 
+  @Test
+  public void testDeleteTreeCommandDeletesTree() throws IOException {
+    Path topDir = absolutize("top-dir");
+    Path file1 = absolutize("top-dir/file-1");
+    Path file2 = absolutize("top-dir/file-2");
+    Path aDir = absolutize("top-dir/a-dir");
+    Path file3 = absolutize("top-dir/a-dir/file-3");
+    Path file4 = absolutize("file-4");
+
+    topDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file1);
+    FileSystemUtils.createEmptyFile(file2);
+    aDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file3);
+    FileSystemUtils.createEmptyFile(file4);
+
+    Path toDelete = topDir;
+    toDelete.deleteTree();
+
+    assertThat(file4.exists()).isTrue();
+    assertThat(topDir.exists()).isFalse();
+    assertThat(file1.exists()).isFalse();
+    assertThat(file2.exists()).isFalse();
+    assertThat(aDir.exists()).isFalse();
+    assertThat(file3.exists()).isFalse();
+  }
+
+  @Test
+  public void testDeleteTreeCommandsDeletesUnreadableDirectories() throws IOException {
+    Path topDir = absolutize("top-dir");
+    Path aDir = absolutize("top-dir/a-dir");
+
+    topDir.createDirectory();
+    aDir.createDirectory();
+
+    Path toDelete = topDir;
+
+    try {
+      aDir.setReadable(false);
+    } catch (UnsupportedOperationException e) {
+      // For file systems that do not support setting readable attribute to
+      // false, this test is simply skipped.
+
+      return;
+    }
+
+    toDelete.deleteTree();
+    assertThat(topDir.exists()).isFalse();
+    assertThat(aDir.exists()).isFalse();
+  }
+
+  @Test
+  public void testDeleteTreeCommandDoesNotFollowLinksOut() throws IOException {
+    Path topDir = absolutize("top-dir");
+    Path file1 = absolutize("top-dir/file-1");
+    Path file2 = absolutize("top-dir/file-2");
+    Path aDir = absolutize("top-dir/a-dir");
+    Path file3 = absolutize("top-dir/a-dir/file-3");
+    Path file4 = absolutize("file-4");
+
+    topDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file1);
+    FileSystemUtils.createEmptyFile(file2);
+    aDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file3);
+    FileSystemUtils.createEmptyFile(file4);
+
+    Path toDelete = topDir;
+    Path outboundLink = absolutize("top-dir/outbound-link");
+    outboundLink.createSymbolicLink(file4);
+
+    toDelete.deleteTree();
+
+    assertThat(file4.exists()).isTrue();
+    assertThat(topDir.exists()).isFalse();
+    assertThat(file1.exists()).isFalse();
+    assertThat(file2.exists()).isFalse();
+    assertThat(aDir.exists()).isFalse();
+    assertThat(file3.exists()).isFalse();
+  }
+
   // Test the date functions
   @Test
   public void testCreateFileChangesTimeOfDirectory() throws Exception {

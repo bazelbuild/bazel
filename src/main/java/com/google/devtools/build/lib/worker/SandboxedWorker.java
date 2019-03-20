@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -35,7 +34,7 @@ final class SandboxedWorker extends Worker {
   @Override
   void destroy() throws IOException {
     super.destroy();
-    FileSystemUtils.deleteTree(workDir);
+    workDir.deleteTree();
   }
 
   @Override
