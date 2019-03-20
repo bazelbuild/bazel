@@ -574,7 +574,7 @@ y = 1
 ```
 
 *   Flag: `--incompatible_no_transitive_loads`
-*   Default: `true`
+*   Default: `false`
 *   Introduced in: `0.19.0`
 *   Tracking issue: [#5636](https://github.com/bazelbuild/bazel/issues/5636)
 
