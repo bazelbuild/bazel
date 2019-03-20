@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
  * A provider for targets that create Android instrumentations. Consumed by Android testing rules.
@@ -52,7 +53,8 @@ public interface AndroidInstrumentationInfoApi<FileT extends FileApi> extends St
       name = "instrumentation_apk",
       doc = "Returns the instrumentation APK that should be executed.",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getInstrumentationApk();
 
   /** Provider for {@link AndroidInstrumentationInfoApi}. */
@@ -69,6 +71,7 @@ public interface AndroidInstrumentationInfoApi<FileT extends FileApi> extends St
         name = "AndroidInstrumentationInfo",
         doc = "The <code>AndroidInstrumentationInfo</code> constructor.",
         documented = false,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "target_apk",

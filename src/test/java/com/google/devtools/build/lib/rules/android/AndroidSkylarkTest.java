@@ -33,6 +33,7 @@ import org.junit.runners.JUnit4;
 public class AndroidSkylarkTest extends BuildViewTestCase {
 
   private void writeAndroidSplitTransitionTestFiles() throws Exception  {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "test/skylark/my_rule.bzl",
         "def impl(ctx): ",
@@ -168,6 +169,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
 
   @Test
   public void testAndroidSdkConfigurationField() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "foo_library.bzl",
         "def _impl(ctx):",

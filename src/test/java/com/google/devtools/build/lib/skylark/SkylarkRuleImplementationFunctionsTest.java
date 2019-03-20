@@ -2713,6 +2713,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testConfigurationField_NativeSplitTransitionProhibited() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_android_migration_apis");
     scratch.file(
         "test/rule.bzl",
         "def _foo_impl(ctx):",

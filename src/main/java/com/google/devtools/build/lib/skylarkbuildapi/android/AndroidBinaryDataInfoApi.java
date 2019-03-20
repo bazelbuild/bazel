@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
  * Provides information on Android resource, asset, and manifest information specific to binaries.
@@ -40,13 +41,15 @@ public interface AndroidBinaryDataInfoApi<FileT extends FileApi> extends StructA
       name = "resource_apk",
       structField = true,
       doc = "The resource apk.",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getApk();
 
   @SkylarkCallable(
       name = "resource_proguard_config",
       structField = true,
       doc = "Proguard config generated for the resources.",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getResourceProguardConfig();
 }

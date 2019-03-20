@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
 /**
@@ -45,7 +46,12 @@ public interface AndroidSdkProviderApi<
   String NAME = "AndroidSdkInfo";
 
   /** The value of build_tools_version. May be null or empty. */
-  @SkylarkCallable(name = "build_tools_version", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "build_tools_version",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   String getBuildToolsVersion();
 
   @SkylarkCallable(
@@ -53,7 +59,8 @@ public interface AndroidSdkProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true)
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getFrameworkAidl();
 
   @SkylarkCallable(
@@ -61,11 +68,17 @@ public interface AndroidSdkProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true)
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   @Nullable
   TransT getAidlLib();
 
-  @SkylarkCallable(name = "android_jar", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "android_jar",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getAndroidJar();
 
   @SkylarkCallable(
@@ -73,29 +86,65 @@ public interface AndroidSdkProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true)
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   @Nullable
   FileT getSourceProperties();
 
-  @SkylarkCallable(name = "shrinked_android_jar", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "shrinked_android_jar",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getShrinkedAndroidJar();
 
-  @SkylarkCallable(name = "main_dex_classes", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "main_dex_classes",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getMainDexClasses();
 
-  @SkylarkCallable(name = "adb", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "adb",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FilesToRunProviderT getAdb();
 
-  @SkylarkCallable(name = "dx", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "dx",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FilesToRunProviderT getDx();
 
-  @SkylarkCallable(name = "main_dex_list_creator", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "main_dex_list_creator",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FilesToRunProviderT getMainDexListCreator();
 
-  @SkylarkCallable(name = "aidl", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "aidl",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FilesToRunProviderT getAidl();
 
-  @SkylarkCallable(name = "aapt", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "aapt",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FilesToRunProviderT getAapt();
 
   @SkylarkCallable(
@@ -103,7 +152,8 @@ public interface AndroidSdkProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true)
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   @Nullable
   FilesToRunProviderT getAapt2();
 
@@ -112,17 +162,33 @@ public interface AndroidSdkProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true)
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   @Nullable
   FilesToRunProviderT getApkBuilder();
 
-  @SkylarkCallable(name = "apk_signer", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "apk_signer",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FilesToRunProviderT getApkSigner();
 
-  @SkylarkCallable(name = "proguard", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "proguard",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FilesToRunProviderT getProguard();
 
-  @SkylarkCallable(name = "zip_align", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "zip_align",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FilesToRunProviderT getZipalign();
 
   /** The provider implementing this can construct the AndroidSdkInfo provider. */
@@ -142,6 +208,7 @@ public interface AndroidSdkProviderApi<
         name = NAME,
         doc = "The <code>AndroidSdkInfo</code> constructor.",
         documented = false,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "build_tools_version",

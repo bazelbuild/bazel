@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A target that can provide the aar artifact of Android libraries */
 @SkylarkModule(
@@ -39,13 +40,15 @@ public interface AndroidLibraryAarInfoApi<FileT extends FileApi> extends StructA
       doc = "",
       documented = false,
       structField = true,
-      allowReturnNones = true)
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getAarArtifact();
 
   @SkylarkCallable(
       name = "transitive_aar_artifacts",
       doc = "",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveAarArtifacts();
 }

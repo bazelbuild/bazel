@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A provider of information about this target's manifest. */
 @SkylarkModule(
@@ -37,20 +38,23 @@ public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi
       name = "manifest",
       doc = "This target's manifest, merged with manifests from dependencies",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getManifest();
 
   @SkylarkCallable(
       name = "package",
       doc = "This target's package",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   String getPackage();
 
   @SkylarkCallable(
       name = "exports_manifest",
       doc = "If this manifest should be exported to targets that depend on it",
       documented = false,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean exportsManifest();
 }

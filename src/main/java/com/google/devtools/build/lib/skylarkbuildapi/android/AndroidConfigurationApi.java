@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** Configuration fragment for Android rules. */
 @SkylarkModule(
@@ -33,137 +34,185 @@ public interface AndroidConfigurationApi {
       name = "android_cpu",
       structField = true,
       doc = "The Android target CPU.",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   String getCpu();
 
   @SkylarkCallable(
       name = "use_incremental_dexing",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useIncrementalDexing();
 
   @SkylarkCallable(
       name = "incremental_dexing_shards_after_proguard",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   int incrementalDexingShardsAfterProguard();
 
   @SkylarkCallable(
       name = "incremental_dexing_use_dex_sharder",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean incrementalDexingUseDexSharder();
 
   @SkylarkCallable(
       name = "incremental_dexing_after_proguard_by_default",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean incrementalDexingAfterProguardByDefault();
 
-  @SkylarkCallable(name = "apk_signing_method_v1", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "apk_signing_method_v1",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean apkSigningMethodV1();
 
-  @SkylarkCallable(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
-  boolean apkSigningMethodV2();;
+  @SkylarkCallable(
+      name = "apk_signing_method_v2",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  boolean apkSigningMethodV2();
+  ;
 
   @SkylarkCallable(
       name = "assume_min_sdk_version",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean assumeMinSdkVersion();
 
   @SkylarkCallable(
       name = "get_dexopts_supported_in_incremental_dexing",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   ImmutableList<String> getDexoptsSupportedInIncrementalDexing();
 
   @SkylarkCallable(
       name = "get_dexopts_supported_in_dex_merger",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   ImmutableList<String> getDexoptsSupportedInDexMerger();
 
   @SkylarkCallable(
       name = "get_target_dexopts_that_prevent_incremental_dexing",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing();
 
   @SkylarkCallable(
       name = "use_workers_with_dexbuilder",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useWorkersWithDexbuilder();
 
-  @SkylarkCallable(name = "desugar_java8", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "desugar_java8",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean desugarJava8();
 
-  @SkylarkCallable(name = "get_output_driecot", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "get_output_driecot",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean desugarJava8Libs();
 
-  @SkylarkCallable(name = "check_desugar_deps", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "check_desugar_deps",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean checkDesugarDeps();
 
   @SkylarkCallable(
       name = "use_rex_to_compress_dex_files",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useRexToCompressDexFiles();
 
   @SkylarkCallable(
       name = "use_android_resource_shrinking",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useAndroidResourceShrinking();
 
   @SkylarkCallable(
       name = "use_android_resource_cycle_shrinking",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useAndroidResourceCycleShrinking();
 
   @SkylarkCallable(
       name = "use_single_jar_apk_builder",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useSingleJarApkBuilder();
 
-  @SkylarkCallable(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "use_parallel_dex2oat",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useParallelDex2Oat();
 
   @SkylarkCallable(
       name = "compress_java_resources",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean compressJavaResources();
 
   @SkylarkCallable(
       name = "get_exports_manifest_default",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean getExportsManifestDefault();
 
   @SkylarkCallable(
       name = "use_aapt2_for_robolectric",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useAapt2ForRobolectric();
 
   /**
@@ -174,54 +223,71 @@ public interface AndroidConfigurationApi {
       name = "throw_on_resource_conflict",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean throwOnResourceConflict();
 
-  @SkylarkCallable(name = "skip_parsing_action", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "skip_parsing_action",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean skipParsingAction();
 
   @SkylarkCallable(
       name = "fixed_resource_neverlinking",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean fixedResourceNeverlinking();
 
   @SkylarkCallable(
       name = "check_for_migration_tag",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean checkForMigrationTag();
 
   @SkylarkCallable(
       name = "get_one_version_enforcement_use_transitive_jars_for_binary_under_test",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest();
 
-  @SkylarkCallable(name = "use_databinding_v2", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "use_databinding_v2",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useDataBindingV2();
 
   @SkylarkCallable(
       name = "android_databinding_use_v3_4_args",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean useDataBindingUpdatedArgs();
 
   @SkylarkCallable(
       name = "persistent_busybox_tools",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   boolean persistentBusyboxTools();
 
   @SkylarkCallable(
       name = "get_output_directory_name",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   String getOutputDirectoryName();
 }
