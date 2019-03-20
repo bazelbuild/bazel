@@ -788,6 +788,8 @@ public class StandaloneTestStrategy extends TestStrategy {
           return new BazelXmlCreationContinuation(
               resolvedPaths, xmlSpawnOutErr, builder, spawnResults, xmlContinuation);
         }
+        spawnResults = new ArrayList<>(spawnResults);
+        spawnResults.addAll(xmlContinuation.get());
       }
 
       TestCase details = parseTestResult(xmlOutputPath);
