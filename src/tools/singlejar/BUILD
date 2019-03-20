@@ -58,9 +58,11 @@ genrule(
         "transient_bytes.h",
         "zip_headers.h",
         "zlib_interface.h",
+        ":singlejar_local",
     ],
     outs = ["singlejar.zip"],
-    cmd = "zip -Xr $@ $$(echo $(SRCS) | sort)",
+    cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
+    tools = ["//src:zip_files"],
     visibility = ["//third_party:__pkg__"],
 )
 
