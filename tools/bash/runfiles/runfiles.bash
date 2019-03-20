@@ -45,6 +45,8 @@
 #           export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
 #         elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
 #           export RUNFILES_DIR="$0.runfiles"
+#         else
+#           export RUNFILES_DIR="..
 #         fi
 #       fi
 #       if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
