@@ -803,7 +803,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testDeleteTreeCommandDeletesTree() throws IOException {
+  public void testDeleteTreeDeletesContents() throws IOException {
     Path topDir = absolutize("top-dir");
     Path file1 = absolutize("top-dir/file-1");
     Path file2 = absolutize("top-dir/file-2");
@@ -818,9 +818,7 @@ public abstract class FileSystemTest {
     FileSystemUtils.createEmptyFile(file3);
     FileSystemUtils.createEmptyFile(file4);
 
-    Path toDelete = topDir;
-    toDelete.deleteTree();
-
+    topDir.deleteTree();
     assertThat(file4.exists()).isTrue();
     assertThat(topDir.exists()).isFalse();
     assertThat(file1.exists()).isFalse();
@@ -830,57 +828,120 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testDeleteTreeCommandsDeletesUnreadableDirectories() throws IOException {
+  public void testDeleteTreeDeletesUnreadableDirectories() throws IOException {
     Path topDir = absolutize("top-dir");
     Path aDir = absolutize("top-dir/a-dir");
+    Path file1 = absolutize("top-dir/a-dir/file1");
+    Path file2 = absolutize("top-dir/a-dir/file2");
 
     topDir.createDirectory();
     aDir.createDirectory();
-
-    Path toDelete = topDir;
+    FileSystemUtils.createEmptyFile(file1);
+    FileSystemUtils.createEmptyFile(file2);
 
     try {
       aDir.setReadable(false);
+      aDir.setExecutable(false);
     } catch (UnsupportedOperationException e) {
-      // For file systems that do not support setting readable attribute to
-      // false, this test is simply skipped.
-
+      // Skip testing if the file system does not support clearing the needed attibutes.
       return;
     }
 
-    toDelete.deleteTree();
+    topDir.deleteTree();
     assertThat(topDir.exists()).isFalse();
     assertThat(aDir.exists()).isFalse();
+    assertThat(file1.exists()).isFalse();
+    assertThat(file2.exists()).isFalse();
   }
 
   @Test
-  public void testDeleteTreeCommandDoesNotFollowLinksOut() throws IOException {
+  public void testDeleteTreeDeletesUnwritableDirectories() throws IOException {
     Path topDir = absolutize("top-dir");
-    Path file1 = absolutize("top-dir/file-1");
-    Path file2 = absolutize("top-dir/file-2");
     Path aDir = absolutize("top-dir/a-dir");
-    Path file3 = absolutize("top-dir/a-dir/file-3");
-    Path file4 = absolutize("file-4");
+    Path file1 = absolutize("top-dir/a-dir/file1");
+    Path file2 = absolutize("top-dir/a-dir/file2");
 
     topDir.createDirectory();
+    aDir.createDirectory();
     FileSystemUtils.createEmptyFile(file1);
     FileSystemUtils.createEmptyFile(file2);
-    aDir.createDirectory();
-    FileSystemUtils.createEmptyFile(file3);
-    FileSystemUtils.createEmptyFile(file4);
 
-    Path toDelete = topDir;
-    Path outboundLink = absolutize("top-dir/outbound-link");
-    outboundLink.createSymbolicLink(file4);
+    try {
+      aDir.setWritable(false);
+    } catch (UnsupportedOperationException e) {
+      // Skip testing if the file system does not support clearing the needed attibutes.
+      return;
+    }
 
-    toDelete.deleteTree();
-
-    assertThat(file4.exists()).isTrue();
+    topDir.deleteTree();
     assertThat(topDir.exists()).isFalse();
+    assertThat(aDir.exists()).isFalse();
     assertThat(file1.exists()).isFalse();
     assertThat(file2.exists()).isFalse();
-    assertThat(aDir.exists()).isFalse();
-    assertThat(file3.exists()).isFalse();
+  }
+
+  @Test
+  public void testDeleteTreeDoesNotFollowInnerLinks() throws IOException {
+    Path topDir = absolutize("top-dir");
+    Path file = absolutize("file");
+    Path outboundLink = absolutize("top-dir/outbound-link");
+
+    topDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file);
+    outboundLink.createSymbolicLink(file);
+
+    topDir.deleteTree();
+    assertThat(file.exists()).isTrue();
+    assertThat(topDir.exists()).isFalse();
+  }
+
+  @Test
+  public void testDeleteTreeDoesNotFollowTopLink() throws IOException {
+    Path topDir = absolutize("top-dir");
+    Path file = absolutize("file");
+
+    FileSystemUtils.createEmptyFile(file);
+    topDir.createSymbolicLink(file);
+
+    topDir.deleteTree();
+    assertThat(file.exists()).isTrue();
+    assertThat(topDir.exists()).isFalse();
+  }
+
+  @Test
+  public void testTreesDeletesBelowDeletesContentsOnly() throws IOException {
+    Path topDir = absolutize("top-dir");
+    Path file = absolutize("top-dir/file");
+    Path subdir = absolutize("top-dir/subdir");
+
+    topDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file);
+    subdir.createDirectory();
+
+    topDir.deleteTreesBelow();
+    assertThat(topDir.exists()).isTrue();
+    assertThat(file.exists()).isFalse();
+    assertThat(subdir.exists()).isFalse();
+  }
+
+  @Test
+  public void testTreesDeletesBelowIgnoresMissingTopDir() throws IOException {
+    Path topDir = absolutize("top-dir");
+
+    assertThat(topDir.exists()).isFalse();
+    topDir.deleteTreesBelow(); // Expect no exception.
+    assertThat(topDir.exists()).isFalse();
+  }
+
+  @Test
+  public void testTreesDeletesBelowIgnoresNonDirectories() throws IOException {
+    Path topFile = absolutize("top-file");
+
+    FileSystemUtils.createEmptyFile(topFile);
+
+    assertThat(topFile.exists()).isTrue();
+    topFile.deleteTreesBelow(); // Expect no exception.
+    assertThat(topFile.exists()).isTrue();
   }
 
   // Test the date functions
