@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -580,7 +581,7 @@ public class IncrementalLoadingTest {
       ModifiedFileSet.Builder builder = ModifiedFileSet.builder();
       for (Path path : changes) {
         if (!path.startsWith(workspace)) {
-          continue;
+          return ModifiedFileSet.EVERYTHING_MODIFIED;
         }
 
         PathFragment workspacePath = path.relativeTo(workspace);
