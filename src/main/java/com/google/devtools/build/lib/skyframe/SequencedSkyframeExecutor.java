@@ -580,7 +580,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
       @Override
       public void refreshUnder(Set<RootedPath> paths) {
-        memoizingEvaluator.delete(new KeysUnderPath(paths));
+        invalidate(new KeysUnderPath(paths));
+      }
+
+      @Override
+      public void refreshExactly(RootedPath path) {
+        recordingDiffer.invalidate(ImmutableSet.of(FileStateValue.key(path)));
       }
 
       @Override
@@ -599,7 +604,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
     @Override
     public boolean apply(SkyKey key) {
-      if (key.argument() instanceof RootedPath) {
+      if (key.argument() instanceof RootedPath && FileStateValue.FILE_STATE.equals(key.functionName())) {
         RootedPath path = (RootedPath) key.argument();
         return roots.stream().anyMatch(root -> path.asPath().startsWith(root.asPath()));
       }

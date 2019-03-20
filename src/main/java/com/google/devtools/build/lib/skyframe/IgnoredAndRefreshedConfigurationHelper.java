@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -99,7 +98,7 @@ public class IgnoredAndRefreshedConfigurationHelper {
       }
       boolean isDirty = partner.checkDirtiness(fileStateKey, oldValue);
       if (isDirty) {
-        partner.refreshUnder(ImmutableSet.of(path));
+        partner.refreshExactly(path);
       }
     }
 
@@ -140,6 +139,9 @@ public class IgnoredAndRefreshedConfigurationHelper {
     SkyValue getOld(SkyKey key) throws InterruptedException;
     SkyValue getNew(SkyKey key) throws InterruptedException;
     void refreshUnder(Set<RootedPath> paths) throws InterruptedException;
+
+    void refreshExactly(RootedPath path);
+
     boolean checkDirtiness(SkyKey key, SkyValue oldValue) throws InterruptedException;
   }
 }
