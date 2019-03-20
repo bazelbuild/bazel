@@ -35,6 +35,35 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+genrule(
+    name = "singlejar_zip",
+    srcs = [
+        "BUILD",
+        "combiners.cc",
+        "combiners.h",
+        "diag.h",
+        "input_jar.cc",
+        "input_jar.h",
+        "mapped_file.cc",
+        "mapped_file.h",
+        "mapped_file_posix.inc",
+        "mapped_file_windows.inc",
+        "options.cc",
+        "options.h",
+        "output_jar.cc",
+        "output_jar.h",
+        "port.h",
+        "singlejar_main.cc",
+        "token_stream.h",
+        "transient_bytes.h",
+        "zip_headers.h",
+        "zlib_interface.h",
+    ],
+    outs = ["singlejar.zip"],
+    cmd = "zip -Xr $@ $$(echo $(SRCS) | sort)",
+    visibility = ["//third_party:__pkg__"],
+)
+
 cc_binary(
     name = "singlejar",
     srcs = [
