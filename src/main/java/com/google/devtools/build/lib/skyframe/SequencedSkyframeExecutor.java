@@ -531,7 +531,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     SkyframeExecutorAdapter skyframeExecutorAdapter =
         createPartner(evaluationContext, missingDiffDirtinessChecker);
 
-    Root workspaceRoot = Root.fromPath(pkgLocator.get().getWorkspaceFile().getParentDirectory());
+    Root workspaceRoot = Root.fromPath(directories.getWorkspace());
     BlacklistedPackagePrefixesValue blacklistedPrefixes =
         configurationHelper.computeBlacklist(skyframeExecutorAdapter, workspaceRoot);
     RefreshRootsValue refreshRoots =
