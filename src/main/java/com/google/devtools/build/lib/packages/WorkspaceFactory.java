@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.BuiltinFunction.Factory;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -297,6 +298,52 @@ public class WorkspaceFactory {
   }
 
   @SkylarkSignature(
+      name = "refresh",
+      objectType = Object.class,
+      returnType = NoneType.class,
+      doc = "TODO",
+      parameters = {
+          @Param(
+              name = "roots",
+              doc = "TODO",
+              type = SkylarkList.class,
+              generic1 = String.class,
+              named = true,
+              positional = false,
+              noneable = false
+          ),
+          @Param(
+              name = "repository",
+              doc = "TODO",
+              type = String.class,
+              named = true,
+              positional = false,
+              noneable = false
+          ),
+      },
+      useAst = true,
+      useEnvironment = true)
+  private static final BuiltinFunction.Factory refresh = new BuiltinFunction.Factory("refresh") {
+    public BuiltinFunction create() {
+      return new BuiltinFunction("refresh", FunctionSignature.namedOnly("roots", "repository"), USE_AST_ENV) {
+        public Object invoke(SkylarkList<String> roots, String repository,
+            FuncallExpression ast, Environment env) throws EvalException {
+          Package.Builder builder = PackageFactory.getContext(env, ast.getLocation()).pkgBuilder;
+          RepositoryName repositoryName;
+          try {
+            repositoryName = repository.startsWith("@") ?
+                RepositoryName.create(repository) : RepositoryName.createFromValidStrippedName(repository);
+          } catch (LabelSyntaxException e) {
+            throw new EvalException(ast.getLocation(), e.getMessage());
+          }
+          roots.forEach(root -> builder.addRefreshRootMapping(root, repositoryName));
+          return NONE;
+        }
+      };
+    }
+  };
+
+  @SkylarkSignature(
       name = "workspace",
       objectType = Object.class,
       returnType = SkylarkList.class,
@@ -540,6 +587,7 @@ public class WorkspaceFactory {
   private void addWorkspaceFunctions(Environment workspaceEnv, StoredEventHandler localReporter) {
     try {
       workspaceEnv.setup("workspace", newWorkspaceFunction.apply(allowOverride, ruleFactory));
+      workspaceEnv.setup("refresh", refresh.apply());
       for (Map.Entry<String, BaseFunction> function : workspaceFunctions.entrySet()) {
         workspaceEnv.update(function.getKey(), function.getValue());
       }

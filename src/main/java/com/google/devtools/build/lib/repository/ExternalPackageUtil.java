@@ -17,20 +17,29 @@ package com.google.devtools.build.lib.repository;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.RefreshRootsValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Utility class to centralize looking up rules from the external package. */
@@ -47,13 +56,10 @@ public class ExternalPackageUtil {
   private static List<Rule> getRules(
       Environment env, boolean returnFirst, Function<Package, List<Rule>> selector)
       throws ExternalPackageException, InterruptedException {
-    SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
-    if (packageLookupValue == null) {
+    RootedPath workspacePath = getWorkspacePath(env);
+    if (env.valuesMissing()) {
       return null;
     }
-    RootedPath workspacePath =
-        packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
 
     List<Rule> rules = returnFirst ? ImmutableList.of() : Lists.newArrayList();
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
@@ -84,6 +90,22 @@ public class ExternalPackageUtil {
     return rules;
   }
 
+  @Nullable
+  public static RootedPath getWorkspacePath(final Environment env)
+      throws InterruptedException, ExternalPackageException {
+    SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
+    if (packageLookupValue == null) {
+      return null;
+    }
+    if (!packageLookupValue.packageExists()) {
+      throw new ExternalPackageException(
+          new NoSuchPackageException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+              packageLookupValue.getErrorMsg()), Transience.TRANSIENT);
+    }
+    return packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+  }
+
   /** Uses a rule name to fetch the corresponding Rule from the external package. */
   @Nullable
   public static Rule getRuleByName(final String ruleName, Environment env)
@@ -112,5 +134,42 @@ public class ExternalPackageUtil {
       throw new ExternalRuleNotFoundException(ruleName);
     }
     return Iterables.getFirst(rules, null);
+  }
+
+  public static boolean hasRefreshRoots(RepositoryName repositoryName, Environment env)
+      throws InterruptedException {
+    RefreshRootsValue refreshRoots = (RefreshRootsValue) env.getValue(RefreshRootsValue.key());
+    if (refreshRoots == null) {
+      return false;
+    }
+    return refreshRoots.getRoots().values().stream().anyMatch(repositoryName::equals);
+  }
+
+  private static List<PathFragment> getRefreshRootsForRepository
+      (RepositoryName repositoryName, Environment env) throws InterruptedException {
+    RefreshRootsValue refreshRoots = (RefreshRootsValue) env.getValue(RefreshRootsValue.key());
+    if (refreshRoots == null) {
+      return null;
+    }
+    Map<PathFragment, RepositoryName> roots = refreshRoots.getRoots();
+    return roots.keySet()
+        .stream()
+        .filter(root -> repositoryName.equals(roots.get(root)))
+        .collect(Collectors.toList());
+  }
+
+  public static List<RootedPath> getRefreshRootsPaths(RepositoryName repositoryName, Environment env)
+      throws InterruptedException, ExternalPackageException {
+    RootedPath workspacePath = getWorkspacePath(env);
+    if (workspacePath == null) {
+      return null;
+    }
+    Root workspace = workspacePath.getRoot();
+    List<PathFragment> repositoryRoots = Objects
+        .requireNonNull(getRefreshRootsForRepository(repositoryName, env));
+    return repositoryRoots
+        .stream()
+        .map(p -> RootedPath.toRootedPath(workspace, p))
+        .collect(Collectors.toList());
   }
 }

@@ -76,6 +76,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("COLLECT_PACKAGES_UNDER_DIRECTORY");
   public static final SkyFunctionName BLACKLISTED_PACKAGE_PREFIXES =
       SkyFunctionName.createHermetic("BLACKLISTED_PACKAGE_PREFIXES");
+  public static final SkyFunctionName REFRESH_ROOTS =
+      SkyFunctionName.createHermetic("REFRESH_ROOTS");
   static final SkyFunctionName TEST_SUITE_EXPANSION =
       SkyFunctionName.createHermetic("TEST_SUITE_EXPANSION");
   static final SkyFunctionName TESTS_IN_SUITE = SkyFunctionName.createHermetic("TESTS_IN_SUITE");
