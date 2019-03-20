@@ -522,7 +522,9 @@ public class CppCompileAction extends AbstractAction
       // been iterated over before). Don't use Set.removeAll() here as that iterates over the
       // smaller set (topLevel, which would support efficient lookup) and looks up in the larger one
       // (transitive, which is a linear scan).
-      for (Artifact module : transitive) {
+      // We get a collection view of the NestedSet in a way that can throw an InterruptedException
+      // because a NestedSet may contain a future.
+      for (Artifact module : transitive.toCollectionInterruptibly()) {
         topLevel.remove(module);
       }
     }
