@@ -22,6 +22,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collections;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -32,12 +33,12 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public class RefreshRootsValue implements SkyValue {
-  private final TreeMap<PathFragment, RepositoryName> roots;
+  private final NavigableMap<PathFragment, RepositoryName> roots;
 
   @AutoCodec.VisibleForSerialization @AutoCodec
   static final SkyKey REFRESH_ROOTS_KEY = () -> SkyFunctions.REFRESH_ROOTS;
 
-  public RefreshRootsValue(TreeMap<PathFragment, RepositoryName> roots) {
+  public RefreshRootsValue(NavigableMap<PathFragment, RepositoryName> roots) {
     this.roots = roots;
   }
 
