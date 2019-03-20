@@ -1552,7 +1552,8 @@ public final class CcCompilationHelper {
   /** Returns true if Dotd file should be generated. */
   private boolean isGenerateDotdFile(Artifact sourceArtifact) {
     return CppFileTypes.headerDiscoveryRequired(sourceArtifact)
-        && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
+        && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)
+        && featureConfiguration.isEnabled(CppRuleClasses.DEPENDENCY_FILE);
   }
 
   private void createHeaderAction(
