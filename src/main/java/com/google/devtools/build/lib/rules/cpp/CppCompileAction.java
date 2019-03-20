@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppCompileActionResult.Reply;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.util.DependencySet;
@@ -1188,12 +1187,15 @@ public class CppCompileAction extends AbstractAction
       }
     }
 
-    CppCompileActionResult.Reply reply;
     List<SpawnResult> spawnResults;
+    byte[] dotDContents;
     try (Defer ignored = new Defer()) {
-      CppCompileActionResult cppCompileActionResult = execWithReply(spawnContext);
-      reply = cppCompileActionResult.contextReply();
-      spawnResults = cppCompileActionResult.spawnResults();
+      Spawn spawn = createSpawn(actionExecutionContext.getClientEnv());
+      SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
+      spawnResults = context.exec(spawn, spawnContext);
+      // SpawnActionContext guarantees that the first list entry exists and corresponds to the
+      // executed spawn.
+      dotDContents = getDotDContents(spawnResults.get(0));
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "C++ compilation of rule '" + getOwner().getLabel() + "'",
@@ -1226,9 +1228,12 @@ public class CppCompileAction extends AbstractAction
     } else {
       discoveredInputs =
           discoverInputsFromDotdFiles(
-              actionExecutionContext, execRoot, scanningContext.getArtifactResolver(), reply);
+              actionExecutionContext,
+              execRoot,
+              scanningContext.getArtifactResolver(),
+              dotDContents);
     }
-    reply = null; // Clear in-memory .d files early.
+    dotDContents = null; // Garbage collect in-memory .d contents.
 
     if (discoversInputs()) {
       // Post-execute "include scanning", which modifies the action inputs to match what the compile
@@ -1251,8 +1256,21 @@ public class CppCompileAction extends AbstractAction
     return ActionResult.create(spawnResults);
   }
 
-  protected CppCompileActionResult execWithReply(ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
+  protected byte[] getDotDContents(SpawnResult spawnResult) throws EnvironmentalExecException {
+    if (getDotdFile() != null) {
+      InputStream in = spawnResult.getInMemoryOutput(getDotdFile());
+      if (in != null) {
+        try {
+          return ByteStreams.toByteArray(in);
+        } catch (IOException e) {
+          throw new EnvironmentalExecException("Reading in-memory .d file failed", e);
+        }
+      }
+    }
+    return null;
+  }
+
+  protected Spawn createSpawn(Map<String, String> clientEnv) {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
     ImmutableList.Builder<ActionInput> inputsBuilder =
@@ -1263,7 +1281,6 @@ public class CppCompileAction extends AbstractAction
       inputsBuilder.add(getParamFileActionInput());
     }
     ImmutableList<ActionInput> inputs = inputsBuilder.build();
-    clearAdditionalInputs();
 
     ImmutableMap<String, String> executionInfo = getExecutionInfo();
     ImmutableList.Builder<ActionInput> outputs =
@@ -1288,38 +1305,14 @@ public class CppCompileAction extends AbstractAction
               .build();
     }
 
-    Spawn spawn =
-        new SimpleSpawn(
-            this,
-            ImmutableList.copyOf(getArguments()),
-            getEnvironment(actionExecutionContext.getClientEnv()),
-            executionInfo,
-            inputs,
-            outputs.build(),
-            estimateResourceConsumptionLocal());
-
-    SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
-    List<SpawnResult> spawnResults = context.exec(spawn, actionExecutionContext);
-    // The SpawnActionContext guarantees that the first list entry is the successful one.
-    SpawnResult spawnResult = spawnResults.get(0);
-
-    CppCompileActionResult.Builder cppCompileActionResultBuilder =
-        CppCompileActionResult.builder().setSpawnResults(spawnResults);
-
-    if (getDotdFile() != null) {
-      InputStream in = spawnResult.getInMemoryOutput(getDotdFile());
-      if (in != null) {
-        byte[] contents;
-        try {
-          contents = ByteStreams.toByteArray(in);
-        } catch (IOException e) {
-          throw new EnvironmentalExecException("Reading in-memory .d file failed", e);
-        }
-        cppCompileActionResultBuilder.setContextReply(
-            new CppCompileActionResult.InMemoryFile(contents));
-      }
-    }
-    return cppCompileActionResultBuilder.build();
+    return new SimpleSpawn(
+        this,
+        ImmutableList.copyOf(getArguments()),
+        getEnvironment(clientEnv),
+        executionInfo,
+        inputs,
+        outputs.build(),
+        estimateResourceConsumptionLocal());
   }
 
   @VisibleForTesting
@@ -1355,7 +1348,7 @@ public class CppCompileAction extends AbstractAction
       ActionExecutionContext actionExecutionContext,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      Reply reply)
+      byte[] dotDContents)
       throws ActionExecutionException {
     if (!needsDotdInputPruning || getDotdFile() == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -1365,7 +1358,7 @@ public class CppCompileAction extends AbstractAction
             .setAction(this)
             .setSourceFile(getSourceFile())
             .setDependencies(
-                processDepset(actionExecutionContext, execRoot, reply).getDependencies())
+                processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies())
             .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
             .setAllowedDerivedinputs(getAllowedDerivedInputs());
 
@@ -1377,12 +1370,12 @@ public class CppCompileAction extends AbstractAction
   }
 
   public DependencySet processDepset(
-      ActionExecutionContext actionExecutionContext, Path execRoot, Reply reply)
+      ActionExecutionContext actionExecutionContext, Path execRoot, byte[] dotDContents)
       throws ActionExecutionException {
     try {
       DependencySet depSet = new DependencySet(execRoot);
-      if (reply != null && cppConfiguration.getInmemoryDotdFiles()) {
-        return depSet.process(reply.getContents());
+      if (dotDContents != null && cppConfiguration.getInmemoryDotdFiles()) {
+        return depSet.process(dotDContents);
       }
       return depSet.read(actionExecutionContext.getInputPath(getDotdFile()));
     } catch (IOException e) {
