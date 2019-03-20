@@ -101,7 +101,7 @@ config_setting(
 alias(
     name = "singlejar",
     actual = select({
-         "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
+         "//src/conditions:remote": "//src/tools/singlejar:singlejar",
          "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
      }),
 )
@@ -109,10 +109,10 @@ alias(
 alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
-          ":linux_x86_64": ":ijar_prebuilt_binary",
-          ":darwin": ":ijar_prebuilt_binary",
-          ":darwin_x86_64": ":ijar_prebuilt_binary",
-          ":windows": ":singlejar",
+          ":linux_x86_64": "//src/tools/singlejar/singlejar_local",
+          ":darwin": "//src/tools/singlejar/singlejar_local",
+          ":darwin_x86_64": "//src/tools/singlejar/singlejar_local",
+          ":windows": "//src/tools/singlejar/singlejar_local.exe",
           "//conditions:default": "//src/tools/singlejar:singlejar",
       })
 )
