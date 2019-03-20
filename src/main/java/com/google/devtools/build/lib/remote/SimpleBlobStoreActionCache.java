@@ -62,8 +62,8 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   private final ConcurrentHashMap<String, Boolean> storedBlobs;
 
   public SimpleBlobStoreActionCache(
-      RemoteOptions options, SimpleBlobStore blobStore, Retrier retrier, DigestUtil digestUtil) {
-    super(options, digestUtil, retrier);
+      RemoteOptions options, SimpleBlobStore blobStore, DigestUtil digestUtil) {
+    super(options, digestUtil);
     this.blobStore = blobStore;
     this.storedBlobs = new ConcurrentHashMap<>();
   }
@@ -235,7 +235,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
             if (found) {
               try {
                 if (hashOut != null) {
-                  verifyContents(digest, hashOut);
+                  verifyContents(digest.getHash(), DigestUtil.hashCodeToString(hashOut.hash()));
                 }
                 out.flush();
                 outerF.set(null);

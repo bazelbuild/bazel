@@ -204,6 +204,10 @@ public class Retrier {
     this.sleeper = sleeper;
   }
 
+  ListeningScheduledExecutorService getRetryService() {
+    return retryService;
+  }
+
   /**
    * Execute a {@link Callable}, retrying execution in case of failure and returning the result in
    * case of success.

@@ -38,10 +38,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
-import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
-import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -671,10 +669,7 @@ public class AbstractRemoteActionCacheTests {
 
   private DefaultRemoteActionCache newTestCache() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(
-            () -> new ExponentialBackoff(options), (e) -> false, retryService);
-    return new DefaultRemoteActionCache(options, digestUtil, retrier);
+    return new DefaultRemoteActionCache(options, digestUtil);
   }
 
   private static class DefaultRemoteActionCache extends AbstractRemoteActionCache {
@@ -684,8 +679,8 @@ public class AbstractRemoteActionCacheTests {
     AtomicInteger numSuccess = new AtomicInteger();
     AtomicInteger numFailures = new AtomicInteger();
 
-    public DefaultRemoteActionCache(RemoteOptions options, DigestUtil digestUtil, Retrier retrier) {
-      super(options, digestUtil, retrier);
+    public DefaultRemoteActionCache(RemoteOptions options, DigestUtil digestUtil) {
+      super(options, digestUtil);
     }
 
     public Digest addContents(String txt) throws UnsupportedEncodingException {

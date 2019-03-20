@@ -243,12 +243,6 @@ public final class RemoteModule extends BlazeModule {
       }
 
       if (enableBlobStoreCache) {
-        Retrier retrier =
-            new Retrier(
-                () -> Retrier.RETRIES_DISABLED,
-                (e) -> false,
-                retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
         executeRetrier = null;
         cache =
             new SimpleBlobStoreActionCache(
@@ -257,7 +251,6 @@ public final class RemoteModule extends BlazeModule {
                     remoteOptions,
                     GoogleAuthUtils.newCredentials(authAndTlsOptions),
                     env.getWorkingDirectory()),
-                retrier,
                 digestUtil);
       }
 
