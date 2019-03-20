@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.AqueryUtils;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import java.util.HashMap;
@@ -140,6 +141,10 @@ public class ActionGraphDump {
 
     if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
       return;
+    }
+
+    while (configuredTarget instanceof AliasConfiguredTarget) {
+      configuredTarget = ((AliasConfiguredTarget) configuredTarget).getActual();
     }
 
     Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
