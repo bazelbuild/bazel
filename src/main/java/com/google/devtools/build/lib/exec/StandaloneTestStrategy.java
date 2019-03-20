@@ -265,7 +265,8 @@ public class StandaloneTestStrategy extends TestStrategy {
               public SpawnContinuation execute() throws ExecException, InterruptedException {
                 SpawnActionContext spawnActionContext =
                     actionExecutionContext.getContext(SpawnActionContext.class);
-                return spawnActionContext.beginExecution(spawn, actionExecutionContext);
+                return spawnActionContext.beginExecution(
+                    spawn, actionExecutionContext.withFileOutErr(testOutErr));
               }
             })
         .execute();
