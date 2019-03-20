@@ -14,8 +14,10 @@ java_test(
     name = "merkletree",
     srcs = glob(["*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
@@ -23,9 +25,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//src/test/java/com/google/devtools/build/lib/remote/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/testutil",
         "//third_party:guava",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",

@@ -18,10 +18,12 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.shell.TerminationStatus;
+import com.google.protobuf.ByteString;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -226,6 +228,8 @@ public interface SpawnResult {
     private final Optional<Long> numInvoluntaryContextSwitches;
     private final boolean cacheHit;
     private final String failureMessage;
+    private ActionInput inMemoryOutputFile;
+    private ByteString inMemoryContents;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -243,6 +247,8 @@ public interface SpawnResult {
       this.numInvoluntaryContextSwitches = builder.numInvoluntaryContextSwitches;
       this.cacheHit = builder.cacheHit;
       this.failureMessage = builder.failureMessage;
+      this.inMemoryOutputFile = builder.inMemoryOutputFile;
+      this.inMemoryContents = builder.inMemoryContents;
     }
 
     @Override
@@ -358,6 +364,15 @@ public interface SpawnResult {
       }
       return messagePrefix + " failed" + reason + explanation;
     }
+
+    @Nullable
+    @Override
+    public InputStream getInMemoryOutput(ActionInput output) {
+      if (inMemoryOutputFile != null && inMemoryOutputFile.equals(output)) {
+        return inMemoryContents.newInput();
+      }
+      return null;
+    }
   }
 
   /**
@@ -377,6 +392,9 @@ public interface SpawnResult {
     private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
     private boolean cacheHit;
     private String failureMessage = "";
+    /* Invariant: Either both have a value or both are null. */
+    private ActionInput inMemoryOutputFile;
+    private ByteString inMemoryContents;
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
@@ -468,6 +486,12 @@ public interface SpawnResult {
 
     public Builder setFailureMessage(String failureMessage) {
       this.failureMessage = failureMessage;
+      return this;
+    }
+
+    public Builder setInMemoryOutput(ActionInput outputFile, ByteString contents) {
+      this.inMemoryOutputFile = Preconditions.checkNotNull(outputFile);
+      this.inMemoryContents = Preconditions.checkNotNull(contents);
       return this;
     }
   }

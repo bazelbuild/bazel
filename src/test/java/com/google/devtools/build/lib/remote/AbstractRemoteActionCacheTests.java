@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
-import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.remote.util.RemoteUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -714,7 +714,7 @@ public class AbstractRemoteActionCacheTests {
     @Override
     protected <T> T getFromFuture(ListenableFuture<T> f) throws IOException, InterruptedException {
       blockingDownloads.add(f);
-      return Utils.getFromFuture(f);
+      return RemoteUtils.getFromFuture(f);
     }
 
     @Nullable

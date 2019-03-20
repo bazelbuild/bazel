@@ -10,21 +10,17 @@ filegroup(
     visibility = ["//src/test/java/com/google/devtools/build/lib/remote:__pkg__"],
 )
 
-java_test(
-    name = "http",
+java_library(
+    name = "testutil",
     srcs = glob(["*.java"]),
-    test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
-        "//third_party:api_client",
-        "//third_party:auth",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
-        "//third_party:mockito",
-        "//third_party:netty",
-        "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
     ],
 )

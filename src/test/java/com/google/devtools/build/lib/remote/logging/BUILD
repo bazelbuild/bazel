@@ -14,13 +14,15 @@ java_test(
     name = "logging",
     srcs = glob(["*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib/remote/logging",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:remote_execution_log_java_proto",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:mockito",

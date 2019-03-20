@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote.blobstore.http;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.RemoteUtils.getFromFuture;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;

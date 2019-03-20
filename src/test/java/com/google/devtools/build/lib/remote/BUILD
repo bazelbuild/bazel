@@ -10,6 +10,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/remote/blobstore/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/logging:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/merkletree:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/testutil:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/util:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
@@ -19,6 +20,9 @@ java_test(
     name = "remote",
     srcs = glob(["**/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -39,9 +43,8 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:remote_execution_log_java_proto",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//src/test/java/com/google/devtools/build/lib/remote/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/testutil",
         "//third_party:api_client",
         "//third_party:guava",
         "//third_party:mockito",

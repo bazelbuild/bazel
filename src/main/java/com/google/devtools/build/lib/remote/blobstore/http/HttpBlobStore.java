@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore.http;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.RemoteUtils.getFromFuture;
 
 import com.google.auth.Credentials;
 import com.google.common.util.concurrent.ListenableFuture;

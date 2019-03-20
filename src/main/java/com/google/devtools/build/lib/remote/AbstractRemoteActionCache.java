@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.remote.util.RemoteUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -291,7 +291,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
   @VisibleForTesting
   protected <T> T getFromFuture(ListenableFuture<T> f) throws IOException, InterruptedException {
-    return Utils.getFromFuture(f);
+    return RemoteUtils.getFromFuture(f);
   }
 
   /** Tuple of {@code ListenableFuture, Path, boolean}. */

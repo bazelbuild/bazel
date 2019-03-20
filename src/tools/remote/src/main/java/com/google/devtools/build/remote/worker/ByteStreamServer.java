@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.RemoteUtils.getFromFuture;
 import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
 
