@@ -297,6 +297,8 @@ public final class BuilderRunner {
     }
     if (enableDebug) {
       list.add("--host_jvm_debug");
+      // 10 min for debug
+      this.flags.add("--max_idle_secs=600");
     }
     list.add(command);
     list.addAll(this.flags);
