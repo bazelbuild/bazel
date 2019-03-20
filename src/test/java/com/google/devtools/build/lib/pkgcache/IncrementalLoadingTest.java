@@ -581,7 +581,7 @@ public class IncrementalLoadingTest {
       ModifiedFileSet.Builder builder = ModifiedFileSet.builder();
       for (Path path : changes) {
         if (!path.startsWith(workspace)) {
-          continue;
+          return ModifiedFileSet.EVERYTHING_MODIFIED;
         }
 
         PathFragment workspacePath = path.relativeTo(workspace);
