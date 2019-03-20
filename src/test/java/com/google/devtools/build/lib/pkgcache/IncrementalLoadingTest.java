@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -477,7 +478,7 @@ public class IncrementalLoadingTest {
               workspace,
               /* defaultSystemJavabase= */ null,
               loadingMock.getProductName());
-      ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
+      ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider(true);
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
               loadingMock
