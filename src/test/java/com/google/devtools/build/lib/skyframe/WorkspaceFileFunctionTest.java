@@ -115,7 +115,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Before
   public final void setUp() throws Exception {
-    ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
+    ConfiguredRuleClassProvider ruleClassProvider =
+        TestRuleClassProvider.getRuleClassProvider(true);
     workspaceSkyFunc =
         new WorkspaceFileFunction(
             ruleClassProvider,
