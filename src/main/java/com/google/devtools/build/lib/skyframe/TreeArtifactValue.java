@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Function;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -45,22 +45,16 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public class TreeArtifactValue implements SkyValue {
-  private static final Function<Artifact, PathFragment> PARENT_RELATIVE_PATHS =
-      new Function<Artifact, PathFragment>() {
-        @Override
-        public PathFragment apply(Artifact artifact) {
-            return artifact.getParentRelativePath();
-        }
-      };
 
   private final byte[] digest;
-  private final Map<TreeFileArtifact, FileArtifactValue> childData;
+  private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
   private BigInteger valueFingerprint;
 
   @AutoCodec.VisibleForSerialization
-  TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData) {
+  TreeArtifactValue(
+      byte[] digest, ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData) {
     this.digest = digest;
-    this.childData = ImmutableMap.copyOf(childData);
+    this.childData = childData;
   }
 
   /**
@@ -76,7 +70,7 @@ public class TreeArtifactValue implements SkyValue {
 
     return new TreeArtifactValue(
         DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe(),
-        ImmutableMap.copyOf(childFileValues));
+        ImmutableSortedMap.copyOf(childFileValues));
   }
 
   FileArtifactValue getSelfData() {
@@ -87,8 +81,10 @@ public class TreeArtifactValue implements SkyValue {
     return getSelfData();
   }
 
-  Set<PathFragment> getChildPaths() {
-    return ImmutableSet.copyOf(Iterables.transform(childData.keySet(), PARENT_RELATIVE_PATHS));
+  ImmutableSet<PathFragment> getChildPaths() {
+    return childData.keySet().stream()
+        .map(TreeFileArtifact::getParentRelativePath)
+        .collect(toImmutableSet());
   }
 
   @Nullable
@@ -100,7 +96,7 @@ public class TreeArtifactValue implements SkyValue {
     return childData.keySet();
   }
 
-  Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
+  ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
     return childData;
   }
 
@@ -150,7 +146,7 @@ public class TreeArtifactValue implements SkyValue {
    * Java's concurrent collections disallow null members.
    */
   static final TreeArtifactValue MISSING_TREE_ARTIFACT =
-      new TreeArtifactValue(null, ImmutableMap.<TreeFileArtifact, FileArtifactValue>of()) {
+      new TreeArtifactValue(null, ImmutableSortedMap.of()) {
         @Override
         FileArtifactValue getSelfData() {
           throw new UnsupportedOperationException();
@@ -162,7 +158,7 @@ public class TreeArtifactValue implements SkyValue {
         }
 
         @Override
-        Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
+        ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
           throw new UnsupportedOperationException();
         }
 
@@ -172,7 +168,7 @@ public class TreeArtifactValue implements SkyValue {
         }
 
         @Override
-        Set<PathFragment> getChildPaths() {
+        ImmutableSet<PathFragment> getChildPaths() {
           throw new UnsupportedOperationException();
         }
 
