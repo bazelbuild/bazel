@@ -7,6 +7,14 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+filegroup(
+    name = "embedded_build_and_license",
+    srcs = [
+        "BUILD.tools",
+        "LICENSE",
+    ],
+)
+
 # jarjar_bin
 java_binary(
     name = "jarjar_command",
