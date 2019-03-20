@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
 /**
@@ -64,7 +65,12 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
    * android_libraries in the exports attribute, where the providers from exports are merged into a
    * single provider. In a rule without exports, this will be at most 1 file.
    */
-  @SkylarkCallable(name = "setter_stores", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "setter_stores",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   ImmutableList<T> getSetterStores();
 
   /**
@@ -72,32 +78,42 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
    * android_libraries in the exports attribute, where the providers from exports are merged into a
    * single provider. In a rule without exports, this will be at most 1 file.
    */
-  @SkylarkCallable(name = "class_infos", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "class_infos",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   ImmutableList<T> getClassInfos();
 
   /** Returns the BR files from this rule and its dependencies. */
-  @SkylarkCallable(name = "transitive_br_files", structField = true, doc = "", documented = false)
+  @SkylarkCallable(
+      name = "transitive_br_files",
+      structField = true,
+      doc = "",
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<T> getTransitiveBRFiles();
 
   /**
    * Returns a NestedSet containing the label and java package for this rule and its transitive
    * dependencies.
-   * */
+   */
   @SkylarkCallable(
       name = "transitive_label_and_java_packages",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages();
 
-  /**
-   * Returns the label and java package for this rule and any rules that this rule exports.
-   */
+  /** Returns the label and java package for this rule and any rules that this rule exports. */
   @SkylarkCallable(
       name = "label_and_java_packages",
       structField = true,
       doc = "",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   @Nullable
   ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages();
 
@@ -114,6 +130,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
         name = NAME,
         doc = "The <code>DataBindingV2Info</code> constructor.",
         documented = false,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "setter_store_file",

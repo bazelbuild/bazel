@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
  * Configured targets implementing this provider can contribute Android IDL information to the
@@ -47,7 +48,8 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
       name = "transitive_idl_import_roots",
       structField = true,
       doc = "Returns a depset of strings of all the idl import roots.",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<String> getTransitiveIdlImportRoots();
 
   /** The IDL files in the transitive closure. */
@@ -55,7 +57,8 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
       name = "transitive_idl_imports",
       structField = true,
       doc = "Returns a depset of artifacts of all the idl imports.",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveIdlImports();
 
   /** The IDL jars in the transitive closure, both class and source jars. */
@@ -63,7 +66,8 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
       name = "transitive_idl_jars",
       structField = true,
       doc = "Returns a depset of artifacts of all the idl class and source jars.",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveIdlJars();
 
   /** The preprocessed IDL files in the transitive closure. */
@@ -71,7 +75,8 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
       name = "transitive_idl_preprocessed",
       structField = true,
       doc = "Returns a depset of artifacts of all the idl preprocessed files.",
-      documented = false)
+      documented = false,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   NestedSet<FileT> getTransitiveIdlPreprocessed();
 
   /** The provider implementing this can construct the AndroidIdlInfo provider. */
@@ -87,6 +92,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
         name = NAME,
         doc = "The <code>AndroidIdlInfo</code> constructor.",
         documented = false,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "transitive_idl_import_roots",
