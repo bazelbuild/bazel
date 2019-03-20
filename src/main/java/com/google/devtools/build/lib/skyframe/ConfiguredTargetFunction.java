@@ -395,6 +395,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
                 cause.getMessage(), target.getLabel(), configuration));
+      } else if (e.getCause() instanceof TransitionException) {
+        TransitionException cause = (TransitionException) e.getCause();
+        env.getListener().handle(Event.error(cause.getMessage()));
+        throw new ConfiguredTargetFunctionException(
+            new ConfiguredValueCreationException(e.getMessage(), target.getLabel(), configuration));
       } else {
         // Unknown exception type.
         throw new ConfiguredTargetFunctionException(

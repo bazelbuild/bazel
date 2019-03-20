@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -227,8 +229,17 @@ public final class ConfigurationResolver {
         transitionsMap.put(transitionKey, toOptions);
       }
 
+      // Post-process transitions on starlark build settings
+      // TODO(juliexxia): combine these skyframe calls with other skyframe calls for this
+      // configured target.
       try {
-        StarlarkTransition.postProcessStarlarkTransitions(env.getListener(), transition);
+        ImmutableSet<SkyKey> buildSettingPackageKeys =
+            StarlarkTransition.getBuildSettingPackageKeys(transition);
+        Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        StarlarkTransition.validate(transition, buildSettingPackages, toOptions, env.getListener());
       } catch (TransitionException e) {
         throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
       }
