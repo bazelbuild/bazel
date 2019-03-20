@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** Provides resource class jars from android_library rules. */
 @SkylarkModule(
@@ -40,12 +39,7 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
   /** The name of the provider for this info object. */
   String NAME = "AndroidLibraryResourceClassJarProvider";
 
-  @SkylarkCallable(
-      name = "jars",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "jars", structField = true, doc = "", documented = false)
   NestedSet<FileT> getResourceClassJars();
 
   /** The provider implementing this can construct the AndroidLibraryResourceClassJarProvider. */

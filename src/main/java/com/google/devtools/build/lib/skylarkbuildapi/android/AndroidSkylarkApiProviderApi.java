@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
 /**
@@ -46,8 +45,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       structField = true,
       allowReturnNones = true,
       doc = "Returns an APK produced by this target.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   @Nullable
   FileT getApk();
 
@@ -56,8 +54,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       structField = true,
       allowReturnNones = true,
       doc = "Returns a java package for this target.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   @Nullable
   String getJavaPackage();
 
@@ -66,8 +63,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       structField = true,
       allowReturnNones = true,
       doc = "Returns a manifest file for this target.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   @Nullable
   FileT getManifest();
 
@@ -76,8 +72,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       structField = true,
       allowReturnNones = true,
       doc = "Returns a manifest file for this target after all processing, e.g.: merging, etc.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   @Nullable
   FileT getMergedManifest();
 
@@ -88,8 +83,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
           "Returns the native libraries as a dictionary of the libraries' architecture as a string "
               + "to a set of the native library files, or the empty dictionary if there are no "
               + "native libraries.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   ImmutableMap<String, NestedSet<FileT>> getNativeLibs();
 
   @SkylarkCallable(
@@ -97,7 +91,6 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       structField = true,
       doc = "Returns the resources container for the target.",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       allowReturnNones = true)
   @Nullable
   FileT getResourceApk();
@@ -107,8 +100,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       structField = true,
       allowReturnNones = true,
       doc = "Returns a collection of APKs that this target tests.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   @Nullable
   ImmutableCollection<FileT> getApksUnderTest();
 
@@ -116,24 +108,21 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       name = "defines_resources",
       structField = true,
       doc = "Returns <code>True</code> if the target defines any Android resources directly.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   boolean definesAndroidResources();
 
   @SkylarkCallable(
       name = "idl",
       structField = true,
       doc = "Returns information about IDL files associated with this target.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   IdlInfoApi<FileT> getIdlInfo();
 
   @SkylarkCallable(
       name = "resources",
       structField = true,
       doc = "Returns resources defined by this target.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   NestedSet<FileT> getResources();
 
   @SkylarkCallable(
@@ -141,8 +130,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       structField = true,
       allowReturnNones = true,
       doc = "Returns a jar file for classes generated from resources.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   @Nullable
   OutputJarApi<FileT> getResourceJar();
 
@@ -151,8 +139,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
       structField = true,
       allowReturnNones = true,
       doc = "Returns the aar output of this target.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   @Nullable
   FileT getAar();
 
@@ -171,8 +158,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
         structField = true,
         allowReturnNones = true,
         doc = "Returns the root of IDL packages if not the java root.",
-        documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+        documented = false)
     @Nullable
     String getImportRoot();
 
@@ -180,16 +166,14 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
         name = "sources",
         structField = true,
         doc = "Returns a list of IDL files.",
-        documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+        documented = false)
     ImmutableCollection<FileT> getSources();
 
     @SkylarkCallable(
         name = "generated_java_files",
         structField = true,
         doc = "Returns a list Java files generated from IDL sources.",
-        documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+        documented = false)
     ImmutableCollection<FileT> getIdlGeneratedJavaFiles();
 
     @SkylarkCallable(
@@ -197,8 +181,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
         structField = true,
         allowReturnNones = true,
         doc = "Returns a jar file for classes generated from IDL sources.",
-        documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+        documented = false)
     @Nullable
     OutputJarApi<FileT> getIdlOutput();
   }

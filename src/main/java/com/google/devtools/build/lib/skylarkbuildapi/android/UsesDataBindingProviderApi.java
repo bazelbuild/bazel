@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
  * An interface for a provider that exposes the use of <a
@@ -44,12 +43,7 @@ public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi
    * Returns the metadata outputs from this rule's annotation processing that describe how it
    * applies data binding. See {@link DataBinding#getMetadataOutputs} for details.
    */
-  @SkylarkCallable(
-      name = "metadata_outputs",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "metadata_outputs", structField = true, doc = "", documented = false)
   ImmutableList<T> getMetadataOutputs();
 
   /** The provider implementing this can construct the UsesDataBindingInfo provider. */
@@ -65,7 +59,6 @@ public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi
         name = NAME,
         doc = "The <code>UsesDataBindingInfo</code> constructor.",
         documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "metadata_outputs",

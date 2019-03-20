@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
 @SkylarkModule(
@@ -75,8 +74,7 @@ public interface AndroidDataProcessingApi<
           "Creates an AndroidAssetsInfoApi from this target's asset dependencies, ignoring local"
               + " assets. No processing will be done. This method is deprecated and exposed only"
               + " for backwards-compatibility with existing behavior.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidAssetsInfoT assetsFromDeps(
       SkylarkList<AndroidAssetsInfoT> deps, boolean neverlink, Environment env);
 
@@ -127,8 +125,7 @@ public interface AndroidDataProcessingApi<
               + " and exposed only for backwards-compatibility with existing behavior. An empty"
               + " manifest will be generated and included in the provider - this path should  not"
               + " be used when an explicit manifest is specified.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidResourcesInfoT resourcesFromDeps(
       AndroidDataContextT ctx,
       SkylarkList<AndroidResourcesInfoT> deps,
@@ -181,8 +178,7 @@ public interface AndroidDataProcessingApi<
       useLocation = true,
       useEnvironment = true,
       doc = "Stamps a manifest with package information.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidManifestInfoT stampAndroidManifest(
       AndroidDataContextT ctx,
       Object manifest,
@@ -249,8 +245,7 @@ public interface AndroidDataProcessingApi<
               + " by default, actions for validating the merge are created but may not be called."
               + " You may want to force these actions to be called - see the 'validation_result'"
               + " field in AndroidAssetsInfoApi",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidAssetsInfoT mergeAssets(
       AndroidDataContextT ctx,
       Object assets,
@@ -326,8 +321,7 @@ public interface AndroidDataProcessingApi<
               + " refers to are available. Note that this method might do additional processing to"
               + " this manifest, so in the future, you may want to use the manifest contained in"
               + " this method's output instead of this one.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> mergeResources(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,
@@ -402,8 +396,7 @@ public interface AndroidDataProcessingApi<
           "Builds an AAR and corresponding provider for this target. The resource and asset"
               + " providers from this same target must both be passed, as must the class JAR output"
               + " of building the Android Java library.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidLibraryAarInfoT makeAar(
       AndroidDataContextT ctx,
       AndroidResourcesInfoT resourcesInfo,
@@ -536,8 +529,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Performs full processing of data for android_library or similar rules. Returns a dict"
               + " from provider type to providers for the target.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processLibraryData(
       AndroidDataContextT cotx,
       FileT libraryClassJar,
@@ -592,8 +584,7 @@ public interface AndroidDataProcessingApi<
             doc = "Targets to inherit asset and resource dependencies from.")
       },
       doc = "Processes assets, resources, and manifest for aar_import targets",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processAarImportData(
       AndroidDataContextT ctx,
       SpecialFileT resources,
@@ -705,8 +696,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
               + " from provider type to the appropriate provider.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processLocalTestData(
       AndroidDataContextT ctx,
       Object manifest,
@@ -787,8 +777,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Returns a wrapper object containing various settings shared across multiple methods for"
               + " processing binary data.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidBinaryDataSettingsApi makeBinarySettings(
       AndroidDataContextT ctx,
       Object shrinkResources,
@@ -921,8 +910,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Processes resources, assets, and manifests for android_binary and returns the"
               + " appropriate providers.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidBinaryDataInfoT processBinaryData(
       AndroidDataContextT ctx,
       SkylarkList<TransitiveInfoCollectionT> resources,
@@ -1013,8 +1001,7 @@ public interface AndroidDataProcessingApi<
       doc =
           "Possibly shrinks the data APK by removing resources that were marked as unused during"
               + " proguarding.",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   AndroidBinaryDataInfoT shrinkDataApk(
       AndroidDataContextT ctx,
       AndroidBinaryDataInfoT binaryDataInfo,
@@ -1033,7 +1020,6 @@ public interface AndroidDataProcessingApi<
       allowReturnNones = true,
       doc = "Returns an Artifact containing a zip of merged resources.",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       parameters = {
         @Param(
             name = "validated_res",

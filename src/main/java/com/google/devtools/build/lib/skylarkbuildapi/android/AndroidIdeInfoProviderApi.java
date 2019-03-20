@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
 /**
@@ -53,8 +52,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   String getJavaPackage();
 
@@ -64,8 +62,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   FileT getManifest();
 
@@ -75,8 +72,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   FileT getGeneratedManifest();
 
@@ -85,8 +81,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   String getIdlImportRoot();
 
@@ -99,8 +94,7 @@ public interface AndroidIdeInfoProviderApi<
       name = "idl_generated_java_files",
       structField = true,
       doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   ImmutableCollection<FileT> getIdlGeneratedJavaFiles();
 
   @SkylarkCallable(
@@ -108,8 +102,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   FileT getIdlSourceJar();
 
@@ -118,8 +111,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   FileT getIdlClassJar();
 
@@ -131,8 +123,7 @@ public interface AndroidIdeInfoProviderApi<
       name = "defines_android_resources",
       structField = true,
       doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      documented = false)
   boolean definesAndroidResources();
 
   @SkylarkCallable(
@@ -140,8 +131,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   OutputJarT getResourceJar();
 
@@ -150,8 +140,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   FileT getResourceApk();
 
@@ -161,8 +150,7 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   FileT getSignedApk();
 
@@ -171,27 +159,16 @@ public interface AndroidIdeInfoProviderApi<
       structField = true,
       doc = "",
       documented = false,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      allowReturnNones = true)
   @Nullable
   FileT getAar();
 
   /** A list of the APKs related to the app under test, if any. */
-  @SkylarkCallable(
-      name = "apks_under_test",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "apks_under_test", structField = true, doc = "", documented = false)
   ImmutableCollection<FileT> getApksUnderTest();
 
   /** A map, keyed on architecture, of the native libs for the app, if any. */
-  @SkylarkCallable(
-      name = "native_libs",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "native_libs", structField = true, doc = "", documented = false)
   ImmutableMap<String, SkylarkNestedSet> getNativeLibsSkylark();
 
   /** The provider implementing this can construct the AndroidIdeInfo provider. */
@@ -208,7 +185,6 @@ public interface AndroidIdeInfoProviderApi<
         name = NAME,
         doc = "The <code>AndroidIdeInfo</code> constructor.",
         documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "java_package",

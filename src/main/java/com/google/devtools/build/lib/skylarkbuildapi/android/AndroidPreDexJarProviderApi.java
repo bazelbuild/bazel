@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** A provider of the final Jar to be dexed for targets that build APKs. */
 @SkylarkModule(
@@ -39,12 +38,7 @@ public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends Stru
   String NAME = "AndroidPreDexJarInfo";
 
   /** Returns the jar to be dexed. */
-  @SkylarkCallable(
-      name = "pre_dex_jar",
-      structField = true,
-      doc = "",
-      documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+  @SkylarkCallable(name = "pre_dex_jar", structField = true, doc = "", documented = false)
   FileT getPreDexJar();
 
   /** The provider implementing this can construct the AndroidPreDexJarInfo provider. */
@@ -60,7 +54,6 @@ public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends Stru
         name = NAME,
         doc = "The <code>AndroidPreDexJarInfo</code> constructor.",
         documented = false,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "pre_dex_jar",
