@@ -57,6 +57,7 @@ public final class Crosstool {
     private final ImmutableList<ImmutableList<String>> artifactNamePatterns;
     private final ImmutableList<Pair<String, String>> toolPaths;
     private final ImmutableList<String> cxxBuiltinIncludeDirectories;
+    private final ImmutableList<Pair<String, String>> makeVariables;
 
     private CcToolchainConfig(
         String cpu,
@@ -72,7 +73,8 @@ public final class Crosstool {
         ImmutableList<String> actionConfigs,
         ImmutableList<ImmutableList<String>> artifactNamePatterns,
         ImmutableList<Pair<String, String>> toolPaths,
-        ImmutableList<String> cxxBuiltinIncludeDirectories) {
+        ImmutableList<String> cxxBuiltinIncludeDirectories,
+        ImmutableList<Pair<String, String>> makeVariables) {
       this.cpu = cpu;
       this.compiler = compiler;
       this.toolchainIdentifier = toolchainIdentifier;
@@ -87,6 +89,7 @@ public final class Crosstool {
       this.toolPaths = toolPaths;
       this.builtinSysroot = builtinSysroot;
       this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
+      this.makeVariables = makeVariables;
     }
 
     public static Builder builder() {
@@ -101,6 +104,7 @@ public final class Crosstool {
       private ImmutableList<Pair<String, String>> toolPaths = ImmutableList.of();
       private String builtinSysroot = "/usr/grte/v1";
       private ImmutableList<String> cxxBuiltinIncludeDirectories = ImmutableList.of();
+      private ImmutableList<Pair<String, String>> makeVariables = ImmutableList.of();
 
       public Builder withFeatures(String... features) {
         this.features = ImmutableList.copyOf(features);
@@ -138,6 +142,11 @@ public final class Crosstool {
         return this;
       }
 
+      public Builder withMakeVariables(Pair<String, String>... makeVariables) {
+        this.makeVariables = ImmutableList.copyOf(makeVariables);
+        return this;
+      }
+
       public CcToolchainConfig build() {
         return new CcToolchainConfig(
             /* cpu= */ "k8",
@@ -153,7 +162,8 @@ public final class Crosstool {
             actionConfigs,
             artifactNamePatterns,
             toolPaths,
-            cxxBuiltinIncludeDirectories);
+            cxxBuiltinIncludeDirectories,
+            makeVariables);
       }
     }
 
@@ -188,7 +198,8 @@ public final class Crosstool {
           /* actionConfigs= */ ImmutableList.of(),
           /* artifactNamePatterns= */ ImmutableList.of(),
           /* toolPaths= */ ImmutableList.of(),
-          /* cxxBuiltinIncludeDirectories= */ ImmutableList.of());
+          /* cxxBuiltinIncludeDirectories= */ ImmutableList.of(),
+          /* makeVariables= */ ImmutableList.of());
     }
 
     public static CcToolchainConfig getDefaultCcToolchainConfig() {
@@ -219,6 +230,10 @@ public final class Crosstool {
           cxxBuiltinIncludeDirectories.stream()
               .map(directory -> "'" + directory + "'")
               .collect(ImmutableList.toImmutableList());
+      ImmutableList<String> makeVariablesList =
+          makeVariables.stream()
+              .map(variable -> String.format("'%s': '%s'", variable.first, variable.second))
+              .collect(ImmutableList.toImmutableList());
 
       return Joiner.on("\n")
           .join(
@@ -240,8 +255,10 @@ public final class Crosstool {
               String.format("  tool_paths = {%s},", Joiner.on(",\n    ").join(toolPathsList)),
               "  builtin_sysroot = '" + builtinSysroot + "',",
               String.format(
-                  "  cxx_builtin_include_directories = [%s]",
+                  "  cxx_builtin_include_directories = [%s],",
                   Joiner.on(",\n    ").join(directoriesList)),
+              String.format(
+                  "  make_variables = {%s},", Joiner.on(",\n    ").join(makeVariablesList)),
               "  )");
     }
   }
@@ -329,7 +346,8 @@ public final class Crosstool {
                 /* actionConfigs= */ ImmutableList.of(),
                 /* artifactNamePatterns= */ ImmutableList.of(),
                 /* toolPaths= */ ImmutableList.of(),
-                /* cxxBuiltinIncludeDirectories= */ ImmutableList.of()));
+                /* cxxBuiltinIncludeDirectories= */ ImmutableList.of(),
+                /* makeVariables= */ ImmutableList.of()));
       }
       ccToolchainConfigs = toolchainConfigInfoBuilder.build();
     }
