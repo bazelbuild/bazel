@@ -17,6 +17,7 @@ import static java.util.Collections.unmodifiableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,7 +25,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -49,6 +52,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -59,6 +63,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -77,6 +82,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -1125,6 +1131,70 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
+  public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    setModuleFileFlags();
+    if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
+      paramFileActionInput =
+          new ParamFileActionInput(
+              paramFilePath,
+              compileCommandLine.getCompilerOptions(overwrittenVariables),
+              ParameterFileType.SHELL_QUOTED,
+              StandardCharsets.ISO_8859_1);
+    }
+
+    if (!shouldScanDotdFiles()) {
+      updateActionInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs));
+    }
+
+    ActionExecutionContext spawnContext;
+    ShowIncludesFilter showIncludesFilterForStdout;
+    ShowIncludesFilter showIncludesFilterForStderr;
+    if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+      String workspaceName = actionExecutionContext.getExecRoot().getBaseName();
+      showIncludesFilterForStdout =
+          new ShowIncludesFilter(getSourceFile().getFilename(), workspaceName);
+      showIncludesFilterForStderr =
+          new ShowIncludesFilter(getSourceFile().getFilename(), workspaceName);
+      FileOutErr originalOutErr = actionExecutionContext.getFileOutErr();
+      FileOutErr tempOutErr = originalOutErr.childOutErr();
+      spawnContext = actionExecutionContext.withFileOutErr(tempOutErr);
+    } else {
+      spawnContext = actionExecutionContext;
+      showIncludesFilterForStdout = null;
+      showIncludesFilterForStderr = null;
+    }
+
+    Spawn spawn;
+    try {
+      spawn = createSpawn(actionExecutionContext.getClientEnv());
+    } finally {
+      clearAdditionalInputs();
+    }
+
+    return new CppCompileActionContinuation(
+            actionExecutionContext,
+            spawnContext,
+            showIncludesFilterForStdout,
+            showIncludesFilterForStderr,
+            new SpawnContinuation() {
+              @Override
+              public ListenableFuture<?> getFuture() {
+                // This shouldn't be called from CppCompileActionContinuation.
+                throw new IllegalStateException();
+              }
+
+              @Override
+              public SpawnContinuation execute() throws ExecException, InterruptedException {
+                SpawnActionContext context =
+                    actionExecutionContext.getContext(SpawnActionContext.class);
+                return context.beginExecution(spawn, spawnContext);
+              }
+            })
+        .execute();
+  }
+
+  @Override
   @ThreadCompatible
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -1574,5 +1644,167 @@ public class CppCompileAction extends AbstractAction
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(mandatoryInputs)
         .addAll(inputsForInvalidation);
+  }
+
+  private ActionExecutionException printIOExceptionAndConvertToActionExecutionException(
+      ActionExecutionContext actionExecutionContext, IOException e) {
+    // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
+    // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
+    String stackTrace = Throwables.getStackTraceAsString(e);
+    actionExecutionContext
+        .getEventHandler()
+        .handle(Event.error("Unexpected I/O exception:\n" + stackTrace));
+    return toActionExecutionException(
+        new EnvironmentalExecException("unexpected I/O exception", e),
+        actionExecutionContext.getVerboseFailures());
+  }
+
+  private ActionExecutionException toActionExecutionException(
+      ExecException e, boolean verboseFailures) {
+    String failMessage = getRawProgressMessage();
+    return e.toActionExecutionException(failMessage, verboseFailures, this);
+  }
+
+  private final class CppCompileActionContinuation extends ActionContinuationOrResult {
+    private final ActionExecutionContext actionExecutionContext;
+    private final ActionExecutionContext spawnExecutionContext;
+    private final ShowIncludesFilter showIncludesFilterForStdout;
+    private final ShowIncludesFilter showIncludesFilterForStderr;
+    private final SpawnContinuation spawnContinuation;
+
+    public CppCompileActionContinuation(
+        ActionExecutionContext actionExecutionContext,
+        ActionExecutionContext spawnExecutionContext,
+        ShowIncludesFilter showIncludesFilterForStdout,
+        ShowIncludesFilter showIncludesFilterForStderr,
+        SpawnContinuation spawnContinuation) {
+      this.actionExecutionContext = actionExecutionContext;
+      this.spawnExecutionContext = spawnExecutionContext;
+      this.showIncludesFilterForStdout = showIncludesFilterForStdout;
+      this.showIncludesFilterForStderr = showIncludesFilterForStderr;
+      this.spawnContinuation = spawnContinuation;
+    }
+
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return spawnContinuation.getFuture();
+    }
+
+    @Override
+    public ActionContinuationOrResult execute()
+        throws ActionExecutionException, InterruptedException {
+      List<SpawnResult> spawnResults;
+      byte[] dotDContents;
+      try {
+        SpawnContinuation nextContinuation = spawnContinuation.execute();
+        if (!nextContinuation.isDone()) {
+          return new CppCompileActionContinuation(
+              actionExecutionContext,
+              spawnExecutionContext,
+              showIncludesFilterForStdout,
+              showIncludesFilterForStderr,
+              nextContinuation);
+        }
+        spawnResults = nextContinuation.get();
+        // SpawnActionContext guarantees that the first list entry exists and corresponds to the
+        // executed spawn.
+        dotDContents = getDotDContents(spawnResults.get(0));
+      } catch (ExecException e) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+          closeSuppressed(e, spawnExecutionContext.getFileOutErr());
+        }
+        throw e.toActionExecutionException(
+            "C++ compilation of rule '" + getOwner().getLabel() + "'",
+            actionExecutionContext.getVerboseFailures(),
+            CppCompileAction.this);
+      } catch (InterruptedException e) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+          closeSuppressed(e, spawnExecutionContext.getFileOutErr());
+        }
+        throw e;
+      }
+
+      // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the
+      // output of cl.exe caused by /showIncludes option.
+      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+        try {
+          FileOutErr tempOutErr = spawnExecutionContext.getFileOutErr();
+          FileOutErr outErr = actionExecutionContext.getFileOutErr();
+          tempOutErr.close();
+          if (tempOutErr.hasRecordedStdout()) {
+            try (InputStream in = tempOutErr.getOutputPath().getInputStream()) {
+              ByteStreams.copy(
+                  in,
+                  showIncludesFilterForStdout.getFilteredOutputStream(outErr.getOutputStream()));
+            }
+          }
+          if (tempOutErr.hasRecordedStderr()) {
+            try (InputStream in = tempOutErr.getErrorPath().getInputStream()) {
+              ByteStreams.copy(
+                  in, showIncludesFilterForStderr.getFilteredOutputStream(outErr.getErrorStream()));
+            }
+          }
+        } catch (IOException e) {
+          throw printIOExceptionAndConvertToActionExecutionException(actionExecutionContext, e);
+        }
+      }
+
+      ensureCoverageNotesFilesExist(actionExecutionContext);
+
+      if (!shouldScanDotdFiles()) {
+        return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
+      }
+
+      // This is the .d file scanning part.
+      CppIncludeExtractionContext scanningContext =
+          actionExecutionContext.getContext(CppIncludeExtractionContext.class);
+      Path execRoot = actionExecutionContext.getExecRoot();
+
+      NestedSet<Artifact> discoveredInputs;
+      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+        discoveredInputs =
+            discoverInputsFromShowIncludesFilters(
+                execRoot,
+                scanningContext.getArtifactResolver(),
+                showIncludesFilterForStdout,
+                showIncludesFilterForStderr);
+      } else {
+        discoveredInputs =
+            discoverInputsFromDotdFiles(
+                actionExecutionContext,
+                execRoot,
+                scanningContext.getArtifactResolver(),
+                dotDContents);
+      }
+      dotDContents = null; // Garbage collect in-memory .d contents.
+
+      if (discoversInputs()) {
+        // Post-execute "include scanning", which modifies the action inputs to match what the
+        // compile action actually used by incorporating the results of .d file parsing.
+        updateActionInputs(discoveredInputs);
+      } else {
+        Preconditions.checkState(
+            discoveredInputs.isEmpty(),
+            "Discovered inputs without discovering inputs? %s %s",
+            discoveredInputs,
+            this);
+      }
+
+      // hdrs_check: This cannot be switched off for C++ build actions,
+      // because doing so would allow for incorrect builds.
+      // HeadersCheckingMode.NONE should only be used for ObjC build actions.
+      if (needsIncludeValidation) {
+        validateInclusions(actionExecutionContext, discoveredInputs);
+      }
+      return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
+    }
+
+    private void closeSuppressed(Exception e, Closeable closeable) {
+      try {
+        closeable.close();
+      } catch (IOException e2) {
+        e.addSuppressed(e2);
+      }
+    }
   }
 }
