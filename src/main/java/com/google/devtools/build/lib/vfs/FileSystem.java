@@ -29,6 +29,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -214,17 +215,47 @@ public abstract class FileSystem {
    * Deletes all directory trees recursively beneath the given path. Does nothing if the given path
    * is not a directory.
    *
+   * <p>This generic implementation is not as efficient as it could be: for example, we issue
+   * separate stats for each directory entry to determine if they are directories or not (instead of
+   * reusing the information that readdir returns), and we issue separate operations to toggle
+   * different permissions while they could be done at once via chmod. Subclasses can optimize this
+   * by taking advantage of platform-specific features.
+   *
    * @param dir the directory hierarchy to remove
    * @throws IOException if the hierarchy cannot be removed successfully
    */
   public void deleteTreesBelow(Path dir) throws IOException {
     if (dir.isDirectory(Symlinks.NOFOLLOW)) {
-      dir.setReadable(true);
-      dir.setWritable(true);
-      dir.setExecutable(true);
-      for (Path child : dir.getDirectoryEntries()) {
-        deleteTreesBelow(child);
-        child.delete();
+      Collection<Path> entries;
+      try {
+        entries = dir.getDirectoryEntries();
+      } catch (IOException e) {
+        // If we couldn't read the directory, it may be because it's not readable. Try granting this
+        // permission and retry. If the retry fails, give up.
+        dir.setReadable(true);
+        dir.setExecutable(true);
+        entries = dir.getDirectoryEntries();
+      }
+
+      Iterator<Path> iterator = entries.iterator();
+      if (iterator.hasNext()) {
+        Path first = iterator.next();
+        deleteTreesBelow(first);
+        try {
+          first.delete();
+        } catch (IOException e) {
+          // If we couldn't delete the first entry in a directory, it may be because the directory
+          // (not the entry!) is not writable. Try granting this permission and retry. If the retry
+          // fails, give up.
+          dir.setWritable(true);
+          first.delete();
+        }
+      }
+      while (iterator.hasNext()) {
+        Path path = iterator.next();
+        deleteTreesBelow(path);
+        // No need to retry here: if needed, we already unprotected the directory earlier.
+        path.delete();
       }
     }
   }

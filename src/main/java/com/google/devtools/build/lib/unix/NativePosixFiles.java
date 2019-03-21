@@ -453,18 +453,12 @@ public final class NativePosixFiles {
   }
 
   /**
-   * Removes entire directory tree. Doesn't follow symlinks.
+   * Deletes all directory trees recursively beneath the given path, which is expected to be a
+   * directory. Does not remove the top directory.
    *
-   * @param path the file or directory to remove.
-   * @throws IOException if the remove failed.
+   * @param dir the directory hierarchy to remove
+   * @throws IOException if the hierarchy cannot be removed successfully or if the given path is not
+   *     a directory
    */
-  public static void rmTree(String path) throws IOException {
-    if (isDirectory(path)) {
-      String[] contents = readdir(path);
-      for (String entry : contents) {
-        rmTree(path + "/" + entry);
-      }
-    }
-    remove(path.toString());
-  }
+  public static native void deleteTreesBelow(String dir) throws IOException;
 }

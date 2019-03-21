@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -418,5 +419,17 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   protected void createFSDependentHardLink(Path linkPath, Path originalPath)
       throws IOException {
     NativePosixFiles.link(originalPath.toString(), linkPath.toString());
+  }
+
+  @Override
+  public void deleteTreesBelow(Path dir) throws IOException {
+    if (dir.isDirectory(Symlinks.NOFOLLOW)) {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        NativePosixFiles.deleteTreesBelow(dir.toString());
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
+      }
+    }
   }
 }
