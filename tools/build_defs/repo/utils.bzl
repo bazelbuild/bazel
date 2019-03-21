@@ -119,4 +119,4 @@ def remove_dir(ctx, dir_):
 
     st = ctx.execute(remove_cmd, environment = ctx.os.environ)
     if st.return_code != 0:
-        fail("error removing directory " + quoted_dir)
+        fail("error removing directory '%s'" % dir_)
