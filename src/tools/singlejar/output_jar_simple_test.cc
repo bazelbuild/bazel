@@ -269,7 +269,7 @@ TEST_F(OutputJarSimpleTest, JavaLauncher) {
   ASSERT_EQ(0, stat(launcher_path.c_str(), &statbuf));
   EXPECT_TRUE(cdh->is());
   EXPECT_TRUE(lh->is());
-  EXPECT_EQ(statbuf.st_size, cdh->local_header_offset());
+  EXPECT_EQ(static_cast<uint64_t>(statbuf.st_size), cdh->local_header_offset());
   input_jar.Close();
 }
 

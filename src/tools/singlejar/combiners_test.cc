@@ -127,7 +127,7 @@ TEST_F(CombinersTest, ConcatenatorHuge) {
   EXPECT_EQ(Z_DEFLATED, entry->compression_method());
   uint64_t original_size = entry->uncompressed_file_size();
   uint64_t compressed_size = entry->compressed_file_size();
-  ASSERT_EQ(5000000000, original_size);
+  ASSERT_EQ(5000000000UL, original_size);
   ASSERT_LE(compressed_size, original_size);
   free(reinterpret_cast<void *>(entry));
 }

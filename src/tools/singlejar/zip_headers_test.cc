@@ -41,19 +41,19 @@ TEST(ZipHeadersTest, LocalHeader) {
   lh->crc32(0xEF015423);
   EXPECT_EQ(0xEF015423, lh->crc32());
   lh->compressed_file_size32(1234);
-  EXPECT_EQ(1234, lh->compressed_file_size32());
-  EXPECT_EQ(1234, lh->compressed_file_size());
+  EXPECT_EQ(1234UL, lh->compressed_file_size32());
+  EXPECT_EQ(1234UL, lh->compressed_file_size());
   lh->uncompressed_file_size32(3421);
-  EXPECT_EQ(3421, lh->uncompressed_file_size32());
-  EXPECT_EQ(3421, lh->uncompressed_file_size());
+  EXPECT_EQ(3421UL, lh->uncompressed_file_size32());
+  EXPECT_EQ(3421UL, lh->uncompressed_file_size());
   lh->file_name("foobar", 6);
-  EXPECT_EQ(6, lh->file_name_length());
+  EXPECT_EQ(6UL, lh->file_name_length());
   EXPECT_EQ(0, strncmp("foobar", lh->file_name(), 6));
   EXPECT_EQ("foobar", lh->file_name_string());
   EXPECT_TRUE(lh->file_name_is("foobar"));
   lh->extra_fields(nullptr, 0);
-  EXPECT_EQ(0, lh->extra_fields_length());
-  EXPECT_EQ(30 + 6, lh->size());
+  EXPECT_EQ(0UL, lh->extra_fields_length());
+  EXPECT_EQ(30UL + 6UL, lh->size());
 
   // Extra fields should not be written yet
   EXPECT_EQ(kPoison, *lh->extra_fields());
@@ -78,8 +78,8 @@ TEST(ZipHeadersTest, LocalHeader) {
   ASSERT_NE(nullptr, zip64_field);
   EXPECT_EQ(16, zip64_field->payload_size());
   EXPECT_EQ(20, zip64_field->size());
-  EXPECT_EQ(5000000000, zip64_field->attr64(0));
-  EXPECT_EQ(3000000, zip64_field->attr64(1));
+  EXPECT_EQ(5000000000UL, zip64_field->attr64(0));
+  EXPECT_EQ(3000000UL, zip64_field->attr64(1));
 
   const UnixTimeExtraField *ut_extra_field = lh->unix_time_extra_field();
   ASSERT_NE(nullptr, ut_extra_field);
@@ -93,9 +93,9 @@ TEST(ZipHeadersTest, LocalHeader) {
   // Check that 64-bit sizes are returned correctly.
   lh->compressed_file_size32(0xFFFFFFFF);
   lh->uncompressed_file_size32(0xFFFFFFFF);
-  EXPECT_EQ(3000000, lh->compressed_file_size());
-  EXPECT_EQ(5000000000, lh->uncompressed_file_size());
-  EXPECT_EQ(3000000, lh->in_zip_size());
+  EXPECT_EQ(3000000UL, lh->compressed_file_size());
+  EXPECT_EQ(5000000000UL, lh->uncompressed_file_size());
+  EXPECT_EQ(3000000UL, lh->in_zip_size());
 
   // Data hasn't been written:
   EXPECT_EQ(kPoison, *lh->data());
@@ -124,11 +124,11 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   cdh->crc32(0xEF015423);
   EXPECT_EQ(0xEF015423, cdh->crc32());
   cdh->compressed_file_size32(1234);
-  EXPECT_EQ(1234, cdh->compressed_file_size32());
-  EXPECT_EQ(1234, cdh->compressed_file_size());
+  EXPECT_EQ(1234U, cdh->compressed_file_size32());
+  EXPECT_EQ(1234UL, cdh->compressed_file_size());
   cdh->uncompressed_file_size32(3421);
-  EXPECT_EQ(3421, cdh->uncompressed_file_size32());
-  EXPECT_EQ(3421, cdh->uncompressed_file_size());
+  EXPECT_EQ(3421U, cdh->uncompressed_file_size32());
+  EXPECT_EQ(3421UL, cdh->uncompressed_file_size());
   cdh->file_name("foobar", 6);
   EXPECT_EQ(6, cdh->file_name_length());
   EXPECT_EQ(0, strncmp("foobar", cdh->file_name(), 6));
@@ -143,13 +143,13 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   cdh->internal_attributes(1932);
   EXPECT_EQ(1932, cdh->internal_attributes());
   cdh->external_attributes(1234567);
-  EXPECT_EQ(1234567, cdh->external_attributes());
+  EXPECT_EQ(1234567UL, cdh->external_attributes());
   cdh->local_header_offset32(76234);
-  EXPECT_EQ(76234, cdh->local_header_offset32());
-  EXPECT_EQ(76234, cdh->local_header_offset());
+  EXPECT_EQ(76234U, cdh->local_header_offset32());
+  EXPECT_EQ(76234UL, cdh->local_header_offset());
 
   // Only one variable field (filename) is present:
-  EXPECT_EQ(46 + 6, cdh->size());
+  EXPECT_EQ(46UL + 6UL, cdh->size());
 
   // Extra fields should not be written yet
   EXPECT_EQ(kPoison, *cdh->extra_fields());
@@ -173,21 +173,21 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   ASSERT_NE(nullptr, zip64_field);
   EXPECT_EQ(16, zip64_field->payload_size());
   EXPECT_EQ(20, zip64_field->size());
-  EXPECT_EQ(5000000000, zip64_field->attr64(0));
-  EXPECT_EQ(3000000, zip64_field->attr64(1));
+  EXPECT_EQ(5000000000UL, zip64_field->attr64(0));
+  EXPECT_EQ(3000000UL, zip64_field->attr64(1));
   const UnixTimeExtraField *ut_extra_field = cdh->unix_time_extra_field();
   ASSERT_NE(nullptr, ut_extra_field);
   EXPECT_EQ(5, ut_extra_field->payload_size());
   EXPECT_EQ(9, ut_extra_field->size());
   EXPECT_EQ(1, ut_extra_field->timestamp_count());
   EXPECT_TRUE(ut_extra_field->has_modification_time());
-  EXPECT_EQ(0x57910A85, ut_extra_field->timestamp(0));
+  EXPECT_EQ(0x57910A85UL, ut_extra_field->timestamp(0));
 
   // Check that 64-bit sizes are returned correctly.
   cdh->compressed_file_size32(0xFFFFFFFF);
   cdh->uncompressed_file_size32(0xFFFFFFFF);
-  EXPECT_EQ(3000000, cdh->compressed_file_size());
-  EXPECT_EQ(5000000000, cdh->uncompressed_file_size());
+  EXPECT_EQ(3000000UL, cdh->compressed_file_size());
+  EXPECT_EQ(5000000000UL, cdh->uncompressed_file_size());
 
   // Check that a file with 32-bit compressed size, 64-bit original size
   // and 64-bit local header offset is handled correctly. Zip64 extension
@@ -203,9 +203,9 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   cdh->compressed_file_size32(1234);
   cdh->uncompressed_file_size32(0xFFFFFFFF);
   cdh->local_header_offset32(0xFFFFFFFF);
-  EXPECT_EQ(1234, cdh->compressed_file_size());
-  EXPECT_EQ(5000000000, cdh->uncompressed_file_size());
-  EXPECT_EQ(6000000000, cdh->local_header_offset());
+  EXPECT_EQ(1234UL, cdh->compressed_file_size());
+  EXPECT_EQ(5000000000UL, cdh->uncompressed_file_size());
+  EXPECT_EQ(6000000000UL, cdh->local_header_offset());
 
   // Only uncompressed file size is 64-bit quantity.
   uint8_t extra_data3[] = {
@@ -217,9 +217,9 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   cdh->compressed_file_size32(123);
   cdh->uncompressed_file_size32(0xFFFFFFFF);
   cdh->local_header_offset32(42);
-  EXPECT_EQ(123, cdh->compressed_file_size());
-  EXPECT_EQ(6000000000, cdh->uncompressed_file_size());
-  EXPECT_EQ(42, cdh->local_header_offset());
+  EXPECT_EQ(123UL, cdh->compressed_file_size());
+  EXPECT_EQ(6000000000UL, cdh->uncompressed_file_size());
+  EXPECT_EQ(42UL, cdh->local_header_offset());
 }
 
 TEST(ZipHeadersTest, ECD64Locator) {
@@ -230,11 +230,11 @@ TEST(ZipHeadersTest, ECD64Locator) {
   ecd64loc->signature();
   EXPECT_TRUE(ecd64loc->is());
   ecd64loc->ecd64_disk_nr(123456);
-  EXPECT_EQ(123456, ecd64loc->ecd64_disk_nr());
+  EXPECT_EQ(123456UL, ecd64loc->ecd64_disk_nr());
   ecd64loc->ecd64_offset(6000000000);
-  EXPECT_EQ(6000000000, ecd64loc->ecd64_offset());
+  EXPECT_EQ(6000000000UL, ecd64loc->ecd64_offset());
   ecd64loc->total_disks(213456);
-  EXPECT_EQ(213456, ecd64loc->total_disks());
+  EXPECT_EQ(213456UL, ecd64loc->total_disks());
 }
 
 TEST(ZipHeadersTest, Zip64EndOfCentralDirectory) {
@@ -245,23 +245,23 @@ TEST(ZipHeadersTest, Zip64EndOfCentralDirectory) {
   ecd64->signature();
   EXPECT_TRUE(ecd64->is());
   ecd64->remaining_size(44);
-  EXPECT_EQ(44, ecd64->remaining_size());
+  EXPECT_EQ(44UL, ecd64->remaining_size());
   ecd64->version(56);
-  EXPECT_EQ(56, ecd64->version());
+  EXPECT_EQ(56UL, ecd64->version());
   ecd64->version_to_extract(754);
-  EXPECT_EQ(754, ecd64->version_to_extract());
+  EXPECT_EQ(754UL, ecd64->version_to_extract());
   ecd64->this_disk_nr(75123);
-  EXPECT_EQ(75123, ecd64->this_disk_nr());
+  EXPECT_EQ(75123UL, ecd64->this_disk_nr());
   ecd64->cen_disk_nr(87654);
-  EXPECT_EQ(87654, ecd64->cen_disk_nr());
+  EXPECT_EQ(87654UL, ecd64->cen_disk_nr());
   ecd64->this_disk_entries(9000000000);
-  EXPECT_EQ(9000000000, ecd64->this_disk_entries());
+  EXPECT_EQ(9000000000UL, ecd64->this_disk_entries());
   ecd64->total_entries(8000000000);
-  EXPECT_EQ(8000000000, ecd64->total_entries());
+  EXPECT_EQ(8000000000UL, ecd64->total_entries());
   ecd64->cen_size(19000000000);
-  EXPECT_EQ(19000000000, ecd64->cen_size());
+  EXPECT_EQ(19000000000UL, ecd64->cen_size());
   ecd64->cen_offset(11000000000);
-  EXPECT_EQ(11000000000, ecd64->cen_offset());
+  EXPECT_EQ(11000000000UL, ecd64->cen_offset());
 }
 
 TEST(ZipHeadersTest, EndOfCentralDirectory) {
@@ -281,9 +281,9 @@ TEST(ZipHeadersTest, EndOfCentralDirectory) {
   ecd->total_entries16(23);
   EXPECT_EQ(23, ecd->total_entries16());
   ecd->cen_size32(123400);
-  EXPECT_EQ(123400, ecd->cen_size32());
+  EXPECT_EQ(123400U, ecd->cen_size32());
   ecd->cen_offset32(123000);
-  EXPECT_EQ(123000, ecd->cen_offset32());
+  EXPECT_EQ(123000U, ecd->cen_offset32());
   uint8_t comment_bytes[] = {0xCA, 0xFE};
   ecd->comment(comment_bytes, sizeof(comment_bytes));
   EXPECT_EQ(sizeof(comment_bytes), ecd->comment_length());
@@ -296,7 +296,7 @@ TEST(ZipHeadersTest, EndOfCentralDirectory) {
   // Now construct it and see it used:
   ecd64loc->signature();
   ecd64loc->ecd64_offset(9876543210);
-  EXPECT_EQ(9876543210, ecd->ecd64_offset());
+  EXPECT_EQ(9876543210UL, ecd->ecd64_offset());
 }
 
 TEST(ZipHeadersTest, Zip64ExtraFieldTest) {
@@ -308,9 +308,9 @@ TEST(ZipHeadersTest, Zip64ExtraFieldTest) {
   EXPECT_TRUE(z64->is());
   z64->payload_size(16);
   z64->attr64(0, 9876543210);
-  EXPECT_EQ(9876543210, z64->attr64(0));
+  EXPECT_EQ(9876543210UL, z64->attr64(0));
   z64->attr64(1, 8976543210);
-  EXPECT_EQ(8976543210, z64->attr64(1));
+  EXPECT_EQ(8976543210UL, z64->attr64(1));
   EXPECT_EQ(kPoison, bytes[z64->size()]);
 }
 
