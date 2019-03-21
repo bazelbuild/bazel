@@ -196,10 +196,8 @@ class RemoteSpawnRunner implements SpawnRunner {
             acceptCachedResult = false;
           } else {
             try (SilentCloseable c = Profiler.instance().profile("Remote.downloadRemoteResults")) {
-              return downloadRemoteResults(cachedResult, context.getFileOutErr())
-                  .setCacheHit(true)
-                  .setRunnerName("remote cache hit")
-                  .build();
+              remoteCache.download(cachedResult, execRoot, context.getFileOutErr());
+              return createSpawnResult(cachedResult.getExitCode(), /* cacheHit= */ true);
             } catch (CacheNotFoundException e) {
               // No cache hit, so we fall through to local or remote execution.
               // We set acceptCachedResult to false in order to force the action re-execution.
@@ -251,7 +249,8 @@ class RemoteSpawnRunner implements SpawnRunner {
 
               FileOutErr outErr = context.getFileOutErr();
               String message = reply.getMessage();
-              if ((reply.getResult().getExitCode() != 0
+              ActionResult actionResult = reply.getResult();
+              if ((actionResult.getExitCode() != 0
                       || reply.getStatus().getCode() != Code.OK.value())
                   && !message.isEmpty()) {
                 outErr.printErr(message + "\n");
@@ -264,11 +263,9 @@ class RemoteSpawnRunner implements SpawnRunner {
 
               try (SilentCloseable c =
                   Profiler.instance().profile("Remote.downloadRemoteResults")) {
-                return downloadRemoteResults(reply.getResult(), outErr)
-                    .setRunnerName(reply.getCachedResult() ? "remote cache hit" : getName())
-                    .setCacheHit(reply.getCachedResult())
-                    .build();
+                remoteCache.download(actionResult, execRoot, outErr);
               }
+              return createSpawnResult(actionResult.getExitCode(), reply.getCachedResult());
             });
       } catch (IOException e) {
         return execLocallyAndUploadOrFail(
@@ -330,13 +327,13 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private SpawnResult.Builder downloadRemoteResults(ActionResult result, FileOutErr outErr)
-      throws ExecException, IOException, InterruptedException {
-    remoteCache.download(result, execRoot, outErr);
-    int exitCode = result.getExitCode();
+  private SpawnResult createSpawnResult(int exitCode, boolean cacheHit) {
     return new SpawnResult.Builder()
         .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
-        .setExitCode(exitCode);
+        .setExitCode(exitCode)
+        .setRunnerName(cacheHit ? getName() + " cache hit" : getName())
+        .setCacheHit(cacheHit)
+        .build();
   }
 
   private SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
