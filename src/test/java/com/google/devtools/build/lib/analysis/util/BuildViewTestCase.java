@@ -565,8 +565,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         view.getArtifactFactory(),
         actionKeyContext,
         ArtifactOwner.NullArtifactOwner.INSTANCE,
-        /*isSystemEnv=*/ true, /*extendedSanityChecks*/
-        false,
+        /*isSystemEnv=*/ true,
+        /*extendedSanityChecks=*/ false,
+        /*allowAnalysisFailures=*/ false,
         reporter,
         /* env= */ null);
   }
