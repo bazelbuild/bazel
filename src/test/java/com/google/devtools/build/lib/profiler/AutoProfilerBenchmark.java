@@ -36,7 +36,8 @@ public class AutoProfilerBenchmark {
             false,
             BlazeClock.instance(),
             BlazeClock.instance().nanoTime(),
-            /* enabledCpuUsageProfiling= */ false);
+            /* enabledCpuUsageProfiling= */ false,
+            /* slimProfile= */ false);
   }
 
   @BeforeExperiment

@@ -100,7 +100,8 @@ public class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
-        /* enabledCpuUsageProfiling= */ false);
+        /* enabledCpuUsageProfiling= */ false,
+        /* slimProfile= */ false);
     return buffer;
   }
 
@@ -113,7 +114,8 @@ public class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
-        /* enabledCpuUsageProfiling= */ false);
+        /* enabledCpuUsageProfiling= */ false,
+        /* slimProfile= */ false);
   }
 
   @Test
@@ -212,7 +214,8 @@ public class ProfilerTest {
         true,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /* enabledCpuUsageProfiling= */ false);
+        /* enabledCpuUsageProfiling= */ false,
+        /* slimProfile= */ false);
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
       clock.advanceMillis(1);
@@ -242,7 +245,8 @@ public class ProfilerTest {
         true,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /* enabledCpuUsageProfiling= */ false);
+        /* enabledCpuUsageProfiling= */ false,
+        /* slimProfile= */ false);
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     profiler.logSimpleTask(20000, 30000, ProfilerTask.REMOTE_EXECUTION, "remote execution");
 
@@ -351,7 +355,8 @@ public class ProfilerTest {
         true,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /* enabledCpuUsageProfiling= */ false);
+        /* enabledCpuUsageProfiling= */ false,
+        /* slimProfile= */ false);
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
     assertThat(ProfilerTask.VFS_STAT.collectsSlowestInstances()).isTrue();
@@ -571,7 +576,8 @@ public class ProfilerTest {
         false,
         badClock,
         initialNanoTime,
-        /* enabledCpuUsageProfiling= */ false);
+        /* enabledCpuUsageProfiling= */ false,
+        /* slimProfile= */ false);
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
   }
@@ -622,7 +628,8 @@ public class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /* enabledCpuUsageProfiling= */ false);
+        /* enabledCpuUsageProfiling= */ false,
+        /* slimProfile= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     try {
@@ -649,7 +656,8 @@ public class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /* enabledCpuUsageProfiling= */ false);
+        /* enabledCpuUsageProfiling= */ false,
+        /* slimProfile= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     try {
@@ -658,5 +666,51 @@ public class ProfilerTest {
     } catch (IOException expected) {
       assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
     }
+  }
+
+  private ByteArrayOutputStream getJsonProfileOutputStream(boolean slimProfile) throws IOException {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    profiler.start(
+        getAllProfilerTasks(),
+        outputStream,
+        JSON_TRACE_FILE_FORMAT,
+        "basic test",
+        false,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime(),
+        /* enabledCpuUsageProfiling= */ false,
+        slimProfile);
+    long curTime = Profiler.nanoTimeMaybe();
+    for (int i = 0; i < 100_000; i++) {
+      Duration duration;
+      if (i % 100 == 0) {
+        duration = Duration.ofSeconds(1);
+      } else {
+        duration = Duration.ofMillis(i % 250);
+      }
+      profiler.logSimpleTaskDuration(curTime, duration, ProfilerTask.INFO, "foo");
+      curTime += duration.toNanos();
+    }
+    profiler.stop();
+    return outputStream;
+  }
+
+  @Test
+  public void testSlimProfileSize() throws Exception {
+    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/* slimProfile= */ false);
+    String fatOutput = fatOutputStream.toString();
+    assertThat(fatOutput).doesNotContain("merged");
+
+    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/* slimProfile= */ true);
+    String slimOutput = slimOutputStream.toString();
+    assertThat(slimOutput).contains("merged");
+
+    long fatProfileLen = fatOutputStream.size();
+    long slimProfileLen = slimOutputStream.size();
+    assertThat(fatProfileLen).isAtLeast(8 * slimProfileLen);
+
+    long fatProfileLineCount = fatOutput.split("\n").length;
+    long slimProfileLineCount = slimOutput.split("\n").length;
+    assertThat(fatProfileLineCount).isAtLeast(8 * slimProfileLineCount);
   }
 }

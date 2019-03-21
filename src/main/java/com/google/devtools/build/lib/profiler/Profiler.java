@@ -39,6 +39,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -215,6 +216,16 @@ public final class Profiler {
       this.startTimeNanos = startTimeNanos;
       this.type = eventType;
       this.description = Preconditions.checkNotNull(description);
+    }
+
+    TaskData(long threadId, long startTimeNanos, long duration, String description) {
+      this.id = -1;
+      this.parentId = 0;
+      this.type = ProfilerTask.UNKNOWN;
+      this.threadId = threadId;
+      this.startTimeNanos = startTimeNanos;
+      this.duration = duration;
+      this.description = description;
     }
 
     /** Aggregates information about an *immediate* subtask. */
@@ -496,7 +507,8 @@ public final class Profiler {
       boolean recordAllDurations,
       Clock clock,
       long execStartTimeNanos,
-      boolean enabledCpuUsageProfiling)
+      boolean enabledCpuUsageProfiling,
+      boolean slimProfile)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -520,10 +532,12 @@ public final class Profiler {
           writer = new BinaryFormatWriter(stream, execStartTimeNanos, comment);
           break;
         case JSON_TRACE_FILE_FORMAT:
-          writer = new JsonTraceFileWriter(stream, execStartTimeNanos);
+          writer = new JsonTraceFileWriter(stream, execStartTimeNanos, slimProfile);
           break;
         case JSON_TRACE_FILE_COMPRESSED_FORMAT:
-          writer = new JsonTraceFileWriter(new GZIPOutputStream(stream), execStartTimeNanos);
+          writer =
+              new JsonTraceFileWriter(
+                  new GZIPOutputStream(stream), execStartTimeNanos, slimProfile);
       }
       writer.start();
     }
@@ -977,12 +991,19 @@ public final class Profiler {
     private final long profileStartTimeNanos;
     private final ThreadLocal<Boolean> metadataPosted =
         ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private final boolean slimProfile;
+
     // The JDK never returns 0 as thread id so we use that as fake thread id for the critical path.
     private static final long CRITICAL_PATH_THREAD_ID = 0;
 
-    JsonTraceFileWriter(OutputStream outStream, long profileStartTimeNanos) {
+    private static final long SLIM_PROFILE_EVENT_THRESHOLD = 10_000;
+    private static final long SLIM_PROFILE_MAXIMAL_PAUSE_NS = Duration.ofMillis(100).toNanos();
+    private static final long SLIM_PROFILE_MAXIMAL_DURATION_NS = Duration.ofMillis(250).toNanos();
+
+    JsonTraceFileWriter(OutputStream outStream, long profileStartTimeNanos, boolean slimProfile) {
       this.outStream = outStream;
       this.profileStartTimeNanos = profileStartTimeNanos;
+      this.slimProfile = slimProfile;
     }
 
     @Override
@@ -999,6 +1020,97 @@ public final class Profiler {
                 Thread.currentThread().getName()));
       }
       queue.add(data);
+    }
+
+    private static final class MergedEvent {
+      int count = 0;
+      long startTimeNanos;
+      long endTimeNanos;
+      TaskData data;
+
+      /*
+       * Tries to merge an additional event, i.e. if the event is close enough to the already merged
+       * event.
+       *
+       * Returns null, if merging was possible.
+       * If not mergeable, returns the TaskData of the previously merged events and clears the
+       * internal data structures.
+       */
+      TaskData maybeMerge(TaskData data) {
+        long startTimeNanos = data.startTimeNanos;
+        long endTimeNanos = startTimeNanos + data.duration;
+        if (count > 0
+            && startTimeNanos >= this.startTimeNanos
+            && endTimeNanos <= this.endTimeNanos) {
+          // Skips child tasks.
+          return null;
+        }
+        if (count == 0) {
+          this.data = data;
+          this.startTimeNanos = startTimeNanos;
+          this.endTimeNanos = endTimeNanos;
+          count++;
+          return null;
+        } else if (startTimeNanos <= this.endTimeNanos + SLIM_PROFILE_MAXIMAL_PAUSE_NS) {
+          this.endTimeNanos = endTimeNanos;
+          count++;
+          return null;
+        } else {
+          TaskData ret = getAndReset();
+          this.startTimeNanos = startTimeNanos;
+          this.endTimeNanos = endTimeNanos;
+          this.data = data;
+          count = 1;
+          return ret;
+        }
+      }
+
+      // Returns a TaskData object representing the merged data and clears internal data structures.
+      TaskData getAndReset() {
+        TaskData ret;
+        if (count <= 1) {
+          ret = data;
+        } else {
+          if (data == null) {
+            ret = data;
+          }
+          ret =
+              new TaskData(
+                  data.threadId,
+                  this.startTimeNanos,
+                  this.endTimeNanos - this.startTimeNanos,
+                  "merged " + count + " events");
+        }
+        count = 0;
+        data = null;
+        return ret;
+      }
+    }
+
+    private void writeTask(JsonWriter writer, TaskData data) throws IOException {
+      String eventType = data.duration == 0 ? "i" : "X";
+      writer.setIndent("  ");
+      writer.beginObject();
+      writer.setIndent("");
+      if (data == null || data.type == null) {
+        writer.setIndent("    ");
+      }
+      writer.name("cat").value(data.type.description);
+      writer.name("name").value(data.description);
+      writer.name("ph").value(eventType);
+      writer
+          .name("ts")
+          .value(TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos));
+      if (data.duration != 0) {
+        writer.name("dur").value(TimeUnit.NANOSECONDS.toMicros(data.duration));
+      }
+      writer.name("pid").value(1);
+      long threadId =
+          data.type == ProfilerTask.CRITICAL_PATH_COMPONENT
+              ? CRITICAL_PATH_THREAD_ID
+              : data.threadId;
+      writer.name("tid").value(threadId);
+      writer.endObject();
     }
 
     /**
@@ -1032,7 +1144,10 @@ public final class Profiler {
           writer.endObject();
           writer.endObject();
 
+          HashMap<Long, MergedEvent> eventsPerThread = new HashMap<>();
+          int eventCount = 0;
           while ((data = queue.take()) != POISON_PILL) {
+            eventCount++;
             if (data.type == ProfilerTask.THREAD_NAME) {
               writer.setIndent("  ");
               writer.beginObject();
@@ -1071,25 +1186,25 @@ public final class Profiler {
               writer.endObject();
               continue;
             }
-            String eventType = data.duration == 0 ? "i" : "X";
-            writer.setIndent("  ");
-            writer.beginObject();
-            writer.setIndent("");
-            writer.name("cat").value(data.type.description);
-            writer.name("name").value(data.description);
-            writer.name("ph").value(eventType);
-            writer.name("ts")
-                .value(TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos));
-            if (data.duration != 0) {
-              writer.name("dur").value(TimeUnit.NANOSECONDS.toMicros(data.duration));
+            if (slimProfile
+                && eventCount > SLIM_PROFILE_EVENT_THRESHOLD
+                && data.duration > 0
+                && data.duration < SLIM_PROFILE_MAXIMAL_DURATION_NS
+                && data.type != ProfilerTask.CRITICAL_PATH_COMPONENT) {
+              eventsPerThread.putIfAbsent(data.threadId, new MergedEvent());
+              TaskData taskData = eventsPerThread.get(data.threadId).maybeMerge(data);
+              if (taskData != null) {
+                writeTask(writer, taskData);
+              }
+            } else {
+              writeTask(writer, data);
             }
-            writer.name("pid").value(1);
-            long threadId =
-                data.type == ProfilerTask.CRITICAL_PATH_COMPONENT
-                    ? CRITICAL_PATH_THREAD_ID
-                    : data.threadId;
-            writer.name("tid").value(threadId);
-            writer.endObject();
+          }
+          for (Profiler.JsonTraceFileWriter.MergedEvent value : eventsPerThread.values()) {
+            TaskData taskData = value.getAndReset();
+            if (taskData != null) {
+              writeTask(writer, taskData);
+            }
           }
           receivedPoisonPill = true;
           writer.setIndent("  ");
