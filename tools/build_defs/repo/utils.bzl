@@ -115,8 +115,10 @@ def is_windows(ctx):
     return ctx.os.name.lower().startswith("win")
 
 def remove_dir(ctx, dir_):
-    remove_cmd = ["rd", "/s", "/q", dir_] if is_windows(ctx) else ["rm", "-rf", dir_]
+    if not dir_.exists:
+        return
+    remove_cmd = ["if", "exist", "rd", "/s", "/q", dir_] if is_windows(ctx) else ["rm", "-rf", dir_]
 
     st = ctx.execute(remove_cmd, environment = ctx.os.environ)
     if st.return_code != 0:
-        fail("error removing directory '%s'" % dir_)
+        fail("error removing directory '%s': %s" % (dir_, st.stderr))
