@@ -231,10 +231,11 @@ class RemoteSpawnRunner implements SpawnRunner {
             .getExecutionPolicyBuilder()
             .setPriority(remoteOptions.remoteExecutionPriority);
       }
-      ExecuteRequest request = requestBuilder.build();
       try {
         return retrier.execute(
             () -> {
+              ExecuteRequest request = requestBuilder.build();
+
               // Upload the command and all the inputs into the remote cache.
               try (SilentCloseable c = Profiler.instance().profile("Remote.uploadInputs")) {
                 Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
@@ -264,6 +265,11 @@ class RemoteSpawnRunner implements SpawnRunner {
               try (SilentCloseable c =
                   Profiler.instance().profile("Remote.downloadRemoteResults")) {
                 remoteCache.download(actionResult, execRoot, outErr);
+              } catch (CacheNotFoundException e) {
+                // No cache hit, so if we retry this execution, we must no longer accept
+                // cached results, it must be reexecuted
+                requestBuilder.setSkipCacheLookup(true);
+                throw e;
               }
               return createSpawnResult(actionResult.getExitCode(), reply.getCachedResult());
             });
