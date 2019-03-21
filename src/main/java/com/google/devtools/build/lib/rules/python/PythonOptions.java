@@ -71,7 +71,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_remove_old_python_version_api",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
