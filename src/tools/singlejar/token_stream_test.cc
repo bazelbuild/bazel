@@ -103,13 +103,13 @@ TEST(TokenStreamTest, OptargMulti) {
   std::vector<std::string> optvals1;
   EXPECT_FALSE(token_stream.MatchAndSet("--arg2", &optvals1));
   ASSERT_TRUE(token_stream.MatchAndSet("--arg1", &optvals1));
-  ASSERT_EQ(2, optvals1.size());
+  ASSERT_EQ(2UL, optvals1.size());
   EXPECT_EQ("value11", optvals1[0]);
   EXPECT_EQ("value12", optvals1[1]);
 
   std::vector<std::string> optvals2;
   ASSERT_TRUE(token_stream.MatchAndSet("--arg2", &optvals2));
-  ASSERT_EQ(2, optvals2.size());
+  ASSERT_EQ(2UL, optvals2.size());
   EXPECT_EQ("value21", optvals2[0]);
   EXPECT_EQ("value22", optvals2[1]);
 
@@ -126,7 +126,7 @@ TEST(TokenStreamTest, OptargMultiSplit) {
   EXPECT_FALSE(token_stream.MatchAndSet("--foo", &optvals1));
   ASSERT_TRUE(token_stream.MatchAndSet("--arg1", &optvals1));
 
-  ASSERT_EQ(3, optvals1.size());
+  ASSERT_EQ(3UL, optvals1.size());
   EXPECT_EQ("optval1", optvals1[0].first);
   EXPECT_EQ("optsuff1", optvals1[0].second);
   EXPECT_EQ("optval2", optvals1[1].first);
