@@ -665,7 +665,7 @@ class ExperimentalStateTracker {
    * hence a line break is appropriate if more data is to come. If a null value is provided for
    * the terminal writer, only return wether a note would be added.
    *
-   * The width parameter gives advice on to which length the the description of the test should
+   * The width parameter gives advice on to which length the description of the test should
    * the shortened to, if possible.
    */
   private boolean maybeShowRecentTest(

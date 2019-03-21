@@ -128,7 +128,7 @@ public final class ShellEscaper extends Escaper {
    *
    * @param out what the result will be appended to
    * @param argv the strings to escape and join
-   * @return the same reference as {@code out}, now containing the the
+   * @return the same reference as {@code out}, now containing the
    *     joined, escaped fragments
    * @throws IOException if an I/O error occurs while appending
    */
@@ -153,7 +153,7 @@ public final class ShellEscaper extends Escaper {
    * @param out what the result will be appended to
    * @param argv the strings to escape and join
    * @param joiner the {@link Joiner} to use to join the escaped strings
-   * @return the same reference as {@code out}, now containing the the
+   * @return the same reference as {@code out}, now containing the
    *     joined, escaped fragments
    * @throws IOException if an I/O error occurs while appending
    */

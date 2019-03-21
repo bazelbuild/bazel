@@ -104,7 +104,7 @@ public class BufferedFile {
    * be referenced by the client, holding references to byte buffers returned from prior call to
    * this method). The new internal buffer will be based at {@code off} file position, and have a
    * capacity equal to the maximum of the {@code blockSize} of this buffer and {@code len}, except
-   * that it will never exceed the the number of bytes from  {@code off} to the end of the readable
+   * that it will never exceed the number of bytes from  {@code off} to the end of the readable
    * region of the file (min-max rule).
    *
    * @param off

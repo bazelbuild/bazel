@@ -64,7 +64,7 @@ Sometimes jars are distributed with their dependencies shaded. What this means
 is that com.initech.tps will contain classes like
 com.initech.tps.shade.com.fakecorp.foo. This is less problematic, since it
 won't lead to mysterious classpath conflicts. But it can lead to inefficient
-use of space and make the license of the the end product more difficult to
+use of space and make the license of the end product more difficult to
 determine.
 
 #### Licensing

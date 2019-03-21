@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.Objects;
 
 /**
- * Captures the the set of providers rules and aspects can advertise.
+ * Captures the set of providers rules and aspects can advertise.
  * It is either of:
  * <ul>
  *    <li>a set of native and skylark providers</li>

@@ -459,7 +459,7 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Parses and validates the lines from input and return the the AST
+   * Parses and validates the lines from input and return the AST
    * In case of error during validation, it throws an EvalException.
    */
   public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)

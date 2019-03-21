@@ -160,7 +160,7 @@ public final class Command {
    *  <li>If it is an absolute path, it is used as it</li>
    *  <li>If it is a single file name, the PATH lookup is performed</li>
    *  <li>If it is a relative path that is not a single file name, the command will attempt to
-   *       execute the the binary at that path relative to {@code workingDirectory}.</li>
+   *       execute the binary at that path relative to {@code workingDirectory}.</li>
    * </ul>
    *
    * @param commandLineElements elements of raw command line to execute
