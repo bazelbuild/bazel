@@ -44,6 +44,8 @@ output_paths = [
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),
     ('*zipper', lambda x: 'tools/zip/zipper/zipper'),
+    ('*third_party/jarjar/BUILD.tools', lambda x: 'third_party/jarjar/BUILD'),
+    ('*third_party/jarjar/LICENSE', lambda x: 'third_party/jarjar/LICENSE'),
     ('*src/objc_tools/*',
      lambda x: 'tools/objc/precomp_' + os.path.basename(x)),
     ('*xcode*StdRedirect.dylib', lambda x: 'tools/objc/StdRedirect.dylib'),

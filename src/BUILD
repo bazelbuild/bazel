@@ -124,6 +124,7 @@ JAVA_TOOLS = [
     "//src/tools/singlejar:embedded_tools",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
     "//third_party/java/jacoco:srcs",
+    "//third_party/jarjar:embedded_build_and_license",
 ] + select({
     "//src/conditions:arm": [],
     "//conditions:default": [
