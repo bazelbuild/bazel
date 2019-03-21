@@ -619,6 +619,6 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("Use of function-based split transition without whitelist");
+    assertContainsEvent("Use of Starlark transition without whitelist");
   }
 }
