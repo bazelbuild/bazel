@@ -52,6 +52,7 @@ public final class Crosstool {
     private final String abiLibcVersion;
     private final String targetLibc;
     private final String builtinSysroot;
+    private final String ccTargetOs;
     private final ImmutableList<String> features;
     private final ImmutableList<String> actionConfigs;
     private final ImmutableList<ImmutableList<String>> artifactNamePatterns;
@@ -69,6 +70,7 @@ public final class Crosstool {
         String abiLibcVersion,
         String targetLibc,
         String builtinSysroot,
+        String ccTargetOs,
         ImmutableList<String> features,
         ImmutableList<String> actionConfigs,
         ImmutableList<ImmutableList<String>> artifactNamePatterns,
@@ -90,6 +92,7 @@ public final class Crosstool {
       this.builtinSysroot = builtinSysroot;
       this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
       this.makeVariables = makeVariables;
+      this.ccTargetOs = ccTargetOs;
     }
 
     public static Builder builder() {
@@ -105,6 +108,7 @@ public final class Crosstool {
       private String builtinSysroot = "/usr/grte/v1";
       private ImmutableList<String> cxxBuiltinIncludeDirectories = ImmutableList.of();
       private ImmutableList<Pair<String, String>> makeVariables = ImmutableList.of();
+      private String ccTargetOs = "";
 
       public Builder withFeatures(String... features) {
         this.features = ImmutableList.copyOf(features);
@@ -137,6 +141,11 @@ public final class Crosstool {
         return this;
       }
 
+      public Builder withCcTargetOs(String ccTargetOs) {
+        this.ccTargetOs = ccTargetOs;
+        return this;
+      }
+
       public Builder withCxxBuiltinIncludeDirectories(String... directories) {
         this.cxxBuiltinIncludeDirectories = ImmutableList.copyOf(directories);
         return this;
@@ -158,6 +167,7 @@ public final class Crosstool {
             /* abiLibcVersion= */ "local",
             /* targetLibc= */ "local",
             /* builtinSysroot= */ builtinSysroot,
+            /* ccTargetOs= */ ccTargetOs,
             features,
             actionConfigs,
             artifactNamePatterns,
@@ -194,6 +204,7 @@ public final class Crosstool {
           /* abiLibcVersion= */ "mock-abi-libc-for-" + cpu,
           /* targetLibc= */ "mock-libc-for-" + cpu,
           /* builtinSysroot= */ "",
+          /* ccTargetOs= */ "",
           /* features= */ ImmutableList.of(),
           /* actionConfigs= */ ImmutableList.of(),
           /* artifactNamePatterns= */ ImmutableList.of(),
@@ -254,6 +265,7 @@ public final class Crosstool {
                   "  artifact_name_patterns = {%s},", Joiner.on(",\n    ").join(patternsList)),
               String.format("  tool_paths = {%s},", Joiner.on(",\n    ").join(toolPathsList)),
               "  builtin_sysroot = '" + builtinSysroot + "',",
+              "  cc_target_os = '" + ccTargetOs + "',",
               String.format(
                   "  cxx_builtin_include_directories = [%s],",
                   Joiner.on(",\n    ").join(directoriesList)),
@@ -340,6 +352,7 @@ public final class Crosstool {
                 toolchain.getAbiLibcVersion(),
                 toolchain.getTargetLibc(),
                 toolchain.getBuiltinSysroot(),
+                toolchain.getCcTargetOs(),
                 toolchain.getFeatureList().stream()
                     .map(feature -> feature.getName())
                     .collect(ImmutableList.toImmutableList()),
