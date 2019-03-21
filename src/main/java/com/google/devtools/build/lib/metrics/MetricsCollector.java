@@ -42,8 +42,9 @@ class MetricsCollector {
 
   MetricsCollector(CommandEnvironment env) {
     this.env = env;
+    Options options = env.getOptions().getOptions(Options.class);
     this.bepPublishUsedHeapSizePostBuild =
-        env.getOptions().getOptions(Options.class).bepPublishUsedHeapSizePostBuild;
+        options != null && options.bepPublishUsedHeapSizePostBuild;
     env.getEventBus().register(this);
   }
 
