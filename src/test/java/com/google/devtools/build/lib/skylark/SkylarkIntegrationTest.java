@@ -2623,7 +2623,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
-    assertContainsEvent("Use of function-based split transition without whitelist");
+    assertContainsEvent("Use of Starlark transition without whitelist");
   }
 
   @Test

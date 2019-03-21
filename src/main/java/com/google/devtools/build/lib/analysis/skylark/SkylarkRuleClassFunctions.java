@@ -718,7 +718,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           throw new EvalException(
               location,
               String.format(
-                  "Use of function-based split transition without whitelist: %s %s",
+                  "Use of Starlark transition without whitelist: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
         }
       } else {
