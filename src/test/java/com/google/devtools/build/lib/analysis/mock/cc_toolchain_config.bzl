@@ -96,6 +96,7 @@ _FEATURE_NAMES = struct(
     def_feature = "def",
     strip_debug_symbols = "strip_debug_symbols",
     disable_pbh = "disable_pbh",
+    optional_cc_flags_feature = "optional_cc_flags_feature",
 )
 
 _disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
@@ -364,6 +365,11 @@ _simple_module_maps_feature = feature(
     ],
 )
 
+_extra_implies_module_maps_feature = feature(
+    name = "extra",
+    implies = ["module_maps"],
+)
+
 _env_var_feature_configuration = [
     _env_feature,
     _static_env_feature,
@@ -483,6 +489,20 @@ _thin_lto_feature = feature(
         ),
     ],
     requires = [feature_set(features = ["nonhost"])],
+)
+
+_simple_thin_lto_feature = feature(
+    name = _FEATURE_NAMES.thin_lto,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    flags = ["<thin_lto>"],
+                ),
+            ],
+        ),
+    ],
 )
 
 _thin_lto_linkstatic_tests_use_shared_nonlto_backends_feature = feature(
@@ -1019,6 +1039,59 @@ _portable_overrides_configuration = [
     ),
 ]
 
+_same_symbol_provided_configuration = [
+    feature(name = "a1", provides = ["a"]),
+    feature(name = "a2", provides = ["a"]),
+]
+
+_optional_cc_flags_feature = feature(
+    name = _FEATURE_NAMES.optional_cc_flags_feature,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cc_flags_make_variable],
+            flag_groups = [
+                flag_group(flags = ["optional_feature_flag"]),
+            ],
+        ),
+    ],
+)
+
+_layering_check_module_maps_header_modules_simple_features = [
+    feature(
+        name = _FEATURE_NAMES.module_maps,
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.cpp_compile],
+                flag_groups = [
+                    flag_group(flags = ["<maps>"]),
+                ],
+            ),
+        ],
+    ),
+    feature(
+        name = _FEATURE_NAMES.layering_check,
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.cpp_compile],
+                flag_groups = [
+                    flag_group(flags = ["<layering>"]),
+                ],
+            ),
+        ],
+    ),
+    feature(
+        name = _FEATURE_NAMES.header_modules,
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.cpp_compile],
+                flag_groups = [
+                    flag_group(flags = ["<modules>"]),
+                ],
+            ),
+        ],
+    ),
+]
+
 _feature_name_to_feature = {
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
@@ -1073,6 +1146,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.def_feature: _def_feature,
     _FEATURE_NAMES.strip_debug_symbols: _strip_debug_symbols_feature,
     _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
+    _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
@@ -1082,6 +1156,42 @@ _feature_name_to_feature = {
     "simple_module_maps": _simple_module_maps_feature,
     "simple_header_modules": _simple_header_modules_feature,
     "portable_overrides_configuration": _portable_overrides_configuration,
+    "same_symbol_provided_configuration": _same_symbol_provided_configuration,
+    "simple_thin_lto": _simple_thin_lto_feature,
+    "extra_implies_module_maps": _extra_implies_module_maps_feature,
+    "layering_check_module_maps_header_modules_simple_features": _layering_check_module_maps_header_modules_simple_features,
+}
+
+_cc_flags_action_config_foo_bar_baz_config = action_config(
+    action_name = "cc-flags-make-variable",
+    flag_sets = [
+        flag_set(
+            flag_groups = [
+                flag_group(
+                    flags = ["foo", "bar", "baz"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_sysroot_in_action_config = action_config(
+    action_name = "cc-flags-make-variable",
+    flag_sets = [
+        flag_set(
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "sysroot",
+                    flags = ["fc-start", "--sysroot=%{sysroot}-from-feature", "fc-end"],
+                ),
+            ],
+        ),
+    ],
+)
+
+_action_name_to_action = {
+    "cc_flags_action_config_foo_bar_baz": _cc_flags_action_config_foo_bar_baz_config,
+    "sysroot_in_action_config": _sysroot_in_action_config,
 }
 
 _tool_for_action_config = {
@@ -1186,9 +1296,13 @@ def _impl(ctx):
     action_configs = []
 
     for name in ctx.attr.action_configs:
-        action_configs.append(
-            _get_action_config(name, _tool_for_action_config.get(name, default = "DUMMY_TOOL")),
-        )
+        custom_config = _action_name_to_action.get(name, default = None)
+        if custom_config != None:
+            action_configs.append(custom_config)
+        else:
+            action_configs.append(
+                _get_action_config(name, _tool_for_action_config.get(name, default = "DUMMY_TOOL")),
+            )
     if should_add_multiple_tools_action_config:
         action_configs.append(_multiple_tools_action_config)
 

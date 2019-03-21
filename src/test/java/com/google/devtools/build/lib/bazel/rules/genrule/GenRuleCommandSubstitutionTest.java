@@ -21,6 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.Test;
@@ -481,19 +482,9 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testCcFlagsFromFeatureConfiguration() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            "action_config {",
-            "  action_name: 'cc-flags-make-variable'",
-            "  config_name: 'cc-flags-make-variable'",
-            "  flag_set {",
-            "    flag_group {",
-            "      flag: 'foo'",
-            "      flag: 'bar'",
-            "      flag: 'baz'",
-            "    }",
-            "  }",
-            "}");
+            CcToolchainConfig.builder().withActionConfigs("cc_flags_action_config_foo_bar_baz"));
     useConfiguration();
     scratch.file(
         "foo/BUILD",
