@@ -1,17 +1,17 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
-    "java_runtime_files",
     "JDK8_JVM_OPTS",
     "bootclasspath",
+    "default_java_toolchain",
+    "java_runtime_files",
 )
 load(
     "//tools/jdk:java_toolchain_alias.bzl",
-    "java_toolchain_alias",
-    "java_runtime_alias",
     "java_host_runtime_alias",
-    "legacy_java_toolchain_alias",
+    "java_runtime_alias",
+    "java_toolchain_alias",
     "legacy_java_runtime_alias",
+    "legacy_java_toolchain_alias",
 )
 load(
     "//tools/jdk:remote_java_tools_aliases.bzl",
@@ -405,9 +405,9 @@ alias(
     actual = "//third_party/java/jacoco:blaze-agent",
 )
 
-java_import(
+remote_java_tools_java_import(
     name = "JarJar",
-    jars = [":jarjar_command_deploy.jar"],
+    target = ":JarJar",
 )
 
 test_suite(
