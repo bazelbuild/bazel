@@ -95,8 +95,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     artifactGroupNamer = new CountingArtifactGroupNamer();
     transport = new RecordingBuildEventTransport(artifactGroupNamer);
     streamer =
-        new BuildEventStreamer(
-            ImmutableSet.<BuildEventTransport>of(transport), reporter, artifactGroupNamer);
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), artifactGroupNamer);
   }
 
   @After
@@ -333,6 +332,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     eventBus.register(handler);
     assertThat(handler.transportSet).isNull();
 
+    eventBus.post(new AnnounceBuildEventTransportsEvent(ImmutableSet.of(transport)));
+
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE,
@@ -349,6 +350,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
     assertThat(streamer.isClosed()).isTrue();
+    eventBus.post(new BuildEventTransportClosedEvent(transport));
+
     List<BuildEvent> finalStream = transport.getEvents();
     assertThat(finalStream).hasSize(3);
     assertThat(ImmutableSet.of(finalStream.get(1).getEventId(), finalStream.get(2).getEventId()))
@@ -1031,7 +1034,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         new BuildEventStreamer.Builder()
             .artifactGroupNamer(artifactGroupNamer)
             .besStreamOptions(options)
-            .cmdLineReporter(reporter)
             .buildEventTransports(ImmutableSet.of(transport))
             .build();
 
