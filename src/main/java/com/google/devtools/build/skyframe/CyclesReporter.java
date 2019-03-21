@@ -19,11 +19,11 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
  * An utility for custom reporting of errors from cycles in the Skyframe graph. This class is
- * stateful in order to differentiate between new cycles and cycles that have already been
- * reported (do not reuse the instances or cache the results as it could end up printing
- * inconsistent information or leak memory). It treats two cycles as the same if they contain the
- * same {@link SkyKey}s in the same order, but perhaps with different starting points. See
- * {@link CycleDeduper} for more information.
+ * stateful in order to differentiate between new cycles and cycles that have already been reported
+ * (do not reuse the instances or cache the results as it could end up printing inconsistent
+ * information or leak memory). It treats two cycles as the same if they contain the same {@link
+ * SkyKey}s in the same order, but perhaps with different starting points. See {@link CycleDeduper}
+ * for more information.
  */
 public class CyclesReporter {
 
