@@ -1003,7 +1003,7 @@ function test_aquery_skyframe_state_wrong_syntax() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
 
-  EXPECTED_LOG="Specifying a build target(s) \[//some_target\] with --skyframe_state is currently not supported"
+  EXPECTED_LOG="Specifying build target(s) \[//some_target\] with --skyframe_state is currently not supported"
   bazel aquery --output=textproto --skyframe_state "//some_target" > output 2> "$TEST_log" \
     && fail "Expected failure"
   expect_log "${EXPECTED_LOG}"
