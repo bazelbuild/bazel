@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,7 +50,9 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
   public void testGeneratedLib() throws Exception {
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
     useConfiguration("--cpu=k8");
     ConfiguredTarget genlib =
@@ -87,7 +89,9 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
   public void testCcLibraryLinkopts() throws Exception {
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
     scratch.overwriteFile(
         "custom_malloc/BUILD",
