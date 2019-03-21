@@ -493,26 +493,38 @@ public abstract class MockCcSupport {
   public void setupCcToolchainConfigForCpu(MockToolsConfig config, String... cpus)
       throws IOException {
     String crosstoolTop = getCrosstoolTopPathForConfig(config);
-    ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
-    toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
-    for (String cpu : cpus) {
-      toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
+    if (config.isRealFileSystem()) {
+      config.linkTools(getRealFilesystemTools(crosstoolTop));
+    } else {
+      ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
+      toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
+      for (String cpu : cpus) {
+        toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
+      }
+      new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+          .setSupportedArchs(getCrosstoolArchs())
+          .setToolchainConfigs(toolchainConfigBuilder.build())
+          .setSupportsHeaderParsing(true)
+          .write();
     }
-    new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
-        .setSupportedArchs(getCrosstoolArchs())
-        .setToolchainConfigs(toolchainConfigBuilder.build())
-        .setSupportsHeaderParsing(true)
-        .write();
+  }
+
+  public void setupCcToolchainConfig(MockToolsConfig config) throws IOException {
+    setupCcToolchainConfig(config, CcToolchainConfig.builder());
   }
 
   public void setupCcToolchainConfig(
       MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
     String crosstoolTop = getCrosstoolTopPathForConfig(config);
-    new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
-        .setSupportedArchs(getCrosstoolArchs())
-        .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
-        .setSupportsHeaderParsing(true)
-        .write();
+    if (config.isRealFileSystem()) {
+      config.linkTools(getRealFilesystemTools(crosstoolTop));
+    } else {
+      new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+          .setSupportedArchs(getCrosstoolArchs())
+          .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
+          .setSupportsHeaderParsing(true)
+          .write();
+    }
   }
 
   protected void createCrosstoolPackage(
