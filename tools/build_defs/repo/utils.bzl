@@ -115,9 +115,7 @@ def is_windows(ctx):
     return ctx.os.name.lower().startswith("win")
 
 def remove_dir(ctx, dir_):
-    quoted_dir = '"%s"' % str(dir_)
-
-    remove_cmd = ["rd", "/s", "/q", quoted_dir] if is_windows(ctx) else ["rm", "-rf", quoted_dir]
+    remove_cmd = ["rd", "/s", "/q", dir_] if is_windows(ctx) else ["rm", "-rf", dir_]
 
     st = ctx.execute(remove_cmd, environment = ctx.os.environ)
     if st.return_code != 0:

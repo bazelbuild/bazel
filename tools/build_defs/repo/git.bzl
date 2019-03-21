@@ -24,15 +24,6 @@ def _clone_or_update(ctx):
         (ctx.attr.commit and ctx.attr.branch)):
         fail("Exactly one of commit, tag, or branch must be provided")
 
-    #    ctx.report_progress("Cloning %s of %s" % (git.ref, ctx.attr.remote))
-    #    if (ctx.attr.verbose):
-    #        print("git.bzl: Cloning or updating %s repository %s using strip_prefix of [%s]" %
-    #              (
-    #                  " (%s)" % git.shallow,
-    #                  ctx.name,
-    #                  ctx.attr.strip_prefix if ctx.attr.strip_prefix else "None",
-    #              ))
-
     root = ctx.path(".")
     directory = str(root)
     if ctx.attr.strip_prefix:
@@ -44,9 +35,7 @@ def _clone_or_update(ctx):
         dest_link = "{}/{}".format(directory, ctx.attr.strip_prefix)
         if not ctx.path(dest_link).exists:
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
-
-        # todo this does not really work, and it should not - how are we supposed to symlink to
-        # todo the directory we are filling?
+        remove_dir(ctx, root)
         ctx.symlink(dest_link, root)
 
     return {"commit": git_.commit, "shallow_since": git_.shallow_since}
