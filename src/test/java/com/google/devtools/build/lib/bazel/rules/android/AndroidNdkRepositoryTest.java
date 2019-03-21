@@ -23,8 +23,11 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
+import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
@@ -44,10 +47,18 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
 
   @Before
   public void setup() throws Exception {
-    scratch.file(
-        "/ndk/source.properties",
-        "Pkg.Desc = Android NDK",
-        "Pkg.Revision = 13.1.3345770");
+    BazelMockCcSupport.INSTANCE.setup(mockToolsConfig);
+    scratch.overwriteFile("/bazel_tools_workspace/tools/build_defs/cc/BUILD");
+    scratch.overwriteFile(
+        "/bazel_tools_workspace/tools/build_defs/cc/action_names.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
+
+    scratch.overwriteFile(
+        "/bazel_tools_workspace/tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+    scratch.file("/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 13.1.3345770");
   }
 
   private void scratchPlatformsDirectories(String arch, int... apiLevels) throws Exception {
@@ -63,6 +74,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
     scratchPlatformsDirectories("arch-x86", 19, 20, 22, 24);
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_ndk_repository(",
         "    name = 'androidndk',",
         "    path = '/ndk',",
@@ -86,6 +98,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
     scratchPlatformsDirectories("arch-x86", 24);
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_ndk_repository(",
         "    name = 'androidndk',",
         "    path = '/ndk',",
@@ -110,6 +123,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
     scratchPlatformsDirectories("arch-x86", 24);
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_ndk_repository(",
         "    name = 'androidndk',",
         "    path = '/ndk',",
@@ -136,6 +150,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
     scratchPlatformsDirectories("arch-x86", 24);
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_ndk_repository(",
         "    name = 'androidndk',",
         "    path = '/ndk',",
@@ -162,6 +177,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
     scratch.file(String.format("/ndk/sources/android/cpufeatures/cpu-features.h"));
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_ndk_repository(",
         "    name = 'androidndk',",
         "    path = '/ndk',",
@@ -184,6 +200,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
   public void testMissingPlatformsDirectory() throws Exception {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_ndk_repository(",
         "    name = 'androidndk',",
         "    path = '/ndk',",
