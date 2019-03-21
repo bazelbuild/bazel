@@ -206,7 +206,7 @@ public final class Crosstool {
       return getCcToolchainConfigForCpu("k8");
     }
 
-    String getCcToolchainConfigRule() {
+    public String getCcToolchainConfigRule() {
       ImmutableList<String> featuresList =
           features.stream()
               .map(feature -> "'" + feature + "'")

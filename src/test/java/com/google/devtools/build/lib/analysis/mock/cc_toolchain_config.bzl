@@ -95,7 +95,10 @@ _FEATURE_NAMES = struct(
     uses_ifso_variables = "uses_ifso_variables",
     def_feature = "def",
     strip_debug_symbols = "strip_debug_symbols",
+    disable_pbh = "disable_pbh",
 )
+
+_disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
 
 _no_legacy_features_feature = feature(name = _FEATURE_NAMES.no_legacy_features)
 
@@ -176,6 +179,16 @@ _simple_layering_check_feature = feature(
     flag_sets = [
         flag_set(
             actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [flag_group(flags = ["<flag>"])],
+        ),
+    ],
+)
+
+_simple_header_modules_feature = feature(
+    name = _FEATURE_NAMES.header_modules,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_module_compile],
             flag_groups = [flag_group(flags = ["<flag>"])],
         ),
     ],
@@ -328,6 +341,23 @@ _module_maps_env_var_feature = feature(
                 env_entry(
                     key = "module",
                     value = "module_name:%{module_name}",
+                ),
+            ],
+        ),
+    ],
+)
+
+_simple_module_maps_feature = feature(
+    name = _FEATURE_NAMES.module_maps,
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.cpp_compile,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = ["<flag>"],
                 ),
             ],
         ),
@@ -975,6 +1005,20 @@ _strip_debug_symbols_feature = feature(
     ],
 )
 
+_portable_overrides_configuration = [
+    feature(name = "proto_force_lite_runtime", implies = ["proto_disable_services"]),
+    feature(name = "proto_disable_services"),
+    feature(name = "proto_one_output_per_message", implies = ["proto_force_lite_runtime"]),
+    feature(
+        name = "proto_enable_portable_overrides",
+        implies = [
+            "proto_force_lite_runtime",
+            "proto_disable_services",
+            "proto_one_output_per_message",
+        ],
+    ),
+]
+
 _feature_name_to_feature = {
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
@@ -1028,12 +1072,16 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.uses_ifso_variables: _uses_ifso_variables_feature,
     _FEATURE_NAMES.def_feature: _def_feature,
     _FEATURE_NAMES.strip_debug_symbols: _strip_debug_symbols_feature,
+    _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
     "simple_layering_check": _simple_layering_check_feature,
     "compilation_mode_features": _compilation_mode_features,
     "compile_header_modules": _compile_header_modules_feature_configuration,
+    "simple_module_maps": _simple_module_maps_feature,
+    "simple_header_modules": _simple_header_modules_feature,
+    "portable_overrides_configuration": _portable_overrides_configuration,
 }
 
 _tool_for_action_config = {
