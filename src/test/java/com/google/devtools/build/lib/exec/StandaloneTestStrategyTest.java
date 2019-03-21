@@ -519,6 +519,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         "    name = \"failing_test\",",
         "    size = \"small\",",
         "    srcs = [\"failing_test.sh\"],",
+        "    tags = [\"local\"],",
         ")");
     TestRunnerAction testRunnerAction = getTestAction("//standalone:failing_test");
 
@@ -538,6 +539,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         .thenAnswer(
             (invocation) -> {
               Spawn spawn = invocation.getArgumentAt(0, Spawn.class);
+              // Test that both spawns have the local tag attached as a execution info
+              assertThat(spawn.getExecutionInfo()).containsKey("local");
               FileOutErr outErr =
                   invocation.getArgumentAt(1, ActionExecutionContext.class).getFileOutErr();
               called.add(outErr);
