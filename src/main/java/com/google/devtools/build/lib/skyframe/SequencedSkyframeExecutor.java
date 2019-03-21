@@ -119,6 +119,7 @@ import javax.annotation.Nullable;
 public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static final Logger logger = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
+  private static final RefreshRootsValue EMPTY_REFRESH_ROOTS = new RefreshRootsValue(Maps.newTreeMap());
 
   /**
    * If false, the graph will not store state useful for incremental builds, saving memory but
@@ -532,10 +533,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         createPartner(evaluationContext, missingDiffDirtinessChecker);
 
     Root workspaceRoot = Root.fromPath(directories.getWorkspace());
+    RefreshRootsValue refreshRoots = EMPTY_REFRESH_ROOTS;
     BlacklistedPackagePrefixesValue blacklistedPrefixes =
         configurationHelper.computeBlacklist(skyframeExecutorAdapter, workspaceRoot);
-    RefreshRootsValue refreshRoots =
-        configurationHelper.computeRefreshRoots(skyframeExecutorAdapter, workspaceRoot);
+    if ("bazel".equals(directories.getProductName())) {
+      refreshRoots = configurationHelper.computeRefreshRoots(skyframeExecutorAdapter, workspaceRoot);
+    }
     externalFilesHelper.injectConfiguration(blacklistedPrefixes, refreshRoots,
         additionalBlacklistedPackagePrefixesFile);
 
