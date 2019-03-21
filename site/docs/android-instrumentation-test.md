@@ -112,8 +112,6 @@ Here is a typical target dependency graph of an `android_instrumentation_test`:
 The graph translates into a `BUILD` file like this:
 
 ```python
-load("@gmaven_rules//:defs.bzl", "gmaven_artifact")
-
 android_instrumentation_test(
     name = "my_test",
     test_app = ":my_test_app",
@@ -134,7 +132,9 @@ android_library(
     srcs = glob(["javatest/**/*.java"]),
     deps = [
         ":my_app_lib",
-        gmaven_artifact("com.android.support.test.espresso:espresso_core:aar:3.0.1"),
+        "@maven//:androidx_test_core",
+        "@maven//:androidx_test_runner",
+        "@maven//:androidx_test_espresso_espresso_core",
     ],
     # ...
 )
@@ -151,8 +151,8 @@ android_library(
     name = "my_app_lib",
     srcs = glob(["java/**/*.java"]),
     deps = [
-        gmaven_artifact("com.android.support:design:aar:27.0.2"),
-        gmaven_artifact("com.android.support:support_annotations:jar:27.0.2"),
+        "@maven//:androidx_appcompat_appcompat",
+        "@maven//:androidx_annotation_annotation",
     ]
     # ...
 )
@@ -170,11 +170,11 @@ The main attributes of the rule `android_instrumentation_test` are:
   run the tests. See the [section on choosing an Android
   device](#choosing-an-android_device) for more information.
 
-The test app's `AndroidManifest.xml` must include
-[an `<instrumentation>` tag](https://developer.android.com/studio/test/#configure_instrumentation_manifest_settings).
+The test app's `AndroidManifest.xml` must include [an `<instrumentation>`
+tag](https://developer.android.com/studio/test/#configure_instrumentation_manifest_settings).
 This tag must specify the attributes for the **package of the target app** and
 the **fully qualified class name of the instrumentation test runner**,
-`android.support.test.runner.AndroidJUnitRunner`.
+`androidx.test.runner.AndroidJUnitRunner`.
 
 Here is an example `AndroidTestManifest.xml` for the test app:
 
@@ -187,7 +187,7 @@ Here is an example `AndroidTestManifest.xml` for the test app:
     android:versionName="1.0">
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.example.android.app" />
 
     <uses-sdk
@@ -208,13 +208,11 @@ repositories:
 - `@androidsdk`: The Android SDK. Download this through Android Studio.
 
 - `@android_test_support`: Hosts the test runner, emulator launcher, and
-  `android_device` targets.
+  `android_device` targets. You can find the [latest release
+  here](https://github.com/android/android-test/releases)
 
-- `@gmaven_rules`: Defines the `maven_jar` and `maven_aar` targets available on
-  the [Google Maven repository](https://maven.google.com).
-
-You can enable these dependencies by adding the following lines to your
-`WORKSPACE` file:
+Enable these dependencies by adding the following lines to your `WORKSPACE`
+file:
 
 ```python
 # Android SDK
@@ -232,86 +230,17 @@ http_archive(
 )
 load("@android_test_support//:repo.bzl", "android_test_repositories")
 android_test_repositories()
-
-# Google Maven Repository
-GMAVEN_TAG = "0.1.0"
-http_archive(
-    name = "gmaven_rules",
-    strip_prefix = "gmaven_rules-%s" % GMAVEN_TAG,
-    urls = ["https://github.com/bazelbuild/gmaven_rules/archive/%s.tar.gz" % GMAVEN_TAG],
-)
-load("@gmaven_rules//:gmaven.bzl", "gmaven_rules")
-gmaven_rules()
 ```
 
 # Maven dependencies
 
-Use the
-[maven_jar](be/workspace.html#maven_jar)
-repository rule for Maven dependencies not hosted on Google Maven. For example,
-to use JUnit 4.12 and Hamcrest 2, add the following lines to your `WORKSPACE`:
+For managing dependencies on Maven artifacts from repositories like [Google
+Maven](https://maven.google.com) or [Maven Central](https://central.maven.org),
+we recommend using a Maven resolver like
+[rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external).
 
-```
-maven_jar(
-    name = "junit_junit",
-    artifact = "junit:junit:4.12",
-)
-
-maven_jar(
-    name = "org_hamcrest_java_hamcrest",
-    artifact = "org.hamcrest:java-hamcrest:2.0.0.0",
-)
-```
-
-Then, you can depend on them in your `BUILD` files:
-
-```python
-java_library(
-    name = "test_deps",
-    visibility = ["//visibility:public"],
-    exports = [
-        "@junit_junit//jar",
-        "@org_hamcrest_java_hamcrest//jar",
-    ],
-)
-
-android_library(
-    name = "my_test_lib",
-    srcs = [..],
-    deps = [":test_deps"],
-)
-```
-
-[`bazel-deps`](https://github.com/johnynek/bazel-deps) is another useful tool
-for managing Maven dependencies using [a `YAML`
-file](https://github.com/johnynek/bazel-deps/blob/master/dependencies.yaml).
-
-For dependencies hosted on [Google's Maven
-repository](https://maven.google.com), [`@gmaven_rules`](https://github.com/bazelbuild/gmaven_rules)
-provides a simple way to fetch dependencies hosted with `gmaven_artifact`.
-
-`gmaven_artifact` is a macro that maps an artifact's coordinate to the actual
-generated target in
-[`gmaven.bzl`](https://raw.githubusercontent.com/bazelbuild/gmaven_rules/master/gmaven.bzl)
-(warning: big file!). The packaging type defaults to `jar` if it isn't
-specified.
-
-Load the `gmaven_artifact` macro at the beginning of your `BUILD` file to use
-it:
-
-```python
-load("@gmaven_rules//:defs.bzl", "gmaven_artifact")
-
-android_library(
-    name = "my_app_lib",
-    srcs = glob(["java/**/*.java"]),
-    deps = [
-        gmaven_artifact("com.android.support:design:aar:27.0.2"),
-        gmaven_artifact("com.android.support:support_annotations:jar:27.0.2"),
-    ]
-    # ...
-)
-```
+For the rest of this documentation, we will be using `rules_jvm_external` to
+resolve and fetch dependencies from Maven repositories.
 
 # Choosing an android_device target
 
@@ -359,8 +288,8 @@ To see the full list of supported `android_device` targets in
 bazel query 'filter("x86_qemu2$", kind(android_device, @android_test_support//tools/android/emulated_devices/...:*))'
 ```
 
-Bazel currently supports x86-based emulators only. For better performance,
-we also recommend using `QEMU2` `android_device` targets instead of `QEMU` ones.
+Bazel currently supports x86-based emulators only. For better performance, we
+also recommend using `QEMU2` `android_device` targets instead of `QEMU` ones.
 
 # Running tests
 
@@ -432,28 +361,6 @@ If you are looking for canonical project samples, see the [Android testing
 samples](https://github.com/googlesamples/android-testing#experimental-bazel-support)
 for projects using Espresso and UIAutomator.
 
-```
-$ git clone https://github.com/googlesamples/android-testing && cd android-testing
-# Set path to Android SDK in WORKSPACE
-$ bazel test //ui/... --config=headless
-INFO: Analysed 45 targets (1 packages loaded).
-INFO: Found 36 targets and 9 test targets...
-
-...
-
-INFO: Elapsed time: 195.665s, Critical Path: 195.22s
-INFO: Build completed successfully, 417 total actions
-//ui/espresso/BasicSample:BasicSampleInstrumentationTest                 PASSED in 103.7s
-//ui/espresso/CustomMatcherSample:CustomMatcherSampleInstrumentationTest PASSED in 113.2s
-//ui/espresso/DataAdapterSample:DataAdapterSampleInstrumentationTest     PASSED in 110.2s
-//ui/espresso/IdlingResourceSample:IdlingResourceSampleInstrumentationTest PASSED in 102.3s
-//ui/espresso/IntentsAdvancedSample:IntentsAdvancedSampleInstrumentationTest PASSED in 98.3s
-//ui/espresso/IntentsBasicSample:IntentsBasicSampleInstrumentationTest   PASSED in 103.3s
-//ui/espresso/MultiWindowSample:MultiWindowSampleInstrumentationTest     PASSED in 108.3s
-//ui/espresso/RecyclerViewSample:RecyclerViewSampleInstrumentationTest   PASSED in 102.9s
-//ui/uiautomator/BasicSample:BasicSampleInstrumentationTest              PASSED in 122.6s
-```
-
 # Espresso setup
 
 If you write UI tests with [Espresso](https://developer.android.com/training/testing/espresso/)
@@ -476,18 +383,16 @@ library:
 ```python
 # In <project root>/BUILD.bazel
 
-load("@gmaven_rules//:defs.bzl", "gmaven_artifact")
-
 java_library(
     name = "test_deps",
     visibility = ["//visibility:public"],
     exports = [
-        gmaven_artifact("androidx.test.espresso:espresso-core:aar:3.1.0-alpha4"),
-        gmaven_artifact("androidx.test:rules:aar:1.1.0-alpha4"),
-        gmaven_artifact("androidx.test:runner:aar:1.1.0-alpha4"),
-        "@javax_inject_javax_inject//jar",
-        "@junit_junit//jar",
-        "@org_hamcrest_java_hamcrest//jar",
+        "@maven//:androidx_test_espresso_espresso_core",
+        "@maven//:androidx_test_rules",
+        "@maven//:androidx_test_runner",
+        "@maven//:javax_inject_javax_inject"
+        "@maven//:org_hamcrest_java_hamcrest",
+        "@maven//:junit_junit",
     ],
 )
 ```
@@ -496,49 +401,33 @@ Then, add the required dependencies in `<project root>/WORKSPACE`:
 
 
 ```python
-android_sdk_repository(
-    name = "androidsdk",
-)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-# Android Test Support
-ATS_COMMIT = "e39a8c7769a5c8b498d0deb0deef3a25b289d410"
+RULES_JVM_EXTERNAL_TAG = "1.1" # Or use the latest version on https://github.com/bazelbuild/rules_jvm_external
+RULES_JVM_EXTERNAL_SHA = "ade316ec98ba0769bb1189b345d9877de99dd1b1e82f5a649d6ccbcb8da51c1f"
 
 http_archive(
-    name = "android_test_support",
-    strip_prefix = "android-test-%s" % ATS_COMMIT,
-    urls = ["https://github.com/android/android-test/archive/%s.tar.gz" % ATS_COMMIT],
+    name = "rules_jvm_external",
+    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
+    sha256 = RULES_JVM_EXTERNAL_SHA,
+    url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
 )
 
-load("@android_test_support//:repo.bzl", "android_test_repositories")
+load("@rules_jvm_external//:defs.bzl", "maven_install")
 
-android_test_repositories()
-
-# Google Maven Repository
-GMAVEN_TAG = "20180927-1"
-
-http_archive(
-    name = "gmaven_rules",
-    strip_prefix = "gmaven_rules-%s" % GMAVEN_TAG,
-    url = "https://github.com/bazelbuild/gmaven_rules/archive/%s.tar.gz" % GMAVEN_TAG,
-)
-
-load("@gmaven_rules//:gmaven.bzl", "gmaven_rules")
-
-gmaven_rules()
-
-maven_jar(
-    name = "junit_junit",
-    artifact = "junit:junit:4.12",
-)
-
-maven_jar(
-    name = "javax_inject_javax_inject",
-    artifact = "javax.inject:javax.inject:1",
-)
-
-maven_jar(
-    name = "org_hamcrest_java_hamcrest",
-    artifact = "org.hamcrest:java-hamcrest:2.0.0.0",
+maven_install(
+    artifacts = [
+        "junit:junit:4.12",
+        "javax.inject:javax.inject:1",
+        "org.hamcrest:java-hamcrest:2.0.0.0"
+        "androidx.test.espresso:espresso-core:3.1.1",
+        "androidx.test:rules:aar:1.1.1",
+        "androidx.test:runner:aar:1.1.1",
+    ],
+    repositories = [
+        "https://maven.google.com",
+        "https://repo1.maven.org/maven2",
+    ],
 )
 ```
 
