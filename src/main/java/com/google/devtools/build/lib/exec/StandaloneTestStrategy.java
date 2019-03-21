@@ -465,7 +465,9 @@ public class StandaloneTestStrategy extends TestStrategy {
             "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()),
             "TEST_NAME", action.getTestName(),
             "TEST_BINARY", testBinaryName),
-        ImmutableMap.of(),
+        // Pass the execution info of the action which is identical to the supported tags set on the
+        // test target. In particular, this does not set the test timeout on the spawn.
+        ImmutableMap.copyOf(action.getExecutionInfo()),
         null,
         ImmutableMap.of(),
         /*inputs=*/ ImmutableList.of(action.getTestXmlGeneratorScript(), action.getTestLog()),
