@@ -730,12 +730,14 @@ public final class SkyframeBuildView {
       return null;
     }
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
+    boolean allowAnalysisFailures = config != null && config.allowAnalysisFailures();
     return new CachingAnalysisEnvironment(
         artifactFactory,
         skyframeExecutor.getActionKeyContext(),
         owner,
         isSystemEnv,
         extendedSanityChecks,
+        allowAnalysisFailures,
         eventHandler,
         env);
   }
