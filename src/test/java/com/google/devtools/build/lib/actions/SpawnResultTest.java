@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.protobuf.ByteString;
 import java.time.Duration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,5 +51,23 @@ public final class SpawnResultTest {
             .build();
     assertThat(r.getDetailMessage("", "", false, false))
         .contains("(failed due to timeout.)");
+  }
+
+  @Test
+  public void inMemoryContents() throws Exception {
+    ActionInput output = ActionInputHelper.fromPath("/foo/bar");
+    ByteString contents = ByteString.copyFromUtf8("hello world");
+
+    SpawnResult r =
+        new SpawnResult.Builder()
+          .setStatus(Status.SUCCESS)
+          .setExitCode(0)
+          .setRunnerName("test")
+          .setInMemoryOutput(output, contents)
+          .build();
+
+    assertThat(ByteString.readFrom(r.getInMemoryOutput(output))).isEqualTo(contents);
+    assertThat(r.getInMemoryOutput(null)).isEqualTo(null);
+    assertThat(r.getInMemoryOutput(ActionInputHelper.fromPath("/does/not/exist"))).isEqualTo(null);
   }
 }
