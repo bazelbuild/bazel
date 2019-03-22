@@ -194,11 +194,12 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
                 evaluationContext.getKeepGoing(),
                 progressReceiver,
                 graphInconsistencyReceiver,
-                evaluationContext.getExecutorService() == null
-                    ? () ->
-                        AbstractQueueVisitor.createExecutorService(
-                            evaluationContext.getNumThreads(), "skyframe-evaluator")
-                    : evaluationContext.getExecutorService(),
+                evaluationContext
+                    .getExecutorServiceSupplier()
+                    .orElse(
+                        () ->
+                            AbstractQueueVisitor.createExecutorService(
+                                evaluationContext.getParallelism(), "skyframe-evaluator")),
                 new SimpleCycleDetector(),
                 EvaluationVersionBehavior.GRAPH_VERSION);
         result = evaluator.eval(roots);

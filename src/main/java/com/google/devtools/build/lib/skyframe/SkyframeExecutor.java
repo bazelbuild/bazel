@@ -2152,6 +2152,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
+            .setNumThreads(numThreads)
             .setExecutorServiceSupplier(
                 () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
             .setEventHander(eventHandler)
