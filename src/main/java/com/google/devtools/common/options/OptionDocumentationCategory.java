@@ -112,4 +112,9 @@ public enum OptionDocumentationCategory {
    * specific inputs.
    */
   GENERIC_INPUTS,
+
+  /**
+   * This option lets a user to configure the remote caching and/or the remote execution for a build.
+   */
+  REMOTE,
 }
