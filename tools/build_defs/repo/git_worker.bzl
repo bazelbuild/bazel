@@ -61,7 +61,6 @@ def git_repo(ctx, directory):
     return struct(commit = actual_commit, shallow_since = shallow_date)
 
 def _update(ctx, git_repo):
-    # always clean the directory, as we expect external repository directory be cleaned anyway
     remove_dir(ctx, git_repo.directory)
 
     init(ctx, git_repo)
