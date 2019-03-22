@@ -212,6 +212,12 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void evaluateEmptySet() throws InterruptedException {
+    tester.eval(false, new SkyKey[0]);
+    tester.eval(true, new SkyKey[0]);
+  }
+
+  @Test
   public void invalidationWithNothingChanged() throws Exception {
     tester.set("x", new StringValue("y")).setWarning("fizzlepop");
     StringValue value = (StringValue) tester.evalAndGet("x");
