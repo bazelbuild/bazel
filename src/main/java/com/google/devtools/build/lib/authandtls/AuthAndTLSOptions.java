@@ -27,8 +27,8 @@ import java.util.List;
  */
 public class AuthAndTLSOptions extends OptionsBase {
   @Option(
-    name = "google_default_credentials",
-    oldName = "auth_enabled",
+    name = "gcloud_default_credentials",
+    oldName = "google_default_credentials",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -36,22 +36,22 @@ public class AuthAndTLSOptions extends OptionsBase {
         "Whether to use 'Google Application Default Credentials' for authentication."
             + " See https://cloud.google.com/docs/authentication for details. Disabled by default."
   )
-  public boolean useGoogleDefaultCredentials;
+  public boolean useGCloudDefaultCredentials;
 
   @Option(
-    name = "google_auth_scopes",
-    oldName = "auth_scope",
+    name = "gcloud_auth_scopes",
+    oldName = "google_auth_scopes",
     defaultValue = "https://www.googleapis.com/auth/cloud-platform",
     converter = CommaSeparatedOptionListConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "A comma-separated list of Google Cloud authentication scopes."
   )
-  public List<String> googleAuthScopes;
+  public List<String> gCloudAuthScopes;
 
   @Option(
-    name = "google_credentials",
-    oldName = "auth_credentials",
+    name = "gocloud_credentials",
+    oldName = "google_auth_credentials",
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -59,7 +59,7 @@ public class AuthAndTLSOptions extends OptionsBase {
         "Specifies the file to get authentication credentials from. See "
             + "https://cloud.google.com/docs/authentication for details."
   )
-  public String googleCredentials;
+  public String gCloudCredentials;
 
   @Option(
     name = "tls_enabled",

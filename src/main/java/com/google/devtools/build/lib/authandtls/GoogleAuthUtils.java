@@ -125,20 +125,20 @@ public final class GoogleAuthUtils {
   public static Credentials newCredentials(@Nullable AuthAndTLSOptions options) throws IOException {
     if (options == null) {
       return null;
-    } else if (options.googleCredentials != null) {
+    } else if (options.gCloudCredentials != null) {
       // Credentials from file
-      try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
-        return newCredentials(authFile, options.googleAuthScopes);
+      try (InputStream authFile = new FileInputStream(options.gCloudCredentials)) {
+        return newCredentials(authFile, options.gCloudAuthScopes);
       } catch (FileNotFoundException e) {
         String message =
             String.format(
                 "Could not open auth credentials file '%s': %s",
-                options.googleCredentials, e.getMessage());
+                options.gCloudCredentials, e.getMessage());
         throw new IOException(message, e);
       }
-    } else if (options.useGoogleDefaultCredentials) {
+    } else if (options.useGCloudDefaultCredentials) {
       return newCredentials(
-          null /* Google Application Default Credentials */, options.googleAuthScopes);
+          null /* Google Cloud Default Credentials */, options.gCloudAuthScopes);
     }
     return null;
   }
