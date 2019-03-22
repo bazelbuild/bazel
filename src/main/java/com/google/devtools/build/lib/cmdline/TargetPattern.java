@@ -517,10 +517,10 @@ public abstract class TargetPattern implements Serializable {
 
     /**
      * There's a potential ambiguity if '//foo/bar:all' refers to an actual target. In this case, we
-     * use the the target but print a warning.
+     * use the target but print a warning.
      *
      * @return the Target corresponding to the given pattern, if the pattern is absolute and there
-     *         is such a target. Otherwise, return null.
+     *     is such a target. Otherwise, return null.
      */
     private <T> ResolvedTargets<T> getWildcardConflict(TargetPatternResolver<T> resolver)
         throws InterruptedException {

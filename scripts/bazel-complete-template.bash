@@ -46,7 +46,7 @@
 
 # Pattern to match for looking for a target
 #  BAZEL_BUILD_MATCH_PATTERN__* give the pattern for label-*
-#  when looking in the the build file.
+#  when looking in the build file.
 #  BAZEL_QUERY_MATCH_PATTERN__* give the pattern for label-*
 #  when using 'bazel query'.
 # _RUNTEST is a special case for _bazel_completion_allow_tests_for_run.
