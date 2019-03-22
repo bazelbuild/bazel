@@ -118,16 +118,6 @@ public final class TransitionResolver {
         || transition == HostTransition.INSTANCE);
   }
 
-  /** Applies the given split and composes it after an existing transition. */
-  public static ConfigurationTransition split(
-      ConfigurationTransition currentTransition, SplitTransition split) {
-    Preconditions.checkState(currentTransition != NullTransition.INSTANCE,
-        "cannot apply splits after null transitions (null transitions are expected to be final)");
-    Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
-        "cannot apply splits after host transitions (host transitions are expected to be final)");
-    return composeTransitions(currentTransition, split);
-  }
-
   /**
    * @param currentTransition a pre-existing transition to be composed with
    * @param toTarget target whose associated rule's incoming transition should be applied
