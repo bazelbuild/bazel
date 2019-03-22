@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
 import java.io.IOException;
 
 /**
@@ -118,18 +117,15 @@ public final class ShellEscaper extends Escaper {
   }
 
   /**
-   * Escapes all strings in {@code argv} individually and joins them on
-   * single spaces into {@code out}. The result is appended directly into
-   * {@code out}, without adding a separator.
+   * Escapes all strings in {@code argv} individually and joins them on single spaces into {@code
+   * out}. The result is appended directly into {@code out}, without adding a separator.
    *
-   * <p>This method works as if by invoking
-   * {@link #escapeJoinAll(Appendable, Iterable, Joiner)} with
-   * {@code Joiner.on(' ')}.
+   * <p>This method works as if by invoking {@link #escapeJoinAll(Appendable, Iterable, Joiner)}
+   * with {@code Joiner.on(' ')}.
    *
    * @param out what the result will be appended to
    * @param argv the strings to escape and join
-   * @return the same reference as {@code out}, now containing the the
-   *     joined, escaped fragments
+   * @return the same reference as {@code out}, now containing the joined, escaped fragments
    * @throws IOException if an I/O error occurs while appending
    */
   public static Appendable escapeJoinAll(Appendable out, Iterable<? extends String> argv)
@@ -138,27 +134,25 @@ public final class ShellEscaper extends Escaper {
   }
 
   /**
-   * Escapes all strings in {@code argv} individually and joins them into
-   * {@code out} using the specified {@link Joiner}. The result is appended
-   * directly into {@code out}, without adding a separator.
+   * Escapes all strings in {@code argv} individually and joins them into {@code out} using the
+   * specified {@link Joiner}. The result is appended directly into {@code out}, without adding a
+   * separator.
    *
-   * <p>The resulting strings are the same as if escaped one by one using
-   * {@link #escapeString(String)}.
+   * <p>The resulting strings are the same as if escaped one by one using {@link
+   * #escapeString(String)}.
    *
-   * <p>Example: if the joiner is {@code Joiner.on('|')}, then the input
-   * {@code ["abc", "de'f"]} will be escaped as "{@code abc|'de'\''f'}".
-   * If {@code out} initially contains "{@code 123}", then the returned
-   * {@code Appendable} will contain "{@code 123abc|'de'\''f'}".
+   * <p>Example: if the joiner is {@code Joiner.on('|')}, then the input {@code ["abc", "de'f"]}
+   * will be escaped as "{@code abc|'de'\''f'}". If {@code out} initially contains "{@code 123}",
+   * then the returned {@code Appendable} will contain "{@code 123abc|'de'\''f'}".
    *
    * @param out what the result will be appended to
    * @param argv the strings to escape and join
    * @param joiner the {@link Joiner} to use to join the escaped strings
-   * @return the same reference as {@code out}, now containing the the
-   *     joined, escaped fragments
+   * @return the same reference as {@code out}, now containing the joined, escaped fragments
    * @throws IOException if an I/O error occurs while appending
    */
-  public static Appendable escapeJoinAll(Appendable out, Iterable<? extends String> argv,
-      Joiner joiner) throws IOException {
+  public static Appendable escapeJoinAll(
+      Appendable out, Iterable<? extends String> argv, Joiner joiner) throws IOException {
     return joiner.appendTo(out, escapeAll(argv));
   }
 
