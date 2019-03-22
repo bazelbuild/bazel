@@ -202,50 +202,48 @@ public class BlazeCommandEventHandler implements EventHandler {
     public boolean attemptToPrintRelativePaths;
 
     @Option(
-      name = "experimental_ui",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Switches to an alternative progress bar that more explicitly shows progress, such "
-              + "as loaded packages and executed actions."
-    )
+        name = "ui",
+        oldName = "experimental_ui",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Switches to a progress bar that more explicitly shows progress, such "
+                + "as loaded packages and executed actions.")
     public boolean experimentalUi;
 
     @Option(
-      name = "experimental_ui_debug_all_events",
-      defaultValue = "false",
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Report all events known to the experimental new Bazel UI."
-    )
+        name = "experimental_ui_debug_all_events",
+        defaultValue = "false",
+        metadataTags = {OptionMetadataTag.HIDDEN},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Report all events known to the Bazel UI.")
     public boolean experimentalUiDebugAllEvents;
 
     @Option(
-      name = "experimental_ui_actions_shown",
-      defaultValue = "8",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Number of concurrent actions shown in the alternative progress bar; each "
-              + "action is shown on a separate line. The alternative progress bar always shows "
-              + "at least one one, all numbers less than 1 are mapped to 1. "
-              + "This option has no effect unless --experimental_ui is set."
-    )
+        name = "ui_actions_shown",
+        oldName = "experimental_ui_actions_shown",
+        defaultValue = "8",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Number of concurrent actions shown in the detailed progress bar; each "
+                + "action is shown on a separate line. The progress bar always shows "
+                + "at least one one, all numbers less than 1 are mapped to 1. "
+                + "This option has no effect if --noui is set.")
     public int experimentalUiActionsShown;
 
     @Option(
-      name = "experimental_ui_limit_console_output",
-      defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Number of bytes to which the experimental UI will limit its output (non-positive "
-              + "values indicate unlimited). Once the limit is approaching, the experimental UI "
-              + "will try hard to limit in a meaningful way, but will ultimately just drop all "
-              + "output."
-    )
+        name = "experimental_ui_limit_console_output",
+        defaultValue = "0",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Number of bytes to which the UI will limit its output (non-positive "
+                + "values indicate unlimited). Once the limit is approaching, the UI "
+                + "will try hard to limit in a meaningful way, but will ultimately just drop all "
+                + "output.")
     public int experimentalUiLimitConsoleOutput;
 
     @Option(
@@ -253,7 +251,7 @@ public class BlazeCommandEventHandler implements EventHandler {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-        help = "Make the experimental UI deduplicate messages to have a cleaner scroll-back log.")
+        help = "Make the UI deduplicate messages to have a cleaner scroll-back log.")
     public boolean experimentalUiDeduplicate;
 
     public boolean useColor() {
