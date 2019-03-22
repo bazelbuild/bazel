@@ -212,7 +212,7 @@ public abstract class StarlarkSemantics {
           .experimentalRestrictNamedParams(false)
           .experimentalStarlarkConfigTransitions(false)
           .incompatibleUseToolchainProvidersInJavaCommon(false)
-          .incompatibleBzlDisallowLoadAfterStatement(false)
+          .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
           .incompatibleDisableThirdPartyLicenseChecking(false)
