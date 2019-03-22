@@ -264,6 +264,8 @@ Examples:
   following lines are added to `~/chat-app/WORKSPACE`:
 
   ```python
+  load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
   http_archive(
       name = "my_ssl",
       urls = ["http://example.com/openssl.zip"],
@@ -314,6 +316,8 @@ Examples:
   WORKSPACE file:
 
   ```python
+  load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
   http_file(
       name = "my_deb",
       urls = ["http://example.com/package.deb"],
@@ -357,6 +361,8 @@ Examples:
   added to `~/chat-app/WORKSPACE`:
 
   ```python
+  load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
+
   http_jar(
       name = "my_ssl",
       url = "http://example.com/openssl-0.2.jar",
