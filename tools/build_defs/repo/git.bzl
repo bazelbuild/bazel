@@ -118,8 +118,8 @@ def _clone_or_update(ctx):
             st = _get_repository_from_cache(ctx, directory, ref, git_cache)
 
             if st.return_code:
-                fail("Error checking out worktree %s. Maybe your git version is too old?. Using Git "
-                + "repository caching requires at least Git 2.5.0. Her is the error we got :\n%s" %
+                fail("""Error checking out worktree %s. Maybe your git version is too old?. Using Git
+                repository caching requires at least Git 2.5.0. Her is the error we got :\n%s""" %
                 (ctx.name, st.stderr))
     else:
         st = ctx.execute([bash_exe, "-c", """
