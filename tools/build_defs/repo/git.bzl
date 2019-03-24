@@ -78,7 +78,7 @@ def _clone_or_update(ctx):
         (ctx.attr.tag and ctx.attr.branch) or
         (ctx.attr.commit and ctx.attr.branch)):
         fail("Exactly one of commit, tag, or branch must be provided")
-    remote_name = "remote_" + hash(ctx.attr.remote)
+    remote_name = "remote_" + str(hash(ctx.attr.remote))
     shallow = ""
     if ctx.attr.commit:
         ref = ctx.attr.commit
