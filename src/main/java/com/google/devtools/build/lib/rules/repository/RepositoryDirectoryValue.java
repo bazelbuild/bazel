@@ -18,17 +18,21 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -57,9 +61,9 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     private final Path path;
     private final boolean fetchingDelayed;
     @Nullable private final byte[] digest;
-    private final boolean needsMarkerDirtinessCheck;
     @Nullable private final DirectoryListingValue sourceDir;
     private final ImmutableMap<SkyKey, SkyValue> fileValues;
+    private final ImmutableMap<Path, Long> refreshRootsModificationTimes;
 
     private SuccessfulRepositoryDirectoryValue(
         Path path,
@@ -67,13 +71,13 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
         DirectoryListingValue sourceDir,
         byte[] digest,
         ImmutableMap<SkyKey, SkyValue> fileValues,
-        boolean needsMarkerDirtinessCheck) {
+        ImmutableMap<Path, Long> refreshRootsModificationTimes) {
       this.path = path;
       this.fetchingDelayed = fetchingDelayed;
       this.sourceDir = sourceDir;
       this.digest = digest;
       this.fileValues = fileValues;
-      this.needsMarkerDirtinessCheck = needsMarkerDirtinessCheck;
+      this.refreshRootsModificationTimes = refreshRootsModificationTimes;
     }
 
     @Override
@@ -92,7 +96,16 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     }
 
     public boolean needsMarkerDirtinessCheck() {
-      return needsMarkerDirtinessCheck;
+      return refreshRootsModificationTimes.entrySet()
+          .stream()
+          .anyMatch(entry -> {
+            try {
+              return entry.getKey().getLastModifiedTime() != entry.getValue();
+            } catch (IOException e) {
+              // interpret as a need to refresh repository
+              return true;
+            }
+          });
     }
 
     @Override
@@ -187,7 +200,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     private byte[] digest = null;
     private DirectoryListingValue sourceDir = null;
     private Map<SkyKey, SkyValue> fileValues = ImmutableMap.of();
-    private boolean needsMarkerDirtinessCheck;
+    private final Map<Path, Long> refreshRootTimes = Maps.newHashMap();
 
     private Builder() {}
 
@@ -224,11 +237,20 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       }
       return new SuccessfulRepositoryDirectoryValue(
           path, fetchingDelayed, sourceDir, digest, ImmutableMap.copyOf(fileValues),
-          needsMarkerDirtinessCheck);
+          ImmutableMap.copyOf(refreshRootTimes));
     }
 
-    public Builder setNeedsMarkerDirtinessCheck(boolean hasRefreshRoots) {
-      this.needsMarkerDirtinessCheck = hasRefreshRoots;
+    public Builder recordRefreshRootsTimes(List<RootedPath> refreshRoots) {
+      for (RootedPath root : refreshRoots) {
+        Path rootPath = root.asPath();
+        long time;
+        try {
+          time = rootPath.exists() ? rootPath.getLastModifiedTime() : -1;
+        } catch (IOException e) {
+          time = -1; // todo(ichern ?)
+        }
+        refreshRootTimes.put(rootPath, time);
+      }
       return this;
     }
   }

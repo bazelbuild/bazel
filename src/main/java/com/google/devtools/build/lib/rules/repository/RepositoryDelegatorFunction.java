@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.devtools.build.lib.repository.ExternalPackageUtil.getRefreshRootsPaths;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -44,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -157,7 +160,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule,
         Preconditions.checkNotNull(ruleSpecificData));
 
-    boolean needsMarkerDirtinessCheck = handler.needsMarkerDirtinessCheck(repositoryName, env);
+    List<RootedPath> refreshRootsPaths = getRefreshRootsPaths(repositoryName, env);
     if (env.valuesMissing()) {
       return null;
     }
@@ -186,7 +189,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           return RepositoryDirectoryValue.builder()
               .setPath(repoRoot)
               .setDigest(markerHash)
-              .setNeedsMarkerDirtinessCheck(needsMarkerDirtinessCheck).build();
+              .recordRefreshRootsTimes(refreshRootsPaths).build();
         }
       }
     }
@@ -206,7 +209,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       byte[] digest = digestWriter.writeMarkerFile();
       return builder
           .setDigest(digest)
-          .setNeedsMarkerDirtinessCheck(needsMarkerDirtinessCheck).build();
+          .recordRefreshRootsTimes(refreshRootsPaths).build();
     }
 
     if (!repoRoot.exists()) {
@@ -235,7 +238,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return RepositoryDirectoryValue.builder()
         .setPath(repoRoot)
         .setFetchingDelayed()
-        .setNeedsMarkerDirtinessCheck(needsMarkerDirtinessCheck).build();
+        .recordRefreshRootsTimes(refreshRootsPaths).build();
   }
 
   private RepositoryFunction getHandler(Rule rule) {

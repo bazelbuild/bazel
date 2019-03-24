@@ -165,8 +165,10 @@ public class ExternalPackageUtil {
       return null;
     }
     Root workspace = workspacePath.getRoot();
-    List<PathFragment> repositoryRoots = Objects
-        .requireNonNull(getRefreshRootsForRepository(repositoryName, env));
+    List<PathFragment> repositoryRoots = getRefreshRootsForRepository(repositoryName, env);
+    if (repositoryRoots == null) {
+      return null;
+    }
     return repositoryRoots
         .stream()
         .map(p -> RootedPath.toRootedPath(workspace, p))
