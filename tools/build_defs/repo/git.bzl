@@ -21,18 +21,6 @@ def _if_debug(cond, st, what="Action"):
     if cond:
         print("{} returned {}\n{}\n----\n{}".format(what, st.return_code, st.stdout, st.stderr))
 
-def _hash(ctx, value):
-    """Hash a value... TODO needs a proper implementation.
-    """
-    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-    key = ctx.execute([
-        bash_exe,
-        "-c",
-        "(echo '{value}' | shasum)".format(value=value),
-    ]).stdout
-    key = key.split(sep=' ')[0]
-    return key
-
 def _setup_cache(ctx, git_cache):
     # Set-up git_cache git repository.
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
@@ -90,7 +78,7 @@ def _clone_or_update(ctx):
         (ctx.attr.tag and ctx.attr.branch) or
         (ctx.attr.commit and ctx.attr.branch)):
         fail("Exactly one of commit, tag, or branch must be provided")
-    remote_name = "remote_" + _hash(ctx, ctx.attr.remote)
+    remote_name = "remote_" + hash(ctx.attr.remote)
     shallow = ""
     if ctx.attr.commit:
         ref = ctx.attr.commit
@@ -130,7 +118,9 @@ def _clone_or_update(ctx):
             st = _get_repository_from_cache(ctx, directory, ref, git_cache)
 
             if st.return_code:
-                fail("Error checking out worktree %s. Maybe you have a too old git version?:\n%s" % (ctx.name, st.stderr))
+                fail("Error checking out worktree %s. Maybe your git version is too old?. Using Git "
+                + "repository caching requires at least Git 2.5.0. Her is the error we got :\n%s" %
+                (ctx.name, st.stderr))
     else:
         st = ctx.execute([bash_exe, "-c", """
     cd {working_dir}
