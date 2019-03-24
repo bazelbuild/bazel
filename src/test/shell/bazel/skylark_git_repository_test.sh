@@ -172,10 +172,14 @@ function test_git_repositry_cache_is_populated() {
 
   export BAZEL_GIT_REPOSITORY_CACHE=$cache_dir
 
-  do_git_repository_test $commit_hash
+  . /etc/lsb-release
 
-  cache_commit_hash="$(cat $cache_dir/worktrees/pluto/HEAD)"
-  assert_equals $commit_hash $cache_commit_hash
+  if [ "$DISTRIB_RELEASE" != "14.04" ]; then
+    do_git_repository_test $commit_hash
+
+    cache_commit_hash="$(cat $cache_dir/worktrees/pluto/HEAD)"
+    assert_equals $commit_hash $cache_commit_hash
+  fi
 }
 
 function test_git_repository() {
