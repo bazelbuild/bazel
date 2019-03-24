@@ -49,6 +49,11 @@ filegroup(
 )
 
 filegroup(
+    name = "system_images",
+    srcs = glob(["system-images/**"]),
+)
+
+filegroup(
     name = "sdk_path",
     srcs = ["."],
 )
@@ -56,8 +61,12 @@ filegroup(
 filegroup(
     name = "qemu2_x86",
     srcs = ["emulator/emulator"] + select({
-        "@bazel_tools//src/conditions:darwin": ["emulator/qemu/darwin-x86_64/qemu-system-i386"],
-        "@bazel_tools//src/conditions:darwin_x86_64": ["emulator/qemu/darwin-x86_64/qemu-system-i386"],
+        "@bazel_tools//src/conditions:darwin": [
+          "emulator/qemu/darwin-x86_64/qemu-system-i386",
+        ] + glob(["emulator/lib64/**", "emulator/lib/**"]),
+        "@bazel_tools//src/conditions:darwin_x86_64": [
+          "emulator/qemu/darwin-x86_64/qemu-system-i386",
+        ] + glob(["emulator/lib64/**", "emulator/lib/**"]),
         "//conditions:default": ["emulator/qemu/linux-x86_64/qemu-system-i386"],
     }),
 )
@@ -68,4 +77,4 @@ create_system_images_filegroups(
 )
 
 exports_files([
-%exported_files%] + glob(["system-images/**"]))
+%exported_files%] + glob(["system-images/**", "tools/bin/*", "tools/**", "emulator/**"]))
