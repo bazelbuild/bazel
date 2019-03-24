@@ -168,18 +168,12 @@ function test_git_repositry_cache_is_populated() {
   local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
   local cache_dir=/tmp/bazel_cache
   local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
-  local DISTRIB_RELEASE="unknown"
-  local DISTRIB_ID="unknown"
 
 
   export BAZEL_GIT_REPOSITORY_CACHE=$cache_dir
 
-  if [ -e /etc/lsb-release ]; then
-    . /etc/lsb-release
-  fi
-
-  # Do not run tests on ubuntu 14
-  if [[ !("$DISTRIB_RELEASE" == "14.04" && $DISTRIB_ID == "ubuntu") ]]; then
+  # Do not run tests if the git worktree command does not exist
+  if git worktree --help; then
     do_git_repository_test $commit_hash
 
     cache_commit_hash="$(cat $cache_dir/worktrees/pluto/HEAD)"
