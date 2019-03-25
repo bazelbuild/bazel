@@ -882,6 +882,7 @@ public class CppLinkActionBuilder {
               thinltoMergedObjectFile != null ? thinltoMergedObjectFile.getExecPathString() : null,
               mustKeepDebug,
               toolchain,
+              cppConfiguration,
               featureConfiguration,
               useTestOnlyFlags,
               isLtoIndexing,
