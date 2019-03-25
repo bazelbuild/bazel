@@ -2030,8 +2030,8 @@ public final class Attribute implements Comparable<Attribute> {
         name);
     if (isLateBound(name)) {
       LateBoundDefault<?, ?> lateBoundDefault = (LateBoundDefault<?, ?>) defaultValue;
-      Preconditions.checkArgument(!lateBoundDefault.useHostConfiguration()
-          || (configTransition.isHostTransition()),
+      Preconditions.checkArgument(
+          !lateBoundDefault.useHostConfiguration() || configTransition.isHostTransition(),
           "a late bound default value using the host configuration must use the host transition");
     }
 
@@ -2196,11 +2196,20 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns true if this attribute transitions on a split transition.
-   * See {@link SplitTransition}.
+   * Returns true if this attribute transitions on a split transition. See {@link SplitTransition}.
    */
+  // TODO(https://github.com/bazelbuild/bazel/issues/7814) Remove this.
   public boolean hasSplitConfigurationTransition() {
     return (splitTransitionProvider != null);
+  }
+
+  /**
+   * Returns true if this attribute transitions to the host configuration. See {@link
+   * com.google.devtools.build.lib.analysis.config.HostTransition}.
+   */
+  // TODO(https://github.com/bazelbuild/bazel/issues/7814) Remove this.
+  public boolean hasHostConfigurationTransition() {
+    return configTransition.isHostTransition();
   }
 
   /**
