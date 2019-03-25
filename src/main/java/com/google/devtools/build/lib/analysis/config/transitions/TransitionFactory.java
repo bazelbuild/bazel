@@ -16,8 +16,20 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionFactoryData;
 
 /**
- * Helper for the types of transitions that are statically declared but must be instantiated for
- * each use.
+ * Factory interface for transitions that are created dynamically, instead of being created as
+ * singletons.
+ *
+ * <p>This class allows for cases where the general <i>type</i> of a transition is known, but the
+ * specifics of the transition itself cannot be determined until the target is configured. Examples
+ * of this are transitions that depend on other (non-configured) attributes from the same target, or
+ * transitions that depend on state determined during configuration, such as the execution platform
+ * or resolved toolchains.
+ *
+ * <p>Implementations must override {@link Object#equals} and {@link Object#hashCode} unless
+ * exclusively accessed as singletons.
+ *
+ * @param <T> the type of data object passed to the {@link #create} method, used to create the
+ *     actual {@link ConfigurationTransition} instance
  */
 public interface TransitionFactory<T extends TransitionFactoryData> {
 
@@ -27,6 +39,8 @@ public interface TransitionFactory<T extends TransitionFactoryData> {
   /** Returns a new {@link ConfigurationTransition}, based on the given data. */
   ConfigurationTransition create(T data);
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/7814): Once everything uses TransitionFactory,
+  // remove these methods.
   /** Returns {@code true} if the result of this {@link TransitionFactory} is a host transition. */
   default boolean isHost() {
     return false;
