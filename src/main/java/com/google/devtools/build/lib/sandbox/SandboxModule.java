@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
@@ -117,6 +120,38 @@ public final class SandboxModule extends BlazeModule {
     }
   }
 
+  /**
+   * Returns true if sandboxfs should be used for this build.
+   *
+   * <p>If the user set the use of sandboxfs as optional, this only returns true if the configured
+   * sandboxfs binary is present and valid. If the user requested the use of sandboxfs as mandatory,
+   * this throws an error if the binary is not valid.
+   *
+   * @param requested whether sandboxfs use was requested or not
+   * @param binary path of the sandboxfs binary to use
+   * @return true if sandboxfs can and should be used; false otherwise
+   * @throws IOException if there are problems trying to determine the status of sandboxfs
+   */
+  private boolean shouldUseSandboxfs(TriState requested, PathFragment binary) throws IOException {
+    switch (requested) {
+      case AUTO:
+        return RealSandboxfsProcess.isAvailable(binary);
+
+      case NO:
+        return false;
+
+      case YES:
+        if (!RealSandboxfsProcess.isAvailable(binary)) {
+          throw new IOException(
+              "sandboxfs explicitly requested but \""
+                  + binary
+                  + "\" could not be found or is not valid");
+        }
+        return true;
+    }
+    throw new IllegalStateException("Not reachable");
+  }
+
   private void setup(CommandEnvironment cmdEnv, ExecutorBuilder builder)
       throws IOException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
@@ -147,8 +182,13 @@ public final class SandboxModule extends BlazeModule {
       sandboxBase.deleteTree();
     }
 
+    PathFragment sandboxfsPath = PathFragment.create(options.sandboxfsPath);
+    boolean useSandboxfs;
+    try (SilentCloseable c = Profiler.instance().profile("shouldUseSandboxfs")) {
+      useSandboxfs = shouldUseSandboxfs(options.useSandboxfs, sandboxfsPath);
+    }
     sandboxBase.createDirectoryAndParents();
-    if (options.useSandboxfs) {
+    if (useSandboxfs) {
       mountPoint.createDirectory();
       Path logFile = sandboxBase.getRelative("sandboxfs.log");
 
@@ -156,9 +196,7 @@ public final class SandboxModule extends BlazeModule {
         if (options.sandboxDebug) {
           env.getReporter().handle(Event.info("Mounting sandboxfs instance on " + mountPoint));
         }
-        sandboxfsProcess =
-            RealSandboxfsProcess.mount(
-                PathFragment.create(options.sandboxfsPath), mountPoint, logFile);
+        sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
       }
     }
 
