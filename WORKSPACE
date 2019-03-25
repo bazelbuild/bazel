@@ -40,7 +40,10 @@ http_archive(
     # Computed using "shasum -a 256 j2objc-2.0.3.zip"
     sha256 = "a36bac432d0dbd8c98249e484b2b69dd5720afa4abb58711a3c3def1c0bfa21d",
     strip_prefix = "j2objc-2.0.3",
-    url = "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
+    urls = [
+        "https://miirror.bazel.build/github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
+        "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
+    ],
 )
 
 # For src/test/shell/bazel:test_srcs
@@ -127,15 +130,38 @@ distdir_tar(
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
     },
     urls = {
-        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": ["https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip"],
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz"],
-        "java_tools_pkg-0.5.1.tar.gz": ["https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.5.1.tar.gz"],
-        "java_tools_javac10_linux-x86_64-v1.0.zip": ["https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_linux-x86_64-v1.0.zip"],
-        "java_tools_javac10_windows-x86_64-v1.0_copy.zip": ["https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_windows-x86_64-v1.0_copy.zip"],
-        "java_tools_javac10_darwin-v1.0.zip": ["https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_darwin-v1.0.zip"],
-        "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz": ["https://github.com/bazelbuild/skydoc/archive/2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz"],
-        "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": ["https://github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz"],
-        "0.16.2.zip": ["https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip"],
+        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
+            "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
+            "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
+        ],
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        ],
+        "java_tools_pkg-0.5.1.tar.gz": [
+            "https://mirror.bazel.build/bazel_java_tools/java_tools_pkg-0.5.1.tar.gz",
+        ],
+        "java_tools_javac10_linux-x86_64-v1.0.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_linux-x86_64-v1.0.zip",
+        ],
+        "java_tools_javac10_windows-x86_64-v1.0_copy.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_windows-x86_64-v1.0_copy.zip",
+        ],
+        "java_tools_javac10_darwin-v1.0.zip": [
+            "https://mirror.bazel.build/bazel_java_tools/java_tools_javac10_darwin-v1.0.zip",
+        ],
+        "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
+            "https://github.com/bazelbuild/skydoc/archive/2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
+        ],
+        "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
+            "https://github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
+        ],
+        "0.16.2.zip": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
+            "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
+        ],
     },
 )
 
@@ -268,6 +294,7 @@ http_archive(
     sha256 = "0fb00ff413f6b9b80ccee44a374ca7a18af7315aea72a43c62f2acd1ca74e9b5",
     strip_prefix = "googletest-f13bbe2992d188e834339abe6f715b2b2f840a77",
     urls = [
+        "https://mirror.bazel.build/github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
         "https://github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
     ],
 )
@@ -278,6 +305,7 @@ http_archive(
     sha256 = "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
     strip_prefix = "bazel-skylib-f83cb8dd6f5658bc574ccd873e25197055265d1c",
     urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
     ],
 )
@@ -289,6 +317,7 @@ http_archive(
     sha256 = "4a1318fed4831697b83ce879b3ab70ae09592b167e5bda8edaff45132d1c3b3f",
     strip_prefix = "skydoc-2d9566b21fbe405acf5f7bf77eda30df72a4744c",
     urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
         "https://github.com/bazelbuild/skydoc/archive/2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
     ],
 )
@@ -376,6 +405,7 @@ http_archive(
     sha256 = "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
     strip_prefix = "rules_sass-8ccf4f1c351928b55d5dddf3672e3667f6978d60",
     urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "https://github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
     ],
 )
@@ -385,6 +415,7 @@ http_archive(
     sha256 = "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
     strip_prefix = "rules_nodejs-0.16.2",
     urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
         "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
     ],
 )

@@ -322,22 +322,11 @@ public final class CppLinkAction extends AbstractAction
   @ThreadCompatible
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    if (fake) {
-      executeFake(actionExecutionContext);
-      return ActionResult.EMPTY;
+    ActionContinuationOrResult continuation = beginExecution(actionExecutionContext);
+    while (!continuation.isDone()) {
+      continuation = continuation.execute();
     }
-    try {
-      Spawn spawn = createSpawn(actionExecutionContext);
-      return ActionResult.create(
-          actionExecutionContext
-              .getContext(SpawnActionContext.class)
-              .exec(spawn, actionExecutionContext));
-    } catch (ExecException e) {
-      throw e.toActionExecutionException(
-          "Linking of rule '" + getOwner().getLabel() + "'",
-          actionExecutionContext.getVerboseFailures(),
-          this);
-    }
+    return continuation.get();
   }
 
   private Spawn createSpawn(ActionExecutionContext actionExecutionContext) {

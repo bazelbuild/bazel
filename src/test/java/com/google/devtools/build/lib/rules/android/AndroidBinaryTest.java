@@ -4277,7 +4277,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "--checkHashMismatch",
             "IGNORE",
             "--explicitFilters",
-            "R\\.class,R\\$.*\\.class,/BR\\.class$,/databinding/[^/]+Binding\\.class$",
+            "/BR\\.class$,/databinding/[^/]+Binding\\.class$,R\\.class,R\\$.*\\.class",
             "--outputMode",
             "DONT_CARE");
   }

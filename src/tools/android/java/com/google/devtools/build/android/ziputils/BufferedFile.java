@@ -93,27 +93,27 @@ public class BufferedFile {
   }
 
   /**
-   * Returns a byte buffer for reading {@code len} bytes from the {@code off} position
-   * in the file. If the requested bytes are already loaded in the internal buffer, a slice is
-   * returned, with position 0 and limit set to {@code len}. The slice may have a capacity greater
-   * than its limit, if more bytes are already available in the internal buffer. If the requested
-   * bytes are not available, but can fit in the current internal buffer, then more data is read,
-   * before a slice is created as described above. If the requested data falls outside the range
-   * that can be fitted into the current internal buffer, then a new internal buffer is allocated.
-   * The prior internal buffer (if any), is no longer referenced by this object (but it may still
-   * be referenced by the client, holding references to byte buffers returned from prior call to
-   * this method). The new internal buffer will be based at {@code off} file position, and have a
-   * capacity equal to the maximum of the {@code blockSize} of this buffer and {@code len}, except
-   * that it will never exceed the the number of bytes from  {@code off} to the end of the readable
-   * region of the file (min-max rule).
+   * Returns a byte buffer for reading {@code len} bytes from the {@code off} position in the file.
+   * If the requested bytes are already loaded in the internal buffer, a slice is returned, with
+   * position 0 and limit set to {@code len}. The slice may have a capacity greater than its limit,
+   * if more bytes are already available in the internal buffer. If the requested bytes are not
+   * available, but can fit in the current internal buffer, then more data is read, before a slice
+   * is created as described above. If the requested data falls outside the range that can be fitted
+   * into the current internal buffer, then a new internal buffer is allocated. The prior internal
+   * buffer (if any), is no longer referenced by this object (but it may still be referenced by the
+   * client, holding references to byte buffers returned from prior call to this method). The new
+   * internal buffer will be based at {@code off} file position, and have a capacity equal to the
+   * maximum of the {@code blockSize} of this buffer and {@code len}, except that it will never
+   * exceed the number of bytes from {@code off} to the end of the readable region of the file
+   * (min-max rule).
    *
    * @param off
    * @param len
    * @return a slice of the internal byte buffer containing the requested data. Except, if the
-   * client request data beyond the readable region of the file, the {@code len} value is reduced
-   * to the maximum number of bytes available from the given {@code off}.
+   *     client request data beyond the readable region of the file, the {@code len} value is
+   *     reduced to the maximum number of bytes available from the given {@code off}.
    * @throws IllegalArgumentException if {@code len} is less than 0, or {@code off} is outside the
-   * readable region specified when constructing this object.
+   *     readable region specified when constructing this object.
    * @throws IOException if thrown by the underlying file channel.
    */
   public synchronized ByteBuffer getBuffer(long off, int len) throws IOException {

@@ -477,7 +477,5 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
     assertThat(result.get(skylarkImportLookupKey).getEnvironmentExtension().getBindings())
         .containsEntry("a_symbol", 5);
-    assertThat(result.get(skylarkImportLookupKey).getEnvironmentExtension().getBindings())
-        .containsEntry("y_symbol", 5);
   }
 }

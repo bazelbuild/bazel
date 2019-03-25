@@ -61,17 +61,9 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     this.eventBus = eventBus;
   }
 
-  public static OutErr outErrForReporter(EventHandler rep) {
-    return OutErr.create(
-        // We don't use BufferedOutputStream here, because in general the Blaze
-        // code base assumes that the output streams are not buffered.
-        new ReporterStream(rep, EventKind.STDOUT),
-        new ReporterStream(rep, EventKind.STDERR));
-  }
-
   /**
-   * A copy constructor, to make it convenient to replicate a reporter
-   * config for temporary configuration changes.
+   * A copy constructor, to make it convenient to replicate a reporter config for temporary
+   * configuration changes.
    */
   public Reporter(Reporter template) {
     eventHandlers.addAll(template.eventHandlers);
@@ -86,9 +78,16 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     }
   }
 
+  public static OutErr outErrForReporter(EventHandler rep) {
+    return OutErr.create(
+        // We don't use BufferedOutputStream here, because in general the Blaze
+        // code base assumes that the output streams are not buffered.
+        new ReporterStream(rep, EventKind.STDOUT), new ReporterStream(rep, EventKind.STDERR));
+  }
+
   /**
-   * Returns an OutErr that sends all of its output to this Reporter.
-   * Each write to the OutErr will cause an EventKind.STDOUT or EventKind.STDERR event.
+   * Returns an OutErr that sends all of its output to this Reporter. Each write to the OutErr will
+   * cause an EventKind.STDOUT or EventKind.STDERR event.
    */
   public OutErr getOutErr() {
     return outErrToReporter;

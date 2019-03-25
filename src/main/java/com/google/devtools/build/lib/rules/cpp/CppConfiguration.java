@@ -560,10 +560,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         + "migration instructions).";
   }
 
-  public boolean disableDepsetInUserFlags() {
-    return cppOptions.disableDepsetInUserFlags;
-  }
-
   public boolean removeCpuCompilerCcToolchainAttributes() {
     return cppOptions.removeCpuCompilerCcToolchainAttributes;
   }
@@ -604,5 +600,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean disableCcContextQuoteIncludesHook() {
     return cppOptions.disableCcContextQuoteIncludesHook;
+  }
+
+  public boolean requireCtxInConfigureFeatures() {
+    return cppOptions.requireCtxInConfigureFeatures;
   }
 }
