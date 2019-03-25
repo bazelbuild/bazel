@@ -154,6 +154,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         new RepositoryDelegatorFunction(
             repositoryHandlers, null, new AtomicBoolean(true), ImmutableMap::of, directories));
     skyFunctions.put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
+    skyFunctions.put(SkyFunctions.REFRESH_ROOTS, new RefreshRootsFunction());
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
