@@ -72,15 +72,21 @@ cc_library(
     visibility = ["//src/main/cpp:__pkg__"],
 )
 
-# A zip containing source files used by ijar.
-genrule(
-    name = "native_windows_zip",
+filegroup(
+    name = "embedded_java_tools",
     srcs = [
         "file.cc",
         "file.h",
         "util.cc",
         "util.h",
     ],
+    visibility = ["//src/main/cpp/util:__pkg__"],
+)
+
+# A zip containing source files used by ijar.
+genrule(
+    name = "native_windows_zip",
+    srcs = [":embedded_java_tools"],
     outs = ["native_windows.zip"],
     cmd = "$(location //src:zip_files) src/main/native/windows $@ $(SRCS)",
     tools = ["//src:zip_files"],
