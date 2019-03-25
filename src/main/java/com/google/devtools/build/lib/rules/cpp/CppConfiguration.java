@@ -560,10 +560,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         + "migration instructions).";
   }
 
-  public boolean disableDepsetInUserFlags() {
-    return cppOptions.disableDepsetInUserFlags;
-  }
-
   public boolean removeCpuCompilerCcToolchainAttributes() {
     return cppOptions.removeCpuCompilerCcToolchainAttributes;
   }
