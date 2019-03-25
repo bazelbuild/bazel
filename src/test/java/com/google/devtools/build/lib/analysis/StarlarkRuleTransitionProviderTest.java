@@ -621,4 +621,42 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     getConfiguredTarget("//test");
     assertContainsEvent("Use of Starlark transition without whitelist");
   }
+
+  @Test
+  public void testNoNullOptionValues() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  if settings['//command_line_option:android_crosstool_top'] == None:",
+        "    return {'//command_line_option:test_arg': ['post-transition']}",
+        "  else:",
+        "    return {'//command_line_option:test_arg': settings['//command_line_option:test_arg']}",
+        "my_transition = transition(implementation = _impl,",
+        "  inputs = [",
+        "    '//command_line_option:test_arg',",
+        "    '//command_line_option:android_crosstool_top'",
+        "  ],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    useConfiguration("--android_crosstool_top=");
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
+        .containsExactly("post-transition");
+  }
 }
