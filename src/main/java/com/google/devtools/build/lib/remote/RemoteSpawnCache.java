@@ -113,15 +113,10 @@ final class RemoteSpawnCache implements SpawnCache {
     Command command =
         RemoteSpawnRunner.buildCommand(
             spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
-    Action action;
-    final ActionKey actionKey;
-    try (SilentCloseable c = Profiler.instance().profile("RemoteCache.buildAction")) {
-      action =
-          RemoteSpawnRunner.buildAction(
-              digestUtil.compute(command), merkleTreeRoot, context.getTimeout(), true);
-      // Look up action cache, and reuse the action output if it is found.
-      actionKey = digestUtil.computeActionKey(action);
-    }
+    Action action = RemoteSpawnRunner.buildAction(digestUtil.compute(command), merkleTreeRoot,
+        context.getTimeout(), true);
+    // Look up action cache, and reuse the action output if it is found.
+    ActionKey actionKey = digestUtil.computeActionKey(action);
 
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
