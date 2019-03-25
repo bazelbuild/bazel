@@ -396,7 +396,7 @@ public class MemoizingEvaluatorTest {
     } catch (RuntimeException e) {
       // Then the Evaluator#evaluate call throws a RuntimeException e where e.getCause() is the
       // RuntimeException thrown by that SkyFunction.
-      assertThat(e).hasCauseThat().hasMessage("I don't like being woken up!");
+      assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("I don't like being woken up!");
     }
   }
 

@@ -183,7 +183,7 @@ public class MoreFuturesTest {
       MoreFutures.waitForAllInterruptiblyFailFast(futureList);
       fail();
     } catch (ExecutionException ee) {
-      assertThat(ee).hasCauseThat().hasMessage("I like to fail!!");
+      assertThat(ee).hasCauseThat().hasMessageThat().isEqualTo("I like to fail!!");
     }
   }
 
