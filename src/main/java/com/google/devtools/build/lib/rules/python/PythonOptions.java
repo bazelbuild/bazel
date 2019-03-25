@@ -313,17 +313,6 @@ public class PythonOptions extends FragmentOptions {
    * transition the version to the hard-coded default value. Under these constraints, there is only
    * one transition possible, from null to the non-default value, and it is never a no-op.
    *
-   * <p>Previously this method also allowed transitioning under the new semantics in cases where the
-   * transition would have no impact on {@link #getPythonVersion} but would bring {@link
-   * #forcePython} into agreement with the actual version. The benefit of doing this was supposed to
-   * be that {@code select()}ing on {@code "force_python"} would give the correct result more often,
-   * even though it's still incorrect in general. However, this ended up causing more harm than
-   * good, because this type of transition does not change the output root and therefore caused
-   * action conflicts for unshareable actions (mainly C++ actions); see #7655. The resolution is
-   * that users should just migrate their {@code select()}s to the {@code
-   * //tools/python:python_version} target in the tools repository, as is required when {@code
-   * --incompatible_remove_old_python_version_api} is enabled.
-   *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public boolean canTransitionPythonVersion(PythonVersion version) {
@@ -357,9 +346,13 @@ public class PythonOptions extends FragmentOptions {
   public void setPythonVersion(PythonVersion version) {
     Preconditions.checkArgument(version.isTargetValue());
     this.pythonVersion = version;
-    // Update forcePython, but if the flag to remove the old API is enabled, no one will be able
-    // to tell anyway.
-    this.forcePython = version;
+    // If the old version API is enabled, update forcePython for consistency. If the old API is
+    // disabled, don't update it because 1) no one can read it anyway, and 2) updating it during
+    // normalization would cause analysis-time validation of the flag to spuriously fail (it'd think
+    // the user set the flag).
+    if (!incompatibleRemoveOldPythonVersionApi) {
+      this.forcePython = version;
+    }
   }
 
   @Override
@@ -377,5 +370,17 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
     return hostPythonOptions;
+  }
+
+  @Override
+  public FragmentOptions getNormalized() {
+    // Under the new version semantics, we want to ensure that options with "null" physical default
+    // values are normalized, to avoid #7808. We don't want to normalize with the old version
+    // semantics because that breaks backwards compatibility (--force_python would always be on).
+    PythonOptions newOptions = (PythonOptions) clone();
+    if (incompatibleAllowPythonVersionTransitions) {
+      newOptions.setPythonVersion(newOptions.getPythonVersion());
+    }
+    return newOptions;
   }
 }

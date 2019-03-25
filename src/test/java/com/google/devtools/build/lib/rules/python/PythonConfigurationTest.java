@@ -190,7 +190,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void setPythonVersion() throws Exception {
+  public void setPythonVersion_OldApiEnabled() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
             "--incompatible_remove_old_python_version_api=false",
@@ -198,6 +198,16 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--python_version=PY2");
     opts.setPythonVersion(PythonVersion.PY3);
     assertThat(opts.forcePython).isEqualTo(PythonVersion.PY3);
+    assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
+  }
+
+  @Test
+  public void setPythonVersion_OldApiDisabled() throws Exception {
+    PythonOptions opts =
+        parsePythonOptions(
+            "--incompatible_remove_old_python_version_api=true", "--python_version=PY2");
+    opts.setPythonVersion(PythonVersion.PY3);
+    assertThat(opts.forcePython).isNull();
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
 
@@ -259,5 +269,21 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--incompatible_py3_is_default=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
     assertThat(hostOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+  }
+
+  @Test
+  public void getNormalized_OldSemantics() throws Exception {
+    PythonOptions opts =
+        parsePythonOptions("--incompatible_allow_python_version_transitions=false");
+    PythonOptions normalizedOpts = (PythonOptions) opts.getNormalized();
+    assertThat(normalizedOpts.pythonVersion).isNull();
+  }
+
+  @Test
+  public void getNormalized_NewSemantics() throws Exception {
+    ensureDefaultIsPY2();
+    PythonOptions opts = parsePythonOptions("--incompatible_allow_python_version_transitions=true");
+    PythonOptions normalizedOpts = (PythonOptions) opts.getNormalized();
+    assertThat(normalizedOpts.pythonVersion).isEqualTo(PythonVersion.PY2);
   }
 }
