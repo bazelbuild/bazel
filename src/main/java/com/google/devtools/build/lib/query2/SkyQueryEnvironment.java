@@ -892,9 +892,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     for (Map.Entry<SkyKey, SkyValue> successfulEntry : successfulEntries) {
       successfulKeysBuilder.add(successfulEntry.getKey());
       TransitiveTraversalValue value = (TransitiveTraversalValue) successfulEntry.getValue();
-      String firstErrorMessage = value.getFirstErrorMessage();
-      if (firstErrorMessage != null) {
-        errorMessagesBuilder.add(firstErrorMessage);
+      String errorMessage = value.getErrorMessage();
+      if (errorMessage != null) {
+        errorMessagesBuilder.add(errorMessage);
       }
     }
     ImmutableSet<SkyKey> successfulKeys = successfulKeysBuilder.build();
