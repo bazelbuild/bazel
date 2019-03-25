@@ -72,4 +72,4 @@ create_system_images_filegroups(
 )
 
 exports_files([
-%exported_files%] + glob(["system-images/**", "tools/bin/*", "tools/**", "emulator/**"]))
+%exported_files%] + glob(["system-images/**", "tools/**", "emulator/**"]))
