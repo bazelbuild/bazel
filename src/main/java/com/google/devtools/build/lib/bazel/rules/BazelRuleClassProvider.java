@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
+import com.google.devtools.build.lib.rules.proto.BazelProtoModule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
@@ -236,7 +237,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
 
-          ProtoBootstrap bootstrap = new ProtoBootstrap(ProtoInfo.PROVIDER);
+          ProtoBootstrap bootstrap =
+              new ProtoBootstrap(ProtoInfo.PROVIDER, BazelProtoModule.INSTANCE);
           builder.addSkylarkBootstrap(bootstrap);
         }
 
