@@ -49,11 +49,6 @@ filegroup(
 )
 
 filegroup(
-    name = "system_images",
-    srcs = glob(["system-images/**"]),
-)
-
-filegroup(
     name = "sdk_path",
     srcs = ["."],
 )
