@@ -419,7 +419,7 @@ public final class NestedSet<E> implements Iterable<E> {
     if (memo == LEAF_MEMO) {
       return ImmutableList.copyOf(new ArraySharingCollection<>((Object[]) children));
     }
-    CompactHashSet<E> members = lockedExpand();
+    CompactHashSet<E> members = lockedExpand(handleInterruptedException);
     if (members != null) {
       return ImmutableList.copyOf(members);
     }
@@ -457,11 +457,12 @@ public final class NestedSet<E> implements Iterable<E> {
    * If this is the first call for this object, fills {@code this.memo} and returns a set from
    * {@link #walk}. Otherwise returns null; the caller should use {@link #replay} instead.
    */
-  private synchronized CompactHashSet<E> lockedExpand() {
+  private synchronized CompactHashSet<E> lockedExpand(boolean handleInterruptedException)
+      throws InterruptedException {
     if (memo != null) {
       return null;
     }
-    Object[] children = (Object[]) this.getChildren();
+    Object[] children = (Object[]) this.getChildren(handleInterruptedException);
     CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
     CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);
