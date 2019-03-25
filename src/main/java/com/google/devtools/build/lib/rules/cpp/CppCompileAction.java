@@ -1359,7 +1359,6 @@ public class CppCompileAction extends AbstractAction
         ImmutableList.builderWithExpectedSize(getOutputs().size() + 1);
     outputs.addAll(getOutputs());
     if (getDotdFile() != null && useInMemoryDotdFiles()) {
-      outputs.add(getDotdFile());
       /*
        * CppCompileAction does dotd file scanning locally inside the Bazel process and thus
        * requires the dotd file contents to be available locally. In remote execution, we
