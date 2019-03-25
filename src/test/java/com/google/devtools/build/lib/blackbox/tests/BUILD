@@ -49,10 +49,21 @@ java_test(
     ],
 )
 
+java_test(
+    name = "DirtinessBlackBoxTest",
+    timeout = "moderate",
+    srcs = ["DirtinessBlackBoxTest.java"],
+    tags = ["black_box_test"],
+    deps = [
+        ":common_deps",
+    ],
+)
+
 test_suite(
     name = "black_box_tests",
     tags = ["black_box_test"],
     tests = [
+        "DirtinessBlackBoxTest",
         "PythonBlackBoxTest",
         "RefreshRootsBlackBoxTest",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework:framework_tests",
@@ -65,6 +76,7 @@ test_suite(
     name = "blackbox_windows_tests",
     tests = [
         "PythonBlackBoxTest",
+        "RefreshRootsBlackBoxTest",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework:framework_tests",
         "//src/test/java/com/google/devtools/build/lib/blackbox/junit:TimeoutTestWatcherTest",
     ],
