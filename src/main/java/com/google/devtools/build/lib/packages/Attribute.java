@@ -2171,10 +2171,10 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the configuration transition for this attribute for label or label
-   * list attributes. For other attributes it will always return {@code NONE}.
+   * Returns the configuration transition for this attribute for label or label list attributes. For
+   * other attributes it will always return {@code NONE}.
    */
-  public ConfigurationTransition getConfigurationTransition() {
+  public ConfigurationTransition getConfigurationTransition(AttributeMap usused) {
     return configTransition;
   }
 
