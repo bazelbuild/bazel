@@ -481,7 +481,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = toolchain.usePicForDynamicLibraries(featureConfiguration);
+    boolean usePic = toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
     for (OutputGroupInfo dep :

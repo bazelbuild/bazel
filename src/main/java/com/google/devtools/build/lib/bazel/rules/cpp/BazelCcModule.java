@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
+import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
@@ -44,7 +44,7 @@ public class BazelCcModule extends CcModule
         Artifact,
         SkylarkRuleContext,
         CcToolchainProvider,
-        FeatureConfiguration,
+        FeatureConfigurationForStarlark,
         CompilationInfo,
         CcCompilationContext,
         CcCompilationOutputs,
@@ -57,7 +57,7 @@ public class BazelCcModule extends CcModule
   @Override
   public CompilationInfo compile(
       SkylarkRuleContext skylarkRuleContext,
-      FeatureConfiguration skylarkFeatureConfiguration,
+      FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       SkylarkList<Artifact> sources,
       SkylarkList<Artifact> headers,
@@ -87,7 +87,7 @@ public class BazelCcModule extends CcModule
   @Override
   public LinkingInfo link(
       SkylarkRuleContext skylarkRuleContext,
-      FeatureConfiguration skylarkFeatureConfiguration,
+      FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       CcCompilationOutputs ccCompilationOutputs,
       Object skylarkLinkopts,

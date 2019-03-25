@@ -41,7 +41,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
             named = true,
             type = FeatureConfigurationApi.class)
       })
-  boolean usePicForDynamicLibraries(FeatureConfigurationT featureConfigurationApi);
+  boolean usePicForDynamicLibrariesFromStarlark(FeatureConfigurationT featureConfigurationApi);
 
   @SkylarkCallable(
       name = "built_in_include_directories",

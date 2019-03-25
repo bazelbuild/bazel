@@ -258,10 +258,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.crosstoolTop;
   }
 
-  /**
-   * Returns the configured current compilation mode. Rules should not call this directly, but
-   * instead use {@code CcToolchainProvider.getCompilationMode}.
-   */
+  /** Returns the configured current compilation mode. */
   public CompilationMode getCompilationMode() {
     return compilationMode;
   }

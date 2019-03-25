@@ -404,8 +404,10 @@ public final class CcLinkingHelper {
         "can only handle static links");
 
     LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
-    boolean usePicForBinaries = CppHelper.usePicForBinaries(ccToolchain, featureConfiguration);
-    boolean usePicForDynamicLibs = ccToolchain.usePicForDynamicLibraries(featureConfiguration);
+    boolean usePicForBinaries =
+        CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration);
+    boolean usePicForDynamicLibs =
+        ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
 
     PathFragment labelName = PathFragment.create(label.getName());
     String libraryIdentifier =

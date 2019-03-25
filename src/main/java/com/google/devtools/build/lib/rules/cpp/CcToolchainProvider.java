@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class CcToolchainProvider extends ToolchainInfo
-    implements CcToolchainProviderApi<FeatureConfiguration>, HasCcToolchainLabel {
+    implements CcToolchainProviderApi<FeatureConfigurationForStarlark>, HasCcToolchainLabel {
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
@@ -275,6 +275,19 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
+   * See {@link #usePicForDynamicLibraries(FeatureConfigurationForStarlark)}. This method is there
+   * only to serve Starlark callers.
+   */
+  @Override
+  public boolean usePicForDynamicLibrariesFromStarlark(
+      FeatureConfigurationForStarlark featureConfiguration) {
+    return usePicForDynamicLibraries(
+        featureConfiguration
+            .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
+        featureConfiguration.getFeatureConfiguration());
+  }
+
+  /**
    * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
    * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
    * However, an individual rule may override these settings by applying -fPIC" to its "nocopts"
@@ -283,9 +296,9 @@ public final class CcToolchainProvider extends ToolchainInfo
    *
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
-  @Override
-  public boolean usePicForDynamicLibraries(FeatureConfiguration featureConfiguration) {
-    return forcePic
+  public boolean usePicForDynamicLibraries(
+      CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
+    return cppConfiguration.forcePic()
         || toolchainNeedsPic()
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
   }
