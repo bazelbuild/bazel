@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -188,7 +189,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setWallTime(Duration.ofMillis(10))
             .setRunnerName("test")
             .build();
-    when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
+    when(spawnActionContext.beginExecution(any(), any()))
+        .thenReturn(SpawnContinuation.immediate(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
@@ -254,9 +256,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setWallTime(Duration.ofMillis(15))
             .setRunnerName("test")
             .build();
-    when(spawnActionContext.exec(any(), any()))
+    when(spawnActionContext.beginExecution(any(), any()))
         .thenThrow(new SpawnExecException("test failed", failSpawnResult, false))
-        .thenReturn(ImmutableList.of(passSpawnResult));
+        .thenReturn(SpawnContinuation.immediate(passSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
@@ -322,7 +324,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setRunnerName("remote")
             .setExecutorHostname("a-remote-host")
             .build();
-    when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
+    when(spawnActionContext.beginExecution(any(), any()))
+        .thenReturn(SpawnContinuation.immediate(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
@@ -380,7 +383,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setWallTime(Duration.ofMillis(10))
             .setRunnerName("remote cache")
             .build();
-    when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
+    when(spawnActionContext.beginExecution(any(), any()))
+        .thenReturn(SpawnContinuation.immediate(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
@@ -438,7 +442,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setExitCode(1)
             .setRunnerName("test")
             .build();
-    when(spawnActionContext.exec(any(), any()))
+    when(spawnActionContext.beginExecution(any(), any()))
         .thenAnswer(
             (invocation) -> {
               Spawn spawn = invocation.getArgument(0);
@@ -456,7 +460,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                     /*forciblyRunRemotely=*/ false,
                     /*catastrophe=*/ false);
               } else {
-                return ImmutableList.of(
+                return SpawnContinuation.immediate(
                     new SpawnResult.Builder()
                         .setStatus(Status.SUCCESS)
                         .setRunnerName("test")
@@ -535,7 +539,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setRunnerName("test")
             .build();
     List<FileOutErr> called = new ArrayList<>();
-    when(spawnActionContext.exec(any(), any()))
+    when(spawnActionContext.beginExecution(any(), any()))
         .thenAnswer(
             (invocation) -> {
               Spawn spawn = invocation.getArgument(0);
@@ -561,7 +565,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                         ? "standalone/failing_test.exe"
                         : "standalone/failing_test";
                 assertThat(spawn.getEnvironment()).containsEntry("TEST_BINARY", testName);
-                return ImmutableList.of(xmlGeneratorSpawnResult);
+                return SpawnContinuation.immediate(xmlGeneratorSpawnResult);
               }
             });
 
@@ -618,7 +622,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
+    when(spawnActionContext.beginExecution(any(), any()))
+        .thenReturn(SpawnContinuation.immediate(expectedSpawnResult));
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =

@@ -754,6 +754,13 @@ public class TestRunnerAction extends AbstractAction
       throws InterruptedException, ActionExecutionException {
     TestActionContext testActionContext =
         actionExecutionContext.getContext(TestActionContext.class);
+    return beginExecution(actionExecutionContext, testActionContext);
+  }
+
+  @VisibleForTesting
+  public ActionContinuationOrResult beginExecution(
+      ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
+      throws InterruptedException, ActionExecutionException {
     try {
       TestRunnerSpawn testRunnerSpawn =
           testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
@@ -792,76 +799,14 @@ public class TestRunnerAction extends AbstractAction
       ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      TestRunnerSpawn testRunnerSpawn =
-          testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
-      return ActionResult.create(
-          runAttempts(
-              testRunnerSpawn, actionExecutionContext, testActionContext.isTestKeepGoing()));
-    } catch (ExecException e) {
-      throw e.toActionExecutionException(this);
+      ActionContinuationOrResult continuation =
+          beginExecution(actionExecutionContext, testActionContext);
+      while (!continuation.isDone()) {
+        continuation = continuation.execute();
+      }
+      return continuation.get();
     } finally {
       unconditionalExecution = null;
-    }
-  }
-
-  private List<SpawnResult> runAttempts(
-      TestRunnerSpawn testRunnerSpawn,
-      ActionExecutionContext actionExecutionContext,
-      boolean keepGoing)
-      throws ExecException, InterruptedException {
-    List<SpawnResult> spawnResults = new ArrayList<>();
-    runAttempts(
-        testRunnerSpawn, actionExecutionContext, keepGoing, spawnResults, new ArrayList<>());
-    return spawnResults;
-  }
-
-  private void runAttempts(
-      TestRunnerSpawn testRunnerSpawn,
-      ActionExecutionContext actionExecutionContext,
-      boolean keepGoing,
-      List<SpawnResult> spawnResults,
-      List<FailedAttemptResult> failedAttempts)
-      throws ExecException, InterruptedException {
-    try {
-      TestAttemptResult testProcessResult = testRunnerSpawn.execute();
-      spawnResults.addAll(testProcessResult.spawnResults());
-      int maxAttempts = testRunnerSpawn.getMaxAttempts(testProcessResult);
-      // Failed test retry loop.
-      for (int attempt = 1; attempt < maxAttempts && !testProcessResult.hasPassed(); attempt++) {
-        failedAttempts.add(
-            testRunnerSpawn.finalizeFailedTestAttempt(
-                testProcessResult, failedAttempts.size() + 1));
-
-        testProcessResult = testRunnerSpawn.execute();
-        spawnResults.addAll(testProcessResult.spawnResults());
-      }
-
-      TestRunnerSpawn fallbackRunner;
-      if (!testProcessResult.hasPassed()
-          && (fallbackRunner = testRunnerSpawn.getFallbackRunner()) != null) {
-        // All attempts failed and fallback is enabled.
-        failedAttempts.add(
-            testRunnerSpawn.finalizeFailedTestAttempt(
-                testProcessResult, failedAttempts.size() + 1));
-        runAttempts(
-            fallbackRunner, actionExecutionContext, keepGoing, spawnResults, failedAttempts);
-      } else {
-        testRunnerSpawn.finalizeTest(testProcessResult, failedAttempts);
-
-        if (!keepGoing && !testProcessResult.hasPassed()) {
-          throw new TestExecException("Test failed: aborting");
-        }
-      }
-    } catch (IOException e) {
-      // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-      // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-      StringBuilder sb = new StringBuilder();
-      sb.append("Caught I/O exception: ").append(e.getMessage());
-      for (Object s : e.getStackTrace()) {
-        sb.append("\n\t").append(s);
-      }
-      actionExecutionContext.getEventHandler().handle(Event.error(sb.toString()));
-      throw new EnvironmentalExecException("unexpected I/O exception", e);
     }
   }
 
