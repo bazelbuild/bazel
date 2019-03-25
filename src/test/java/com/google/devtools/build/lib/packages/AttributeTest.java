@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -279,7 +280,9 @@ public class AttributeTest {
     TestSplitTransition splitTransition = new TestSplitTransition();
     Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
-    assertThat(attr.getSplitTransition(FakeAttributeMapper.empty())).isEqualTo(splitTransition);
+    ConfigurationTransition transition =
+        attr.getTransitionFactory().create(RuleTransitionData.create(FakeAttributeMapper.empty()));
+    assertThat(transition).isEqualTo(splitTransition);
   }
 
   @Test
@@ -288,7 +291,9 @@ public class AttributeTest {
     Attribute attr =
         attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
-    assertThat(attr.getSplitTransition(FakeAttributeMapper.empty()) instanceof TestSplitTransition).isTrue();
+    ConfigurationTransition transition =
+        attr.getTransitionFactory().create(RuleTransitionData.create(FakeAttributeMapper.empty()));
+    assertThat(transition).isInstanceOf(TestSplitTransition.class);
   }
 
   @Test
