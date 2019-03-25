@@ -626,8 +626,30 @@ public final class CcToolchainProvider extends ToolchainInfo
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
   }
 
+  /**
+   * Deprecated, do not use. Read the javadoc for {@link
+   * #getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()}.
+   */
   @Nullable
+  @Deprecated
   public CppConfiguration getCppConfiguration() {
+    return cppConfiguration;
+  }
+
+  /**
+   * Return CppConfiguration instance that was used to configure CcToolchain.
+   *
+   * <p>If C++ rules use platforms/toolchains without
+   * https://github.com/bazelbuild/proposals/blob/master/designs/2019-02-12-toolchain-transitions.md
+   * implemented, CcToolchain is analyzed in the host configuration. This configuration is not what
+   * should be used by rules using the toolchain. This method should only be used to access stuff
+   * from CppConfiguration that is identical between host and target (e.g. incompatible flag
+   * values). Don't use it if you don't know what you're doing.
+   *
+   * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
+   * toolchain in rules.
+   */
+  public CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas() {
     return cppConfiguration;
   }
 

@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface BazelCcModuleApi<
         FileT extends FileApi,
         SkylarkRuleContextT extends SkylarkRuleContextApi,
-        CcToolchainProviderT extends CcToolchainProviderApi,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationInfoT extends CompilationInfoApi,
         CcCompilationContextT extends CcCompilationContextApi,

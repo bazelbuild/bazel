@@ -68,6 +68,14 @@ public interface CcModuleApi<
       doc = "Creates a feature_configuration instance.",
       parameters = {
         @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(
             name = "cc_toolchain",
             doc = "cc_toolchain for which we configure features.",
             positional = false,
@@ -89,6 +97,7 @@ public interface CcModuleApi<
             type = SkylarkList.class),
       })
   FeatureConfigurationT configureFeatures(
+      Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
       SkylarkList<String> requestedFeatures,
       SkylarkList<String> unsupportedFeatures)

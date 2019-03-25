@@ -43,7 +43,7 @@ public class FakeCcModule
     implements BazelCcModuleApi<
         FileApi,
         SkylarkRuleContextApi,
-        CcToolchainProviderApi,
+        CcToolchainProviderApi<FeatureConfigurationApi>,
         FeatureConfigurationApi,
         CompilationInfoApi,
         CcCompilationContextApi,
@@ -60,8 +60,11 @@ public class FakeCcModule
   }
 
   @Override
-  public FeatureConfigurationApi configureFeatures(CcToolchainProviderApi toolchain,
-      SkylarkList<String> requestedFeatures, SkylarkList<String> unsupportedFeatures)
+  public FeatureConfigurationApi configureFeatures(
+      Object ruleContextOrNone,
+      CcToolchainProviderApi<FeatureConfigurationApi> toolchain,
+      SkylarkList<String> requestedFeatures,
+      SkylarkList<String> unsupportedFeatures)
       throws EvalException {
     return null;
   }
@@ -168,7 +171,7 @@ public class FakeCcModule
   public CompilationInfoApi compile(
       SkylarkRuleContextApi skylarkRuleContext,
       FeatureConfigurationApi skylarkFeatureConfiguration,
-      CcToolchainProviderApi skylarkCcToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
       SkylarkList<FileApi> sources,
       SkylarkList<FileApi> headers,
       Object skylarkIncludes,
@@ -182,7 +185,7 @@ public class FakeCcModule
   public LinkingInfoApi link(
       SkylarkRuleContextApi skylarkRuleContext,
       FeatureConfigurationApi skylarkFeatureConfiguration,
-      CcToolchainProviderApi skylarkCcToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
       CcCompilationOutputsApi ccCompilationOutputs,
       Object skylarkLinkopts,
       Object dynamicLibrary,
