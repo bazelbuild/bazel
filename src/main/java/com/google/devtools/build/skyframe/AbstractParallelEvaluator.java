@@ -390,6 +390,7 @@ public abstract class AbstractParallelEvaluator {
 
     @Override
     public void run() {
+      SkyFunctionEnvironment env = null;
       try {
         NodeEntry state =
             Preconditions.checkNotNull(graph.get(null, Reason.EVALUATION, skyKey), skyKey);
@@ -404,7 +405,6 @@ public abstract class AbstractParallelEvaluator {
         }
 
         Set<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
-        SkyFunctionEnvironment env;
         try {
           evaluatorContext
               .getProgressReceiver()
@@ -698,6 +698,16 @@ public abstract class AbstractParallelEvaluator {
         // Do not put any code here! Any code here can race with a re-evaluation of this same node
         // in another thread.
       } catch (InterruptedException ie) {
+        // The current thread can be interrupted at various places during evaluation or while
+        // committing the result in this method. Since we only register the future(s) with the
+        // underlying AbstractQueueVisitor in the registerExternalDeps call above, we have to make
+        // sure that any known futures are correctly canceled if we do not reach that call. Note
+        // that it is safe to cancel a future multiple times.
+        if (env != null && env.externalDeps != null) {
+          for (ListenableFuture<?> future : env.externalDeps) {
+            future.cancel(/*mayInterruptIfRunning=*/ true);
+          }
+        }
         // InterruptedException cannot be thrown by Runnable.run, so we must wrap it.
         // Interrupts can be caught by both the Evaluator and the AbstractQueueVisitor.
         // The former will unwrap the IE and propagate it as is; the latter will throw a new IE.
