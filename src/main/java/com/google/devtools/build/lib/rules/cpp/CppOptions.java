@@ -708,6 +708,20 @@ public class CppOptions extends FragmentOptions {
   public boolean dontEnableHostNonhost;
 
   @Option(
+      name = "incompatible_require_ctx_in_configure_features",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will require 'ctx' parameter in to cc_common.configure_features "
+              + "(see https://github.com/bazelbuild/bazel/issues/7793 for more information).")
+  public boolean requireCtxInConfigureFeatures;
+
+  @Option(
       name = "incompatible_disable_legacy_crosstool_fields",
       oldName = "experimental_disable_legacy_crosstool_fields",
       defaultValue = "true",
@@ -909,6 +923,7 @@ public class CppOptions extends FragmentOptions {
     host.enableCcToolchainResolution = enableCcToolchainResolution;
     host.removeLegacyWholeArchive = removeLegacyWholeArchive;
     host.dontEnableHostNonhost = dontEnableHostNonhost;
+    host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     return host;
   }
 

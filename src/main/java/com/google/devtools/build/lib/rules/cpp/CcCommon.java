@@ -800,7 +800,10 @@ public final class CcCommon {
       CcToolchainProvider toolchain) {
     try {
       return configureFeaturesOrThrowEvalException(
-          requestedFeatures, unsupportedFeatures, toolchain);
+          requestedFeatures,
+          unsupportedFeatures,
+          toolchain,
+          ruleContext.getFragment(CppConfiguration.class));
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
@@ -810,9 +813,9 @@ public final class CcCommon {
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
-      CcToolchainProvider toolchain)
+      CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration)
       throws EvalException {
-    CppConfiguration cppConfiguration = toolchain.getCppConfiguration();
     ImmutableSet.Builder<String> allRequestedFeaturesBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
@@ -1010,8 +1013,25 @@ public final class CcCommon {
 
   private static List<String> computeCcFlagsFromFeatureConfig(
       RuleContext ruleContext, CcToolchainProvider toolchainProvider) {
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
+    FeatureConfiguration featureConfiguration = null;
+    CppConfiguration cppConfiguration =
+        toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas();
+    if (cppConfiguration.requireCtxInConfigureFeatures()) {
+      // When this is flipped, this whole method will go away. But I'm keeping it there
+      // so we can experiment with flags before they are flipped.
+      Preconditions.checkArgument(cppConfiguration.disableGenruleCcToolchainDependency());
+      cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    }
+    try {
+      featureConfiguration =
+          configureFeaturesOrThrowEvalException(
+              ruleContext.getFeatures(),
+              ruleContext.getDisabledFeatures(),
+              toolchainProvider,
+              cppConfiguration);
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getMessage());
+    }
     if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       CcToolchainVariables buildVariables = toolchainProvider.getBuildVariables();
       return featureConfiguration.getCommandLine(

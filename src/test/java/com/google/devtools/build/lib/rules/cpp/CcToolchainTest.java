@@ -187,7 +187,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         CcCommon.configureFeaturesOrThrowEvalException(
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
-            toolchainProvider);
+            toolchainProvider,
+            getRuleContext(target).getFragment(CppConfiguration.class));
     return CppHelper.usePicForBinaries(toolchainProvider, featureConfiguration);
   }
 

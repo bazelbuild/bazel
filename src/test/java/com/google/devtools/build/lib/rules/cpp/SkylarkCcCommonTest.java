@@ -135,7 +135,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(actionToolPath)
         .isEqualTo(featureConfiguration.getToolPathForAction(CppActionNames.CPP_COMPILE));
   }
@@ -251,7 +254,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(commandLine)
         .containsExactlyElementsIn(
             featureConfiguration.getCommandLine("c++-link-executable", CcToolchainVariables.EMPTY));
@@ -293,7 +299,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
@@ -372,6 +381,34 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     boolean disabledFeatureIsDisabled = (boolean) r.get("disabled_feature");
     assertThat(enabledFeatureIsEnabled).isTrue();
     assertThat(disabledFeatureIsDisabled).isFalse();
+  }
+
+  @Test
+  public void testFeatureConfigurationRequiresCtx() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)",
+        "  return struct()",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+    useConfiguration("--incompatible_require_ctx_in_configure_features");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("mandatory parameter 'ctx' of cc_common.configure_features is missing");
   }
 
   @Test
