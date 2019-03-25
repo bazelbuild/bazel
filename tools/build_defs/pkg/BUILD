@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 licenses(["notice"])  # Apache 2.0
 
 filegroup(
@@ -213,9 +214,9 @@ pkg_deb(
         "dep1",
         "dep2",
     ],
-    description = "toto",
+    description = "toto ®, Й, ק ,م, ๗, あ, 叶, 葉, 말, ü and é",
     distribution = "trusty",
-    maintainer = "someone@somewhere.com",
+    maintainer = "soméone@somewhere.com",
     make_deb = ":make_deb",
     package = "titi",
     urgency = "low",
