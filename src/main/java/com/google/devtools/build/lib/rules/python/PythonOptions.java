@@ -87,7 +87,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_allow_python_version_transitions",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
