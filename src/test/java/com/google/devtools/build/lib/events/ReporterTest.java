@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.events.Reporter.SHOW_ONCE_TAG;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
@@ -68,6 +69,23 @@ public class ReporterTest extends EventTestTemplate {
     }
     ImmutableList<Event> got = ImmutableList.copyOf(collector);
     assertThat(want).isEqualTo(got);
+  }
+
+  @Test
+  public void reporterIgnoresDuplicateEventsWithShowOnce() {
+    ImmutableList<Event> duplicates =
+        ImmutableList.of(
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
+    EventCollector collector = new EventCollector();
+    reporter.addHandler(collector);
+    for (Event e : duplicates) {
+      reporter.handle(e);
+    }
+    ImmutableList<Event> got = ImmutableList.copyOf(collector);
+    assertThat(got).containsExactly(Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
   }
 
   @Test
