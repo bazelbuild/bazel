@@ -450,7 +450,10 @@ public class CcToolchainProviderHelper {
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
             ruleContext,
-            cppConfiguration,
+            cppConfiguration.disableLegacyCrosstoolFields(),
+            cppConfiguration.disableGenruleCcToolchainDependency(),
+            cppConfiguration.getTransformedCpuFromOptions(),
+            cppConfiguration.getCompilerFromOptions(),
             attributes,
             ccSkyframeSupportValue,
             toolchain,
@@ -694,7 +697,10 @@ public class CcToolchainProviderHelper {
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
   private static CppToolchainInfo getCppToolchainInfo(
       RuleContext ruleContext,
-      CppConfiguration cppConfiguration,
+      boolean disableLegacyCrosstoolFields,
+      boolean disableGenruleCcToolchainDependency,
+      String cpuFromOptions,
+      String compilerFromOptions,
       CcToolchainAttributesProvider attributes,
       CcSkyframeSupportValue ccSkyframeSupportValue,
       CToolchain toolchainFromCcToolchainAttribute,
@@ -708,8 +714,8 @@ public class CcToolchainProviderHelper {
         return CppToolchainInfo.create(
             ruleContext.getLabel(),
             configInfo,
-            cppConfiguration.disableLegacyCrosstoolFields(),
-            cppConfiguration.disableGenruleCcToolchainDependency());
+            disableLegacyCrosstoolFields,
+            disableGenruleCcToolchainDependency);
       } catch (EvalException e) {
         throw ruleContext.throwWithRuleError(e.getMessage());
       }
@@ -722,7 +728,8 @@ public class CcToolchainProviderHelper {
           getToolchainFromAttributes(
               ruleContext,
               attributes,
-              cppConfiguration,
+              cpuFromOptions,
+              compilerFromOptions,
               crosstoolFromCcToolchainSuiteProtoAttribute,
               ccSkyframeSupportValue);
     }
@@ -742,8 +749,8 @@ public class CcToolchainProviderHelper {
       return CppToolchainInfo.create(
           attributes.getCcToolchainLabel(),
           ccToolchainConfigInfo,
-          cppConfiguration.disableLegacyCrosstoolFields(),
-          cppConfiguration.disableGenruleCcToolchainDependency());
+          disableLegacyCrosstoolFields,
+          disableGenruleCcToolchainDependency);
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
     }
@@ -767,23 +774,23 @@ public class CcToolchainProviderHelper {
   }
 
   private static void reportInvalidOptions(RuleContext ruleContext, CppToolchainInfo toolchain) {
-    CppOptions options = ruleContext.getConfiguration().getOptions().get(CppOptions.class);
-    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
-    if (options.fissionModes.contains(config.getCompilationMode())
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
         && !toolchain.supportsFission()) {
       ruleContext.ruleWarning(
           "Fission is not supported by this crosstool.  Please use a "
               + "supporting crosstool to enable fission");
     }
-    if (options.buildTestDwp
-        && !(toolchain.supportsFission() && config.fissionIsActiveForCurrentCompilationMode())) {
+    if (cppConfiguration.buildTestDwpIsActivated()
+        && !(toolchain.supportsFission()
+            && cppConfiguration.fissionIsActiveForCurrentCompilationMode())) {
       ruleContext.ruleWarning(
           "Test dwp file requested, but Fission is not enabled.  To generate a "
               + "dwp for the test executable, use '--fission=yes' with a toolchain that supports "
               + "Fission to build statically.");
     }
 
-    if (config.getLibcTopLabel() != null && toolchain.getDefaultSysroot() == null) {
+    if (cppConfiguration.getLibcTopLabel() != null && toolchain.getDefaultSysroot() == null) {
       ruleContext.ruleError(
           "The selected toolchain "
               + toolchain.getToolchainIdentifier()
@@ -795,7 +802,8 @@ public class CcToolchainProviderHelper {
   private static CToolchain getToolchainFromAttributes(
       RuleContext ruleContext,
       CcToolchainAttributesProvider attributes,
-      CppConfiguration cppConfiguration,
+      String cpuFromOptions,
+      String compilerFromOptions,
       CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute,
       CcSkyframeSupportValue ccSkyframeSupportValue)
       throws RuleErrorException {
@@ -813,8 +821,8 @@ public class CcToolchainProviderHelper {
           attributes.getToolchainIdentifier(),
           attributes.getCpu(),
           attributes.getCompiler(),
-          cppConfiguration.getTransformedCpuFromOptions(),
-          cppConfiguration.getCompilerFromOptions(),
+          cpuFromOptions,
+          compilerFromOptions,
           crosstoolRelease);
     } catch (InvalidConfigurationException e) {
       ruleContext.throwWithRuleError(

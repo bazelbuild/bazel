@@ -123,8 +123,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final boolean useLLVMCoverageMapFormat;
   private final boolean codeCoverageEnabled;
   private final boolean isHostConfiguration;
-  private final boolean forcePic;
-  private final boolean shouldStripBinaries;
   /**
    * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
    * and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it, don't
@@ -210,13 +208,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.useLLVMCoverageMapFormat = useLLVMCoverageMapFormat;
     this.codeCoverageEnabled = codeCoverageEnabled;
     this.isHostConfiguration = isHostConfiguration;
-    if (cppConfiguration != null) {
-      this.forcePic = cppConfiguration.forcePic();
-      this.shouldStripBinaries = cppConfiguration.shouldStripBinaries();
-    } else {
-      this.forcePic = false;
-      this.shouldStripBinaries = false;
-    }
     this.licensesProvider = licensesProvider;
   }
 
@@ -304,19 +295,11 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
-   * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
-   * the given configuration and toolchain.
-   */
-  public boolean useFission() {
-    return Preconditions.checkNotNull(cppConfiguration).fissionIsActiveForCurrentCompilationMode()
-        && supportsFission();
-  }
-
-  /**
    * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the
    * build implied by the given configuration, toolchain and feature configuration.
    */
-  public boolean shouldCreatePerObjectDebugInfo(FeatureConfiguration featureConfiguration) {
+  public boolean shouldCreatePerObjectDebugInfo(
+      FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
     return cppConfiguration.fissionIsActiveForCurrentCompilationMode()
         && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
   }
@@ -333,7 +316,8 @@ public final class CcToolchainProvider extends ToolchainInfo
    * It will run compiler's parser to ensure the header is self-contained. This is required for
    * layering_check to work.
    */
-  public boolean shouldProcessHeaders(FeatureConfiguration featureConfiguration) {
+  public boolean shouldProcessHeaders(
+      FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
     // If parse_headers_verifies_modules is switched on, we verify that headers are
     // self-contained by building the module instead.
     return !cppConfiguration.getParseHeadersVerifiesModules()
@@ -584,14 +568,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getSolibDirectory();
   }
 
-  /**
-   * Returns the compilation mode.
-   */
-  @Nullable
-  public CompilationMode getCompilationMode() {
-    return cppConfiguration == null ? null : cppConfiguration.getCompilationMode();
-  }
-
   /** Returns whether the toolchain supports dynamic linking. */
   public boolean supportsDynamicLinker(FeatureConfiguration featureConfiguration) {
     return toolchainInfo.supportsDynamicLinker()
@@ -622,16 +598,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   public boolean supportsInterfaceSharedLibraries(FeatureConfiguration featureConfiguration) {
     return toolchainInfo.supportsInterfaceSharedLibraries()
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
-  }
-
-  /**
-   * Deprecated, do not use. Read the javadoc for {@link
-   * #getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()}.
-   */
-  @Nullable
-  @Deprecated
-  public CppConfiguration getCppConfiguration() {
-    return cppConfiguration;
   }
 
   /**
@@ -1044,14 +1010,6 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   public boolean isHostConfiguration() {
     return isHostConfiguration;
-  }
-
-  public boolean getForcePic() {
-    return forcePic;
-  }
-
-  public boolean getShouldStripBinaries() {
-    return shouldStripBinaries;
   }
 
   public LicensesProvider getLicensesProvider() {

@@ -361,7 +361,7 @@ public class CppLinkActionBuilder {
                 toolchain,
                 fdoContext,
                 usePicForLtoBackendActions,
-                toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
+                toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
                 argv)
             : new LtoBackendArtifacts(
                 ltoOutputRootPrefix,
@@ -375,7 +375,7 @@ public class CppLinkActionBuilder {
                 toolchain,
                 fdoContext,
                 usePicForLtoBackendActions,
-                toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
+                toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
                 argv);
     return ltoArtifact;
   }

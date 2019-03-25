@@ -620,6 +620,6 @@ public class CppCompileActionBuilder {
 
   public boolean shouldCompileHeaders() {
     Preconditions.checkNotNull(featureConfiguration);
-    return ccToolchain.shouldProcessHeaders(featureConfiguration);
+    return ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration);
   }
 }

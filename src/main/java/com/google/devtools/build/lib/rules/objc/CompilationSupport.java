@@ -570,8 +570,10 @@ public class CompilationSupport {
     if (objcProvider.is(Flag.USES_OBJC)) {
       activatedCrosstoolSelectables.add(CONTAINS_OBJC);
     }
-    if (toolchain.useFission()
-        && !ruleContext.getFragment(CppConfiguration.class).disableLegacyCrosstoolFields()) {
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
+        && toolchain.supportsFission()
+        && !cppConfiguration.disableLegacyCrosstoolFields()) {
       activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
 

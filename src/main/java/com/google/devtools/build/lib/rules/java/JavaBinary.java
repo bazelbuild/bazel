@@ -155,7 +155,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
             ccToolchain);
     boolean stripAsDefault =
-        ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration)
+        ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration)
             && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
     DeployArchiveBuilder unstrippedDeployArchiveBuilder = null;
     if (stripAsDefault) {

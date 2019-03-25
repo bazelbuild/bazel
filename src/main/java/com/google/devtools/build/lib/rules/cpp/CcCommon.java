@@ -857,19 +857,19 @@ public final class CcCommon {
     // according to compilation mode.
     if (requestedFeatures.contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
       allRequestedFeaturesBuilder.add(
-          toolchain.getCompilationMode() == CompilationMode.DBG
+          cppConfiguration.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.STATIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.STATIC_LINK_MSVCRT_NO_DEBUG);
     } else {
       allRequestedFeaturesBuilder.add(
-          toolchain.getCompilationMode() == CompilationMode.DBG
+          cppConfiguration.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.DYNAMIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
     }
 
     ImmutableList.Builder<String> allFeatures =
         new ImmutableList.Builder<String>()
-            .addAll(ImmutableSet.of(toolchain.getCompilationMode().toString()))
+            .addAll(ImmutableSet.of(cppConfiguration.getCompilationMode().toString()))
             .addAll(
                 cppConfiguration.disableLegacyCrosstoolFields()
                     ? ImmutableList.of()
@@ -886,7 +886,9 @@ public final class CcCommon {
       }
     }
 
-    if (toolchain.useFission() && !cppConfiguration.disableLegacyCrosstoolFields()) {
+    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
+        && toolchain.supportsFission()
+        && !cppConfiguration.disableLegacyCrosstoolFields()) {
       allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
 
@@ -898,7 +900,7 @@ public final class CcCommon {
     }
 
     FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
-    if (branchFdoProvider != null && toolchain.getCompilationMode() == CompilationMode.OPT) {
+    if (branchFdoProvider != null && cppConfiguration.getCompilationMode() == CompilationMode.OPT) {
       if (branchFdoProvider.isLlvmFdo()
           && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
         allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
