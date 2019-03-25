@@ -50,8 +50,6 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
-    INCOMPATIBLE_REQUIRE_FEATURE_CONFIGURATION_FOR_PIC(
-        StarlarkSemantics::incompatibleRequireFeatureConfigurationForPic),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -178,8 +176,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
-  public abstract boolean incompatibleRequireFeatureConfigurationForPic();
-
   public abstract boolean incompatibleStricArgumentOrdering();
 
   public abstract boolean internalSkylarkFlagTestCanary();
@@ -236,7 +232,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNoTransitiveLoads(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
-          .incompatibleRequireFeatureConfigurationForPic(true)
           .incompatibleStricArgumentOrdering(true)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(false)
@@ -272,8 +267,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisableThirdPartyLicenseChecking(boolean value);
 
     public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
-
-    public abstract Builder incompatibleRequireFeatureConfigurationForPic(boolean value);
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 

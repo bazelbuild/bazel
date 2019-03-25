@@ -291,21 +291,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
-   * Deprecated since it uses legacy crosstool fields.
-   *
-   * <p>See {link {@link #usePicForDynamicLibraries(FeatureConfiguration)} for docs}
-   *
-   * @return
-   */
-  @Deprecated
-  @Override
-  public boolean usePicForDynamicLibrariesUsingLegacyFields() {
-    return forcePic
-        || toolchainNeedsPic()
-        || FeatureConfiguration.EMPTY.isEnabled(CppRuleClasses.SUPPORTS_PIC);
-  }
-
-  /**
    * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
    * the given configuration and toolchain.
    */
