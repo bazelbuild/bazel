@@ -33,6 +33,7 @@ public interface RuleTransitionFactory {
    * <p>If this class determines that no transition should be performed, it should return {@code
    * NoTransition.INSTANCE}.
    */
-  // TODO(bazel-team): refactor to only take an AttributeMap since that's how it's used anyway.
+  // TODO(bazel-team): Refactor to only take an AttributeMap. Currently the entire Rule is consumed
+  // by StarlarkRuleTransitionProvider and TestTrimmingTransitionFactory.
   PatchTransition buildTransitionFor(Rule rule);
 }
