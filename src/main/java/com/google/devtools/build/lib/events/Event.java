@@ -205,18 +205,24 @@ public final class Event implements Serializable {
     return new Event(kind, location, messageBytes, null, null, null);
   }
 
-  /**
-   * Reports an error.
-   */
-  public static Event error(@Nullable Location location, String message){
+  /** Reports an error. */
+  public static Event error(@Nullable Location location, String message) {
     return new Event(EventKind.ERROR, location, message, null, null, null);
   }
 
-  /**
-   * Reports a warning.
-   */
+  /** Reports an error. */
+  public static Event error(String message) {
+    return error(null, message);
+  }
+
+  /** Reports a warning. */
   public static Event warn(@Nullable Location location, String message) {
     return new Event(EventKind.WARNING, location, message, null, null, null);
+  }
+
+  /** Reports a warning. */
+  public static Event warn(String message) {
+    return warn(null, message);
   }
 
   /**
@@ -227,45 +233,25 @@ public final class Event implements Serializable {
   }
 
   /**
-   * Reports a temporal statement about the build.
-   */
-  public static Event progress(@Nullable Location location, String message) {
-    return new Event(EventKind.PROGRESS, location, message, null, null, null);
-  }
-
-  /**
-   * Reports a debug message.
-   */
-  public static Event debug(@Nullable Location location, String message) {
-    return new Event(EventKind.DEBUG, location, message, null, null, null);
-  }
-
-  /**
-   * Reports an error.
-   */
-  public static Event error(String message){
-    return error(null, message);
-  }
-
-  /**
-   * Reports a warning.
-   */
-  public static Event warn(String message) {
-    return warn(null, message);
-  }
-
-  /**
    * Reports atemporal statements about the build, i.e. they're true for the duration of execution.
    */
   public static Event info(String message) {
     return info(null, message);
   }
 
-  /**
-   * Reports a temporal statement about the build.
-   */
+  /** Reports a temporal statement about the build. */
+  public static Event progress(@Nullable Location location, String message) {
+    return new Event(EventKind.PROGRESS, location, message, null, null, null);
+  }
+
+  /** Reports a temporal statement about the build. */
   public static Event progress(String message) {
     return progress(null, message);
+  }
+
+  /** Reports a debug message. */
+  public static Event debug(@Nullable Location location, String message) {
+    return new Event(EventKind.DEBUG, location, message, null, null, null);
   }
 
   /**
