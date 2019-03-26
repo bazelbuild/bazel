@@ -418,6 +418,35 @@ public final class CcCommon {
     return getHeaders(ruleContext);
   }
 
+  public void reportInvalidOptions(RuleContext ruleContext) {
+    reportInvalidOptions(ruleContext, cppConfiguration, ccToolchain);
+  }
+
+  public static void reportInvalidOptions(
+      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider ccToolchain) {
+    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
+        && !ccToolchain.supportsFission()) {
+      ruleContext.ruleWarning(
+          "Fission is not supported by this crosstool.  Please use a "
+              + "supporting crosstool to enable fission");
+    }
+    if (cppConfiguration.buildTestDwpIsActivated()
+        && !(ccToolchain.supportsFission()
+            && cppConfiguration.fissionIsActiveForCurrentCompilationMode())) {
+      ruleContext.ruleWarning(
+          "Test dwp file requested, but Fission is not enabled.  To generate a "
+              + "dwp for the test executable, use '--fission=yes' with a toolchain that supports "
+              + "Fission to build statically.");
+    }
+
+    if (cppConfiguration.getLibcTopLabel() != null && ccToolchain.getDefaultSysroot() == null) {
+      ruleContext.ruleError(
+          "The selected toolchain "
+              + ccToolchain.getToolchainIdentifier()
+              + " does not support setting --grte_top (it doesn't specify builtin_sysroot).");
+    }
+  }
+
   /**
    * Supply CC_FLAGS Make variable value computed from FeatureConfiguration. Appends them to
    * original CC_FLAGS, so FeatureConfiguration can override legacy values.

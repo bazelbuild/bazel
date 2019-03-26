@@ -120,6 +120,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     final CcCommon common = new CcCommon(ruleContext);
+    common.reportInvalidOptions(ruleContext);
 
     CcToolchainProvider ccToolchain = common.getToolchain();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);

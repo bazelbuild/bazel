@@ -256,6 +256,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ruleContext.checkSrcsSamePackage(true);
 
     CcCommon common = new CcCommon(ruleContext);
+    common.reportInvalidOptions(ruleContext);
     CcToolchainProvider ccToolchain = common.getToolchain();
 
     ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();

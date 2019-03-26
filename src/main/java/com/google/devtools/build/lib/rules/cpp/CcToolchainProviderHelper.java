@@ -446,7 +446,7 @@ public class CcToolchainProviderHelper {
       fdoInputFile =
           FdoInputFile.fromAbsolutePath(ccSkyframeSupportValue.getFdoZipPath().asFragment());
     }
-
+    
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
             ruleContext,
@@ -610,7 +610,6 @@ public class CcToolchainProviderHelper {
 
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
 
-    reportInvalidOptions(ruleContext, toolchainInfo);
     return new CcToolchainProvider(
         getToolchainForSkylark(toolchainInfo),
         cppConfiguration,
@@ -754,31 +753,6 @@ public class CcToolchainProviderHelper {
       return builder.build();
     } catch (ParseException e) {
       throw ruleContext.throwWithAttributeError("proto", "Could not parse CToolchain data");
-    }
-  }
-
-  private static void reportInvalidOptions(RuleContext ruleContext, CppToolchainInfo toolchain) {
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
-        && !toolchain.supportsFission()) {
-      ruleContext.ruleWarning(
-          "Fission is not supported by this crosstool.  Please use a "
-              + "supporting crosstool to enable fission");
-    }
-    if (cppConfiguration.buildTestDwpIsActivated()
-        && !(toolchain.supportsFission()
-            && cppConfiguration.fissionIsActiveForCurrentCompilationMode())) {
-      ruleContext.ruleWarning(
-          "Test dwp file requested, but Fission is not enabled.  To generate a "
-              + "dwp for the test executable, use '--fission=yes' with a toolchain that supports "
-              + "Fission to build statically.");
-    }
-
-    if (cppConfiguration.getLibcTopLabel() != null && toolchain.getDefaultSysroot() == null) {
-      ruleContext.ruleError(
-          "The selected toolchain "
-              + toolchain.getToolchainIdentifier()
-              + " does not support setting --grte_top (it doesn't specify builtin_sysroot).");
     }
   }
 
