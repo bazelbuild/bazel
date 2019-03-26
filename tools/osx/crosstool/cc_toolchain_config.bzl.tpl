@@ -583,474 +583,71 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
-        objc_executable_action = action_config(
-            action_name = "objc-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                    ],
-                    with_features = [with_feature_set(not_features = ["kernel_extension"])],
-                ),
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-arch", "<architecture>"]),
-                        flag_group(
-                            flags = ["-framework", "%{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework", "%{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist", "%{filelist}"]),
-                        flag_group(flags = ["-o", "%{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load", "%{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "strip_debug_symbols",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
-        objc_executable_action = action_config(
-            action_name = "objc-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                    ],
-                    with_features = [with_feature_set(not_features = ["kernel_extension"])],
-                ),
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-arch", "arm64"]),
-                        flag_group(
-                            flags = ["-framework", "%{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework", "%{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist", "%{filelist}"]),
-                        flag_group(flags = ["-o", "%{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load", "%{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "strip_debug_symbols",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        objc_executable_action = action_config(
-            action_name = "objc-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                    ],
-                    with_features = [with_feature_set(not_features = ["kernel_extension"])],
-                ),
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-arch", "arm64e"]),
-                        flag_group(
-                            flags = ["-framework", "%{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework", "%{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist", "%{filelist}"]),
-                        flag_group(flags = ["-o", "%{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load", "%{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "strip_debug_symbols",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_armv7"):
-        objc_executable_action = action_config(
-            action_name = "objc-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                    ],
-                    with_features = [with_feature_set(not_features = ["kernel_extension"])],
-                ),
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-arch", "armv7"]),
-                        flag_group(
-                            flags = ["-framework", "%{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework", "%{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist", "%{filelist}"]),
-                        flag_group(flags = ["-o", "%{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load", "%{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "strip_debug_symbols",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        objc_executable_action = action_config(
-            action_name = "objc-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                    ],
-                    with_features = [with_feature_set(not_features = ["kernel_extension"])],
-                ),
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-arch", "armv7k"]),
-                        flag_group(
-                            flags = ["-framework", "%{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework", "%{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist", "%{filelist}"]),
-                        flag_group(flags = ["-o", "%{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load", "%{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "strip_debug_symbols",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
-        objc_executable_action = action_config(
-            action_name = "objc-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                    ],
-                    with_features = [with_feature_set(not_features = ["kernel_extension"])],
-                ),
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-arch", "i386"]),
-                        flag_group(
-                            flags = ["-framework", "%{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework", "%{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist", "%{filelist}"]),
-                        flag_group(flags = ["-o", "%{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load", "%{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "strip_debug_symbols",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        objc_executable_action = action_config(
-            action_name = "objc-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                    ],
-                    with_features = [with_feature_set(not_features = ["kernel_extension"])],
-                ),
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-arch", "x86_64"]),
-                        flag_group(
-                            flags = ["-framework", "%{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework", "%{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist", "%{filelist}"]),
-                        flag_group(flags = ["-o", "%{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load", "%{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "strip_debug_symbols",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
+    objc_executable_action = action_config(
+        action_name = "objc-executable",
+        flag_sets = [
+            flag_set(
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-Xlinker",
+                            "-objc_abi_version",
+                            "-Xlinker",
+                            "2",
+                            "-fobjc-link-runtime",
+                            "-ObjC",
+                        ],
+                    ),
+                ],
+                with_features = [with_feature_set(not_features = ["kernel_extension"])],
+            ),
+            flag_set(
+                flag_groups = [
+                    flag_group(flags = ["-arch", _arch_for_cpu(ctx.attr.cpu)]),
+                    flag_group(
+                        flags = ["-framework", "%{framework_names}"],
+                        iterate_over = "framework_names",
+                    ),
+                    flag_group(
+                        flags = ["-weak_framework", "%{weak_framework_names}"],
+                        iterate_over = "weak_framework_names",
+                    ),
+                    flag_group(
+                        flags = ["-l%{library_names}"],
+                        iterate_over = "library_names",
+                    ),
+                    flag_group(flags = ["-filelist", "%{filelist}"]),
+                    flag_group(flags = ["-o", "%{linked_binary}"]),
+                    flag_group(
+                        flags = ["-force_load", "%{force_load_exec_paths}"],
+                        iterate_over = "force_load_exec_paths",
+                    ),
+                    flag_group(
+                        flags = ["%{dep_linkopts}"],
+                        iterate_over = "dep_linkopts",
+                    ),
+                    flag_group(
+                        flags = ["-Wl,%{attr_linkopts}"],
+                        iterate_over = "attr_linkopts",
+                    ),
+                ],
+            ),
+        ],
+        implies = [
+            "include_system_dirs",
+            "framework_paths",
+            "version_min",
+            "strip_debug_symbols",
+            "apple_env",
+            "apply_implicit_frameworks",
+        ],
+        tools = [
+            tool(
+                path = "wrapped_clang",
+                execution_requirements = ["requires-darwin"],
+            ),
+        ],
+    )
 
     if (ctx.attr.cpu == "tvos_arm64"
         or ctx.attr.cpu == "tvos_x86_64"):
