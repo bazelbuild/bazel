@@ -22,11 +22,7 @@ import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -37,12 +33,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportFunction.CcSkyframeCrosstoolSupportException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoMode;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
@@ -72,291 +64,7 @@ public class CcToolchainProviderHelper {
   private static final String PACKAGE_START = "%package(";
   private static final String PACKAGE_END = ")%";
 
-  /**
-   * Returns the profile name with the same file name as fdoProfile and an extension that matches
-   * {@link FileType}.
-   */
-  private static String getLLVMProfileFileName(FdoInputFile fdoProfile, FileType type) {
-    if (type.matches(fdoProfile)) {
-      return fdoProfile.getBasename();
-    } else {
-      return FileSystemUtils.removeExtension(fdoProfile.getBasename())
-          + type.getExtensions().get(0);
-    }
-  }
-
-  /**
-   * Resolve the given include directory.
-   *
-   * <p>If it starts with %sysroot%/, that part is replaced with the actual sysroot.
-   *
-   * <p>If it starts with %workspace%/, that part is replaced with the empty string (essentially
-   * making it relative to the build directory).
-   *
-   * <p>If it starts with %crosstool_top%/ or is any relative path, it is interpreted relative to
-   * the crosstool top. The use of assumed-crosstool-relative specifications is considered
-   * deprecated, and all such uses should eventually be replaced by "%crosstool_top%/".
-   *
-   * <p>If it is of the form %package(@repository//my/package)%/folder, then it is interpreted as
-   * the named folder in the appropriate package. All of the normal package syntax is supported. The
-   * /folder part is optional.
-   *
-   * <p>It is illegal if it starts with a % and does not match any of the above forms to avoid
-   * accidentally silently ignoring misspelled prefixes.
-   *
-   * <p>If it is absolute, it remains unchanged.
-   */
-  static PathFragment resolveIncludeDir(
-      String s, PathFragment sysroot, PathFragment crosstoolTopPathFragment)
-      throws InvalidConfigurationException {
-    PathFragment pathPrefix;
-    String pathString;
-    int packageEndIndex = s.indexOf(PACKAGE_END);
-    if (packageEndIndex != -1 && s.startsWith(PACKAGE_START)) {
-      String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
-      try {
-        pathPrefix = PackageIdentifier.parse(packageString).getSourceRoot();
-      } catch (LabelSyntaxException e) {
-        throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
-      }
-      int pathStartIndex = packageEndIndex + PACKAGE_END.length();
-      if (pathStartIndex + 1 < s.length()) {
-        if (s.charAt(pathStartIndex) != '/') {
-          throw new InvalidConfigurationException(
-              "The path in the package for '" + s + "' is not valid");
-        }
-        pathString = s.substring(pathStartIndex + 1, s.length());
-      } else {
-        pathString = "";
-      }
-    } else if (s.startsWith(SYSROOT_START)) {
-      if (sysroot == null) {
-        throw new InvalidConfigurationException(
-            "A %sysroot% prefix is only allowed if the " + "default_sysroot option is set");
-      }
-      pathPrefix = sysroot;
-      pathString = s.substring(SYSROOT_START.length(), s.length());
-    } else if (s.startsWith(WORKSPACE_START)) {
-      pathPrefix = PathFragment.EMPTY_FRAGMENT;
-      pathString = s.substring(WORKSPACE_START.length(), s.length());
-    } else {
-      pathPrefix = crosstoolTopPathFragment;
-      if (s.startsWith(CROSSTOOL_START)) {
-        pathString = s.substring(CROSSTOOL_START.length(), s.length());
-      } else if (s.startsWith("%")) {
-        throw new InvalidConfigurationException(
-            "The include path '" + s + "' has an " + "unrecognized %prefix%");
-      } else {
-        pathString = s;
-      }
-    }
-
-    if (!PathFragment.isNormalized(pathString)) {
-      throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
-    }
-    PathFragment path = PathFragment.create(pathString);
-    return pathPrefix.getRelative(path);
-  }
-
-  private static String getSkylarkValueForTool(Tool tool, CppToolchainInfo cppToolchainInfo) {
-    PathFragment toolPath = cppToolchainInfo.getToolPathFragment(tool);
-    return toolPath != null ? toolPath.getPathString() : "";
-  }
-
-  private static ImmutableMap<String, Object> getToolchainForSkylark(
-      CppToolchainInfo cppToolchainInfo) {
-    return ImmutableMap.<String, Object>builder()
-        .put("objcopy_executable", getSkylarkValueForTool(Tool.OBJCOPY, cppToolchainInfo))
-        .put("compiler_executable", getSkylarkValueForTool(Tool.GCC, cppToolchainInfo))
-        .put("preprocessor_executable", getSkylarkValueForTool(Tool.CPP, cppToolchainInfo))
-        .put("nm_executable", getSkylarkValueForTool(Tool.NM, cppToolchainInfo))
-        .put("objdump_executable", getSkylarkValueForTool(Tool.OBJDUMP, cppToolchainInfo))
-        .put("ar_executable", getSkylarkValueForTool(Tool.AR, cppToolchainInfo))
-        .put("strip_executable", getSkylarkValueForTool(Tool.STRIP, cppToolchainInfo))
-        .put("ld_executable", getSkylarkValueForTool(Tool.LD, cppToolchainInfo))
-        .build();
-  }
-
-  private static PathFragment calculateSysroot(
-      CcToolchainAttributesProvider attributes, PathFragment defaultSysroot) {
-    TransitiveInfoCollection sysrootTarget = attributes.getLibcTop();
-    if (sysrootTarget == null) {
-      return defaultSysroot;
-    }
-
-    return sysrootTarget.getLabel().getPackageFragment();
-  }
-
-  private static Artifact getPrefetchHintsArtifact(
-      FdoInputFile prefetchHintsFile, RuleContext ruleContext) {
-    if (prefetchHintsFile == null) {
-      return null;
-    }
-    Artifact prefetchHintsArtifact = prefetchHintsFile.getArtifact();
-    if (prefetchHintsArtifact != null) {
-      return prefetchHintsArtifact;
-    }
-
-    prefetchHintsArtifact =
-        ruleContext.getUniqueDirectoryArtifact(
-            "fdo",
-            prefetchHintsFile.getAbsolutePath().getBaseName(),
-            ruleContext.getBinOrGenfilesDirectory());
-    ruleContext.registerAction(
-        SymlinkAction.toAbsolutePath(
-            ruleContext.getActionOwner(),
-            PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
-            prefetchHintsArtifact,
-            "Symlinking LLVM Cache Prefetch Hints Profile "
-                + prefetchHintsFile.getAbsolutePath().getPathString()));
-    return prefetchHintsArtifact;
-  }
-
-  private static void symlinkTo(
-      RuleContext ruleContext,
-      Artifact symlink,
-      FdoInputFile fdoInputFile,
-      String progressMessage) {
-    if (fdoInputFile.getArtifact() != null) {
-      ruleContext.registerAction(
-          SymlinkAction.toArtifact(
-              ruleContext.getActionOwner(), fdoInputFile.getArtifact(), symlink, progressMessage));
-    } else {
-      ruleContext.registerAction(
-          SymlinkAction.toAbsolutePath(
-              ruleContext.getActionOwner(),
-              fdoInputFile.getAbsolutePath(),
-              symlink,
-              progressMessage));
-    }
-  }
-
-  /*
-   * This function checks the format of the input profile data and converts it to
-   * the indexed format (.profdata) if necessary.
-   */
-  private static Artifact convertLLVMRawProfileToIndexed(
-      CcToolchainAttributesProvider attributes,
-      FdoInputFile fdoProfile,
-      CppToolchainInfo toolchainInfo,
-      RuleContext ruleContext) {
-
-    Artifact profileArtifact =
-        ruleContext.getUniqueDirectoryArtifact(
-            "fdo",
-            getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE),
-            ruleContext.getBinOrGenfilesDirectory());
-
-    // If the profile file is already in the desired format, symlink to it and return.
-    if (CppFileTypes.LLVM_PROFILE.matches(fdoProfile)) {
-      symlinkTo(
-          ruleContext,
-          profileArtifact,
-          fdoProfile,
-          "Symlinking LLVM Profile " + fdoProfile.getBasename());
-      return profileArtifact;
-    }
-
-    Artifact rawProfileArtifact;
-
-    if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoProfile)) {
-      // Get the zipper binary for unzipping the profile.
-      Artifact zipperBinaryArtifact = attributes.getZipper();
-      if (zipperBinaryArtifact == null) {
-        ruleContext.ruleError("Cannot find zipper binary to unzip the profile");
-        return null;
-      }
-
-      // TODO(zhayu): find a way to avoid hard-coding cpu architecture here (b/65582760)
-      String rawProfileFileName = "fdocontrolz_profile.profraw";
-      String cpu = toolchainInfo.getTargetCpu();
-      if (!"k8".equals(cpu)) {
-        rawProfileFileName = "fdocontrolz_profile-" + cpu + ".profraw";
-      }
-      rawProfileArtifact =
-          ruleContext.getUniqueDirectoryArtifact(
-              "fdo", rawProfileFileName, ruleContext.getBinOrGenfilesDirectory());
-
-      // Symlink to the zipped profile file to extract the contents.
-      Artifact zipProfileArtifact =
-          ruleContext.getUniqueDirectoryArtifact(
-              "fdo", fdoProfile.getBasename(), ruleContext.getBinOrGenfilesDirectory());
-      symlinkTo(
-          ruleContext,
-          zipProfileArtifact,
-          fdoProfile,
-          "Symlinking LLVM ZIP Profile " + fdoProfile.getBasename());
-
-      // Unzip the profile.
-      ruleContext.registerAction(
-          new SpawnAction.Builder()
-              .addInput(zipProfileArtifact)
-              .addInput(zipperBinaryArtifact)
-              .addOutput(rawProfileArtifact)
-              .useDefaultShellEnvironment()
-              .setExecutable(zipperBinaryArtifact)
-              .setProgressMessage(
-                  "LLVMUnzipProfileAction: Generating %s", rawProfileArtifact.prettyPrint())
-              .setMnemonic("LLVMUnzipProfileAction")
-              .addCommandLine(
-                  CustomCommandLine.builder()
-                      .addExecPath("xf", zipProfileArtifact)
-                      .add(
-                          "-d",
-                          rawProfileArtifact.getExecPath().getParentDirectory().getSafePathString())
-                      .build())
-              .build(ruleContext));
-    } else {
-      rawProfileArtifact =
-          ruleContext.getUniqueDirectoryArtifact(
-              "fdo",
-              getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE_RAW),
-              ruleContext.getBinOrGenfilesDirectory());
-      symlinkTo(
-          ruleContext,
-          rawProfileArtifact,
-          fdoProfile,
-          "Symlinking LLVM Raw Profile " + fdoProfile.getBasename());
-    }
-
-    if (toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA) == null) {
-      ruleContext.ruleError(
-          "llvm-profdata not available with this crosstool, needed for profile conversion");
-      return null;
-    }
-
-    // Convert LLVM raw profile to indexed format.
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .addInput(rawProfileArtifact)
-            .addTransitiveInputs(attributes.getAllFilesMiddleman())
-            .addOutput(profileArtifact)
-            .useDefaultShellEnvironment()
-            .setExecutable(toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA))
-            .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
-            .setMnemonic("LLVMProfDataAction")
-            .addCommandLine(
-                CustomCommandLine.builder()
-                    .add("merge")
-                    .add("-o")
-                    .addExecPath(profileArtifact)
-                    .addExecPath(rawProfileArtifact)
-                    .build())
-            .build(ruleContext));
-
-    return profileArtifact;
-  }
-
-  static Pair<FdoInputFile, Artifact> getFdoInputs(
-      RuleContext ruleContext, FdoProfileProvider fdoProfileProvider) {
-    if (fdoProfileProvider == null) {
-      ruleContext.ruleError("--fdo_profile/--xbinary_fdo input needs to be an fdo_profile rule");
-      return null;
-    }
-    return Pair.of(fdoProfileProvider.getInputFile(), fdoProfileProvider.getProtoProfileArtifact());
-  }
-
-  static CcToolchainProvider getCcToolchainProvider(
+  public static CcToolchainProvider getCcToolchainProvider(
       RuleContext ruleContext,
       CcToolchainAttributesProvider attributes,
       CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
@@ -364,56 +72,6 @@ public class CcToolchainProviderHelper {
     BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
-
-    PathFragment fdoZip = null;
-    FdoInputFile fdoInputFile = null;
-    FdoInputFile prefetchHints = null;
-    Artifact protoProfileArtifact = null;
-    Pair<FdoInputFile, Artifact> fdoInputs = null;
-    if (configuration.getCompilationMode() == CompilationMode.OPT) {
-      if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
-        FdoPrefetchHintsProvider provider = attributes.getFdoPrefetch();
-        prefetchHints = provider.getInputFile();
-      }
-      if (cppConfiguration.getFdoPath() != null) {
-        fdoZip = cppConfiguration.getFdoPath();
-      } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
-        FdoProfileProvider fdoProfileProvider = attributes.getFdoOptimizeProvider();
-        if (fdoProfileProvider != null) {
-          fdoInputs = getFdoInputs(ruleContext, fdoProfileProvider);
-        } else {
-          fdoInputFile = fdoInputFileFromArtifacts(ruleContext, attributes);
-        }
-      } else if (cppConfiguration.getFdoProfileLabel() != null) {
-        fdoInputs = getFdoInputs(ruleContext, attributes.getFdoProfileProvider());
-      } else if (cppConfiguration.getXFdoProfileLabel() != null) {
-        fdoInputs = getFdoInputs(ruleContext, attributes.getXFdoProfileProvider());
-      }
-    }
-
-    if (ruleContext.hasErrors()) {
-      return null;
-    }
-
-    if (fdoInputs != null) {
-      fdoInputFile = fdoInputs.getFirst();
-      protoProfileArtifact = fdoInputs.getSecond();
-    }
-
-    if (fdoZip != null) {
-      SkyKey fdoKey = CcSkyframeFdoSupportValue.key(fdoZip);
-      SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-      CcSkyframeFdoSupportValue ccSkyframeFdoSupportValue =
-          (CcSkyframeFdoSupportValue) skyframeEnv.getValue(fdoKey);
-      if (skyframeEnv.valuesMissing()) {
-        return null;
-      }
-      // fdoZip should be set if the profile is a path, fdoInputFile if it is an artifact, but
-      // never both
-      Preconditions.checkState(fdoInputFile == null);
-      fdoInputFile =
-          FdoInputFile.fromAbsolutePath(ccSkyframeFdoSupportValue.getFdoZipPath().asFragment());
-    }
 
     CToolchain toolchain = null;
     CrosstoolRelease crosstoolFromCrosstoolFile = null;
@@ -461,53 +119,11 @@ public class CcToolchainProviderHelper {
             toolchain,
             crosstoolFromCcToolchainSuiteProtoAttribute);
 
-    FdoContext.BranchFdoProfile branchFdoProfile = null;
-    if (fdoInputFile != null) {
-      BranchFdoMode branchFdoMode;
-      if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoInputFile)) {
-        branchFdoMode = BranchFdoMode.AUTO_FDO;
-      } else if (CppFileTypes.XBINARY_PROFILE.matches(fdoInputFile)) {
-        branchFdoMode = BranchFdoMode.XBINARY_FDO;
-      } else if (CppFileTypes.LLVM_PROFILE.matches(fdoInputFile)) {
-        branchFdoMode = BranchFdoMode.LLVM_FDO;
-      } else if (CppFileTypes.LLVM_PROFILE_RAW.matches(fdoInputFile)) {
-        branchFdoMode = BranchFdoMode.LLVM_FDO;
-      } else if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoInputFile)) {
-        branchFdoMode = BranchFdoMode.LLVM_FDO;
-      } else {
-        ruleContext.ruleError("invalid extension for FDO profile file.");
-        return null;
-      }
-      if (branchFdoMode != BranchFdoMode.XBINARY_FDO
-          && cppConfiguration.getXFdoProfileLabel() != null) {
-        ruleContext.throwWithRuleError(
-            "--xbinary_fdo cannot accept profile input other than *.xfdo");
-      }
-
-      if (configuration.isCodeCoverageEnabled()) {
-        ruleContext.throwWithRuleError("coverage mode is not compatible with FDO optimization");
-      }
-      // This tries to convert LLVM profiles to the indexed format if necessary.
-      Artifact profileArtifact = null;
-      if (branchFdoMode == BranchFdoMode.LLVM_FDO) {
-        profileArtifact =
-            convertLLVMRawProfileToIndexed(attributes, fdoInputFile, toolchainInfo, ruleContext);
-        if (ruleContext.hasErrors()) {
-          return null;
-        }
-      } else if (branchFdoMode == BranchFdoMode.AUTO_FDO
-          || branchFdoMode == BranchFdoMode.XBINARY_FDO) {
-        profileArtifact =
-            ruleContext.getUniqueDirectoryArtifact(
-                "fdo", fdoInputFile.getBasename(), ruleContext.getBinOrGenfilesDirectory());
-        symlinkTo(
-            ruleContext,
-            profileArtifact,
-            fdoInputFile,
-            "Symlinking FDO profile " + fdoInputFile.getBasename());
-      }
-      branchFdoProfile =
-          new FdoContext.BranchFdoProfile(branchFdoMode, profileArtifact, protoProfileArtifact);
+    FdoContext fdoContext =
+        FdoHelper.getFdoContext(
+            ruleContext, attributes, configuration, cppConfiguration, toolchainInfo);
+    if (fdoContext == null) {
+      return null;
     }
 
     String purposePrefix = attributes.getPurposePrefix();
@@ -610,8 +226,6 @@ public class CcToolchainProviderHelper {
     ImmutableList<PathFragment> builtInIncludeDirectories =
         builtInIncludeDirectoriesBuilder.build();
 
-    Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
-
     return new CcToolchainProvider(
         getToolchainForSkylark(toolchainInfo),
         cppConfiguration,
@@ -647,36 +261,111 @@ public class CcToolchainProviderHelper {
         attributes.getLinkDynamicLibraryTool(),
         builtInIncludeDirectories,
         sysroot,
-        new FdoContext(branchFdoProfile, prefetchHintsArtifact),
+        fdoContext,
         configuration.isHostConfiguration(),
         attributes.getLicensesProvider());
   }
 
-  private static FdoInputFile fdoInputFileFromArtifacts(
-      RuleContext ruleContext, CcToolchainAttributesProvider attributes) {
-    ImmutableList<Artifact> fdoArtifacts = attributes.getFdoOptimizeArtifacts();
-    if (fdoArtifacts.size() != 1) {
-      ruleContext.ruleError("--fdo_optimize does not point to a single target");
-      return null;
+  /**
+   * Resolve the given include directory.
+   *
+   * <p>If it starts with %sysroot%/, that part is replaced with the actual sysroot.
+   *
+   * <p>If it starts with %workspace%/, that part is replaced with the empty string (essentially
+   * making it relative to the build directory).
+   *
+   * <p>If it starts with %crosstool_top%/ or is any relative path, it is interpreted relative to
+   * the crosstool top. The use of assumed-crosstool-relative specifications is considered
+   * deprecated, and all such uses should eventually be replaced by "%crosstool_top%/".
+   *
+   * <p>If it is of the form %package(@repository//my/package)%/folder, then it is interpreted as
+   * the named folder in the appropriate package. All of the normal package syntax is supported. The
+   * /folder part is optional.
+   *
+   * <p>It is illegal if it starts with a % and does not match any of the above forms to avoid
+   * accidentally silently ignoring misspelled prefixes.
+   *
+   * <p>If it is absolute, it remains unchanged.
+   */
+  static PathFragment resolveIncludeDir(
+      String s, PathFragment sysroot, PathFragment crosstoolTopPathFragment)
+      throws InvalidConfigurationException {
+    PathFragment pathPrefix;
+    String pathString;
+    int packageEndIndex = s.indexOf(PACKAGE_END);
+    if (packageEndIndex != -1 && s.startsWith(PACKAGE_START)) {
+      String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
+      try {
+        pathPrefix = PackageIdentifier.parse(packageString).getSourceRoot();
+      } catch (LabelSyntaxException e) {
+        throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
+      }
+      int pathStartIndex = packageEndIndex + PACKAGE_END.length();
+      if (pathStartIndex + 1 < s.length()) {
+        if (s.charAt(pathStartIndex) != '/') {
+          throw new InvalidConfigurationException(
+              "The path in the package for '" + s + "' is not valid");
+        }
+        pathString = s.substring(pathStartIndex + 1, s.length());
+      } else {
+        pathString = "";
+      }
+    } else if (s.startsWith(SYSROOT_START)) {
+      if (sysroot == null) {
+        throw new InvalidConfigurationException(
+            "A %sysroot% prefix is only allowed if the " + "default_sysroot option is set");
+      }
+      pathPrefix = sysroot;
+      pathString = s.substring(SYSROOT_START.length(), s.length());
+    } else if (s.startsWith(WORKSPACE_START)) {
+      pathPrefix = PathFragment.EMPTY_FRAGMENT;
+      pathString = s.substring(WORKSPACE_START.length(), s.length());
+    } else {
+      pathPrefix = crosstoolTopPathFragment;
+      if (s.startsWith(CROSSTOOL_START)) {
+        pathString = s.substring(CROSSTOOL_START.length(), s.length());
+      } else if (s.startsWith("%")) {
+        throw new InvalidConfigurationException(
+            "The include path '" + s + "' has an " + "unrecognized %prefix%");
+      } else {
+        pathString = s;
+      }
     }
 
-    Artifact fdoArtifact = fdoArtifacts.get(0);
-    if (!fdoArtifact.isSourceArtifact()) {
-      ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
-      return null;
+    if (!PathFragment.isNormalized(pathString)) {
+      throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
+    }
+    PathFragment path = PathFragment.create(pathString);
+    return pathPrefix.getRelative(path);
+  }
+
+  private static String getSkylarkValueForTool(Tool tool, CppToolchainInfo cppToolchainInfo) {
+    PathFragment toolPath = cppToolchainInfo.getToolPathFragment(tool);
+    return toolPath != null ? toolPath.getPathString() : "";
+  }
+
+  private static ImmutableMap<String, Object> getToolchainForSkylark(
+      CppToolchainInfo cppToolchainInfo) {
+    return ImmutableMap.<String, Object>builder()
+        .put("objcopy_executable", getSkylarkValueForTool(Tool.OBJCOPY, cppToolchainInfo))
+        .put("compiler_executable", getSkylarkValueForTool(Tool.GCC, cppToolchainInfo))
+        .put("preprocessor_executable", getSkylarkValueForTool(Tool.CPP, cppToolchainInfo))
+        .put("nm_executable", getSkylarkValueForTool(Tool.NM, cppToolchainInfo))
+        .put("objdump_executable", getSkylarkValueForTool(Tool.OBJDUMP, cppToolchainInfo))
+        .put("ar_executable", getSkylarkValueForTool(Tool.AR, cppToolchainInfo))
+        .put("strip_executable", getSkylarkValueForTool(Tool.STRIP, cppToolchainInfo))
+        .put("ld_executable", getSkylarkValueForTool(Tool.LD, cppToolchainInfo))
+        .build();
+  }
+
+  private static PathFragment calculateSysroot(
+      CcToolchainAttributesProvider attributes, PathFragment defaultSysroot) {
+    TransitiveInfoCollection sysrootTarget = attributes.getLibcTop();
+    if (sysrootTarget == null) {
+      return defaultSysroot;
     }
 
-    Label fdoLabel = attributes.getFdoOptimize().getLabel();
-    if (!fdoLabel
-        .getPackageIdentifier()
-        .getPathUnderExecRoot()
-        .getRelative(fdoLabel.getName())
-        .equals(fdoArtifact.getExecPath())) {
-      ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
-      return null;
-    }
-
-    return FdoInputFile.fromArtifact(fdoArtifact);
+    return sysrootTarget.getLabel().getPackageFragment();
   }
 
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
