@@ -284,6 +284,11 @@ public class CircularDependencyTest extends BuildViewTestCase {
                             return ImmutableList.of(newOptions);
                           };
                         }
+
+                        @Override
+                        public boolean isSplit() {
+                          return true;
+                        }
                       }));
 
   @Override

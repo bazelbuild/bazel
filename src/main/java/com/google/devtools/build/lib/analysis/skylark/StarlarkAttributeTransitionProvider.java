@@ -74,6 +74,11 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
+  public boolean isSplit() {
+    return true;
+  }
+
+  @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<transition object>");
   }
