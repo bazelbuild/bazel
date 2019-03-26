@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 
 /**
  * A factory class for providing a {@link SimpleBlobStore} to be used with {@link
- * SimpleBlobStoreActionCache}. Currently implemented with REST or local.
+ * SimpleBlobStoreActionCache}. Currently implemented with HTTP or local.
  */
 public final class SimpleBlobStoreFactory {
 
@@ -40,25 +40,24 @@ public final class SimpleBlobStoreFactory {
       RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
       throws IOException {
 
-    if (isRestUrlOptions(options) && isDiskCache(options)) {
+    if (isHttpUrlOptions(options) && isDiskCache(options)) {
       return createCombinedCache(workingDirectory, options.diskCache, options, creds);
     }
-    if (isRestUrlOptions(options)) {
-      return createRest(options, creds);
+    if (isHttpUrlOptions(options)) {
+      return createHttp(options, creds);
     }
     if (workingDirectory != null && isDiskCache(options)) {
       return createDiskCache(workingDirectory, options.diskCache);
     }
     throw new IllegalArgumentException(
-        "Unrecognized concurrent map RemoteOptions: must specify "
-            + "either Rest URL, or local cache options.");
+        "Unrecognized RemoteOptions configuration: remote Http cache URL and/or local disk cache options expected.");
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isRestUrlOptions(options) || isDiskCache(options);
+    return isHttpUrlOptions(options) || isDiskCache(options);
   }
 
-  private static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
+  private static SimpleBlobStore createHttp(RemoteOptions options, Credentials creds) {
     try {
       URI uri = URI.create(options.remoteHttpCache);
 
@@ -98,14 +97,14 @@ public final class SimpleBlobStoreFactory {
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
-    return new CombinedDiskHttpBlobStore(cacheDir, createRest(options, cred));
+    return new CombinedDiskHttpBlobStore(cacheDir, createHttp(options, cred));
   }
 
   private static boolean isDiskCache(RemoteOptions options) {
     return options.diskCache != null && !options.diskCache.isEmpty();
   }
 
-  private static boolean isRestUrlOptions(RemoteOptions options) {
+  private static boolean isHttpUrlOptions(RemoteOptions options) {
     return options.remoteHttpCache != null;
   }
 }
