@@ -2774,26 +2774,26 @@ def _impl(ctx):
         )
 
     action_configs = [
-            strip_action,
-            c_compile_action,
-            cpp_compile_action,
-            linkstamp_compile_action,
-            cpp_module_compile_action,
-            cpp_header_parsing_action,
-            objc_compile_action,
-            objcpp_compile_action,
-            assemble_action,
-            preprocess_assemble_action,
-            objc_archive_action,
-            objc_executable_action,
-            objcpp_executable_action,
-            cpp_link_executable_action,
-            cpp_link_dynamic_library_action,
-            cpp_link_nodeps_dynamic_library_action,
-            cpp_link_static_library_action,
-            objc_fully_link_action,
-            objcopy_embed_data_action,
-        ]
+        strip_action,
+        c_compile_action,
+        cpp_compile_action,
+        linkstamp_compile_action,
+        cpp_module_compile_action,
+        cpp_header_parsing_action,
+        objc_compile_action,
+        objcpp_compile_action,
+        assemble_action,
+        preprocess_assemble_action,
+        objc_archive_action,
+        objc_executable_action,
+        objcpp_executable_action,
+        cpp_link_executable_action,
+        cpp_link_dynamic_library_action,
+        cpp_link_nodeps_dynamic_library_action,
+        cpp_link_static_library_action,
+        objc_fully_link_action,
+        objcopy_embed_data_action,
+    ]
 
     if (ctx.attr.cpu == "armeabi-v7a"
         or ctx.attr.cpu == "ios_arm64"
