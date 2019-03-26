@@ -4581,18 +4581,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    else:
         link_cocoa_feature = feature(name = "link_cocoa")
 
     user_compile_flags_feature = feature(
