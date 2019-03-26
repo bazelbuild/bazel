@@ -551,11 +551,7 @@ public class CcToolchainProviderHelper {
           dynamicRuntimeLinkInputs.add(artifact);
           dynamicRuntimeLinkSymlinksBuilder.add(
               SolibSymlinkAction.getCppRuntimeSymlink(
-                  ruleContext,
-                  artifact,
-                  toolchainInfo.getSolibDirectory(),
-                  runtimeSolibDirBase,
-                  configuration));
+                  ruleContext, artifact, toolchainInfo.getSolibDirectory(), runtimeSolibDirBase));
         }
       }
       if (dynamicRuntimeLinkInputs.isEmpty()) {

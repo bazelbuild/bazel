@@ -625,15 +625,14 @@ public class CppHelper {
         symlinkedArtifacts.add(
             isCppRuntime
                 ? SolibSymlinkAction.getCppRuntimeSymlink(
-                    ruleContext, artifact, solibDir, solibDirOverride, configuration)
+                    ruleContext, artifact, solibDir, solibDirOverride)
                 : SolibSymlinkAction.getDynamicLibrarySymlink(
                     /* actionRegistry= */ ruleContext,
                     /* actionConstructionContext= */ ruleContext,
                     solibDir,
                     artifact,
                     /* preserveName= */ false,
-                    /* prefixConsumer= */ true,
-                    configuration));
+                    /* prefixConsumer= */ true));
       }
       artifacts = symlinkedArtifacts;
       purpose += "_with_solib";

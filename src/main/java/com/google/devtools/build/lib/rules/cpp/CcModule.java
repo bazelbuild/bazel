@@ -447,8 +447,7 @@ public class CcModule
                 ccToolchainProvider.getSolibDirectory(),
                 dynamicLibrary,
                 /* preserveName= */ true,
-                /* prefixConsumer= */ true,
-                /* configuration= */ null);
+                /* prefixConsumer= */ true);
       }
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
@@ -461,8 +460,7 @@ public class CcModule
                 ccToolchainProvider.getSolibDirectory(),
                 interfaceLibrary,
                 /* preserveName= */ true,
-                /* prefixConsumer= */ true,
-                /* configuration= */ null);
+                /* prefixConsumer= */ true);
       }
     }
     if (staticLibrary == null
