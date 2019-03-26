@@ -357,21 +357,11 @@ public final class CcToolchainRule implements RuleDefinition {
     </li>
   </ul>
 </p>
-
 <p>
-  When using CROSSTOOL to configure command line generation, use
-  <code>toolchain_identifier</code> attribute to match current <code>cc_toolchain</code> with
-  the corresponding <code>CROSSTOOL.toolchain</code>. See also this
-  <a href="https://docs.bazel.build/versions/master/crosstool-reference.html">
+  Use <code>toolchain_config</code> attribute to configure the C++ toolchain.
+  See also this
+  <a href="https://docs.bazel.build/versions/master/cc-toolchain-config-reference.html">
     page
-  </a> for elaborate CROSSTOOL documentation.
-</p>
-
-<p>
-  When using <code>CcToolchainConfigInfo</code> provider to configure command line generation,
-  use <code>toolchain_config</code> attribute to point to a rule that provides
-  <code>CcToolchainConfigInfo</code>. This will be the preferred way of configuring command line
-  generation once the issue <a href="https://github.com/bazelbuild/bazel/issues/5380">#5380</a>
-  is fixed.
+  </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
 </p>
 <!-- #END_BLAZE_RULE -->*/

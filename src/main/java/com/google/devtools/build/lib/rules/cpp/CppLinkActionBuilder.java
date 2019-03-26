@@ -361,7 +361,7 @@ public class CppLinkActionBuilder {
                 toolchain,
                 fdoContext,
                 usePicForLtoBackendActions,
-                toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
+                toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
                 argv)
             : new LtoBackendArtifacts(
                 ltoOutputRootPrefix,
@@ -375,7 +375,7 @@ public class CppLinkActionBuilder {
                 toolchain,
                 fdoContext,
                 usePicForLtoBackendActions,
-                toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
+                toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
                 argv);
     return ltoArtifact;
   }
@@ -882,6 +882,7 @@ public class CppLinkActionBuilder {
               thinltoMergedObjectFile != null ? thinltoMergedObjectFile.getExecPathString() : null,
               mustKeepDebug,
               toolchain,
+              cppConfiguration,
               featureConfiguration,
               useTestOnlyFlags,
               isLtoIndexing,
@@ -1043,7 +1044,8 @@ public class CppLinkActionBuilder {
                 featureConfiguration,
                 cppConfiguration.forcePic()
                     || (linkType.isDynamicLibrary()
-                        && toolchain.usePicForDynamicLibraries(featureConfiguration)),
+                        && toolchain.usePicForDynamicLibraries(
+                            cppConfiguration, featureConfiguration)),
                 Matcher.quoteReplacement(
                     isNativeDeps && cppConfiguration.shareNativeDeps()
                         ? output.getExecPathString()

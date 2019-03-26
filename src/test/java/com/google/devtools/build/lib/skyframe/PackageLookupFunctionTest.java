@@ -435,7 +435,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       assertThatEvaluationResult(result)
           .hasErrorEntryForKeyThat(skyKey)
           .hasExceptionThat()
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "no such package 'local/repo': Unable to determine the local repository for "
                   + "directory /workspace/local/repo");
     }

@@ -1118,6 +1118,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testIncludePathOrder() throws Exception {
+    useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file("foo/BUILD",
         "cc_library(",
         "    name = 'bar',",

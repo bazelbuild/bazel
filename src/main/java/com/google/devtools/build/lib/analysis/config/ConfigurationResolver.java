@@ -200,7 +200,7 @@ public final class ConfigurationResolver {
               Dependency.withConfigurationAndAspects(
                   dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
           continue;
-        } else if (transition == HostTransition.INSTANCE) {
+        } else if (transition.isHostTransition()) {
           // The current rule's host configuration can also be used for the dep. We short-circuit
           // the standard transition logic for host transitions because these transitions are
           // uniquely frequent. It's possible, e.g., for every node in the configured target graph

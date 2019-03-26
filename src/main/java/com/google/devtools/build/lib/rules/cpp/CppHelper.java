@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -230,9 +231,18 @@ public class CppHelper {
   }
 
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
-      RuleContext ruleContext, CcToolchainProvider toolchain) {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return toolchain.getCoverageEnvironment();
+      CppConfiguration cppConfiguration, CcToolchainProvider toolchain) {
+    if (cppConfiguration.collectCodeCoverage()) {
+      NestedSetBuilder<Pair<String, String>> coverageEnvironment =
+          NestedSetBuilder.<Pair<String, String>>stableOrder()
+              .add(
+                  Pair.of(
+                      "COVERAGE_GCOV_PATH",
+                      toolchain.getToolPathFragment(Tool.GCOV).getPathString()));
+      if (cppConfiguration.getFdoInstrument() != null) {
+        coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
+      }
+      return coverageEnvironment.build();
     } else {
       return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
     }
@@ -514,16 +524,18 @@ public class CppHelper {
 
   /** Returns whether binaries must be compiled with position independent code. */
   public static boolean usePicForBinaries(
-      CcToolchainProvider toolchain, FeatureConfiguration featureConfiguration) {
+      CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration,
+      FeatureConfiguration featureConfiguration) {
     // TODO(b/124030770): Please do not use this feature without contacting the C++ rules team at
     // bazel-team@google.com. The feature will be removed in a later Bazel release and it might
     // break you. Contact us so we can find alternatives for your build.
     if (featureConfiguration.getRequestedFeatures().contains("coptnopic")) {
       return false;
     }
-    return toolchain.getCppConfiguration().forcePic()
-        || (toolchain.usePicForDynamicLibraries(featureConfiguration)
-            && toolchain.getCppConfiguration().getCompilationMode() != CompilationMode.OPT);
+    return cppConfiguration.forcePic()
+        || (toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+            && cppConfiguration.getCompilationMode() != CompilationMode.OPT);
   }
 
   /**
@@ -613,15 +625,14 @@ public class CppHelper {
         symlinkedArtifacts.add(
             isCppRuntime
                 ? SolibSymlinkAction.getCppRuntimeSymlink(
-                    ruleContext, artifact, solibDir, solibDirOverride, configuration)
+                    ruleContext, artifact, solibDir, solibDirOverride)
                 : SolibSymlinkAction.getDynamicLibrarySymlink(
                     /* actionRegistry= */ ruleContext,
                     /* actionConstructionContext= */ ruleContext,
                     solibDir,
                     artifact,
                     /* preserveName= */ false,
-                    /* prefixConsumer= */ true,
-                    configuration));
+                    /* prefixConsumer= */ true));
       }
       artifacts = symlinkedArtifacts;
       purpose += "_with_solib";

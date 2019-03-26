@@ -2824,6 +2824,26 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testNativeModuleFields() throws Exception {
+    // Check that
+    scratch.file(
+        "test/file.bzl",
+        "def valid(s):",
+        "    if not s[0].isalpha(): return False",
+        "    for c in s.elems():",
+        "        if not (c.isalpha() or c == '_' or c.isdigit()): return False",
+        "    return True",
+        "",
+        "bad_names = [name for name in dir(native) if not valid(name)]",
+        "print('bad_names =', bad_names)");
+    scratch.file("test/BUILD", "load('//test:file.bzl', 'bad_names')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:anything");
+    assertContainsEvent("bad_names = []");
+  }
+
+  @Test
   public void testDisallowStructProviderSyntax() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=true");
     scratch.file(

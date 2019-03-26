@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
@@ -114,18 +113,7 @@ public final class TransitionResolver {
    * be composed after it.
    */
   private static boolean isFinal(ConfigurationTransition transition) {
-    return (transition == NullTransition.INSTANCE
-        || transition == HostTransition.INSTANCE);
-  }
-
-  /** Applies the given split and composes it after an existing transition. */
-  public static ConfigurationTransition split(
-      ConfigurationTransition currentTransition, SplitTransition split) {
-    Preconditions.checkState(currentTransition != NullTransition.INSTANCE,
-        "cannot apply splits after null transitions (null transitions are expected to be final)");
-    Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
-        "cannot apply splits after host transitions (host transitions are expected to be final)");
-    return composeTransitions(currentTransition, split);
+    return (transition == NullTransition.INSTANCE || transition.isHostTransition());
   }
 
   /**

@@ -22,7 +22,6 @@ filegroup(
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
-        "//third_party/java/java_tools:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
@@ -621,31 +620,6 @@ filegroup(
         "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.12.jar",
     ],
-)
-
-# Builds the remote Java tools archive. Not embedded or used in Bazel, but used
-# by the Java tools release process.
-genrule(
-    name = "java_tools_zip",
-    srcs = [
-        "//third_party/ijar:ijar_with_deps_zip",
-        "//third_party/java/java_tools:java_tools_zip",
-        ":zlib_zip",
-    ],
-    outs = ["java_tools.zip"],
-    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:merge_zip_files"],
-)
-
-# Part of the Java tools remote archive. Not embedded or used in Bazel.
-genrule(
-    name = "zlib_zip",
-    srcs = ["//third_party/zlib:embedded_tools"],
-    outs = ["zlib.zip"],
-    cmd = "$(location //src:zip_files) zlib $@ $(SRCS)",
-    tools = ["//src:zip_files"],
-    visibility = ["//visibility:private"],
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")

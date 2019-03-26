@@ -100,6 +100,7 @@ public enum LinkBuildVariables {
       String thinltoMergedObjectFile,
       boolean mustKeepDebug,
       CcToolchainProvider ccToolchainProvider,
+      CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
       boolean isLtoIndexing,
@@ -120,16 +121,17 @@ public enum LinkBuildVariables {
         new CcToolchainVariables.Builder(ccToolchainProvider.getBuildVariables());
 
     // pic
-    if (ccToolchainProvider.getForcePic()) {
+    if (cppConfiguration.forcePic()) {
       buildVariables.addStringVariable(FORCE_PIC.getVariableName(), "");
     }
 
-    if (!mustKeepDebug && ccToolchainProvider.getShouldStripBinaries()) {
+    if (!mustKeepDebug && cppConfiguration.shouldStripBinaries()) {
       buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS.getVariableName(), "");
     }
 
     if (isUsingLinkerNotArchiver
-        && ccToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration)) {
+        && ccToolchainProvider.shouldCreatePerObjectDebugInfo(
+            featureConfiguration, cppConfiguration)) {
       buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
     }
 
@@ -223,7 +225,7 @@ public enum LinkBuildVariables {
 
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       Preconditions.checkArgument(fdoContext.getBranchFdoProfile() == null);
-      String fdoInstrument = ccToolchainProvider.getCppConfiguration().getFdoInstrument();
+      String fdoInstrument = cppConfiguration.getFdoInstrument();
       Preconditions.checkNotNull(fdoInstrument);
       buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument);
     }
@@ -237,7 +239,7 @@ public enum LinkBuildVariables {
       opts.addAll(
           featureConfiguration.getCommandLine(
               CppActionNames.LTO_INDEXING, buildVariables.build(), /* expander= */ null));
-      opts.addAll(ccToolchainProvider.getCppConfiguration().getLtoIndexOptions());
+      opts.addAll(cppConfiguration.getLtoIndexOptions());
       userLinkFlagsWithLtoIndexingIfNeeded = opts.build();
     }
 
@@ -257,6 +259,7 @@ public enum LinkBuildVariables {
             isUsingLinkerNotArchiver,
             featureConfiguration,
             ccToolchainProvider,
+            cppConfiguration,
             useTestOnlyFlags,
             isCreatingSharedLibrary,
             userLinkFlags));
@@ -270,13 +273,13 @@ public enum LinkBuildVariables {
       boolean isUsingLinkerNotArchiver,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
+      CppConfiguration cppConfiguration,
       boolean useTestOnlyFlags,
       boolean isCreatingSharedLibrary,
       Iterable<String> userLinkFlags) {
     if (!isUsingLinkerNotArchiver) {
       return ImmutableList.of();
     }
-    CppConfiguration cppConfiguration = ccToolchainProvider.getCppConfiguration();
     boolean sharedLinkopts =
         isCreatingSharedLibrary
             || Iterables.contains(userLinkFlags, "-shared")

@@ -27,7 +27,7 @@ public class CcBootstrap implements Bootstrap {
   private final BazelCcModuleApi<
           ? extends FileApi,
           ? extends SkylarkRuleContextApi,
-          ? extends CcToolchainProviderApi,
+          ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
           ? extends FeatureConfigurationApi,
           ? extends CompilationInfoApi,
           ? extends CcCompilationContextApi,
@@ -43,7 +43,7 @@ public class CcBootstrap implements Bootstrap {
       BazelCcModuleApi<
               ? extends FileApi,
               ? extends SkylarkRuleContextApi,
-              ? extends CcToolchainProviderApi,
+              ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
               ? extends FeatureConfigurationApi,
               ? extends CompilationInfoApi,
               ? extends CcCompilationContextApi,

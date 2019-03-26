@@ -135,7 +135,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(actionToolPath)
         .isEqualTo(featureConfiguration.getToolPathForAction(CppActionNames.CPP_COMPILE));
   }
@@ -251,7 +254,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(commandLine)
         .containsExactlyElementsIn(
             featureConfiguration.getCommandLine("c++-link-executable", CcToolchainVariables.EMPTY));
@@ -293,7 +299,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
@@ -372,6 +381,34 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     boolean disabledFeatureIsDisabled = (boolean) r.get("disabled_feature");
     assertThat(enabledFeatureIsEnabled).isTrue();
     assertThat(disabledFeatureIsDisabled).isFalse();
+  }
+
+  @Test
+  public void testFeatureConfigurationRequiresCtx() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)",
+        "  return struct()",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+    useConfiguration("--incompatible_require_ctx_in_configure_features");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("mandatory parameter 'ctx' of cc_common.configure_features is missing");
   }
 
   @Test
@@ -578,20 +615,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testUserCompileFlags() throws Exception {
-    useConfiguration("--noincompatible_disable_depset_in_cc_user_flags");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_COMPILE,
-                "cc_common.create_compile_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "user_compile_flags = depset(['-foo'])",
-                ")"))
-        .contains("-foo");
-  }
-
-  @Test
-  public void testUserCompileFlagsAsList() throws Exception {
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_COMPILE,
@@ -601,22 +624,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "user_compile_flags = ['-foo']",
                 ")"))
         .contains("-foo");
-  }
-
-  @Test
-  public void testUserCompileFlagsAsDepsetWhenDisabled() throws Exception {
-    useConfiguration("--incompatible_disable_depset_in_cc_user_flags");
-    reporter.removeHandler(failFastHandler);
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_COMPILE,
-                "cc_common.create_compile_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "user_compile_flags = depset(['-foo'])",
-                ")"))
-        .isNull();
-    assertContainsEvent("Passing depset into user flags is deprecated");
   }
 
   @Test
@@ -691,20 +698,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testUserLinkFlagsLinkVariables() throws Exception {
-    useConfiguration("--noincompatible_disable_depset_in_cc_user_flags");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "user_link_flags = depset([ '-avocado' ]),",
-                ")"))
-        .contains("-avocado");
-  }
-
-  @Test
-  public void testUserLinkFlagsLinkVariablesAsList() throws Exception {
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
@@ -714,22 +707,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "user_link_flags = [ '-avocado' ],",
                 ")"))
         .contains("-avocado");
-  }
-
-  @Test
-  public void testUserLinkFlagsLinkVariablesAsDepsetWhenDisabled() throws Exception {
-    useConfiguration("--incompatible_disable_depset_in_cc_user_flags");
-    reporter.removeHandler(failFastHandler);
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "user_link_flags = depset([ '-avocado' ]),",
-                ")"))
-        .isNull();
-    assertContainsEvent("Passing depset into user flags is deprecated");
   }
 
   @Test

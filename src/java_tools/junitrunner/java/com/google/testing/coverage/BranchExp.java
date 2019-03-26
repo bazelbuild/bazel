@@ -57,7 +57,7 @@ public class BranchExp implements CovExp {
     branches.set(idx, exp);
   }
 
-  /** Make a union of the the branches of two BranchExp. */
+  /** Make a union of the branches of two BranchExp. */
   public void merge(BranchExp other) {
     branches.addAll(other.branches);
   }

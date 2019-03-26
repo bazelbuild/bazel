@@ -156,23 +156,17 @@ class RemoteSpawnRunner implements SpawnRunner {
     Platform platform =
         parsePlatform(spawn.getExecutionPlatform(), remoteOptions.remoteDefaultPlatformProperties);
 
-    final Command command;
-    final Digest commandHash;
-    final Action action;
-    final ActionKey actionKey;
-    try (SilentCloseable c = Profiler.instance().profile("Remote.buildAction")) {
-      command =
-          buildCommand(
-              spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
-      commandHash = digestUtil.compute(command);
-      action =
-          buildAction(
-              commandHash,
-              merkleTree.getRootDigest(),
-              context.getTimeout(),
-              Spawns.mayBeCached(spawn));
-      actionKey = digestUtil.computeActionKey(action);
-    }
+    Command command =
+        buildCommand(
+            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
+    Digest commandHash = digestUtil.compute(command);
+    Action action =
+        buildAction(
+            commandHash,
+            merkleTree.getRootDigest(),
+            context.getTimeout(),
+            Spawns.mayBeCached(spawn));
+    ActionKey actionKey = digestUtil.computeActionKey(action);
 
     // Look up action cache, and reuse the action output if it is found.
     Context withMetadata =
@@ -231,10 +225,11 @@ class RemoteSpawnRunner implements SpawnRunner {
             .getExecutionPolicyBuilder()
             .setPriority(remoteOptions.remoteExecutionPriority);
       }
-      ExecuteRequest request = requestBuilder.build();
       try {
         return retrier.execute(
             () -> {
+              ExecuteRequest request = requestBuilder.build();
+
               // Upload the command and all the inputs into the remote cache.
               try (SilentCloseable c = Profiler.instance().profile("Remote.uploadInputs")) {
                 Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
@@ -264,6 +259,11 @@ class RemoteSpawnRunner implements SpawnRunner {
               try (SilentCloseable c =
                   Profiler.instance().profile("Remote.downloadRemoteResults")) {
                 remoteCache.download(actionResult, execRoot, outErr);
+              } catch (CacheNotFoundException e) {
+                // No cache hit, so if we retry this execution, we must no longer accept
+                // cached results, it must be reexecuted
+                requestBuilder.setSkipCacheLookup(true);
+                throw e;
               }
               return createSpawnResult(actionResult.getExitCode(), reply.getCachedResult());
             });

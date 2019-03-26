@@ -159,6 +159,7 @@ public final class CcCommon {
   private final RuleContext ruleContext;
 
   private final CcToolchainProvider ccToolchain;
+  private final CppConfiguration cppConfiguration;
 
   private final FdoContext fdoContext;
 
@@ -167,6 +168,7 @@ public final class CcCommon {
     this.ccToolchain =
         Preconditions.checkNotNull(
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
+    this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.fdoContext = ccToolchain.getFdoContext();
   }
 
@@ -414,6 +416,35 @@ public final class CcCommon {
    */
   public List<Pair<Artifact, Label>> getHeaders() {
     return getHeaders(ruleContext);
+  }
+
+  public void reportInvalidOptions(RuleContext ruleContext) {
+    reportInvalidOptions(ruleContext, cppConfiguration, ccToolchain);
+  }
+
+  public static void reportInvalidOptions(
+      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider ccToolchain) {
+    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
+        && !ccToolchain.supportsFission()) {
+      ruleContext.ruleWarning(
+          "Fission is not supported by this crosstool.  Please use a "
+              + "supporting crosstool to enable fission");
+    }
+    if (cppConfiguration.buildTestDwpIsActivated()
+        && !(ccToolchain.supportsFission()
+            && cppConfiguration.fissionIsActiveForCurrentCompilationMode())) {
+      ruleContext.ruleWarning(
+          "Test dwp file requested, but Fission is not enabled.  To generate a "
+              + "dwp for the test executable, use '--fission=yes' with a toolchain that supports "
+              + "Fission to build statically.");
+    }
+
+    if (cppConfiguration.getLibcTopLabel() != null && ccToolchain.getDefaultSysroot() == null) {
+      ruleContext.ruleError(
+          "The selected toolchain "
+              + ccToolchain.getToolchainIdentifier()
+              + " does not support setting --grte_top (it doesn't specify builtin_sysroot).");
+    }
   }
 
   /**
@@ -676,8 +707,7 @@ public final class CcCommon {
         ccToolchain.getSolibDirectory(),
         library,
         preserveName,
-        true,
-        ruleContext.getConfiguration());
+        /* prefixConsumer= */ true);
   }
 
   /**
@@ -714,16 +744,16 @@ public final class CcCommon {
         CC_METADATA_COLLECTOR,
         files,
         CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
-        CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
+        CppHelper.getCoverageEnvironmentIfNeeded(cppConfiguration, ccToolchain),
         withBaselineCoverage,
         virtualToOriginalHeaders);
   }
 
-  public static ImmutableList<String> getCoverageFeatures(CcToolchainProvider toolchain) {
+  public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
     ImmutableList.Builder<String> coverageFeatures = ImmutableList.builder();
-    if (toolchain.isCodeCoverageEnabled()) {
+    if (cppConfiguration.collectCodeCoverage()) {
       coverageFeatures.add(CppRuleClasses.COVERAGE);
-      if (toolchain.useLLVMCoverageMapFormat()) {
+      if (cppConfiguration.useLLVMCoverageMapFormat()) {
         coverageFeatures.add(CppRuleClasses.LLVM_COVERAGE_MAP_FORMAT);
       } else {
         coverageFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
@@ -800,7 +830,10 @@ public final class CcCommon {
       CcToolchainProvider toolchain) {
     try {
       return configureFeaturesOrThrowEvalException(
-          requestedFeatures, unsupportedFeatures, toolchain);
+          requestedFeatures,
+          unsupportedFeatures,
+          toolchain,
+          ruleContext.getFragment(CppConfiguration.class));
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
@@ -810,9 +843,9 @@ public final class CcCommon {
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
-      CcToolchainProvider toolchain)
+      CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration)
       throws EvalException {
-    CppConfiguration cppConfiguration = toolchain.getCppConfiguration();
     ImmutableSet.Builder<String> allRequestedFeaturesBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
@@ -854,19 +887,19 @@ public final class CcCommon {
     // according to compilation mode.
     if (requestedFeatures.contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
       allRequestedFeaturesBuilder.add(
-          toolchain.getCompilationMode() == CompilationMode.DBG
+          cppConfiguration.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.STATIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.STATIC_LINK_MSVCRT_NO_DEBUG);
     } else {
       allRequestedFeaturesBuilder.add(
-          toolchain.getCompilationMode() == CompilationMode.DBG
+          cppConfiguration.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.DYNAMIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
     }
 
     ImmutableList.Builder<String> allFeatures =
         new ImmutableList.Builder<String>()
-            .addAll(ImmutableSet.of(toolchain.getCompilationMode().toString()))
+            .addAll(ImmutableSet.of(cppConfiguration.getCompilationMode().toString()))
             .addAll(
                 cppConfiguration.disableLegacyCrosstoolFields()
                     ? ImmutableList.of()
@@ -883,11 +916,13 @@ public final class CcCommon {
       }
     }
 
-    if (toolchain.useFission() && !cppConfiguration.disableLegacyCrosstoolFields()) {
+    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
+        && toolchain.supportsFission()
+        && !cppConfiguration.disableLegacyCrosstoolFields()) {
       allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
 
-    allFeatures.addAll(getCoverageFeatures(toolchain));
+    allFeatures.addAll(getCoverageFeatures(cppConfiguration));
 
     String fdoInstrument = cppConfiguration.getFdoInstrument();
     if (fdoInstrument != null && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
@@ -895,7 +930,7 @@ public final class CcCommon {
     }
 
     FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
-    if (branchFdoProvider != null && toolchain.getCompilationMode() == CompilationMode.OPT) {
+    if (branchFdoProvider != null && cppConfiguration.getCompilationMode() == CompilationMode.OPT) {
       if (branchFdoProvider.isLlvmFdo()
           && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
         allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
@@ -1010,8 +1045,25 @@ public final class CcCommon {
 
   private static List<String> computeCcFlagsFromFeatureConfig(
       RuleContext ruleContext, CcToolchainProvider toolchainProvider) {
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
+    FeatureConfiguration featureConfiguration = null;
+    CppConfiguration cppConfiguration =
+        toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas();
+    if (cppConfiguration.requireCtxInConfigureFeatures()) {
+      // When this is flipped, this whole method will go away. But I'm keeping it there
+      // so we can experiment with flags before they are flipped.
+      Preconditions.checkArgument(cppConfiguration.disableGenruleCcToolchainDependency());
+      cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    }
+    try {
+      featureConfiguration =
+          configureFeaturesOrThrowEvalException(
+              ruleContext.getFeatures(),
+              ruleContext.getDisabledFeatures(),
+              toolchainProvider,
+              cppConfiguration);
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getMessage());
+    }
     if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       CcToolchainVariables buildVariables = toolchainProvider.getBuildVariables();
       return featureConfiguration.getCommandLine(

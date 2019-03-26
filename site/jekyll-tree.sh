@@ -67,7 +67,7 @@ function setup {
   unzip -qq "$SL_ZIP" -d "$sl_dir"
   mv "$sl_dir/skylark-nav.html" "$OUT_DIR/_includes"
 
-  # Unpack the the documentation for the repository rules to repo subdirectory
+  # Unpack the documentation for the repository rules to repo subdirectory
   local repo_dir="${VERSION_DIR}/repo"
   mkdir -p "${repo_dir}"
   tar -C "${repo_dir}" -xf "${REPO_TAR}"

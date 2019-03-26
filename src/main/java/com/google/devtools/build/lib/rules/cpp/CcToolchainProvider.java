@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.Map;
@@ -48,7 +47,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class CcToolchainProvider extends ToolchainInfo
-    implements CcToolchainProviderApi<FeatureConfiguration>, HasCcToolchainLabel {
+    implements CcToolchainProviderApi<FeatureConfigurationForStarlark>, HasCcToolchainLabel {
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
@@ -80,13 +79,10 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* supportsHeaderParsing= */ false,
           CcToolchainVariables.EMPTY,
           /* builtinIncludeFiles= */ ImmutableList.of(),
-          /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
           /* linkDynamicLibraryTool= */ null,
           /* builtInIncludeDirectories= */ ImmutableList.of(),
           /* sysroot= */ null,
           /* fdoContext= */ null,
-          /* useLLVMCoverageMapFormat= */ false,
-          /* codeCoverageEnabled= */ false,
           /* isHostConfiguration= */ false,
           /* licensesProvider= */ null);
 
@@ -116,15 +112,10 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final boolean supportsHeaderParsing;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
-  private final NestedSet<Pair<String, String>> coverageEnvironment;
   @Nullable private final Artifact linkDynamicLibraryTool;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
-  private final boolean useLLVMCoverageMapFormat;
-  private final boolean codeCoverageEnabled;
   private final boolean isHostConfiguration;
-  private final boolean forcePic;
-  private final boolean shouldStripBinaries;
   /**
    * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
    * and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it, don't
@@ -162,13 +153,10 @@ public final class CcToolchainProvider extends ToolchainInfo
       boolean supportsHeaderParsing,
       CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
-      NestedSet<Pair<String, String>> coverageEnvironment,
       Artifact linkDynamicLibraryTool,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
       FdoContext fdoContext,
-      boolean useLLVMCoverageMapFormat,
-      boolean codeCoverageEnabled,
       boolean isHostConfiguration,
       LicensesProvider licensesProvider) {
     super(values, Location.BUILTIN);
@@ -202,21 +190,11 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
-    this.coverageEnvironment = coverageEnvironment;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
     this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
-    this.useLLVMCoverageMapFormat = useLLVMCoverageMapFormat;
-    this.codeCoverageEnabled = codeCoverageEnabled;
     this.isHostConfiguration = isHostConfiguration;
-    if (cppConfiguration != null) {
-      this.forcePic = cppConfiguration.forcePic();
-      this.shouldStripBinaries = cppConfiguration.shouldStripBinaries();
-    } else {
-      this.forcePic = false;
-      this.shouldStripBinaries = false;
-    }
     this.licensesProvider = licensesProvider;
   }
 
@@ -275,6 +253,19 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
+   * See {@link #usePicForDynamicLibraries(FeatureConfigurationForStarlark)}. This method is there
+   * only to serve Starlark callers.
+   */
+  @Override
+  public boolean usePicForDynamicLibrariesFromStarlark(
+      FeatureConfigurationForStarlark featureConfiguration) {
+    return usePicForDynamicLibraries(
+        featureConfiguration
+            .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
+        featureConfiguration.getFeatureConfiguration());
+  }
+
+  /**
    * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
    * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
    * However, an individual rule may override these settings by applying -fPIC" to its "nocopts"
@@ -283,42 +274,19 @@ public final class CcToolchainProvider extends ToolchainInfo
    *
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
-  @Override
-  public boolean usePicForDynamicLibraries(FeatureConfiguration featureConfiguration) {
-    return forcePic
+  public boolean usePicForDynamicLibraries(
+      CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
+    return cppConfiguration.forcePic()
         || toolchainNeedsPic()
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
-  }
-
-  /**
-   * Deprecated since it uses legacy crosstool fields.
-   *
-   * <p>See {link {@link #usePicForDynamicLibraries(FeatureConfiguration)} for docs}
-   *
-   * @return
-   */
-  @Deprecated
-  @Override
-  public boolean usePicForDynamicLibrariesUsingLegacyFields() {
-    return forcePic
-        || toolchainNeedsPic()
-        || FeatureConfiguration.EMPTY.isEnabled(CppRuleClasses.SUPPORTS_PIC);
-  }
-
-  /**
-   * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
-   * the given configuration and toolchain.
-   */
-  public boolean useFission() {
-    return Preconditions.checkNotNull(cppConfiguration).fissionIsActiveForCurrentCompilationMode()
-        && supportsFission();
   }
 
   /**
    * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the
    * build implied by the given configuration, toolchain and feature configuration.
    */
-  public boolean shouldCreatePerObjectDebugInfo(FeatureConfiguration featureConfiguration) {
+  public boolean shouldCreatePerObjectDebugInfo(
+      FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
     return cppConfiguration.fissionIsActiveForCurrentCompilationMode()
         && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
   }
@@ -335,7 +303,8 @@ public final class CcToolchainProvider extends ToolchainInfo
    * It will run compiler's parser to ensure the header is self-contained. This is required for
    * layering_check to work.
    */
-  public boolean shouldProcessHeaders(FeatureConfiguration featureConfiguration) {
+  public boolean shouldProcessHeaders(
+      FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
     // If parse_headers_verifies_modules is switched on, we verify that headers are
     // self-contained by building the module instead.
     return !cppConfiguration.getParseHeadersVerifiesModules()
@@ -586,14 +555,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getSolibDirectory();
   }
 
-  /**
-   * Returns the compilation mode.
-   */
-  @Nullable
-  public CompilationMode getCompilationMode() {
-    return cppConfiguration == null ? null : cppConfiguration.getCompilationMode();
-  }
-
   /** Returns whether the toolchain supports dynamic linking. */
   public boolean supportsDynamicLinker(FeatureConfiguration featureConfiguration) {
     return toolchainInfo.supportsDynamicLinker()
@@ -626,8 +587,20 @@ public final class CcToolchainProvider extends ToolchainInfo
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
   }
 
-  @Nullable
-  public CppConfiguration getCppConfiguration() {
+  /**
+   * Return CppConfiguration instance that was used to configure CcToolchain.
+   *
+   * <p>If C++ rules use platforms/toolchains without
+   * https://github.com/bazelbuild/proposals/blob/master/designs/2019-02-12-toolchain-transitions.md
+   * implemented, CcToolchain is analyzed in the host configuration. This configuration is not what
+   * should be used by rules using the toolchain. This method should only be used to access stuff
+   * from CppConfiguration that is identical between host and target (e.g. incompatible flag
+   * values). Don't use it if you don't know what you're doing.
+   *
+   * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
+   * toolchain in rules.
+   */
+  public CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas() {
     return cppConfiguration;
   }
 
@@ -642,14 +615,6 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   public ImmutableList<Artifact> getBuiltinIncludeFiles() {
     return builtinIncludeFiles;
-  }
-
-  /**
-   * Returns the environment variables that need to be added to tests that collect code
-   * coverageFiles.
-   */
-  public NestedSet<Pair<String, String>> getCoverageEnvironment() {
-    return coverageEnvironment;
   }
 
   /**
@@ -1014,28 +979,16 @@ public final class CcToolchainProvider extends ToolchainInfo
     return System.identityHashCode(this);
   }
 
-  public boolean useLLVMCoverageMapFormat() {
-    return useLLVMCoverageMapFormat;
-  }
-
-  public boolean isCodeCoverageEnabled() {
-    return codeCoverageEnabled;
-  }
-
   public boolean isHostConfiguration() {
     return isHostConfiguration;
   }
 
-  public boolean getForcePic() {
-    return forcePic;
-  }
-
-  public boolean getShouldStripBinaries() {
-    return shouldStripBinaries;
-  }
-
   public LicensesProvider getLicensesProvider() {
     return licensesProvider;
+  }
+
+  public PathFragment getDefaultSysroot() {
+    return toolchainInfo.getDefaultSysroot();
   }
 }
 

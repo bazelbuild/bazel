@@ -189,10 +189,9 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-# TODO(#7696): Remove this target after third_party/ changes are merged.
 filegroup(
-    name = "embed_into_java_tools",
-    srcs = glob(["*.cc"]) + glob(["*.h"]),
+    name = "embedded_java_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]) + ["//src/main/native/windows:embedded_java_tools"],
     visibility = ["//visibility:public"],
 )
 

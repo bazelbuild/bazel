@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -1208,7 +1207,7 @@ public class CcToolchainFeatures implements Serializable {
   /** Captures the set of enabled features and action configs for a rule. */
   @Immutable
   @AutoCodec
-  public static class FeatureConfiguration implements FeatureConfigurationApi {
+  public static class FeatureConfiguration {
     private static final Interner<FeatureConfiguration> FEATURE_CONFIGURATION_INTERNER =
         BlazeInterners.newWeakInterner();
 
@@ -1692,14 +1691,10 @@ public class CcToolchainFeatures implements Serializable {
     }
     return selectablesByName.get(name);
   }
-  
+
   @VisibleForTesting
   Collection<String> getActivatableNames() {
-    Collection<String> featureNames = new HashSet<>();
-    for (CrosstoolSelectable selectable : selectables) {
-      featureNames.add(selectable.getName());
-    }
-    return featureNames;
+    return selectablesByName.keySet();
   }
 
   /**

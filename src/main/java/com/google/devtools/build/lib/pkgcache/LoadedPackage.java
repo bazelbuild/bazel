@@ -33,8 +33,8 @@ interface LoadedPackage {
   boolean isValid() throws InterruptedException;
 
   /**
-   * Returns true iff the the contents of the package are guaranteed not to have changed after
-   * between {@link #isValid()} calls and syncs of the associated package loader.
+   * Returns true iff the contents of the package are guaranteed not to have changed after between
+   * {@link #isValid()} calls and syncs of the associated package loader.
    */
   boolean contentsCouldNotHaveChanged();
 

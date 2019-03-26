@@ -258,10 +258,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.crosstoolTop;
   }
 
-  /**
-   * Returns the configured current compilation mode. Rules should not call this directly, but
-   * instead use {@code CcToolchainProvider.getCompilationMode}.
-   */
+  /** Returns the configured current compilation mode. */
   public CompilationMode getCompilationMode() {
     return compilationMode;
   }
@@ -560,10 +557,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         + "migration instructions).";
   }
 
-  public boolean disableDepsetInUserFlags() {
-    return cppOptions.disableDepsetInUserFlags;
-  }
-
   public boolean removeCpuCompilerCcToolchainAttributes() {
     return cppOptions.removeCpuCompilerCcToolchainAttributes;
   }
@@ -604,5 +597,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean disableCcContextQuoteIncludesHook() {
     return cppOptions.disableCcContextQuoteIncludesHook;
+  }
+
+  public boolean requireCtxInConfigureFeatures() {
+    return cppOptions.requireCtxInConfigureFeatures;
+  }
+
+  public boolean collectCodeCoverage() {
+    return collectCodeCoverage;
   }
 }

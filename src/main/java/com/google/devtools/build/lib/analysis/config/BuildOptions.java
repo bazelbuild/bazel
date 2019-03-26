@@ -471,11 +471,14 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     /**
-     * Adds a new FragmentOptions instance to the builder. Overrides previous instances of the exact
-     * same subclass of FragmentOptions.
+     * Adds a new {@link FragmentOptions} instance to the builder.
+     *
+     * <p>Overrides previous instances of the exact same subclass of {@code FragmentOptions}.
+     *
+     * <p>The options get preprocessed with {@link FragmentOptions#getNormalized}.
      */
     public <T extends FragmentOptions> Builder addFragmentOptions(T options) {
-      fragmentOptions.put(options.getClass(), options);
+      fragmentOptions.put(options.getClass(), options.getNormalized());
       return this;
     }
 

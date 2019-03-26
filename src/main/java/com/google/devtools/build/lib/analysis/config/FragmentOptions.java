@@ -48,18 +48,42 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
   }
 
   /**
-   * Creates a new FragmentOptions instance with all flags set to default.
+   * Creates a new instance of this {@code FragmentOptions} with all flags set to their default
+   * values.
    */
   public FragmentOptions getDefault() {
     return Options.getDefaults(getClass());
   }
 
   /**
-   * Creates a new FragmentOptions instance with flags adjusted to host platform.
+   * Creates a new instance of this {@code FragmentOptions} with all flags adjusted as needed to
+   * represent the host platform.
    */
   @SuppressWarnings("unused")
   public FragmentOptions getHost() {
     return getDefault();
+  }
+
+  /**
+   * Creates a new instance of this {@code FragmentOptions} with all flags adjusted to be suitable
+   * for forming configurations.
+   *
+   * <p>Motivation: Sometimes a fragment's physical option values, as set by the options parser, do
+   * not correspond to their logical interpretation. For example, an option may need custom code to
+   * determine its logical default value at runtime, but it's limited to a single hard-coded
+   * physical default value in the {@link Option#defaultValue} annotation field. If two instances of
+   * the fragment have the same logical value but different physical values, a redundant
+   * configuration can be created, which results in an action conflict (particularly for unshareable
+   * actions; see #7808).
+   *
+   * <p>To solve this, we can distinguish between "normalized" and "non-normalized" instances of a
+   * fragment type, and preserve the invariant that configured targets only ever see normalized
+   * instances. This requires that 1) the top-level configuration is normalized, and 2) all
+   * transitions preserve normalization. Step 1) is ensured by {@link BuildOptions} calling this
+   * method. Step 2) is the responsibility of each transition implementation.
+   */
+  public FragmentOptions getNormalized() {
+    return clone();
   }
 
   /** Tracks limitations on referring to an option in a {@code config_setting}. */

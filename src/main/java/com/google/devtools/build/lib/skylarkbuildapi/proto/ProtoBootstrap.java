@@ -24,14 +24,20 @@ public class ProtoBootstrap implements Bootstrap {
   /** The name of the proto info provider in Starlark. */
   public static final String PROTO_INFO_STARLARK_NAME = "ProtoInfo";
 
-  private final ProtoInfoApi.Provider protoInfoApiProvider;
+  /** The name of the proto namespace in Starlark. */
+  public static final String PROTO_MODULE_NAME = "proto_common";
 
-  public ProtoBootstrap(ProtoInfoApi.Provider protoInfoApiProvider) {
+  private final ProtoInfoApi.Provider protoInfoApiProvider;
+  private final Object protoModule;
+
+  public ProtoBootstrap(ProtoInfoApi.Provider protoInfoApiProvider, Object protoModule) {
     this.protoInfoApiProvider = protoInfoApiProvider;
+    this.protoModule = protoModule;
   }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put(PROTO_INFO_STARLARK_NAME, protoInfoApiProvider);
+    builder.put(PROTO_MODULE_NAME, protoModule);
   }
 }

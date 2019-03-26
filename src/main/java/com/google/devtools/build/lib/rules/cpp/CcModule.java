@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNameP
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Flag;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagGroup;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagSet;
@@ -83,7 +82,7 @@ import javax.annotation.Nullable;
 public class CcModule
     implements CcModuleApi<
         CcToolchainProvider,
-        FeatureConfiguration,
+        FeatureConfigurationForStarlark,
         CcCompilationContext,
         CcLinkingContext,
         LibraryToLink,
@@ -132,53 +131,80 @@ public class CcModule
   }
 
   @Override
-  public FeatureConfiguration configureFeatures(
+  public FeatureConfigurationForStarlark configureFeatures(
+      Object ruleContextOrNone,
       CcToolchainProvider toolchain,
       SkylarkList<String> requestedFeatures,
       SkylarkList<String> unsupportedFeatures)
       throws EvalException {
-    return CcCommon.configureFeaturesOrThrowEvalException(
-        ImmutableSet.copyOf(requestedFeatures),
-        ImmutableSet.copyOf(unsupportedFeatures),
-        toolchain);
+    SkylarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, SkylarkRuleContext.class);
+    if (ruleContext == null
+        && toolchain
+            .getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+            .requireCtxInConfigureFeatures()) {
+      throw new EvalException(
+          Location.BUILTIN,
+          "Incompatible flag --incompatible_require_ctx_in_configure_features has been flipped, "
+              + "and the mandatory parameter 'ctx' of cc_common.configure_features is missing. "
+              + "Please add 'ctx' as a named parameter. See "
+              + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
+    }
+    CppConfiguration cppConfiguration =
+        ruleContext == null
+            ? toolchain.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+            : ruleContext.getRuleContext().getFragment(CppConfiguration.class);
+    return FeatureConfigurationForStarlark.from(
+        CcCommon.configureFeaturesOrThrowEvalException(
+            ImmutableSet.copyOf(requestedFeatures),
+            ImmutableSet.copyOf(unsupportedFeatures),
+            toolchain,
+            cppConfiguration),
+        cppConfiguration);
   }
 
   @Override
-  public String getToolForAction(FeatureConfiguration featureConfiguration, String actionName) {
-    return featureConfiguration.getToolPathForAction(actionName);
+  public String getToolForAction(
+      FeatureConfigurationForStarlark featureConfiguration, String actionName) {
+    return featureConfiguration.getFeatureConfiguration().getToolPathForAction(actionName);
   }
 
   @Override
-  public boolean isEnabled(FeatureConfiguration featureConfiguration, String featureName) {
-    return featureConfiguration.isEnabled(featureName);
+  public boolean isEnabled(
+      FeatureConfigurationForStarlark featureConfiguration, String featureName) {
+    return featureConfiguration.getFeatureConfiguration().isEnabled(featureName);
   }
 
   @Override
-  public boolean actionIsEnabled(FeatureConfiguration featureConfiguration, String actionName) {
-    return featureConfiguration.actionIsConfigured(actionName);
+  public boolean actionIsEnabled(
+      FeatureConfigurationForStarlark featureConfiguration, String actionName) {
+    return featureConfiguration.getFeatureConfiguration().actionIsConfigured(actionName);
   }
 
   @Override
   public SkylarkList<String> getCommandLine(
-      FeatureConfiguration featureConfiguration,
+      FeatureConfigurationForStarlark featureConfiguration,
       String actionName,
       CcToolchainVariables variables) {
-    return SkylarkList.createImmutable(featureConfiguration.getCommandLine(actionName, variables));
+    return SkylarkList.createImmutable(
+        featureConfiguration.getFeatureConfiguration().getCommandLine(actionName, variables));
   }
 
   @Override
   public SkylarkDict<String, String> getEnvironmentVariable(
-      FeatureConfiguration featureConfiguration,
+      FeatureConfigurationForStarlark featureConfiguration,
       String actionName,
       CcToolchainVariables variables) {
     return SkylarkDict.copyOf(
-        null, featureConfiguration.getEnvironmentVariables(actionName, variables));
+        null,
+        featureConfiguration
+            .getFeatureConfiguration()
+            .getEnvironmentVariables(actionName, variables));
   }
 
   @Override
   public CcToolchainVariables getCompileBuildVariables(
       CcToolchainProvider ccToolchainProvider,
-      FeatureConfiguration featureConfiguration,
+      FeatureConfigurationForStarlark featureConfiguration,
       Object sourceFile,
       Object outputFile,
       Object userCompileFlags,
@@ -190,7 +216,7 @@ public class CcModule
       boolean addLegacyCxxOptions)
       throws EvalException {
     return CompileBuildVariables.setupVariablesOrThrowEvalException(
-        featureConfiguration,
+        featureConfiguration.getFeatureConfiguration(),
         ccToolchainProvider,
         convertFromNoneable(sourceFile, /* defaultValue= */ null),
         convertFromNoneable(outputFile, /* defaultValue= */ null),
@@ -199,7 +225,7 @@ public class CcModule
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
         /* includes= */ ImmutableList.of(),
-        userFlagsToIterable(ccToolchainProvider.getCppConfiguration(), userCompileFlags),
+        userFlagsToIterable(userCompileFlags),
         /* cppModuleMap= */ null,
         usePic,
         /* fakeOutputFile= */ null,
@@ -218,7 +244,7 @@ public class CcModule
   @Override
   public CcToolchainVariables getLinkBuildVariables(
       CcToolchainProvider ccToolchainProvider,
-      FeatureConfiguration featureConfiguration,
+      FeatureConfigurationForStarlark featureConfiguration,
       Object librarySearchDirectories,
       Object runtimeLibrarySearchDirectories,
       Object userLinkFlags,
@@ -241,10 +267,12 @@ public class CcModule
         /* thinltoMergedObjectFile= */ null,
         mustKeepDebug,
         ccToolchainProvider,
-        featureConfiguration,
+        featureConfiguration
+            .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
+        featureConfiguration.getFeatureConfiguration(),
         useTestOnlyFlags,
         /* isLtoIndexing= */ false,
-        userFlagsToIterable(ccToolchainProvider.getCppConfiguration(), userLinkFlags),
+        userFlagsToIterable(userLinkFlags),
         /* interfaceLibraryBuilder= */ null,
         /* interfaceLibraryOutput= */ null,
         /* ltoOutputRootPrefix= */ null,
@@ -295,26 +323,14 @@ public class CcModule
     }
   }
 
-  /**
-   * Converts an object that represents user flags and can be either SkylarkNestedSet , SkylarkList,
-   * or None into Iterable.
-   */
-  protected Iterable<String> userFlagsToIterable(CppConfiguration cppConfiguration, Object o)
-      throws EvalException {
-    if (o instanceof SkylarkNestedSet) {
-      if (cppConfiguration.disableDepsetInUserFlags()) {
-        throw new EvalException(
-            Location.BUILTIN,
-            "Passing depset into user flags is deprecated (see "
-                + "--incompatible_disable_depset_in_cc_user_flags), use list instead.");
-      }
-      return asStringNestedSet(o);
-    } else if (o instanceof SkylarkList) {
+  /** Converts an object that represents user flags as either SkylarkList or None into Iterable. */
+  protected Iterable<String> userFlagsToIterable(Object o) throws EvalException {
+    if (o instanceof SkylarkList) {
       return asStringImmutableList(o);
     } else if (o instanceof NoneType) {
       return ImmutableList.of();
     } else {
-      throw new EvalException(Location.BUILTIN, "Only depset and list is allowed.");
+      throw new EvalException(Location.BUILTIN, "Only list is allowed.");
     }
   }
 
@@ -348,8 +364,8 @@ public class CcModule
       throws EvalException, InterruptedException {
     SkylarkActionFactory skylarkActionFactory =
         nullIfNone(actionsObject, SkylarkActionFactory.class);
-    FeatureConfiguration featureConfiguration =
-        nullIfNone(featureConfigurationObject, FeatureConfiguration.class);
+    FeatureConfigurationForStarlark featureConfiguration =
+        nullIfNone(featureConfigurationObject, FeatureConfigurationForStarlark.class);
     CcToolchainProvider ccToolchainProvider =
         nullIfNone(ccToolchainProviderObject, CcToolchainProvider.class);
     Artifact staticLibrary = nullIfNone(staticLibraryObject, Artifact.class);
@@ -419,7 +435,7 @@ public class CcModule
 
     Artifact resolvedSymlinkDynamicLibrary = null;
     Artifact resolvedSymlinkInterfaceLibrary = null;
-    if (!featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+    if (!featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
       if (dynamicLibrary != null) {
         resolvedSymlinkDynamicLibrary = dynamicLibrary;
         dynamicLibrary =
@@ -431,8 +447,7 @@ public class CcModule
                 ccToolchainProvider.getSolibDirectory(),
                 dynamicLibrary,
                 /* preserveName= */ true,
-                /* prefixConsumer= */ true,
-                /* configuration= */ null);
+                /* prefixConsumer= */ true);
       }
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
@@ -445,8 +460,7 @@ public class CcModule
                 ccToolchainProvider.getSolibDirectory(),
                 interfaceLibrary,
                 /* preserveName= */ true,
-                /* prefixConsumer= */ true,
-                /* configuration= */ null);
+                /* prefixConsumer= */ true);
       }
     }
     if (staticLibrary == null
@@ -592,7 +606,7 @@ public class CcModule
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     SkylarkActionFactory actions = skylarkRuleContext.actions();
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
-    FeatureConfiguration featureConfiguration =
+    FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
     Pair<List<Artifact>, List<Artifact>> separatedHeadersAndSources =
         separateSourcesFromHeaders(sources);
@@ -610,7 +624,7 @@ public class CcModule
                     ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
                     : null,
                 cppSemantics,
-                featureConfiguration,
+                featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
                 fdoContext)
             .addPublicHeaders(headers)
@@ -679,7 +693,7 @@ public class CcModule
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
-    FeatureConfiguration featureConfiguration =
+    FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     NestedSet<String> linkopts =
@@ -688,7 +702,7 @@ public class CcModule
         new CcLinkingHelper(
                 ruleContext,
                 cppSemantics,
-                featureConfiguration,
+                featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
                 fdoContext,
                 ruleContext.getConfiguration())

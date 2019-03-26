@@ -708,6 +708,20 @@ public class CppOptions extends FragmentOptions {
   public boolean dontEnableHostNonhost;
 
   @Option(
+      name = "incompatible_require_ctx_in_configure_features",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will require 'ctx' parameter in to cc_common.configure_features "
+              + "(see https://github.com/bazelbuild/bazel/issues/7793 for more information).")
+  public boolean requireCtxInConfigureFeatures;
+
+  @Option(
       name = "incompatible_disable_legacy_crosstool_fields",
       oldName = "experimental_disable_legacy_crosstool_fields",
       defaultValue = "true",
@@ -792,21 +806,6 @@ public class CppOptions extends FragmentOptions {
               + "includes attribute set, it is allowed to include anything under its folder, even "
               + "across subpackage boundaries.")
   public boolean experimentalIncludesAttributeSubpackageTraversal;
-
-  @Option(
-      name = "incompatible_disable_depset_in_cc_user_flags",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, C++ toolchain Starlark API will not accept depset in `user_compile_flags` "
-              + "param of `create_compile_variables`, and in `user_link_flags` of "
-              + "`create_link_variables`. Use list instead.")
-  public boolean disableDepsetInUserFlags;
 
   @Option(
       name = "experimental_do_not_use_cpu_transformer",
@@ -900,7 +899,6 @@ public class CppOptions extends FragmentOptions {
 
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
     host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
-    host.disableDepsetInUserFlags = disableDepsetInUserFlags;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
@@ -909,6 +907,7 @@ public class CppOptions extends FragmentOptions {
     host.enableCcToolchainResolution = enableCcToolchainResolution;
     host.removeLegacyWholeArchive = removeLegacyWholeArchive;
     host.dontEnableHostNonhost = dontEnableHostNonhost;
+    host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     return host;
   }
 

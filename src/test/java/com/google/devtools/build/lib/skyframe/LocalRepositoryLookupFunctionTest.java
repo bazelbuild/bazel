@@ -292,7 +292,8 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(localRepositoryKey)
         .hasExceptionThat()
-        .hasMessage(
+        .hasMessageThat()
+        .isEqualTo(
             "FileSymlinkException while checking if there is a WORKSPACE file in "
                 + "/workspace/local/repo");
   }

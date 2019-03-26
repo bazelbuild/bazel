@@ -171,6 +171,12 @@ public class ExecutionTool {
                 actionContextProviders,
                 options.testStrategy,
                 options.incompatibleListBasedExecutionStrategySelection);
+
+    if (options.availableResources != null && options.removeLocalResources) {
+      throw new ExecutorInitException(
+          "--local_resources is deprecated. Please use "
+              + "--local_ram_resources and/or --local_cpu_resources");
+    }
   }
 
   Executor getExecutor() throws ExecutorInitException {
@@ -641,7 +647,7 @@ public class ExecutionTool {
     ResourceManager resourceMgr = ResourceManager.instance();
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ResourceSet resources;
-    if (options.availableResources != null) {
+    if (options.availableResources != null && !options.removeLocalResources) {
       logger.warning(
           "--local_resources will be deprecated. Please use --local_ram_resources "
               + "and/or --local_cpu_resources.");

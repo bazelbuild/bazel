@@ -24,16 +24,12 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -234,17 +230,9 @@ class BuildResultPrinter {
         // Suppress display of source files (because we do no work to build them).
         continue;
       }
-      Target target = null;
-      try {
-        target = env.getPackageManager().getTarget(env.getReporter(), configuredTarget.getLabel());
-      } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-        env.getReporter()
-            .handle(Event.error("Unable to get target when filtering targets to print. " + e));
-        continue;
-      }
-      if (target instanceof Rule) {
-        Rule rule = (Rule) target;
-        if (rule.getRuleClass().contains("$")) {
+      if (configuredTarget instanceof RuleConfiguredTarget) {
+        RuleConfiguredTarget ruleCt = (RuleConfiguredTarget) configuredTarget;
+        if (ruleCt.getRuleClassString().contains("$")) {
           // Suppress display of hidden rules
           continue;
         }

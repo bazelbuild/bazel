@@ -308,7 +308,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     @Option(
         name = "incompatible_merge_genfiles_directory",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         metadataTags = {
@@ -1417,6 +1417,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /** Returns the genfiles directory for this build configuration. */
   public ArtifactRoot getGenfilesDirectory() {
+    if (mergeGenfilesDirectory) {
+      return getBinDirectory();
+    }
+
     return getGenfilesDirectory(RepositoryName.MAIN);
   }
 

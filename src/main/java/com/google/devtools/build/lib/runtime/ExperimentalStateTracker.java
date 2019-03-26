@@ -661,12 +661,12 @@ class ExperimentalStateTracker {
   }
 
   /**
-   * Maybe add a note about the last test that passed. Return true, if the note was added (and
-   * hence a line break is appropriate if more data is to come. If a null value is provided for
-   * the terminal writer, only return wether a note would be added.
+   * Maybe add a note about the last test that passed. Return true, if the note was added (and hence
+   * a line break is appropriate if more data is to come. If a null value is provided for the
+   * terminal writer, only return whether a note would be added.
    *
-   * The width parameter gives advice on to which length the the description of the test should
-   * the shortened to, if possible.
+   * <p>The width parameter gives advice on to which length the description of the test should the
+   * shortened to, if possible.
    */
   private boolean maybeShowRecentTest(
       AnsiTerminalWriter terminalWriter, boolean shortVersion, int width) throws IOException {

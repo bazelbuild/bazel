@@ -446,11 +446,14 @@ public class CcToolchainProviderHelper {
       fdoInputFile =
           FdoInputFile.fromAbsolutePath(ccSkyframeSupportValue.getFdoZipPath().asFragment());
     }
-
+    
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
             ruleContext,
-            cppConfiguration,
+            cppConfiguration.disableLegacyCrosstoolFields(),
+            cppConfiguration.disableGenruleCcToolchainDependency(),
+            cppConfiguration.getTransformedCpuFromOptions(),
+            cppConfiguration.getCompilerFromOptions(),
             attributes,
             ccSkyframeSupportValue,
             toolchain,
@@ -548,11 +551,7 @@ public class CcToolchainProviderHelper {
           dynamicRuntimeLinkInputs.add(artifact);
           dynamicRuntimeLinkSymlinksBuilder.add(
               SolibSymlinkAction.getCppRuntimeSymlink(
-                  ruleContext,
-                  artifact,
-                  toolchainInfo.getSolibDirectory(),
-                  runtimeSolibDirBase,
-                  configuration));
+                  ruleContext, artifact, toolchainInfo.getSolibDirectory(), runtimeSolibDirBase));
         }
       }
       if (dynamicRuntimeLinkInputs.isEmpty()) {
@@ -595,8 +594,6 @@ public class CcToolchainProviderHelper {
     }
     final CcCompilationContext ccCompilationContext = ccCompilationContextBuilder.build();
 
-    NestedSetBuilder<Pair<String, String>> coverageEnvironment = NestedSetBuilder.compileOrder();
-
     PathFragment sysroot = calculateSysroot(attributes, toolchainInfo.getDefaultSysroot());
 
     ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
@@ -611,16 +608,8 @@ public class CcToolchainProviderHelper {
     ImmutableList<PathFragment> builtInIncludeDirectories =
         builtInIncludeDirectoriesBuilder.build();
 
-    coverageEnvironment.add(
-        Pair.of(
-            "COVERAGE_GCOV_PATH", toolchainInfo.getToolPathFragment(Tool.GCOV).getPathString()));
-    if (cppConfiguration.getFdoInstrument() != null) {
-      coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
-    }
-
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
 
-    reportInvalidOptions(ruleContext, toolchainInfo);
     return new CcToolchainProvider(
         getToolchainForSkylark(toolchainInfo),
         cppConfiguration,
@@ -653,13 +642,10 @@ public class CcToolchainProviderHelper {
             toolchainInfo.getDefaultSysroot(),
             attributes.getAdditionalBuildVariables()),
         getBuiltinIncludes(attributes.getLibc()),
-        coverageEnvironment.build(),
         attributes.getLinkDynamicLibraryTool(),
         builtInIncludeDirectories,
         sysroot,
         new FdoContext(branchFdoProfile, prefetchHintsArtifact),
-        cppConfiguration.useLLVMCoverageMapFormat(),
-        configuration.isCodeCoverageEnabled(),
         configuration.isHostConfiguration(),
         attributes.getLicensesProvider());
   }
@@ -694,7 +680,10 @@ public class CcToolchainProviderHelper {
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
   private static CppToolchainInfo getCppToolchainInfo(
       RuleContext ruleContext,
-      CppConfiguration cppConfiguration,
+      boolean disableLegacyCrosstoolFields,
+      boolean disableGenruleCcToolchainDependency,
+      String cpuFromOptions,
+      String compilerFromOptions,
       CcToolchainAttributesProvider attributes,
       CcSkyframeSupportValue ccSkyframeSupportValue,
       CToolchain toolchainFromCcToolchainAttribute,
@@ -708,8 +697,8 @@ public class CcToolchainProviderHelper {
         return CppToolchainInfo.create(
             ruleContext.getLabel(),
             configInfo,
-            cppConfiguration.disableLegacyCrosstoolFields(),
-            cppConfiguration.disableGenruleCcToolchainDependency());
+            disableLegacyCrosstoolFields,
+            disableGenruleCcToolchainDependency);
       } catch (EvalException e) {
         throw ruleContext.throwWithRuleError(e.getMessage());
       }
@@ -722,7 +711,8 @@ public class CcToolchainProviderHelper {
           getToolchainFromAttributes(
               ruleContext,
               attributes,
-              cppConfiguration,
+              cpuFromOptions,
+              compilerFromOptions,
               crosstoolFromCcToolchainSuiteProtoAttribute,
               ccSkyframeSupportValue);
     }
@@ -742,8 +732,8 @@ public class CcToolchainProviderHelper {
       return CppToolchainInfo.create(
           attributes.getCcToolchainLabel(),
           ccToolchainConfigInfo,
-          cppConfiguration.disableLegacyCrosstoolFields(),
-          cppConfiguration.disableGenruleCcToolchainDependency());
+          disableLegacyCrosstoolFields,
+          disableGenruleCcToolchainDependency);
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
     }
@@ -766,36 +756,12 @@ public class CcToolchainProviderHelper {
     }
   }
 
-  private static void reportInvalidOptions(RuleContext ruleContext, CppToolchainInfo toolchain) {
-    CppOptions options = ruleContext.getConfiguration().getOptions().get(CppOptions.class);
-    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
-    if (options.fissionModes.contains(config.getCompilationMode())
-        && !toolchain.supportsFission()) {
-      ruleContext.ruleWarning(
-          "Fission is not supported by this crosstool.  Please use a "
-              + "supporting crosstool to enable fission");
-    }
-    if (options.buildTestDwp
-        && !(toolchain.supportsFission() && config.fissionIsActiveForCurrentCompilationMode())) {
-      ruleContext.ruleWarning(
-          "Test dwp file requested, but Fission is not enabled.  To generate a "
-              + "dwp for the test executable, use '--fission=yes' with a toolchain that supports "
-              + "Fission to build statically.");
-    }
-
-    if (config.getLibcTopLabel() != null && toolchain.getDefaultSysroot() == null) {
-      ruleContext.ruleError(
-          "The selected toolchain "
-              + toolchain.getToolchainIdentifier()
-              + " does not support setting --grte_top (it doesn't specify builtin_sysroot).");
-    }
-  }
-
   @Nullable
   private static CToolchain getToolchainFromAttributes(
       RuleContext ruleContext,
       CcToolchainAttributesProvider attributes,
-      CppConfiguration cppConfiguration,
+      String cpuFromOptions,
+      String compilerFromOptions,
       CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute,
       CcSkyframeSupportValue ccSkyframeSupportValue)
       throws RuleErrorException {
@@ -813,8 +779,8 @@ public class CcToolchainProviderHelper {
           attributes.getToolchainIdentifier(),
           attributes.getCpu(),
           attributes.getCompiler(),
-          cppConfiguration.getTransformedCpuFromOptions(),
-          cppConfiguration.getCompilerFromOptions(),
+          cpuFromOptions,
+          compilerFromOptions,
           crosstoolRelease);
     } catch (InvalidConfigurationException e) {
       ruleContext.throwWithRuleError(

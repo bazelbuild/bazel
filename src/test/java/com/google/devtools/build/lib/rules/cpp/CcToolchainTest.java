@@ -183,12 +183,14 @@ public class CcToolchainTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
-            toolchainProvider);
-    return CppHelper.usePicForBinaries(toolchainProvider, featureConfiguration);
+            toolchainProvider,
+            cppConfiguration);
+    return CppHelper.usePicForBinaries(toolchainProvider, cppConfiguration, featureConfiguration);
   }
 
   @Test

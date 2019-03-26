@@ -154,7 +154,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_bzl_disallow_load_after_statement",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -208,20 +208,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
           "If set to true, disable the deprecated parameters 'single_file' and 'non_empty' on "
               + "attribute definition methods, such as attr.label().")
   public boolean incompatibleDisableDeprecatedAttrParams;
-
-  @Option(
-      name = "incompatible_require_feature_configuration_for_pic",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, cc_toolchain_info.use_pic_for_dynamic_libraries will require "
-              + "feature_configuration argument (see #7007).")
-  public boolean requireFeatureConfigurationForPic;
 
   @Option(
       name = "incompatible_disable_objc_provider_resources",
@@ -464,7 +450,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_no_transitive_loads",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -593,7 +579,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
         .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
-        .incompatibleRequireFeatureConfigurationForPic(requireFeatureConfigurationForPic)
         .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
         .incompatibleUseToolchainProvidersInJavaCommon(
             incompatibleUseToolchainProvidersInJavaCommon)

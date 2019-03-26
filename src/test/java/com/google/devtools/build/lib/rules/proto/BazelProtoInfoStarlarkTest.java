@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
+import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoModuleApi;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,6 +56,21 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//foo:test");
     assertContainsEvent("doesn't have provider 'proto'");
+  }
+
+  @Test
+  public void testProtoCommon() throws Exception {
+    scratch.file(
+        "foo/test.bzl",
+        "def _impl(ctx):",
+        "  return struct(proto_common=proto_common)",
+        "test = rule(implementation = _impl, attrs = {})");
+
+    scratch.file("foo/BUILD", "load(':test.bzl', 'test')", "test(name='test')");
+
+    ConfiguredTarget test = getConfiguredTarget("//foo:test");
+    Object protoCommon = test.get("proto_common");
+    assertThat(protoCommon).isInstanceOf(ProtoModuleApi.class);
   }
 
   @Test
