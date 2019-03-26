@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -o xtrace
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
