@@ -311,6 +311,11 @@ public class AttributeTest {
     public SplitTransition create(RuleTransitionData data) {
       return new TestSplitTransition();
     }
+
+    @Override
+    public boolean isSplit() {
+      return true;
+    }
   }
 
   @Test
