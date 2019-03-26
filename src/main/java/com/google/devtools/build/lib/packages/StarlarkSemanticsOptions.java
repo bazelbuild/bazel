@@ -477,20 +477,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "will be available")
   public boolean incompatibleRemoveNativeMavenJar;
 
-  @Option(
-      name = "incompatible_strict_argument_ordering",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the order of arguments is stricter in function calls, see "
-              + "https://github.com/bazelbuild/bazel/issues/6611")
-  public boolean incompatibleStricArgumentOrdering;
-
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
       name = "internal_skylark_flag_test_canary",
@@ -566,7 +552,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
         .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
-        .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
         .incompatibleUseToolchainProvidersInJavaCommon(
             incompatibleUseToolchainProvidersInJavaCommon)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)

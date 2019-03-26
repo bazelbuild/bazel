@@ -187,42 +187,6 @@ public abstract class Argument extends ASTNode {
 
   /**
    * Validate that the list of Argument's, whether gathered by the Parser or from annotations,
-   * satisfies the requirements of the Python calling conventions: all Positional's first, at most
-   * one Star, at most one StarStar, at the end only.
-   *
-   * <p>TODO(laurentlb): remove this function and use only validateFuncallArguments.
-   */
-  public static void legacyValidateFuncallArguments(List<Passed> arguments)
-      throws ArgumentException {
-    boolean hasNamed = false;
-    boolean hasStar = false;
-    boolean hasKwArg = false;
-    for (Passed arg : arguments) {
-      if (hasKwArg) {
-        throw new ArgumentException(arg.getLocation(), "argument after **kwargs");
-      }
-      if (arg.isPositional()) {
-        if (hasNamed) {
-          throw new ArgumentException(arg.getLocation(), "non-keyword arg after keyword arg");
-        } else if (arg.isStar()) {
-          throw new ArgumentException(
-              arg.getLocation(), "only named arguments may follow *expression");
-        }
-      } else if (arg.isKeyword()) {
-        hasNamed = true;
-      } else if (arg.isStar()) {
-        if (hasStar) {
-          throw new ArgumentException(arg.getLocation(), "more than one *stararg");
-        }
-        hasStar = true;
-      } else {
-        hasKwArg = true;
-      }
-    }
-  }
-
-  /**
-   * Validate that the list of Argument's, whether gathered by the Parser or from annotations,
    * satisfies the requirements: first Positional arguments, then Keyword arguments, then an
    * optional *arg argument, finally an optional **kwarg argument.
    */

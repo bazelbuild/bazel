@@ -187,18 +187,6 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   @Override
-  public void visit(FuncallExpression node) {
-    super.visit(node);
-    try {
-      if (env.getSemantics().incompatibleStricArgumentOrdering()) {
-        Argument.validateFuncallArguments(node.getArguments());
-      }
-    } catch (Argument.ArgumentException e) {
-      throw new ValidationException(e.getLocation(), e.getMessage());
-    }
-  }
-
-  @Override
   public void visit(ReturnStatement node) {
     if (block.scope != Scope.Local) {
       throw new ValidationException(

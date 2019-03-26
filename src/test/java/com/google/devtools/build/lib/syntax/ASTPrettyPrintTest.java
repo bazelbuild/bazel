@@ -147,7 +147,7 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   public void funcallExpression() {
     assertExprBothRoundTrip("f()");
     assertExprBothRoundTrip("f(a)");
-    assertExprBothRoundTrip("f(a, b = B, *c, d = D, **e)");
+    assertExprBothRoundTrip("f(a, b = B, c = C, *d, **e)");
     assertExprBothRoundTrip("o.f()");
   }
 
