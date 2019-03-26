@@ -111,7 +111,7 @@ public abstract class BazelJavaBuilder {
           err.write(d.getFormatted() + "\n");
         }
         err.write(result.output());
-        return result.status().exitCode();
+        return result.isOk() ? 0 : 1;
       }
     } catch (InvalidCommandLineException e) {
       err.println(CMDNAME + " threw exception: " + e.getMessage());
