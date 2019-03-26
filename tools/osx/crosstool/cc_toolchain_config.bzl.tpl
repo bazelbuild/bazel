@@ -28,7 +28,26 @@ load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
 )
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
+_VALID_CPUS = [
+    "armeabi-v7a",
+    "darwin_x86_64",
+    "ios_arm64",
+    "ios_arm64e",
+    "ios_armv7",
+    "ios_i386",
+    "ios_x86_64",
+    "tvos_arm64",
+    "tvos_x86_64",
+    "watchos_arm64_32",
+    "watchos_armv7k",
+    "watchos_i386",
+    "watchos_x86_64",
+]
+
 def _impl(ctx):
+    if ctx.attr.cpu not in _VALID_CPUS:
+        fail("Unhandled CPU {}".format(ctx.attr.cpu))
+
     if (ctx.attr.cpu == "darwin_x86_64"):
         toolchain_identifier = "darwin_x86_64"
     elif (ctx.attr.cpu == "ios_arm64"):
