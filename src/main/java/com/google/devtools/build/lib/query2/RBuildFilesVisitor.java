@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.Set;
@@ -35,6 +38,20 @@ public class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
   // influences how many packages each leaf task doing processPartialResults will have to
   // deal with at once. A value of 100 was chosen experimentally.
   private static final int PROCESS_RESULTS_BATCH_SIZE = 100;
+
+  // We don't expect to find any additional BUILD files so we skip visitation of the following
+  // nodes.
+  private static final ImmutableSet<SkyFunctionName> NODES_TO_PRUNE_TRAVERSAL =
+      ImmutableSet.of(
+          Label.TRANSITIVE_TRAVERSAL,
+          SkyFunctions.COLLECT_TARGETS_IN_PACKAGE,
+          SkyFunctions.COLLECT_TEST_SUITES_IN_PACKAGE,
+          SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
+          SkyFunctions.PREPARE_TEST_SUITES_UNDER_DIRECTORY,
+          SkyFunctions.PACKAGE_ERROR_MESSAGE,
+          SkyFunctions.PREPARE_DEPS_OF_PATTERN,
+          SkyFunctions.PREPARE_DEPS_OF_PATTERNS);
+
   private static final SkyKey EXTERNAL_PACKAGE_KEY =
       PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
   private final SkyQueryEnvironment env;
@@ -72,7 +89,7 @@ public class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
         if (rdep.equals(EXTERNAL_PACKAGE_KEY)) {
           keysToVisitNext.add(rdep);
         }
-      } else {
+      } else if (!NODES_TO_PRUNE_TRAVERSAL.contains(rdep.functionName())) {
         processNonPackageRdepAndDetermineVisitations(rdep, keysToVisitNext, keysToUseForResult);
       }
     }
