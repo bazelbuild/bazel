@@ -154,6 +154,11 @@ public class MultiArchSplitTransitionProvider
   }
 
   @Override
+  public boolean isSplit() {
+    return true;
+  }
+
+  @Override
   public boolean isImmutable() {
     return true;
   }
