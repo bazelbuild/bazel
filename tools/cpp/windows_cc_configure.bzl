@@ -94,7 +94,7 @@ def find_vc_path(repository_ctx):
                                                   "start looking for the latest Visual C++ installed.")
 
     if "BAZEL_VC_TOOL" in repository_ctx.os.environ:
-        auto_configure_warning("'BAZEL_VC_TOOL' is set, " +
+        _auto_configure_warning_maybe(repository_ctx, "'BAZEL_VC_TOOL' is set, " +
                                "but 'BAZEL_VC' and 'BAZEL_VS' are not. " + 
                                "This is not recomended and can " +
                                "lead to incorrect VC++ detection and configuration.")
@@ -102,10 +102,26 @@ def find_vc_path(repository_ctx):
         # As neither 'BAZEL_VC' nor 'BAZEL_VS' are set, we assume BAZEL_VC_TOOL looks like that: %VS_PATH%\VC\<path_to_tool>
         # path_to_tool is different for different VS versions, but we don't care
         # We DO NOT search in any other places as we can easily 
-        # get inconsistancy with VC++ tools and VCVARSALL.BAT 
-        # (assuming multiple versions of VS are installed)
-        vc_path = repository_ctx.re.search(r".*(^|[/\\])VC[\\/]?", vc_tool_path)
-        return vc_path.group(0) if vc_path else None
+        # get inconsistancy with VC++ tools and VCVARSALL.BAT (assuming multiple versions of VS are installed)
+        vc_tool_path = vc_tool_path.replace('\\', '/').strip()
+        vc_pos = vc_tool_path.rfind('/VC/')
+        if vc_tool_path == 'VC' or vc_tool_path.endswith('/VC'):
+            vc_tool_path = vc_tool_path + '/'
+        elif vc_pos != -1:
+            vc_tool_path = vc_tool_path[:vc_pos + len('/VC/')]
+        elif vc_tool_path.startswith('VC/'):
+            vc_tool_path = 'VC/'
+        else:
+            vc_tool_path = None
+
+        if vc_tool_path:
+            _auto_configure_warning_maybe(repository_ctx, ("VC++ found at '%s'" % vc_tool_path))
+        else:
+             _auto_configure_warning_maybe(repository_ctx, "Bazel failed to find VC++. "+
+                "You need either specify any of 'BAZEL_VC' / 'BAZEL_VS' "  + 
+                "or make sure that 'BAZEL_VC_TOOL' contains subpath to 'VC' directory.")
+
+        return vc_tool_path
 
     # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
     # vcvarsqueryregistry.bat to detect VC++.
@@ -225,7 +241,7 @@ def setup_vc_env_vars(repository_ctx, vc_path):
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
     if "BAZEL_VC_TOOL" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["BAZEL_VC_TOOL"] + "\\" + tool
+        return repository_ctx.os.environ["BAZEL_VC_TOOL"].replace('\\','/') + "/" + tool
 
     tool_path = ""
     if _is_vs_2017(vc_path):
