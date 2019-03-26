@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
@@ -38,39 +36,21 @@ import java.io.InputStream;
 import javax.annotation.Nullable;
 
 /**
- * A {@link SkyFunction} that does things for FDO that a regular configured target is not allowed
- * to.
- *
- * <p>This only exists because the value of {@code --fdo_optimize} can be a workspace-relative path
- * and thus we need to depend on {@link BlazeDirectories} somehow, which neither the configuration
- * nor the analysis phase can "officially" do.
- *
- * <p>The fix is probably to make it possible for {@link
- * com.google.devtools.build.lib.analysis.actions.SymlinkAction} to create workspace-relative
- * symlinks because action execution can hopefully depend on {@link BlazeDirectories}.
- *
- * <p>There is also the awful and incorrect {@link Path#exists()} call in {@link
- * com.google.devtools.build.lib.view.proto.CcProtoProfileProvider#getProfile(
- * com.google.devtools.build.lib.analysis.RuleContext)} which needs a {@link Path}.
+ * A {@link SkyFunction} that does things for CROSSTOOL that a regular configured target is not
+ * allowed to (read a file from filesystem).
  */
-public class CcSkyframeSupportFunction implements SkyFunction {
+public class CcSkyframeCrosstoolSupportFunction implements SkyFunction {
 
   static final String CROSSTOOL_CONFIGURATION_FILENAME = "CROSSTOOL";
-  private final BlazeDirectories directories;
 
-  public CcSkyframeSupportFunction(BlazeDirectories directories) {
-    this.directories = Preconditions.checkNotNull(directories);
-  }
+  public CcSkyframeCrosstoolSupportFunction() {}
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws InterruptedException, CcSkyframeSupportException {
-    CcSkyframeSupportValue.Key key = (CcSkyframeSupportValue.Key) skyKey.argument();
-    Path fdoZipPath = null;
-    if (key.getFdoZipPath() != null) {
-      fdoZipPath = directories.getWorkspace().getRelative(key.getFdoZipPath());
-    }
+      throws InterruptedException, CcSkyframeCrosstoolSupportException {
+    CcSkyframeCrosstoolSupportValue.Key key =
+        (CcSkyframeCrosstoolSupportValue.Key) skyKey.argument();
 
     CrosstoolRelease crosstoolRelease = null;
     if (key.getPackageWithCrosstoolInIt() != null) {
@@ -98,7 +78,7 @@ public class CcSkyframeSupportFunction implements SkyFunction {
         // 3. Parse the crosstool file the into CrosstoolRelease
         Path crosstoolFile = crosstoolFileValue.realRootedPath().asPath();
         if (!crosstoolFile.exists()) {
-          throw new CcSkyframeSupportException(
+          throw new CcSkyframeCrosstoolSupportException(
               String.format(
                   "there is no CROSSTOOL file at %s, which is needed for this cc_toolchain",
                   crosstool.toString()),
@@ -109,11 +89,11 @@ public class CcSkyframeSupportFunction implements SkyFunction {
           crosstoolRelease = toReleaseConfiguration(crosstoolContent);
         }
       } catch (IOException | InvalidConfigurationException e) {
-        throw new CcSkyframeSupportException(e.getMessage(), key);
+        throw new CcSkyframeCrosstoolSupportException(e.getMessage(), key);
       }
     }
 
-    return new CcSkyframeSupportValue(fdoZipPath, crosstoolRelease);
+    return new CcSkyframeCrosstoolSupportValue(crosstoolRelease);
   }
 
   @Nullable
@@ -146,14 +126,11 @@ public class CcSkyframeSupportFunction implements SkyFunction {
     }
   }
 
-  /** Exception encapsulating IOExceptions thrown in {@link CcSkyframeSupportFunction} */
-  public static class CcSkyframeSupportException extends SkyFunctionException {
+  /** Exception encapsulating IOExceptions thrown in {@link CcSkyframeCrosstoolSupportFunction} */
+  public static class CcSkyframeCrosstoolSupportException extends SkyFunctionException {
 
-    public CcSkyframeSupportException(Exception cause, CcSkyframeSupportValue.Key key) {
-      super(cause, key);
-    }
-
-    public CcSkyframeSupportException(String message, CcSkyframeSupportValue.Key key) {
+    public CcSkyframeCrosstoolSupportException(
+        String message, CcSkyframeCrosstoolSupportValue.Key key) {
       super(new CcCrosstoolException(message), key);
     }
   }

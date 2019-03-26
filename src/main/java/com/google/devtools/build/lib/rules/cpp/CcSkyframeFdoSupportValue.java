@@ -14,60 +14,49 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
-import javax.annotation.Nullable;
 
 /**
  * A container for the path to the FDO profile.
  *
- * <p>{@link CcSkyframeSupportValue} is created from {@link CcSkyframeSupportFunction} (a {@link
- * SkyFunction}), which is requested from Skyframe by the {@code cc_toolchain}/{@code
+ * <p>{@link CcSkyframeFdoSupportValue} is created from {@link CcSkyframeFdoSupportFunction} (a
+ * {@link SkyFunction}), which is requested from Skyframe by the {@code cc_toolchain}/{@code
  * cc_toolchain_suite} rules. It's done this way because the path depends on both a command line
  * argument and the location of the workspace and the latter is not available either during
  * configuration creation or during the analysis phase.
  */
 @AutoCodec
 @Immutable
-public class CcSkyframeSupportValue implements SkyValue {
+public class CcSkyframeFdoSupportValue implements SkyValue {
   public static final SkyFunctionName SKYFUNCTION = SkyFunctionName.createHermetic("FDO_SUPPORT");
 
-  /** {@link SkyKey} for {@link CcSkyframeSupportValue}. */
+  /** {@link SkyKey} for {@link CcSkyframeFdoSupportValue}. */
   @Immutable
   @AutoCodec
   public static class Key implements SkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    @Nullable private final PathFragment fdoZipPath;
-    @Nullable private final PackageIdentifier packageWithCrosstoolInIt;
+    private final PathFragment fdoZipPath;
 
-    private Key(PathFragment fdoZipPath, PackageIdentifier packageWithCrosstoolInIt) {
+    private Key(PathFragment fdoZipPath) {
       this.fdoZipPath = fdoZipPath;
-      this.packageWithCrosstoolInIt = packageWithCrosstoolInIt;
     }
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(PathFragment fdoZipPath, PackageIdentifier packageWithCrosstoolInIt) {
-      return interner.intern(new Key(fdoZipPath, packageWithCrosstoolInIt));
+    static Key of(PathFragment fdoZipPath) {
+      return interner.intern(new Key(fdoZipPath));
     }
 
-    @Nullable
-    public PackageIdentifier getPackageWithCrosstoolInIt() {
-      return packageWithCrosstoolInIt;
-    }
-
-    @Nullable
     public PathFragment getFdoZipPath() {
       return fdoZipPath;
     }
@@ -81,14 +70,13 @@ public class CcSkyframeSupportValue implements SkyValue {
         return false;
       }
       Key key = (Key) o;
-      return Objects.equals(fdoZipPath, key.fdoZipPath)
-          && Objects.equals(packageWithCrosstoolInIt, key.packageWithCrosstoolInIt);
+      return Objects.equals(fdoZipPath, key.fdoZipPath);
     }
 
     @Override
     public int hashCode() {
 
-      return Objects.hash(fdoZipPath, packageWithCrosstoolInIt);
+      return Objects.hash(fdoZipPath);
     }
 
     @Override
@@ -103,22 +91,15 @@ public class CcSkyframeSupportValue implements SkyValue {
   // This is all ridiculously incorrect and should be removed asap.
   private final Path fdoZipPath;
 
-  private final CrosstoolRelease crosstoolRelease;
-
-  CcSkyframeSupportValue(Path fdoZipPath, CrosstoolRelease crosstoolRelease) {
+  CcSkyframeFdoSupportValue(Path fdoZipPath) {
     this.fdoZipPath = fdoZipPath;
-    this.crosstoolRelease = crosstoolRelease;
   }
 
   public Path getFdoZipPath() {
     return fdoZipPath;
   }
 
-  public CrosstoolRelease getCrosstoolRelease() {
-    return crosstoolRelease;
-  }
-
-  public static SkyKey key(PathFragment fdoZipPath, PackageIdentifier packageWithCrosstoolInIt) {
-    return Key.of(fdoZipPath, packageWithCrosstoolInIt);
+  public static SkyKey key(PathFragment fdoZipPath) {
+    return Key.of(fdoZipPath);
   }
 }

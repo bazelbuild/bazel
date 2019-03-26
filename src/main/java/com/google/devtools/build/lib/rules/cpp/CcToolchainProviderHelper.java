@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportFunction.CcSkyframeSupportException;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportFunction.CcSkyframeCrosstoolSupportException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoMode;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -400,9 +400,23 @@ public class CcToolchainProviderHelper {
       protoProfileArtifact = fdoInputs.getSecond();
     }
 
-    CcSkyframeSupportValue ccSkyframeSupportValue = null;
-    SkyKey ccSupportKey = null;
+    if (fdoZip != null) {
+      SkyKey fdoKey = CcSkyframeFdoSupportValue.key(fdoZip);
+      SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
+      CcSkyframeFdoSupportValue ccSkyframeFdoSupportValue =
+          (CcSkyframeFdoSupportValue) skyframeEnv.getValue(fdoKey);
+      if (skyframeEnv.valuesMissing()) {
+        return null;
+      }
+      // fdoZip should be set if the profile is a path, fdoInputFile if it is an artifact, but
+      // never both
+      Preconditions.checkState(fdoInputFile == null);
+      fdoInputFile =
+          FdoInputFile.fromAbsolutePath(ccSkyframeFdoSupportValue.getFdoZipPath().asFragment());
+    }
+
     CToolchain toolchain = null;
+    CrosstoolRelease crosstoolFromCrosstoolFile = null;
 
     if (cppConfiguration.disableCrosstool() && attributes.getCcToolchainConfigInfo() == null) {
       ruleContext.ruleError(
@@ -410,43 +424,31 @@ public class CcToolchainProviderHelper {
               + "https://github.com/bazelbuild/bazel/issues/7320 for details.");
     }
 
-    if (attributes.getCcToolchainConfigInfo() != null) {
-      if (fdoZip != null) {
-        ccSupportKey = CcSkyframeSupportValue.key(fdoZip, /* packageWithCrosstoolInIt= */ null);
-      }
-    } else {
+    if (attributes.getCcToolchainConfigInfo() == null) {
       // Is there a toolchain proto available on the target directly?
       toolchain = parseToolchainFromAttributes(ruleContext, attributes);
       PackageIdentifier packageWithCrosstoolInIt = null;
       if (toolchain == null && crosstoolFromCcToolchainSuiteProtoAttribute == null) {
         packageWithCrosstoolInIt = ruleContext.getLabel().getPackageIdentifier();
       }
-      if (packageWithCrosstoolInIt != null || fdoZip != null) {
-        ccSupportKey = CcSkyframeSupportValue.key(fdoZip, packageWithCrosstoolInIt);
-      }
-    }
-    if (ccSupportKey != null) {
-      SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-      try {
-        ccSkyframeSupportValue =
-            (CcSkyframeSupportValue)
-                skyframeEnv.getValueOrThrow(ccSupportKey, CcSkyframeSupportException.class);
-      } catch (CcSkyframeSupportException e) {
-        throw ruleContext.throwWithRuleError(e.getMessage());
-      }
-      if (skyframeEnv.valuesMissing()) {
-        return null;
+      if (packageWithCrosstoolInIt != null) {
+        SkyKey crosstoolKey = CcSkyframeCrosstoolSupportValue.key(packageWithCrosstoolInIt);
+        SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
+        try {
+          CcSkyframeCrosstoolSupportValue ccSkyframeCrosstoolSupportValue =
+              (CcSkyframeCrosstoolSupportValue)
+                  skyframeEnv.getValueOrThrow(
+                      crosstoolKey, CcSkyframeCrosstoolSupportException.class);
+          if (skyframeEnv.valuesMissing()) {
+            return null;
+          }
+          crosstoolFromCrosstoolFile = ccSkyframeCrosstoolSupportValue.getCrosstoolRelease();
+        } catch (CcSkyframeCrosstoolSupportException e) {
+          throw ruleContext.throwWithRuleError(e.getMessage());
+        }
       }
     }
 
-    if (fdoZip != null) {
-      // fdoZip should be set if the profile is a path, fdoInputFile if it is an artifact, but never
-      // both
-      Preconditions.checkState(fdoInputFile == null);
-      fdoInputFile =
-          FdoInputFile.fromAbsolutePath(ccSkyframeSupportValue.getFdoZipPath().asFragment());
-    }
-    
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
             ruleContext,
@@ -455,7 +457,7 @@ public class CcToolchainProviderHelper {
             cppConfiguration.getTransformedCpuFromOptions(),
             cppConfiguration.getCompilerFromOptions(),
             attributes,
-            ccSkyframeSupportValue,
+            crosstoolFromCrosstoolFile,
             toolchain,
             crosstoolFromCcToolchainSuiteProtoAttribute);
 
@@ -685,7 +687,7 @@ public class CcToolchainProviderHelper {
       String cpuFromOptions,
       String compilerFromOptions,
       CcToolchainAttributesProvider attributes,
-      CcSkyframeSupportValue ccSkyframeSupportValue,
+      CrosstoolRelease crosstoolFromCrosstoolFile,
       CToolchain toolchainFromCcToolchainAttribute,
       CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
       throws RuleErrorException, InterruptedException {
@@ -714,7 +716,7 @@ public class CcToolchainProviderHelper {
               cpuFromOptions,
               compilerFromOptions,
               crosstoolFromCcToolchainSuiteProtoAttribute,
-              ccSkyframeSupportValue);
+              crosstoolFromCrosstoolFile);
     }
 
     // If we found a toolchain, use it.
@@ -763,7 +765,7 @@ public class CcToolchainProviderHelper {
       String cpuFromOptions,
       String compilerFromOptions,
       CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute,
-      CcSkyframeSupportValue ccSkyframeSupportValue)
+      CrosstoolRelease crosstoolFromCrosstoolFile)
       throws RuleErrorException {
     try {
       CrosstoolRelease crosstoolRelease;
@@ -772,7 +774,7 @@ public class CcToolchainProviderHelper {
         crosstoolRelease = crosstoolFromCcToolchainSuiteProtoAttribute;
       } else {
         // We use the proto from the CROSSTOOL file
-        crosstoolRelease = ccSkyframeSupportValue.getCrosstoolRelease();
+        crosstoolRelease = crosstoolFromCrosstoolFile;
       }
 
       return CToolchainSelectionUtils.selectCToolchain(

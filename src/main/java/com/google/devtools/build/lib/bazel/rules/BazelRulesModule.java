@@ -20,8 +20,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportFunction;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -312,7 +314,9 @@ public class BazelRulesModule extends BlazeModule {
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.addSkyFunction(
-        CcSkyframeSupportValue.SKYFUNCTION, new CcSkyframeSupportFunction(directories));
+        CcSkyframeFdoSupportValue.SKYFUNCTION, new CcSkyframeFdoSupportFunction(directories));
+    builder.addSkyFunction(
+        CcSkyframeCrosstoolSupportValue.SKYFUNCTION, new CcSkyframeCrosstoolSupportFunction());
   }
 
   @Override
