@@ -36,7 +36,29 @@ public final class SimpleBlobStoreFactory {
 
   private SimpleBlobStoreFactory() {}
 
-  public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
+  public static SimpleBlobStore create(
+      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
+      throws IOException {
+
+    if (isRestUrlOptions(options) && isDiskCache(options)) {
+      return createCombinedCache(workingDirectory, options.diskCache, options, creds);
+    }
+    if (isRestUrlOptions(options)) {
+      return createRest(options, creds);
+    }
+    if (workingDirectory != null && isDiskCache(options)) {
+      return createDiskCache(workingDirectory, options.diskCache);
+    }
+    throw new IllegalArgumentException(
+        "Unrecognized concurrent map RemoteOptions: must specify "
+            + "either Rest URL, or local cache options.");
+  }
+
+  public static boolean isRemoteCacheOptions(RemoteOptions options) {
+    return isRestUrlOptions(options) || isDiskCache(options);
+  }
+
+  private static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
     try {
       URI uri = URI.create(options.remoteHttpCache);
 
@@ -60,7 +82,7 @@ public final class SimpleBlobStoreFactory {
     }
   }
 
-  public static SimpleBlobStore createDiskCache(Path workingDirectory, PathFragment diskCachePath)
+  private static SimpleBlobStore createDiskCache(Path workingDirectory, PathFragment diskCachePath)
       throws IOException {
     Path cacheDir = workingDirectory.getRelative(checkNotNull(diskCachePath));
     if (!cacheDir.exists()) {
@@ -69,7 +91,7 @@ public final class SimpleBlobStoreFactory {
     return new OnDiskBlobStore(cacheDir);
   }
 
-  public static SimpleBlobStore createCombinedCache(
+  private static SimpleBlobStore createCombinedCache(
       Path workingDirectory, PathFragment diskCachePath, RemoteOptions options, Credentials cred)
       throws IOException {
     Path cacheDir = workingDirectory.getRelative(checkNotNull(diskCachePath));
@@ -79,33 +101,11 @@ public final class SimpleBlobStoreFactory {
     return new CombinedDiskHttpBlobStore(cacheDir, createRest(options, cred));
   }
 
-  public static SimpleBlobStore create(
-      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
-      throws IOException {
-
-    if (isRestUrlOptions(options) && isDiskCache(options)) {
-      return createCombinedCache(workingDirectory, options.diskCache, options, creds);
-    }
-    if (isRestUrlOptions(options)) {
-      return createRest(options, creds);
-    }
-    if (workingDirectory != null && isDiskCache(options)) {
-      return createDiskCache(workingDirectory, options.diskCache);
-    }
-    throw new IllegalArgumentException(
-        "Unrecognized concurrent map RemoteOptions: must specify "
-            + "either Rest URL, or local cache options.");
-  }
-
-  public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isRestUrlOptions(options) || isDiskCache(options);
-  }
-
-  public static boolean isDiskCache(RemoteOptions options) {
+  private static boolean isDiskCache(RemoteOptions options) {
     return options.diskCache != null && !options.diskCache.isEmpty();
   }
 
-  static boolean isRestUrlOptions(RemoteOptions options) {
+  private static boolean isRestUrlOptions(RemoteOptions options) {
     return options.remoteHttpCache != null;
   }
 }

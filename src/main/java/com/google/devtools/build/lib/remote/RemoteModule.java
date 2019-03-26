@@ -125,9 +125,7 @@ public final class RemoteModule extends BlazeModule {
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
 
-    boolean enableRestCache = SimpleBlobStoreFactory.isRestUrlOptions(remoteOptions);
-    boolean enableDiskCache = SimpleBlobStoreFactory.isDiskCache(remoteOptions);
-    boolean enableBlobStoreCache = enableRestCache || enableDiskCache;
+    boolean enableBlobStoreCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
     boolean enableGrpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     if (enableBlobStoreCache && enableRemoteExecution) {
