@@ -108,8 +108,6 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
-    compiler = "compiler"
-
     if (ctx.attr.cpu == "armeabi-v7a"):
         abi_version = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin_x86_64"):
@@ -123,10 +121,6 @@ def _impl(ctx):
         abi_libc_version = "darwin_x86_64"
     else:
         abi_libc_version = "local"
-
-    cc_target_os = "apple"
-
-    builtin_sysroot = None
 
     all_compile_actions = [
         ACTION_NAMES.c_compile,
@@ -5560,8 +5554,6 @@ def _impl(ctx):
 %{cxx_builtin_include_directories}
     ]
 
-    artifact_name_patterns = []
-
     make_variables = [
         make_variable(
             name = "STACK_FRAME_UNLIMITED",
@@ -5619,20 +5611,20 @@ def _impl(ctx):
             ctx = ctx,
             features = features,
             action_configs = action_configs,
-            artifact_name_patterns = artifact_name_patterns,
+            artifact_name_patterns = [],
             cxx_builtin_include_directories = cxx_builtin_include_directories,
             toolchain_identifier = toolchain_identifier,
             host_system_name = host_system_name,
             target_system_name = target_system_name,
             target_cpu = ctx.attr.cpu,
             target_libc = target_libc,
-            compiler = compiler,
+            compiler = "compiler",
             abi_version = abi_version,
             abi_libc_version = abi_libc_version,
             tool_paths = tool_paths,
             make_variables = make_variables,
-            builtin_sysroot = builtin_sysroot,
-            cc_target_os = cc_target_os
+            builtin_sysroot = None,
+            cc_target_os = "apple"
         ),
         DefaultInfo(
             executable = out,
