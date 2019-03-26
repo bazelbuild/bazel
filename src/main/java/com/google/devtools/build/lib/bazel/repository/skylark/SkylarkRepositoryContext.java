@@ -350,6 +350,24 @@ public class SkylarkRepositoryContext
   }
 
   @Override
+  public boolean delete(Object pathObject, Location location)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    if (pathObject instanceof Label) {
+      throw new EvalException(Location.BUILTIN, "delete() can only take a path or a string.");
+    }
+    SkylarkPath skylarkPath = getPath("delete()", pathObject);
+    WorkspaceRuleEvent w = WorkspaceRuleEvent.newDeleteEvent(skylarkPath.toString(),
+        rule.getLabel().toString(), location);
+    env.getListener().post(w);
+    try {
+      Path path = skylarkPath.getPath();
+      return path.getFileSystem().delete(path);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @Override
   public SkylarkPath which(String program, Location location) throws EvalException {
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newWhichEvent(program, rule.getLabel().toString(), location);

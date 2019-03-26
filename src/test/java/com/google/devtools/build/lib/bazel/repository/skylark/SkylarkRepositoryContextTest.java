@@ -40,9 +40,11 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
@@ -180,6 +182,20 @@ public class SkylarkRepositoryContextTest {
           .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
+  }
+
+  @Test
+  public void testDelete() throws Exception {
+    setUpContexForRule("testDelete");
+    context.createFile(context.path("foo/bar"), "content", true, true, null);
+    assertThat(context.delete("foo/bar", null)).isTrue();
+
+    assertThat(context.delete("abc/def", null)).isFalse();
+    Path tempFile = scratch.file("/abcde/b", "123");
+    assertThat(context.delete(context.path(tempFile.getPathString()), null)).isTrue();
+
+    Path innerDir = scratch.dir("/some/inner");
+    assertThat(context.delete(innerDir.toString(), null)).isTrue();
   }
 
   @Test

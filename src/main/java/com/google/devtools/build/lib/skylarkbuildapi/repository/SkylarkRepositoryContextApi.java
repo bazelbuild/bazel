@@ -275,6 +275,27 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
 
   @SkylarkCallable(
+      name = "delete",
+      doc =
+          "Deletes a file or a directory. Returns a bool, indicating whether the file or directory"
+              + " was actually deleted by this call.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "Path of the file to delete, relative to the repository directory, or absolute."
+                + " Can be a path or a string."),
+      })
+  public boolean delete(
+      Object path,
+      Location location)
+      throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
+
+  @SkylarkCallable(
       name = "which",
       doc =
           "Returns the path of the corresponding program or None "

@@ -88,6 +88,12 @@ message ReadEvent {
   string path = 1;
 }
 
+// Information on "delete" event in repository_ctx.
+message DeleteEvent {
+  // Path to the file to delete
+  string path = 1;
+}
+
 // Information on "os" event in repository_ctx.
 message OsEvent {
   // Takes no inputs
@@ -137,5 +143,6 @@ message WorkspaceEvent {
     WhichEvent which_event = 10;
     ExtractEvent extract_event = 11;
     ReadEvent read_event = 12;
+    DeleteEvent delete_event = 13;
   }
 }
