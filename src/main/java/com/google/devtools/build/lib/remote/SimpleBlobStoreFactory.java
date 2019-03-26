@@ -106,6 +106,6 @@ public final class SimpleBlobStoreFactory {
   }
 
   static boolean isRestUrlOptions(RemoteOptions options) {
-    return options.remoteHttpCache != null;
+    return options.remoteHttpCache != null && !options.remoteHttpCache.isEmpty();
   }
 }
