@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
+import static org.mockito.AdditionalAnswers.answerVoid;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
@@ -33,6 +36,8 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
@@ -723,6 +728,15 @@ public class GrpcRemoteExecutionClientTest {
         .thenAnswer(blobWriteAnswerError()) // Error on the input file.
         .thenAnswer(blobWriteAnswerError()) // Error on the input file again.
         .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
+    doAnswer(
+        answerVoid((QueryWriteStatusRequest request, StreamObserver<QueryWriteStatusResponse> responseObserver) -> {
+            responseObserver.onNext(QueryWriteStatusResponse.newBuilder()
+                .setCommittedSize(0)
+                .setComplete(false)
+                .build());
+            responseObserver.onCompleted();
+        }))
+        .when(mockByteStreamImpl).queryWriteStatus(any(QueryWriteStatusRequest.class), any(StreamObserver.class));
     Mockito.doAnswer(
             invocationOnMock -> {
               @SuppressWarnings("unchecked")

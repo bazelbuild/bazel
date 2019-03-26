@@ -17,15 +17,12 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
@@ -61,18 +58,12 @@ public final class Chunker {
   /** A piece of a byte[] blob. */
   public static final class Chunk {
 
-    private final Digest digest;
     private final long offset;
     private final ByteString data;
 
-    private Chunk(Digest digest, ByteString data, long offset) {
-      this.digest = digest;
+    private Chunk(ByteString data, long offset) {
       this.data = data;
       this.offset = offset;
-    }
-
-    public Digest getDigest() {
-      return digest;
     }
 
     public long getOffset() {
@@ -93,18 +84,17 @@ public final class Chunker {
       }
       Chunk other = (Chunk) o;
       return other.offset == offset
-          && other.digest.equals(digest)
           && other.data.equals(data);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(digest, offset, data);
+      return Objects.hash(offset, data);
     }
   }
 
   private final Supplier<InputStream> dataSupplier;
-  private final Digest digest;
+  private final long size;
   private final int chunkSize;
   private final Chunk emptyChunk;
 
@@ -116,15 +106,19 @@ public final class Chunker {
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  Chunker(Supplier<InputStream> dataSupplier, Digest digest, int chunkSize, DigestUtil digestUtil) {
+  Chunker(Supplier<InputStream> dataSupplier, long size, int chunkSize) {
     this.dataSupplier = checkNotNull(dataSupplier);
-    this.digest = checkNotNull(digest);
+    this.size = size;
     this.chunkSize = chunkSize;
-    this.emptyChunk = new Chunk(digestUtil.compute(new byte[0]), ByteString.EMPTY, 0);
+    this.emptyChunk = new Chunk(ByteString.EMPTY, 0);
   }
 
-  public Digest digest() {
-    return digest;
+  public long getOffset() {
+    return offset;
+  }
+
+  public long getSize() {
+    return size;
   }
 
   /**
@@ -140,6 +134,24 @@ public final class Chunker {
     offset = 0;
     initialized = false;
     chunkCache = null;
+  }
+
+  /**
+   * Seek to an offset, if necessary resetting or initializing
+   *
+   * <p>Closes any open resources (file handles, ...).
+   */
+  public void seek(long toOffset) throws IOException {
+    if (toOffset < offset) {
+      reset();
+      if (toOffset != 0) {
+        maybeInitialize();
+        data.skip(toOffset);
+      }
+    } else if (offset != toOffset) {
+      data.skip(toOffset - offset);
+    }
+    offset = toOffset;
   }
 
   /**
@@ -165,7 +177,7 @@ public final class Chunker {
 
     maybeInitialize();
 
-    if (digest.getSizeBytes() == 0) {
+    if (size == 0) {
       data = null;
       return emptyChunk;
     }
@@ -203,11 +215,11 @@ public final class Chunker {
       chunkCache = null;
     }
 
-    return new Chunk(digest, blob, offsetBefore);
+    return new Chunk(blob, offsetBefore);
   }
 
   private long bytesLeft() {
-    return digest.getSizeBytes() - offset;
+    return getSize() - getOffset();
   }
 
   private void maybeInitialize() throws IOException {
@@ -226,38 +238,34 @@ public final class Chunker {
     initialized = true;
   }
 
-  public static Builder builder(DigestUtil digestUtil) {
-    return new Builder(digestUtil);
+  public static Builder builder() {
+    return new Builder();
   }
 
   /** Builder class for the Chunker */
   public static class Builder {
-    private final DigestUtil digestUtil;
     private int chunkSize = getDefaultChunkSize();
-    private Digest digest;
+    private long size;
     private Supplier<InputStream> inputStream;
 
-    Builder(DigestUtil digestUtil) {
-      this.digestUtil = digestUtil;
-    }
-
     public Builder setInput(byte[] data) {
-      Preconditions.checkState(inputStream == null);
-      digest = digestUtil.compute(data);
+      checkState(inputStream == null);
+      size = data.length;
       inputStream = () -> new ByteArrayInputStream(data);
       return this;
     }
 
-    public Builder setInput(Digest digest, byte[] data) {
-      Preconditions.checkState(inputStream == null);
-      this.digest = digest;
-      inputStream = () -> new ByteArrayInputStream(data);
+    public Builder setInput(long size, InputStream in) {
+      checkState(inputStream == null);
+      checkNotNull(in);
+      this.size = size;
+      inputStream = () -> in;
       return this;
     }
 
-    public Builder setInput(Digest digest, Path file) {
-      Preconditions.checkState(inputStream == null);
-      this.digest = digest;
+    public Builder setInput(long size, Path file) {
+      checkState(inputStream == null);
+      this.size = size;
       inputStream =
           () -> {
             try {
@@ -269,11 +277,11 @@ public final class Chunker {
       return this;
     }
 
-    public Builder setInput(Digest digest, ActionInput actionInput, Path execRoot) {
-      Preconditions.checkState(inputStream == null);
-      this.digest = digest;
+    public Builder setInput(long size, ActionInput actionInput, Path execRoot) {
+      checkState(inputStream == null);
+      this.size = size;
       if (actionInput instanceof VirtualActionInput) {
-        this.inputStream =
+        inputStream =
             () -> {
               try {
                 return ((VirtualActionInput) actionInput).getBytes().newInput();
@@ -300,8 +308,8 @@ public final class Chunker {
     }
 
     public Chunker build() {
-      Preconditions.checkNotNull(inputStream, digest);
-      return new Chunker(inputStream, digest, chunkSize, digestUtil);
+      checkNotNull(inputStream);
+      return new Chunker(inputStream, size, chunkSize);
     }
   }
 }

@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -121,7 +122,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   @Test
   public void uploadsShouldWork() throws Exception {
     int numUploads = 2;
-    Map<String, byte[]> blobsByHash = new HashMap<>();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -132,7 +133,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       rand.nextBytes(blob);
       out.write(blob);
       out.close();
-      blobsByHash.put(DIGEST_UTIL.compute(file).getHash(), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(file, new LocalFile(file, LocalFileType.OUTPUT));
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
@@ -182,7 +183,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // error is propagated correctly.
 
     int numUploads = 10;
-    Map<String, byte[]> blobsByHash = new HashMap<>();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -194,10 +195,10 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       out.write(blob);
       out.flush();
       out.close();
-      blobsByHash.put(DIGEST_UTIL.compute(file).getHash(), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(file, new LocalFile(file, LocalFileType.OUTPUT));
     }
-    String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next();
+    String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next().toString();
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash) {
       @Override
       public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {

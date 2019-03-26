@@ -517,15 +517,15 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       byte[] actionBlob = action.toByteArray();
       digestToChunkers.put(
           actionKey.getDigest(),
-          Chunker.builder(digestUtil)
-              .setInput(actionKey.getDigest(), actionBlob)
+          Chunker.builder()
+              .setInput(actionBlob)
               .setChunkSize(actionBlob.length)
               .build());
       byte[] commandBlob = command.toByteArray();
       digestToChunkers.put(
           action.getCommandDigest(),
-          Chunker.builder(digestUtil)
-              .setInput(action.getCommandDigest(), commandBlob)
+          Chunker.builder()
+              .setInput(commandBlob)
               .setChunkSize(commandBlob.length)
               .build());
     }
@@ -576,7 +576,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       byte[] blob = tree.build().toByteArray();
       Digest digest = digestUtil.compute(blob);
       Chunker chunker =
-          Chunker.builder(digestUtil).setInput(digest, blob).setChunkSize(blob.length).build();
+          Chunker.builder().setInput(blob).setChunkSize(blob.length).build();
 
       if (result != null) {
         result
@@ -585,7 +585,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
             .setTreeDigest(digest);
       }
 
-      digestToChunkers.put(chunker.digest(), chunker);
+      digestToChunkers.put(digest, chunker);
     }
 
     private Directory computeDirectory(Path path, Tree.Builder tree)

@@ -125,7 +125,9 @@ public class TracingMetadataUtils {
         ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
       RequestMetadata meta = requestMetadataFromHeaders(headers);
       if (meta == null) {
-        throw new IllegalStateException("RequestMetadata not received from the client.");
+        throw io.grpc.Status.INVALID_ARGUMENT.withDescription(
+            "RequestMetadata not received from the client for " + call.getMethodDescriptor().getFullMethodName())
+            .asRuntimeException();
       }
       Context ctx = Context.current().withValue(CONTEXT_KEY, meta);
       return Contexts.interceptCall(ctx, call, headers, next);

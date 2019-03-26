@@ -108,7 +108,7 @@ public class RemoteRetrier extends Retrier {
     }
   }
 
-  static class ExponentialBackoff implements Retrier.Backoff {
+  static class ExponentialBackoff implements Backoff {
 
     private final long maxMillis;
     private long nextDelayMillis;
@@ -167,6 +167,51 @@ public class RemoteRetrier extends Retrier {
     @Override
     public int getRetryAttempts() {
       return attempts;
+    }
+  }
+
+  static class ProgressiveBackoff implements Backoff {
+
+    private final Supplier<Backoff> backoffSupplier;
+    private Backoff currentBackoff = null;
+    private int retries = 0;
+
+    /**
+     * Creates a resettable Backoff for progressive reads. After a reset, the nextDelay returned
+     * indicates an immediate retry. Initially and after indicating an immediate retry, a delegate
+     * is generated to provide nextDelay until reset.
+     *
+     * @param backoffSupplier Delegate Backoff generator
+     */
+    ProgressiveBackoff(Supplier<Backoff> backoffSupplier) {
+      this.backoffSupplier = backoffSupplier;
+      currentBackoff = backoffSupplier.get();
+    }
+
+    public void reset() {
+      if (currentBackoff != null) {
+        retries += currentBackoff.getRetryAttempts();
+      }
+      currentBackoff = null;
+    }
+
+    @Override
+    public long nextDelayMillis() {
+      if (currentBackoff == null) {
+        currentBackoff = backoffSupplier.get();
+        retries++;
+        return 0;
+      }
+      return currentBackoff.nextDelayMillis();
+    }
+
+    @Override
+    public int getRetryAttempts() {
+      int retryAttempts = retries;
+      if (currentBackoff != null) {
+        retryAttempts += currentBackoff.getRetryAttempts();
+      }
+      return retryAttempts;
     }
   }
 }
