@@ -73,4 +73,35 @@ EOI
     bazel build //foo/bar/... || fail "Could not build valid target"
 }
 
+test_aquery_specific_target() {
+    rm -rf work && mkdir work && cd work
+    touch WORKSPACE
+    mkdir -p foo/ignoreme
+    cat > foo/ignoreme/BUILD <<'EOI'
+genrule(
+  name = "ignoreme",
+  outs = ["ignore.txt"],
+  cmd = "echo Hello World > $@",
+)
+EOI
+    mkdir -p foo
+    cat > foo/BUILD <<'EOI'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  cmd = "echo Hello World > $@",
+)
+EOI
+    bazel aquery ... > output 2> "$TEST_log" \
+        || fail "Aquery should complete without error."
+    cat output >> "$TEST_log"
+    assert_contains "ignoreme" output
+
+    echo foo/ignoreme > .bazelignore
+    bazel aquery ... > output 2> "$TEST_log" \
+        || fail "Aquery should complete without error."
+    cat output >> "$TEST_log"
+    assert_not_contains "ignoreme" output
+}
+
 run_suite "Integration tests for .bazelignore"

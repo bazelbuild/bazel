@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
@@ -224,6 +226,13 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   @Nullable
   ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
     return (ConfiguredTargetValue) walkableGraphSupplier.get().getValue(key);
+  }
+
+  ImmutableSet<PathFragment> getBlacklistedPackagePrefixesPathFragments()
+      throws InterruptedException {
+    return ((BlacklistedPackagePrefixesValue)
+            walkableGraphSupplier.get().getValue(BlacklistedPackagePrefixesValue.key()))
+        .getPatterns();
   }
 
   @Nullable
