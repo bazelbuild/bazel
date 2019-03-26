@@ -3913,317 +3913,36 @@ def _impl(ctx):
 
     module_maps_feature = feature(name = "module_maps", enabled = True)
 
-    if (ctx.attr.cpu == "ios_arm64"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "arm64-apple-ios",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "arm64-apple-tvos",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "arm64e-apple-ios",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_armv7"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "armv7-apple-ios",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "armv7k-apple-watchos",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "i386-apple-ios",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_i386"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "i386-apple-watchos",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_x86_64"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "x86_64-apple-ios",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                "x86_64-apple-tvos",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
+    unfiltered_compile_flags_feature = feature(
+        name = "unfiltered_compile_flags",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.cpp_module_codegen,
+                    ACTION_NAMES.linkstamp_compile,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-no-canonical-prefixes",
+                            "-Wno-builtin-macro-redefined",
+                            "-D__DATE__=\"redacted\"",
+                            "-D__TIMESTAMP__=\"redacted\"",
+                            "-D__TIME__=\"redacted\"",
+                            "-target",
+                            target_system_name,
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
 
     linker_param_file_feature = feature(
         name = "linker_param_file",
