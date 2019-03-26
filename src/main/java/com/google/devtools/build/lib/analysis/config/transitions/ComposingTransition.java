@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -40,15 +41,9 @@ public class ComposingTransition implements ConfigurationTransition {
   /**
    * Creates a {@link ComposingTransition} that applies the sequence: {@code fromOptions ->
    * transition1 -> transition2 -> toOptions }.
-   *
-   * <p>Note that it's possible to create silly transitions with this constructor (e.g., if one or
-   * both of the transitions is {@link NoTransition}). Use
-   * {@link com.google.devtools.build.lib.analysis.config.TransitionResolver#composeTransitions}
-   * for these cases - it checks for for these states and avoids instantiation appropriately.
    */
   @AutoCodec.Instantiator
-  public ComposingTransition(
-      ConfigurationTransition transition1, ConfigurationTransition transition2) {
+  ComposingTransition(ConfigurationTransition transition1, ConfigurationTransition transition2) {
     this.transition1 = transition1;
     this.transition2 = transition2;
   }
@@ -82,6 +77,42 @@ public class ComposingTransition implements ConfigurationTransition {
     return other instanceof ComposingTransition
         && ((ComposingTransition) other).transition1.equals(this.transition1)
         && ((ComposingTransition) other).transition2.equals(this.transition2);
+  }
+
+  /**
+   * Creates a {@link ComposingTransition} that applies the sequence: {@code fromOptions ->
+   * transition1 -> transition2 -> toOptions }.
+   *
+   * <p>Note that this method checks for transitions that cannot be composed, such as if one of the
+   * transitions is {@link NoTransition} or the host transition, and returns an efficiently composed
+   * transition.
+   */
+  public static ConfigurationTransition of(
+      ConfigurationTransition transition1, ConfigurationTransition transition2) {
+    Preconditions.checkNotNull(transition1);
+    Preconditions.checkNotNull(transition2);
+
+    if (transition1 == NullTransition.INSTANCE || transition1.isHostTransition()) {
+      // Since no other transition can be composed with transition1, use it directly.
+      return transition1;
+    } else if (transition1 == NoTransition.INSTANCE) {
+      // Since transition1 causes no changes, use transition2 directly.
+      return transition2;
+    }
+
+    if (transition2 == NoTransition.INSTANCE) {
+      // Since transition2 causes no changes, use transition 1 directly.
+      return transition1;
+    } else if (transition2 == NullTransition.INSTANCE || transition2.isHostTransition()) {
+      // When the second transition is null or a HOST transition, there's no need to compose. But
+      // this also
+      // improves performance: host transitions are common, and ConfiguredTargetFunction has special
+      // optimized logic to handle them. If they were buried in the last segment of a
+      // ComposingTransition, those optimizations wouldn't trigger.
+      return transition2;
+    }
+
+    return new ComposingTransition(transition1, transition2);
   }
 
   /**
