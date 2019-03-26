@@ -4947,18 +4947,7 @@ def _impl(ctx):
             tool_path(name = "objdump", path = "/bin/false"),
             tool_path(name = "strip", path = "/bin/false"),
         ]
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
+    else:
         tool_paths = [
             tool_path(name = "ar", path = "wrapped_ar"),
             tool_path(name = "compat-ld", path = "/usr/bin/ld"),
@@ -4972,8 +4961,6 @@ def _impl(ctx):
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
             tool_path(name = "strip", path = "/usr/bin/strip"),
         ]
-    else:
-        fail("Unreachable")
 
 
     out = ctx.actions.declare_file(ctx.label.name)
