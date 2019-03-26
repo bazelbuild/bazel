@@ -88,35 +88,6 @@ def _impl(ctx):
         fail("Unreachable")
 
     if (ctx.attr.cpu == "armeabi-v7a"):
-        target_cpu = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        target_cpu = "darwin_x86_64"
-    elif (ctx.attr.cpu == "ios_arm64"):
-        target_cpu = "ios_arm64"
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        target_cpu = "ios_arm64e"
-    elif (ctx.attr.cpu == "ios_armv7"):
-        target_cpu = "ios_armv7"
-    elif (ctx.attr.cpu == "ios_i386"):
-        target_cpu = "ios_i386"
-    elif (ctx.attr.cpu == "ios_x86_64"):
-        target_cpu = "ios_x86_64"
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        target_cpu = "tvos_arm64"
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        target_cpu = "tvos_x86_64"
-    elif (ctx.attr.cpu == "watchos_arm64_32"):
-        target_cpu = "watchos_arm64_32"
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        target_cpu = "watchos_armv7k"
-    elif (ctx.attr.cpu == "watchos_i386"):
-        target_cpu = "watchos_i386"
-    elif (ctx.attr.cpu == "watchos_x86_64"):
-        target_cpu = "watchos_x86_64"
-    else:
-        fail("Unreachable")
-
-    if (ctx.attr.cpu == "armeabi-v7a"):
         target_libc = "armeabi-v7a"
     elif (ctx.attr.cpu == "ios_arm64"
         or ctx.attr.cpu == "ios_arm64e"
@@ -5677,7 +5648,7 @@ def _impl(ctx):
             toolchain_identifier = toolchain_identifier,
             host_system_name = host_system_name,
             target_system_name = target_system_name,
-            target_cpu = target_cpu,
+            target_cpu = ctx.attr.cpu,
             target_libc = target_libc,
             compiler = compiler,
             abi_version = abi_version,
