@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -103,6 +104,9 @@ public abstract class BazelJavaBuilder {
         }
 
         BlazeJavacResult result = builder.run(build);
+        if (result.status() == Status.REQUIRES_FALLBACK) {
+          return 0;
+        }
         for (FormattedDiagnostic d : result.diagnostics()) {
           err.write(d.getFormatted() + "\n");
         }
