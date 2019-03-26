@@ -1,5 +1,5 @@
 load(":python_version.bzl", "define_python_version_flag")
-load(":toolchain.bzl", "py_runtime_pair")
+load(":toolchain.bzl", "define_autodetecting_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -65,17 +65,14 @@ constraint_setting(name = "py2_interpreter_path")
 # system Python 3 interpreter on a platform.
 constraint_setting(name = "py3_interpreter_path")
 
-# A Python toolchain that, at execution time, attempts to detect a platform
-# runtime having the appropriate major Python version.
+# Definitions for a Python toolchain that, at execution time, attempts to detect
+# a platform runtime having the appropriate major Python version.
+#
+# This is a toolchain of last resort that gets automatically registered in all
+# workspaces. Ideally you should register your own Python toolchain, which will
+# supersede this one so long as its constraints match the target platform.
 
-py_runtime_pair(
-    name = "autodetecting_py_runtime_pair",
-    # TODO(brandjon): Not yet implemented. Currently this provides no runtimes,
-    # so it will just fail at analysis time if you attempt to use it.
-)
-
-toolchain(
+define_autodetecting_toolchain(
     name = "autodetecting_toolchain",
-    toolchain = ":autodetecting_py_runtime_pair",
-    toolchain_type = ":toolchain_type",
+    pywrapper_template = "pywrapper_template.txt",
 )

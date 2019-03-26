@@ -43,6 +43,9 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# TODO(bazelbuild/continuous-integration#578): Enable this test for Mac and
+# Windows.
+
 # `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
 # `tr` converts all upper case letters to lower case.
 # `case` matches the result if the `uname | tr` expression to string prefixes
@@ -79,13 +82,7 @@ fi
 # Use a py_runtime that invokes either the system's Python 2 or Python 3
 # interpreter based on the Python mode. On Unix this is a workaround for #4815.
 #
-# TODO(brandjon): Get this running on windows by creating .bat wrappers that
-# invoke "py -2" and "py -3". Make sure our windows workers have both Python
-# versions installed.
-#
-# TODO(brandjon): Get this running on mac -- our workers lack a Python 2
-# installation.
-#
+# TODO(brandjon): Replace this with the autodetecting Python toolchain.
 function use_system_python_2_3_runtimes() {
   PYTHON2_BIN=$(which python2 || echo "")
   PYTHON3_BIN=$(which python3 || echo "")
