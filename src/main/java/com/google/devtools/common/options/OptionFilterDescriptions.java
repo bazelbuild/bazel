@@ -89,7 +89,7 @@ public class OptionFilterDescriptions {
             OptionDocumentationCategory.GENERIC_INPUTS,
             "Options specifying or altering a generic input to a Bazel command that does not fall "
                 + "into other categories.")
-        .put(OptionDocumentationCategory.REMOTE, "Remote execution/caching options");
+        .put(OptionDocumentationCategory.REMOTE, "Remote caching and execution options");
     return optionCategoriesBuilder.build();
   }
 

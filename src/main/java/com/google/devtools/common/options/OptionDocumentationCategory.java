@@ -114,7 +114,7 @@ public enum OptionDocumentationCategory {
   GENERIC_INPUTS,
 
   /**
-   * This option lets a user to configure the remote caching and/or the remote execution for a build.
+   * A category of options to configure Bazel's remote caching and execution capabilities.
    */
   REMOTE,
 }
