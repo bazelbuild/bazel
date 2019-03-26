@@ -68,9 +68,6 @@ public abstract class BlazeJavacStatistics {
 
   public abstract ImmutableMap<AuxiliaryDataSource, byte[]> auxiliaryData();
 
-  @Deprecated // use auxiliaryData() instead.
-  public abstract ImmutableListMultimap<TickKey, Duration> timingTicks();
-
   public abstract ImmutableListMultimap<String, Duration> errorProneTicks();
 
   public abstract ImmutableSet<String> processors();
@@ -84,16 +81,6 @@ public abstract class BlazeJavacStatistics {
   public abstract boolean transitiveClasspathFallback();
 
   // TODO(glorioso): We really need to think out more about what data to collect/store here.
-
-  /**
-   * Known sources of timing information
-   *
-   * @deprecated Instead, use {@link AuxiliaryDataSource}.
-   */
-  @Deprecated
-  public enum TickKey {
-    DAGGER,
-  }
 
   /**
    * Known sources of additional data to add to the statistics. Each data source can put a single
@@ -116,9 +103,6 @@ public abstract class BlazeJavacStatistics {
   @AutoValue.Builder
   public abstract static class Builder {
 
-    @Deprecated // use auxiliaryDataBuilder() instead
-    abstract ImmutableListMultimap.Builder<TickKey, Duration> timingTicksBuilder();
-
     abstract ImmutableListMultimap.Builder<String, Duration> errorProneTicksBuilder();
 
     abstract ImmutableMap.Builder<AuxiliaryDataSource, byte[]> auxiliaryDataBuilder();
@@ -139,12 +123,6 @@ public abstract class BlazeJavacStatistics {
     }
 
     public abstract BlazeJavacStatistics build();
-
-    @Deprecated // use addAuxiliaryData(key, byte[]) with a serialized Any proto message.
-    public Builder addTick(TickKey key, Duration elapsed) {
-      timingTicksBuilder().put(key, elapsed);
-      return this;
-    }
 
     /**
      * Add an auxiliary attachment of data to this statistics object. The data should be a proto
