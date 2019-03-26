@@ -1252,7 +1252,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("Unable to load package for '//foo:aspect.bzl'");
+    assertContainsEvent("Every .bzl file must have a corresponding package");
   }
 
   @Test

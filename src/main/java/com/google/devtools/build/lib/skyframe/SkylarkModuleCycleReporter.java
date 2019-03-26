@@ -127,11 +127,10 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
                     + "' was defined too late in your WORKSPACE file."));
         return true;
       } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
-        eventHandler.handle(
-            Event.error(null, "cycle detected loading "
-                + String.join(
-                    " ", lastPathElement.functionName().toString().toLowerCase().split("_"))
-                + " '" + lastPathElement.argument().toString() + "'"));
+        PackageIdentifier pkg =
+            (PackageIdentifier)
+                Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
+        eventHandler.handle(Event.error(null, "cannot load package '" + pkg + "'"));
         return true;
       }
     }
