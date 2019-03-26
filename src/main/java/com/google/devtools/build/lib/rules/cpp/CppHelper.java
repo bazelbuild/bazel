@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -230,9 +231,18 @@ public class CppHelper {
   }
 
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
-      RuleContext ruleContext, CcToolchainProvider toolchain) {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return toolchain.getCoverageEnvironment();
+      CppConfiguration cppConfiguration, CcToolchainProvider toolchain) {
+    if (cppConfiguration.collectCodeCoverage()) {
+      NestedSetBuilder<Pair<String, String>> coverageEnvironment =
+          NestedSetBuilder.<Pair<String, String>>stableOrder()
+              .add(
+                  Pair.of(
+                      "COVERAGE_GCOV_PATH",
+                      toolchain.getToolPathFragment(Tool.GCOV).getPathString()));
+      if (cppConfiguration.getFdoInstrument() != null) {
+        coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
+      }
+      return coverageEnvironment.build();
     } else {
       return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
     }

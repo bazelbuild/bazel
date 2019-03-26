@@ -159,6 +159,7 @@ public final class CcCommon {
   private final RuleContext ruleContext;
 
   private final CcToolchainProvider ccToolchain;
+  private final CppConfiguration cppConfiguration;
 
   private final FdoContext fdoContext;
 
@@ -167,6 +168,7 @@ public final class CcCommon {
     this.ccToolchain =
         Preconditions.checkNotNull(
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
+    this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.fdoContext = ccToolchain.getFdoContext();
   }
 
@@ -714,7 +716,7 @@ public final class CcCommon {
         CC_METADATA_COLLECTOR,
         files,
         CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
-        CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
+        CppHelper.getCoverageEnvironmentIfNeeded(cppConfiguration, ccToolchain),
         withBaselineCoverage,
         virtualToOriginalHeaders);
   }
