@@ -602,4 +602,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public boolean requireCtxInConfigureFeatures() {
     return cppOptions.requireCtxInConfigureFeatures;
   }
+
+  public boolean collectCodeCoverage() {
+    return collectCodeCoverage;
+  }
 }

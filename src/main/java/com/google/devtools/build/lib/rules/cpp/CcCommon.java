@@ -719,11 +719,11 @@ public final class CcCommon {
         virtualToOriginalHeaders);
   }
 
-  public static ImmutableList<String> getCoverageFeatures(CcToolchainProvider toolchain) {
+  public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
     ImmutableList.Builder<String> coverageFeatures = ImmutableList.builder();
-    if (toolchain.isCodeCoverageEnabled()) {
+    if (cppConfiguration.collectCodeCoverage()) {
       coverageFeatures.add(CppRuleClasses.COVERAGE);
-      if (toolchain.useLLVMCoverageMapFormat()) {
+      if (cppConfiguration.useLLVMCoverageMapFormat()) {
         coverageFeatures.add(CppRuleClasses.LLVM_COVERAGE_MAP_FORMAT);
       } else {
         coverageFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
@@ -892,7 +892,7 @@ public final class CcCommon {
       allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
 
-    allFeatures.addAll(getCoverageFeatures(toolchain));
+    allFeatures.addAll(getCoverageFeatures(cppConfiguration));
 
     String fdoInstrument = cppConfiguration.getFdoInstrument();
     if (fdoInstrument != null && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {

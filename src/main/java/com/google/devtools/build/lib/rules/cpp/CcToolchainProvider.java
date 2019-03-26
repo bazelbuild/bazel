@@ -85,8 +85,6 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* builtInIncludeDirectories= */ ImmutableList.of(),
           /* sysroot= */ null,
           /* fdoContext= */ null,
-          /* useLLVMCoverageMapFormat= */ false,
-          /* codeCoverageEnabled= */ false,
           /* isHostConfiguration= */ false,
           /* licensesProvider= */ null);
 
@@ -120,8 +118,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   @Nullable private final Artifact linkDynamicLibraryTool;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
-  private final boolean useLLVMCoverageMapFormat;
-  private final boolean codeCoverageEnabled;
   private final boolean isHostConfiguration;
   /**
    * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
@@ -165,8 +161,6 @@ public final class CcToolchainProvider extends ToolchainInfo
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
       FdoContext fdoContext,
-      boolean useLLVMCoverageMapFormat,
-      boolean codeCoverageEnabled,
       boolean isHostConfiguration,
       LicensesProvider licensesProvider) {
     super(values, Location.BUILTIN);
@@ -205,8 +199,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
     this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
-    this.useLLVMCoverageMapFormat = useLLVMCoverageMapFormat;
-    this.codeCoverageEnabled = codeCoverageEnabled;
     this.isHostConfiguration = isHostConfiguration;
     this.licensesProvider = licensesProvider;
   }
@@ -998,14 +990,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   @Override
   public int hashCode() {
     return System.identityHashCode(this);
-  }
-
-  public boolean useLLVMCoverageMapFormat() {
-    return useLLVMCoverageMapFormat;
-  }
-
-  public boolean isCodeCoverageEnabled() {
-    return codeCoverageEnabled;
   }
 
   public boolean isHostConfiguration() {

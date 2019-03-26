@@ -585,7 +585,7 @@ public class CompilationSupport {
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
-    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(toolchain));
+    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
     try {
       return ccToolchain
