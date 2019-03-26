@@ -53,23 +53,10 @@ def _impl(ctx):
     else:
         toolchain_identifier = ctx.attr.cpu
 
-    if (ctx.attr.cpu == "armeabi-v7a"):
+    if ctx.attr.cpu == "armeabi-v7a":
         host_system_name = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_arm64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        host_system_name = "x86_64-apple-macosx"
     else:
-        fail("Unreachable")
+        host_system_name = "x86_64-apple-macosx"
 
     if (ctx.attr.cpu == "ios_arm64"):
         target_system_name = "arm64-apple-ios"
