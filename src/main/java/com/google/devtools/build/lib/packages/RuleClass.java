@@ -35,6 +35,7 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -624,23 +625,6 @@ public class RuleClass {
       }
     }
 
-    /** A RuleTransitionFactory which always returns the same transition. */
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec
-    static final class FixedTransitionFactory implements RuleTransitionFactory {
-      private final PatchTransition transition;
-
-      @AutoCodec.VisibleForSerialization
-      FixedTransitionFactory(PatchTransition transition) {
-        this.transition = transition;
-      }
-
-      @Override
-      public PatchTransition buildTransitionFor(Rule rule) {
-        return transition;
-      }
-    }
-
     /**
      * Name of default attribute implicitly added to all Skylark RuleClasses that are {@code
      * build_setting}s.
@@ -679,7 +663,7 @@ public class RuleClass {
     private boolean hasStarlarkRuleTransition = false;
     private boolean ignorePackageLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
-    private RuleTransitionFactory transitionFactory;
+    private TransitionFactory<Rule> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate =
         PredicatesWithMessage.<Rule>alwaysTrue();
@@ -1052,11 +1036,11 @@ public class RuleClass {
      * rule's parent: use {@link Attribute.Builder#cfg(ConfigurationTransition)} on the parent to
      * declare splits.
      *
-     * <p>If you need the transition to depend on the rule it's being applied to, use
-     * {@link #cfg(RuleTransitionFactory)}.
+     * <p>If you need the transition to depend on the rule it's being applied to, use {@link
+     * #cfg(TransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
-      return cfg(new FixedTransitionFactory(transition));
+      return cfg((TransitionFactory<Rule>) (unused) -> (transition));
     }
 
     /**
@@ -1065,12 +1049,13 @@ public class RuleClass {
      * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
      * transition to use.
      */
-    public Builder cfg(RuleTransitionFactory transitionFactory) {
+    public Builder cfg(TransitionFactory<Rule> transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
       Preconditions.checkState(this.transitionFactory == null,
           "Property cfg has already been set");
       Preconditions.checkNotNull(transitionFactory);
+      Preconditions.checkArgument(!transitionFactory.isSplit());
       this.transitionFactory = transitionFactory;
       return this;
     }
@@ -1490,7 +1475,7 @@ public class RuleClass {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  private final RuleTransitionFactory transitionFactory;
+  private final TransitionFactory<Rule> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1596,7 +1581,7 @@ public class RuleClass {
       boolean hasFunctionTransitionWhitelist,
       boolean ignorePackageLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      RuleTransitionFactory transitionFactory,
+      TransitionFactory<Rule> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
@@ -1703,7 +1688,7 @@ public class RuleClass {
     return implicitOutputsFunction;
   }
 
-  public RuleTransitionFactory getTransitionFactory() {
+  public TransitionFactory<Rule> getTransitionFactory() {
     return transitionFactory;
   }
 

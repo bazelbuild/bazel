@@ -37,7 +37,7 @@ public class EnvironmentRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .cfg(HostTransition.INSTANCE)
+        .cfg(HostTransition.createFactory())
         .override(attr("tags", Type.STRING_LIST)
             // No need to show up in ":all", etc. target patterns.
             .value(ImmutableList.of("manual"))

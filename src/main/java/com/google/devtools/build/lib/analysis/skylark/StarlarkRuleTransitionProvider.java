@@ -21,12 +21,12 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -37,7 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * This class implements {@link RuleTransitionFactory} to provide a starlark-defined transition that
+ * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
  * rules can apply to their own configuration. This transition has access to (1) the a map of the
  * current configuration's build settings and (2) the configured* attributes of the given rule (not
  * its dependencies').
@@ -48,7 +48,7 @@ import java.util.List;
  *
  * <p>For starlark-defined attribute transitions, see {@link StarlarkAttributeTransitionProvider}.
  */
-public class StarlarkRuleTransitionProvider implements RuleTransitionFactory {
+public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
 
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
@@ -62,10 +62,17 @@ public class StarlarkRuleTransitionProvider implements RuleTransitionFactory {
   }
 
   @Override
-  public PatchTransition buildTransitionFor(Rule rule) {
+  public PatchTransition create(Rule rule) {
     return new FunctionPatchTransition(starlarkDefinedConfigTransition, rule);
   }
 
+  @Override
+  public boolean isSplit() {
+    // The transitions returned by this factory are guaranteed not to be splits.
+    return false;
+  }
+
+  /** The actual transition used by the rule. */
   class FunctionPatchTransition extends StarlarkTransition implements PatchTransition {
     private final StructImpl attrObject;
 
