@@ -38,6 +38,7 @@ constraint_value(
 )
 
 # These match values in //src/main/java/com/google/devtools/build/lib/util:OS.java
+# except for Asylo, which does not run Bazel natively yet.
 constraint_setting(name = "os")
 
 constraint_value(
@@ -57,6 +58,11 @@ constraint_value(
 
 constraint_value(
     name = "android",
+    constraint_setting = ":os",
+)
+
+constraint_value(
+    name = "asylo",
     constraint_setting = ":os",
 )
 
