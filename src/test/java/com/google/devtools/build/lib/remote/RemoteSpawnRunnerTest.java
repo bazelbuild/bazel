@@ -22,6 +22,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
@@ -84,6 +85,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -818,6 +820,59 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.exitCode()).isEqualTo(31);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
+  }
+
+  @Test
+  public void resultsDownloadFailureTriggersRemoteExecutionWithSkipCacheLookup() throws Exception {
+    // If downloading an action result fails, remote execution should be retried
+    // with skip cache lookup enabled
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            Options.getDefaults(ExecutionOptions.class),
+            new AtomicReference<>(localRunner),
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor,
+            retrier,
+            digestUtil,
+            logDir);
+
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
+    ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
+    ExecuteResponse cachedResponse =
+        ExecuteResponse.newBuilder().setResult(cachedResult).setCachedResult(true).build();
+    ExecuteResponse executedResponse = ExecuteResponse.newBuilder().setResult(execResult).build();
+    when(executor.executeRemotely(any(ExecuteRequest.class)))
+        .thenReturn(cachedResponse)
+        .thenReturn(executedResponse);
+    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil);
+    doThrow(downloadFailure)
+        .when(cache)
+        .download(eq(cachedResult), any(Path.class), any(FileOutErr.class));
+    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class));
+
+    Spawn spawn = newSimpleSpawn();
+
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
+    assertThat(res.exitCode()).isEqualTo(31);
+
+    ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
+    verify(executor, times(2)).executeRemotely(requestCaptor.capture());
+    List<ExecuteRequest> requests = requestCaptor.getAllValues();
+    // first request should have been executed without skip cache lookup
+    assertThat(requests.get(0).getSkipCacheLookup()).isFalse();
+    // second should have been executed with skip cache lookup
+    assertThat(requests.get(1).getSkipCacheLookup()).isTrue();
   }
 
   @Test
