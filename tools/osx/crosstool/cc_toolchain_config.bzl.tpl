@@ -552,229 +552,36 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "<architecture>",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{archive_path}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "arm64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{archive_path}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "arm64e",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{archive_path}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_armv7"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "armv7",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{archive_path}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "armv7k",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{archive_path}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "i386",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{archive_path}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "x86_64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{archive_path}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
+    objc_archive_action = action_config(
+        action_name = "objc-archive",
+        flag_sets = [
+            flag_set(
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-no_warning_for_no_symbols",
+                            "-static",
+                            "-filelist",
+                            "%{obj_list_path}",
+                            "-arch_only",
+                            _arch_for_cpu(ctx.attr.cpu),
+                            "-syslibroot",
+                            "%{sdk_dir}",
+                            "-o",
+                            "%{archive_path}",
+                        ],
+                    ),
+                ],
+            ),
+        ],
+        implies = ["apple_env"],
+        tools = [
+            tool(
+                path = "libtool",
+                execution_requirements = ["requires-darwin"],
+            ),
+        ],
+    )
 
     if (ctx.attr.cpu == "armeabi-v7a"
         or ctx.attr.cpu == "watchos_arm64_32"):
