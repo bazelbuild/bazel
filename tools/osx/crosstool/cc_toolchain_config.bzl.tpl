@@ -44,6 +44,24 @@ _VALID_CPUS = [
     "watchos_x86_64",
 ]
 
+def _version_min_for_cpu(cpu):
+    if cpu == "ios_i386" or cpu == "ios_x86_64":
+        return "-mios-simulator-version-min"
+    elif cpu == "ios_arm64" or cpu == "ios_arm64e" or cpu == "ios_armv7":
+        return "-miphoneos-version-min"
+    elif cpu == "tvos_x86_64":
+        return "-mtvos-simulator-version-min"
+    elif cpu == "tvos_arm64":
+        return "-mtvos-version-min"
+    elif cpu == "watchos_i386" or cpu == "watchos_x86_64":
+        return "-mwatchos-simulator-version-min"
+    elif cpu == "watchos_armv7k" or cpu == "watchos_arm64_32":
+        return "-mwatchos-version-min"
+    elif (cpu == "darwin_x86_64"):
+        return "-mmacosx-version-min"
+    else:
+        fail("Unhandled version min cpu {}".format(cpu))
+
 def _impl(ctx):
     if ctx.attr.cpu not in _VALID_CPUS:
         fail("Unhandled CPU {}".format(ctx.attr.cpu))
@@ -3311,8 +3329,7 @@ def _impl(ctx):
     if ctx.attr.cpu == "armeabi-v7a":
         # This stub doesn't have a sensible value for this feature
         version_min_feature = feature(name = "version_min")
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"):
+    else:
         version_min_feature = feature(
             name = "version_min",
             flag_sets = [
@@ -3331,169 +3348,7 @@ def _impl(ctx):
                         ACTION_NAMES.objc_compile,
                         ACTION_NAMES.objcpp_compile,
                     ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mios-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-miphoneos-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mtvos-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_i386" or ctx.attr.cpu == "watchos_x86_64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mwatchos-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k" or ctx.attr.cpu == "watchos_arm64_32"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mwatchos-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(flags = ["-mmacosx-version-min=%{version_min}"]),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [flag_group(flags = ["-mtvos-version-min=%{version_min}"])],
+                    flag_groups = [flag_group(flags = [_version_min_for_cpu(ctx.attr.cpu) + "=%{version_min}"])],
                 ),
             ],
         )
