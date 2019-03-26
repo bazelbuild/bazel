@@ -855,299 +855,46 @@ def _impl(ctx):
             ],
         )
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
-        objc_fully_link_action = action_config(
-            action_name = "objc-fully-link",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-arch_only",
-                                "<architecture>",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{fully_linked_archive_path}",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["%{objc_library_exec_paths}"],
-                            iterate_over = "objc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{cc_library_exec_paths}"],
-                            iterate_over = "cc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{imported_library_exec_paths}"],
-                            iterate_over = "imported_library_exec_paths",
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
-        objc_fully_link_action = action_config(
-            action_name = "objc-fully-link",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-arch_only",
-                                "arm64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{fully_linked_archive_path}",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["%{objc_library_exec_paths}"],
-                            iterate_over = "objc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{cc_library_exec_paths}"],
-                            iterate_over = "cc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{imported_library_exec_paths}"],
-                            iterate_over = "imported_library_exec_paths",
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        objc_fully_link_action = action_config(
-            action_name = "objc-fully-link",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-arch_only",
-                                "arm64e",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{fully_linked_archive_path}",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["%{objc_library_exec_paths}"],
-                            iterate_over = "objc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{cc_library_exec_paths}"],
-                            iterate_over = "cc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{imported_library_exec_paths}"],
-                            iterate_over = "imported_library_exec_paths",
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_armv7"):
-        objc_fully_link_action = action_config(
-            action_name = "objc-fully-link",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-arch_only",
-                                "armv7",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{fully_linked_archive_path}",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["%{objc_library_exec_paths}"],
-                            iterate_over = "objc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{cc_library_exec_paths}"],
-                            iterate_over = "cc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{imported_library_exec_paths}"],
-                            iterate_over = "imported_library_exec_paths",
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        objc_fully_link_action = action_config(
-            action_name = "objc-fully-link",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-arch_only",
-                                "armv7k",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{fully_linked_archive_path}",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["%{objc_library_exec_paths}"],
-                            iterate_over = "objc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{cc_library_exec_paths}"],
-                            iterate_over = "cc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{imported_library_exec_paths}"],
-                            iterate_over = "imported_library_exec_paths",
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
-        objc_fully_link_action = action_config(
-            action_name = "objc-fully-link",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-arch_only",
-                                "i386",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{fully_linked_archive_path}",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["%{objc_library_exec_paths}"],
-                            iterate_over = "objc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{cc_library_exec_paths}"],
-                            iterate_over = "cc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{imported_library_exec_paths}"],
-                            iterate_over = "imported_library_exec_paths",
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        objc_fully_link_action = action_config(
-            action_name = "objc-fully-link",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no_warning_for_no_symbols",
-                                "-static",
-                                "-arch_only",
-                                "x86_64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{fully_linked_archive_path}",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["%{objc_library_exec_paths}"],
-                            iterate_over = "objc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{cc_library_exec_paths}"],
-                            iterate_over = "cc_library_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{imported_library_exec_paths}"],
-                            iterate_over = "imported_library_exec_paths",
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "libtool",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
+    objc_fully_link_action = action_config(
+        action_name = "objc-fully-link",
+        flag_sets = [
+            flag_set(
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-no_warning_for_no_symbols",
+                            "-static",
+                            "-arch_only",
+                            _arch_for_cpu(ctx.attr.cpu),
+                            "-syslibroot",
+                            "%{sdk_dir}",
+                            "-o",
+                            "%{fully_linked_archive_path}",
+                        ],
+                    ),
+                    flag_group(
+                        flags = ["%{objc_library_exec_paths}"],
+                        iterate_over = "objc_library_exec_paths",
+                    ),
+                    flag_group(
+                        flags = ["%{cc_library_exec_paths}"],
+                        iterate_over = "cc_library_exec_paths",
+                    ),
+                    flag_group(
+                        flags = ["%{imported_library_exec_paths}"],
+                        iterate_over = "imported_library_exec_paths",
+                    ),
+                ],
+            ),
+        ],
+        implies = ["apple_env"],
+        tools = [
+            tool(
+                path = "libtool",
+                execution_requirements = ["requires-darwin"],
+            ),
+        ],
+    )
 
     if (ctx.attr.cpu == "armeabi-v7a"):
         objcopy_embed_data_action = action_config(
