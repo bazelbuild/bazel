@@ -41,7 +41,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * This class implements a {@link TransitionFactory} to provide a starlark-defined transition that
+ * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
  * rules can apply to their dependencies' configurations. This transition has access to (1) the a
  * map of the current configuration's build settings and (2) the configured attributes of the given
  * rule (not its dependencies').
