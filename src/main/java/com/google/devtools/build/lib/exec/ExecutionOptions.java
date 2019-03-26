@@ -314,6 +314,20 @@ public class ExecutionOptions extends OptionsBase {
   public ResourceSet availableResources;
 
   @Option(
+      name = "incompatible_remove_local_resources",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Deprecate local_resources in favor of --local_ram_resources and "
+              + "--local_cpu_resources.")
+  public boolean removeLocalResources;
+
+  @Option(
       name = "local_cpu_resources",
       defaultValue = "HOST_CPUS",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

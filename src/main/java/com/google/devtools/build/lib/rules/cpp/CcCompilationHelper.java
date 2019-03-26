@@ -292,11 +292,11 @@ public final class CcCompilationHelper {
     this.configuration = buildConfiguration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     setGenerateNoPicAction(
-        !ccToolchain.usePicForDynamicLibraries(featureConfiguration)
-            || !CppHelper.usePicForBinaries(ccToolchain, featureConfiguration));
+        !ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+            || !CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
     setGeneratePicAction(
-        ccToolchain.usePicForDynamicLibraries(featureConfiguration)
-            || CppHelper.usePicForBinaries(ccToolchain, featureConfiguration));
+        ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+            || CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
     this.ruleErrorConsumer = actionConstructionContext.getRuleErrorConsumer();
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
@@ -715,7 +715,7 @@ public final class CcCompilationHelper {
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     outputGroups.put(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps());
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = ccToolchain.usePicForDynamicLibraries(featureConfiguration);
+    boolean usePic = ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
     outputGroups.put(
         OutputGroupInfo.FILES_TO_COMPILE,
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));

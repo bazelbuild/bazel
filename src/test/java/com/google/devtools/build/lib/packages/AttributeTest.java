@@ -294,7 +294,7 @@ public class AttributeTest {
   @Test
   public void testHostTransition() throws Exception {
     Attribute attr = attr("foo", LABEL).cfg(HostTransition.INSTANCE).allowedFileTypes().build();
-    assertThat(attr.getConfigurationTransition().isHostTransition()).isTrue();
+    assertThat(attr.hasHostConfigurationTransition()).isTrue();
     assertThat(attr.hasSplitConfigurationTransition()).isFalse();
   }
 

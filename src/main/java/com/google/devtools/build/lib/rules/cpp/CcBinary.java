@@ -154,6 +154,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration,
       List<LibraryToLink> libraries,
       CcLinkingOutputs ccLibraryLinkingOutputs,
       CcCompilationContext ccCompilationContext,
@@ -233,7 +234,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       builder.addSymlinksToArtifacts(ccCompilationContext.getAdditionalInputs());
       builder.addSymlinksToArtifacts(
           ccCompilationContext.getTransitiveModules(
-              usePic(ruleContext, toolchain, featureConfiguration)));
+              usePic(ruleContext, toolchain, cppConfiguration, featureConfiguration)));
     }
     return builder.build();
   }
@@ -431,7 +432,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    boolean usePic = usePic(ruleContext, ccToolchain, featureConfiguration);
+    boolean usePic = usePic(ruleContext, ccToolchain, cppConfiguration, featureConfiguration);
 
     // On Windows, if GENERATE_PDB_FILE feature is enabled
     // then a pdb file will be built along with the executable.
@@ -523,7 +524,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Artifact dwpFile =
         ruleContext.getImplicitOutputArtifact(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
     createDebugPackagerActions(
-        ruleContext, ccToolchain, featureConfiguration, dwpFile, dwoArtifacts);
+        ruleContext, ccToolchain, cppConfiguration, featureConfiguration, dwpFile, dwoArtifacts);
 
     // The debug package should include the dwp file only if it was explicitly requested.
     Artifact explicitDwpFile = dwpFile;
@@ -571,6 +572,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             featureConfiguration,
             ccToolchain,
+            cppConfiguration,
             libraries,
             ccLinkingOutputs,
             ccCompilationContext,
@@ -843,10 +845,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static Iterable<Artifact> getDwpInputs(
       RuleContext context,
       CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration,
       NestedSet<Artifact> picDwoArtifacts,
       NestedSet<Artifact> dwoArtifacts) {
-    return usePic(context, toolchain, featureConfiguration) ? picDwoArtifacts : dwoArtifacts;
+    return usePic(context, toolchain, cppConfiguration, featureConfiguration)
+        ? picDwoArtifacts
+        : dwoArtifacts;
   }
 
   /**
@@ -855,6 +860,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static void createDebugPackagerActions(
       RuleContext context,
       CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration,
       Artifact dwpOutput,
       DwoArtifactsCollector dwoArtifactsCollector) {
@@ -862,6 +868,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         getDwpInputs(
             context,
             toolchain,
+            cppConfiguration,
             featureConfiguration,
             dwoArtifactsCollector.getPicDwoArtifacts(),
             dwoArtifactsCollector.getDwoArtifacts());
@@ -1053,7 +1060,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> filesToCompile =
         ccCompilationOutputs.getFilesToCompile(
             cppConfiguration.processHeadersInDependencies(),
-            toolchain.usePicForDynamicLibraries(featureConfiguration));
+            toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration));
 
     builder
         .setFilesToBuild(filesToBuild)
@@ -1094,11 +1101,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static boolean usePic(
       RuleContext ruleContext,
       CcToolchainProvider ccToolchainProvider,
+      CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration) {
     if (isLinkShared(ruleContext)) {
-      return ccToolchainProvider.usePicForDynamicLibraries(featureConfiguration);
+      return ccToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
     } else {
-      return CppHelper.usePicForBinaries(ccToolchainProvider, featureConfiguration);
+      return CppHelper.usePicForBinaries(
+          ccToolchainProvider, cppConfiguration, featureConfiguration);
     }
   }
 }
