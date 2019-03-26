@@ -259,17 +259,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
             ast.getLocation(),
             "late-bound attributes must not have a split configuration transition");
       }
-      if (trans.equals("data")) {
-        // This used to apply the "disable LIPO" (a.k.a. "data") transition. But now that LIPO is
-        // turned down this is a noop. Still, there are cfg = "data"' references in the depot. So
-        // we have to remove them via b/28688645 before we can remove this path.
-        if (env.getSemantics().incompatibleDisallowDataTransition()) {
-          throw new EvalException(ast.getLocation(),
-              "Using cfg = \"data\" on an attribute is a noop and no longer supported. Please "
-                  + "remove it. You can use --incompatible_disallow_data_transition=false to "
-                  + "temporarily disable this check.");
-        }
-      } else if (trans.equals("host")) {
+      if (trans.equals("host")) {
         builder.cfg(HostTransition.INSTANCE);
       } else if (trans instanceof SplitTransition) {
         builder.cfg((SplitTransition) trans);
@@ -293,8 +283,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         builder.cfg(new StarlarkAttributeTransitionProvider(starlarkDefinedTransition));
       } else if (!trans.equals("target")) {
         // TODO(b/121134880): update error message when starlark build configurations is ready.
-        throw new EvalException(
-            ast.getLocation(), "cfg must be either 'data', 'host', or 'target'.");
+        throw new EvalException(ast.getLocation(), "cfg must be either 'host' or 'target'.");
       }
     }
 
