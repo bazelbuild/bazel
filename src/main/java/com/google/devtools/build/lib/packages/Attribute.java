@@ -605,6 +605,9 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> cfg(TransitionFactory<RuleTransitionData> splitTransitionFactory) {
       Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
           "the configuration transition is already set");
+      Preconditions.checkState(
+          splitTransitionFactory.isSplit(),
+          "cfg(TransitionFactory) is only valid for split transitions at this time.");
 
       this.splitTransitionFactory = Preconditions.checkNotNull(splitTransitionFactory);
       return this;

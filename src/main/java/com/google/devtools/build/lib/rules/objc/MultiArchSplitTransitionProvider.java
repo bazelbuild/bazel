@@ -46,14 +46,14 @@ import java.util.stream.Collectors;
  * {@link TransitionFactory} implementation for multi-architecture apple rules which can accept
  * different apple platform types (such as ios or watchos).
  */
-// TODO(https://github.com/bazelbuild/bazel/pull/7825): Rename to MultiArchTransitionFactory.
+// TODO(https://github.com/bazelbuild/bazel/pull/7825): Rename to MultiArchSplitTransitionFactory.
 public class MultiArchSplitTransitionProvider
     implements TransitionFactory<RuleTransitionData>, SplitTransitionProviderApi, SkylarkValue {
 
   @VisibleForTesting
   static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
       "Unsupported platform type \"%s\"";
-  
+
   @VisibleForTesting
   static final String INVALID_VERSION_STRING_ERROR_FORMAT =
       "Invalid version string \"%s\". Version must be of the form 'x.y' without alphabetic "
@@ -151,6 +151,11 @@ public class MultiArchSplitTransitionProvider
     }
 
     return new AppleBinaryTransition(platformType, minimumOsVersion);
+  }
+
+  @Override
+  public boolean isSplit() {
+    return true;
   }
 
   @Override
