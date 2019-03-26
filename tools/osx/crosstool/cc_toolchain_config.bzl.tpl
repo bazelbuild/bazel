@@ -470,298 +470,41 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"):
-        objcpp_compile_action = action_config(
-            action_name = ACTION_NAMES.objcpp_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-arch",
-                                "<architecture>",
-                                "-stdlib=libc++",
-                                "-std=gnu++11",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "tvos_arm64"):
-        objcpp_compile_action = action_config(
-            action_name = ACTION_NAMES.objcpp_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-arch", "arm64", "-stdlib=libc++", "-std=gnu++11"],
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        objcpp_compile_action = action_config(
-            action_name = ACTION_NAMES.objcpp_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-arch", "arm64e", "-stdlib=libc++", "-std=gnu++11"],
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_armv7"):
-        objcpp_compile_action = action_config(
-            action_name = ACTION_NAMES.objcpp_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-arch", "armv7", "-stdlib=libc++", "-std=gnu++11"],
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        objcpp_compile_action = action_config(
-            action_name = ACTION_NAMES.objcpp_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-arch", "armv7k", "-stdlib=libc++", "-std=gnu++11"],
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "watchos_i386"):
-        objcpp_compile_action = action_config(
-            action_name = ACTION_NAMES.objcpp_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-arch", "i386", "-stdlib=libc++", "-std=gnu++11"],
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-                "apply_simulator_compiler_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "tvos_x86_64"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        objcpp_compile_action = action_config(
-            action_name = ACTION_NAMES.objcpp_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-arch", "x86_64", "-stdlib=libc++", "-std=gnu++11"],
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-                "apply_simulator_compiler_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        objcpp_compile_action = action_config(
-            action_name = ACTION_NAMES.objcpp_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-arch", "x86_64", "-stdlib=libc++", "-std=gnu++11"],
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = ["requires-darwin"],
-                ),
-            ],
-        )
+    objcpp_compile_action = action_config(
+        action_name = ACTION_NAMES.objcpp_compile,
+        flag_sets = [
+            flag_set(
+                flag_groups = [
+                    flag_group(
+                        flags = ["-arch", _arch_for_cpu(ctx.attr.cpu), "-stdlib=libc++", "-std=gnu++11"],
+                    ),
+                ],
+            ),
+        ],
+        implies = [
+            "compiler_input_flags",
+            "compiler_output_flags",
+            "apply_default_compiler_flags",
+            "apply_default_warnings",
+            "framework_paths",
+            "preprocessor_defines",
+            "include_system_dirs",
+            "version_min",
+            "objc_arc",
+            "no_objc_arc",
+            "apple_env",
+            "user_compile_flags",
+            "sysroot",
+            "unfiltered_compile_flags",
+            "apply_simulator_compiler_flags",
+        ],
+        tools = [
+            tool(
+                path = "wrapped_clang",
+                execution_requirements = ["requires-darwin"],
+            ),
+        ],
+    )
 
     if (ctx.attr.cpu == "tvos_arm64"
         or ctx.attr.cpu == "tvos_x86_64"):
