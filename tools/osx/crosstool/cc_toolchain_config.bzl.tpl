@@ -4028,52 +4028,22 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "tvos_arm64"):
-        cpp_linker_flags_feature = feature(
-            name = "cpp_linker_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-lc++", "-target", "arm64-apple-tvos"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        cpp_linker_flags_feature = feature(
-            name = "cpp_linker_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-lc++", "-target", "x86_64-apple-tvos"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "darwin_x86_64"
-        or ctx.attr.cpu == "ios_arm64"
-        or ctx.attr.cpu == "ios_arm64e"
-        or ctx.attr.cpu == "ios_armv7"
-        or ctx.attr.cpu == "ios_i386"
-        or ctx.attr.cpu == "ios_x86_64"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_armv7k"
-        or ctx.attr.cpu == "watchos_i386"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        cpp_linker_flags_feature = feature(name = "cpp_linker_flags")
+    cpp_linker_flags_feature = feature(
+        name = "cpp_linker_flags",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_executable,
+                    ACTION_NAMES.cpp_link_dynamic_library,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["-lc++", "-target", target_system_name],
+                    ),
+                ],
+            ),
+        ],
+    )
 
     exclude_private_headers_in_module_maps_feature = feature(name = "exclude_private_headers_in_module_maps")
 
