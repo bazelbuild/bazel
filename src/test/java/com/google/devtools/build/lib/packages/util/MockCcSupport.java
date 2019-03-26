@@ -502,6 +502,7 @@ public abstract class MockCcSupport {
         toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
       }
       new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+          .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(getCrosstoolArchs())
           .setToolchainConfigs(toolchainConfigBuilder.build())
           .setSupportsHeaderParsing(true)
@@ -520,6 +521,7 @@ public abstract class MockCcSupport {
       config.linkTools(getRealFilesystemTools(crosstoolTop));
     } else {
       new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+          .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(getCrosstoolArchs())
           .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
           .setSupportsHeaderParsing(true)
@@ -567,6 +569,11 @@ public abstract class MockCcSupport {
   protected String readCrosstoolFile() throws IOException {
     return ResourceLoader.readFromResources(
         "com/google/devtools/build/lib/analysis/mock/MOCK_CROSSTOOL");
+  }
+
+  protected String readCcToolchainConfigFile() throws IOException {
+    return ResourceLoader.readFromResources(
+        "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl");
   }
 
   public abstract String getMockCrosstoolVersion();

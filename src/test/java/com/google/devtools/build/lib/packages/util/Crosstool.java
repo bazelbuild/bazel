@@ -109,6 +109,54 @@ public final class Crosstool {
       private ImmutableList<String> cxxBuiltinIncludeDirectories = ImmutableList.of();
       private ImmutableList<Pair<String, String>> makeVariables = ImmutableList.of();
       private String ccTargetOs = "";
+      private String cpu = "k8";
+      private String compiler = "compiler";
+      private String toolchainIdentifier = "mock-llvm-toolchain-k8";
+      private String hostSystemName = "local";
+      private String targetSystemName = "local";
+      private String targetLibc = "local";
+      private String abiVersion = "local";
+      private String abiLibcVersion = "local";
+
+      public Builder withCpu(String cpu) {
+        this.cpu = cpu;
+        return this;
+      }
+
+      public Builder withCompiler(String compiler) {
+        this.compiler = compiler;
+        return this;
+      }
+
+      public Builder withToolchainIdentifier(String toolchainIdentifier) {
+        this.toolchainIdentifier = toolchainIdentifier;
+        return this;
+      }
+
+      public Builder withHostSystemName(String hostSystemName) {
+        this.hostSystemName = hostSystemName;
+        return this;
+      }
+
+      public Builder withTargetSystemName(String targetSystemName) {
+        this.targetSystemName = targetSystemName;
+        return this;
+      }
+
+      public Builder withTargetLibc(String targetLibc) {
+        this.targetLibc = targetLibc;
+        return this;
+      }
+
+      public Builder withAbiVersion(String abiVersion) {
+        this.abiVersion = abiVersion;
+        return this;
+      }
+
+      public Builder withAbiLibcVersion(String abiLibcVersion) {
+        this.abiLibcVersion = abiLibcVersion;
+        return this;
+      }
 
       public Builder withFeatures(String... features) {
         this.features = ImmutableList.copyOf(features);
@@ -158,16 +206,16 @@ public final class Crosstool {
 
       public CcToolchainConfig build() {
         return new CcToolchainConfig(
-            /* cpu= */ "k8",
-            /* compiler= */ "compiler",
-            /* toolchainIdentifier= */ "mock-llvm-toolchain-k8",
-            /* hostSystemName= */ "local",
-            /* targetSystemName= */ "local",
-            /* abiVersion= */ "local",
-            /* abiLibcVersion= */ "local",
-            /* targetLibc= */ "local",
-            /* builtinSysroot= */ builtinSysroot,
-            /* ccTargetOs= */ ccTargetOs,
+            cpu,
+            compiler,
+            toolchainIdentifier,
+            hostSystemName,
+            targetSystemName,
+            abiVersion,
+            abiLibcVersion,
+            targetLibc,
+            builtinSysroot,
+            ccTargetOs,
             features,
             actionConfigs,
             artifactNamePatterns,
@@ -280,9 +328,10 @@ public final class Crosstool {
   private final String crosstoolTop;
   private String version;
   private String crosstoolFileContents;
+  private String ccToolchainConfigFileContents;
   private ImmutableList<String> archs;
   private boolean supportsHeaderParsing;
-  private ImmutableList<CcToolchainConfig> ccToolchainConfigList;
+  private ImmutableList<CcToolchainConfig> ccToolchainConfigList = ImmutableList.of();
   private final boolean disableCrosstool;
 
   Crosstool(MockToolsConfig config, String crosstoolTop, boolean disableCrosstool) {
@@ -294,6 +343,11 @@ public final class Crosstool {
   public Crosstool setCrosstoolFile(String version, String crosstoolFileContents) {
     this.version = version;
     this.crosstoolFileContents = crosstoolFileContents;
+    return this;
+  }
+
+  public Crosstool setCcToolchainFile(String ccToolchainConfigFileContents) {
+    this.ccToolchainConfigFileContents = ccToolchainConfigFileContents;
     return this;
   }
 
@@ -486,10 +540,7 @@ public final class Crosstool {
     config.create(crosstoolTop + "/" + version + "/x86/bin/ld");
     config.overwrite(crosstoolTop + "/BUILD", build);
     if (disableCrosstool) {
-      config.overwrite(
-          crosstoolTop + "/cc_toolchain_config.bzl",
-          ResourceLoader.readFromResources(
-              "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
+      config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
       config.overwrite(
           TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
           ResourceLoader.readFromResources(
@@ -499,6 +550,7 @@ public final class Crosstool {
           ResourceLoader.readFromResources(
               TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+      config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
     } else {
       config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
     }
