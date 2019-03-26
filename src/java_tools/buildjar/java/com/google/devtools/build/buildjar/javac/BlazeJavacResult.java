@@ -23,20 +23,9 @@ import javax.annotation.Nullable;
 public class BlazeJavacResult {
   /** The compilation result. */
   public enum Status {
-    OK(0),
-    ERROR(1),
-    // TODO(djasper): this should be 0
-    REQUIRES_FALLBACK(1);
-
-    private final int exitCode;
-
-    private Status(int exitCode) {
-      this.exitCode = exitCode;
-    }
-
-    public int exitCode() {
-      return exitCode;
-    }
+    OK,
+    ERROR,
+    REQUIRES_FALLBACK,
   }
 
   private final Status status;
