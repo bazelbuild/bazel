@@ -1,42 +1,129 @@
-## Release 0.23.2 (2019-03-11)
+## Release 0.24.0 (2019-03-26)
 
 ```
-Baseline: 441fd75d0047f8a998d784c557736ab9075db893
+Baseline: 235e76b0e756d05599a6cbe1663ff8e13df84a86
 
 Cherry picks:
 
-   + 6ca7763669728253606578a56a205bca3ea883e9:
-     Fix a typo
-   + 2310b1c2c8b2f32db238f667747e7d5672480f4a:
-     Ignore SIGCHLD in test setup script
-   + f9eb1b56706f91063e9d080b850fa56964e77324:
-     Complete channel initialization in the event loop
-   + f0a1597cca2252754daf1d53ff76cf1a9b3dd9b9:
-     remote: properly reset state when using remote cache. Fixes #7555
+   + badd82e4c5cda7b3232481e1c63a5550ac898cd8:
+     Automated rollback of commit
+     1b4c37c38804559b5c1ade6f9c93501875e231b0.
+   + 33e571939085dd158422e1b3503cfc738e0a3165:
+     Fix the Python version select() mechanism to handle
+     PY3-as-default
    + 56366ee3a73e2c92b2fa36a9840478202b9618ca:
      Set non-empty values for msvc_env_* when VC not installed
+   + 22b3fbf4800113df51d603d943bd9eb9517ef904:
+     Windows, test wrapper: fix broken integration test
+   + f14d447cb56aee563f6e686b8f5b086a3bb55d47:
+     Add whitelist file for starlark transitions
+   + d99bc478db1f3414b4f6cd3dc14ca70aacf6b375:
+     Update BUILD
+   + 3529ad7ccf0c26dfb20a9d67b9d96de15f309f8b:
+     Rename tools/function_transition_whitelist/BUILD to
+     tools/whitelists/function_transition_whitelist/BUILD
+   + de0612ad3ef7cc8c44069261befdeb0d15b97c10:
+     Update bazel_toolchains to latest release and add toolchain
+     config target for BuildKite CI (rbe_ubuntu1604)
+   + 3e660ad178926648e8e10e2ee7a1a30b12f9b3d1:
+     Automated rollback of commit
+     087734009801242b83655efb863b2d5a761ae3dc.
+   + 314cf1f9e4b332955c4800b2451db4e926c3e092:
+     Pass -undefined dynamic_lookup to dynamic library linking
+     actions on Mac
+   + fc586a86b614667a21e5a01aea3544ac0338de78:
+     Move cc_flags target into @bazel_tools//tools/cpp.
+   + ea1703b30f9ac43a0c3262f5729c34658ed8d473:
+     C++: Fix crash reported in #7721
+   + 803801d1494f06f0ce977a1f2241ef6a4d85df09:
+     Pass execution info to xml generating spawn. Fixes #7794
 ```
 
-Release 0.23.2
+Incompatible changes:
 
-## Release 0.23.1 (2019-03-04)
+  - Added --incompatible_py3_is_default to test switching the default
+    Python version to PY3 for py_binary/py_test targets that do not
+    specify a version. See #7359.
+  - //tools/cmd_line_differ has been renamed to //tools/aquery_differ
+    & can now compare (in addition to command lines) inputs of
+    actions given 2 aquery results.
+  - java_(mutable_|)proto_library: removed strict_deps attribute.
+  - The flag --incompatible_list_based_execution_strategy_selection
+    was added and is used to ease the migration to the new style of
+    specifying
+    execution strategy selection and fallback behavior. The
+    documentation for
+    this flag is here: https://github.com/bazelbuild/bazel/issues/7480
+  - Added --incompatible_py2_outputs_are_suffixed, for switching the
+    bazel-bin symlink to point to Python 3 outputs instead of Python
+    2 outputs. See
+    [#7593](https://github.com/bazelbuild/bazel/issues/7593).
 
-```
-Baseline: 441fd75d0047f8a998d784c557736ab9075db893
+New features:
 
-Cherry picks:
+  - Make actions.args() object chainable.
+  - Added --incompatible_windows_style_arg_escaping flag: enables
+    correct subprocess argument escaping on Windows. (No-op on other
+    platforms.)
+  - Added --incompatible_windows_escape_jvm_flags flag: enables
+    correct java_binary.jvm_flags and java_test.jvm_flags
+    tokenization and escaping on Windows. (No-op on other platforms.)
 
-   + 6ca7763669728253606578a56a205bca3ea883e9:
-     Fix a typo
-   + 2310b1c2c8b2f32db238f667747e7d5672480f4a:
-     Ignore SIGCHLD in test setup script
-   + f9eb1b56706f91063e9d080b850fa56964e77324:
-     Complete channel initialization in the event loop
-   + f0a1597cca2252754daf1d53ff76cf1a9b3dd9b9:
-     remote: properly reset state when using remote cache. Fixes #7555
-```
+Important changes:
 
-Release 0.23.1rc1 (2019-02-28)
+  - Allow running aquery against the current state of Skyframe
+  - Added support for the "navigation" resource directory to Android
+    resource processing in Bazel. This is used by the Navigation
+    Architecture Component.
+  - --incompatible_disable_runtimes_filegroups was flipped
+    (https://github.com/bazelbuild/bazel/issues/6942)
+  - Incompatible flag `--incompatible_linkopts_in_user_link_flags`
+    has been flipped (https://github.com/bazelbuild/bazel/issues/6826)
+  - Incompatible flag `--incompatible_dont_emit_static_libgcc` has
+    been flipped (https://github.com/bazelbuild/bazel/issues/6825)
+  - --incompatible_disallow_filetype is enabled by default.
+  - Fixed issue where exceptions and stacktraces were silently
+    swallowed in the Android resource processing pipeline.
+  - `--incompatible_disable_expand_if_all_available_in_flag_set` has
+    been flipped (https://github.com/bazelbuild/bazel/issues/7008)
+  - --incompatible_disallow_dict_plus is enabled by default
+  - Adds --incompatible_disable_objc_library_resources to disable
+    resource attributes in objc_library. Please migrate these
+    attributes to `data` instead.
+  - --incompatible_disallow_old_style_args_add is enabled by default.
+  - Using the `native` module in BUILD files is deprecated. It will
+    be forbidden with --incompatible_disallow_native_in_build_file.
+  - (Python rules) PyRuntimeInfo is exposed to Starlark, making it
+    possible for Starlark rules to depend on or imitate `py_runtime`.
+    The `files` attribute of `py_runtime` is no longer mandatory.
+  - incompatible_use_toolchain_providers_in_java_common: pass
+    JavaToolchainInfo and JavaRuntimeInfo providers to java_common
+    APIs instead of configured
+    targetshttps://github.com/bazelbuild/bazel/issues/7186.
+  - is_using_fission crosstool variable is now exposed in all compile
+    actions when fission is active (it used to be exposed only for
+    linking actions).
+  - incompatible_use_toolchain_providers_in_java_common: pass
+    JavaToolchainInfo and JavaRuntimeInfo providers to java_common
+    APIs instead of configured
+    targetshttps://github.com/bazelbuild/bazel/issues/7186.
+  - `py_runtime` gains a `python_version` attribute for specifying
+    whether it represents a Python 2 or 3 interpreter.
+  - `--incompatible_java_coverage` is enabled by default.
+  - Starlark rules can safely declare attributes named "licenses"
+  - When using
+    --incompatible_list_based_execution_strategy_selection, Bazel
+    will use remote execution by default (if you specify
+    --remote_executor), otherwise persistent workers (if the action
+    supports it), otherwise sandboxed local execution (if the action
+    and platform supports it) and at last unsandboxed local
+    execution. The flags --spawn_strategy and --strategy continue to
+    work as before - this only sets new defaults for the case where
+    you don't specify these flags.
+  - Set default value of --incompatible_remap_main_repo to true.
+  - Set default value of --incompatible_remap_main_repo to true.
+
+This release contains contributions from many people at Google, as well as Andrew Suffield, Brandon Lico, Chris Eason, Clint Harrison, Ed Schouten, Garrett Hopper, George Gensure, Greg, John Millikin, Julie, Keith Smiley, Laurent Le Brun, Ryan Beasley, Shmuel H, Travis Cline, Vladimir Chebotarev.
 
 ## Release 0.23.0 (2019-02-26)
 
