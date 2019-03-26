@@ -48,34 +48,10 @@ def _impl(ctx):
     if ctx.attr.cpu not in _VALID_CPUS:
         fail("Unhandled CPU {}".format(ctx.attr.cpu))
 
-    if (ctx.attr.cpu == "darwin_x86_64"):
-        toolchain_identifier = "darwin_x86_64"
-    elif (ctx.attr.cpu == "ios_arm64"):
-        toolchain_identifier = "ios_arm64"
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        toolchain_identifier = "ios_arm64e"
-    elif (ctx.attr.cpu == "ios_armv7"):
-        toolchain_identifier = "ios_armv7"
-    elif (ctx.attr.cpu == "ios_i386"):
-        toolchain_identifier = "ios_i386"
-    elif (ctx.attr.cpu == "ios_x86_64"):
-        toolchain_identifier = "ios_x86_64"
-    elif (ctx.attr.cpu == "armeabi-v7a"):
+    if ctx.attr.cpu == "armeabi-v7a":
         toolchain_identifier = "stub_armeabi-v7a"
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        toolchain_identifier = "tvos_arm64"
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        toolchain_identifier = "tvos_x86_64"
-    elif (ctx.attr.cpu == "watchos_arm64_32"):
-        toolchain_identifier = "watchos_arm64_32"
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        toolchain_identifier = "watchos_armv7k"
-    elif (ctx.attr.cpu == "watchos_i386"):
-        toolchain_identifier = "watchos_i386"
-    elif (ctx.attr.cpu == "watchos_x86_64"):
-        toolchain_identifier = "watchos_x86_64"
     else:
-        fail("Unreachable")
+        toolchain_identifier = ctx.attr.cpu
 
     if (ctx.attr.cpu == "armeabi-v7a"):
         host_system_name = "armeabi-v7a"
