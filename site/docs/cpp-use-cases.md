@@ -217,13 +217,13 @@ cc_test(
     copts = ["-Iexternal/gtest/include"],
     deps = [
         "@gtest//:main",
-        "//lib:hello-greet",
+        "//main:hello-greet",
     ],
 )
 ```
 
 Note that in order to make `hello-greet` visible to `hello-test`, we have to add
-`"//test:__pkg__",` to the `visibility` attribute in `./lib/BUILD`.
+`"//test:__pkg__",` to the `visibility` attribute in `./main/BUILD`.
 
 Now you can use `bazel test` to run the test.
 
