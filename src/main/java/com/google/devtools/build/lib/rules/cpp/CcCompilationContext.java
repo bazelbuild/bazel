@@ -259,7 +259,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     Set<Artifact> modularHeaders = new HashSet<>();
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
-      for (Artifact a : transitiveHeaderInfo.modularHeaders) {
+      // Not using range-based for loops here as often there is exactly one element in this list
+      // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
+      for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
+        Artifact a = transitiveHeaderInfo.modularHeaders.get(i);
         if (!a.isSourceArtifact()) {
           pathToLegalOutputArtifact.put(a.getExecPath(), a);
         }
@@ -267,7 +270,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           modularHeaders.add(a);
         }
       }
-      for (Artifact a : transitiveHeaderInfo.textualHeaders) {
+      for (int i = 0; i < transitiveHeaderInfo.textualHeaders.size(); i++) {
+        Artifact a = transitiveHeaderInfo.textualHeaders.get(i);
         if (!a.isSourceArtifact()) {
           pathToLegalOutputArtifact.put(a.getExecPath(), a);
         }
@@ -300,7 +304,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     HeadersAndModules result = new HeadersAndModules(includes.size());
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       Artifact module = transitiveHeaderInfo.getModule(usePic);
-      for (Artifact header : transitiveHeaderInfo.modularHeaders) {
+      // Not using range-based for loops here as often there is exactly one element in this list
+      // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
+      for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.modularHeaders.get(i);
         if (includes.contains(header)) {
           if (module != null) {
             result.modules.add(module);
@@ -308,7 +315,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           result.headers.add(header);
         }
       }
-      for (Artifact header : transitiveHeaderInfo.textualHeaders) {
+      for (int i = 0; i < transitiveHeaderInfo.textualHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.textualHeaders.get(i);
         if (includes.contains(header)) {
           result.headers.add(header);
         }
