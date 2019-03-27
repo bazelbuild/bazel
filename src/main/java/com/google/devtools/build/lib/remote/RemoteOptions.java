@@ -25,32 +25,31 @@ import com.google.devtools.common.options.OptionsBase;
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
   @Option(
-    name = "remote_http_cache",
-    oldName = "remote_rest_cache",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "A base URL of a HTTP caching service. Both http:// and https:// are supported. BLOBs are "
-            + "stored with PUT and retrieved with GET. See remote/README.md for more information."
-  )
+      name = "remote_http_cache",
+      oldName = "remote_rest_cache",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A base URL of a HTTP caching service. Both http:// and https:// are supported. BLOBs"
+              + " are stored with PUT and retrieved with GET. See remote/README.md for more"
+              + " information.")
   public String remoteHttpCache;
 
   @Option(
       name = "remote_cache_proxy",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Connect to the remote cache through a proxy. Currently this flag can only be used to "
-              + "configure a Unix domain socket (unix:/path/to/socket) for the HTTP cache."
-  )
+              + "configure a Unix domain socket (unix:/path/to/socket) for the HTTP cache.")
   public String remoteCacheProxy;
 
   @Option(
       name = "remote_max_connections",
       defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "The max. number of concurrent network connections to the remote cache/executor. By "
@@ -59,27 +58,25 @@ public final class RemoteOptions extends OptionsBase {
   public int remoteMaxConnections;
 
   @Option(
-    name = "remote_executor",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "HOST or HOST:PORT of a remote execution endpoint."
-  )
+      name = "remote_executor",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "HOST or HOST:PORT of a remote execution endpoint.")
   public String remoteExecutor;
 
   @Option(
-    name = "remote_cache",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "HOST or HOST:PORT of a remote caching endpoint."
-  )
+      name = "remote_cache",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "HOST or HOST:PORT of a remote caching endpoint.")
   public String remoteCache;
 
   @Option(
       name = "remote_timeout",
       defaultValue = "60",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The maximum number of seconds to wait for remote execution and cache calls. For the "
@@ -87,101 +84,92 @@ public final class RemoteOptions extends OptionsBase {
   public int remoteTimeout;
 
   @Option(
-    name = "remote_accept_cached",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to accept remotely cached action results."
-  )
+      name = "remote_accept_cached",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to accept remotely cached action results.")
   public boolean remoteAcceptCached;
 
   @Option(
-    name = "remote_local_fallback",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to fall back to standalone local execution strategy if remote execution fails."
-  )
+      name = "remote_local_fallback",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to fall back to standalone local execution strategy if remote execution fails.")
   public boolean remoteLocalFallback;
 
   @Option(
       name = "remote_local_fallback_strategy",
       defaultValue = "local",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The strategy to use when remote execution has to fallback to local execution.")
   public String remoteLocalFallbackStrategy;
 
   @Option(
-    name = "remote_upload_local_results",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to upload locally executed action results to the remote cache."
-  )
+      name = "remote_upload_local_results",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to upload locally executed action results to the remote cache.")
   public boolean remoteUploadLocalResults;
 
   @Option(
-    name = "remote_instance_name",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Value to pass as instance_name in the remote execution API."
-  )
+      name = "remote_instance_name",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Value to pass as instance_name in the remote execution API.")
   public String remoteInstanceName;
 
   @Option(
-    name = "experimental_remote_retry",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to retry transient remote execution/cache errors."
-  )
+      name = "experimental_remote_retry",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to retry transient remote execution/cache errors.")
   public boolean experimentalRemoteRetry;
 
   @Option(
-    name = "experimental_remote_retry_start_delay_millis",
-    defaultValue = "100",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The initial delay before retrying a transient error."
-  )
+      name = "experimental_remote_retry_start_delay_millis",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The initial delay before retrying a transient error.")
   public long experimentalRemoteRetryStartDelayMillis;
 
   @Option(
-    name = "experimental_remote_retry_max_delay_millis",
-    defaultValue = "5000",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The maximum delay before retrying a transient error."
-  )
+      name = "experimental_remote_retry_max_delay_millis",
+      defaultValue = "5000",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The maximum delay before retrying a transient error.")
   public long experimentalRemoteRetryMaxDelayMillis;
 
   @Option(
-    name = "experimental_remote_retry_max_attempts",
-    defaultValue = "5",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The maximum number of attempts to retry a transient error."
-  )
+      name = "experimental_remote_retry_max_attempts",
+      defaultValue = "5",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The maximum number of attempts to retry a transient error.")
   public int experimentalRemoteRetryMaxAttempts;
 
   @Option(
-    name = "experimental_remote_retry_multiplier",
-    defaultValue = "2",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The multiplier by which to increase the retry delay on transient errors."
-  )
+      name = "experimental_remote_retry_multiplier",
+      defaultValue = "2",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The multiplier by which to increase the retry delay on transient errors.")
   public double experimentalRemoteRetryMultiplier;
 
   @Option(
-    name = "experimental_remote_retry_jitter",
-    defaultValue = "0.1",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The random factor to apply to retry delays on transient errors."
-  )
+      name = "experimental_remote_retry_jitter",
+      defaultValue = "0.1",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The random factor to apply to retry delays on transient errors.")
   public double experimentalRemoteRetryJitter;
 
   @Option(
@@ -197,31 +185,29 @@ public final class RemoteOptions extends OptionsBase {
   public PathFragment diskCache;
 
   @Option(
-    name = "experimental_guard_against_concurrent_changes",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Turn this off to disable checking the ctime of input files of an action before "
-            + "uploading it to a remote cache. There may be cases where the Linux kernel delays "
-            + "writing of files, which could cause false positives."
-  )
+      name = "experimental_guard_against_concurrent_changes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Turn this off to disable checking the ctime of input files of an action before "
+              + "uploading it to a remote cache. There may be cases where the Linux kernel delays "
+              + "writing of files, which could cause false positives.")
   public boolean experimentalGuardAgainstConcurrentChanges;
 
   @Option(
-    name = "experimental_remote_grpc_log",
-    defaultValue = "",
-    category = "remote",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If specified, a path to a file to log gRPC call related details. This log consists "
-            + "of a sequence of serialized "
-            + "com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry "
-            + "protobufs with each message prefixed by a varint denoting the size of the following "
-            + "serialized protobuf message, as performed by the method "
-            + "LogEntry.writeDelimitedTo(OutputStream)."
-  )
+      name = "experimental_remote_grpc_log",
+      defaultValue = "",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If specified, a path to a file to log gRPC call related details. This log consists of a"
+              + " sequence of serialized "
+              + "com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry "
+              + "protobufs with each message prefixed by a varint denoting the size of the"
+              + " following serialized protobuf message, as performed by the method "
+              + "LogEntry.writeDelimitedTo(OutputStream).")
   public String experimentalRemoteGrpcLog;
 
   @Option(
@@ -265,7 +251,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_result_cache_priority",
       defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The relative priority of remote actions to be stored in remote cache. "
@@ -275,7 +261,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_execution_priority",
       defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The relative priority of actions to be executed remotely. "
@@ -286,7 +272,7 @@ public final class RemoteOptions extends OptionsBase {
       name = "remote_default_platform_properties",
       oldName = "host_platform_remote_properties_override",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Set the default platform properties to be set for the remote execution API, "
@@ -298,7 +284,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_verify_downloads",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If set to true, Bazel will compute the hash sum of all remote downloads and "
@@ -311,3 +297,4 @@ public final class RemoteOptions extends OptionsBase {
   /** The maximum size of an outbound message sent via a gRPC channel. */
   public int maxOutboundMessageSize = 1024 * 1024;
 }
+
