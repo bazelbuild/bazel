@@ -477,11 +477,15 @@ public final class CommandEnvironment {
     return workingDirectory;
   }
 
-  /**
-   * @return the OutputService in use, or null if none.
-   */
+  /** @return the OutputService in use, or null if none. */
+  @Nullable
   public OutputService getOutputService() {
     return outputService;
+  }
+
+  @VisibleForTesting
+  public void setOutputServiceForTesting(@Nullable OutputService outputService) {
+    this.outputService = outputService;
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
