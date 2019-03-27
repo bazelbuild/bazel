@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.blobstore.CombinedDiskHttpBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,40 +30,30 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.IOException;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-
+/** Tests for {@link SimpleBlobStoreFactory}. */
 @RunWith(JUnit4.class)
 public class SimpleBlobStoreFactoryTest {
 
-  @Mock
-  private Path workingDirectory;
-
-  @Mock
-  private Path relativeDirectory;
-
   private RemoteOptions remoteOptions;
+  private Path workingDirectory;
+  private InMemoryFileSystem fs;
 
   @Before
   public final void setUp() {
-    MockitoAnnotations.initMocks(this);
+    fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
+    workingDirectory = fs.getPath("/etc/something");
     remoteOptions = Options.getDefaults(RemoteOptions.class);
   }
 
   @Test
-  public void createCombinedCache() throws IOException {
+  public void createCombinedCacheWithExistingWorkingDirectory() throws IOException {
     remoteOptions.remoteHttpCache = "http://doesnotesist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
-
-    when(workingDirectory.getRelative(remoteOptions.diskCache)).thenReturn(relativeDirectory);
-    when(relativeDirectory.exists()).thenReturn(true);
+    fs.getPath("/etc/something/cache/here").createDirectoryAndParents();
 
     SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
 
@@ -71,14 +64,12 @@ public class SimpleBlobStoreFactoryTest {
   public void createCombinedCacheWithNotExistingWorkingDirectory() throws IOException {
     remoteOptions.remoteHttpCache = "http://doesnotesist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
-
-    when(workingDirectory.getRelative(remoteOptions.diskCache)).thenReturn(relativeDirectory);
-    when(relativeDirectory.exists()).thenReturn(false);
+    assertThat(workingDirectory.exists()).isFalse();
 
     SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
 
     assertThat(blobStore).isInstanceOf(CombinedDiskHttpBlobStore.class);
-    verify(relativeDirectory, times(1)).createDirectoryAndParents();
+    assertThat(workingDirectory.exists()).isTrue();
   }
 
   @Test
@@ -125,28 +116,25 @@ public class SimpleBlobStoreFactoryTest {
   public void createDiskCache() throws IOException {
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
 
-    when(workingDirectory.getRelative(remoteOptions.diskCache)).thenReturn(relativeDirectory);
-    when(relativeDirectory.exists()).thenReturn(true);
-
     SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
 
     assertThat(blobStore).isInstanceOf(OnDiskBlobStore.class);
   }
 
   @Test
-  public void isRemoteCacheOptions_true_whenHttpCache() {
+  public void isRemoteCacheOptions_httpCacheEnabled() {
     remoteOptions.remoteHttpCache = "http://doesnotexist:90";
     assertThat(SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
-  public void isRemoteCacheOptions_true_whenDiskCache() {
+  public void isRemoteCacheOptions_diskCacheEnabled() {
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     assertThat(SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
-  public void isRemoteCacheOptions_true_whenHttpAndDiskCache() {
+  public void isRemoteCacheOptions_httpAndDiskCacheEnabled() {
     remoteOptions.remoteHttpCache = "http://doesnotexist:90";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
 
@@ -154,19 +142,19 @@ public class SimpleBlobStoreFactoryTest {
   }
 
   @Test
-  public void isRemoteCacheOptions_false_whenDiskCacheOptionEmpty() {
+  public void isRemoteCacheOptions_diskCacheOptionEmpty() {
     remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
     assertThat(SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 
   @Test
-  public void isRemoteCacheOptions_false_whenRemoteHttpCacheEmpty() {
+  public void isRemoteCacheOptions_remoteHttpCacheOptionEmpty() {
     remoteOptions.remoteHttpCache = "";
     assertThat(SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 
   @Test
-  public void isRemoteCacheOptions_false_whenDefaultOptions() {
+  public void isRemoteCacheOptions_defaultOptions() {
     assertThat(SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 }

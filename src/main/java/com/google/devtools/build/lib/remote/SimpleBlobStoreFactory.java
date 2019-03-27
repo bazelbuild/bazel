@@ -36,6 +36,7 @@ public final class SimpleBlobStoreFactory {
 
   private SimpleBlobStoreFactory() {}
 
+  // TODO(ishikhman): make workingDirectory not nullable
   public static SimpleBlobStore create(
       RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
       throws IOException {
