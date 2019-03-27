@@ -270,7 +270,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           getConfigConditions(
               ctgValue.getTarget(),
               env,
-              resolver,
               ctgValue,
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses);
@@ -575,7 +574,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   static ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions(
       Target target,
       Environment env,
-      SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
       NestedSetBuilder<Cause> transitiveRootCauses)
