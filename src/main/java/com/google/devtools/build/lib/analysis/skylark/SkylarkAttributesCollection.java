@@ -71,7 +71,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
         StructProvider.STRUCT.create(
             singleFiles,
             "No attribute '%s' in file. Make sure there is a label type attribute marked "
-                + "as 'single_file' with this name");
+                + "as 'allow_single_file' with this name");
     filesObject =
         StructProvider.STRUCT.create(
             files,
