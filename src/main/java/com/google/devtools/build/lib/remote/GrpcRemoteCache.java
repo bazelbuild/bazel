@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;

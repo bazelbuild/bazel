@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.remote.blobstore.CombinedDiskHttpBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
