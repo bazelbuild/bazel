@@ -19,18 +19,17 @@ import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.m
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -154,13 +153,9 @@ public class ZipDecompressor implements Decompressor {
       target = maybeDeprefixSymlink(target, prefix, destinationDirectory);
       symlinks.put(outputPath, target);
     } else {
-      // TODO(kchodorow): should be able to be removed when issue #236 is resolved, but for now
-      // this delete+rewrite is required or the build will error out if outputPath exists here.
-      // The zip file is not re-unzipped when the WORKSPACE file is changed (because it is assumed
-      // to be immutable) but is on server restart (which is a bug).
-      File outputFile = outputPath.getPathFile();
-      try (InputStream input = reader.getInputStream(entry)) {
-        Files.copy(input, outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      try (InputStream input = reader.getInputStream(entry);
+          OutputStream output = outputPath.getOutputStream()) {
+        ByteStreams.copy(input, output);
       }
       outputPath.chmod(permissions);
       outputPath.setLastModifiedTime(entry.getTime());
