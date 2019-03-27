@@ -220,7 +220,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(false)
-          .incompatibleNoAttrLicense(false)
+          .incompatibleNoAttrLicense(true)
           .incompatibleNoOutputAttrDefault(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
