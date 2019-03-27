@@ -51,7 +51,7 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
 
   @Before
   public void beforeEach() throws Exception {
-    MockObjcSupport.createCrosstoolPackage(mockToolsConfig);
+    MockObjcSupport.setupCcToolchainConfig(mockToolsConfig);
     MockObjcSupport.setupAppleSdks(mockToolsConfig);
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
