@@ -22,9 +22,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -33,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,9 +39,6 @@ import static org.mockito.Mockito.when;
 
 @RunWith(JUnit4.class)
 public class SimpleBlobStoreFactoryTest {
-
-  @Rule
-  public ExpectedException expectedEx = ExpectedException.none();
 
   @Mock
   private Path workingDirectory;
@@ -86,14 +82,13 @@ public class SimpleBlobStoreFactoryTest {
   }
 
   @Test
-  public void createCombinedCacheWithMissingWorkingDirectoryShouldtThrowException() throws IOException {
+  public void createCombinedCacheWithMissingWorkingDirectoryShouldThrowException() {
     // interesting case: workingDirectory = null -> NPE.
     remoteOptions.remoteHttpCache = "http://doesnotesist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
 
-    expectedEx.expect(NullPointerException.class);
-
-    SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, /* workingDirectory= */ null);
+    assertThrows(NullPointerException.class,
+        () -> SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, /* workingDirectory= */ null));
   }
 
   @Test
@@ -107,14 +102,14 @@ public class SimpleBlobStoreFactoryTest {
   }
 
   @Test
-  public void createHttpCacheFailsWithUnsupportedProxyProtocol() throws IOException {
+  public void createHttpCacheFailsWithUnsupportedProxyProtocol() {
     remoteOptions.remoteHttpCache = "http://doesnotesist.com";
     remoteOptions.remoteCacheProxy = "bad-proxy";
 
-    expectedEx.expect(Exception.class);
-    expectedEx.expectMessage("Remote cache proxy unsupported: bad-proxy");
-
-    SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
+    assertThat(
+        assertThrows(Exception.class,
+            () -> SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory)))
+        .hasMessageThat().contains("Remote cache proxy unsupported: bad-proxy");
   }
 
   @Test
