@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -361,7 +362,9 @@ public class SkylarkRepositoryContext
     env.getListener().post(w);
     try {
       Path path = skylarkPath.getPath();
-      return path.getFileSystem().delete(path);
+      FileSystem fileSystem = path.getFileSystem();
+      fileSystem.deleteTreesBelow(path);
+      return fileSystem.delete(path);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

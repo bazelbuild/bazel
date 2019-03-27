@@ -195,6 +195,9 @@ public class SkylarkRepositoryContextTest {
     assertThat(context.delete(context.path(tempFile.getPathString()), null)).isTrue();
 
     Path innerDir = scratch.dir("/some/inner");
+    scratch.dir("/some/inner/deeper");
+    scratch.file("/some/inner/deeper.txt");
+    scratch.file("/some/inner/deeper/1.txt");
     assertThat(context.delete(innerDir.toString(), null)).isTrue();
   }
 
