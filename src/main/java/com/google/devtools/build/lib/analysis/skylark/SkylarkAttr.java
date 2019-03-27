@@ -22,12 +22,12 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Provider;
@@ -252,7 +252,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Object trans = arguments.get(CONFIGURATION_ARG);
       boolean isSplit =
           trans instanceof SplitTransition
-              || trans instanceof SplitTransitionProvider
+              || trans instanceof TransitionFactory
               || trans instanceof StarlarkDefinedConfigTransition;
       if (isSplit && defaultValue instanceof SkylarkLateBoundDefault) {
         throw new EvalException(
@@ -263,8 +263,8 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         builder.cfg(HostTransition.INSTANCE);
       } else if (trans instanceof SplitTransition) {
         builder.cfg((SplitTransition) trans);
-      } else if (trans instanceof SplitTransitionProvider) {
-        builder.cfg((SplitTransitionProvider) trans);
+      } else if (trans instanceof TransitionFactory) {
+        builder.cfg((TransitionFactory) trans);
       } else if (trans instanceof StarlarkDefinedConfigTransition) {
         StarlarkDefinedConfigTransition starlarkDefinedTransition =
             (StarlarkDefinedConfigTransition) trans;
