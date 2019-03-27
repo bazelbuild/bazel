@@ -390,6 +390,19 @@ public class BuildOptionsTest {
   }
 
   @Test
+  public void parsingResultTransformMultiValueOption() throws Exception {
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
+
+    OptionsParser parser = OptionsParser.newOptionsParser(BUILD_CONFIG_OPTIONS);
+    parser.parse("--features=foo");
+
+    BuildOptions modified = original.applyParsingResult(parser);
+
+    assertThat(modified.get(BuildConfiguration.Options.class).defaultFeatures)
+        .containsExactly("foo");
+  }
+
+  @Test
   public void parsingResultMatch() throws Exception {
     BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--cpu=foo", "--stamp");
 
