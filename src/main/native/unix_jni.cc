@@ -1129,6 +1129,70 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_lgetxattr(JNIEnv *env,
   return ::getxattr_common(env, path, name, ::portable_lgetxattr);
 }
 
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_openWrite(
+    JNIEnv *env, jclass clazz, jstring path, jboolean append) {
+  const char *path_chars = GetStringLatin1Chars(env, path);
+  int flags = (O_WRONLY | O_CREAT) | (append ? O_APPEND : O_TRUNC);
+  int fd;
+  while ((fd = open(path_chars, flags, 0666)) == -1 && errno == EINTR) {
+  }
+  if (fd == -1) {
+    // The interface only allows FileNotFoundException.
+    ::PostException(env, ENOENT,
+                    std::string(path_chars) + " (" + ErrorMessage(errno) + ")");
+  }
+  ReleaseStringLatin1Chars(path_chars);
+  return fd;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_close(JNIEnv *env,
+                                                               jclass clazz,
+                                                               jint fd,
+                                                               jobject ingore) {
+  if (close(fd) == -1) {
+    ::PostException(env, errno, "error when closing file");
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_write(
+    JNIEnv *env, jclass clazz, jint fd, jbyteArray data, jint off, jint len) {
+  int data_len = env->GetArrayLength(data);
+  if (off < 0 || len < 0 || off > data_len || data_len - off < len) {
+    jclass oob = env->FindClass("java/lang/IndexOutOfBoundsException");
+    if (oob != nullptr) {
+      env->ThrowNew(oob, nullptr);
+    }
+    return;
+  }
+  jbyte *buf = static_cast<jbyte *>(malloc(len));
+  if (buf == nullptr) {
+    ::PostException(env, ENOMEM, "out of memory");
+    return;
+  }
+  env->GetByteArrayRegion(data, off, len, buf);
+  // GetByteArrayRegion may raise ArrayIndexOutOfBoundsException if one of the
+  // indexes in the region is not valid. As we obtain the inidices from the
+  // caller, we have to check.
+  if (!env->ExceptionOccurred()) {
+    jbyte *p = buf;
+    while (len > 0) {
+      ssize_t res = write(fd, p, len);
+      if (res == -1) {
+        if (errno != EINTR) {
+          ::PostException(env, errno, "writing file failed");
+          break;
+        }
+      } else {
+        p += res;
+        len -= res;
+      }
+    }
+  }
+  free(buf);
+}
 
 // Computes MD5 digest of "file", writes result in "result", which
 // must be of length Md5Digest::kDigestLength.  Returns zero on success, or
