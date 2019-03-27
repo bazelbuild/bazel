@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.options;
 
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -173,15 +173,14 @@ public final class RemoteOptions extends OptionsBase {
   public double experimentalRemoteRetryJitter;
 
   @Option(
-    name = "disk_cache",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    help =
-        "A path to a directory where Bazel can read and write actions and action outputs. "
-            + "If the directory does not exist, it will be created."
-  )
+      name = "disk_cache",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "A path to a directory where Bazel can read and write actions and action outputs. "
+              + "If the directory does not exist, it will be created.")
   public PathFragment diskCache;
 
   @Option(
@@ -297,4 +296,3 @@ public final class RemoteOptions extends OptionsBase {
   /** The maximum size of an outbound message sent via a gRPC channel. */
   public int maxOutboundMessageSize = 1024 * 1024;
 }
-
