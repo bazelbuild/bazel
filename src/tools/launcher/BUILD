@@ -31,6 +31,11 @@ cc_library(
         "//src/main/cpp/util:filesystem",
         "//src/tools/launcher/util",
         "//src/tools/launcher/util:data_parser",
+        # Depend on the runfiles library from source, not from @bazel_tools.
+        # This is fine: the launcher is a prebuilt binary, embedded into Bazel
+        # itself. It's built during Bazel's release process, using the same
+        # runfiles library source as the one that is also embedded into Bazel.
+        "//tools/cpp/runfiles:for_src_tools_launcher",
     ],
 )
 

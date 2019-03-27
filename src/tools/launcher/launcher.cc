@@ -51,7 +51,6 @@ static wstring GetRunfilesDir(const wchar_t* argv0) {
 BinaryLauncherBase::BinaryLauncherBase(
     const LaunchDataParser::LaunchInfo& _launch_info, int argc, wchar_t* argv[])
     : launch_info(_launch_info),
-      manifest_file(FindManifestFile(argv[0])),
       runfiles_dir(GetRunfilesDir(argv[0])),
       workspace_name(GetLaunchInfoByKey(WORKSPACE_NAME)),
       symlink_runfiles_enabled(GetLaunchInfoByKey(SYMLINK_RUNFILES_ENABLED) ==
@@ -59,11 +58,11 @@ BinaryLauncherBase::BinaryLauncherBase(
   for (int i = 0; i < argc; i++) {
     commandline_arguments.push_back(argv[i]);
   }
-  // Prefer to use the runfiles manifest, if it exists, but otherwise the
-  // runfiles directory will be used by default. On Windows, the manifest is
-  // used locally, and the runfiles directory is used remotely.
-  if (!manifest_file.empty()) {
-    ParseManifestFile(&manifest_file_map, manifest_file);
+
+  std::string cargv0(blaze_util::WstringToCstring(argv[0]).get());
+  runfiles_.reset(bazel::tools::cpp::runfiles::Runfiles::Create(cargv0));
+  if (runfiles_ == nullptr) {
+    die(L"Couldn't init runfiles");
   }
 }
 
@@ -100,17 +99,6 @@ static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
   return false;
 }
 
-wstring BinaryLauncherBase::FindManifestFile(const wchar_t* argv0) {
-  wstring manifest_file;
-  if (!FindManifestFileImpl(argv0, &manifest_file)) {
-    return L"";
-  }
-  // The path will be set as the RUNFILES_MANIFEST_FILE envvar and used by the
-  // shell script, so let's convert backslashes to forward slashes.
-  std::replace(manifest_file.begin(), manifest_file.end(), '\\', '/');
-  return manifest_file;
-}
-
 wstring BinaryLauncherBase::GetRunfilesPath() const {
   wstring runfiles_path =
       GetBinaryPathWithExtension(this->commandline_arguments[0]) + L".runfiles";
@@ -118,61 +106,24 @@ wstring BinaryLauncherBase::GetRunfilesPath() const {
   return runfiles_path;
 }
 
-void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
-                                           const wstring& manifest_path) {
-  ifstream manifest_file(AsAbsoluteWindowsPath(manifest_path.c_str()).c_str());
-
-  if (!manifest_file) {
-    die(L"Couldn't open MANIFEST file: %s", manifest_path.c_str());
-  }
-
-  string line;
-  while (getline(manifest_file, line)) {
-    size_t space_pos = line.find_first_of(' ');
-    if (space_pos == string::npos) {
-      die(L"Wrong MANIFEST format at line: %s", line.c_str());
-    }
-    wstring wline = blaze_util::CstringToWstring(line);
-    wstring key = wline.substr(0, space_pos);
-    wstring value = wline.substr(space_pos + 1);
-    manifest_file_map->insert(make_pair(key, value));
-  }
-}
-
-wstring BinaryLauncherBase::Rlocation(const wstring& path,
-                                      bool need_workspace_name) const {
+wstring BinaryLauncherBase::Rlocation(wstring path,
+                                      bool has_workspace_name) const {
   // No need to do rlocation if the path is absolute.
   if (blaze_util::IsAbsolute(path)) {
     return path;
   }
 
-  // If the manifest file map is empty, then we're using the runfiles directory
-  // instead.
-  if (manifest_file_map.empty()) {
-    wstring query_path = runfiles_dir;
-    if (need_workspace_name) {
-      query_path += L"/" + this->workspace_name;
-    }
-    query_path += L"/" + path;
-    return query_path;
+  if (path.find(L"external/") == 0) {
+    // Ignore 'has_workspace_name' when the path is under "external/". Such
+    // paths already have a workspace name in the next path component.
+    path = path.substr(9);
+  } else if (!has_workspace_name) {
+    path = this->workspace_name + L"/" + path;
   }
 
-  wstring query_path = path;
-  if (need_workspace_name) {
-    query_path = this->workspace_name + L"/" + path;
-  }
-  auto entry = manifest_file_map.find(query_path);
-  if (entry == manifest_file_map.end()) {
-    die(L"Rlocation failed on %s, path doesn't exist in MANIFEST file",
-        query_path.c_str());
-  }
-  return entry->second;
-}
-
-wstring BinaryLauncherBase::Rlocation(const string& path,
-                                      bool need_workspace_name) const {
-  return this->Rlocation(blaze_util::CstringToWstring(path),
-                         need_workspace_name);
+  string cpath = blaze_util::WstringToCstring(path.c_str()).get();
+  string crloc = runfiles_->Rlocation(cpath);
+  return blaze_util::CstringToWstring(crloc.c_str()).get();
 }
 
 wstring BinaryLauncherBase::GetLaunchInfoByKey(const string& key) {
@@ -228,17 +179,23 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
   if (PrintLauncherCommandLine(executable, arguments)) {
     return 0;
   }
-  // Set RUNFILES_DIR if:
-  //   1. Symlink runfiles tree is enabled, or
-  //   2. We couldn't find manifest file (which probably means we are running
-  //   remotely).
-  // Otherwise, set RUNFILES_MANIFEST_ONLY and RUNFILES_MANIFEST_FILE
-  if (symlink_runfiles_enabled || manifest_file.empty()) {
-    SetEnv(L"RUNFILES_DIR", runfiles_dir);
-  } else {
-    SetEnv(L"RUNFILES_MANIFEST_ONLY", L"1");
-    SetEnv(L"RUNFILES_MANIFEST_FILE", manifest_file);
+
+  bool manifest_exists = false;
+  for (auto i : runfiles_->EnvVars()) {
+    // As of 2019-03-27, the envvars list contains "RUNFILES_MANIFEST_FILE" only
+    // if its value points to an existing manifest.
+    if (!manifest_exists && i.first == "RUNFILES_MANIFEST_FILE") {
+      manifest_exists = true;
+    }
+    SetEnv(
+        blaze_util::CstringToWstring(i.first.c_str()).get(),
+        blaze_util::CstringToWstring(i.second.c_str()).get());
   }
+  // As of 2019-03-27 the list doesn't contain RUNFILES_MANIFEST_ONLY, so we set
+  // it manually. 
+  SetEnv(L"RUNFILES_MANIFEST_ONLY",
+         manifest_exists && !symlink_runfiles_enabled ? L"1" : L"");
+
   CmdLine cmdline;
   CreateCommandLine(&cmdline, executable, arguments);
   PROCESS_INFORMATION processInfo = {0};

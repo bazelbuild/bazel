@@ -15,11 +15,15 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_LAUNCHER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_LAUNCHER_H_
 
+#include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "src/tools/launcher/util/data_parser.h"
+
+// This project depends on the runfiles library from source, not from
+// @bazel_tools, which explains why include path is not ".../runfiles.h"
+#include "tools/cpp/runfiles/runfiles_src.h"
 
 namespace bazel {
 namespace launcher {
@@ -38,8 +42,6 @@ struct CmdLine {
 };
 
 class BinaryLauncherBase {
-  typedef std::unordered_map<std::wstring, std::wstring> ManifestFileMap;
-
  public:
   BinaryLauncherBase(const LaunchDataParser::LaunchInfo& launch_info, int argc,
                      wchar_t* argv[]);
@@ -54,14 +56,13 @@ class BinaryLauncherBase {
 
   // Map a runfile path to its absolute path.
   //
-  // If need_workspace_name is true, then this method prepend workspace name to
-  // path before doing rlocation.
-  // If need_workspace_name is false, then this method uses path directly.
-  // The default value of need_workspace_name is true.
-  std::wstring Rlocation(const std::wstring& path,
-                         bool need_workspace_name = true) const;
-  std::wstring Rlocation(const std::string& path,
-                         bool need_workspace_name = true) const;
+  // 'has_workspace_name' indicates whether 'path' already starts with the
+  // runfile's workspace name. (This is implicitly true when 'path' is under
+  // "external/".) If the path does not have a workspace name (and does not
+  // start with "external/"), this method prepends the main repository's name to
+  // it before looking up the runfile.
+  std::wstring Rlocation(std::wstring path,
+                         bool has_workspace_name = false) const;
 
   // Lauch a process with given executable and command line arguments.
   // If --print_launcher_command exists in arguments, then we print the full
@@ -88,9 +89,6 @@ class BinaryLauncherBase {
   // A map to store all the launch information.
   const LaunchDataParser::LaunchInfo& launch_info;
 
-  // Absolute path to the runfiles manifest file, if one exists.
-  const std::wstring manifest_file;
-
   // Path to the runfiles directory, if one exists.
   const std::wstring runfiles_dir;
 
@@ -100,9 +98,6 @@ class BinaryLauncherBase {
 
   // The workspace name of the repository this target belongs to.
   const std::wstring workspace_name;
-
-  // A map to store all entries of the manifest file.
-  ManifestFileMap manifest_file_map;
 
   // If symlink runfiles tree is enabled, this value is true.
   const bool symlink_runfiles_enabled;
@@ -123,16 +118,7 @@ class BinaryLauncherBase {
   void CreateCommandLine(CmdLine* result, const std::wstring& executable,
                          const std::vector<std::wstring>& arguments) const;
 
-  // Find manifest file of the binary.
-  //
-  // Expect the manifest file to be at
-  //    1. <path>/<to>/<binary>/<target_name>.runfiles/MANIFEST
-  // or 2. <path>/<to>/<binary>/<target_name>.runfiles_manifest
-  static std::wstring FindManifestFile(const wchar_t* argv0);
-
-  // Parse manifest file into a map
-  static void ParseManifestFile(ManifestFileMap* manifest_file_map,
-                                const std::wstring& manifest_path);
+  std::unique_ptr<bazel::tools::cpp::runfiles::Runfiles> runfiles_;
 };
 
 }  // namespace launcher
