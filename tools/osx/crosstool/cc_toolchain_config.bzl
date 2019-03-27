@@ -5363,17 +5363,22 @@ def _impl(ctx):
                         ACTION_NAMES.objc_executable,
                         ACTION_NAMES.objcpp_executable,
                     ],
-                    flag_groups = [flag_group(flags = [
-                        "-fembed-bitcode",
-                        "-Xlinker",
-                        "-bitcode_verify",
-                        "-Xlinker",
-                        "-bitcode_hide_symbols",
-                        "-Xlinker",
-                        "-bitcode_symbol_map",
-                        "-Xlinker",
-                        "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}",
-                    ])],
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                "-fembed-bitcode",
+                                "-Xlinker",
+                                "-bitcode_verify",
+                                "-Xlinker",
+                                "-bitcode_hide_symbols",
+                                "-Xlinker",
+                                "-bitcode_symbol_map",
+                                "-Xlinker",
+                                "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}",
+                            ],
+                            expand_if_available = "bitcode_symbol_map_path",
+                        ),
+                    ],
                 ),
             ],
         )
