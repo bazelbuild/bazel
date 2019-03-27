@@ -1177,20 +1177,7 @@ public class CppCompileAction extends AbstractAction
             spawnContext,
             showIncludesFilterForStdout,
             showIncludesFilterForStderr,
-            new SpawnContinuation() {
-              @Override
-              public ListenableFuture<?> getFuture() {
-                // This shouldn't be called from CppCompileActionContinuation.
-                throw new IllegalStateException();
-              }
-
-              @Override
-              public SpawnContinuation execute() throws ExecException, InterruptedException {
-                SpawnActionContext context =
-                    actionExecutionContext.getContext(SpawnActionContext.class);
-                return context.beginExecution(spawn, spawnContext);
-              }
-            })
+            SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext))
         .execute();
   }
 
