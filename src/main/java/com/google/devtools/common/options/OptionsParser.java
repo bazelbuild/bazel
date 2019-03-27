@@ -566,15 +566,14 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * Returns a description of the option value set by the last previous call to {@link
+   * {@inheritDoc}
+   *
+   * <p>Returns the value set by the last previous call to {@link
    * #parse(OptionPriority.PriorityCategory, String, List)} that successfully set the given option.
    * If the option is of type {@link List}, the description will correspond to any one of the calls,
    * but not necessarily the last.
-   *
-   * @return The {@link com.google.devtools.common.options.OptionValueDescription} for the option,
-   *     or null if the value has not been set.
-   * @throws IllegalArgumentException if there is no option by the given name.
    */
+  @Override
   public OptionValueDescription getOptionValueDescription(String name) {
     return impl.getOptionValueDescription(name);
   }

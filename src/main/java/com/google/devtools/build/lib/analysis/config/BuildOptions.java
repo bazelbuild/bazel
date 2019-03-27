@@ -332,10 +332,8 @@ public final class BuildOptions implements Cloneable, Serializable {
    *
    * @param parsingResult any options that are being modified
    * @return the new options after applying the parsing result to the original options
-   * @throws OptionsParsingException if a value in the parsing result cannot in fact be parsed
    */
-  public BuildOptions applyParsingResult(OptionsParsingResult parsingResult)
-      throws OptionsParsingException {
+  public BuildOptions applyParsingResult(OptionsParsingResult parsingResult) {
     Map<Class<? extends FragmentOptions>, FragmentOptions> modifiedFragments =
         toModifiedFragments(parsingResult);
 
@@ -361,7 +359,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   private Map<Class<? extends FragmentOptions>, FragmentOptions> toModifiedFragments(
-      OptionsParsingResult parsingResult) throws OptionsParsingException {
+      OptionsParsingResult parsingResult) {
     Map<Class<? extends FragmentOptions>, FragmentOptions> replacedOptions = new HashMap<>();
     for (ParsedOptionDescription parsedOption : parsingResult.asListOfExplicitOptions()) {
       OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
@@ -382,7 +380,9 @@ public final class BuildOptions implements Cloneable, Serializable {
               fragmentOptionClass,
               (Class<? extends FragmentOptions> k) -> originalFragment.clone());
       try {
-        optionDefinition.getField().set(newOptions, parsedOption.getConvertedValue());
+        Object value =
+            parsingResult.getOptionValueDescription(optionDefinition.getOptionName()).getValue();
+        optionDefinition.getField().set(newOptions, value);
       } catch (IllegalAccessException e) {
         throw new IllegalStateException("Couldn't set " + optionDefinition.getField(), e);
       }
