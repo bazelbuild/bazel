@@ -155,6 +155,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_no_transitive_loads=" + rand.nextBoolean(),
         "--incompatible_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
+        "--incompatible_string_join_requires_strings=" + rand.nextBoolean(),
         "--incompatible_use_toolchain_providers_in_java_common=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean());
@@ -200,6 +201,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNoTransitiveLoads(rand.nextBoolean())
         .incompatibleRemapMainRepo(rand.nextBoolean())
         .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
+        .incompatibleStringJoinRequiresStrings(rand.nextBoolean())
         .incompatibleUseToolchainProvidersInJavaCommon(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
         .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())
