@@ -840,3 +840,10 @@ sh_test(
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_test(
+    name = "archive_contents_test",
+    srcs = ["archive_contents_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
