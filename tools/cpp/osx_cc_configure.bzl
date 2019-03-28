@@ -49,9 +49,16 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
     include_dirs.append("/Applications/")
     return include_dirs
 
-def configure_osx_toolchain(repository_ctx, overriden_tools):
+def _resolve_overriden_labels(labels, overriden_tools):
+    resolved_labels = {label: label for label in labels}
+    for override, actual in overriden_tools.items():
+        resolved_labels[override] = actual
+
+    return resolved_labels
+
+def configure_osx_toolchain(repository_ctx, overriden_tools, overriden_labels):
     """Configure C++ toolchain on macOS."""
-    paths = resolve_labels(repository_ctx, [
+    resolved_labels = _resolve_overriden_labels([
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
         "@bazel_tools//tools/objc:libtool.sh",
         "@bazel_tools//tools/objc:make_hashed_objlist.py",
@@ -61,7 +68,9 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         "@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl",
         "@bazel_tools//tools/osx/crosstool:wrapped_clang.cc",
         "@bazel_tools//tools/osx:xcode_locator.m",
-    ])
+    ], overriden_labels)
+
+    paths = resolve_labels(repository_ctx, resolved_labels.values())
 
     env = repository_ctx.os.environ
     should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
@@ -70,7 +79,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
     # Make the following logic in sync with //tools/cpp:cc_configure.bzl#cc_autoconf_toolchains_impl
     (xcode_toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
-        paths["@bazel_tools//tools/osx:xcode_locator.m"],
+        paths[resolved_labels["@bazel_tools//tools/osx:xcode_locator.m"]],
     )
     if should_use_xcode and not xcode_toolchains:
         fail("BAZEL_USE_XCODE_TOOLCHAIN is set to 1 but Bazel couldn't find Xcode installed on the " +
@@ -79,34 +88,34 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         cc = find_cc(repository_ctx, overriden_tools = {})
         repository_ctx.template(
             "cc_wrapper.sh",
-            paths["@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl"],
+            paths[resolved_labels["@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl"]],
             {
                 "%{cc}": escape_string(str(cc)),
                 "%{env}": escape_string(get_env(repository_ctx)),
             },
         )
         repository_ctx.symlink(
-            paths["@bazel_tools//tools/objc:xcrunwrapper.sh"],
+            paths[resolved_labels["@bazel_tools//tools/objc:xcrunwrapper.sh"]],
             "xcrunwrapper.sh",
         )
         repository_ctx.symlink(
-            paths["@bazel_tools//tools/objc:libtool.sh"],
+            paths[resolved_labels["@bazel_tools//tools/objc:libtool.sh"]],
             "libtool",
         )
         repository_ctx.symlink(
-            paths["@bazel_tools//tools/objc:make_hashed_objlist.py"],
+            paths[resolved_labels["@bazel_tools//tools/objc:make_hashed_objlist.py"]],
             "make_hashed_objlist.py",
         )
         repository_ctx.symlink(
-            paths["@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl"],
+            paths[resolved_labels["@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl"]],
             "wrapped_ar",
         )
         repository_ctx.symlink(
-            paths["@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl"],
+            paths[resolved_labels["@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl"]],
             "cc_toolchain_config.bzl",
         )
         wrapped_clang_src_path = str(repository_ctx.path(
-            paths["@bazel_tools//tools/osx/crosstool:wrapped_clang.cc"],
+            paths[resolved_labels["@bazel_tools//tools/osx/crosstool:wrapped_clang.cc"]],
         ))
         xcrun_result = repository_ctx.execute([
             "env",
@@ -141,7 +150,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             escaped_cxx_include_directories.append("# Error: " + xcodeloc_err + "\n")
         repository_ctx.template(
             "BUILD",
-            paths["@bazel_tools//tools/osx/crosstool:BUILD.tpl"],
+            paths[resolve_labels["@bazel_tools//tools/osx/crosstool:BUILD.tpl"]],
             {"%{cxx_builtin_include_directories}": "\n".join(escaped_cxx_include_directories)},
         )
     else:

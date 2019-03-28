@@ -114,11 +114,20 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
         configure_windows_toolchain(repository_ctx)
     elif (cpu_value == "darwin" and
           ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
-        configure_osx_toolchain(repository_ctx, overriden_tools)
+        configure_osx_toolchain(repository_ctx, overriden_tools, repository_ctx.attr.overriden_labels)
     else:
         configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
 
 cc_autoconf = repository_rule(
+    attrs = {
+        "overriden_labels": attr.string_dict(
+            doc = """
+A dictionary of labels bazel wants to use for setting up the cc_toolchain to the actual labels to override
+the tools with instead. This allows you to override single pieces of the toolchain without creating your
+own crosstool.
+""",
+        ),
+    },
     environ = [
         "ABI_LIBC_VERSION",
         "ABI_VERSION",
