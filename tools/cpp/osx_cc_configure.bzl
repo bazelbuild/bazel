@@ -44,6 +44,9 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
     include_dirs = get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++")
     for toolchain in xcode_toolchains:
         include_dirs.append(escape_string(toolchain.developer_dir))
+
+    # Assume that all paths that point to /Applications/ are built in include paths
+    include_dirs.append("/Applications/")
     return include_dirs
 
 def configure_osx_toolchain(repository_ctx, overriden_tools):
