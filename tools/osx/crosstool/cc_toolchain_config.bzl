@@ -5623,10 +5623,6 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
-    cxx_builtin_include_directories = [
-%{cxx_builtin_include_directories}
-    ]
-
     artifact_name_patterns = []
 
     make_variables = [
@@ -5687,7 +5683,7 @@ def _impl(ctx):
             features = features,
             action_configs = action_configs,
             artifact_name_patterns = artifact_name_patterns,
-            cxx_builtin_include_directories = cxx_builtin_include_directories,
+            cxx_builtin_include_directories = ["/"],
             toolchain_identifier = toolchain_identifier,
             host_system_name = host_system_name,
             target_system_name = target_system_name,
