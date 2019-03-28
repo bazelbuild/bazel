@@ -477,21 +477,4 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
             "        outs = ['out'],",
             "        cmd = '" + command + "')");
   }
-
-  @Test
-  public void testCcFlagsFromFeatureConfiguration() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withActionConfigs("cc_flags_action_config_foo_bar_baz"));
-    useConfiguration();
-    scratch.file(
-        "foo/BUILD",
-        "genrule(name = 'foo',",
-        "        outs = ['out'],",
-        "        cmd = '$(CC_FLAGS)')");
-    String command = getGenruleCommand("//foo");
-    assertThat(command).endsWith("foo bar baz");
-  }
 }
