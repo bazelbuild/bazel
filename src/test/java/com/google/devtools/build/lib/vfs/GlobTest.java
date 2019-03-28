@@ -197,17 +197,23 @@ public class GlobTest {
 
   @Test
   public void testIOFailureOnStat() throws Exception {
-    UnixGlob.FilesystemCalls syscalls = new UnixGlob.FilesystemCalls() {
-      @Override
-      public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
-        throw new IOException("EIO");
-      }
+    UnixGlob.FilesystemCalls syscalls =
+        new UnixGlob.FilesystemCalls() {
+          @Override
+          public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+            throw new IOException("EIO");
+          }
 
-      @Override
-      public Collection<Dirent> readdir(Path path, Symlinks symlinks) {
-        throw new IllegalStateException();
-      }
-    };
+          @Override
+          public Collection<Dirent> readdir(Path path, Symlinks symlinks) {
+            throw new IllegalStateException();
+          }
+
+          @Override
+          public Dirent.Type getType(Path path, Symlinks symlinks) {
+            throw new IllegalStateException();
+          }
+        };
 
     try {
       new UnixGlob.Builder(tmpPath)
@@ -222,17 +228,23 @@ public class GlobTest {
 
   @Test
   public void testGlobWithoutWildcardsDoesNotCallReaddir() throws Exception {
-    UnixGlob.FilesystemCalls syscalls = new UnixGlob.FilesystemCalls() {
-      @Override
-      public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
-        return UnixGlob.DEFAULT_SYSCALLS.statIfFound(path, symlinks);
-      }
+    UnixGlob.FilesystemCalls syscalls =
+        new UnixGlob.FilesystemCalls() {
+          @Override
+          public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+            return UnixGlob.DEFAULT_SYSCALLS.statIfFound(path, symlinks);
+          }
 
-      @Override
-      public Collection<Dirent> readdir(Path path, Symlinks symlinks) {
-        throw new IllegalStateException();
-      }
-    };
+          @Override
+          public Collection<Dirent> readdir(Path path, Symlinks symlinks) {
+            throw new IllegalStateException();
+          }
+
+          @Override
+          public Dirent.Type getType(Path path, Symlinks symlinks) {
+            throw new IllegalStateException();
+          }
+        };
 
     assertThat(
             new UnixGlob.Builder(tmpPath)

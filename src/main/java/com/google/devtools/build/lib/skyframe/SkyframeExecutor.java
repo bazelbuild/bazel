@@ -596,7 +596,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected SkyFunction newFileStateFunction() {
-    return new FileStateFunction(tsgm, externalFilesHelper);
+    return new FileStateFunction(tsgm, syscalls, externalFilesHelper);
   }
 
   protected SkyFunction newDirectoryListingStateFunction() {

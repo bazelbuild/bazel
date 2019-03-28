@@ -444,6 +444,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   @Test
   public void testRootCauseOnInconsistentFilesystem() throws Exception {
     reporter.removeHandler(failFastHandler);
+    skyframeExecutor.turnOffSyscallCacheForTesting();
     scratch.file("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:baz/fizz'])");
     Path barBuildFile = scratch.file("bar/BUILD", "sh_library(name = 'bar/baz')");
     scratch.file("bar/baz/BUILD");
