@@ -277,6 +277,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testConvolutedLoadRootCauseAnalysis() throws Exception {
+    useConfiguration("--incompatible_disable_third_party_license_checking=false");
     // You need license declarations in third_party. We use this constraint to
     // create targets that are loadable, but are in error.
     scratch.file("third_party/first/BUILD",
