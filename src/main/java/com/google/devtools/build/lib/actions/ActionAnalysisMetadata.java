@@ -189,7 +189,8 @@ public interface ActionAnalysisMetadata {
   }
 
   /**
-   * Whether this action has loose headers.
+   * Indicates whether this action has loose headers, or if this is an {@link ActionTemplate},
+   * whether the expanded action(s) will have loose headers.
    *
    * <p>If this is true, top-down evaluation considers an action changed if any source files in
    * package have changed.

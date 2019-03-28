@@ -1553,6 +1553,12 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public boolean hasLooseHeaders() {
+    return hasLooseHeaders(ccCompilationContext, featureConfiguration);
+  }
+
+  // Separated into a helper method so that it can be called from CppCompileActionTemplate.
+  static boolean hasLooseHeaders(
+      CcCompilationContext ccCompilationContext, FeatureConfiguration featureConfiguration) {
     // Layering check is stricter than hdrs_check = strict, so when it's enabled, there can't be
     // loose headers.
     return ccCompilationContext

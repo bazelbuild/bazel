@@ -269,6 +269,13 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   }
 
   @Override
+  public boolean hasLooseHeaders() {
+    return CppCompileAction.hasLooseHeaders(
+        cppCompileActionBuilder.getCcCompilationContext(),
+        cppCompileActionBuilder.getFeatureConfiguration());
+  }
+
+  @Override
   public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
     return this != action;
   }
