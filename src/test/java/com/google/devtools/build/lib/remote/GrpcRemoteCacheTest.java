@@ -1008,16 +1008,12 @@ public class GrpcRemoteCacheTest {
             responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
           }
         });
-    boolean passedThroughDeadlineExceeded = false;
     try {
       getFromFuture(client.downloadBlob(digest));
-    } catch (RuntimeException e) {
+      fail("Should have thrown an exception.");
+    } catch (IOException e) {
       Status st = Status.fromThrowable(e);
-      if (st.getCode() != Status.Code.DEADLINE_EXCEEDED) {
-        throw e;
-      }
-      passedThroughDeadlineExceeded = true;
+      assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
     }
-    assertThat(passedThroughDeadlineExceeded).isTrue();
   }
 }

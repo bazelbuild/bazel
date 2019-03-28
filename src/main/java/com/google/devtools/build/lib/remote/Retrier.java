@@ -264,7 +264,7 @@ public class Retrier {
    * Executes an {@link AsyncCallable}, retrying execution in case of failure with the given
    * backoff.
    */
-  private <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call, Backoff backoff) {
+  public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call, Backoff backoff) {
     try {
       return Futures.catchingAsync(
           call.call(),
