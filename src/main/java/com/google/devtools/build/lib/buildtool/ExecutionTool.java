@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemSupport;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -251,7 +252,7 @@ public class ExecutionTool {
       }
     }
 
-   if (outputService == null || !outputService.supportsActionFileSystem()) {
+   if (outputService == null || outputService.supportsActionFileSystem() != ActionFileSystemSupport.FULL) {
      // Must be created after the output path is created above.
      createActionLogDirectory();
    }

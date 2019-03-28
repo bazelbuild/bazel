@@ -46,6 +46,25 @@ import javax.annotation.Nullable;
  */
 public interface OutputService {
 
+  /** Supported levels of the action file system implementation provided by this output service. */
+  enum ActionFileSystemSupport {
+    /** Action file system is disabled */
+    NONE,
+
+    /**
+     * The action file system implementation does not take over the output base but complements
+     * the file system by being able to stage remote outputs accessed as inputs by local actions,
+     * as used by Bazel.
+     */
+    STAGE_REMOTE_FIlES,
+
+    /**
+     * The action file system implementation is fully featured in-memory file system implementation
+     * and takes full control of the output base, as used by Blaze.
+     */
+    FULL,
+  }
+
   /**
    * @return the name of filesystem, akin to what you might see in /proc/mounts
    */
@@ -111,8 +130,8 @@ public interface OutputService {
   /** @return true iff the file actually lives on a remote server */
   boolean isRemoteFile(Artifact file);
 
-  default boolean supportsActionFileSystem() {
-    return false;
+  default ActionFileSystemSupport supportsActionFileSystem() {
+    return ActionFileSystemSupport.NONE;
   }
 
   /**

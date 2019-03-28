@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostp
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemSupport;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -230,7 +231,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       state.inputArtifactData = checkedInputs.actionInputMap;
       state.expandedArtifacts = checkedInputs.expandedArtifacts;
       state.expandedFilesets = checkedInputs.expandedFilesets;
-      if (skyframeActionExecutor.usesActionFileSystem()) {
+      if (skyframeActionExecutor.actionFileSystemSupport() != ActionFileSystemSupport.NONE) {
         state.actionFileSystem =
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
@@ -573,7 +574,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
             action.getOutputs(),
             tsgm.get(),
             pathResolver,
-            state.actionFileSystem == null ? new OutputStore() : new MinimalOutputStore());
+            newOutputStore(state));
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
       state.token =
@@ -648,7 +649,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
               action.getOutputs(),
               tsgm.get(),
               pathResolver,
-              state.actionFileSystem == null ? new OutputStore() : new MinimalOutputStore());
+              newOutputStore(state));
       // Set the MetadataHandler to accept output information.
       metadataHandler.discardOutputMetadata();
     }
@@ -708,6 +709,17 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       throw new ActionExecutionException(
           "Failed to close action output", e, action, /*catastrophe=*/ false);
     }
+  }
+
+  private OutputStore newOutputStore(ContinuationState state) {
+    Preconditions.checkState(
+        skyframeActionExecutor.actionFileSystemSupport() == ActionFileSystemSupport.NONE
+            || state.actionFileSystem != null, "actionFileSystem must not be null");
+
+    if (skyframeActionExecutor.actionFileSystemSupport() == ActionFileSystemSupport.FULL) {
+      return new MinimalOutputStore();
+    }
+    return new OutputStore();
   }
 
   /** Implementation of {@link ActionPostprocessing}. */
