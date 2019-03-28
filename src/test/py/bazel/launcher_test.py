@@ -48,7 +48,7 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout[0], 'hello java')
     if self.IsWindows():
       self.assertRegexpMatches(
-          stdout[1], r'java_runfiles=.*foo\\foo%s.runfiles' % binary_suffix)
+          stdout[1], r'java_runfiles=.*foo/foo%s.runfiles' % binary_suffix)
       self.assertEqual(stdout[2], 'runfiles_manifest_only=1')
       self.assertRegexpMatches(
           stdout[3], r'^runfiles_manifest_file=[a-zA-Z]:[/\\].*MANIFEST$')

@@ -187,9 +187,11 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
     if (!manifest_exists && i.first == "RUNFILES_MANIFEST_FILE") {
       manifest_exists = true;
     }
+    string winpath = i.second;
+    std::replace(winpath.begin(), winpath.end(), '\\', '/');
     SetEnv(
         blaze_util::CstringToWstring(i.first.c_str()).get(),
-        blaze_util::CstringToWstring(i.second.c_str()).get());
+        blaze_util::CstringToWstring(winpath.c_str()).get());
   }
   // As of 2019-03-27 the list doesn't contain RUNFILES_MANIFEST_ONLY, so we set
   // it manually. 
