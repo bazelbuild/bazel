@@ -74,19 +74,22 @@ public final class CcToolchainRule implements RuleDefinition {
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
-          (rule, attributes, cppConfig) -> cppConfig.getFdoOptimizeLabel());
+          (rule, attributes, cppConfig) ->
+              cppConfig.getFdoOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration());
 
   private static final LabelLateBoundDefault<?> FDO_PROFILE_VALUE =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
-          (rule, attributes, cppConfig) -> cppConfig.getFdoProfileLabel());
+          (rule, attributes, cppConfig) ->
+              cppConfig.getFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration());
 
   private static final LabelLateBoundDefault<?> XFDO_PROFILE_VALUE =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
-          (rule, attributes, cppConfig) -> cppConfig.getXFdoProfileLabel());
+          (rule, attributes, cppConfig) ->
+              cppConfig.getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration());
 
   private static final LabelLateBoundDefault<?> FDO_PREFETCH_HINTS =
       LabelLateBoundDefault.fromTargetConfiguration(
@@ -99,9 +102,20 @@ public final class CcToolchainRule implements RuleDefinition {
    * enabled through --fdo_optimize or --fdo_profile
    */
   private static boolean shouldIncludeZipperInToolchain(CppConfiguration cppConfiguration) {
-    return cppConfiguration.getFdoOptimizeLabel() != null
-        || cppConfiguration.getFdoProfileLabel() != null
-        || cppConfiguration.getFdoPath() != null;
+    if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+      // This is actually a bug, because with platforms, and before toolchain-transitions are
+      // implemented, all toolchains are analyzed in the host configuration. We're betting on
+      // nobody in the Bazel world actually using zipped fdo profiles and platforms at the same
+      // time, and if people do, they'll have to wait for toolchain-transitions. This needs to be
+      // fixed.
+      // TODO(b/129045294): Fix this once toolchain-transitions are implemented.
+      return false;
+    }
+    return cppConfiguration.getFdoOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+            != null
+        || cppConfiguration.getFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+            != null
+        || cppConfiguration.getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration() != null;
   }
 
   @Override

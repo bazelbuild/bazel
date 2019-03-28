@@ -48,12 +48,15 @@ public class FdoHelper {
     Artifact protoProfileArtifact = null;
     Pair<FdoInputFile, Artifact> fdoInputs = null;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
-      if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
+      if (cppConfiguration
+              .getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+          != null) {
         FdoPrefetchHintsProvider provider = attributes.getFdoPrefetch();
         prefetchHints = provider.getInputFile();
       }
-      if (cppConfiguration.getFdoPath() != null) {
-        PathFragment fdoZip = cppConfiguration.getFdoPath();
+      if (cppConfiguration.getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration() != null) {
+        PathFragment fdoZip =
+            cppConfiguration.getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration();
         SkyKey fdoKey = CcSkyframeFdoSupportValue.key(fdoZip);
         SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
         CcSkyframeFdoSupportValue ccSkyframeFdoSupportValue =
@@ -66,16 +69,22 @@ public class FdoHelper {
         Preconditions.checkState(fdoInputFile == null);
         fdoInputFile =
             FdoInputFile.fromAbsolutePath(ccSkyframeFdoSupportValue.getFdoZipPath().asFragment());
-      } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
+      } else if (cppConfiguration
+              .getFdoOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+          != null) {
         FdoProfileProvider fdoProfileProvider = attributes.getFdoOptimizeProvider();
         if (fdoProfileProvider != null) {
           fdoInputs = getFdoInputs(ruleContext, fdoProfileProvider);
         } else {
           fdoInputFile = fdoInputFileFromArtifacts(ruleContext, attributes);
         }
-      } else if (cppConfiguration.getFdoProfileLabel() != null) {
+      } else if (cppConfiguration
+              .getFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+          != null) {
         fdoInputs = getFdoInputs(ruleContext, attributes.getFdoProfileProvider());
-      } else if (cppConfiguration.getXFdoProfileLabel() != null) {
+      } else if (cppConfiguration
+              .getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+          != null) {
         fdoInputs = getFdoInputs(ruleContext, attributes.getXFdoProfileProvider());
       }
     }
@@ -107,7 +116,8 @@ public class FdoHelper {
         return null;
       }
       if (branchFdoMode != BranchFdoMode.XBINARY_FDO
-          && cppConfiguration.getXFdoProfileLabel() != null) {
+          && cppConfiguration.getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+              != null) {
         ruleContext.throwWithRuleError(
             "--xbinary_fdo cannot accept profile input other than *.xfdo");
       }
@@ -230,7 +240,13 @@ public class FdoHelper {
       // Get the zipper binary for unzipping the profile.
       Artifact zipperBinaryArtifact = attributes.getZipper();
       if (zipperBinaryArtifact == null) {
-        ruleContext.ruleError("Cannot find zipper binary to unzip the profile");
+        if (CppHelper.useToolchainResolution(ruleContext)) {
+          ruleContext.ruleError(
+              "Zipped profiles are not supported with platforms/toolchains before "
+                  + "toolchain-transitions are implemented.");
+        } else {
+          ruleContext.ruleError("Cannot find zipper binary to unzip the profile");
+        }
         return null;
       }
 
