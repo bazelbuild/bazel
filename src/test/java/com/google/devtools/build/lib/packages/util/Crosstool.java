@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
@@ -297,8 +298,8 @@ public final class Crosstool {
       return Joiner.on("\n")
           .join(
               "cc_toolchain_config(",
-              "  toolchain_identifier = '" + toolchainIdentifier + "',",
               "  name = '" + cpu + "-" + compiler + "_config',",
+              "  toolchain_identifier = '" + toolchainIdentifier + "',",
               "  cpu = '" + cpu + "',",
               "  compiler = '" + compiler + "',",
               "  host_system_name = '" + hostSystemName + "',",
@@ -333,7 +334,6 @@ public final class Crosstool {
   private boolean supportsHeaderParsing;
   private ImmutableList<CcToolchainConfig> ccToolchainConfigList = ImmutableList.of();
   private final boolean disableCrosstool;
-
   Crosstool(MockToolsConfig config, String crosstoolTop, boolean disableCrosstool) {
     this.config = config;
     this.crosstoolTop = crosstoolTop;
@@ -482,8 +482,6 @@ public final class Crosstool {
                   disableCrosstool ? "  toolchain_config = ':" + suffix + "_config'," : "",
                   "  output_licenses = ['unencumbered'],",
                   "  module_map = 'crosstool.cppmap',",
-                  "  cpu = '" + toolchain.getTargetCpu() + "',",
-                  "  compiler = '" + toolchain.getCompiler() + "',",
                   "  ar_files = 'ar-" + toolchain.getTargetCpu() + "',",
                   "  as_files = 'as-" + toolchain.getTargetCpu() + "',",
                   "  compiler_files = 'compile-" + toolchain.getTargetCpu() + "',",
@@ -555,5 +553,104 @@ public final class Crosstool {
       config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
     }
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
+  }
+
+  public void writeOSX() throws IOException {
+    // Create special lines specifying the compiler map entry for
+    // each toolchain.
+    StringBuilder compilerMap =
+        new StringBuilder()
+            .append("'k8': ':cc-compiler-darwin_x86_64',\n")
+            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n")
+            .append("'darwin': ':cc-compiler-darwin_x86_64',\n");
+    Set<String> seenCpus = new LinkedHashSet<>();
+    for (CcToolchainConfig toolchain : ccToolchainConfigList) {
+      if (seenCpus.add(toolchain.getTargetCpu())) {
+        compilerMap.append(
+            String.format(
+                "'%s': ':cc-compiler-%s',\n", toolchain.getTargetCpu(), toolchain.getTargetCpu()));
+      }
+      compilerMap.append(
+          String.format(
+              "'%s|%s': ':cc-compiler-%s',\n",
+              toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetCpu()));
+    }
+
+    // Create the test BUILD file.
+    ImmutableList.Builder<String> crosstoolBuild =
+        ImmutableList.<String>builder()
+            .add(
+                "package(default_visibility=['//visibility:public'])",
+                "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+                "exports_files(glob(['**']))",
+                "cc_toolchain_suite(",
+                "    name = 'crosstool',",
+                "    toolchains = { " + compilerMap + " },",
+                ")",
+                "",
+                "cc_library(",
+                "    name = 'custom_malloc',",
+                ")",
+                "",
+                "filegroup(",
+                "    name = 'empty',",
+                "    srcs = [],",
+                ")",
+                "",
+                "filegroup(",
+                "    name = 'link',",
+                "    srcs = [",
+                "        'ar',",
+                "        'libempty.a',",
+                String.format("        '%s//tools/objc:libtool'", TestConstants.TOOLS_REPOSITORY),
+                "    ],",
+                ")");
+    for (CcToolchainConfig toolchainConfig : ccToolchainConfigList) {
+      crosstoolBuild.add(
+          "apple_cc_toolchain(",
+          "    name = 'cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
+          "    toolchain_identifier = '" + toolchainConfig.getTargetCpu() + "',",
+          "    toolchain_config = ':"
+              + toolchainConfig.getTargetCpu()
+              + "-"
+              + toolchainConfig.getCompiler()
+              + "_config',",
+          "    all_files = ':empty',",
+          "    ar_files = ':empty',",
+          "    as_files = ':empty',",
+          "    compiler_files = ':empty',",
+          "    dwp_files = ':empty',",
+          "    linker_files = ':link',",
+          "    objcopy_files = ':empty',",
+          "    strip_files = ':empty',",
+          "    supports_param_files = 0,",
+          ")",
+          "toolchain(name = 'cc-toolchain-" + toolchainConfig.getTargetCpu() + "',",
+          "    exec_compatible_with = [],",
+          "    target_compatible_with = [],",
+          "    toolchain = ':cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
+          "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type'",
+          ")");
+      crosstoolBuild.add(toolchainConfig.getCcToolchainConfigRule());
+      // Add the newly-created toolchain to the WORKSPACE.
+      config.append(
+          "WORKSPACE",
+          "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
+    }
+
+    config.overwrite(
+        MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + "/BUILD",
+        Joiner.on("\n").join(crosstoolBuild.build()));
+    config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
+    config.overwrite(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+    config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
   }
 }
