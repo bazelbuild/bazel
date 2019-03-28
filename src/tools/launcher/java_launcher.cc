@@ -301,7 +301,7 @@ ExitCode JavaBinaryLauncher::Launch() {
 
   // Print Java binary path if needed
   wstring java_bin = this->Rlocation(this->GetLaunchInfoByKey(JAVA_BIN_PATH),
-                                     /*need_workspace_name =*/false);
+                                     /*has_workspace_name =*/true);
   if (this->print_javabin ||
       this->GetLaunchInfoByKey(JAVA_START_CLASS) == L"--print_javabin") {
     wprintf(L"%s\n", java_bin.c_str());
