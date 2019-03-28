@@ -144,6 +144,209 @@ toolchain(
 EOF
 }
 
+function write_remote_repo_with_toolchain() {
+
+	# create a separate local repo that declares a toolchain
+	# in a bzl file by calling native.register_toolchain()
+
+	pwd
+	pushd $PWD
+	cd ..
+	echo "one dir up"
+	pwd
+	ls -L
+	ls workspace
+
+	mkdir -p external_toolchain
+	cd external_toolchain
+	touch WORKSPACE
+
+	# write test toolchain
+	toolchain_name=test_toolchain
+  	mkdir -p toolchain
+  	cat >> toolchain/toolchain_${toolchain_name}.bzl <<EOF
+def _impl(ctx):
+  toolchain = platform_common.ToolchainInfo(
+      extra_label = ctx.attr.extra_label,
+      extra_str = ctx.attr.extra_str)
+  return [toolchain]
+
+${toolchain_name} = rule(
+    implementation = _impl,
+    attrs = {
+        'extra_label': attr.label(),
+        'extra_str': attr.string(),
+    }
+)
+EOF
+
+    cat >> toolchain/BUILD <<EOF
+toolchain_type(name = '${toolchain_name}',
+    visibility = ['//visibility:public'])
+EOF
+
+
+
+	# write register toolchain
+	cat >> BUILD <<EOF
+load('//toolchain:toolchain_${toolchain_name}.bzl', '${toolchain_name}')
+
+# Define the toolchain.
+filegroup(name = 'dep_rule_${toolchain_name}')
+${toolchain_name}(
+    name = '${toolchain_name}_impl_1',
+    extra_label = ':dep_rule_${toolchain_name}',
+    extra_str = 'foo from ${toolchain_name}',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchain.
+toolchain(
+    name = '${toolchain_name}_1',
+    toolchain_type = '//toolchain:${toolchain_name}',
+    exec_compatible_with = [],
+    target_compatible_with = [],
+    toolchain = ':${toolchain_name}_impl_1',
+    visibility = ['//visibility:public'])
+EOF
+
+
+	# write bzl file
+	cat >> register.bzl <<EOF
+def register():
+    native.register_toolchains('//:${toolchain_name}_1')
+EOF
+
+
+
+	# write main workspace stuff
+	popd # go back to main workspace?
+	echo "going back to main workspace"
+	pwd
+
+
+	# write test rule
+	rule_name=use_toolchain
+  	mkdir -p toolchain
+  	cat >> toolchain/rule_${rule_name}.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//toolchain:${toolchain_name}']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain extra_str: "%s"' %
+         (message, toolchain.extra_str))
+  return []
+
+${rule_name} = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = ['//toolchain:${toolchain_name}'],
+)
+EOF
+
+
+	# write workspace file
+	cat >> WORKSPACE <<EOF
+local_repository(
+	name = "remote",
+	path = "../external_toolchain")
+
+load("@remote//:register.bzl", "register")
+register()
+EOF
+
+}
+
+function test_execution_with_remapping() {
+	cat > WORKSPACE <<EOF
+workspace(name = "my_ws")
+
+register_execution_platforms("@my_ws//platforms:my_host_platform")
+EOF
+
+	mkdir -p platforms
+	cat >> platforms/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
+constraint_setting(name = "machine_size")
+constraint_value(name = "large_machine", constraint_setting = ":machine_size")
+
+platform(
+    name = "my_host_platform",
+    parents = ["@bazel_tools//platforms:host_platform"],
+    constraint_values = [
+        ":large_machine"
+    ]
+)
+EOF
+
+	mkdir -p code
+	cat >> code/BUILD <<EOF
+sh_library(
+	name = "foo",
+	srcs = ["foo.sh"],
+	exec_compatible_with = ["@my_ws//platforms:large_machine"]
+)
+EOF
+
+	echo "exit 0" >> code/foo.sh
+
+	echo "ATTACH DEBUGGER NOW GO GO"
+	bazel --host_jvm_debug build //code:foo --incompatible_remap_main_repo &> $TEST_log \
+      || fail "Build failed" 
+
+}
+
+function test_toolchain_with_repository_remapping() {
+  write_test_toolchain
+  write_register_toolchain
+
+
+  echo "WHAT HAVE WE GOT HERE"
+  pwd
+  ls
+
+  # NOTE: fully qualified label "@main//toolchain:test_toolchain"
+  # is used here, but "//toolchain:test_toolchain" is used in
+  # the toolchain registration in the WORKSPACE file and the
+  # toolchain declaration. Bazel should treat those two labels
+  # as the same
+  rule_name="use_toolchain"
+  toolchain_name="test_toolchain"
+  mkdir -p toolchain
+  cat >> toolchain/rule_${rule_name}.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['@main//toolchain:${toolchain_name}']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain extra_str: "%s"' %
+         (message, toolchain.extra_str))
+  return []
+
+${rule_name} = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = ['@main//toolchain:${toolchain_name}'],
+)
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  echo "ADD THE DEBUGGER NOW GO GO GO"
+  bazel --host_jvm_debug build //demo:use --incompatible_remap_main_repo &> $TEST_log \
+      || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
 function test_toolchain_provider() {
   write_test_toolchain
 
@@ -183,7 +386,8 @@ use_toolchain(
     message = 'this is the rule')
 EOF
 
-  bazel build //demo:use &> $TEST_log || fail "Build failed"
+  echo "PRESS THE DEBUG BUTTON DO IT DO IT"
+  bazel --host_jvm_debug build //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 

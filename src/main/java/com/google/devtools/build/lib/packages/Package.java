@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -838,6 +839,10 @@ public class Package {
     private final List<String> registeredExecutionPlatforms = new ArrayList<>();
     private final List<String> registeredToolchains = new ArrayList<>();
 
+    private final List<Pair<List<String>, ImmutableMap<RepositoryName, RepositoryName>>> registeredToolchainsAndMap = new ArrayList<>();
+
+    private final Map<RepositoryName, List<String>> registeredToolchainsAndRepoName = new HashMap<>();
+
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
 
@@ -940,6 +945,22 @@ public class Package {
     ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
       return this.repositoryMapping;
     }
+
+    /**
+     * Returns the repository mapping for the requested external repository.
+     *
+     * @throws UnsupportedOperationException if called from a package other than
+     *     the //external package
+     */
+    public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
+        RepositoryName repository) {
+      if (!isWorkspace()) {
+        throw new UnsupportedOperationException("Can only access the external package repository"
+            + "mappings from the //external package");
+      }
+      return ImmutableMap.copyOf(externalPackageRepositoryMappings.getOrDefault(repository, new HashMap<>()));
+    }
+
 
     Interner<ImmutableList<?>> getListInterner() {
       return listInterner;
@@ -1407,6 +1428,20 @@ public class Package {
 
     void addRegisteredToolchains(List<String> toolchains) {
       this.registeredToolchains.addAll(toolchains);
+    }
+
+    void addRegisteredToolchainStringsAndMapping(List<String> toolchains, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      // this.re
+    }
+
+    void addRegisteredToolchainsAndRepositoryName(List<String> toolchains, RepositoryName repositoryName) {
+      // The add needs to be additive. If a list already exists for a particular repository name,
+      // we must add to the list
+      if (this.registeredToolchainsAndRepoName.containsKey(repositoryName)) {
+        List<String> existingToolchains = this.registeredToolchainsAndRepoName.get(repositoryName);
+        toolchains.addAll(existingToolchains);
+      }
+      this.registeredToolchainsAndRepoName.put(repositoryName, toolchains);
     }
 
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {

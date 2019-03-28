@@ -59,6 +59,9 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     ImmutableList.Builder<String> targetPatternBuilder = new ImmutableList.Builder<>();
 
     // Get the toolchains from the configuration.
+    // WHAT ARE CONFIGURATION TOOLCHAINS? CAN THEY BE REMAPPED??
+    // if not, add them all to a list and give them either the empty map,
+    // or a map with the main repo remapped (probably the latter)
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
     targetPatternBuilder.addAll(platformConfiguration.getExtraToolchains());
@@ -69,6 +72,9 @@ public class RegisteredToolchainsFunction implements SkyFunction {
       return null;
     }
     ImmutableList<String> targetPatterns = targetPatternBuilder.build();
+
+    // HERE ALSO GET THE MAP AND PASS IT ALONG
+
 
     // Expand target patterns.
     ImmutableList<Label> toolchainLabels;

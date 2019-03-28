@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -57,10 +58,14 @@ public class TargetPatternUtil {
    */
   @Nullable
   public static ImmutableList<Label> expandTargetPatterns(
-      Environment env, List<String> targetPatterns, FilteringPolicy filteringPolicy)
+      // TARGETPATTERNS SHOULD BE
+      // Map<RepositoryName, List<String>>
+      Environment env, Map<RepositoryName, List<String>> targetPatterns, FilteringPolicy filteringPolicy)
       throws InvalidTargetPatternException, InterruptedException {
 
     // First parse the patterns, and throw any errors immediately.
+
+    // here make sure a target pattern also has a repo name associated with it
     List<TargetPatternValue.TargetPatternKey> patternKeys = new ArrayList<>();
     for (TargetPatternValue.TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(targetPatterns, filteringPolicy, "")) {

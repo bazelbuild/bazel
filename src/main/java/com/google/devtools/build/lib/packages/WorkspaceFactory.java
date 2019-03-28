@@ -202,7 +202,7 @@ public class WorkspaceFactory {
                 new BazelStarlarkContext(
                     /* toolsRepository= */ null,
                     /* fragmentNameToClass= */ null,
-                    ImmutableMap.of(),
+                    ImmutableMap.of(RepositoryName.createFromValidStrippedName("ALKSDF"), RepositoryName.createFromValidStrippedName("ALKA")),
                     new SymbolGenerator<>(workspaceFileKey)))
             .build();
     SkylarkUtils.setPhase(workspaceEnv, Phase.WORKSPACE);
@@ -460,6 +460,10 @@ public class WorkspaceFactory {
 
               // Add to the package definition for later.
               Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
+              RepositoryName repositoryName = env.getGlobals().getLabel().getPackageIdentifier().getRepository();
+              ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = builder.getRepositoryMapping(repositoryName);
+
+
               builder.addRegisteredToolchains(
                   toolchainLabels.getContents(String.class, "toolchain_labels"));
 

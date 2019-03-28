@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -42,6 +43,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -129,7 +131,8 @@ public final class TargetPatternValue implements SkyValue {
    * @param offset The offset to apply to relative target patterns.
    */
   @ThreadSafe
-  public static Iterable<TargetPatternSkyKeyOrException> keys(List<String> patterns,
+  public static Iterable<TargetPatternSkyKeyOrException> keys(
+      Map<RepositoryName, List<String>> patterns,
       FilteringPolicy policy, String offset) {
     TargetPattern.Parser parser = new TargetPattern.Parser(offset);
     ImmutableList.Builder<TargetPatternSkyKeyOrException> builder = ImmutableList.builder();
@@ -196,7 +199,8 @@ public final class TargetPatternValue implements SkyValue {
         policy,
         original.isNegative(),
         original.getOffset(),
-        excludedSubdirectories);
+        excludedSubdirectories,
+        RepositoryName.createFromValidStrippedName("THIS_IS_BAD_CHANGE_THIS"));
   }
 
   private static class TargetPatternKeyWithExclusionsResult {
@@ -287,17 +291,21 @@ public final class TargetPatternValue implements SkyValue {
     private final String offset;
     private final ImmutableSet<PathFragment> excludedSubdirectories;
 
+    private final RepositoryName repositoryName;
+
     public TargetPatternKey(
         TargetPattern parsedPattern,
         FilteringPolicy policy,
         boolean isNegative,
         String offset,
-        ImmutableSet<PathFragment> excludedSubdirectories) {
+        ImmutableSet<PathFragment> excludedSubdirectories,
+        RepositoryName repositoryName) {
       this.parsedPattern = Preconditions.checkNotNull(parsedPattern);
       this.policy = Preconditions.checkNotNull(policy);
       this.isNegative = isNegative;
       this.offset = offset;
       this.excludedSubdirectories = Preconditions.checkNotNull(excludedSubdirectories);
+      this.repositoryName = repositoryName;
     }
 
     @Override
@@ -327,6 +335,10 @@ public final class TargetPatternValue implements SkyValue {
 
     public ImmutableSet<PathFragment> getExcludedSubdirectories() {
       return excludedSubdirectories;
+    }
+
+    public RepositoryName getRepositoryName() {
+      return repositoryName;
     }
 
     ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
@@ -376,7 +388,7 @@ public final class TargetPatternValue implements SkyValue {
     @Override
     public int hashCode() {
       return Objects.hash(parsedPattern, isNegative, policy, offset,
-          excludedSubdirectories);
+          excludedSubdirectories, repositoryName);
     }
 
     @Override
@@ -388,7 +400,8 @@ public final class TargetPatternValue implements SkyValue {
 
       return other.isNegative == this.isNegative && other.parsedPattern.equals(this.parsedPattern)
           && other.offset.equals(this.offset) && other.policy.equals(this.policy)
-          && other.excludedSubdirectories.equals(this.excludedSubdirectories);
+          && other.excludedSubdirectories.equals(this.excludedSubdirectories)
+          && other.repositoryName.equals(this.repositoryName);
     }
   }
 
