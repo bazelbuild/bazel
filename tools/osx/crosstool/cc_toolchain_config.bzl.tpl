@@ -2724,11 +2724,14 @@ def _impl(ctx):
         linker_param_file_feature,
         compiler_input_flags_feature,
         compiler_output_flags_feature,
-        supports_pic_feature,
         objcopy_embed_flags_feature,
     ]
 
-    if ctx.attr.cpu == "darwin_x86_64":
+    if ctx.attr.cpu == "armeabi-v7a":
+        custom_features = [
+            supports_pic_feature,
+        ]
+    elif ctx.attr.cpu == "darwin_x86_64":
         custom_features = [
             supports_dynamic_linker_feature,
             dynamic_linking_mode_feature,
