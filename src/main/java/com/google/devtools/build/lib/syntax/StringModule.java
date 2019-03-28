@@ -99,10 +99,25 @@ public final class StringModule {
               + "</pre>",
       parameters = {
         @Param(name = "self", type = String.class),
-        @Param(name = "elements", legacyNamed = true, type = SkylarkList.class,
+        @Param(
+            name = "elements",
+            legacyNamed = true,
+            type = SkylarkList.class,
             doc = "The objects to join.")
-      })
-  public String join(String self, SkylarkList<?> elements) throws ConversionException {
+      },
+      useLocation = true,
+      useEnvironment = true)
+  public String join(String self, SkylarkList<?> elements, Location loc, Environment env)
+      throws ConversionException, EvalException {
+    if (env.getSemantics().incompatibleStringJoinRequiresStrings()) {
+      for (Object item : elements) {
+        if (!(item instanceof String)) {
+          throw new EvalException(
+              loc,
+              "sequence element must be a string (got '" + EvalUtils.getDataTypeName(item) + "')");
+        }
+      }
+    }
     return Joiner.on(self).join(elements);
   }
 

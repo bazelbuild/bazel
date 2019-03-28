@@ -754,4 +754,17 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + "for call to method join(elements) of 'string'",
             "','.join(elements=['foo', 'bar'])");
   }
+
+  @Test
+  public void testStringJoinRequiresStrings() throws Exception {
+    new SkylarkTest("--incompatible_string_join_requires_strings")
+        .testIfErrorContains(
+            "sequence element must be a string (got 'int')", "', '.join(['foo', 2])");
+  }
+
+  @Test
+  public void testStringJoinDoesNotRequireStrings() throws Exception {
+    new SkylarkTest("--incompatible_string_join_requires_strings=false")
+        .testEval("', '.join(['foo', 2])", "'foo, 2'");
+  }
 }
