@@ -424,6 +424,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  FeatureConfiguration getFeatureConfiguration() {
+    return featureConfiguration;
+  }
+
   /** Sets the feature build variables to be used for the action. */
   public CppCompileActionBuilder setVariables(CcToolchainVariables variables) {
     this.variables = variables;
