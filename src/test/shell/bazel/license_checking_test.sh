@@ -73,21 +73,20 @@ function test_default_mode {
 function test_license_checking {
   create_new_workspace
   write_rules
-  bazel build --nobuild //bad:main --check_licenses >& $TEST_log && fail "build shouldn't succeed"
+  bazel build --nobuild //bad:main --check_licenses --incompatible_disable_third_party_license_checking=false >& $TEST_log && fail "build shouldn't succeed"
   expect_log "Build target '//bad:main' is not compatible with license '\[restricted\]' from target '//third_party/restrictive:lib'"
 }
 
 function test_disable_license_checking_override {
   create_new_workspace
   write_rules
-  bazel build --nobuild //bad:main --check_licenses --incompatible_disable_third_party_license_checking \
-    >& $TEST_log || fail "build should succeed"
+  bazel build --nobuild //bad:main --check_licenses >& $TEST_log || fail "build should succeed"
 }
 
 function test_third_party_no_license_is_checked {
   create_new_workspace
   write_rules
-  bazel build --nobuild //third_party/missing_license:lib >& $TEST_log && fail "build shouldn't succeed"
+  bazel build --nobuild --incompatible_disable_third_party_license_checking=false //third_party/missing_license:lib >& $TEST_log && fail "build shouldn't succeed"
   expect_log "third-party rule '//third_party/missing_license:lib' lacks a license declaration"
 }
 
@@ -101,8 +100,7 @@ function test_third_party_no_license_no_check {
 function test_third_party_no_license_disable_license_checking_override {
   create_new_workspace
   write_rules
-  bazel build --nobuild //third_party/missing_license:lib --incompatible_disable_third_party_license_checking \
-    || fail "build should succeed"
+  bazel build --nobuild //third_party/missing_license:lib || fail "build should succeed"
 }
 
 run_suite "license checking tests"

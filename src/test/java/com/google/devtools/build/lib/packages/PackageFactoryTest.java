@@ -376,7 +376,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Path buildFile =
         scratch.file("/third_party/foo/BUILD", "# line 1", "cc_library(name='bar')", "# line 3");
     Package pkg =
-        packages.createPackage("third_party/foo", RootedPath.toRootedPath(root, buildFile));
+        packages.createPackage(
+            "third_party/foo",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disable_third_party_license_checking=false");
     events.assertContainsError(
         "third-party rule '//third_party/foo:bar' lacks a license "
             + "declaration with one of the following types: "
@@ -389,7 +392,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     Path buildFile = scratch.file("/third_party/foo/BUILD", "exports_files(['bar'])");
     Package pkg =
-        packages.createPackage("third_party/foo", RootedPath.toRootedPath(root, buildFile));
+        packages.createPackage(
+            "third_party/foo",
+            RootedPath.toRootedPath(root, buildFile),
+            "--incompatible_disable_third_party_license_checking=false");
     events.assertContainsError(
         "third-party file 'bar' lacks a license "
             + "declaration with one of the following types: "

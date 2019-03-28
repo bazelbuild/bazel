@@ -239,7 +239,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   // 3) Remove --check_third_party_targets_have_licenses.
   @Option(
       name = "incompatible_disable_third_party_license_checking",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       metadataTags = {
