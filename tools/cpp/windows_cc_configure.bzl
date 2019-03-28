@@ -98,6 +98,8 @@ def find_vc_path(repository_ctx):
     _auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
                                                   "eg. VS140COMNTOOLS")
     for vscommontools_env in [
+        "VS160COMNTOOLS",
+        "VS150COMNTOOLS",
         "VS140COMNTOOLS",
         "VS120COMNTOOLS",
         "VS110COMNTOOLS",
@@ -128,7 +130,7 @@ def find_vc_path(repository_ctx):
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
     for key, suffix in (("VC7", ""), ("VS7", "\\VC")):
-        for version in ["15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
+        for version in ["16.0", "15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
             if vc_dir:
                 break
             result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\" + key, "/v", version])
@@ -147,6 +149,10 @@ def find_vc_path(repository_ctx):
     _auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     program_files_dir = get_env_var(repository_ctx, "PROGRAMFILES(X86)", default = "C:\\Program Files (x86)", enable_warning = True)
     for path in [
+        "Microsoft Visual Studio\\2019\\BuildTools\\VC",
+        "Microsoft Visual Studio\\2019\\Community\\VC",
+        "Microsoft Visual Studio\\2019\\Professional\\VC",
+        "Microsoft Visual Studio\\2019\\Enterprise\\VC",
         "Microsoft Visual Studio\\2017\\BuildTools\\VC",
         "Microsoft Visual Studio\\2017\\Community\\VC",
         "Microsoft Visual Studio\\2017\\Professional\\VC",
@@ -164,18 +170,18 @@ def find_vc_path(repository_ctx):
     _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
 
-def _is_vs_2017(vc_path):
+def _is_vs_2017_or_2019(vc_path):
     """Check if the installed VS version is Visual Studio 2017."""
 
-    # In VS 2017, the location of VC is like:
+    # In VS 2017 and 2019, the location of VC is like:
     # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\
     # In VS 2015 or older version, it is like:
     # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
-    return vc_path.find("2017") != -1
+    return vc_path.find("2017") != -1 or vc_path.find("2019") != -1
 
 def _find_vcvarsall_bat_script(repository_ctx, vc_path):
     """Find vcvarsall.bat script. Doesn't %-escape the result."""
-    if _is_vs_2017(vc_path):
+    if _is_vs_2017_or_2019(vc_path):
         vcvarsall = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
     else:
         vcvarsall = vc_path + "\\VCVARSALL.BAT"
@@ -211,8 +217,8 @@ def setup_vc_env_vars(repository_ctx, vc_path):
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
     tool_path = ""
-    if _is_vs_2017(vc_path):
-        # For VS 2017, the tools are under a directory like:
+    if _is_vs_2017_or_2019(vc_path):
+        # For VS 2017 and 2019, the tools are under a directory like:
         # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.10.24930\bin\HostX64\x64
         dirs = repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()
         if len(dirs) < 1:
