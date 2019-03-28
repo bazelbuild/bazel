@@ -659,4 +659,71 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
         .containsExactly("post-transition");
   }
+
+  @Test
+  public void testWhitelistOnRuleNotTargets() throws Exception {
+    // whitelists //test/...
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:test_arg': ['post-transition']}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "neverland/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+    scratch.file("test/BUILD");
+    useConfiguration("--test_arg=pre-transition");
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//neverland:test"));
+    assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
+        .containsExactly("post-transition");
+  }
+
+  // TODO(juliexxia): flip this test when this isn't allowed anymore.
+  @Test
+  public void testWhitelistOnTargetsStillWorks() throws Exception {
+    // whitelists //test/...
+    writeWhitelistFile();
+    scratch.file(
+        "neverland/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:test_arg': ['post-transition']}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "neverland/rules.bzl",
+        "load('//neverland:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD", "load('//neverland:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+    scratch.file("neverland/BUILD");
+    useConfiguration("--test_arg=pre-transition");
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
+        .containsExactly("post-transition");
+  }
 }
