@@ -1914,5 +1914,24 @@ EOF
   expect_log 'no need for `strip_prefix`'
 }
 
+function test_loaded_file_reported() {
+  # Verify that upon a load in the WORKSPACE file with
+  # the repository not (yet) defined, the name of the
+  # file is reported in the error message.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<'EOF'
+load("@nonexistent//path/to/package:file/to/import.bzl", "foo")
+foo()
+EOF
+  touch BUILD
+  bazel build //... > "${TEST_log}" 2>&1 && fail "Expected failure"
+
+  expect_log '@nonexistent//path/to/package:file/to/import.bzl'
+  expect_log 'nonexistent.*repository.*WORKSPACE'
+}
 
 run_suite "external tests"
