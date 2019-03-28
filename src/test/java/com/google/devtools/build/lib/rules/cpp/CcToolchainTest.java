@@ -917,7 +917,8 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
     getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
 
-    useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
+    useConfiguration(
+        "--cpu=k8", "--crosstool_top=//a:a", "--noincompatible_disable_crosstool_file");
     ConfiguredTarget target = getConfiguredTarget("//lib:lib");
     // Skyframe cannot find the CROSSTOOL file
     assertContainsEvent("errors encountered while analyzing target '//lib:lib'");
@@ -931,7 +932,8 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     scratch.file("a/CROSSTOOL", MockCcSupport.EMPTY_CROSSTOOL);
 
-    useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
+    useConfiguration(
+        "--cpu=k8", "--crosstool_top=//a:a", "--noincompatible_disable_crosstool_file");
     ConfiguredTarget target = getConfiguredTarget("//lib:lib");
     assertThat(target).isNotNull();
   }

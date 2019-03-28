@@ -70,7 +70,11 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "\"\"\"",
         ")");
 
-    useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8", "--host_cpu=k8");
+    useConfiguration(
+        "--crosstool_top=//cc:suite",
+        "--cpu=k8",
+        "--host_cpu=k8",
+        "--noincompatible_disable_crosstool_file");
     ConfiguredTarget c =
         getConfiguredTarget(
             ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");
@@ -131,7 +135,11 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "\"\"\"",
         ")");
 
-    useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8", "--host_cpu=k8");
+    useConfiguration(
+        "--crosstool_top=//cc:suite",
+        "--cpu=k8",
+        "--host_cpu=k8",
+        "--noincompatible_disable_crosstool_file");
     ConfiguredTarget c =
         getConfiguredTarget(
             ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");
