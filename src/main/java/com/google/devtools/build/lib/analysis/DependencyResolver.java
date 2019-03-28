@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -342,12 +343,8 @@ public abstract class DependencyResolver {
       collectPropagatingAspects(
           aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
 
-      // TODO(https://github.com/bazelbuild/bazel/issues/7814): Unify this and get rid of the
-      // check for splits, to directly use TransitionFactory.
       ConfigurationTransition attributeTransition =
-          attribute.hasSplitConfigurationTransition()
-              ? attribute.getSplitTransition(attributeMap)
-              : attribute.getConfigurationTransition(attributeMap);
+          attribute.getTransitionFactory().create(RuleTransitionData.create(attributeMap));
       partiallyResolvedDeps.put(
           entry.getKey(),
           PartiallyResolvedDependency.of(toLabel, attributeTransition, propagatingAspects.build()));
