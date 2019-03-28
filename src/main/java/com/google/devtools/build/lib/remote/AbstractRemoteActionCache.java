@@ -193,7 +193,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
             @Override
             public void onFailure(Throwable t) {
-              dirDownload.setException(t);
+              dirDownload.setException(new IOException(t));
             }
           },
           MoreExecutors.directExecutor());
@@ -310,7 +310,16 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     private final boolean isExecutable;
 
     public FuturePathBooleanTuple(ListenableFuture<?> future, Path path, boolean isExecutable) {
-      this.future = future;
+      this.future = Futures.catchingAsync(
+          future,
+          Throwable.class,
+          (t) -> {
+            if (t instanceof IOException) {
+              return Futures.immediateFailedFuture(t);
+            }
+            return Futures.immediateFailedFuture(new IOException(t));
+          },
+          MoreExecutors.directExecutor());
       this.path = path;
       this.isExecutable = isExecutable;
     }
