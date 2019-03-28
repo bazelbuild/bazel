@@ -380,7 +380,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .add(frameworkDir(ApplePlatform.forTarget(PlatformType.IOS, arch)))
             .addAll(frameworkPathFragmentParents.build())
             .add("-Xlinker -objc_abi_version -Xlinker 2")
-            .add("-Xlinker -rpath -Xlinker @executable_path/Frameworks")
             .add("-fobjc-link-runtime")
             .add("-ObjC")
             .addAll(
