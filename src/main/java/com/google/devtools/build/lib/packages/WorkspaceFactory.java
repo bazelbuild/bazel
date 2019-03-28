@@ -461,11 +461,10 @@ public class WorkspaceFactory {
               // Add to the package definition for later.
               Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
               RepositoryName repositoryName = env.getGlobals().getLabel().getPackageIdentifier().getRepository();
-              ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = builder.getRepositoryMapping(repositoryName);
+              builder.addRegisteredToolchainsAndRepositoryName(toolchainLabels.getContents(String.class, "toolchain_labels"), repositoryName);
 
-
-              builder.addRegisteredToolchains(
-                  toolchainLabels.getContents(String.class, "toolchain_labels"));
+              // builder.addRegisteredToolchains(
+              //     toolchainLabels.getContents(String.class, "toolchain_labels"));
 
               return NONE;
             }

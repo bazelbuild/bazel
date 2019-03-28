@@ -218,6 +218,7 @@ public class Package {
 
   private ImmutableList<String> registeredExecutionPlatforms;
   private ImmutableList<String> registeredToolchains;
+  private ImmutableMap<RepositoryName, ImmutableList<String>> registeredToolchainsAndRepoName;
 
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
@@ -407,6 +408,11 @@ public class Package {
     this.posts = ImmutableList.copyOf(builder.posts);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
+    ImmutableMap.Builder<RepositoryName, ImmutableList<String>>
+        registeredToolchainsAndRepoNameBuilder = ImmutableMap.builder();
+    builder.registeredToolchainsAndRepoName.forEach((k, v) ->
+        registeredToolchainsAndRepoNameBuilder.put(k, ImmutableList.copyOf(v)));
+    this.registeredToolchainsAndRepoName = registeredToolchainsAndRepoNameBuilder.build();
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
@@ -706,6 +712,10 @@ public class Package {
     return registeredToolchains;
   }
 
+  public ImmutableMap<RepositoryName, ImmutableList<String>> getRegisteredToolchainsAndRepoName() {
+    return registeredToolchainsAndRepoName;
+  }
+
   @Override
   public String toString() {
     return "Package(" + name + ")="
@@ -838,9 +848,6 @@ public class Package {
 
     private final List<String> registeredExecutionPlatforms = new ArrayList<>();
     private final List<String> registeredToolchains = new ArrayList<>();
-
-    private final List<Pair<List<String>, ImmutableMap<RepositoryName, RepositoryName>>> registeredToolchainsAndMap = new ArrayList<>();
-
     private final Map<RepositoryName, List<String>> registeredToolchainsAndRepoName = new HashMap<>();
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
@@ -946,20 +953,20 @@ public class Package {
       return this.repositoryMapping;
     }
 
-    /**
-     * Returns the repository mapping for the requested external repository.
-     *
-     * @throws UnsupportedOperationException if called from a package other than
-     *     the //external package
-     */
-    public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
-        RepositoryName repository) {
-      if (!isWorkspace()) {
-        throw new UnsupportedOperationException("Can only access the external package repository"
-            + "mappings from the //external package");
-      }
-      return ImmutableMap.copyOf(externalPackageRepositoryMappings.getOrDefault(repository, new HashMap<>()));
-    }
+    // /**
+    //  * Returns the repository mapping for the requested external repository.
+    //  *
+    //  * @throws UnsupportedOperationException if called from a package other than
+    //  *     the //external package
+    //  */
+    // public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
+    //     RepositoryName repository) {
+    //   if (!isWorkspace()) {
+    //     throw new UnsupportedOperationException("Can only access the external package repository"
+    //         + "mappings from the //external package");
+    //   }
+    //   return ImmutableMap.copyOf(externalPackageRepositoryMappings.getOrDefault(repository, new HashMap<>()));
+    // }
 
 
     Interner<ImmutableList<?>> getListInterner() {
@@ -1428,10 +1435,6 @@ public class Package {
 
     void addRegisteredToolchains(List<String> toolchains) {
       this.registeredToolchains.addAll(toolchains);
-    }
-
-    void addRegisteredToolchainStringsAndMapping(List<String> toolchains, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      // this.re
     }
 
     void addRegisteredToolchainsAndRepositoryName(List<String> toolchains, RepositoryName repositoryName) {

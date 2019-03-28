@@ -18,12 +18,14 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -73,7 +75,9 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     ImmutableList<String> targetPatterns = targetPatternBuilder.build();
 
-    // HERE ALSO GET THE MAP AND PASS IT ALONG
+    // HERE ALSO GET THE MAP AND add to it the platform configuration toolchains
+    // and pass it to expand target patterns
+    getWorkspaceToolchainsAndRepoName(env);
 
 
     // Expand target patterns.
@@ -109,6 +113,15 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return patterns;
   }
 
+  private ImmutableMap<RepositoryName, ImmutableList<String>> getWorkspaceToolchainsAndRepoName(Environment env)
+      throws InterruptedException {
+    ImmutableMap<RepositoryName, ImmutableList<String>> patterns = getRegisteredToolchainsAndRepoName(env);
+    if (patterns == null) {
+      return ImmutableMap.of();
+    }
+    return patterns;
+  }
+
   /**
    * Loads the external package and then returns the registered toolchains.
    *
@@ -125,6 +138,24 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     Package externalPackage = externalPackageValue.getPackage();
     return externalPackage.getRegisteredToolchains();
+  }
+
+  /**
+   * Loads the external package and then returns the registered toolchains with repository name.
+   *
+   * @param env the environment to use for lookups
+   */
+  @Nullable
+  @VisibleForTesting
+  public static ImmutableMap<RepositoryName, ImmutableList<String>> getRegisteredToolchainsAndRepoName(Environment env) throws InterruptedException {
+    PackageValue externalPackageValue =
+        (PackageValue) env.getValue(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
+    if (externalPackageValue == null) {
+      return null;
+    }
+
+    Package externalPackage = externalPackageValue.getPackage();
+    return externalPackage.getRegisteredToolchainsAndRepoName();
   }
 
   private ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
