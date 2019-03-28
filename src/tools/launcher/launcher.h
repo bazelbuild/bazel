@@ -20,10 +20,7 @@
 #include <vector>
 
 #include "src/tools/launcher/util/data_parser.h"
-
-// This project depends on the runfiles library from source, not from
-// @bazel_tools, which explains why include path is not ".../runfiles.h"
-#include "tools/cpp/runfiles/runfiles_src.h"
+#include "tools/cpp/runfiles/runfiles.h"
 
 namespace bazel {
 namespace launcher {

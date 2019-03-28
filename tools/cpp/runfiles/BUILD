@@ -49,13 +49,8 @@ genrule(
 )
 
 cc_library(
-    name = "for_src_tools_launcher",
-    deps = [":runfiles"],
-    visibility = ["//src/tools/launcher:__pkg__"],
-)
-
-cc_library(
     name = "runfiles",
+    testonly = 1,
     srcs = ["runfiles_src.cc"],
     hdrs = ["runfiles_src.h"],
 )
