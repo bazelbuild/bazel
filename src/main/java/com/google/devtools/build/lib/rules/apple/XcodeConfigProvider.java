@@ -63,11 +63,20 @@ public class XcodeConfigProvider extends NativeInfo
     this.xcodeVersion = xcodeVersion;
   }
 
+  /**
+   * Returns the value of the xcode version, if available. This is determined based on a combination
+   * of the {@code --xcode_version} build flag and the {@code xcode_config} target defined in the
+   * {@code --xcode_version_config} flag. Returns null if no xcode is available.
+   */
   @Override
   public DottedVersion getXcodeVersion() {
     return xcodeVersion;
   }
 
+  /**
+   * Returns the minimum compatible OS version for target simulator and devices for a particular
+   * platform type.
+   */
   @Override
   public DottedVersion getMinimumOsForPlatformType(ApplePlatform.PlatformType platformType) {
     // TODO(b/37240784): Look into using only a single minimum OS flag tied to the current
@@ -86,6 +95,10 @@ public class XcodeConfigProvider extends NativeInfo
     }
   }
 
+  /**
+   * Returns the SDK version for a platform (whether they be for simulator or device). This is
+   * directly derived from command line args.
+   */
   @Override
   public DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
     switch (platform) {

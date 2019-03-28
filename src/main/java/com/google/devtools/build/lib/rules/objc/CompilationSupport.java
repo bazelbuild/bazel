@@ -580,8 +580,11 @@ public class CompilationSupport {
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
     // particular versions of Xcode. To ensure consistency across platforms, use exactly two
     // components in the version number.
-    activatedCrosstoolSelectables.add(XCODE_VERSION_FEATURE_NAME_PREFIX
-        + XcodeConfig.getXcodeVersion(ruleContext).toStringWithComponents(2));
+    activatedCrosstoolSelectables.add(
+        XCODE_VERSION_FEATURE_NAME_PREFIX
+            + XcodeConfig.getXcodeConfigProvider(ruleContext)
+                .getXcodeVersion()
+                .toStringWithComponents(2));
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
@@ -683,7 +686,9 @@ public class CompilationSupport {
 
     ImmutableList.Builder<String> frameworkNames =
         new ImmutableList.Builder<String>()
-            .add(AppleToolchain.sdkFrameworkDir(platform, ruleContext));
+            .add(
+                AppleToolchain.sdkFrameworkDir(
+                    platform, XcodeConfig.getXcodeConfigProvider(ruleContext)));
     // As of sdk8.1, XCTest is in a base Framework dir.
     if (platform.getType() != PlatformType.WATCHOS) { // WatchOS does not have this directory.
       frameworkNames.add(AppleToolchain.platformDeveloperFrameworkDir(platform));
@@ -1828,12 +1833,14 @@ public class CompilationSupport {
             .add("--platform", appleConfiguration.getSingleArchPlatform().getLowerCaseNameInPlist())
             .add(
                 "--sdk_version",
-                XcodeConfig.getSdkVersionForPlatform(
-                        ruleContext, appleConfiguration.getSingleArchPlatform())
+                XcodeConfig.getXcodeConfigProvider(ruleContext)
+                    .getSdkVersionForPlatform(appleConfiguration.getSingleArchPlatform())
                     .toStringWithMinimumComponents(2))
             .add(
                 "--xcode_version",
-                XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2))
+                XcodeConfig.getXcodeConfigProvider(ruleContext)
+                    .getXcodeVersion()
+                    .toStringWithMinimumComponents(2))
             .add("--");
     for (ObjcHeaderThinningInfo info : infos) {
       cmdLine.addFormatted(

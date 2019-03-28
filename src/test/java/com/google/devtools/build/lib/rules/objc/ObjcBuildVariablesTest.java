@@ -93,7 +93,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     assertThat(
             getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERISON_OVERRIDE_VALUE_KEY))
+                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
         .contains("5.8");
     assertThat(
             getVariableValue(
@@ -145,7 +145,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
     assertThat(
             getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERISON_OVERRIDE_VALUE_KEY))
+                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
         .contains("5.8");
     assertThat(
             getVariableValue(
@@ -215,7 +215,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     assertThat(
             getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERISON_OVERRIDE_VALUE_KEY))
+                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
         .contains(MockObjcSupport.DEFAULT_XCODE_VERSION);
     assertThat(
             getVariableValue(
