@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -71,6 +73,34 @@ public abstract class FileStateValue implements SkyValue {
       new NonexistentFileStateValue();
 
   protected FileStateValue() {
+  }
+
+  public static FileStateValue create(
+      RootedPath rootedPath,
+      FilesystemCalls syscallCache,
+      @Nullable TimestampGranularityMonitor tsgm)
+      throws InconsistentFilesystemException, IOException {
+    Path path = rootedPath.asPath();
+    Dirent.Type type = syscallCache.getType(path, Symlinks.NOFOLLOW);
+    if (type == null) {
+      return NONEXISTENT_FILE_STATE_NODE;
+    }
+    switch (type) {
+      case DIRECTORY:
+        return DIRECTORY_FILE_STATE_NODE;
+      case SYMLINK:
+        return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
+      case FILE:
+      case UNKNOWN:
+        {
+          FileStatus stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
+          Preconditions.checkNotNull(
+              stat, "File %s found in directory, but stat failed", rootedPath);
+          return createWithStatNoFollow(rootedPath, FileStatusWithDigestAdapter.adapt(stat), tsgm);
+        }
+      default:
+        throw new IllegalStateException(type.toString());
+    }
   }
 
   public static FileStateValue create(RootedPath rootedPath,
