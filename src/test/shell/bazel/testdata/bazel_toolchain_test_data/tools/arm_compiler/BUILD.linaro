@@ -2,7 +2,9 @@
 # by lopping off the name of --crosstool_top and searching for
 # 'cc-compiler-${CPU}' in this BUILD file, where CPU is the target CPU
 # specified in --cpu.
-#
+
+load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
 # This file group should include
 #   * all cc_toolchain targets supported
 #   * all file groups that said cc_toolchain might refer to
@@ -68,9 +70,12 @@ filegroup(
     srcs = [],
 )
 
+cc_toolchain_config(name = "armeabi-v7a_config", cpu = "armeabi-v7a")
+
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     toolchain_identifier = "armeabi-v7a",
+    toolchain_config = ":armeabi-v7a_config",
     all_files = ":linaro_linux_all_files",
     ar_files = "//tools/arm_compiler/linaro_linux_gcc:ar",
     as_files = "//tools/arm_compiler/linaro_linux_gcc:as",
@@ -84,9 +89,12 @@ cc_toolchain(
     visibility = ["//visibility:public"],
 )
 
+cc_toolchain_config(name = "local_config", cpu = "k8")
+
 cc_toolchain(
     name = "cc-compiler-k8",
     toolchain_identifier = "local",
+    toolchain_config = ":local_config",
     all_files = ":empty",
     ar_files = ":empty",
     as_files = ":empty",

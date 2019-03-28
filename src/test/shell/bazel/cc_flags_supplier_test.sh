@@ -47,10 +47,15 @@ EOF
 }
 
 function write_crosstool() {
-  extra_crosstool_content="$1"
+  action_configs="$1"
+  make_variables="$2"
+  builtin_sysroot="$3"
+
   mkdir -p setup
   cat > setup/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
+
+load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 cc_library(
     name = "malloc",
 )
@@ -68,9 +73,22 @@ cc_toolchain_suite(
     },
 )
 
+cc_toolchain_config(
+    name = "local_config",
+    cpu = "local",
+    toolchain_identifier = "local",
+    host_system_name = "local",
+    target_system_name = "local",
+    target_libc = "local",
+    compiler = "local",
+    abi_version = "local",
+    abi_libc_version = "local",
+)
+
 cc_toolchain(
     name = "local",
     toolchain_identifier = "local",
+    toolchain_config = ":local_config",
     all_files = ":empty",
     ar_files = ":empty",
     as_files = ":empty",
@@ -96,31 +114,67 @@ EOF
   cat >> WORKSPACE <<EOF
 register_toolchains("//setup:cc-toolchain-local")
 EOF
-  cat > setup/CROSSTOOL <<EOF
-major_version: "local"
-minor_version: ""
+  cat > setup/cc_toolchain_config.bzl <<EOF
+load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+    "action_config",
+    "make_variable",
+    "flag_set",
+    "flag_group",
+)
 
-toolchain {
-  abi_version: "local"
-  abi_libc_version: "local"
-  compiler: "compiler"
-  host_system_name: "local"
-  target_libc: "local"
-  target_cpu: "local"
-  target_system_name: "local"
-  toolchain_identifier: "local"
+def _get_make_variables():
+    return [${make_variables}]
 
-  ${extra_crosstool_content}
-}
+def _get_action_configs():
+    return [${action_configs}]
+
+def _impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, "Fake executable")
+    return [
+        cc_common.create_cc_toolchain_config_info(
+            ctx = ctx,
+            target_cpu = ctx.attr.cpu,
+            compiler = ctx.attr.compiler,
+            toolchain_identifier = ctx.attr.toolchain_identifier,
+            host_system_name = ctx.attr.host_system_name,
+            target_system_name = ctx.attr.target_system_name,
+            target_libc = ctx.attr.target_libc,
+            abi_version = ctx.attr.abi_version,
+            abi_libc_version = ctx.attr.abi_libc_version,
+            builtin_sysroot = ${builtin_sysroot},
+            action_configs = _get_action_configs(),
+            make_variables = _get_make_variables(),
+        ),
+        DefaultInfo(
+            executable = out,
+        ),
+    ]
+
+
+cc_toolchain_config = rule(
+    implementation = _impl,
+    attrs = {
+        "cpu": attr.string(mandatory = True),
+        "compiler": attr.string(mandatory = True),
+        "toolchain_identifier": attr.string(mandatory = True),
+        "host_system_name": attr.string(mandatory = True),
+        "target_system_name": attr.string(mandatory = True),
+        "target_libc": attr.string(mandatory = True),
+        "abi_version": attr.string(mandatory = True),
+        "abi_libc_version": attr.string(mandatory = True),
+    },
+    provides = [CcToolchainConfigInfo],
+    executable = True,
+)
 EOF
 }
 
 function test_legacy_make_variable() {
-  write_crosstool "
-make_variable {
-  name: 'CC_FLAGS'
-  value: '-test-cflag1 -test-cflag2'
-}"
+  write_crosstool \
+    "" \
+    "make_variable(name = 'CC_FLAGS', value = '-test-cflag1 -test-cflag2')" \
+    "''"
 
   write_test_target
   bazel build --cpu local --crosstool_top=//setup:toolchain //:display &> "$TEST_log" || fail "Build failed"
@@ -128,7 +182,10 @@ make_variable {
 }
 
 function test_sysroot() {
-  write_crosstool "builtin_sysroot: '/sys/root'"
+  write_crosstool \
+    "" \
+    "" \
+    "'/sys/root'"
 
   write_test_target
   bazel build --cpu local --crosstool_top=//setup:toolchain //:display &> "$TEST_log" || fail "Build failed"
@@ -136,18 +193,19 @@ function test_sysroot() {
 }
 
 function test_feature_config() {
-  write_crosstool "
-action_config {
-  action_name: 'cc-flags-make-variable'
-  config_name: 'cc-flags-make-variable'
-  flag_set {
-    flag_group {
-      flag: 'foo'
-      flag: 'bar'
-      flag: 'baz'
-    }
-  }
-}"
+  write_crosstool \
+    "
+        action_config(
+            action_name = 'cc-flags-make-variable',
+            flag_sets = [
+                flag_set(
+                    flag_groups=[flag_group(flags=['foo', 'bar', 'baz'])],
+                ),
+            ],
+        ),
+    " \
+    "" \
+    "''"
 
   write_test_target
   bazel build --cpu local --crosstool_top=//setup:toolchain //:display &> "$TEST_log" || fail "Build failed"
@@ -155,23 +213,19 @@ action_config {
 }
 
 function test_all_sources() {
-  write_crosstool "
-make_variable {
-  name: 'CC_FLAGS'
-  value: '-test-cflag1 -test-cflag2'
-}
-builtin_sysroot: '/sys/root'
-action_config {
-  action_name: 'cc-flags-make-variable'
-  config_name: 'cc-flags-make-variable'
-  flag_set {
-    flag_group {
-      flag: 'foo'
-      flag: 'bar'
-      flag: 'baz'
-    }
-  }
-}"
+  write_crosstool \
+    "
+        action_config(
+            action_name = 'cc-flags-make-variable',
+            flag_sets = [
+                flag_set(
+                    flag_groups=[flag_group(flags=['foo', 'bar', 'baz'])],
+                ),
+            ],
+        ),
+    " \
+    "make_variable(name = 'CC_FLAGS', value = '-test-cflag1 -test-cflag2')" \
+     "'/sys/root'"
 
   write_test_target
   bazel build --cpu local --crosstool_top=//setup:toolchain //:display &> "$TEST_log" || fail "Build failed"
