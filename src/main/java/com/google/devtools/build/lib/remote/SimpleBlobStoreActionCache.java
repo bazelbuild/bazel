@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -72,10 +73,10 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   public void downloadTree(Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();
-    Directory directory = Directory.parseFrom(getFromFuture(downloadBlob(rootDigest)));
+    Directory directory = Directory.parseFrom(Utils.getFromFuture(downloadBlob(rootDigest)));
     for (FileNode file : directory.getFilesList()) {
       Path dst = rootLocation.getRelative(file.getName());
-      getFromFuture(downloadFile(dst, file.getDigest()));
+      Utils.getFromFuture(downloadFile(dst, file.getDigest()));
       dst.setExecutable(file.getIsExecutable());
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {

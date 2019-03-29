@@ -135,4 +135,7 @@ public class DigestUtil {
     return digest.getHash() + "/" + digest.getSizeBytes();
   }
 
+  public static byte[] toBinaryDigest(Digest digest) {
+    return HashCode.fromString(digest.getHash()).asBytes();
+  }
 }
