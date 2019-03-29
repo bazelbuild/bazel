@@ -357,7 +357,8 @@ public abstract class TestStrategy implements TestActionContext {
       throw new TestExecException("cannot run local tests with --nobuild_runfile_manifests");
     }
 
-    Path runfilesDir = execSettings.getRunfilesDir();
+    Path runfilesDir =
+        actionExecutionContext.getPathResolver().convertPath(execSettings.getRunfilesDir());
 
     // If the symlink farm is already created then return the existing directory. If not we
     // need to explicitly build it. This can happen when --nobuild_runfile_links is supplied
