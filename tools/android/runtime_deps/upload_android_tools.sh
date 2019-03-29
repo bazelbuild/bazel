@@ -11,6 +11,5 @@ versioned_android_tools_archive="/tmp/$VERSIONED_FILENAME"
 rm -f $versioned_android_tools_archive
 
 cp $android_tools_archive $versioned_android_tools_archive
-tar tf $versioned_android_tools_archive
 
-gsutil cp -a public-read $versioned_android_tools_archive gs://bazel-mirror/bazel_android_tools/$VERSIONED_FILENAME
+gsutil cp -n -a public-read $versioned_android_tools_archive gs://bazel-mirror/bazel_android_tools/$VERSIONED_FILENAME
