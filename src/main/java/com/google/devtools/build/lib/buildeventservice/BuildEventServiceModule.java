@@ -235,6 +235,12 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     if (streamer != null) {
       logger.warning("Attempting to close BES streamer on crash");
       streamer.close(AbortReason.INTERNAL);
+
+      try {
+        waitForBuildEventTransportsToClose(streamer.getCloseFuturesMap());
+      } catch (AbruptExitException e) {
+        LoggingUtil.logToRemote(Level.WARNING, "Failure while waiting for BES close", e);
+      }
     }
   }
 
