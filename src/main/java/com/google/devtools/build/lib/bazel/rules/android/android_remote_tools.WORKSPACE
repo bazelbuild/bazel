@@ -1,8 +1,10 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+ANDROID_TOOLS_COMMIT = "1a6aaad88aaaf186c168623c872c55ed80c05c5a"
+
 http_archive(
     name = "legacy_android_tools",
-    url = "https://github.com/jin/legacy_android_tools/archive/54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip",
-    strip_prefix = "legacy_android_tools-54eefc6aa7bf4c171fecb7b6022282c277a3824c",
-    sha256 = "c4cd965983b22272d20f5038f6fd8d143d344fac1bb638d765ec7f62e652486f",
+    url = "https://github.com/jin/legacy_android_tools/archive/%s.zip" % ANDROID_TOOLS_COMMIT,
+    strip_prefix = "legacy_android_tools-%s" % ANDROID_TOOLS_COMMIT,
+    sha256 = "",
 )
