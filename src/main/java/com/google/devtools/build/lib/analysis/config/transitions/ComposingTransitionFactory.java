@@ -24,7 +24,7 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactoryData
    * Creates a {@link ComposingTransitionFactory} that applies the given factories in sequence:
    * {@code fromOptions -> transition1 -> transition2 -> toOptions }.
    *
-   * <p>Note that this method checks for transition factoriess that cannot be composed, such as if
+   * <p>Note that this method checks for transition factories that cannot be composed, such as if
    * one of the transitions is {@link NoTransition} or the host transition, and returns an
    * efficiently composed transition.
    */
