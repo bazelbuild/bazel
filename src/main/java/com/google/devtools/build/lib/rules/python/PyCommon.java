@@ -459,6 +459,19 @@ public final class PyCommon {
               "The Python toolchain does not provide a runtime for Python version %s",
               version.name()));
     }
+
+    // Hack around the fact that the autodetecting Python toolchain, which is automatically
+    // registered, does not yet support windows. In this case, we want to return null so that
+    // BazelPythonSemantics falls back on --python_path. See toolchain.bzl.
+    // TODO(#7844): Remove this hack when the autodetecting toolchain has a windows implementation.
+    if (py2RuntimeInfo != null
+        && py2RuntimeInfo.getInterpreterPathString() != null
+        && py2RuntimeInfo
+            .getInterpreterPathString()
+            .equals("/_magic_pyruntime_sentinel_do_not_use")) {
+      return null;
+    }
+
     return result;
   }
 

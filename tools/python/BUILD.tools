@@ -75,4 +75,5 @@ constraint_setting(name = "py3_interpreter_path")
 define_autodetecting_toolchain(
     name = "autodetecting_toolchain",
     pywrapper_template = "pywrapper_template.txt",
+    windows_config_setting = "@bazel_tools//src/conditions:windows",
 )
