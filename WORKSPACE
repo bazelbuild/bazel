@@ -58,7 +58,10 @@ list_source_repository(name = "local_bazel_source_list")
 #   2. Set the $ANDROID_HOME and $ANDROID_NDK_HOME environment variables
 #   3. Uncomment the two lines below
 #
-# android_sdk_repository(name = "androidsdk")
+android_sdk_repository(
+    name = "androidsdk",
+    path = "/usr/local/google/home/jingwen/sdk",
+)
 # android_ndk_repository(name = "androidndk")
 
 # In order to run //src/test/shell/bazel:maven_skylark_test, follow the
@@ -345,7 +348,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip",
-        "54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip", # TODO(jin): do a proper release
+        "1a6aaad88aaaf186c168623c872c55ed80c05c5a.zip",  # TODO(jin): do a proper release
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -366,7 +369,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": "f3f44b6235508e87b760bf37a49e186cc1fa4e9cd28384c4dbf5a33991921e08",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": "059f8e3484bf07b63a8f2820d5f528f473eff1befdb1896ee4f8ff06be3b8d8f",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": "e1f5b4ce1b9148140fae2fcfb8a96d1c9b7eac5b8df0e13fbcad9b8561284880",
-        "54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip": "c4cd965983b22272d20f5038f6fd8d143d344fac1bb638d765ec7f62e652486f",
+        "1a6aaad88aaaf186c168623c872c55ed80c05c5a.zip": "19a32c3ba0d3e75985a962b9f9f85adf12c100188a54ae00bf957798a2fda728",
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -386,7 +389,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz"],
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip"],
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64.zip"],
-        "54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip": ["https://github.com/jin/legacy_android_tools/archive/54eefc6aa7bf4c171fecb7b6022282c277a3824c.zip"],
+        "1a6aaad88aaaf186c168623c872c55ed80c05c5a.zip": ["https://github.com/jin/legacy_android_tools/archive/1a6aaad88aaaf186c168623c872c55ed80c05c5a.zip"],
     },
 )
 

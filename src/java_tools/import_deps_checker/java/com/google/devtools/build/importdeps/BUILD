@@ -14,7 +14,6 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        ":ImportDepsChecker_deploy.jar",
     ],
 )
 
