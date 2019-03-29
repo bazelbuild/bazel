@@ -52,7 +52,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         passed to the proto-compiler:
         <code>--plugin=protoc-gen-PLUGIN=<executable>.</code>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("plugin", LABEL).exec().cfg(HostTransition.INSTANCE).allowedFileTypes())
+        .add(attr("plugin", LABEL).exec().cfg(HostTransition.createFactory()).allowedFileTypes())
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(runtime) -->
         A language-specific library that the generated code is compiled against.
@@ -72,7 +72,6 @@ public class ProtoLangToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(FileProvider.class)))
-
         .advertiseProvider(ProtoLangToolchainProvider.class)
         .removeAttribute("data")
         .removeAttribute("deps")

@@ -44,7 +44,7 @@ public final class ProguardLibraryRule implements RuleDefinition {
         .add(attr("proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
         .add(
             attr("$proguard_whitelister", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(
                     new Attribute.ComputedDefault() {

@@ -150,7 +150,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exported_plugins", LABEL_LIST)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedRuleClasses("java_plugin")
                 .allowedFileTypes())
         .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))

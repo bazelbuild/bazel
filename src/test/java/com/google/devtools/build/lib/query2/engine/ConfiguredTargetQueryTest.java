@@ -194,7 +194,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
                 "rule_with_host_dep",
                 attr("host_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(HostTransition.INSTANCE),
+                    .cfg(HostTransition.createFactory()),
                 attr("$impl_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .value(Label.parseAbsoluteUnchecked("//test:other")));
@@ -269,7 +269,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
                 attr("target", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
                 attr("host", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(HostTransition.INSTANCE),
+                    .cfg(HostTransition.createFactory()),
                 attr("deps", BuildType.LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
     MockRule simpleRule =
         () ->

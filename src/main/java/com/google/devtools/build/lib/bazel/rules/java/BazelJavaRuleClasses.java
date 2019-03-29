@@ -239,12 +239,12 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("plugins", LABEL_LIST)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .allowedRuleClasses("java_plugin")
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .allowedRuleClasses("java_plugin")
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
@@ -443,7 +443,7 @@ public class BazelJavaRuleClasses {
                           env.getToolsLabel("//tools/jdk:no_launcher"))))
           .add(
               attr("$launcher", LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .value(env.getToolsLabel("//tools/launcher:launcher")))
           .build();
     }

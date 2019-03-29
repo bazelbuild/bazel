@@ -47,7 +47,7 @@ public final class Whitelist {
   public static Attribute.Builder<Label> getAttributeFromWhitelistName(String whitelistName) {
     String attributeName = getAttributeNameFromWhitelistName(whitelistName);
     return attr(attributeName, LABEL)
-        .cfg(HostTransition.INSTANCE)
+        .cfg(HostTransition.createFactory())
         .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class));
   }
 
