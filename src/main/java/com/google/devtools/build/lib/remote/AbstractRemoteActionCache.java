@@ -106,7 +106,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    *
    * @throws IOException if the remote cache is unavailable.
    */
-  abstract @Nullable ActionResult getCachedActionResult(DigestUtil.ActionKey actionKey)
+  @Nullable
+  abstract ActionResult getCachedActionResult(DigestUtil.ActionKey actionKey)
       throws IOException, InterruptedException;
 
   /**

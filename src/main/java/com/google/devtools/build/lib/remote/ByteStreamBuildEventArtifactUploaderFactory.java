@@ -29,7 +29,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
   private final ByteStreamUploader uploader;
   private final String remoteServerName;
   private final Context ctx;
-  private final @Nullable String remoteInstanceName;
+  @Nullable private final String remoteInstanceName;
 
   ByteStreamBuildEventArtifactUploaderFactory(
       ByteStreamUploader uploader, String remoteServerName, Context ctx,
