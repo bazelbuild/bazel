@@ -19,6 +19,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -58,27 +60,17 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     BuildConfiguration configuration = buildConfigurationValue.getConfiguration();
 
-    ImmutableList.Builder<String> targetPatternBuilder = new ImmutableList.Builder<>();
-
-    // Get the toolchains from the configuration.
-    // WHAT ARE CONFIGURATION TOOLCHAINS? CAN THEY BE REMAPPED??
-    // if not, add them all to a list and give them either the empty map,
-    // or a map with the main repo remapped (probably the latter)
-    PlatformConfiguration platformConfiguration =
-        configuration.getFragment(PlatformConfiguration.class);
-    targetPatternBuilder.addAll(platformConfiguration.getExtraToolchains());
-
-    // Get the registered toolchains from the WORKSPACE.
-    targetPatternBuilder.addAll(getWorkspaceToolchains(env));
+    // Get the registered toolchains from the WORKSPACE
+    ImmutableMap<RepositoryName, ImmutableList<String>> workspaceToolchains =  getWorkspaceToolchainsAndRepoName(env);
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableList<String> targetPatterns = targetPatternBuilder.build();
 
-    // HERE ALSO GET THE MAP AND add to it the platform configuration toolchains
-    // and pass it to expand target patterns
-    getWorkspaceToolchainsAndRepoName(env);
+    // Get the toolchains from the configuration.
+    PlatformConfiguration platformConfiguration =
+        configuration.getFragment(PlatformConfiguration.class);
 
+    ImmutableMap<RepositoryName, ImmutableList<String>> targetPatterns = mergeToolchains(workspaceToolchains, platformConfiguration.getExtraToolchains());
 
     // Expand target patterns.
     ImmutableList<Label> toolchainLabels;
@@ -104,13 +96,24 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return RegisteredToolchainsValue.create(registeredToolchains);
   }
 
-  private Iterable<? extends String> getWorkspaceToolchains(Environment env)
-      throws InterruptedException {
-    List<String> patterns = getRegisteredToolchains(env);
-    if (patterns == null) {
-      return ImmutableList.of();
+  private ImmutableMap<RepositoryName, ImmutableList<String>> mergeToolchains(ImmutableMap<RepositoryName, ImmutableList<String>> workspaceToolchains, ImmutableList<String> platformConfigurationToolchains) {
+    ImmutableMap.Builder<RepositoryName, ImmutableList<String>> targetPatternAndRepoNameBuilder = new ImmutableMap.Builder<>();
+    ImmutableList<String> mainRepoToolchains = null;
+    for (Map.Entry<RepositoryName, ImmutableList<String>> entry : workspaceToolchains.entrySet()) {
+      // Add the platform configuration toolchains to the main repo entry
+      if (entry.getKey().equals(RepositoryName.MAIN)) {
+        mainRepoToolchains = ImmutableList.copyOf(Iterables.concat(workspaceToolchains.get(RepositoryName.MAIN), platformConfigurationToolchains));
+        targetPatternAndRepoNameBuilder.put(RepositoryName.MAIN, mainRepoToolchains);
+      } else {
+        targetPatternAndRepoNameBuilder.put(entry.getKey(), entry.getValue());
+      }
     }
-    return patterns;
+    // there wasn't an entry for RepositoryName.MAIN but there were platformConfig toolchains
+    if (mainRepoToolchains == null && !platformConfigurationToolchains.isEmpty()) {
+      targetPatternAndRepoNameBuilder.put(RepositoryName.MAIN, platformConfigurationToolchains);
+    }
+
+    return targetPatternAndRepoNameBuilder.build();
   }
 
   private ImmutableMap<RepositoryName, ImmutableList<String>> getWorkspaceToolchainsAndRepoName(Environment env)

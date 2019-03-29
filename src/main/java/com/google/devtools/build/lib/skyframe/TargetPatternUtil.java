@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -40,27 +41,13 @@ public class TargetPatternUtil {
   }
 
   /**
-   * Expand the given {@code targetPatterns}. This handles the needed underlying Skyframe calls (via
-   * {@code env}), and will return {@code null} to signal a Skyframe restart.
-   */
-  @Nullable
-  public static ImmutableList<Label> expandTargetPatterns(
-      Environment env, List<String> targetPatterns)
-      throws InvalidTargetPatternException, InterruptedException {
-
-    return expandTargetPatterns(env, targetPatterns, FilteringPolicies.NO_FILTER);
-  }
-
-  /**
    * Expand the given {@code targetPatterns}, using the {@code filteringPolicy}. This handles the
    * needed underlying Skyframe calls (via {@code env}), and will return {@code null} to signal a
    * Skyframe restart.
    */
   @Nullable
   public static ImmutableList<Label> expandTargetPatterns(
-      // TARGETPATTERNS SHOULD BE
-      // Map<RepositoryName, List<String>>
-      Environment env, Map<RepositoryName, List<String>> targetPatterns, FilteringPolicy filteringPolicy)
+      Environment env, ImmutableMap<RepositoryName, ImmutableList<String>> targetPatterns, FilteringPolicy filteringPolicy)
       throws InvalidTargetPatternException, InterruptedException {
 
     // First parse the patterns, and throw any errors immediately.
