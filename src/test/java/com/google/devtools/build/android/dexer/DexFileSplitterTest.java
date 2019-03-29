@@ -122,11 +122,11 @@ public class DexFileSplitterTest {
     for (Path outputArchive : outputArchives) {
       ImmutableList<ZipEntry> expectedEntries;
       try (ZipFile zip = new ZipFile(outputArchive.toFile())) {
-        expectedEntries = zip.stream().collect(ImmutableList.toImmutableList());
+        expectedEntries = zip.stream().collect(ImmutableList.<ZipEntry>toImmutableList());
       }
       ImmutableList<ZipEntry> actualEntries;
       try (ZipFile zip2 = new ZipFile(outputRoot2.resolve(outputArchive.getFileName()).toFile())) {
-        actualEntries = zip2.stream().collect(ImmutableList.toImmutableList());
+        actualEntries = zip2.stream().collect(ImmutableList.<ZipEntry>toImmutableList());
       }
       int len = expectedEntries.size();
       assertThat(actualEntries).hasSize(len);
@@ -259,11 +259,10 @@ public class DexFileSplitterTest {
   private ImmutableSet<String> dexEntries(Path dexArchive) throws IOException {
     try (ZipFile input = new ZipFile(dexArchive.toFile())) {
       ImmutableSet<String> result =
-          input
-              .stream()
+          input.stream()
               .map(ZipEntryName.INSTANCE)
               .filter(Predicates.containsPattern(".*\\.class.dex$"))
-              .collect(ImmutableSet.toImmutableSet());
+              .collect(ImmutableSet.<String>toImmutableSet());
       assertThat(result).isNotEmpty(); // test sanity
       return result;
     }
