@@ -38,8 +38,6 @@ public class PlatformOptions extends FragmentOptions {
       Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform");
   public static final Label DEFAULT_HOST_PLATFORM =
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
-  public static final Label LEGACY_DEFAULT_TARGET_PLATFORM =
-      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:target_platform");
 
   /**
    * Main workspace-relative location to use when the user does not explicitly set {@code
@@ -91,6 +89,21 @@ public class PlatformOptions extends FragmentOptions {
           "The labels of the platform rules describing the target platforms for the current "
               + "command.")
   public List<Label> platforms;
+
+  @Option(
+      name = "target_platform_fallback",
+      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
+      defaultValue = "@bazel_tools//platforms:target_platform",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "The label of a platform rule that should be used if no target platform is set and no"
+              + " platform mapping matches the current set of flags.")
+  public Label targetPlatformFallback;
 
   @Option(
       name = "extra_toolchains",
@@ -229,7 +242,7 @@ public class PlatformOptions extends FragmentOptions {
       return computeHostPlatform();
     } else {
       // Use the legacy target platform
-      return LEGACY_DEFAULT_TARGET_PLATFORM;
+      return targetPlatformFallback;
     }
   }
 
