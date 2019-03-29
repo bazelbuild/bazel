@@ -611,16 +611,16 @@ public class CppHelper {
 
   /** Creates an action to strip an executable. */
   public static void createStripAction(
-      RuleContext context,
+      RuleContext ruleContext,
       CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration,
       Artifact input,
       Artifact output,
       FeatureConfiguration featureConfiguration) {
     if (featureConfiguration.isEnabled(CppRuleClasses.NO_STRIPPING)) {
-      context.registerAction(
+      ruleContext.registerAction(
           SymlinkAction.toArtifact(
-              context.getActionOwner(),
+              ruleContext.getActionOwner(),
               input,
               output,
               "Symlinking original binary as stripped binary"));
@@ -628,12 +628,14 @@ public class CppHelper {
     }
 
     if (!featureConfiguration.actionIsConfigured(CppActionNames.STRIP)) {
-      context.ruleError("Expected action_config for 'strip' to be configured.");
+      ruleContext.ruleError("Expected action_config for 'strip' to be configured.");
       return;
     }
 
     CcToolchainVariables variables =
-        new CcToolchainVariables.Builder(toolchain.getBuildVariables())
+        new CcToolchainVariables.Builder(
+                toolchain.getBuildVariables(
+                    ruleContext.getConfiguration().getOptions(), cppConfiguration))
             .addStringVariable(
                 StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
             .addStringSequenceVariable(
@@ -657,11 +659,11 @@ public class CppHelper {
                 PathFragment.create(
                     featureConfiguration.getToolPathForAction(CppActionNames.STRIP)))
             .setExecutionInfo(executionInfoBuilder.build())
-            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
+            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), ruleContext.getLabel())
             .setMnemonic("CcStrip")
             .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
-            .build(context);
-    context.registerAction(stripAction);
+            .build(ruleContext);
+    ruleContext.registerAction(stripAction);
   }
 
   public static void maybeAddStaticLinkMarkerProvider(

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportFunction.CcSkyframeCrosstoolSupportException;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -211,7 +213,8 @@ public class CcToolchainProviderHelper {
     }
     final CcCompilationContext ccCompilationContext = ccCompilationContextBuilder.build();
 
-    PathFragment sysroot = calculateSysroot(attributes, toolchainInfo.getDefaultSysroot());
+    PathFragment sysroot =
+        calculateSysroot(attributes.getLibcTopLabel(), toolchainInfo.getDefaultSysroot());
 
     ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
     for (String s : toolchainInfo.getRawBuiltInIncludeDirectories()) {
@@ -251,11 +254,12 @@ public class CcToolchainProviderHelper {
         ccCompilationContext,
         attributes.isSupportsParamFiles(),
         attributes.isSupportsHeaderParsing(),
+        attributes.getAdditionalBuildVariablesComputer(),
         getBuildVariables(
-            ruleContext,
-            attributes,
-            toolchainInfo.getDefaultSysroot(),
-            attributes.getAdditionalBuildVariables()),
+            ruleContext.getConfiguration().getOptions(),
+            cppConfiguration,
+            sysroot,
+            attributes.getAdditionalBuildVariablesComputer()),
         getBuiltinIncludes(attributes.getLibc()),
         attributes.getLinkDynamicLibraryTool(),
         builtInIncludeDirectories,
@@ -357,14 +361,12 @@ public class CcToolchainProviderHelper {
         .build();
   }
 
-  private static PathFragment calculateSysroot(
-      CcToolchainAttributesProvider attributes, PathFragment defaultSysroot) {
-    TransitiveInfoCollection sysrootTarget = attributes.getLibcTop();
-    if (sysrootTarget == null) {
+  private static PathFragment calculateSysroot(Label libcTopLabel, PathFragment defaultSysroot) {
+    if (libcTopLabel == null) {
       return defaultSysroot;
     }
 
-    return sysrootTarget.getLabel().getPackageFragment();
+    return libcTopLabel.getPackageFragment();
   }
 
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
@@ -518,32 +520,26 @@ public class CcToolchainProviderHelper {
    * Returns {@link CcToolchainVariables} instance with build variables that only depend on the
    * toolchain.
    *
-   * @param ruleContext the rule context
-   * @param defaultSysroot the default sysroot
-   * @param additionalBuildVariables
    * @throws RuleErrorException if there are configuration errors making it impossible to resolve
    *     certain build variables of this toolchain
    */
-  private static final CcToolchainVariables getBuildVariables(
-      RuleContext ruleContext,
-      CcToolchainAttributesProvider attributes,
-      PathFragment defaultSysroot,
-      CcToolchainVariables additionalBuildVariables) {
+  static CcToolchainVariables getBuildVariables(
+      BuildOptions buildOptions,
+      CppConfiguration cppConfiguration,
+      PathFragment sysroot,
+      AdditionalBuildVariablesComputer additionalBuildVariablesComputer) {
     CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
 
-    CppConfiguration cppConfiguration =
-        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
     String minOsVersion = cppConfiguration.getMinimumOsVersion();
     if (minOsVersion != null) {
       variables.addStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME, minOsVersion);
     }
 
-    PathFragment sysroot = calculateSysroot(attributes, defaultSysroot);
     if (sysroot != null) {
       variables.addStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, sysroot.getPathString());
     }
 
-    variables.addAllNonTransitive(additionalBuildVariables);
+    variables.addAllNonTransitive(additionalBuildVariablesComputer.apply(buildOptions));
 
     return variables.build();
   }
