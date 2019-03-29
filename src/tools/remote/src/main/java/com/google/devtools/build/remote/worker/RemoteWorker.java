@@ -33,8 +33,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
-import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
-import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -243,17 +241,8 @@ public final class RemoteWorker {
       return;
     }
 
-    // The instance of SimpleBlobStore used is based on these criteria in order:
-    // 1. If remote cache or local disk cache is specified then use it first.
-    // 2. Finally use a ConcurrentMap to back the blob store.
-    final SimpleBlobStore blobStore;
-    if (usingRemoteCache) {
-      blobStore = SimpleBlobStoreFactory.create(remoteOptions, null, null);
-    } else if (remoteWorkerOptions.casPath != null) {
-      blobStore = new OnDiskBlobStore(fs.getPath(remoteWorkerOptions.casPath));
-    } else {
-      blobStore = new ConcurrentMapBlobStore(new ConcurrentHashMap<>());
-    }
+    Path casPath = remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
+    final SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, casPath);
 
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
