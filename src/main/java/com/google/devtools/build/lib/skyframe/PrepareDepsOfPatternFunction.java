@@ -101,11 +101,11 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     try {
       parsedPattern.eval(
+          patternKey.getRepositoryName(),
           preparer,
           blacklistedSubdirectories,
           excludedSubdirectories,
-          NullCallback.<Void>instance(),
-          RuntimeException.class);
+          NullCallback.<Void>instance(), RuntimeException.class);
     } catch (TargetParsingException e) {
       throw new PrepareDepsOfPatternFunctionException(e);
     } catch (MissingDepException e) {

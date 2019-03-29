@@ -423,8 +423,8 @@ public class WorkspaceFactory {
 
               // Add to the package definition for later.
               Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
-              builder.addRegisteredExecutionPlatforms(
-                  platformLabels.getContents(String.class, "platform_labels"));
+              RepositoryName repositoryName = env.getGlobals().getLabel().getPackageIdentifier().getRepository();
+              builder.addRegisteredToolchainsAndRepositoryName(platformLabels.getContents(String.class, "platform_labels"), repositoryName);
 
               return NONE;
             }
@@ -462,9 +462,6 @@ public class WorkspaceFactory {
               Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
               RepositoryName repositoryName = env.getGlobals().getLabel().getPackageIdentifier().getRepository();
               builder.addRegisteredToolchainsAndRepositoryName(toolchainLabels.getContents(String.class, "toolchain_labels"), repositoryName);
-
-              // builder.addRegisteredToolchains(
-              //     toolchainLabels.getContents(String.class, "toolchain_labels"));
 
               return NONE;
             }

@@ -219,6 +219,7 @@ public class Package {
   private ImmutableList<String> registeredExecutionPlatforms;
   private ImmutableList<String> registeredToolchains;
   private ImmutableMap<RepositoryName, ImmutableList<String>> registeredToolchainsAndRepoName;
+  private ImmutableMap<RepositoryName, ImmutableList<String>> registeredExecutionPlatformsAndRepoName;
 
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
@@ -408,11 +409,20 @@ public class Package {
     this.posts = ImmutableList.copyOf(builder.posts);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
+
     ImmutableMap.Builder<RepositoryName, ImmutableList<String>>
         registeredToolchainsAndRepoNameBuilder = ImmutableMap.builder();
     builder.registeredToolchainsAndRepoName.forEach((k, v) ->
         registeredToolchainsAndRepoNameBuilder.put(k, ImmutableList.copyOf(v)));
     this.registeredToolchainsAndRepoName = registeredToolchainsAndRepoNameBuilder.build();
+
+    ImmutableMap.Builder<RepositoryName, ImmutableList<String>>
+        registeredExecutionPlatformsAndRepoNameBuilder = ImmutableMap.builder();
+    builder.registeredExecutionPlatformsAndRepoName.forEach((k, v) ->
+        registeredExecutionPlatformsAndRepoNameBuilder.put(k, ImmutableList.copyOf(v)));
+    this.registeredExecutionPlatformsAndRepoName = registeredExecutionPlatformsAndRepoNameBuilder.build();
+
+
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
@@ -716,6 +726,10 @@ public class Package {
     return registeredToolchainsAndRepoName;
   }
 
+  public ImmutableMap<RepositoryName, ImmutableList<String>> getRegisteredExecutionPlatformsAndRepoName() {
+    return registeredExecutionPlatformsAndRepoName;
+  }
+
   @Override
   public String toString() {
     return "Package(" + name + ")="
@@ -849,6 +863,7 @@ public class Package {
     private final List<String> registeredExecutionPlatforms = new ArrayList<>();
     private final List<String> registeredToolchains = new ArrayList<>();
     private final Map<RepositoryName, List<String>> registeredToolchainsAndRepoName = new HashMap<>();
+    private final Map<RepositoryName, List<String>> registeredExecutionPlatformsAndRepoName = new HashMap<>();
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
@@ -1445,6 +1460,16 @@ public class Package {
         toolchains.addAll(existingToolchains);
       }
       this.registeredToolchainsAndRepoName.put(repositoryName, toolchains);
+    }
+
+    void addRegisteredExecutionPlatformsAndRepositoryName(List<String> platforms, RepositoryName repositoryName) {
+      // The add needs to be additive. If a list already exists for a particular repository name,
+      // we must add to the list
+      if (this.registeredExecutionPlatformsAndRepoName.containsKey(repositoryName)) {
+        List<String> existingToolchains = this.registeredExecutionPlatformsAndRepoName.get(repositoryName);
+        platforms.addAll(existingToolchains);
+      }
+      this.registeredExecutionPlatformsAndRepoName.put(repositoryName, platforms);
     }
 
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -210,8 +211,10 @@ public class ConfiguredTargetQueryEnvironment
   public QueryTaskFuture<Void> getTargetsMatchingPattern(
       QueryExpression owner, String pattern, Callback<ConfiguredTarget> callback) {
     TargetPattern patternToEval;
+    TargetPatternKey patternKey;
     try {
-      patternToEval = getPattern(pattern);
+      patternKey = getPatternKey(pattern);
+      patternToEval = patternKey.getParsedPattern();
     } catch (TargetParsingException tpe) {
       try {
         reportBuildFileError(owner, tpe.getMessage());
@@ -230,6 +233,7 @@ public class ConfiguredTargetQueryEnvironment
       return QueryTaskFutureImpl.ofDelegate(
           Futures.catchingAsync(
               patternToEval.evalAdaptedForAsync(
+                  patternKey.getRepositoryName(),
                   resolver,
                   getBlacklistedPackagePrefixesPathFragments(),
                   /* excludedSubdirectories= */ ImmutableSet.of(),

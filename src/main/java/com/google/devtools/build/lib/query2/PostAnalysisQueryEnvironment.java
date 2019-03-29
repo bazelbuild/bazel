@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -113,7 +114,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     ALL_PATTERNS =
         ImmutableList.of(
             new TargetPatternKey(
-                targetPattern, FilteringPolicies.NO_FILTER, false, "", ImmutableSet.of()));
+                // TODO: FIGURE OUT WHAT THE REPO SHOULD BE!!!!
+                targetPattern, FilteringPolicies.NO_FILTER, false, "", ImmutableSet.of(), RepositoryName.MAIN));
   }
 
   protected RecursivePackageProviderBackedTargetPatternResolver resolver;
@@ -238,13 +240,13 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   @Nullable
   protected abstract T getValueFromKey(SkyKey key) throws InterruptedException;
 
-  protected TargetPattern getPattern(String pattern) throws TargetParsingException {
+  protected TargetPatternKey getPatternKey(String pattern) throws TargetParsingException {
     TargetPatternKey targetPatternKey =
         ((TargetPatternKey)
             TargetPatternValue.key(
                     pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix)
                 .argument());
-    return targetPatternKey.getParsedPattern();
+    return targetPatternKey;
   }
 
   ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {

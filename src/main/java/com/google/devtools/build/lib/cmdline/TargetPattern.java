@@ -152,6 +152,7 @@ public abstract class TargetPattern implements Serializable {
    *      {@code Type.TARGETS_BELOW_DIRECTORY}.
    */
   public abstract <T, E extends Exception> void eval(
+      RepositoryName repositoryName,
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
@@ -168,13 +169,14 @@ public abstract class TargetPattern implements Serializable {
    * {@link TargetParsingException} or the given {@code exceptionClass}.
    */
   public final <T, E extends Exception> ListenableFuture<Void> evalAdaptedForAsync(
+      RepositoryName repositoryName,
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<T, E> callback,
       Class<E> exceptionClass) {
     try {
-      eval(resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
+      eval(repositoryName, resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
       return Futures.immediateFuture(null);
     } catch (TargetParsingException e) {
       return Futures.immediateFailedFuture(e);
@@ -197,6 +199,7 @@ public abstract class TargetPattern implements Serializable {
    * {@link TargetParsingException} or the given {@code exceptionClass}.
    */
   public <T, E extends Exception> ListenableFuture<Void> evalAsync(
+      RepositoryName repositoryName,
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
@@ -204,7 +207,7 @@ public abstract class TargetPattern implements Serializable {
       Class<E> exceptionClass,
       ListeningExecutorService executor) {
     return evalAdaptedForAsync(
-        resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
+        repositoryName, resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
   }
 
   /**
@@ -277,7 +280,7 @@ public abstract class TargetPattern implements Serializable {
    * For patterns of type {@link Type#PATH_AS_TARGET}, returns the path in question.
    *
    * <p>The interpretation of this path, of course, depends on the existence of packages.
-   * See {@link InterpretPathAsTarget#eval}.
+   * See {@link TargetPattern#eval}.
    */
   public String getPathForPathAsTarget() {
     throw new IllegalStateException();
@@ -318,6 +321,7 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> void eval(
+        RepositoryName repositoryName,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -375,6 +379,7 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> void eval(
+        RepositoryName repositoryName,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -460,6 +465,7 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> void eval(
+        RepositoryName repositoryName,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -569,6 +575,7 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> void eval(
+        RepositoryName repositoryName,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -588,6 +595,7 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> ListenableFuture<Void> evalAsync(
+        RepositoryName repositoryName,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,

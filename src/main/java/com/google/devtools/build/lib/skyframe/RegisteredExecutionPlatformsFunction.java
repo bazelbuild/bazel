@@ -19,6 +19,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -60,22 +63,17 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
     BuildConfiguration configuration = buildConfigurationValue.getConfiguration();
 
-    ImmutableList.Builder<String> targetPatternBuilder = new ImmutableList.Builder<>();
-
     // Get the execution platforms from the configuration.
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
-    if (platformConfiguration != null) {
-      targetPatternBuilder.addAll(platformConfiguration.getExtraExecutionPlatforms());
-    }
 
     // Get the registered execution platforms from the WORKSPACE.
-    List<String> workspaceExecutionPlatforms = getWorkspaceExecutionPlatforms(env);
+    ImmutableMap<RepositoryName, ImmutableList<String>> workspaceExecutionPlatforms = getWorkspaceExecutionPlatforms(env);
     if (workspaceExecutionPlatforms == null) {
       return null;
     }
-    targetPatternBuilder.addAll(workspaceExecutionPlatforms);
-    ImmutableList<String> targetPatterns = targetPatternBuilder.build();
+
+    ImmutableMap<RepositoryName, ImmutableList<String>> targetPatterns = mergeExecutionPlatforms(workspaceExecutionPlatforms, platformConfiguration.getExtraToolchains());
 
     // Expand target patterns.
     ImmutableList<Label> platformLabels;
@@ -100,6 +98,27 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     return RegisteredExecutionPlatformsValue.create(registeredExecutionPlatformKeys);
   }
 
+  private ImmutableMap<RepositoryName, ImmutableList<String>> mergeExecutionPlatforms(ImmutableMap<RepositoryName, ImmutableList<String>> workspaceExecutionPlatforms, ImmutableList<String> platformConfigurationExecutionPlatforms) {
+    ImmutableMap.Builder<RepositoryName, ImmutableList<String>> targetPatternAndRepoNameBuilder = new ImmutableMap.Builder<>();
+    ImmutableList<String> mainRepoExecutionPlatforms = null;
+    for (Map.Entry<RepositoryName, ImmutableList<String>> entry : workspaceExecutionPlatforms.entrySet()) {
+      // Add the platform configuration execution platforms to the main repo entry
+      if (entry.getKey().equals(RepositoryName.MAIN)) {
+        mainRepoExecutionPlatforms = ImmutableList.copyOf(Iterables
+            .concat(workspaceExecutionPlatforms.get(RepositoryName.MAIN), platformConfigurationExecutionPlatforms));
+        targetPatternAndRepoNameBuilder.put(RepositoryName.MAIN, mainRepoExecutionPlatforms);
+      } else {
+        targetPatternAndRepoNameBuilder.put(entry.getKey(), entry.getValue());
+      }
+    }
+    // there wasn't an entry for RepositoryName.MAIN but there were platformConfig execution platforms
+    if (mainRepoExecutionPlatforms == null && !platformConfigurationExecutionPlatforms.isEmpty()) {
+      targetPatternAndRepoNameBuilder.put(RepositoryName.MAIN, platformConfigurationExecutionPlatforms);
+    }
+
+    return targetPatternAndRepoNameBuilder.build();
+  }
+
   /**
    * Loads the external package and then returns the registered execution platform labels.
    *
@@ -107,7 +126,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
    */
   @Nullable
   @VisibleForTesting
-  public static List<String> getWorkspaceExecutionPlatforms(Environment env)
+  public static ImmutableMap<RepositoryName, ImmutableList<String>> getWorkspaceExecutionPlatforms(Environment env)
       throws InterruptedException {
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
@@ -116,13 +135,13 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
 
     Package externalPackage = externalPackageValue.getPackage();
-    return externalPackage.getRegisteredExecutionPlatforms();
+    return externalPackage.getRegisteredToolchainsAndRepoName();
   }
 
   private ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
       Environment env,
       BuildConfiguration configuration,
-      ImmutableList<String> targetPatterns,
+      ImmutableMap<RepositoryName, ImmutableList<String>> targetPatterns,
       List<Label> labels)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
 
@@ -148,20 +167,20 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
             ((ConfiguredTargetValue) valueOrException.get()).getConfiguredTarget();
         PlatformInfo platformInfo = PlatformProviderUtils.platform(target);
         if (platformInfo == null) {
-          if (TargetPatternUtil.isTargetExplicit(targetPatterns, platformLabel)) {
-            // Only report an error if the label was explicitly requested.
-            throw new RegisteredExecutionPlatformsFunctionException(
-                new InvalidPlatformException(platformLabel), Transience.PERSISTENT);
-          }
+          // if (TargetPatternUtil.isTargetExplicit(targetPatterns, platformLabel)) {
+          //   // Only report an error if the label was explicitly requested.
+          //   throw new RegisteredExecutionPlatformsFunctionException(
+          //       new InvalidPlatformException(platformLabel), Transience.PERSISTENT);
+          // }
           continue;
         }
         validPlatformKeys.add(platformKey);
       } catch (ConfiguredValueCreationException e) {
-        if (TargetPatternUtil.isTargetExplicit(targetPatterns, platformLabel)) {
-          // Only report an error if the label was explicitly requested.
-          throw new RegisteredExecutionPlatformsFunctionException(
-              new InvalidPlatformException(platformLabel, e), Transience.PERSISTENT);
-        }
+        // if (TargetPatternUtil.isTargetExplicit(targetPatterns, platformLabel)) {
+        //   // Only report an error if the label was explicitly requested.
+        //   throw new RegisteredExecutionPlatformsFunctionException(
+        //       new InvalidPlatformException(platformLabel, e), Transience.PERSISTENT);
+        // }
       }
     }
 

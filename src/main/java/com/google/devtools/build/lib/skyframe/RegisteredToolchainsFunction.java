@@ -59,15 +59,15 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     BuildConfiguration configuration = buildConfigurationValue.getConfiguration();
 
+    // Get the toolchains from the configuration.
+    PlatformConfiguration platformConfiguration =
+        configuration.getFragment(PlatformConfiguration.class);
+
     // Get the registered toolchains from the WORKSPACE
     ImmutableMap<RepositoryName, ImmutableList<String>> workspaceToolchains =  getWorkspaceToolchainsAndRepoName(env);
     if (env.valuesMissing()) {
       return null;
     }
-
-    // Get the toolchains from the configuration.
-    PlatformConfiguration platformConfiguration =
-        configuration.getFragment(PlatformConfiguration.class);
 
     ImmutableMap<RepositoryName, ImmutableList<String>> targetPatterns = mergeToolchains(workspaceToolchains, platformConfiguration.getExtraToolchains());
 
@@ -118,6 +118,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   private ImmutableMap<RepositoryName, ImmutableList<String>> getWorkspaceToolchainsAndRepoName(Environment env)
       throws InterruptedException {
     ImmutableMap<RepositoryName, ImmutableList<String>> patterns = getRegisteredToolchainsAndRepoName(env);
+    // why this intermediary replace null with empty map??
+    // the corresponding method for execution platforms just returns null
     if (patterns == null) {
       return ImmutableMap.of();
     }
