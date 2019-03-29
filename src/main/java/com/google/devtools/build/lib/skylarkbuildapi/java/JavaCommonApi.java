@@ -620,6 +620,6 @@ public interface JavaCommonApi<
             type = SkylarkRuleContextApi.class,
             doc = "The rule context."),
       },
-      doc = "Returns true if --experimental_use_toolchain_resolution_for_java_rules is enabled.")
+      doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
   boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextT ruleContext) throws EvalException;
 }
