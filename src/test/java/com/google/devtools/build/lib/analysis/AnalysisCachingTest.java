@@ -878,6 +878,29 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
+  public void cacheClearedWhenRedundantDefinesChange_collapseDuplicateDefinesDisabled()
+      throws Exception {
+    setupDiffResetTesting();
+    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    useConfiguration("--nocollapse_duplicate_defines", "--define=a=1", "--define=a=2");
+    update("//test:top");
+    useConfiguration("--nocollapse_duplicate_defines", "--define=a=2");
+    update("//test:top");
+    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 1));
+  }
+
+  @Test
+  public void cacheNotClearedWhenRedundantDefinesChange() throws Exception {
+    setupDiffResetTesting();
+    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    useConfiguration("--collapse_duplicate_defines", "--define=a=1", "--define=a=2");
+    update("//test:top");
+    useConfiguration("--collapse_duplicate_defines", "--define=a=2");
+    update("//test:top");
+    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 0));
+  }
+
+  @Test
   public void noCacheClearMessageAfterCleanWithSameOptions() throws Exception {
     setupDiffResetTesting();
     scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
