@@ -1,0 +1,60 @@
+From c6d4eb057648e53040a5ec6178bbe73e212d19d4 Mon Sep 17 00:00:00 2001
+From: Ryan Beasley <beasleyr@vmware.com>
+Date: Fri, 29 Mar 2019 05:06:33 -0700
+Subject: [PATCH] bazel/grpc: include linux/tcp.h on Linux pre-glibc 2.17
+
+Bazel 0.24.0 upgraded grpc from 1.13.0 to 1.18.0, and the latter makes use of
+the TCP_USER_TIMEOUT socket option.  Problem:  grpc conditions the option on
+the Linux kernel version but sources the option from glibc's `netinet/tcp.h`.
+glibc != Linux kernel, and that option wasn't imported to glibc until 2.17.
+
+We can't just build Bazel with glibc 2.17 because we still have to support
+CentOS 6 dev nodes which ship with glibc 2.12.  So instead this change
+tweaks the grpc headers to conditionally include <linux/tcp.h> instead of
+<netinet/tcp.h>.
+
+Resolves https://github.com/bazelbuild/bazel/issues/7890.
+---
+ third_party/grpc/src/core/lib/iomgr/port.h                       | 9 +++++++++
+ third_party/grpc/src/core/lib/iomgr/socket_utils_common_posix.cc | 4 ++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/third_party/grpc/src/core/lib/iomgr/port.h b/third_party/grpc/src/core/lib/iomgr/port.h
+index c8046b21dc..1aea6c1b3e 100644
+--- a/third_party/grpc/src/core/lib/iomgr/port.h
++++ b/third_party/grpc/src/core/lib/iomgr/port.h
+@@ -85,6 +85,15 @@
+ #ifdef LINUX_VERSION_CODE
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
+ #define GRPC_HAVE_TCP_USER_TIMEOUT
++#ifdef __GLIBC_PREREQ
++#if !(__GLIBC_PREREQ(2, 17))
++/*
++ * TCP_USER_TIMEOUT wasn't imported to glibc until 2.17. Use Linux system
++ * header instead.
++ */
++#define GRPC_LINUX_TCP_H 1
++#endif /* __GLIBC_PREREQ(2, 17) */
++#endif /* ifdef __GLIBC_PREREQ */
+ #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37) */
+ #endif /* LINUX_VERSION_CODE */
+ #ifndef __GLIBC__
+diff --git a/third_party/grpc/src/core/lib/iomgr/socket_utils_common_posix.cc b/third_party/grpc/src/core/lib/iomgr/socket_utils_common_posix.cc
+index 4c337a0521..ea0adb1f6a 100644
+--- a/third_party/grpc/src/core/lib/iomgr/socket_utils_common_posix.cc
++++ b/third_party/grpc/src/core/lib/iomgr/socket_utils_common_posix.cc
+@@ -30,7 +30,11 @@
+ #include <fcntl.h>
+ #include <limits.h>
+ #include <netinet/in.h>
++#ifdef GRPC_LINUX_TCP_H
++#include <linux/tcp.h>
++#else
+ #include <netinet/tcp.h>
++#endif
+ #include <stdio.h>
+ #include <string.h>
+ #include <sys/socket.h>
+-- 
+2.14.1
+
