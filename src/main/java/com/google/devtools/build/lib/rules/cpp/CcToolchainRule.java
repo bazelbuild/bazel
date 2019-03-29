@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.syntax.Type;
 public final class CcToolchainRule implements RuleDefinition {
 
   public static final String LIBC_TOP_ATTR = ":libc_top";
+  public static final String TARGET_LIBC_TOP_ATTR = ":target_libc_top";
   public static final String FDO_OPTIMIZE_ATTR = ":fdo_optimize";
   public static final String FDO_PROFILE_ATTR = ":fdo_profile";
   public static final String XFDO_PROFILE_ATTR = ":xfdo_profile";
@@ -61,6 +62,22 @@ public final class CcToolchainRule implements RuleDefinition {
           (rule, attributes, cppConfig) -> {
             // Is the libcTop directly set via a flag?
             Label cppOptionLibcTop = cppConfig.getLibcTopLabel();
+            if (cppOptionLibcTop != null) {
+              return cppOptionLibcTop;
+            }
+
+            // Look up the value from the attribute.
+            // This avoids analyzing the label from the CROSSTOOL if the attribute is set.
+            return getLabel(attributes, "libc_top", /* defaultValue= */ null);
+          });
+
+  private static final LabelLateBoundDefault<?> TARGET_LIBC_TOP_VALUE =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> {
+            // Is the libcTop directly set via a flag?
+            Label cppOptionLibcTop = cppConfig.getTargetLibcTopLabel();
             if (cppOptionLibcTop != null) {
               return cppOptionLibcTop;
             }
@@ -294,6 +311,7 @@ public final class CcToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("libc_top", LABEL).allowedFileTypes())
         .add(attr(LIBC_TOP_ATTR, LABEL).value(LIBC_TOP_VALUE))
+        .add(attr(TARGET_LIBC_TOP_ATTR, LABEL).value(TARGET_LIBC_TOP_VALUE))
         .add(attr(FDO_OPTIMIZE_ATTR, LABEL).value(FDO_OPTIMIZE_VALUE))
         .add(
             attr(XFDO_PROFILE_ATTR, LABEL)

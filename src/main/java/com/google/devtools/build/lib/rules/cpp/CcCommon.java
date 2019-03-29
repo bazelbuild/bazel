@@ -917,7 +917,13 @@ public final class CcCommon {
     String originalCcFlags = toolchainProvider.getLegacyCcFlagsMakeVariable();
 
     // Ensure that Sysroot is set properly.
-    String sysrootCcFlags = computeCcFlagForSysroot(toolchainProvider);
+    // TODO(b/129045294): We assume --incompatible_disable_genrule_cc_toolchain_dependency will
+    //   be flipped sooner than --incompatible_enable_cc_toolchain_resolution. Then this method
+    //   will be gone.
+    String sysrootCcFlags =
+        computeCcFlagForSysroot(
+            toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas(),
+            toolchainProvider);
 
     // Fetch additional flags from the FeatureConfiguration.
     List<String> featureConfigCcFlags =
@@ -942,8 +948,9 @@ public final class CcCommon {
         .anyMatch(str -> str.contains(SYSROOT_FLAG));
   }
 
-  private static String computeCcFlagForSysroot(CcToolchainProvider toolchainProvider) {
-    PathFragment sysroot = toolchainProvider.getSysrootPathFragment();
+  private static String computeCcFlagForSysroot(
+      CppConfiguration cppConfiguration, CcToolchainProvider toolchainProvider) {
+    PathFragment sysroot = toolchainProvider.getSysrootPathFragment(cppConfiguration);
     String sysrootFlag = "";
     if (sysroot != null) {
       sysrootFlag = SYSROOT_FLAG + sysroot;

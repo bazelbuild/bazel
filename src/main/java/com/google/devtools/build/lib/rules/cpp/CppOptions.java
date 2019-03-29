@@ -605,6 +605,24 @@ public class CppOptions extends FragmentOptions {
   )
   public Label hostLibcTopLabel;
 
+  /**
+   * This is a fake option used to pass data from target configuration to the host configuration.
+   * It's a horrible hack that will be removed once toolchain-transitions are implemented.
+   */
+  // TODO(b/129045294): Remove once toolchain-transitions are implemented.
+  @Option(
+      name = "target libcTop label",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      converter = LibcTopLabelConverter.class,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      metadataTags = {OptionMetadataTag.INTERNAL})
+  public Label targetLibcTopLabel;
+
   @Option(
     name = "experimental_inmemory_dotd_files",
     defaultValue = "false",
@@ -856,6 +874,8 @@ public class CppOptions extends FragmentOptions {
     // The default is whatever the host's crosstool (which might have been specified
     // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
     host.libcTopLabel = hostLibcTopLabel;
+    // TODO(b/129045294): Remove once toolchain-transitions are implemented.
+    host.targetLibcTopLabel = libcTopLabel;
 
     // -g0 is the default, but allowMultiple options cannot have default values so we just pass
     // -g0 first and let the user options override it.

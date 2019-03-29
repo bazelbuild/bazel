@@ -359,7 +359,7 @@ public class CppCompileActionBuilder {
 
   private ImmutableList<Artifact> getBuiltinIncludeFiles() {
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    result.addAll(ccToolchain.getBuiltinIncludeFiles());
+    result.addAll(ccToolchain.getBuiltinIncludeFiles(cppConfiguration));
     if (builtinIncludeFiles != null) {
       result.addAll(builtinIncludeFiles);
     }

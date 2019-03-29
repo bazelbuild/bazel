@@ -67,6 +67,7 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* dwpFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* coverageFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* libcLink= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* targetLibcLink= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* staticRuntimeLinkInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* staticRuntimeLinkMiddleman= */ null,
           /* dynamicRuntimeLinkInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -78,9 +79,11 @@ public final class CcToolchainProvider extends ToolchainInfo
           (buildOptions) -> CcToolchainVariables.EMPTY,
           CcToolchainVariables.EMPTY,
           /* builtinIncludeFiles= */ ImmutableList.of(),
+          /* targetBuiltinIncludeFiles= */ ImmutableList.of(),
           /* linkDynamicLibraryTool= */ null,
           /* builtInIncludeDirectories= */ ImmutableList.of(),
           /* sysroot= */ null,
+          /* targetSysroot= */ null,
           /* fdoContext= */ null,
           /* isHostConfiguration= */ false,
           /* licensesProvider= */ null);
@@ -101,6 +104,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final NestedSet<Artifact> dwpFiles;
   private final NestedSet<Artifact> coverageFiles;
   private final NestedSet<Artifact> libcLink;
+  private final NestedSet<Artifact> targetLibcLink;
   @Nullable private final NestedSet<Artifact> staticRuntimeLinkInputs;
   @Nullable private final Artifact staticRuntimeLinkMiddleman;
   @Nullable private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
@@ -112,9 +116,11 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
+  private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
   @Nullable private final Artifact linkDynamicLibraryTool;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
+  private final PathFragment targetSysroot;
   private final boolean isHostConfiguration;
   /**
    * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
@@ -143,6 +149,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       NestedSet<Artifact> dwpFiles,
       NestedSet<Artifact> coverageFiles,
       NestedSet<Artifact> libcLink,
+      NestedSet<Artifact> targetLibcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
       @Nullable Artifact staticRuntimeLinkMiddleman,
       NestedSet<Artifact> dynamicRuntimeLinkInputs,
@@ -154,9 +161,11 @@ public final class CcToolchainProvider extends ToolchainInfo
       AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
       CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
+      ImmutableList<Artifact> targetBuiltinIncludeFiles,
       Artifact linkDynamicLibraryTool,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
+      @Nullable PathFragment targetSysroot,
       FdoContext fdoContext,
       boolean isHostConfiguration,
       LicensesProvider licensesProvider) {
@@ -177,6 +186,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.dwpFiles = Preconditions.checkNotNull(dwpFiles);
     this.coverageFiles = Preconditions.checkNotNull(coverageFiles);
     this.libcLink = Preconditions.checkNotNull(libcLink);
+    this.targetLibcLink = Preconditions.checkNotNull(targetLibcLink);
     this.staticRuntimeLinkInputs = staticRuntimeLinkInputs;
     this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
     this.dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputs;
@@ -192,9 +202,11 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
     this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
+    this.targetBuiltinIncludeFiles = targetBuiltinIncludeFiles;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
+    this.targetSysroot = targetSysroot;
     this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
     this.isHostConfiguration = isHostConfiguration;
     this.licensesProvider = licensesProvider;
@@ -414,8 +426,12 @@ public final class CcToolchainProvider extends ToolchainInfo
     return coverageFiles;
   }
 
-  public NestedSet<Artifact> getLibcLink() {
-    return libcLink;
+  public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+      return libcLink;
+    } else {
+      return targetLibcLink;
+    }
   }
 
   /**
@@ -595,7 +611,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       return CcToolchainProviderHelper.getBuildVariables(
           buildOptions,
           cppConfiguration,
-          getSysrootPathFragment(),
+          getSysrootPathFragment(cppConfiguration),
           additionalBuildVariablesComputer);
     }
     return buildVariables;
@@ -604,9 +620,15 @@ public final class CcToolchainProvider extends ToolchainInfo
   /**
    * Return the set of include files that may be included even if they are not mentioned in the
    * source file or any of the headers included by it.
+   *
+   * @param cppConfiguration
    */
-  public ImmutableList<Artifact> getBuiltinIncludeFiles() {
-    return builtinIncludeFiles;
+  public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+      return builtinIncludeFiles;
+    } else {
+      return targetBuiltinIncludeFiles;
+    }
   }
 
   /**
@@ -630,8 +652,12 @@ public final class CcToolchainProvider extends ToolchainInfo
     return sysroot != null ? sysroot.getPathString() : null;
   }
 
-  public PathFragment getSysrootPathFragment() {
-    return sysroot;
+  public PathFragment getSysrootPathFragment(CppConfiguration cppConfiguration) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+      return sysroot;
+    } else {
+      return targetSysroot;
+    }
   }
 
   /**

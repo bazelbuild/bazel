@@ -218,7 +218,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // inputs for compilation. Node that these cannot be middlemen because Runfiles does not
       // know how to expand them.
       builder.addTransitiveArtifacts(toolchain.getAllFiles());
-      builder.addTransitiveArtifacts(toolchain.getLibcLink());
+      builder.addTransitiveArtifacts(toolchain.getLibcLink(cppConfiguration));
       // Add the sources files that are used to compile the object files.
       // We add the headers in the transitive closure and our own sources in the srcs
       // attribute. We do not provide the auxiliary inputs, because they are only used when we

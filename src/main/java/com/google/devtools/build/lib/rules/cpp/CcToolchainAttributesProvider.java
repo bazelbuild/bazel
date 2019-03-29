@@ -66,6 +66,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final Label libcTopAttribute;
   private final NestedSet<Artifact> libc;
   private final NestedSet<Artifact> libcMiddleman;
+  private final TransitiveInfoCollection libcTop;
+  private final NestedSet<Artifact> targetLibc;
+  private final NestedSet<Artifact> targetLibcMiddleman;
+  private final TransitiveInfoCollection targetLibcTop;
   private final NestedSet<Artifact> fullInputsForCrosstool;
   private final NestedSet<Artifact> fullInputsForLink;
   private final NestedSet<Artifact> coverage;
@@ -78,7 +82,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final TransitiveInfoCollection fdoOptimize;
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
-  private final TransitiveInfoCollection libcTop;
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
@@ -130,9 +133,21 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.arFiles = getOptionalMiddlemanOrFiles(ruleContext, "ar_files");
     this.linkerFiles = getMiddlemanOrFiles(ruleContext, "linker_files");
     this.dwpFiles = getMiddlemanOrFiles(ruleContext, "dwp_files");
+
     this.libcMiddleman =
         getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
+    this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
+
+    this.targetLibcMiddleman =
+        getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+    this.targetLibc =
+        getOptionalFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+    this.targetLibcTop =
+        ruleContext.getPrerequisite(CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+
+    this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
+
     this.fullInputsForCrosstool =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(allFilesMiddleman)
@@ -164,8 +179,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.fdoPrefetch =
         ruleContext.getPrerequisite(
             ":fdo_prefetch_hints", Mode.TARGET, FdoPrefetchHintsProvider.PROVIDER);
-    this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
-    this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     this.moduleMap = ruleContext.getPrerequisite("module_map", Mode.HOST);
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map", Mode.HOST);
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper", Mode.HOST);
@@ -363,6 +376,22 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return libc;
   }
 
+  public NestedSet<Artifact> getTargetLibc() {
+    return targetLibc;
+  }
+
+  public TransitiveInfoCollection getTargetLibcTop() {
+    return targetLibcTop;
+  }
+
+  public Label getLibcTopLabel() {
+    return getLibcTop() == null ? null : getLibcTop().getLabel();
+  }
+
+  public Label getTargetLibcTopLabel() {
+    return getTargetLibcTop() == null ? null : getTargetLibcTop().getLabel();
+  }
+
   public Label getLibcTopAttribute() {
     return libcTopAttribute;
   }
@@ -428,10 +457,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
           .add(ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST));
     }
     return builder.build();
-  }
-
-  public Label getLibcTopLabel() {
-    return getLibcTop() == null ? null : getLibcTop().getLabel();
   }
 }
 
