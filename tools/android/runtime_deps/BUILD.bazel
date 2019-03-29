@@ -8,6 +8,9 @@ filegroup(
         "upload_android_tools.sh",
         "BUILD.bazel",
     ],
+    visibility = [
+        "//tools/android:__pkg__",
+    ]
 )
 
 genrule(
