@@ -92,7 +92,7 @@ public class ComposingTransition implements ConfigurationTransition {
     Preconditions.checkNotNull(transition1);
     Preconditions.checkNotNull(transition2);
 
-    if (transition1 == NullTransition.INSTANCE || transition1.isHostTransition()) {
+    if (isFinal(transition1)) {
       // Since no other transition can be composed with transition1, use it directly.
       return transition1;
     } else if (transition1 == NoTransition.INSTANCE) {
@@ -103,7 +103,7 @@ public class ComposingTransition implements ConfigurationTransition {
     if (transition2 == NoTransition.INSTANCE) {
       // Since transition2 causes no changes, use transition 1 directly.
       return transition1;
-    } else if (transition2 == NullTransition.INSTANCE || transition2.isHostTransition()) {
+    } else if (isFinal(transition2)) {
       // When the second transition is null or a HOST transition, there's no need to compose. But
       // this also
       // improves performance: host transitions are common, and ConfiguredTargetFunction has special
@@ -113,6 +113,10 @@ public class ComposingTransition implements ConfigurationTransition {
     }
 
     return new ComposingTransition(transition1, transition2);
+  }
+
+  private static boolean isFinal(ConfigurationTransition transition) {
+    return transition == NullTransition.INSTANCE || transition.isHostTransition();
   }
 
   /**

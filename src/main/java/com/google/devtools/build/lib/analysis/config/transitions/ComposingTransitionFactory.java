@@ -34,7 +34,7 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactoryData
     Preconditions.checkNotNull(transitionFactory1);
     Preconditions.checkNotNull(transitionFactory2);
 
-    if (transitionFactory1.isFinal()) {
+    if (isFinal(transitionFactory1)) {
       // Since no other transition can be composed with transitionFactory1, use it directly.
       return transitionFactory1;
     } else if (NoTransition.isInstance(transitionFactory1)) {
@@ -45,7 +45,7 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactoryData
     if (NoTransition.isInstance(transitionFactory2)) {
       // Since transitionFactory2 causes no changes, use transitionFactory1 directly.
       return transitionFactory1;
-    } else if (NullTransition.isInstance(transitionFactory2) || transitionFactory2.isHost()) {
+    } else if (isFinal(transitionFactory2)) {
       // When the second transition is null or a HOST transition, there's no need to compose. But
       // this also
       // improves performance: host transitions are common, and ConfiguredTargetFunction has special
@@ -55,6 +55,11 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactoryData
     }
 
     return create(transitionFactory1, transitionFactory2);
+  }
+
+  private static <T extends TransitionFactoryData> boolean isFinal(
+      TransitionFactory<T> transitionFactory) {
+    return NullTransition.isInstance(transitionFactory) || transitionFactory.isHost();
   }
 
   private static <T extends TransitionFactoryData> TransitionFactory<T> create(
