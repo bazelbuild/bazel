@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -127,6 +128,7 @@ public final class TemplateExpansionAction extends AbstractAction {
   @Override
   public final ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    Actions.prefetchInputs(getInputs(), actionExecutionContext, this);
     TemplateExpansionContext expansionContext =
         actionExecutionContext.getContext(TemplateExpansionContext.class);
     try {
