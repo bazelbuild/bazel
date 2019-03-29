@@ -15,27 +15,15 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.Serializable;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Command-line build options for a Blaze module. */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable, Serializable {
-  /**
-   * Returns the labels contributed to the defaults package by this fragment.
-   *
-   * <p>The set of keys returned by this function should be constant, however, the values are
-   * allowed to change depending on the value of the options.
-   */
-  @SuppressWarnings("unused")
-  public Map<String, Set<Label>> getDefaultsLabels() {
-    return ImmutableMap.of();
-  }
 
   @Override
   public FragmentOptions clone() {
