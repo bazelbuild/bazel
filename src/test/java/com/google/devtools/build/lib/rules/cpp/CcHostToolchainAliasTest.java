@@ -58,7 +58,6 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "    name = 'toolchain_b',",
         "    toolchain_identifier = 'mock-llvm-toolchain-k8',",
         "    toolchain_config = ':mock_config',",
-        "    cpu = 'ED-E',",
         "    all_files = ':banana',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",

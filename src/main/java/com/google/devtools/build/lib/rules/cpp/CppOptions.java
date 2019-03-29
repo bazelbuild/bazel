@@ -752,7 +752,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
