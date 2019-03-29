@@ -141,6 +141,8 @@ public abstract class JavaHelper {
    * will ever be used.
    */
   public static boolean isJdkLauncher(RuleContext ruleContext, Label label) {
-    return ruleContext.attributes().get("$no_launcher", NODEP_LABEL_LIST).contains(label);
+    List<Label> noLauncherAttribute =
+        ruleContext.attributes().get("$no_launcher", NODEP_LABEL_LIST);
+    return noLauncherAttribute != null && noLauncherAttribute.contains(label);
   }
 }

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
 import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.CONTAINS_JAVA_PROVIDER;
@@ -399,9 +398,7 @@ public class BazelJavaRuleClasses {
           <a href="http://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/invocation.html">
           Java Invocation API</a> can be specified as a value for this attribute.
 
-          <p>The special value <code>//tools/jdk:no_launcher</code>
-          indicates that you want to use the normal JDK launcher (bin/java or java.exe)
-          as the value for this attribute. This is the default.</p>
+          <p>By default, Bazel will use the normal JDK launcher (bin/java or java.exe).</p>
 
           <p>The related <a href="../user-manual.html#flag--java_launcher"><code>
           --java_launcher</code></a> Bazel flag affects only those
@@ -434,13 +431,6 @@ public class BazelJavaRuleClasses {
                   .allowedFileTypes(FileTypeSet.NO_FILE)
                   .allowedRuleClasses("cc_binary"))
           .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER)) // blaze flag
-          .add(
-              attr("$no_launcher", NODEP_LABEL_LIST)
-                  .value(
-                      ImmutableList.of(
-                          // TODO(b/30038239): migrate to //tools/jdk:no_launcher and delete
-                          env.getToolsLabel("//third_party/java/jdk:jdk_launcher"),
-                          env.getToolsLabel("//tools/jdk:no_launcher"))))
           .add(
               attr("$launcher", LABEL)
                   .cfg(HostTransition.createFactory())
