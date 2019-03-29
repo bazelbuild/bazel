@@ -31,13 +31,37 @@ import javax.annotation.Nullable;
 
 /**
  * A factory class for providing a {@link SimpleBlobStore} to be used with {@link
- * SimpleBlobStoreActionCache}. Currently implemented with REST or local.
+ * SimpleBlobStoreActionCache}. Currently implemented with HTTP or local.
  */
 public final class SimpleBlobStoreFactory {
 
   private SimpleBlobStoreFactory() {}
 
-  public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
+  // TODO(ishikhman): make workingDirectory not nullable
+  public static SimpleBlobStore create(
+      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
+      throws IOException {
+
+    if (isHttpUrlOptions(options) && isDiskCache(options)) {
+      return createCombinedCache(workingDirectory, options.diskCache, options, creds);
+    }
+    if (isHttpUrlOptions(options)) {
+      return createHttp(options, creds);
+    }
+    // TODO(ishikhman): check this condition when making workingDirectory not nullable
+    if (workingDirectory != null && isDiskCache(options)) {
+      return createDiskCache(workingDirectory, options.diskCache);
+    }
+    throw new IllegalArgumentException(
+        "Unrecognized RemoteOptions configuration: remote Http cache URL and/or local disk cache"
+            + " options expected.");
+  }
+
+  public static boolean isRemoteCacheOptions(RemoteOptions options) {
+    return isHttpUrlOptions(options) || isDiskCache(options);
+  }
+
+  private static SimpleBlobStore createHttp(RemoteOptions options, Credentials creds) {
     try {
       URI uri = URI.create(options.remoteHttpCache);
 
@@ -61,7 +85,7 @@ public final class SimpleBlobStoreFactory {
     }
   }
 
-  public static SimpleBlobStore createDiskCache(Path workingDirectory, PathFragment diskCachePath)
+  private static SimpleBlobStore createDiskCache(Path workingDirectory, PathFragment diskCachePath)
       throws IOException {
     Path cacheDir = workingDirectory.getRelative(checkNotNull(diskCachePath));
     if (!cacheDir.exists()) {
@@ -70,43 +94,21 @@ public final class SimpleBlobStoreFactory {
     return new OnDiskBlobStore(cacheDir);
   }
 
-  public static SimpleBlobStore createCombinedCache(
+  private static SimpleBlobStore createCombinedCache(
       Path workingDirectory, PathFragment diskCachePath, RemoteOptions options, Credentials cred)
       throws IOException {
     Path cacheDir = workingDirectory.getRelative(checkNotNull(diskCachePath));
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
-    return new CombinedDiskHttpBlobStore(cacheDir, createRest(options, cred));
+    return new CombinedDiskHttpBlobStore(cacheDir, createHttp(options, cred));
   }
 
-  public static SimpleBlobStore create(
-      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
-      throws IOException {
-
-    if (isRestUrlOptions(options) && isDiskCache(options)) {
-      return createCombinedCache(workingDirectory, options.diskCache, options, creds);
-    }
-    if (isRestUrlOptions(options)) {
-      return createRest(options, creds);
-    }
-    if (workingDirectory != null && isDiskCache(options)) {
-      return createDiskCache(workingDirectory, options.diskCache);
-    }
-    throw new IllegalArgumentException(
-        "Unrecognized concurrent map RemoteOptions: must specify "
-            + "either Rest URL, or local cache options.");
-  }
-
-  public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isRestUrlOptions(options) || isDiskCache(options);
-  }
-
-  public static boolean isDiskCache(RemoteOptions options) {
+  private static boolean isDiskCache(RemoteOptions options) {
     return options.diskCache != null && !options.diskCache.isEmpty();
   }
 
-  static boolean isRestUrlOptions(RemoteOptions options) {
+  private static boolean isHttpUrlOptions(RemoteOptions options) {
     return options.remoteHttpCache != null && !options.remoteHttpCache.isEmpty();
   }
 }
