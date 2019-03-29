@@ -237,8 +237,7 @@ public class CcModule
         asStringNestedSet(includeDirs),
         asStringNestedSet(quoteIncludeDirs),
         asStringNestedSet(systemIncludeDirs),
-        asStringNestedSet(defines),
-        addLegacyCxxOptions);
+        asStringNestedSet(defines));
   }
 
   @Override
@@ -281,8 +280,6 @@ public class CcModule
         asStringNestedSet(runtimeLibrarySearchDirectories),
         /* librariesToLink= */ null,
         asStringNestedSet(librarySearchDirectories),
-        /* isLegacyFullyStaticLinkingMode= */ false,
-        isStaticLinkingMode,
         /* addIfsoRelatedVariables= */ false);
   }
 
@@ -992,34 +989,10 @@ public class CcModule
         compiler,
         abiVersion,
         abiLibcVersion,
-        /* supportsStartEndLib= */ false,
-        /* supportsInterfaceSharedLibraries= */ false,
-        /* supportsEmbeddedRuntimes= */ false,
-        /* staticRuntimesFilegroup= */ "",
-        /* dynamicRuntimesFilegroup= */ "",
-        /* supportsFission */ false,
-        /* needsPic= */ false,
         toolPathList,
-        /* compilerFlags= */ ImmutableList.of(),
-        /* cxxFlags= */ ImmutableList.of(),
-        /* unfilteredCxxFlags= */ ImmutableList.of(),
-        /* linkerFlags= */ ImmutableList.of(),
-        /* dynamicLibraryLinkerFlags= */ ImmutableList.of(),
-        /* testOnlyLinkerFlags= */ ImmutableList.of(),
-        /* objcopyEmbedFlags= */ ImmutableList.of(),
-        /* ldEmbedFlags= */ ImmutableList.of(),
-        /* compilationModeCompilerFlags= */ ImmutableMap.of(),
-        /* compilationModeCxxFlags= */ ImmutableMap.of(),
-        /* compilationModeLinkerFlags= */ ImmutableMap.of(),
-        /* mostlyStaticLinkingModeFlags= */ ImmutableList.of(),
-        /* dynamicLinkingModeFlags= */ ImmutableList.of(),
-        /* fullyStaticLinkingModeFlags= */ ImmutableList.of(),
-        /* mostlyStaticLibrariesLinkingModeFlags= */ ImmutableList.of(),
         makeVariablePairs.build(),
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
-        /* defaultLibcTop= */ "",
         convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
-        /* hasDynamicLinkingModeFlags= */ false,
         cToolchain.build().toString());
   }
 

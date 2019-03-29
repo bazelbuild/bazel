@@ -138,7 +138,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "strip_tool",
             /* supportsInterfaceSharedLibraries= */ false);
 
-    return CcToolchainFeaturesTest.buildFeatures(ruleContext, features, actionConfigs)
+    return CcToolchainFeaturesTest.buildFeatures(features, actionConfigs)
         .getFeatureConfiguration(
             ImmutableSet.of(
                 "link_cpp_standard_library",
@@ -154,7 +154,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
-                ruleContext,
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -184,7 +183,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
-                ruleContext,
                 "action_config {",
                 "   config_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
                 "   action_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
@@ -452,7 +450,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
-                ruleContext,
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -792,7 +789,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
-                ruleContext,
                 MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
                 "feature {",
                 "   name: 'build_interface_libraries'",

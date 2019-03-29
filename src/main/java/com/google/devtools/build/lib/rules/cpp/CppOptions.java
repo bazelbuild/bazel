@@ -722,21 +722,6 @@ public class CppOptions extends FragmentOptions {
   public boolean requireCtxInConfigureFeatures;
 
   @Option(
-      name = "incompatible_disable_legacy_crosstool_fields",
-      oldName = "experimental_disable_legacy_crosstool_fields",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, Bazel will not read crosstool flags from legacy crosstool fields "
-              + "(see https://github.com/bazelbuild/bazel/issues/6861 for migration instructions).")
-  public boolean disableLegacyCrosstoolFields;
-
-  @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -903,7 +888,6 @@ public class CppOptions extends FragmentOptions {
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
-    host.disableLegacyCrosstoolFields = disableLegacyCrosstoolFields;
     host.disableCrosstool = disableCrosstool;
     host.enableCcToolchainResolution = enableCcToolchainResolution;
     host.removeLegacyWholeArchive = removeLegacyWholeArchive;

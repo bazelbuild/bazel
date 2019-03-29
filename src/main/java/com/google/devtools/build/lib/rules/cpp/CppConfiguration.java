@@ -421,6 +421,14 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** Returns flags passed to Bazel by --copt option. */
   @Override
   public ImmutableList<String> getCopts() {
+    if (isOmitfp()) {
+      return ImmutableList.<String>builder()
+          .add("-fomit-frame-pointer")
+          .add("-fasynchronous-unwind-tables")
+          .add("-DNO_FRAME_POINTER")
+          .addAll(copts)
+          .build();
+    }
     return copts;
   }
 
@@ -580,22 +588,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean useLLVMCoverageMapFormat() {
     return cppOptions.useLLVMCoverageMapFormat;
-  }
-
-  public boolean disableLegacyCrosstoolFields() {
-    return cppOptions.disableLegacyCrosstoolFields;
-  }
-
-  public boolean disableExpandIfAllAvailableInFlagSet() {
-    return cppOptions.disableExpandIfAllAvailableInFlagSet;
-  }
-
-  public static String getLegacyCrosstoolFieldErrorMessage(String field) {
-    Preconditions.checkNotNull(field);
-    return field
-        + " is disabled by --incompatible_disable_legacy_crosstool_fields, please "
-        + "migrate your CROSSTOOL (see https://github.com/bazelbuild/bazel/issues/6861 for "
-        + "migration instructions).";
   }
 
   public boolean removeCpuCompilerCcToolchainAttributes() {

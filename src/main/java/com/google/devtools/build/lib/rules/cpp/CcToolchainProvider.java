@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -34,12 +32,10 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -277,7 +273,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   public boolean usePicForDynamicLibraries(
       CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
-        || toolchainNeedsPic()
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
   }
 
@@ -531,14 +526,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
-   * Returns whether shared libraries must be compiled with position independent code on this
-   * platform.
-   */
-  public boolean toolchainNeedsPic() {
-    return toolchainInfo.toolchainNeedsPic();
-  }
-
-  /**
    * Returns the run time sysroot, which is where the dynamic linker and system libraries are found
    * at runtime. This is usually an absolute path. If the toolchain compiler does not support
    * sysroots, then this method returns <code>null</code>.
@@ -557,16 +544,7 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns whether the toolchain supports dynamic linking. */
   public boolean supportsDynamicLinker(FeatureConfiguration featureConfiguration) {
-    return toolchainInfo.supportsDynamicLinker()
-        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER);
-  }
-
-  /**
-   * Returns whether the toolchain supports linking C/C++ runtime libraries
-   * supplied inside the toolchain distribution.
-   */
-  public boolean supportsEmbeddedRuntimes() {
-    return toolchainInfo.supportsEmbeddedRuntimes();
+    return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER);
   }
 
   public boolean doNotSplitLinkingCmdline() {
@@ -577,14 +555,12 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns whether the toolchain supports the --start-lib/--end-lib options. */
   public boolean supportsStartEndLib(FeatureConfiguration featureConfiguration) {
-    return toolchainInfo.supportsStartEndLib()
-        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);
+    return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);
   }
 
   /** Returns whether this toolchain supports interface shared libraries. */
   public boolean supportsInterfaceSharedLibraries(FeatureConfiguration featureConfiguration) {
-    return toolchainInfo.supportsInterfaceSharedLibraries()
-        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
+    return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
   }
 
   /**
@@ -671,24 +647,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getAbiGlibcVersion();
   }
 
-  /**
-   * Returns a label that references the library files needed to statically
-   * link the C++ runtime (i.e. libgcc.a, libgcc_eh.a, libstdc++.a) for the
-   * target architecture.
-   */
-  public Label getStaticRuntimeLibsLabel() {
-    return toolchainInfo.getStaticRuntimeLibsLabel();
-  }
-
-  /**
-   * Returns a label that references the library files needed to dynamically
-   * link the C++ runtime (i.e. libgcc_s.so, libstdc++.so) for the target
-   * architecture.
-   */
-  public Label getDynamicRuntimeLibsLabel() {
-    return toolchainInfo.getDynamicRuntimeLibsLabel();
-  }
-
   /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
   @Override
   public String getCompiler() {
@@ -735,18 +693,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
-   * Returns whether the toolchain supports "Fission" C++ builds, i.e. builds where compilation
-   * partitions object code and debug symbols into separate output files.
-   */
-  public boolean supportsFission() {
-    return toolchainInfo.supportsFission();
-  }
-
-  public ImmutableList<String> getUnfilteredCompilerOptions() {
-    return toolchainInfo.getUnfilteredCompilerOptions(/* sysroot= */ null);
-  }
-
-  /**
    * Unused, for compatibility with things internal to Google.
    *
    * <p>Deprecated: Use platforms.
@@ -756,130 +702,9 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getTargetOS();
   }
 
-  /**
-   * Returns test-only link options such that certain test-specific features can be configured
-   * separately (e.g. lazy binding).
-   */
-  public ImmutableList<String> getTestOnlyLinkOptions() {
-    return toolchainInfo.getTestOnlyLinkOptions();
-  }
-
   /** Returns the system name which is required by the toolchain to run. */
   public String getHostSystemName() {
     return toolchainInfo.getHostSystemName();
-  }
-
-  /**
-   * Returns the list of options to be used with 'objcopy' when converting binary files to object
-   * files, or {@code null} if this operation is not supported.
-   */
-  public ImmutableList<String> getObjCopyOptionsForEmbedding() {
-    return toolchainInfo.getObjCopyOptionsForEmbedding();
-  }
-
-  /**
-   * Returns the list of options to be used with 'ld' when converting binary files to object files,
-   * or {@code null} if this operation is not supported.
-   */
-  public ImmutableList<String> getLdOptionsForEmbedding() {
-    return toolchainInfo.getLdOptionsForEmbedding();
-  }
-
-  /**
-   * Returns link options for the specified flag list, combined with universal options for all
-   * shared libraries (regardless of link staticness).
-   */
-  ImmutableList<String> getSharedLibraryLinkOptions(ImmutableList<String> flags) {
-    return toolchainInfo.getSharedLibraryLinkOptions(flags);
-  }
-
-  /** Returns compiler flags arising from the {@link CToolchain}. */
-  ImmutableList<String> getToolchainCompilerFlags() {
-    return toolchainInfo.getCompilerFlags();
-  }
-
-  /** Returns additional compiler flags for C++ arising from the {@link CToolchain} */
-  ImmutableList<String> getToolchainCxxFlags() {
-    return toolchainInfo.getCxxFlags();
-  }
-
-  /**
-   * Returns compiler flags arising from the {@link CToolchain} for C compilation by compilation
-   * mode.
-   */
-  ImmutableListMultimap<CompilationMode, String> getCFlagsByCompilationMode() {
-    return toolchainInfo.getCFlagsByCompilationMode();
-  }
-
-  /**
-   * Returns compiler flags arising from the {@link CToolchain} for C++ compilation by compilation
-   * mode.
-   */
-  ImmutableListMultimap<CompilationMode, String> getCxxFlagsByCompilationMode() {
-    return toolchainInfo.getCxxFlagsByCompilationMode();
-  }
-
-  /** Returns linker flags for fully statically linked outputs. */
-  ImmutableList<String> getLegacyFullyStaticLinkFlags(CompilationMode compilationMode) {
-    return configureAllLegacyLinkOptions(compilationMode, LinkingMode.LEGACY_FULLY_STATIC);
-  }
-
-  /** Returns linker flags for mostly static linked outputs. */
-  ImmutableList<String> getLegacyMostlyStaticLinkFlags(CompilationMode compilationMode) {
-    return configureAllLegacyLinkOptions(compilationMode, LinkingMode.STATIC);
-  }
-
-  /** Returns linker flags for mostly static shared linked outputs. */
-  ImmutableList<String> getLegacyMostlyStaticSharedLinkFlags(CompilationMode compilationMode) {
-    return configureAllLegacyLinkOptions(
-        compilationMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES);
-  }
-
-  /** Returns linker flags for artifacts that are not fully or mostly statically linked. */
-  ImmutableList<String> getLegacyDynamicLinkFlags(CompilationMode compilationMode) {
-    return configureAllLegacyLinkOptions(compilationMode, LinkingMode.DYNAMIC);
-  }
-
-  /**
-   * Return all flags coming from naked {@code linker_flag} fields in the crosstool. {@code
-   * linker_flag}s coming from linking_mode_flags and compilation_mode_flags are not included. If
-   * you need all possible linker flags, use {@link #configureAllLegacyLinkOptions(CompilationMode,
-   * LinkingMode)}.
-   */
-  public ImmutableList<String> getLegacyLinkOptions() {
-    return toolchainInfo.getLegacyLinkOptions();
-  }
-
-  /**
-   * Return all flags coming from {@code compiler_flag} crosstool fields excluding flags coming from
-   * --copt options and copts attribute.
-   */
-  public ImmutableList<String> getLegacyCompileOptions() {
-    ImmutableList.Builder<String> coptsBuilder =
-        ImmutableList.<String>builder()
-            .addAll(getToolchainCompilerFlags())
-            .addAll(getCFlagsByCompilationMode().get(cppConfiguration.getCompilationMode()));
-
-    if (cppConfiguration.isOmitfp()) {
-      coptsBuilder.add("-fomit-frame-pointer");
-      coptsBuilder.add("-fasynchronous-unwind-tables");
-      coptsBuilder.add("-DNO_FRAME_POINTER");
-    }
-
-    return coptsBuilder.build();
-  }
-
-  public ImmutableList<String> getLegacyCompileOptionsWithCopts() {
-    return ImmutableList.<String>builder()
-        .addAll(getLegacyCompileOptions())
-        .addAll(cppConfiguration.getCopts())
-        .build();
-  }
-
-  /** Return all possible {@code linker_flag} flags from the crosstool. */
-  ImmutableList<String> configureAllLegacyLinkOptions(
-      CompilationMode compilationMode, LinkingMode linkingMode) {
-    return toolchainInfo.configureAllLegacyLinkOptions(compilationMode, linkingMode);
   }
 
   /** Returns the GNU System Name */
@@ -895,13 +720,6 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   public final boolean isLLVMCompiler() {
     return toolchainInfo.isLLVMCompiler();
-  }
-
-  public ImmutableList<String> getLegacyCxxOptions() {
-    return ImmutableList.<String>builder()
-        .addAll(getToolchainCxxFlags())
-        .addAll(getCxxFlagsByCompilationMode().get(cppConfiguration.getCompilationMode()))
-        .build();
   }
 
   /**

@@ -570,13 +570,6 @@ public class CompilationSupport {
     if (objcProvider.is(Flag.USES_OBJC)) {
       activatedCrosstoolSelectables.add(CONTAINS_OBJC);
     }
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
-        && toolchain.supportsFission()
-        && !cppConfiguration.disableLegacyCrosstoolFields()) {
-      activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-    }
-
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
     // particular versions of Xcode. To ensure consistency across platforms, use exactly two
     // components in the version number.
@@ -588,6 +581,7 @@ public class CompilationSupport {
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
     try {
