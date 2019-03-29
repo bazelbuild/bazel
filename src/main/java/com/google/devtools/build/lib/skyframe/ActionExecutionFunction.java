@@ -230,7 +230,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       state.inputArtifactData = checkedInputs.actionInputMap;
       state.expandedArtifacts = checkedInputs.expandedArtifacts;
       state.expandedFilesets = checkedInputs.expandedFilesets;
-      if (skyframeActionExecutor.usesActionFileSystem()) {
+      if (skyframeActionExecutor.actionFileSystemType().isEnabled()) {
         state.actionFileSystem =
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
@@ -564,8 +564,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           env, actionLookupData, action, skyframeActionExecutor.getActionCompletedReceiver());
     }
     // The metadataHandler may be recreated if we discover inputs.
-    ArtifactPathResolver pathResolver = ArtifactPathResolver.createPathResolver(
-        state.actionFileSystem, skyframeActionExecutor.getExecRoot());
+    ArtifactPathResolver pathResolver =
+        ArtifactPathResolver.createPathResolver(
+            state.actionFileSystem, skyframeActionExecutor.getExecRoot());
     ActionMetadataHandler metadataHandler =
         new ActionMetadataHandler(
             state.inputArtifactData,
@@ -573,7 +574,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
             action.getOutputs(),
             tsgm.get(),
             pathResolver,
-            state.actionFileSystem == null ? new OutputStore() : new MinimalOutputStore());
+            newOutputStore(state));
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
       state.token =
@@ -648,7 +649,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
               action.getOutputs(),
               tsgm.get(),
               pathResolver,
-              state.actionFileSystem == null ? new OutputStore() : new MinimalOutputStore());
+              newOutputStore(state));
       // Set the MetadataHandler to accept output information.
       metadataHandler.discardOutputMetadata();
     }
@@ -708,6 +709,18 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       throw new ActionExecutionException(
           "Failed to close action output", e, action, /*catastrophe=*/ false);
     }
+  }
+
+  private OutputStore newOutputStore(ContinuationState state) {
+    Preconditions.checkState(
+        !skyframeActionExecutor.actionFileSystemType().isEnabled()
+            || state.actionFileSystem != null,
+        "actionFileSystem must not be null");
+
+    if (skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem()) {
+      return new MinimalOutputStore();
+    }
+    return new OutputStore();
   }
 
   /** Implementation of {@link ActionPostprocessing}. */
@@ -860,7 +873,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     /** Artifact expansion mapping for Filesets embedded in Runfiles. */
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
-    public CheckInputResults(ActionInputMap actionInputMap,
+    public CheckInputResults(
+        ActionInputMap actionInputMap,
         Map<Artifact, Collection<Artifact>> expandedArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.actionInputMap = actionInputMap;
@@ -933,12 +947,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         SkyValue value = depsEntry.getValue().get();
         if (populateInputData) {
           ActionInputMapHelper.addToMap(
-              inputArtifactData,
-              expandedArtifacts,
-              expandedFilesets,
-              input,
-              value,
-              env);
+              inputArtifactData, expandedArtifacts, expandedFilesets, input, value, env);
         }
       } catch (MissingInputFileException e) {
         missingCount++;

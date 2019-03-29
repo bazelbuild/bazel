@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -418,15 +419,17 @@ public final class SkyframeActionExecutor {
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
-  boolean usesActionFileSystem() {
-    return outputService != null && outputService.supportsActionFileSystem();
+  ActionFileSystemType actionFileSystemType() {
+    return outputService != null
+        ? outputService.actionFileSystemType()
+        : ActionFileSystemType.DISABLED;
   }
 
   Path getExecRoot() {
     return executorEngine.getExecRoot();
   }
 
-  /** REQUIRES: {@link #usesActionFileSystem()} is true */
+  /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
@@ -886,7 +889,7 @@ public final class SkyframeActionExecutor {
               "%s %s",
               actionExecutionContext.getMetadataHandler(),
               metadataHandler);
-          if (!usesActionFileSystem()) {
+          if (!actionFileSystemType().inMemoryFileSystem()) {
             try {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
