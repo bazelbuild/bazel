@@ -56,10 +56,5 @@ public class NullTransition implements PatchTransition {
     public ConfigurationTransition create(TransitionFactoryData unused) {
       return INSTANCE;
     }
-
-    @Override
-    public boolean isFinal() {
-      return true;
-    }
   }
 }

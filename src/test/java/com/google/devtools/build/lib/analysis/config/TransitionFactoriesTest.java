@@ -37,7 +37,6 @@ public class TransitionFactoriesTest {
     assertThat(HostTransition.isInstance(factory)).isTrue();
     assertThat(factory.isHost()).isTrue();
     assertThat(factory.isSplit()).isFalse();
-    assertThat(factory.isFinal()).isTrue();
   }
 
   @Test
@@ -48,7 +47,6 @@ public class TransitionFactoriesTest {
     assertThat(NoTransition.isInstance(factory)).isTrue();
     assertThat(factory.isHost()).isFalse();
     assertThat(factory.isSplit()).isFalse();
-    assertThat(factory.isFinal()).isFalse();
   }
 
   @Test
@@ -59,7 +57,6 @@ public class TransitionFactoriesTest {
     assertThat(NullTransition.isInstance(factory)).isTrue();
     assertThat(factory.isHost()).isFalse();
     assertThat(factory.isSplit()).isFalse();
-    assertThat(factory.isFinal()).isTrue();
   }
 
   @Test
@@ -70,6 +67,5 @@ public class TransitionFactoriesTest {
     assertThat(factory).isNotNull();
     assertThat(factory.isHost()).isFalse();
     assertThat(factory.isSplit()).isTrue();
-    assertThat(factory.isFinal()).isFalse();
   }
 }

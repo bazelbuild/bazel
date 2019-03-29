@@ -178,7 +178,7 @@ public class ComposingTransitionFactoryTest {
             NullTransition.createFactory(), TransitionFactories.of(patch));
 
     assertThat(composed).isNotNull();
-    assertThat(composed.isFinal()).isTrue();
+    assertThat(NullTransition.isInstance(composed)).isTrue();
   }
 
   @Test
@@ -189,7 +189,7 @@ public class ComposingTransitionFactoryTest {
             TransitionFactories.of(patch), NullTransition.createFactory());
 
     assertThat(composed).isNotNull();
-    assertThat(composed.isFinal()).isTrue();
+    assertThat(NullTransition.isInstance(composed)).isTrue();
   }
 
   private static final class StubData implements TransitionFactory.TransitionFactoryData {}

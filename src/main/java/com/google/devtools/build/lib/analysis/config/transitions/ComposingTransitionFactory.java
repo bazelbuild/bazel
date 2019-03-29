@@ -83,11 +83,6 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactoryData
     return transitionFactory1().isSplit() || transitionFactory2().isSplit();
   }
 
-  @Override
-  public boolean isFinal() {
-    return transitionFactory1().isFinal() || transitionFactory2().isFinal();
-  }
-
   // TODO(https://github.com/bazelbuild/bazel/issues/7814): Move ComposingTransition here and make
   // it private.
 }
