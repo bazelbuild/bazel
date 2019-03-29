@@ -52,7 +52,7 @@ public final class SimpleBlobStoreFactory {
       RemoteOptions options, @Nullable Credentials creds, Path workingDirectory)
       throws IOException {
 
-    Preconditions.checkNotNull(workingDirectory);
+    Preconditions.checkNotNull(workingDirectory, "workingDirectory");
     if (isHttpUrlOptions(options) && isDiskCache(options)) {
       return createCombinedCache(workingDirectory, options.diskCache, options, creds);
     }
@@ -97,7 +97,7 @@ public final class SimpleBlobStoreFactory {
 
   private static SimpleBlobStore createDiskCache(Path workingDirectory, PathFragment diskCachePath)
       throws IOException {
-    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath));
+    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
@@ -107,7 +107,7 @@ public final class SimpleBlobStoreFactory {
   private static SimpleBlobStore createCombinedCache(
       Path workingDirectory, PathFragment diskCachePath, RemoteOptions options, Credentials cred)
       throws IOException {
-    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath));
+    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
