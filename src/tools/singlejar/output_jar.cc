@@ -391,7 +391,7 @@ bool OutputJar::AddJar(int jar_path_index) {
         known_members_.emplace(service_path, EntryInfo{service_handler});
       }
     } else {
-      ExtraHandler(jar_entry, &input_jar_aux_label);
+      ExtraHandler(input_jar_path, jar_entry, &input_jar_aux_label);
     }
 
     if (options_->check_desugar_deps &&
@@ -1000,4 +1000,5 @@ bool OutputJar::WriteBytes(const void *buffer, size_t count) {
   return written == count;
 }
 
-void OutputJar::ExtraHandler(const CDH *, const std::string *) {}
+void OutputJar::ExtraHandler(const std::string &input_jar_path, const CDH *,
+                             const std::string *) {}
