@@ -2398,14 +2398,14 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testIsToolchainResolutionEnabled_disabled() throws Exception {
-    useConfiguration("--experimental_use_toolchain_resolution_for_java_rules=false");
+    useConfiguration("--incompatible_use_toolchain_resolution_for_java_rules=false");
 
     assertThat(toolchainResolutionEnabled()).isFalse();
   }
 
   @Test
   public void testIsToolchainResolutionEnabled_enabled() throws Exception {
-    useConfiguration("--experimental_use_toolchain_resolution_for_java_rules");
+    useConfiguration("--incompatible_use_toolchain_resolution_for_java_rules");
 
     assertThat(toolchainResolutionEnabled()).isTrue();
   }
