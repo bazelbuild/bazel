@@ -1,5 +1,15 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
+filegroup(
+    name = "srcs",
+    srcs = [
+        "BUILD.android_tools",
+        "WORKSPACE.android_tools",
+        "upload_android_tools.sh",
+        "BUILD.bazel",
+    ],
+)
+
 genrule(
     name = "strip_android_tools_suffix",
     srcs = [
