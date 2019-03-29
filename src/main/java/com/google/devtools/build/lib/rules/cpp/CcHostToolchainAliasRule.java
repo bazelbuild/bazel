@@ -33,6 +33,6 @@ public class CcHostToolchainAliasRule extends CommonAliasRule<CppConfiguration> 
   @Override
   protected Attribute.Builder<Label> makeAttribute(RuleDefinitionEnvironment environment) {
     Attribute.Builder<Label> builder = super.makeAttribute(environment);
-    return builder.cfg(HostTransition.INSTANCE);
+    return builder.cfg(HostTransition.createFactory());
   }
 }

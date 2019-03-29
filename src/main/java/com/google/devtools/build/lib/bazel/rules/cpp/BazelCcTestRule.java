@@ -52,7 +52,7 @@ public final class BazelCcTestRule implements RuleDefinition {
                         "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main")))
         .add(
             attr("$collect_cc_coverage", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         .build();

@@ -83,7 +83,7 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
                       "native_test",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
                       attr("host_deps", LABEL_LIST)
-                          .cfg(HostTransition.INSTANCE)
+                          .cfg(HostTransition.createFactory())
                           .allowedFileTypes());
 
   private static final RuleDefinition NATIVE_LIB_RULE =
@@ -94,7 +94,7 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
                       "native_lib",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
                       attr("host_deps", LABEL_LIST)
-                          .cfg(HostTransition.INSTANCE)
+                          .cfg(HostTransition.createFactory())
                           .allowedFileTypes());
 
   @Before

@@ -44,7 +44,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .setOutputToGenfiles()
         .add(
             attr("$genrule_setup", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.

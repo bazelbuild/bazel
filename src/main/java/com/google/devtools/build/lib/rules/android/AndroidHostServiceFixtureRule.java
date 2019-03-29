@@ -31,11 +31,12 @@ public class AndroidHostServiceFixtureRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .setUndocumented()
-        .add(attr("executable", LABEL)
-            .exec()
-            .cfg(HostTransition.INSTANCE)
-            .mandatory()
-            .allowedFileTypes())
+        .add(
+            attr("executable", LABEL)
+                .exec()
+                .cfg(HostTransition.createFactory())
+                .mandatory()
+                .allowedFileTypes())
         .add(attr("service_names", STRING_LIST))
         .add(
             attr("support_apks", LABEL_LIST)

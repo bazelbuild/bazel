@@ -55,27 +55,27 @@ public class AarImportBaseRule implements RuleDefinition {
                 .validityPredicate(ANY_EDGE))
         .add(
             attr(AAR_EMBEDDED_JARS_EXTACTOR, LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_embedded_jars_extractor")))
         .add(
             attr(AAR_NATIVE_LIBS_ZIP_CREATOR, LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_native_libs_zip_creator")))
         .add(
             attr(AAR_RESOURCES_EXTRACTOR, LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_resources_extractor")))
         .add(
             attr("$import_deps_checker", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_import_deps_checker")))
         .add(
             attr(ZIPPER, LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/zip:zipper")))
         .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))

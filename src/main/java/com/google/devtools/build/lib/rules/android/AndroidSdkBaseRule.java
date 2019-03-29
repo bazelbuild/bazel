@@ -40,7 +40,7 @@ public class AndroidSdkBaseRule implements RuleDefinition {
         // This is the Proguard that comes from the --proguard_top attribute.
         .add(
             attr(":proguard", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(JavaSemantics.PROGUARD)
                 .exec())
         // This is the Proguard in the BUILD file that contains the android_sdk rule. Used when
@@ -48,82 +48,89 @@ public class AndroidSdkBaseRule implements RuleDefinition {
         .add(
             attr("proguard", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
         .add(
             attr("aapt", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
-        .add(attr("aapt2", LABEL).cfg(HostTransition.INSTANCE).allowedFileTypes(ANY_FILE).exec())
+        .add(
+            attr("aapt2", LABEL)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(ANY_FILE)
+                .exec())
         .add(
             attr("dx", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
         .add(
             attr("main_dex_list_creator", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
         .add(
             attr("adb", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
         .add(
             attr("framework_aidl", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE))
         .add(
             attr("aidl", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
         .add(attr("aidl_lib", LABEL).allowedFileTypes(JavaSemantics.JAR))
         .add(
             attr("android_jar", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(JavaSemantics.JAR))
         // TODO(b/67903726): Make this attribute mandatory after updating all android_sdk rules.
         .add(
             attr("source_properties", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE))
         .add(
             attr("shrinked_android_jar", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE))
-        .add(attr("annotations_jar", LABEL).cfg(HostTransition.INSTANCE).allowedFileTypes(ANY_FILE))
+        .add(
+            attr("annotations_jar", LABEL)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(ANY_FILE))
         .add(
             attr("main_dex_classes", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE))
         .add(
             attr("apkbuilder", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
         .add(
             attr("apksigner", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
         .add(
             attr("zipalign", LABEL)
                 .mandatory()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
         .advertiseSkylarkProvider(
