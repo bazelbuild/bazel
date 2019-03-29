@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.remote.merkletree.InputTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.InputTree.FileNode;
 import com.google.devtools.build.lib.remote.merkletree.InputTree.Node;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.remote.util.StringActionInput;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
