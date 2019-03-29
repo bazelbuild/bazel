@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
@@ -73,6 +75,7 @@ public final class CcToolchainProvider extends ToolchainInfo
           CcCompilationContext.EMPTY,
           /* supportsParamFiles= */ false,
           /* supportsHeaderParsing= */ false,
+          (buildOptions) -> CcToolchainVariables.EMPTY,
           CcToolchainVariables.EMPTY,
           /* builtinIncludeFiles= */ ImmutableList.of(),
           /* linkDynamicLibraryTool= */ null,
@@ -106,6 +109,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final CcInfo ccInfo;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
+  private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   @Nullable private final Artifact linkDynamicLibraryTool;
@@ -147,6 +151,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       CcCompilationContext ccCompilationContext,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
+      AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
       CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       Artifact linkDynamicLibraryTool,
@@ -184,6 +189,7 @@ public final class CcToolchainProvider extends ToolchainInfo
             .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
+    this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
     this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
@@ -576,12 +582,22 @@ public final class CcToolchainProvider extends ToolchainInfo
    * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
    * toolchain in rules.
    */
-  public CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas() {
+  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas() {
     return cppConfiguration;
   }
 
   /** Returns build variables to be templated into the crosstool. */
-  public CcToolchainVariables getBuildVariables() {
+  public CcToolchainVariables getBuildVariables(
+      BuildOptions buildOptions, CppConfiguration cppConfiguration) {
+    if (cppConfiguration.enableCcToolchainResolution()) {
+      // With platforms, cc toolchain is analyzed in the host configuration, so we cannot reuse
+      // build variables instance.
+      return CcToolchainProviderHelper.getBuildVariables(
+          buildOptions,
+          cppConfiguration,
+          getSysrootPathFragment(),
+          additionalBuildVariablesComputer);
+    }
     return buildVariables;
   }
 
@@ -807,6 +823,16 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   public PathFragment getDefaultSysroot() {
     return toolchainInfo.getDefaultSysroot();
+  }
+
+  public boolean requireCtxInConfigureFeatures() {
+    return getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+        .requireCtxInConfigureFeatures();
+  }
+
+  public boolean disableGenruleCcToolchainDependency() {
+    return getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+        .disableGenruleCcToolchainDependency();
   }
 }
 

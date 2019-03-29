@@ -646,4 +646,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   boolean isThisHostConfigurationDoNotUseWillBeRemovedFor129045294() {
     return isThisHostConfigurationDoNotUseWillBeRemovedFor129045294;
   }
+
+  public boolean enableCcToolchainResolution() {
+    return cppOptions.enableCcToolchainResolution;
+  }
 }

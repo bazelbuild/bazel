@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
@@ -140,7 +141,6 @@ public class CcModule
     SkylarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, SkylarkRuleContext.class);
     if (ruleContext == null
         && toolchain
-            .getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
             .requireCtxInConfigureFeatures()) {
       throw new EvalException(
           Location.BUILTIN,
@@ -153,13 +153,19 @@ public class CcModule
         ruleContext == null
             ? toolchain.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
             : ruleContext.getRuleContext().getFragment(CppConfiguration.class);
+    // buildOptions are only used when --incompatible_enable_cc_toolchain_resolution is flipped,
+    // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
+    // flipped.
+    BuildOptions buildOptions =
+        ruleContext == null ? null : ruleContext.getConfiguration().getOptions();
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.copyOf(requestedFeatures),
             ImmutableSet.copyOf(unsupportedFeatures),
             toolchain,
             cppConfiguration),
-        cppConfiguration);
+        cppConfiguration,
+        buildOptions);
   }
 
   @Override
@@ -218,6 +224,10 @@ public class CcModule
     return CompileBuildVariables.setupVariablesOrThrowEvalException(
         featureConfiguration.getFeatureConfiguration(),
         ccToolchainProvider,
+        featureConfiguration
+            .getBuildOptionsFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
+        featureConfiguration
+            .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
         convertFromNoneable(sourceFile, /* defaultValue= */ null),
         convertFromNoneable(outputFile, /* defaultValue= */ null),
         /* gcnoFile= */ null,
@@ -268,6 +278,8 @@ public class CcModule
         ccToolchainProvider,
         featureConfiguration
             .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
+        featureConfiguration
+            .getBuildOptionsFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
         featureConfiguration.getFeatureConfiguration(),
         useTestOnlyFlags,
         /* isLtoIndexing= */ false,

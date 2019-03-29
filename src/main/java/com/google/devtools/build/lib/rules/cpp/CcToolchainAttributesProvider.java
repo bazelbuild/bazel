@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.syntax.Type;
 
 /**
@@ -85,7 +86,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
   private final Label toolchainType;
-  private final CcToolchainVariables additionalBuildVariables;
+  private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
   private final FdoProfileProvider fdoProfileProvider;
@@ -97,7 +98,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
       boolean isAppleToolchain,
-      CcToolchainVariables additionalBuildVariables) {
+      AdditionalBuildVariablesComputer additionalBuildVariablesComputer) {
     super(ImmutableMap.of(), Location.BUILTIN);
     this.ccToolchainLabel = ruleContext.getLabel();
     this.toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
@@ -202,7 +203,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     } else {
       this.toolchainType = null;
     }
-    this.additionalBuildVariables = additionalBuildVariables;
+    this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
   }
 
   public String getCpu() {
@@ -257,8 +258,8 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return supportsHeaderParsing;
   }
 
-  public CcToolchainVariables getAdditionalBuildVariables() {
-    return additionalBuildVariables;
+  public AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer() {
+    return additionalBuildVariablesComputer;
   }
 
   public NestedSet<Artifact> getAllFiles() {
@@ -427,6 +428,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
           .add(ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST));
     }
     return builder.build();
+  }
+
+  public Label getLibcTopLabel() {
+    return getLibcTop() == null ? null : getLibcTop().getLabel();
   }
 }
 

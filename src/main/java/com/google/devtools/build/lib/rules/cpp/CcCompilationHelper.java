@@ -1443,6 +1443,8 @@ public final class CcCompilationHelper {
         ruleErrorConsumer,
         featureConfiguration,
         ccToolchain,
+        configuration.getOptions(),
+        cppConfiguration,
         toPathString(sourceFile),
         toPathString(builder.getOutputFile()),
         toPathString(gcnoFile),

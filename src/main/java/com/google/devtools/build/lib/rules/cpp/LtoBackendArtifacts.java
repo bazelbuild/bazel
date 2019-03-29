@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -71,13 +73,14 @@ public final class LtoBackendArtifacts {
   private Artifact dwoFile;
 
   LtoBackendArtifacts(
+      RuleContext ruleContext,
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
       Map<PathFragment, Artifact> allBitCodeFiles,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
       BuildConfiguration configuration,
-      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
@@ -103,6 +106,7 @@ public final class LtoBackendArtifacts {
             FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
 
     scheduleLtoBackendAction(
+        ruleContext,
         actionConstructionContext,
         repositoryName,
         featureConfiguration,
@@ -118,12 +122,13 @@ public final class LtoBackendArtifacts {
 
   // Interface to create an LTO backend that does not perform any cross-module optimization.
   public LtoBackendArtifacts(
+      RuleContext ruleContext,
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
       BuildConfiguration configuration,
-      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
@@ -139,6 +144,7 @@ public final class LtoBackendArtifacts {
     index = null;
 
     scheduleLtoBackendAction(
+        ruleContext,
         actionConstructionContext,
         repositoryName,
         featureConfiguration,
@@ -176,6 +182,7 @@ public final class LtoBackendArtifacts {
   }
 
   private void scheduleLtoBackendAction(
+      RuleContext ruleContext,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
       FeatureConfiguration featureConfiguration,
@@ -184,7 +191,7 @@ public final class LtoBackendArtifacts {
       boolean usePic,
       boolean generateDwo,
       BuildConfiguration configuration,
-      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      LinkArtifactFactory linkArtifactFactory,
       List<String> userCompileFlags,
       Map<PathFragment, Artifact> bitcodeFiles) {
     LtoBackendAction.Builder builder = new LtoBackendAction.Builder();
@@ -217,7 +224,10 @@ public final class LtoBackendArtifacts {
 
     builder.setExecutable(compiler);
     CcToolchainVariables.Builder buildVariablesBuilder =
-        new CcToolchainVariables.Builder(ccToolchain.getBuildVariables());
+        new CcToolchainVariables.Builder(
+            ccToolchain.getBuildVariables(
+                ruleContext.getConfiguration().getOptions(),
+                ruleContext.getFragment(CppConfiguration.class)));
     if (index != null) {
       buildVariablesBuilder.addStringVariable("thinlto_index", index.getExecPath().toString());
     } else {
