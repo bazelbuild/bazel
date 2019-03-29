@@ -41,7 +41,6 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Test-related options. */
 public class TestConfiguration extends Fragment {
@@ -232,12 +231,6 @@ public class TestConfiguration extends Fragment {
                 + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.")
     public boolean windowsNativeTestWrapper;
 
-    @Override
-    public Map<String, Set<Label>> getDefaultsLabels() {
-      return ImmutableMap.<String, Set<Label>>of(
-          "coverage_support", ImmutableSet.of(coverageSupport),
-          "coverage_report_generator", ImmutableSet.of(coverageReportGenerator));
-    }
 
     @Override
     public FragmentOptions getHost() {

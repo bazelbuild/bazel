@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
@@ -32,10 +31,8 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Command-line options for building Java targets */
 public class JavaOptions extends FragmentOptions {
@@ -741,12 +738,4 @@ public class JavaOptions extends FragmentOptions {
     return host;
   }
 
-  @Override
-  public Map<String, Set<Label>> getDefaultsLabels() {
-    Map<String, Set<Label>> result = new HashMap<>();
-    result.put("JDK", ImmutableSet.of(javaBase, getHostJavaBase()));
-    result.put("JAVA_TOOLCHAIN", ImmutableSet.of(getJavaToolchain()));
-
-    return result;
-  }
 }

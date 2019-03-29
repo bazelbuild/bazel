@@ -34,10 +34,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /** Command-line options for C++. */
 public class CppOptions extends FragmentOptions {
@@ -894,24 +891,6 @@ public class CppOptions extends FragmentOptions {
     host.dontEnableHostNonhost = dontEnableHostNonhost;
     host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     return host;
-  }
-
-  @Override
-  public Map<String, Set<Label>> getDefaultsLabels() {
-    Set<Label> crosstoolLabels = new LinkedHashSet<>();
-    crosstoolLabels.add(crosstoolTop);
-    if (hostCrosstoolTop != null) {
-      crosstoolLabels.add(hostCrosstoolTop);
-    }
-
-    if (libcTopLabel != null) {
-      Label libcLabel = libcTopLabel;
-      if (libcLabel != null) {
-        crosstoolLabels.add(libcLabel);
-      }
-    }
-
-    return ImmutableMap.of("CROSSTOOL", crosstoolLabels);
   }
 
   /**
