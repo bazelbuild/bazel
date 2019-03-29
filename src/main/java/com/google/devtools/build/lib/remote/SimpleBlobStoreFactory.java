@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.auth.Credentials;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.remote.blobstore.CombinedDiskHttpBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -37,19 +38,28 @@ public final class SimpleBlobStoreFactory {
 
   private SimpleBlobStoreFactory() {}
 
-  // TODO(ishikhman): make workingDirectory not nullable
+  public static SimpleBlobStore create(RemoteOptions remoteOptions, @Nullable Path casPath) {
+    if (isHttpUrlOptions(remoteOptions)) {
+      return createHttp(remoteOptions, /* creds= */ null);
+    } else if (casPath != null) {
+      return new OnDiskBlobStore(casPath);
+    } else {
+      return new ConcurrentMapBlobStore(new ConcurrentHashMap<>());
+    }
+  }
+
   public static SimpleBlobStore create(
-      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
+      RemoteOptions options, @Nullable Credentials creds, Path workingDirectory)
       throws IOException {
 
+    Preconditions.checkNotNull(workingDirectory, "workingDirectory");
     if (isHttpUrlOptions(options) && isDiskCache(options)) {
       return createCombinedCache(workingDirectory, options.diskCache, options, creds);
     }
     if (isHttpUrlOptions(options)) {
       return createHttp(options, creds);
     }
-    // TODO(ishikhman): check this condition when making workingDirectory not nullable
-    if (workingDirectory != null && isDiskCache(options)) {
+    if (isDiskCache(options)) {
       return createDiskCache(workingDirectory, options.diskCache);
     }
     throw new IllegalArgumentException(
@@ -87,7 +97,8 @@ public final class SimpleBlobStoreFactory {
 
   private static SimpleBlobStore createDiskCache(Path workingDirectory, PathFragment diskCachePath)
       throws IOException {
-    Path cacheDir = workingDirectory.getRelative(checkNotNull(diskCachePath));
+    Path cacheDir =
+        workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
@@ -97,7 +108,8 @@ public final class SimpleBlobStoreFactory {
   private static SimpleBlobStore createCombinedCache(
       Path workingDirectory, PathFragment diskCachePath, RemoteOptions options, Credentials cred)
       throws IOException {
-    Path cacheDir = workingDirectory.getRelative(checkNotNull(diskCachePath));
+    Path cacheDir =
+        workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
