@@ -51,7 +51,7 @@ public class SimpleBlobStoreFactoryTest {
 
   @Test
   public void createCombinedCacheWithExistingWorkingDirectory() throws IOException {
-    remoteOptions.remoteHttpCache = "http://doesnotesist.com";
+    remoteOptions.remoteHttpCache = "http://doesnotexist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     fs.getPath("/etc/something/cache/here").createDirectoryAndParents();
 
@@ -62,7 +62,7 @@ public class SimpleBlobStoreFactoryTest {
 
   @Test
   public void createCombinedCacheWithNotExistingWorkingDirectory() throws IOException {
-    remoteOptions.remoteHttpCache = "http://doesnotesist.com";
+    remoteOptions.remoteHttpCache = "http://doesnotexist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     assertThat(workingDirectory.exists()).isFalse();
 
@@ -75,7 +75,7 @@ public class SimpleBlobStoreFactoryTest {
   @Test
   public void createCombinedCacheWithMissingWorkingDirectoryShouldThrowException() {
     // interesting case: workingDirectory = null -> NPE.
-    remoteOptions.remoteHttpCache = "http://doesnotesist.com";
+    remoteOptions.remoteHttpCache = "http://doesnotexist.com";
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
 
     assertThrows(NullPointerException.class,
@@ -84,7 +84,7 @@ public class SimpleBlobStoreFactoryTest {
 
   @Test
   public void createHttpCacheWithProxy() throws IOException {
-    remoteOptions.remoteHttpCache = "http://doesnotesist.com";
+    remoteOptions.remoteHttpCache = "http://doesnotexist.com";
     remoteOptions.remoteCacheProxy = "unix://some-proxy";
 
     SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
@@ -94,18 +94,18 @@ public class SimpleBlobStoreFactoryTest {
 
   @Test
   public void createHttpCacheFailsWithUnsupportedProxyProtocol() {
-    remoteOptions.remoteHttpCache = "http://doesnotesist.com";
+    remoteOptions.remoteHttpCache = "http://doesnotexist.com";
     remoteOptions.remoteCacheProxy = "bad-proxy";
 
     assertThat(
-        assertThrows(Exception.class,
+        assertThrows(RuntimeException.class,
             () -> SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory)))
         .hasMessageThat().contains("Remote cache proxy unsupported: bad-proxy");
   }
 
   @Test
   public void createHttpCacheWithoutProxy() throws IOException {
-    remoteOptions.remoteHttpCache = "http://doesnotesist.com";
+    remoteOptions.remoteHttpCache = "http://doesnotexist.com";
 
     SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
 
