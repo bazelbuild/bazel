@@ -6,5 +6,5 @@ http_archive(
     name = "legacy_android_tools",
     url = "https://github.com/jin/legacy_android_tools/archive/%s.zip" % ANDROID_TOOLS_COMMIT,
     strip_prefix = "legacy_android_tools-%s" % ANDROID_TOOLS_COMMIT,
-    sha256 = "",
+    sha256 = "7210c2c5dcd2053165c68f00ae83c37ac4a6b04cd309193ded12fe828d875ed9",
 )
