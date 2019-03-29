@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -164,7 +163,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   private ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
       Environment env,
       BuildConfiguration configuration,
-      ImmutableList<String> targetPatterns,
+      ImmutableMap<RepositoryName, ImmutableList<String>> targetPatterns,
       List<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     ImmutableList<SkyKey> keys =
@@ -191,20 +190,22 @@ public class RegisteredToolchainsFunction implements SkyFunction {
         DeclaredToolchainInfo toolchainInfo = target.getProvider(DeclaredToolchainInfo.class);
 
         if (toolchainInfo == null) {
-          if (TargetPatternUtil.isTargetExplicit(targetPatterns, toolchainLabel)) {
-            // Only report an error if the label was explicitly requested.
-            throw new RegisteredToolchainsFunctionException(
-                new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);
-          }
+          // errrrr unclear what to do here with remapping...
+          // if (TargetPatternUtil.isTargetExplicit(targetPatterns, toolchainLabel)) {
+          //   // Only report an error if the label was explicitly requested.
+          //   throw new RegisteredToolchainsFunctionException(
+          //       new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);
+          // }
           continue;
         }
         toolchains.add(toolchainInfo);
       } catch (ConfiguredValueCreationException e) {
-        if (TargetPatternUtil.isTargetExplicit(targetPatterns, toolchainLabel)) {
-          // Only report an error if the label was explicitly requested.
-          throw new RegisteredToolchainsFunctionException(
-              new InvalidToolchainLabelException(toolchainLabel, e), Transience.PERSISTENT);
-        }
+        // if (TargetPatternUtil.isTargetExplicit(targetPatterns, toolchainLabel)) {
+        //   // also unclear here
+        //   // Only report an error if the label was explicitly requested.
+        //   throw new RegisteredToolchainsFunctionException(
+        //       new InvalidToolchainLabelException(toolchainLabel, e), Transience.PERSISTENT);
+        // }
       }
     }
 

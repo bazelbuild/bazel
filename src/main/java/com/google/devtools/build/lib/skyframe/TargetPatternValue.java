@@ -113,10 +113,13 @@ public final class TargetPatternValue implements SkyValue {
    * @param policy The filtering policy, eg "only return test targets"
    * @param offset The offset to apply to relative target patterns.
    */
+  // THIS IS PROBABLY NOT OK BUT JUST FOR NOW
+  // assume that if we're getting a single key that it's from the main repo?????
   @ThreadSafe
   public static TargetPatternKey key(String pattern, FilteringPolicy policy, String offset)
       throws TargetParsingException {
-    return Iterables.getOnlyElement(keys(ImmutableList.of(pattern), policy, offset)).getSkyKey();
+    ImmutableMap<RepositoryName, ImmutableList<String>> patternMap = ImmutableMap.of(RepositoryName.MAIN, ImmutableList.of(pattern));
+    return Iterables.getOnlyElement(keys(patternMap, policy, offset)).getSkyKey();
   }
 
   /**
@@ -132,28 +135,31 @@ public final class TargetPatternValue implements SkyValue {
    */
   @ThreadSafe
   public static Iterable<TargetPatternSkyKeyOrException> keys(
-      Map<RepositoryName, List<String>> patterns,
+      ImmutableMap<RepositoryName, ImmutableList<String>> patterns,
       FilteringPolicy policy, String offset) {
     TargetPattern.Parser parser = new TargetPattern.Parser(offset);
     ImmutableList.Builder<TargetPatternSkyKeyOrException> builder = ImmutableList.builder();
-    for (String pattern : patterns) {
-      boolean positive = !pattern.startsWith("-");
-      String absoluteValueOfPattern = positive ? pattern : pattern.substring(1);
-      TargetPattern targetPattern;
-      try {
-        targetPattern = parser.parse(absoluteValueOfPattern);
-      } catch (TargetParsingException e) {
-        builder.add(new TargetPatternSkyKeyException(e, absoluteValueOfPattern));
-        continue;
+    for (Map.Entry<RepositoryName, ImmutableList<String>> entry : patterns.entrySet()) {
+      for (String pattern : entry.getValue()) {
+        boolean positive = !pattern.startsWith("-");
+        String absoluteValueOfPattern = positive ? pattern : pattern.substring(1);
+        TargetPattern targetPattern;
+        try {
+          targetPattern = parser.parse(absoluteValueOfPattern);
+        } catch (TargetParsingException e) {
+          builder.add(new TargetPatternSkyKeyException(e, absoluteValueOfPattern));
+          continue;
+        }
+        TargetPatternKey targetPatternKey =
+            new TargetPatternKey(
+                targetPattern,
+                positive ? policy : FilteringPolicies.NO_FILTER,
+                /*isNegative=*/ !positive,
+                offset,
+                ImmutableSet.<PathFragment>of(),
+                entry.getKey());
+        builder.add(new TargetPatternSkyKeyValue(targetPatternKey));
       }
-      TargetPatternKey targetPatternKey =
-          new TargetPatternKey(
-              targetPattern,
-              positive ? policy : FilteringPolicies.NO_FILTER,
-              /*isNegative=*/ !positive,
-              offset,
-              ImmutableSet.<PathFragment>of());
-      builder.add(new TargetPatternSkyKeyValue(targetPatternKey));
     }
     return builder.build();
   }

@@ -75,6 +75,7 @@ public class TargetPatternFunction implements SkyFunction {
             }
           };
       parsedPattern.eval(
+          patternKey.getRepositoryName(),
           resolver,
           blacklisted.getPatterns(),
           excludedSubdirectories,
