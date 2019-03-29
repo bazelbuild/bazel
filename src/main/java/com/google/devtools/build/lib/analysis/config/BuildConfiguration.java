@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -63,6 +65,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -328,6 +331,20 @@ public class BuildConfiguration implements BuildConfigurationApi {
       help = "Each --define option specifies an assignment for a build variable."
     )
     public List<Map.Entry<String, String>> commandLineBuildVariables;
+
+    @Option(
+        name = "collapse_duplicate_defines",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help =
+            "When enabled, redundant --defines will be removed early in the build. This avoids"
+                + " unnecessary loss of the analysis cache for certain types of equivalent"
+                + " builds.")
+    public boolean collapseDuplicateDefines;
 
     @Option(
       name = "cpu",
@@ -957,7 +974,30 @@ public class BuildConfiguration implements BuildConfigurationApi {
       return host;
     }
 
+    @Override
+    public Options getNormalized() {
+      Options result = (Options) super.getNormalized();
 
+      if (collapseDuplicateDefines) {
+        LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : result.commandLineBuildVariables) {
+          // If the same --define flag is passed multiple times we keep the last value.
+          flagValueByName.put(entry.getKey(), entry.getValue());
+        }
+
+        // This check is an optimization to avoid creating a new list if the normalization was a
+        // no-op.
+        if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
+          result.commandLineBuildVariables =
+              flagValueByName.entrySet().stream()
+                  // The entries in the transformed list must be serializable.
+                  .map(SimpleEntry::new)
+                  .collect(toImmutableList());
+        }
+      }
+
+      return result;
+    }
   }
 
   private final String checksum;
