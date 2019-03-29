@@ -501,45 +501,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testEmptyCompileBuildVariables() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "compiler_flag: '-foo'", "cxx_flag: '-foo_for_cxx_only'");
-    useConfiguration(
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    SkylarkList<String> commandLine =
-        commandLineForVariables(
-            CppActionNames.CPP_COMPILE,
-            "cc_common.create_compile_variables(",
-            "feature_configuration = feature_configuration,",
-            "cc_toolchain = toolchain,",
-            ")");
-    assertThat(commandLine).contains("-foo");
-    assertThat(commandLine).doesNotContain("-foo_for_cxx_only");
-  }
-
-  @Test
-  public void testEmptyCompileBuildVariablesForCxx() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "compiler_flag: '-foo'", "cxx_flag: '-foo_for_cxx_only'");
-    useConfiguration(
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_COMPILE,
-                "cc_common.create_compile_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "add_legacy_cxx_options = True",
-                ")"))
-        .containsAllOf("-foo", "-foo_for_cxx_only")
-        .inOrder();
-  }
-
-  @Test
   public void testCompileBuildVariablesWithSourceFile() throws Exception {
     assertThat(
             commandLineForVariables(
@@ -855,78 +816,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "user_link_flags = [ '-i_dont_want_to_see_this_on_archiver_command_line' ],",
                 ")"))
         .doesNotContain("-i_dont_want_to_see_this_on_archiver_command_line");
-  }
-
-  @Test
-  public void testUseTestOnlyFlagsLinkVariables() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "test_only_linker_flag: '-im_only_testing_flag'");
-    useConfiguration(
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                0,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "use_test_only_flags = False,",
-                ")"))
-        .doesNotContain("-im_only_testing_flag");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                1,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "use_test_only_flags = True,",
-                ")"))
-        .contains("-im_only_testing_flag");
-  }
-
-  @Test
-  public void testIsStaticLinkingModeLinkVariables() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "linking_mode_flags {",
-            "  mode: MOSTLY_STATIC",
-            "  linker_flag: '-static_linking_mode_flag'",
-            "}",
-            "linking_mode_flags {",
-            "  mode: DYNAMIC",
-            "  linker_flag: '-dynamic_linking_mode_flag'",
-            "}");
-    useConfiguration(
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    SkylarkList<String> staticLinkingModeFlags =
-        commandLineForVariables(
-            CppActionNames.CPP_LINK_EXECUTABLE,
-            0,
-            "cc_common.create_link_variables(",
-            "feature_configuration = feature_configuration,",
-            "cc_toolchain = toolchain,",
-            "is_static_linking_mode = True,",
-            ")");
-    assertThat(staticLinkingModeFlags).contains("-static_linking_mode_flag");
-    assertThat(staticLinkingModeFlags).doesNotContain("-dynamic_linking_mode_flag");
-
-    SkylarkList<String> dynamicLinkingModeFlags =
-        commandLineForVariables(
-            CppActionNames.CPP_LINK_EXECUTABLE,
-            1,
-            "cc_common.create_link_variables(",
-            "feature_configuration = feature_configuration,",
-            "cc_toolchain = toolchain,",
-            "is_static_linking_mode = False,",
-            ")");
-    assertThat(dynamicLinkingModeFlags).doesNotContain("-static_linking_mode_flag");
-    assertThat(dynamicLinkingModeFlags).contains("-dynamic_linking_mode_flag");
   }
 
   private SkylarkList<String> commandLineForVariables(String actionName, String... variables)

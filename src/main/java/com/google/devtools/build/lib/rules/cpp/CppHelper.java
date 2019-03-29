@@ -171,65 +171,6 @@ public class CppHelper {
     return result;
   }
 
-  /**
-   * Returns the immutable list of linker options for fully statically linked outputs. Does not
-   * include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param config the CppConfiguration for this build
-   * @param toolchain the c++ toolchain
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  public static ImmutableList<String> getFullyStaticLinkOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, boolean sharedLib) {
-    if (sharedLib) {
-      return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getLegacyMostlyStaticLinkFlags(config.getCompilationMode()));
-    } else {
-      return toolchain.getLegacyFullyStaticLinkFlags(config.getCompilationMode());
-    }
-  }
-
-  /**
-   * Returns the immutable list of linker options for mostly statically linked outputs. Does not
-   * include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param config the CppConfiguration for this build
-   * @param toolchain the c++ toolchain
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  public static ImmutableList<String> getMostlyStaticLinkOptions(
-      CppConfiguration config,
-      CcToolchainProvider toolchain,
-      boolean sharedLib,
-      boolean shouldStaticallyLinkCppRuntimes) {
-    if (sharedLib) {
-      return toolchain.getSharedLibraryLinkOptions(
-          shouldStaticallyLinkCppRuntimes
-              ? toolchain.getLegacyMostlyStaticSharedLinkFlags(config.getCompilationMode())
-              : toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode()));
-    } else {
-      return toolchain.getLegacyMostlyStaticLinkFlags(config.getCompilationMode());
-    }
-  }
-
-  /**
-   * Returns the immutable list of linker options for artifacts that are not fully or mostly
-   * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param config the CppConfiguration for this build
-   * @param toolchain the c++ toolchain
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  public static ImmutableList<String> getDynamicLinkOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, Boolean sharedLib) {
-    if (sharedLib) {
-      return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode()));
-    } else {
-      return toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode());
-    }
-  }
-
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
       CppConfiguration cppConfiguration, CcToolchainProvider toolchain) {
     if (cppConfiguration.collectCodeCoverage()) {

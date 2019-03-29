@@ -69,24 +69,6 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPresenceOfLegacyCompileFlags() throws Exception {
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, "cxx_flag: '-foo'");
-    useConfiguration(
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    ImmutableList<String> copts =
-        CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.LEGACY_COMPILE_FLAGS.getVariableName());
-    assertThat(copts).contains("-foo");
-  }
-
-  @Test
   public void testPresenceOfConfigurationCompileFlags() throws Exception {
     useConfiguration("--copt=-foo");
 
@@ -99,11 +81,6 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
     assertThat(userCopts).containsAllIn(ImmutableList.<String>of("-foo", "-bar")).inOrder();
-
-    ImmutableList<String> legacyCopts =
-        CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.LEGACY_COMPILE_FLAGS.getVariableName());
-    assertThat(legacyCopts).doesNotContain("-foo");
   }
 
   @Test
@@ -119,26 +96,6 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
     assertThat(copts).contains("-foo");
-  }
-
-  @Test
-  public void testPresenceOfUnfilteredCompileFlags() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "unfiltered_cxx_flag: '--i_ll_live_forever'");
-    useConfiguration(
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    ImmutableList<String> unfilteredCompileFlags =
-        CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.UNFILTERED_COMPILE_FLAGS.getVariableName());
-    assertThat(unfilteredCompileFlags).contains("--i_ll_live_forever");
   }
 
   @Test

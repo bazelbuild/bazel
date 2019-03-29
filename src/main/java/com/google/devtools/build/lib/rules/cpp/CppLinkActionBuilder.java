@@ -898,8 +898,6 @@ public class CppLinkActionBuilder {
               collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
               collectedLibrariesToLink.getLibrariesToLink(),
               collectedLibrariesToLink.getLibrarySearchDirectories(),
-              linkingMode.equals(LinkingMode.LEGACY_FULLY_STATIC),
-              linkingMode.equals(LinkingMode.STATIC),
               /* addIfsoRelatedVariables= */ true);
     } catch (EvalException e) {
       ruleErrorConsumer.ruleError(e.getMessage());

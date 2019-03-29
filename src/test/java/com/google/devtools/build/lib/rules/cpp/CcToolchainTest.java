@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainSublist;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -36,8 +35,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -287,43 +284,6 @@ public class CcToolchainTest extends BuildViewTestCase {
               "While parsing option --dynamic_mode=very: Not a valid dynamic mode: 'very' "
                   + "(should be off, default or fully)");
     }
-  }
-
-  @Test
-  public void testParamDfDoubleQueueThresholdFactor() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
-    useConfiguration();
-
-    scratch.file("lib/BUILD", "cc_library(", "   name = 'lib',", "   srcs = ['a.cc'],", ")");
-
-    ConfiguredTarget lib = getConfiguredTarget("//lib");
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
-
-    assertDoesNotContainSublist(
-        toolchain.getLegacyCompileOptionsWithCopts(),
-        "--param",
-        "df-double-quote-threshold-factor=0");
-  }
-
-  @Test
-  public void testMergesDefaultCoptsWithUserProvidedOnes() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
-    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
-
-    ConfiguredTarget lib = getConfiguredTarget("//lib");
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
-
-    List<String> expected = new ArrayList<>();
-    expected.addAll(toolchain.getLegacyCompileOptionsWithCopts());
-    expected.add("-Dfoo");
-
-    useConfiguration("--copt", "-Dfoo");
-    lib = getConfiguredTarget("//lib");
-    toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
-    assertThat(ImmutableList.copyOf(toolchain.getLegacyCompileOptionsWithCopts()))
-        .isEqualTo(ImmutableList.copyOf(expected));
   }
 
   public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
@@ -729,21 +689,6 @@ public class CcToolchainTest extends BuildViewTestCase {
     assertThat(toolchainProvider.supportsDynamicLinker(FeatureConfiguration.EMPTY)).isFalse();
   }
 
-  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is not
-  // present at all in the toolchain.
-  @Test
-  public void testStaticLinkCppRuntimesSetViaSupportsEmbeddedRuntimesUnset() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
-    useConfiguration();
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(getRuleContext(target), toolchainProvider);
-    assertThat(toolchainProvider.supportsEmbeddedRuntimes())
-        .isEqualTo(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
-  }
-
   private FeatureConfiguration getFeatureConfigurationForStaticLinkCppRuntimes(
       String partialToolchain, String... configurationToUse) throws Exception {
     scratch.file("a/BUILD", "cc_binary(name = 'a')");
@@ -762,44 +707,6 @@ public class CcToolchainTest extends BuildViewTestCase {
                 .findFirst()
                 .get();
     return action.getLinkCommandLine().getFeatureConfiguration();
-  }
-
-  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is true in
-  // the toolchain and the feature is not present at all.
-  @Test
-  public void testSupportsEmbeddedRuntimesNoFeatureAtAll() throws Exception {
-    FeatureConfiguration featureConfiguration =
-        getFeatureConfigurationForStaticLinkCppRuntimes(
-            "supports_embedded_runtimes: true",
-            "--noincompatible_disable_legacy_crosstool_fields",
-            "--noincompatible_disable_crosstool_file");
-    assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isTrue();
-  }
-
-  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is true in
-  // the toolchain and the feature is enabled.
-  @Test
-  public void testSupportsEmbeddedRuntimesFeatureEnabled() throws Exception {
-    FeatureConfiguration featureConfiguration =
-        getFeatureConfigurationForStaticLinkCppRuntimes(
-            "supports_embedded_runtimes: true",
-            "--features=static_link_cpp_runtimes",
-            "--noincompatible_disable_legacy_crosstool_fields",
-            "--noincompatible_disable_crosstool_file");
-    assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isTrue();
-  }
-
-  // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is true in
-  // the toolchain and the feature is disabled.
-  @Test
-  public void testStaticLinkCppRuntimesOverridesSupportsEmbeddedRuntimes() throws Exception {
-    FeatureConfiguration featureConfiguration =
-        getFeatureConfigurationForStaticLinkCppRuntimes(
-            "supports_embedded_runtimes: true",
-            "--features=-static_link_cpp_runtimes",
-            "--noincompatible_disable_legacy_crosstool_fields",
-            "--noincompatible_disable_crosstool_file");
-    assertThat(featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)).isFalse();
   }
 
   @Test

@@ -110,7 +110,6 @@ public class CcToolchainProviderHelper {
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
             ruleContext,
-            cppConfiguration.disableLegacyCrosstoolFields(),
             cppConfiguration.disableGenruleCcToolchainDependency(),
             cppConfiguration.getTransformedCpuFromOptions(),
             cppConfiguration.getCompilerFromOptions(),
@@ -371,7 +370,6 @@ public class CcToolchainProviderHelper {
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
   private static CppToolchainInfo getCppToolchainInfo(
       RuleContext ruleContext,
-      boolean disableLegacyCrosstoolFields,
       boolean disableGenruleCcToolchainDependency,
       String cpuFromOptions,
       String compilerFromOptions,
@@ -388,7 +386,6 @@ public class CcToolchainProviderHelper {
         return CppToolchainInfo.create(
             ruleContext.getLabel(),
             configInfo,
-            disableLegacyCrosstoolFields,
             disableGenruleCcToolchainDependency);
       } catch (EvalException e) {
         throw ruleContext.throwWithRuleError(e.getMessage());
@@ -418,12 +415,10 @@ public class CcToolchainProviderHelper {
                   .getSkylarkSemantics()
                   .incompatibleDoNotSplitLinkingCmdline(),
               CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
-      CcToolchainConfigInfo ccToolchainConfigInfo =
-          CcToolchainConfigInfo.fromToolchain(ruleContext, toolchain);
+      CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.fromToolchain(toolchain);
       return CppToolchainInfo.create(
           attributes.getCcToolchainLabel(),
           ccToolchainConfigInfo,
-          disableLegacyCrosstoolFields,
           disableGenruleCcToolchainDependency);
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,11 +36,6 @@ public enum CompileBuildVariables {
    * --conlyopt options.
    */
   USER_COMPILE_FLAGS("user_compile_flags"),
-  /**
-   * Variable for all flags coming from legacy crosstool fields, such as compiler_flag,
-   * optional_compiler_flag, cxx_flag.
-   */
-  LEGACY_COMPILE_FLAGS("legacy_compile_flags"),
   /** Variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */
   UNFILTERED_COMPILE_FLAGS("unfiltered_compile_flags"),
   /** Variable for the path to the output file when output is an object file. */
@@ -154,11 +148,7 @@ public enum CompileBuildVariables {
           getSafePathStrings(includeDirs),
           getSafePathStrings(quoteIncludeDirs),
           getSafePathStrings(systemIncludeDirs),
-          defines,
-          /* addLegacyCxxOptions= */ CppFileTypes.CPP_SOURCE.matches(sourceFile)
-              || CppFileTypes.CPP_HEADER.matches(sourceFile)
-              || CppFileTypes.CPP_MODULE_MAP.matches(sourceFile)
-              || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFile));
+          defines);
     } catch (EvalException e) {
       ruleErrorConsumer.ruleError(e.getMessage());
       return CcToolchainVariables.EMPTY;
@@ -189,8 +179,7 @@ public enum CompileBuildVariables {
       Iterable<String> includeDirs,
       Iterable<String> quoteIncludeDirs,
       Iterable<String> systemIncludeDirs,
-      Iterable<String> defines,
-      boolean addLegacyCxxOptions)
+      Iterable<String> defines)
       throws EvalException {
     Preconditions.checkNotNull(directModuleMaps);
     Preconditions.checkNotNull(includeDirs);
@@ -203,20 +192,8 @@ public enum CompileBuildVariables {
     buildVariables.addStringSequenceVariable(
         USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
-    buildVariables.addLazyStringSequenceVariable(
-        LEGACY_COMPILE_FLAGS.getVariableName(),
-        getLegacyCompileFlagsSupplier(ccToolchainProvider, addLegacyCxxOptions));
-
     if (sourceFile != null) {
       buildVariables.addStringVariable(SOURCE_FILE.getVariableName(), sourceFile);
-    }
-
-    if (sourceFile == null
-        || (!CppFileTypes.OBJC_SOURCE.matches(sourceFile)
-            && !CppFileTypes.OBJCPP_SOURCE.matches(sourceFile))) {
-      buildVariables.addLazyStringSequenceVariable(
-          UNFILTERED_COMPILE_FLAGS.getVariableName(),
-          getUnfilteredCompileFlagsSupplier(ccToolchainProvider));
     }
 
     String fakeOutputFileOrRealOutputFile = fakeOutputFile != null ? fakeOutputFile : outputFile;
@@ -325,35 +302,6 @@ public enum CompileBuildVariables {
         .stream()
         .map(PathFragment::getSafePathString)
         .collect(ImmutableList.toImmutableList());
-  }
-
-  /**
-   * Supplier that computes legacy_compile_flags lazily at the execution phase.
-   *
-   * <p>Dear friends of the lambda, this method exists to limit the scope of captured variables only
-   * to arguments (to prevent accidental capture of enclosing instance which could regress memory).
-   */
-  private static Supplier<ImmutableList<String>> getLegacyCompileFlagsSupplier(
-      CcToolchainProvider toolchain, boolean addLegacyCxxOptions) {
-    return () -> {
-      ImmutableList.Builder<String> legacyCompileFlags = ImmutableList.builder();
-      legacyCompileFlags.addAll(toolchain.getLegacyCompileOptions());
-      if (addLegacyCxxOptions) {
-        legacyCompileFlags.addAll(toolchain.getLegacyCxxOptions());
-      }
-      return legacyCompileFlags.build();
-    };
-  }
-
-  /**
-   * Supplier that computes unfiltered_compile_flags lazily at the execution phase.
-   *
-   * <p>Dear friends of the lambda, this method exists to limit the scope of captured variables only
-   * to arguments (to prevent accidental capture of enclosing instance which could regress memory).
-   */
-  private static Supplier<ImmutableList<String>> getUnfilteredCompileFlagsSupplier(
-      CcToolchainProvider ccToolchain) {
-    return () -> ccToolchain.getUnfilteredCompilerOptions();
   }
 
   private static String toPathString(PathFragment a) {

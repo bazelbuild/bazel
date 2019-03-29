@@ -44,6 +44,19 @@ public class BazelRulesModule extends BlazeModule {
   public static class GraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "incompatible_disable_legacy_crosstool_fields",
+        oldName = "experimental_disable_legacy_crosstool_fields",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableLegacyCrosstoolFields;
+
+    @Option(
         name = "incompatible_require_feature_configuration_for_pic",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
