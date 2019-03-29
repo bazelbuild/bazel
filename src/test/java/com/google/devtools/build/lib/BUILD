@@ -762,7 +762,7 @@ java_test(
 java_test(
     name = "analysis_config_test",
     srcs = glob([
-        "analysis/config/*.java",
+        "analysis/config/**/*.java",
     ]),
     tags = ["analysis"],
     test_class = "com.google.devtools.build.lib.AllTests",

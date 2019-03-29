@@ -50,9 +50,4 @@ public interface TransitionFactory<T extends TransitionFactoryData> {
   default boolean isSplit() {
     return false;
   }
-
-  /** Returns {@code true} if the result of this {@link TransitionFactory} is a final transition. */
-  default boolean isFinal() {
-    return false;
-  }
 }
