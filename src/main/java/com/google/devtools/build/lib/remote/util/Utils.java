@@ -14,8 +14,16 @@
 package com.google.devtools.build.lib.remote.util;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /** Utility methods for the remote package. * */
 public class Utils {
@@ -38,6 +46,54 @@ public class Utils {
         throw (RuntimeException) e.getCause();
       }
       throw new IOException(e.getCause());
+    }
+  }
+
+  /**
+   * Returns the (exec root relative) path of a spawn output that should be made available via
+   * {@link SpawnResult#getInMemoryOutput(ActionInput)}.
+   */
+  @Nullable
+  public static PathFragment getInMemoryOutputPath(Spawn spawn) {
+    String outputPath =
+        spawn.getExecutionInfo().get(ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS);
+    if (outputPath != null) {
+      return PathFragment.create(outputPath);
+    }
+    return null;
+  }
+
+  /** Constructs a {@link SpawnResult}. */
+  public static SpawnResult createSpawnResult(
+      int exitCode, boolean cacheHit, String runnerName, @Nullable InMemoryOutput inMemoryOutput) {
+    SpawnResult.Builder builder =
+        new SpawnResult.Builder()
+            .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
+            .setExitCode(exitCode)
+            .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
+            .setCacheHit(cacheHit);
+    if (inMemoryOutput != null) {
+      builder.setInMemoryOutput(inMemoryOutput.getOutput(), inMemoryOutput.getContents());
+    }
+    return builder.build();
+  }
+
+  /** An in-memory output file. */
+  public static final class InMemoryOutput {
+    private final ActionInput output;
+    private final ByteString contents;
+
+    public InMemoryOutput(ActionInput output, ByteString contents) {
+      this.output = output;
+      this.contents = contents;
+    }
+
+    public ActionInput getOutput() {
+      return output;
+    }
+
+    public ByteString getContents() {
+      return contents;
     }
   }
 }
