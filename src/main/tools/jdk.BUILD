@@ -68,6 +68,16 @@ filegroup(
 
 filegroup(
     deprecation = DEPRECATION_MESSAGE,
+    name = "javadoc",
+    srcs = select({
+        ":windows": ["bin/javadoc.exe"],
+        "//conditions:default": ["bin/javadoc"],
+    }),
+    data = [":jdk"],
+)
+
+filegroup(
+    deprecation = DEPRECATION_MESSAGE,
     name = "xjc",
     srcs = ["bin/xjc"],
 )

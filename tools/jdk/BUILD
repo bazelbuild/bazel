@@ -123,6 +123,11 @@ alias(
     actual = "@local_jdk//:javac",
 )
 
+alias(
+    name = "javadoc",
+    actual = "@local_jdk//:javadoc",
+)
+
 # On Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent. Thus, we create a little filegroup that
 # contains the appropriate platform-dependent file.
