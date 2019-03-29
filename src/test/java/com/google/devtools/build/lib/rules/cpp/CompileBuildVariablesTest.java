@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -127,6 +128,43 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
         .isEqualTo("/usr/local/custom-sysroot");
+  }
+
+  @Test
+  public void testTargetSysrootWithoutPlatforms() throws Exception {
+    useConfiguration("--grte_top=//target_libc", "--host_grte_top=//host_libc");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+    scratch.file("target_libc/BUILD", "filegroup(name = 'everything')");
+    scratch.file("host_libc/BUILD", "filegroup(name = 'everything')");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
+        .isEqualTo("target_libc");
+  }
+
+  @Test
+  public void testTargetSysrootWithPlatforms() throws Exception {
+    MockPlatformSupport.addMockK8Platform(
+        mockToolsConfig, analysisMock.ccSupport().getMockCrosstoolLabel());
+    useConfiguration(
+        "--experimental_platforms=//mock_platform:mock-k8-platform",
+        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8",
+        "--incompatible_enable_cc_toolchain_resolution",
+        "--grte_top=//target_libc",
+        "--host_grte_top=//host_libc");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+    scratch.file("target_libc/BUILD", "filegroup(name = 'everything')");
+    scratch.file("host_libc/BUILD", "filegroup(name = 'everything')");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
+        .isEqualTo("target_libc");
   }
 
   @Test

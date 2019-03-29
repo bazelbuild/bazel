@@ -215,6 +215,8 @@ public class CcToolchainProviderHelper {
 
     PathFragment sysroot =
         calculateSysroot(attributes.getLibcTopLabel(), toolchainInfo.getDefaultSysroot());
+    PathFragment targetSysroot =
+        calculateSysroot(attributes.getTargetLibcTopLabel(), toolchainInfo.getDefaultSysroot());
 
     ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
     for (String s : toolchainInfo.getRawBuiltInIncludeDirectories()) {
@@ -246,6 +248,7 @@ public class CcToolchainProviderHelper {
         attributes.getDwpFiles(),
         attributes.getCoverage(),
         attributes.getLibc(),
+        attributes.getTargetLibc(),
         staticRuntimeLinkInputs,
         staticRuntimeLinkMiddleman,
         dynamicRuntimeLinkSymlinks,
@@ -261,9 +264,11 @@ public class CcToolchainProviderHelper {
             sysroot,
             attributes.getAdditionalBuildVariablesComputer()),
         getBuiltinIncludes(attributes.getLibc()),
+        getBuiltinIncludes(attributes.getTargetLibc()),
         attributes.getLinkDynamicLibraryTool(),
         builtInIncludeDirectories,
         sysroot,
+        targetSysroot,
         fdoContext,
         configuration.isHostConfiguration(),
         attributes.getLicensesProvider());
@@ -500,20 +505,6 @@ public class CcToolchainProviderHelper {
       return null;
     }
     return new CppModuleMap(moduleMapArtifact, "crosstool");
-  }
-
-  static TransitiveInfoCollection selectDep(
-      ImmutableList<? extends TransitiveInfoCollection> deps, Label label) {
-    if (deps.isEmpty()) {
-      return null;
-    }
-    for (TransitiveInfoCollection dep : deps) {
-      if (dep.getLabel().equals(label)) {
-        return dep;
-      }
-    }
-
-    return deps.get(0);
   }
 
   /**

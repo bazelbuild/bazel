@@ -612,6 +612,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.libcTopLabel;
   }
 
+  /**
+   * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
+   */
+  public Label getTargetLibcTopLabel() {
+    return cppOptions.targetLibcTopLabel;
+  }
+
   public boolean disableGenruleCcToolchainDependency() {
     return cppOptions.disableGenruleCcToolchainDependency;
   }
