@@ -1,0 +1,35 @@
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+genrule(
+    name = "strip_android_tools_suffix",
+    srcs = [
+        "BUILD.android_tools",
+        "WORKSPACE.android_tools",
+    ],
+    outs = ["BUILD", "WORKSPACE"],
+    cmd = """
+    cp $(location BUILD.android_tools) $(location BUILD) && \
+    cp $(location WORKSPACE.android_tools) $(location WORKSPACE)
+    """,
+    tags = [
+        "manual",
+        "no_windows",
+    ]
+)
+
+pkg_tar(
+    name = "android_tools",
+    extension = "tar.gz",
+    srcs = [
+        "BUILD",
+        "WORKSPACE",
+        "//src/tools/android/java/com/google/devtools/build/android:all_android_tools_deploy.jar",
+        "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
+    ]
+)
+
+sh_binary(
+    name = "upload_android_tools",
+    srcs = ["upload_android_tools.sh"],
+    data = ["android_tools.tar.gz"],
+)

@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 java_import(
     name = "import_deps_checker_deploy_jar",
-    jars = ["@legacy_android_tools//:ImportDepsChecker_deploy.jar"],
+    jars = ["@android_tools//:ImportDepsChecker_deploy.jar"],
 )
 
 java_binary(

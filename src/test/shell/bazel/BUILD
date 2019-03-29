@@ -520,9 +520,9 @@ sh_test(
 )
 
 filegroup(
-    name = "test_WORKSPACE",
+    name = "jdk_WORKSPACE",
     srcs = [
-        "@test_WORKSPACE_files//:archives",
+        "@jdk_WORKSPACE_files//:archives",
     ],
 )
 
@@ -531,7 +531,7 @@ sh_test(
     size = "large",
     srcs = ["workspace_resolved_test.sh"],
     data = [
-        ":test_WORKSPACE",
+        ":jdk_WORKSPACE",
         ":test-deps",
     ],
     shard_count = 20,

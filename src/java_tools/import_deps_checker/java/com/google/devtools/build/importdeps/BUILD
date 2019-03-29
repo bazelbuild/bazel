@@ -49,6 +49,7 @@ java_binary(
     visibility = [
         "//src/java_tools/import_deps_checker:__subpackages__",
         "//tools/android:__pkg__",
+        "//tools/android/runtime_deps:__pkg__",
     ],
     deps = [
         ":import_deps_checker",

@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 java_import(
     name = "all_android_tools",
-    jars = ["@legacy_android_tools//:all_android_tools_deploy.jar"],
+    jars = ["@android_tools//:all_android_tools_deploy.jar"],
 )
 
 java_binary(
