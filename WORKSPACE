@@ -58,10 +58,7 @@ list_source_repository(name = "local_bazel_source_list")
 #   2. Set the $ANDROID_HOME and $ANDROID_NDK_HOME environment variables
 #   3. Uncomment the two lines below
 #
-android_sdk_repository(
-    name = "androidsdk",
-    path = "/usr/local/google/home/jingwen/sdk",
-)
+# android_sdk_repository(name = "androidsdk")
 # android_ndk_repository(name = "androidndk")
 
 # In order to run //src/test/shell/bazel:maven_skylark_test, follow the
