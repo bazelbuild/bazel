@@ -81,9 +81,5 @@ public final class HostTransition implements PatchTransition {
       return true;
     }
 
-    @Override
-    public boolean isFinal() {
-      return true;
-    }
   }
 }

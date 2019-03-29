@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
-import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -581,40 +581,36 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   @Test
   public void composedStraightTransitions() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        TransitionResolver.composeTransitions(
-            newPatchTransition("foo"),
-            newPatchTransition("bar"))))
+    assertThat(
+            getTestFilterOptionValue(
+                ComposingTransition.of(newPatchTransition("foo"), newPatchTransition("bar"))))
         .containsExactly("foobar");
   }
 
   @Test
   public void composedStraightTransitionThenSplitTransition() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        TransitionResolver.composeTransitions(
-            newPatchTransition("foo"),
-            newSplitTransition("split"))))
+    assertThat(
+            getTestFilterOptionValue(
+                ComposingTransition.of(newPatchTransition("foo"), newSplitTransition("split"))))
         .containsExactly("foosplit1", "foosplit2");
   }
 
   @Test
   public void composedSplitTransitionThenStraightTransition() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        TransitionResolver.composeTransitions(
-            newSplitTransition("split"),
-            newPatchTransition("foo"))))
+    assertThat(
+            getTestFilterOptionValue(
+                ComposingTransition.of(newSplitTransition("split"), newPatchTransition("foo"))))
         .containsExactly("split1foo", "split2foo");
   }
 
   @Test
   public void composedSplitTransitions() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        TransitionResolver.composeTransitions(
-            newSplitTransition("s"),
-            newSplitTransition("t"))))
+    assertThat(
+            getTestFilterOptionValue(
+                ComposingTransition.of(newSplitTransition("s"), newSplitTransition("t"))))
         .containsExactly("s1t1", "s1t2", "s2t1", "s2t2");
   }
 
