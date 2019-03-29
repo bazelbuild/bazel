@@ -90,6 +90,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveHeaders() throws Exception {
+    useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
         "cc_binary(",
@@ -109,6 +110,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
 
   @Test
   public void testLinkFlags() throws Exception {
+    useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
         "cc_binary(",
@@ -145,6 +147,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
 
   @Test
   public void testLibraries() throws Exception {
+    useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
         "cc_binary(",
@@ -170,6 +173,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
 
   @Test
   public void testCcFlags() throws Exception {
+    useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
         "cc_binary(",
