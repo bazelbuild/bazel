@@ -1934,4 +1934,34 @@ EOF
   expect_log 'nonexistent.*repository.*WORKSPACE'
 }
 
+function test_report_files_searched() {
+  # Verify that upon  a missing package, the places where a BUILD file was
+  # searched for are reported.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir ext
+  echo 'data' > ext/foo.txt
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir -p path/to/workspace
+  cd path/to/workspace
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  urls=["file://${WRKDIR}/ext.tar"],
+  build_file = "@//:ext.BUILD",
+)
+EOF
+  echo 'exports_files(["foo.txt"])' > ext.BUILD
+
+  bazel build @ext//... > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+
+  expect_log 'BUILD file not found'
+  expect_log 'path/to/workspace'
+}
+
 run_suite "external tests"

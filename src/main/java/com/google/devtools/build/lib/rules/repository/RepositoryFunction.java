@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -279,8 +280,12 @@ public abstract class RepositoryFunction {
       throw RepositoryFunction.restart();
     }
     if (!pkgLookupValue.packageExists()) {
+      String message = pkgLookupValue.getErrorMsg();
+      if (pkgLookupValue == PackageLookupValue.NO_BUILD_FILE_VALUE) {
+        message = PackageLookupFunction.explainNoBuildFileValue(label.getPackageIdentifier(), env);
+      }
       throw new EvalException(
-          Location.BUILTIN, "Unable to load package for " + label + ": not found.");
+          Location.BUILTIN, "Unable to load package for " + label + ": " + message);
     }
 
     // And now for the file
