@@ -73,6 +73,8 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void pythonVersionDefault() throws Exception {
     ensureDefaultIsPY2();
+    // When using toolchains, the python_version attribute is mandatory.
+    useConfiguration("--incompatible_use_python_toolchains=false");
     scratch.file(
         "pkg/BUILD",
         "py_runtime(",
@@ -169,5 +171,20 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//pkg:myruntime");
 
     assertContainsEvent("invalid value in 'python_version' attribute");
+  }
+
+  @Test
+  public void versionAttributeMandatoryWhenUsingToolchains() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--incompatible_use_python_toolchains=true");
+    scratch.file(
+        "pkg/BUILD",
+        "py_runtime(",
+        "    name = 'myruntime',",
+        "    interpreter_path = '/system/interpreter',",
+        ")");
+    getConfiguredTarget("//pkg:myruntime");
+
+    assertContainsEvent("must be set explicitly to either 'PY2' or 'PY3'");
   }
 }
