@@ -203,8 +203,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         .addAll(buildOptionClasses)
         .add(TestOptions.class)
         .build());
-    parser.parse(args);
     parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    parser.parse(args);
 
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(
         parser.getOptions(TestOptions.class).multiCpus);

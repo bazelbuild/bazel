@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -298,7 +298,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrWorksUnderOldAndNewSemantics_WhenNotDefaultValue() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
 
     assertPythonVersionIs_UnderNewConfigs(
@@ -310,7 +310,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrWorksUnderOldAndNewSemantics_WhenSameAsDefaultValue() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
 
     assertPythonVersionIs_UnderNewConfigs(
@@ -322,7 +322,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void flagTakesPrecedenceUnderOldSemantics_NonDefaultValue() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
@@ -333,7 +333,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void flagTakesPrecedenceUnderOldSemantics_DefaultValue() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
@@ -344,7 +344,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrTakesPrecedenceUnderNewSemantics_NonDefaultValue() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
 
     // Test against both flags.
@@ -363,7 +363,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrTakesPrecedenceUnderNewSemantics_DefaultValue() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
 
     // Test against both flags.
@@ -402,7 +402,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   @Test
   public void canBuildWithDifferentVersionAttrs_UnderOldSemantics_FlagSetToDefault()
       throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file(
         "pkg/BUILD",
         ruleDeclWithPyVersionAttr("foo_v2", "PY2"),
@@ -423,7 +423,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   @Test
   public void canBuildWithDifferentVersionAttrs_UnderOldSemantics_FlagSetToNonDefault()
       throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file(
         "pkg/BUILD",
         ruleDeclWithPyVersionAttr("foo_v2", "PY2"),
@@ -478,7 +478,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void incompatibleSrcsVersion_DueToVersionAttrDefault() throws Exception {
-    ensureDefaultIsPY2(); // When changed to PY3, flip srcs_version below to be PY2ONLY.
+    assumesDefaultIsPY2(); // When changed to PY3, flip srcs_version below to be PY2ONLY.
 
     // This test doesn't care whether we use old and new semantics, but it affects how we assert.
     useConfiguration("--incompatible_allow_python_version_transitions=false");

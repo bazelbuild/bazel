@@ -93,7 +93,9 @@ EOF
   expect_log "I am Python 3"
 
   # These assertions try to override the version, which is legacy semantics.
-  FLAG=--incompatible_allow_python_version_transitions=false
+  FLAG="--incompatible_allow_python_version_transitions=false \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"
 
   # Force to Python 2.
   bazel run //test:main2 $FLAG --python_version=PY2 \
