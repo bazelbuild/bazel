@@ -417,7 +417,7 @@ public abstract class AbstractParallelEvaluator {
           evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.CHECK_DIRTY, -1);
         }
 
-        Set<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
+        ImmutableSet<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
         try {
           evaluatorContext
               .getProgressReceiver()
@@ -913,7 +913,7 @@ public abstract class AbstractParallelEvaluator {
   private boolean maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
       SkyKey skyKey,
       NodeEntry entry,
-      Set<SkyKey> oldDeps,
+      ImmutableSet<SkyKey> oldDeps,
       SkyFunctionEnvironment env,
       boolean keepGoing)
       throws InterruptedException {

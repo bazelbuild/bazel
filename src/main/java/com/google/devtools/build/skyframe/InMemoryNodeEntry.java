@@ -612,7 +612,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException {
+  public synchronized ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps()
+      throws InterruptedException {
     Preconditions.checkNotNull(dirtyBuildingState, this);
     Preconditions.checkState(
         dirtyBuildingState.isEvaluating(), "Not evaluating for remaining dirty? %s", this);
