@@ -105,7 +105,7 @@ public class PythonOptions extends FragmentOptions {
    */
   @Option(
       name = "incompatible_py3_is_default",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -125,7 +125,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_py2_outputs_are_suffixed",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {

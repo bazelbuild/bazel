@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -72,7 +72,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void pythonVersionDefault() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     // When using toolchains, the python_version attribute is mandatory.
     useConfiguration("--incompatible_use_python_toolchains=false");
     scratch.file(
