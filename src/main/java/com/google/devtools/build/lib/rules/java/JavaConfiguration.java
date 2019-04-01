@@ -246,6 +246,34 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.requireJavaToolchainHeaderCompilerDirect =
         javaOptions.requireJavaToolchainHeaderCompilerDirect;
+
+    if (javaOptions.disallowLegacyJavaToolchainFlags) {
+      if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--javabase=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.javaBase));
+      }
+      if (!javaOptions.getHostJavaBase().equals(javaOptions.defaultHostJavaBase())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--host_javabase=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.getHostJavaBase()));
+      }
+      if (!javaOptions.javaToolchain.equals(javaOptions.defaultJavaToolchain())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--java_toolchain=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.javaToolchain));
+      }
+      if (!javaOptions.hostJavaToolchain.equals(javaOptions.defaultJavaToolchain())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--host_java_toolchain=%s is no longer supported, use --platforms instead (see"
+                    + " #7849)",
+                javaOptions.hostJavaToolchain));
+      }
+    }
   }
 
   @Override

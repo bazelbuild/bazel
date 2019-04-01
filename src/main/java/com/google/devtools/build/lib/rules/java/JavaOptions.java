@@ -68,9 +68,22 @@ public class JavaOptions extends FragmentOptions {
     }
   }
 
+  private static final String DEFAULT_JAVABASE = "@bazel_tools//tools/jdk:jdk";
+
+  @Option(
+      name = "experimental_disallow_legacy_java_toolchain_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, disallow legacy Java toolchain flags (--javabase, --host_javabase,"
+              + " --java_toolchain, --host_java_toolchain) and require the use of --platforms"
+              + " instead; see #7849")
+  public boolean disallowLegacyJavaToolchainFlags;
+
   @Option(
       name = "javabase",
-      defaultValue = "@bazel_tools//tools/jdk:jdk",
+      defaultValue = DEFAULT_JAVABASE,
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -80,9 +93,11 @@ public class JavaOptions extends FragmentOptions {
               + "external Java commands.")
   public Label javaBase;
 
+  private static final String DEFAULT_JAVA_TOOLCHAIN = "@bazel_tools//tools/jdk:remote_toolchain";
+
   @Option(
       name = "java_toolchain",
-      defaultValue = "@bazel_tools//tools/jdk:remote_toolchain",
+      defaultValue = DEFAULT_JAVA_TOOLCHAIN,
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -91,7 +106,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "host_java_toolchain",
-      defaultValue = "@bazel_tools//tools/jdk:remote_toolchain",
+      defaultValue = DEFAULT_JAVA_TOOLCHAIN,
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -619,14 +634,26 @@ public class JavaOptions extends FragmentOptions {
               + " (buggy behavior). See https://github.com/bazelbuild/bazel/issues/7072")
   public boolean windowsEscapeJvmFlags;
 
-  private Label getHostJavaBase() {
+  Label defaultJavaBase() {
+    return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
+  }
+
+  Label getHostJavaBase() {
     if (hostJavaBase == null) {
-      if (useJDK11AsHostJavaBase) {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
-      }
-      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk10");
+      return defaultHostJavaBase();
     }
     return hostJavaBase;
+  }
+
+  Label defaultHostJavaBase() {
+    if (useJDK11AsHostJavaBase) {
+      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
+    }
+    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:host_jdk");
+  }
+
+  Label defaultJavaToolchain() {
+    return Label.parseAbsoluteUnchecked(DEFAULT_JAVA_TOOLCHAIN);
   }
 
   @Override
