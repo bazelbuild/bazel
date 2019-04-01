@@ -91,7 +91,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -856,8 +855,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * configuration. If the label corresponds to a target with a top-level configuration transition,
    * that transition is applied to the given config in the returned ConfiguredTarget.
    */
-  public ConfiguredTarget getConfiguredTarget(String label)
-      throws LabelSyntaxException, TransitionException {
+  public ConfiguredTarget getConfiguredTarget(String label) throws LabelSyntaxException {
     return getConfiguredTarget(label, targetConfig);
   }
 
@@ -867,7 +865,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * applied to the given config in the returned ConfiguredTarget.
    */
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
-      throws LabelSyntaxException, TransitionException {
+      throws LabelSyntaxException {
     return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
   }
 
@@ -881,8 +879,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * evaluation, which is produced by the {@link MemoizingEvaluator#getExistingValue} call in {@link
    * SkyframeExecutor#getConfiguredTargetForTesting}. See also b/26382502.
    */
-  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config)
-      throws TransitionException {
+  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
     return view.getConfiguredTargetForTesting(reporter, BlazeTestUtils.convertLabel(label), config);
   }
 
@@ -890,7 +887,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns a ConfiguredTargetAndData for the specified label, using the given build configuration.
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
-      Label label, BuildConfiguration config) throws TransitionException {
+      Label label, BuildConfiguration config) {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
 
@@ -898,12 +895,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns the ConfiguredTargetAndData for the specified label. If the label corresponds to a
    * target with a top-level configuration transition, that transition is applied to the given
    * config in the ConfiguredTargetAndData's ConfiguredTarget.
-   *
-   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
-   *     transitions.
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
-      throws LabelSyntaxException, TransitionException {
+      throws LabelSyntaxException {
     return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
   }
 
@@ -911,16 +905,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns the ConfiguredTarget for the specified file label, configured for the "build" (aka
    * "target") configuration.
    */
-  protected FileConfiguredTarget getFileConfiguredTarget(String label)
-      throws LabelSyntaxException, TransitionException {
+  protected FileConfiguredTarget getFileConfiguredTarget(String label) throws LabelSyntaxException {
     return (FileConfiguredTarget) getConfiguredTarget(label, targetConfig);
   }
 
   /**
    * Returns the ConfiguredTarget for the specified label, configured for the "host" configuration.
    */
-  protected ConfiguredTarget getHostConfiguredTarget(String label)
-      throws LabelSyntaxException, TransitionException {
+  protected ConfiguredTarget getHostConfiguredTarget(String label) throws LabelSyntaxException {
     return getConfiguredTarget(label, getHostConfiguration());
   }
 
@@ -929,7 +921,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * configuration.
    */
   protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
-      throws LabelSyntaxException, TransitionException {
+      throws LabelSyntaxException {
     return (FileConfiguredTarget) getHostConfiguredTarget(label);
   }
 
@@ -1760,7 +1752,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /** Returns an attribute value retriever for the given rule for the target configuration. */
-  protected AttributeMap attributes(RuleConfiguredTarget ct) throws TransitionException {
+  protected AttributeMap attributes(RuleConfiguredTarget ct) {
     ConfiguredTargetAndData ctad;
     try {
       ctad = getConfiguredTargetAndData(ct.getLabel().toString());
@@ -1770,7 +1762,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getMapperFromConfiguredTargetAndTarget(ctad);
   }
 
-  protected AttributeMap attributes(ConfiguredTarget rule) throws TransitionException {
+  protected AttributeMap attributes(ConfiguredTarget rule) {
     return attributes((RuleConfiguredTarget) rule);
   }
 
