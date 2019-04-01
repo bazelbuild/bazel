@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -60,7 +58,6 @@ public final class JavaCompilationHelper {
   private final RuleContext ruleContext;
   private final JavaToolchainProvider javaToolchain;
   private final JavaRuntimeInfo hostJavabase;
-  private final Iterable<Artifact> jacocoInstrumentation;
   private final JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
   private final ImmutableList<String> customJavacOpts;
@@ -83,13 +80,11 @@ public final class JavaCompilationHelper {
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
       JavaRuntimeInfo hostJavabase,
-      Iterable<Artifact> jacocoInstrumentation,
       ImmutableList<Artifact> additionalJavaBaseInputs,
       boolean disableStrictDeps) {
     this.ruleContext = ruleContext;
     this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
     this.hostJavabase = Preconditions.checkNotNull(hostJavabase);
-    this.jacocoInstrumentation = jacocoInstrumentation;
     this.attributes = attributes;
     this.customJavacOpts = javacOpts;
     this.customJavacJvmOpts = javaToolchain.getJvmOptions();
@@ -107,8 +102,7 @@ public final class JavaCompilationHelper {
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
-      JavaRuntimeInfo hostJavabase,
-      Iterable<Artifact> jacocoInstrumentation) {
+      JavaRuntimeInfo hostJavabase) {
     this(
         ruleContext,
         semantics,
@@ -116,7 +110,6 @@ public final class JavaCompilationHelper {
         attributes,
         javaToolchainProvider,
         hostJavabase,
-        jacocoInstrumentation,
         ImmutableList.<Artifact>of(),
         false);
   }
@@ -132,8 +125,7 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         JavaToolchainProvider.from(ruleContext),
-        JavaRuntimeInfo.forHost(ruleContext),
-        getInstrumentationJars(ruleContext));
+        JavaRuntimeInfo.forHost(ruleContext));
   }
 
   public JavaCompilationHelper(
@@ -150,7 +142,6 @@ public final class JavaCompilationHelper {
         attributes,
         JavaToolchainProvider.from(ruleContext),
         JavaRuntimeInfo.forHost(ruleContext),
-        getInstrumentationJars(ruleContext),
         additionalJavaBaseInputs,
         disableStrictDeps);
   }
@@ -191,15 +182,12 @@ public final class JavaCompilationHelper {
    * @param manifestProtoOutput the output artifact for the manifest proto emitted from JavaBuilder
    * @param gensrcOutputJar the generated sources jar Artifact to create with the Action (null if no
    *     sources will be generated).
-   * @param instrumentationMetadataJar metadata file (null if no instrumentation is needed or if
-   *     --experimental_java_coverage is true).
    * @param nativeHeaderOutput an archive of generated native header files.
    */
   public JavaCompileAction createCompileAction(
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcOutputJar,
-      @Nullable Artifact instrumentationMetadataJar,
       @Nullable Artifact nativeHeaderOutput) {
 
     JavaTargetAttributes attributes = getAttributes();
@@ -241,8 +229,6 @@ public final class JavaCompilationHelper {
     builder.setGensrcOutputJar(gensrcOutputJar);
     builder.setOutputDepsProto(getOutputDepsProtoPath(outputJar));
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
-    builder.setMetadata(instrumentationMetadataJar);
-    builder.setInstrumentationJars(jacocoInstrumentation);
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.setSourceJars(attributes.getSourceJars());
     builder.setJavacOpts(customJavacOpts);
@@ -284,8 +270,7 @@ public final class JavaCompilationHelper {
   }
 
   /**
-   * Creates an {@link Artifact} needed by {@code JacocoCoverageRunner} when {@code
-   * --experimental_java_coverage} is true.
+   * Creates an {@link Artifact} needed by {@code JacocoCoverageRunner}.
    *
    * <p>The {@link Artifact} is created in the same directory as the given {@code compileJar} and
    * has the suffix {@code -paths-for-coverage.txt}.
@@ -293,7 +278,7 @@ public final class JavaCompilationHelper {
    * <p>Returns {@code null} if {@code compileJar} should not be instrumented.
    */
   private Artifact maybeCreateExperimentalCoverageArtifact(Artifact compileJar) {
-    if (!shouldInstrumentJar() || !getConfiguration().isExperimentalJavaCoverage()) {
+    if (!shouldInstrumentJar()) {
       return null;
     }
     PathFragment packageRelativePath =
@@ -301,69 +286,6 @@ public final class JavaCompilationHelper {
     PathFragment path =
         FileSystemUtils.replaceExtension(packageRelativePath, "-paths-for-coverage.txt");
     return ruleContext.getPackageRelativeArtifact(path, compileJar.getRoot());
-  }
-
-  /**
-   * Returns the instrumentation metadata files to be generated for a given output jar.
-   *
-   * <p>Only called if the output jar actually needs to be instrumented.
-   */
-  @Nullable
-  private static Artifact createInstrumentationMetadataArtifact(
-      RuleContext ruleContext, Artifact outputJar) {
-    PathFragment packageRelativePath =
-        outputJar.getRootRelativePath().relativeTo(ruleContext.getPackageDirectory());
-    return ruleContext.getPackageRelativeArtifact(
-        FileSystemUtils.replaceExtension(packageRelativePath, ".em"), outputJar.getRoot());
-  }
-
-  /**
-   * Creates the Action that compiles Java source files and optionally instruments them for
-   * coverage.
-   *
-   * @param outputJar the class jar Artifact to create with the Action
-   * @param manifestProtoOutput the output artifact for the manifest proto emitted from JavaBuilder
-   * @param gensrcJar the generated sources jar Artifact to create with the Action
-   * @param javaArtifactsBuilder the build to store the instrumentation metadata in
-   * @param nativeHeaderOutput an archive of generated native header files.
-   */
-  public JavaCompileAction createCompileActionWithInstrumentation(
-      Artifact outputJar,
-      Artifact manifestProtoOutput,
-      @Nullable Artifact gensrcJar,
-      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
-      @Nullable Artifact nativeHeaderOutput) {
-    return createCompileAction(
-        outputJar,
-        manifestProtoOutput,
-        gensrcJar,
-        createInstrumentationMetadata(outputJar, javaArtifactsBuilder),
-        nativeHeaderOutput);
-  }
-
-  /**
-   * Creates the instrumentation metadata artifact if needed.
-   *
-   * @return the instrumentation metadata artifact or null if instrumentation is disabled
-   */
-  @Nullable
-  public Artifact createInstrumentationMetadata(
-      Artifact outputJar, JavaCompilationArtifacts.Builder javaArtifactsBuilder) {
-    // In the experimental java coverage we don't create the .em jar for instrumentation.
-    if (getConfiguration().isExperimentalJavaCoverage()) {
-      return null;
-    }
-    // If we need to instrument the jar, add additional output (the coverage metadata file) to the
-    // JavaCompileAction.
-    Artifact instrumentationMetadata = null;
-    if (shouldInstrumentJar()) {
-      instrumentationMetadata = createInstrumentationMetadataArtifact(getRuleContext(), outputJar);
-
-      if (instrumentationMetadata != null) {
-        javaArtifactsBuilder.addInstrumentationMetadata(instrumentationMetadata);
-      }
-    }
-    return instrumentationMetadata;
   }
 
   private boolean shouldInstrumentJar() {
@@ -831,17 +753,6 @@ public final class JavaCompilationHelper {
   private ImmutableList<Artifact> getTranslations() {
     translationsFrozen = true;
     return ImmutableList.copyOf(translations);
-  }
-
-  /** Returns the instrumentation jar in the given semantics. */
-  public static Iterable<Artifact> getInstrumentationJars(RuleContext ruleContext) {
-    TransitiveInfoCollection instrumentationTarget =
-        ruleContext.getPrerequisite("$jacoco_instrumentation", Mode.HOST);
-    if (instrumentationTarget == null) {
-      return ImmutableList.<Artifact>of();
-    }
-    return FileType.filter(
-        instrumentationTarget.getProvider(FileProvider.class).getFilesToBuild(), JavaSemantics.JAR);
   }
 
   /**

@@ -119,8 +119,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     Artifact nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
 
     JavaCompileAction javaCompileAction =
-        helper.createCompileActionWithInstrumentation(
-            classJar, manifestProtoOutput, genSourceJar, javaArtifactsBuilder, nativeHeaderOutput);
+        helper.createCompileAction(classJar, manifestProtoOutput, genSourceJar, nativeHeaderOutput);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     Artifact iJar = null;

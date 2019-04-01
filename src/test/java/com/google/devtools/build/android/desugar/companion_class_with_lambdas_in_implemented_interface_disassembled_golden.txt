@@ -1,0 +1,17 @@
+public abstract class com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod$$CC implements com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod {
+  public com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod$$CC();
+  public java.util.List defaultMethodReference(java.util.List);
+  public static java.util.List defaultMethodReference$$dflt$$(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.util.List);
+  public java.lang.String defaultInvokingBootclasspathMethods(java.lang.String);
+  public static java.lang.String defaultInvokingBootclasspathMethods$$dflt$$(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.lang.String);
+  public java.util.List staticMethodReference(java.util.List);
+  public static java.util.List staticMethodReference$$dflt$$(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.util.List);
+  public java.util.List lambdaCallsDefaultMethod(java.util.List);
+  public static java.util.List lambdaCallsDefaultMethod$$dflt$$(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.util.List);
+  public static boolean startsWithA$$STATIC$$(java.lang.String);
+  public boolean startsWithS(java.lang.String);
+  public static boolean startsWithS$$dflt$$(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.lang.String);
+  public boolean startsWithS(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.lang.String);
+  public static boolean startsWithS$$dflt$$(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.lang.String);
+  static boolean lambda$lambdaCallsDefaultMethod$0$InterfaceMethod$$CC(com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod, java.lang.String);
+}

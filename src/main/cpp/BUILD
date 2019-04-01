@@ -125,13 +125,18 @@ cc_library(
     # The system bazelrc can be voided by setting BAZEL_SYSTEM_BAZELRC_PATH to
     # /dev/null.
     copts = select({
-        # We need to escape for multiple levels, here, this becomes
+        # For windows platforms, this can include environment
+        # variables in the form %ProgramData%. We need to escape for
+        # multiple levels, here, this becomes
         # /DBAZEL_SYSTEM_BAZELRC_PATH="%%ProgramData%%/bazel.bazelrc"',
-        # and the double % get reduced down to 1 by the compiler. A forward
-        # slash is used because \b is a special character, backspace.
+        # and the double % get reduced down to 1 by the compiler. A
+        # forward slash is used because \b is a special character,
+        # backspace.
         "//src/conditions:windows": [
             "/DBAZEL_SYSTEM_BAZELRC_PATH#\\\"%%ProgramData%%/bazel.bazelrc\\\"",
         ],
+        # For posix platforms, this can include environment variables in the
+        # form ${var_name}. Braces are required.
         "//conditions:default": [
             "-DBAZEL_SYSTEM_BAZELRC_PATH=\\\"/etc/bazel.bazelrc\\\"",
         ],

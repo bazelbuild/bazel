@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -137,8 +138,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
     RemoteRetrier retrier =
-        new RemoteRetrier(
-            () -> new FixedBackoff(1, 0), (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
     ByteStreamUploader uploader =
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
@@ -226,8 +226,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     });
 
     RemoteRetrier retrier =
-        new RemoteRetrier(
-            () -> new FixedBackoff(1, 0), (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
     ByteStreamUploader uploader =
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);

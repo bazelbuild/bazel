@@ -238,6 +238,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             ConfiguredTargetKey.of(dummyTarget.getLabel(), targetConfig),
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
+            targetConfig.allowAnalysisFailures(),
             eventHandler,
             null),
         new BuildConfigurationCollection(

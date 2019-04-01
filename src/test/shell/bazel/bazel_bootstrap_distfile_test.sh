@@ -70,6 +70,16 @@ else
 fi
 
 function test_bootstrap()  {
+    execute_bootstrap "--host_javabase=@local_jdk//:jdk"
+}
+
+# TODO(#7260): Remove this test once this flag is flipped
+function test_bootstrap_with_cc_rules_using_platforms()  {
+    execute_bootstrap "--host_javabase=@local_jdk//:jdk "\
+      "--incompatible_enable_cc_toolchain_resolution"
+}
+
+function execute_bootstrap() {
     cd "$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)"
     export SOURCE_DATE_EPOCH=1501234567
     unzip -q "${DISTFILE}"
@@ -80,11 +90,12 @@ function test_bootstrap()  {
     fi
     JAVABASE=$(echo reduced*)
 
-    env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh \
+    env EXTRA_BAZEL_ARGS="${1}" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
-      version &> "${TEST_log}" || fail "Generated bazel not working"
+      version --nognu_format &> "${TEST_log}" \
+      || fail "Generated bazel not working"
     expect_log "${SOURCE_DATE_EPOCH}"
 }
 

@@ -27,10 +27,10 @@ namespace blaze {
 
 class WorkspaceLayoutTest : public ::testing::Test {
  protected:
-  WorkspaceLayoutTest() :
-      build_root_(blaze_util::JoinPath(
-          blaze::GetEnv("TEST_TMPDIR"), "build_root")),
-      workspace_layout_(new WorkspaceLayout()) {}
+  WorkspaceLayoutTest()
+      : build_root_(blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"),
+                                         "build_root")),
+        workspace_layout_(new WorkspaceLayout()) {}
 
   void SetUp() override {
     ASSERT_TRUE(blaze_util::MakeDirectories(build_root_, 0755));

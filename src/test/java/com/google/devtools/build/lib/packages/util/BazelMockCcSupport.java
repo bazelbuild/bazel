@@ -70,7 +70,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   public void setup(MockToolsConfig config) throws IOException {
-    setupCrosstool(config);
+    setupCcToolchainConfig(config);
     MockPlatformSupport.setup(
         config, "/bazel_tools_workspace/platforms", "/local_config_platform_workspace");
   }

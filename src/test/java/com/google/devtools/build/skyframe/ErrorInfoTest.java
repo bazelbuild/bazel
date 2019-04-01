@@ -161,7 +161,8 @@ public class ErrorInfoTest {
     } catch (IllegalStateException e) {
       // Brittle, but confirms we failed for the right reason.
       assertThat(e)
-          .hasMessage("At least one of exception and cycles must be non-null/empty, respectively");
+          .hasMessageThat()
+          .isEqualTo("At least one of exception and cycles must be non-null/empty, respectively");
     }
   }
 

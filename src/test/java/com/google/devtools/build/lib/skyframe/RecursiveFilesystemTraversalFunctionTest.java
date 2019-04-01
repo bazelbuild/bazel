@@ -130,7 +130,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(
         FileStateValue.FILE_STATE,
-        new FileStateFunction(new AtomicReference<>(), externalFilesHelper));
+        new FileStateFunction(
+            new AtomicReference<>(),
+            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
@@ -1003,7 +1006,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             && ((Artifact) skyKey.argument()).isTreeArtifact()) {
           return TreeArtifactValue.create(allTreeFiles);
         }
-        return FileArtifactValue.create(
+        return FileArtifactValue.createShareable(
             ArtifactSkyKey.artifact((SkyKey) skyKey.argument()).getPath());
       } catch (IOException e) {
         throw new SkyFunctionException(e, Transience.PERSISTENT){};
@@ -1017,8 +1020,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
 
     public void addNewTreeFileArtifact(TreeFileArtifact input) throws IOException {
-      allTreeFiles.put(input,
-          FileArtifactValue.create(input.getPath()));
+      allTreeFiles.put(input, FileArtifactValue.createShareable(input.getPath()));
     }
   }
 

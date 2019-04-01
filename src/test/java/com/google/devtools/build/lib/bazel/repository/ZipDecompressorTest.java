@@ -15,7 +15,12 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.repository.TestArchiveDescriptor.INNER_FOLDER_NAME;
+import static com.google.devtools.build.lib.bazel.repository.TestArchiveDescriptor.ROOT_FOLDER_NAME;
 
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,6 +40,41 @@ public class ZipDecompressorTest {
   private static final int FILE_ATTRIBUTE = FILE << 16;
   private static final int EXECUTABLE_ATTRIBUTE = EXECUTABLE << 16;
   private static final int DIRECTORY_ATTRIBUTE = DIRECTORY << 16;
+
+  private static final String ARCHIVE_NAME = "test_decompress_archive.zip";
+
+  /**
+   * Test decompressing a tar.gz file with hard link file and symbolic link file inside without
+   * stripping a prefix
+   */
+  @Test
+  public void testDecompressWithoutPrefix() throws Exception {
+    TestArchiveDescriptor archiveDescriptor =
+        new TestArchiveDescriptor(ARCHIVE_NAME, "out/inner", false);
+    Path outputDir = decompress(archiveDescriptor.createDescriptorBuilder());
+
+    archiveDescriptor.assertOutputFiles(outputDir, ROOT_FOLDER_NAME, INNER_FOLDER_NAME);
+  }
+
+  /**
+   * Test decompressing a tar.gz file with hard link file and symbolic link file inside and
+   * stripping a prefix
+   */
+  @Test
+  public void testDecompressWithPrefix() throws Exception {
+    TestArchiveDescriptor archiveDescriptor = new TestArchiveDescriptor(ARCHIVE_NAME, "out", false);
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor.createDescriptorBuilder().setPrefix(ROOT_FOLDER_NAME);
+    Path outputDir = decompress(descriptorBuilder);
+
+    archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
+  }
+
+  private Path decompress(DecompressorDescriptor.Builder descriptorBuilder)
+      throws IOException, RepositoryFunctionException {
+    descriptorBuilder.setDecompressor(ZipDecompressor.INSTANCE);
+    return ZipDecompressor.INSTANCE.decompress(descriptorBuilder.build());
+  }
 
   @Test
   public void testGetPermissions() throws Exception {

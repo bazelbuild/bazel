@@ -37,9 +37,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * This class tests the FilesystemUtils class.
- */
+/** Tests for the {@link NativePosixFiles} class. */
 @RunWith(JUnit4.class)
 public class NativePosixFilesTest {
   private FileSystem testFS;
@@ -90,7 +88,7 @@ public class NativePosixFilesTest {
       NativePosixFiles.md5sum(testFile.getPathString());
       fail("Expected FileAccessException, but wasn't thrown.");
     } catch (FileAccessException e) {
-      assertThat(e).hasMessage(testFile + " (Permission denied)");
+      assertThat(e).hasMessageThat().isEqualTo(testFile + " (Permission denied)");
     }
   }
 
@@ -100,7 +98,7 @@ public class NativePosixFilesTest {
       NativePosixFiles.md5sum(testFile.getPathString());
       fail("Expected FileNotFoundException, but wasn't thrown.");
     } catch (FileNotFoundException e) {
-      assertThat(e).hasMessage(testFile + " (No such file or directory)");
+      assertThat(e).hasMessageThat().isEqualTo(testFile + " (No such file or directory)");
     }
   }
 
@@ -111,10 +109,10 @@ public class NativePosixFilesTest {
       NativePosixFiles.setWritable(foo);
       fail("Expected FilePermissionException or IOException, but wasn't thrown.");
     } catch (FilePermissionException e) {
-      assertThat(e).hasMessage(foo + " (Operation not permitted)");
+      assertThat(e).hasMessageThat().isEqualTo(foo + " (Operation not permitted)");
     } catch (IOException e) {
       // When running in a sandbox, /bin might actually be a read-only file system.
-      assertThat(e).hasMessage(foo + " (Read-only file system)");
+      assertThat(e).hasMessageThat().isEqualTo(foo + " (Read-only file system)");
     }
   }
 
@@ -155,5 +153,31 @@ public class NativePosixFilesTest {
         FileNotFoundException.class, () -> NativePosixFiles.getxattr(nonexistentFile, "foo"));
     assertThrows(
         FileNotFoundException.class, () -> NativePosixFiles.lgetxattr(nonexistentFile, "foo"));
+  }
+
+  @Test
+  public void writing() throws Exception {
+    java.nio.file.Path myfile = Files.createTempFile("myfile", null);
+    int fd1 = NativePosixFiles.openWrite(myfile.toString(), false);
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 5, 1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, -1, 1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, -1));
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, 5));
+    NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, 4);
+    NativePosixFiles.close(fd1, null);
+    assertThat(Files.readAllBytes(myfile)).isEqualTo(new byte[] {0, 1, 2, 3});
+    // Try appending.
+    int fd2 = NativePosixFiles.openWrite(myfile.toString(), true);
+    NativePosixFiles.write(fd2, new byte[] {5, 6, 7, 8, 9}, 1, 3);
+    NativePosixFiles.close(fd2, null);
+    assertThat(Files.readAllBytes(myfile)).isEqualTo(new byte[] {0, 1, 2, 3, 6, 7, 8});
   }
 }

@@ -581,28 +581,20 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrCfg() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
-    assertThat(attr.getConfigurationTransition().isHostTransition()).isTrue();
+    assertThat(attr.hasHostConfigurationTransition()).isTrue();
   }
 
   @Test
   public void testAttrCfgTarget() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'target', allow_files = True)");
-    assertThat(attr.getConfigurationTransition()).isEqualTo(NoTransition.INSTANCE);
+    assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
   }
 
   @Test
   public void incompatibleDataTransition() throws Exception {
-    ev =
-        createEvaluationTestCase(
-            StarlarkSemantics.DEFAULT_SEMANTICS
-                .toBuilder()
-                .incompatibleDisallowDataTransition(true)
-                .build());
-    ev.initialize();
     EvalException expected =
         assertThrows(EvalException.class, () -> eval("attr.label(cfg = 'data')"));
-    assertThat(expected).hasMessageThat().contains(
-        "Using cfg = \"data\" on an attribute is a noop and no longer supported");
+    assertThat(expected).hasMessageThat().contains("cfg must be either 'host' or 'target'");
   }
 
   @Test
@@ -632,7 +624,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     buildAttribute("a4", "attr.label(doc='foo')");
     buildAttribute("a5", "attr.label_keyed_string_dict(doc='foo')");
     buildAttribute("a6", "attr.label_list(doc='foo')");
-    buildAttribute("a7", "attr.license(doc='foo')");
     buildAttribute("a8", "attr.output(doc='foo')");
     buildAttribute("a9", "attr.output_list(doc='foo')");
     buildAttribute("a10", "attr.string(doc='foo')");
@@ -643,14 +634,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testNoAttrLicense() throws Exception {
-    ev =
-        createEvaluationTestCase(
-            StarlarkSemantics.DEFAULT_SEMANTICS
-                .toBuilder()
-                .incompatibleNoAttrLicense(true)
-                .build());
-    ev.initialize();
-
     EvalException expected = assertThrows(EvalException.class, () -> eval("attr.license()"));
     assertThat(expected)
         .hasMessageThat()
@@ -1029,29 +1012,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         "invalid target name 'bad//syntax': target names may not contain '//' path separators",
         "Label('//foo:bar').relative('bad//syntax')");
-  }
-
-  @Test
-  public void testLicenseAttributesNonconfigurable() throws Exception {
-    scratch.file("test/BUILD");
-    scratch.file("test/rule.bzl",
-        "def _impl(ctx):",
-        "  return",
-        "some_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'licenses': attr.license()",
-        "  }",
-        ")");
-    scratch.file("third_party/foo/BUILD",
-        "load('//test:rule.bzl', 'some_rule')",
-        "some_rule(",
-        "    name='r',",
-        "    licenses = ['unencumbered']",
-        ")");
-    invalidatePackages();
-    // Should succeed without a "licenses attribute is potentially configurable" loading error:
-    createRuleContext("//third_party/foo:r");
   }
 
   @Test

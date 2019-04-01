@@ -81,7 +81,7 @@ as it was at the top level. With this change, for `.bzl` files, `load` must
 appear at the beginning of the file, i.e. before any other non-`load` statement.
 
 *   Flag: `--incompatible_bzl_disallow_load_after_statement`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5815](https://github.com/bazelbuild/bazel/issues/5815)
 
 
@@ -574,7 +574,7 @@ y = 1
 ```
 
 *   Flag: `--incompatible_no_transitive_loads`
-*   Default: `false`
+*   Default: `true`
 *   Introduced in: `0.19.0`
 *   Tracking issue: [#5636](https://github.com/bazelbuild/bazel/issues/5636)
 

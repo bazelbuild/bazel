@@ -24,10 +24,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 
-/**
- * A dummy implementation of Executor.
- */
-public final class DummyExecutor implements Executor {
+/** A dummy implementation of Executor. */
+public class DummyExecutor implements Executor {
 
   private final FileSystem fileSystem;
   private final Path inputDir;

@@ -746,6 +746,7 @@ The following is a reference of `CcToolchainConfigInfo` build variables.
   </tr>
   <tr>
    <td><strong><code>quote_include_paths</code></strong>
+   </td>
    <td>compile</td>
    <td>Sequence of <code>-iquote</code> includes -
        directories in which the compiler searches for headers included using
@@ -969,10 +970,10 @@ The following is a reference of `CcToolchainConfigInfo` build variables.
   <tr>
    <td><strong><code>is_using_fission</code></strong>
    </td>
-   <td>link</td>
-   <td>Presence of this variable indicates that files were
-       compiled with fission. Debug info is in <code>.dwo</code> files instead
-       of <code>.o</code> files and the linker needs to know this.
+   <td>compile, link</td>
+   <td>Presence of this variable indicates that fission (per-object debug info)
+     is activated. Debug info will be in <code>.dwo</code> files instead
+       of <code>.o</code> files and the compiler and linker need to know this.
    </td>
   </tr>
 </table>

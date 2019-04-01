@@ -46,6 +46,10 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
     reduced/
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
+  if [[ "$modules" != "ALL-MODULE-PATH" ]]; then
+    # Only necessary for compilation, which doesn't happen with the minimal JDK.
+    rm reduced/lib/ct.sym
+  fi
   zip -r -9 ../reduced.zip reduced/
   cd ../..
   mv "tmp.$$/reduced.zip" "$out"
@@ -63,6 +67,10 @@ else
     cp lib/libdt_socket.dylib lib/libjdwp.dylib reduced/lib
   else
     cp lib/libdt_socket.so lib/libjdwp.so reduced/lib
+  fi
+  if [[ "$modules" != "ALL-MODULE-PATH" ]]; then
+    # Only necessary for compilation, which doesn't happen with the minimal JDK.
+    rm reduced/lib/ct.sym
   fi
   GZIP=-9 tar -zcf ../reduced.tgz reduced
   cd ..

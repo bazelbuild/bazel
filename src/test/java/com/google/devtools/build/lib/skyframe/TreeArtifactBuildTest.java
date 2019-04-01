@@ -152,7 +152,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testInputTreeArtifactPerActionFileCache() throws Exception {
+  public void testInputTreeArtifactMetadataProvider() throws Exception {
     TouchingTestAction actionOne = new TouchingTestAction(outOneFileOne, outOneFileTwo);
     registerAction(actionOne);
 
@@ -163,10 +163,10 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
           @Override
           public ActionResult execute(ActionExecutionContext actionExecutionContext) {
             try {
-              // Check the file cache for input TreeFileArtifacts.
-              MetadataProvider fileCache = actionExecutionContext.getMetadataProvider();
-              assertThat(fileCache.getMetadata(outOneFileOne).getType().isFile()).isTrue();
-              assertThat(fileCache.getMetadata(outOneFileTwo).getType().isFile()).isTrue();
+              // Check the metadata provider for input TreeFileArtifacts.
+              MetadataProvider metadataProvider = actionExecutionContext.getMetadataProvider();
+              assertThat(metadataProvider.getMetadata(outOneFileOne).getType().isFile()).isTrue();
+              assertThat(metadataProvider.getMetadata(outOneFileTwo).getType().isFile()).isTrue();
 
               // Touch the action output.
               touchFile(normalOutput);

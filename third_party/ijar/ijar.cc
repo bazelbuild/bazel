@@ -354,7 +354,7 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
   }
   std::unique_ptr<ZipExtractor> in(
       ZipExtractor::Create(file_in, processor.get()));
-  if (in.get() == NULL) {
+  if (in == NULL) {
     fprintf(stderr, "Unable to open Zip file %s: %s\n", file_in,
             strerror(errno));
     abort();
@@ -363,7 +363,7 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
       in->CalculateOutputLength() +
       EstimateManifestOutputSize(target_label, injecting_rule_kind);
   std::unique_ptr<ZipBuilder> out(ZipBuilder::Create(file_out, output_length));
-  if (out.get() == NULL) {
+  if (out == NULL) {
     fprintf(stderr, "Unable to open output file %s: %s\n", file_out,
             strerror(errno));
     abort();

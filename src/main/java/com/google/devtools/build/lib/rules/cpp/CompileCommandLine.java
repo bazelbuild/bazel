@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +36,7 @@ public final class CompileCommandLine {
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainVariables variables;
   private final String actionName;
-  private final DotdFile dotdFile;
+  private final Artifact dotdFile;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
@@ -46,7 +46,7 @@ public final class CompileCommandLine {
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables,
       String actionName,
-      DotdFile dotdFile) {
+      Artifact dotdFile) {
     this.sourceFile = Preconditions.checkNotNull(sourceFile);
     this.coptsFilter = coptsFilter;
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
@@ -80,14 +80,20 @@ public final class CompileCommandLine {
    * @param overwrittenVariables: Variables that will overwrite original build variables. When null,
    *     unmodified original variables are used.
    */
-  protected List<String> getArguments(@Nullable CcToolchainVariables overwrittenVariables) {
+  protected List<String> getArguments(
+      @Nullable PathFragment parameterFilePath,
+      @Nullable CcToolchainVariables overwrittenVariables) {
     List<String> commandLine = new ArrayList<>();
 
     // first: The command name.
     commandLine.add(getToolPath());
 
     // second: The compiler options.
-    commandLine.addAll(getCompilerOptions(overwrittenVariables));
+    if (parameterFilePath != null) {
+      commandLine.add("@" + parameterFilePath.getSafePathString());
+    } else {
+      commandLine.addAll(getCompilerOptions(overwrittenVariables));
+    }
     return commandLine;
   }
 
@@ -96,7 +102,7 @@ public final class CompileCommandLine {
 
     CcToolchainVariables updatedVariables = variables;
     if (variables != null && overwrittenVariables != null) {
-      CcToolchainVariables.Builder variablesBuilder = new CcToolchainVariables.Builder(variables);
+      CcToolchainVariables.Builder variablesBuilder = CcToolchainVariables.builder(variables);
       variablesBuilder.addAllNonTransitive(overwrittenVariables);
       updatedVariables = variablesBuilder.build();
     }
@@ -128,7 +134,7 @@ public final class CompileCommandLine {
     return sourceFile;
   }
 
-  public DotdFile getDotdFile() {
+  public Artifact getDotdFile() {
     return dotdFile;
   }
 
@@ -153,10 +159,7 @@ public final class CompileCommandLine {
   }
 
   public static Builder builder(
-      Artifact sourceFile,
-      CoptsFilter coptsFilter,
-      String actionName,
-      DotdFile dotdFile) {
+      Artifact sourceFile, CoptsFilter coptsFilter, String actionName, Artifact dotdFile) {
     return new Builder(sourceFile, coptsFilter, actionName, dotdFile);
   }
 
@@ -167,7 +170,7 @@ public final class CompileCommandLine {
     private FeatureConfiguration featureConfiguration;
     private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
     private final String actionName;
-    @Nullable private final DotdFile dotdFile;
+    @Nullable private final Artifact dotdFile;
 
     public CompileCommandLine build() {
       return new CompileCommandLine(
@@ -180,10 +183,7 @@ public final class CompileCommandLine {
     }
 
     private Builder(
-        Artifact sourceFile,
-        CoptsFilter coptsFilter,
-        String actionName,
-        DotdFile dotdFile) {
+        Artifact sourceFile, CoptsFilter coptsFilter, String actionName, Artifact dotdFile) {
       this.sourceFile = sourceFile;
       this.coptsFilter = coptsFilter;
       this.actionName = actionName;

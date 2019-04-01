@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -32,9 +33,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -77,7 +76,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
               "Target '%s' depends on toolchain '%s', which cannot be found: %s'",
               from.getLabel(), to, e.getMessage());
     } else {
-      message = TargetUtils.formatMissingEdge(from, to, e);
+      message = TargetUtils.formatMissingEdge(from, to, e, dependencyKind.getAttribute());
     }
 
     env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(from), message));
@@ -91,15 +90,13 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException {
 
-    List<PackageValue.Key> packageKeys =
-        labelMap.entries().stream()
-            .map(e -> e.getValue().getPackageIdentifier())
-            .distinct()
-            .map(i -> PackageValue.key(i))
-            .collect(Collectors.toList());
+    Map<PackageIdentifier, SkyKey> packageKeys = new HashMap<>(labelMap.size());
+    for (Label label : labelMap.values()) {
+      packageKeys.computeIfAbsent(label.getPackageIdentifier(), id -> PackageValue.key(id));
+    }
 
     Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
-        env.getValuesOrThrow(packageKeys, NoSuchPackageException.class);
+        env.getValuesOrThrow(packageKeys.values(), NoSuchPackageException.class);
 
     // As per the comment in SkyFunctionEnvironment.getValueOrUntypedExceptions(), we are supposed
     // to prefer reporting errors to reporting null, we first check for errors in our dependencies.

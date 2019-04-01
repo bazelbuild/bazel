@@ -20,8 +20,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportFunction;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -40,11 +42,51 @@ import java.io.IOException;
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "incompatible_disable_legacy_crosstool_fields",
+        oldName = "experimental_disable_legacy_crosstool_fields",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableLegacyCrosstoolFields;
+
+    @Option(
+        name = "incompatible_require_feature_configuration_for_pic",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean requireFeatureConfigurationForPic;
+
+    @Option(
+        name = "incompatible_disable_depset_in_cc_user_flags",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableDepsetInUserFlags;
+
     @Option(
         name = "incompatible_dont_emit_static_libgcc",
         oldName = "experimental_dont_emit_static_libgcc",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.DEPRECATED,
@@ -57,7 +99,7 @@ public class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_linkopts_in_user_link_flags",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.DEPRECATED,
@@ -70,7 +112,7 @@ public class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_disable_runtimes_filegroups",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.DEPRECATED,
@@ -285,7 +327,9 @@ public class BazelRulesModule extends BlazeModule {
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.addSkyFunction(
-        CcSkyframeSupportValue.SKYFUNCTION, new CcSkyframeSupportFunction(directories));
+        CcSkyframeFdoSupportValue.SKYFUNCTION, new CcSkyframeFdoSupportFunction(directories));
+    builder.addSkyFunction(
+        CcSkyframeCrosstoolSupportValue.SKYFUNCTION, new CcSkyframeCrosstoolSupportFunction());
   }
 
   @Override

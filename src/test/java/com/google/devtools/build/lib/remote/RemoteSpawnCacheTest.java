@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -150,13 +152,22 @@ public class RemoteSpawnCacheTest {
         public SortedMap<PathFragment, ActionInput> getInputMapping(
             boolean expandTreeArtifactsInRunfiles) throws IOException {
           return new SpawnInputExpander(execRoot, /*strict*/ false)
-              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, ArtifactPathResolver.IDENTITY,
-                  fakeFileCache, true);
+              .getInputMapping(
+                  simpleSpawn,
+                  SIMPLE_ARTIFACT_EXPANDER,
+                  ArtifactPathResolver.IDENTITY,
+                  fakeFileCache,
+                  true);
         }
 
         @Override
         public void report(ProgressStatus state, String name) {
           progressUpdates.add(Pair.of(state, name));
+        }
+
+        @Override
+        public MetadataInjector getMetadataInjector() {
+          throw new UnsupportedOperationException();
         }
       };
 
@@ -502,5 +513,15 @@ public class RemoteSpawnCacheTest {
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
+  }
+
+  @Test
+  public void failedCacheActionAsCacheMiss() throws Exception {
+    ActionResult actionResult = ActionResult.newBuilder().setExitCode(1).build();
+    when(remoteCache.getCachedActionResult(any(ActionKey.class))).thenReturn(actionResult);
+
+    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
+
+    assertThat(entry.hasResult()).isFalse();
   }
 }

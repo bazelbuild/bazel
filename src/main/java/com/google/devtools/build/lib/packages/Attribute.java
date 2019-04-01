@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.collect.Sets.newEnumSet;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
@@ -34,14 +36,13 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -80,6 +81,33 @@ public final class Attribute implements Comparable<Attribute> {
   public static final RuleClassNamePredicate ANY_RULE = RuleClassNamePredicate.unspecified();
 
   public static final RuleClassNamePredicate NO_RULE = RuleClassNamePredicate.only();
+
+  /** Wrapper for a single configuration transition. */
+  // TODO(https://github.com/bazelbuild/bazel/issues/7814): Remove this, have callers create
+  // factories.
+  @AutoValue
+  abstract static class StaticTransitionFactory implements TransitionFactory<RuleTransitionData> {
+    abstract ConfigurationTransition transition();
+
+    @Override
+    public ConfigurationTransition create(RuleTransitionData unused) {
+      return transition();
+    }
+
+    @Override
+    public boolean isHost() {
+      return transition().isHostTransition();
+    }
+
+    @Override
+    public boolean isSplit() {
+      return transition() instanceof SplitTransition;
+    }
+
+    static TransitionFactory<RuleTransitionData> of(ConfigurationTransition transition) {
+      return new AutoValue_Attribute_StaticTransitionFactory(transition);
+    }
+  }
 
   /** Wraps the information necessary to construct an Aspect. */
   @VisibleForSerialization
@@ -286,44 +314,6 @@ public final class Attribute implements Comparable<Attribute> {
         }
       };
 
-  /**
-   * Provides a {@link SplitTransition} given the originating target {@link Rule}. The split
-   * transition may be constant for all instances of the originating rule, or it may differ
-   * based on attributes of that rule. For instance, a split transition on a rule's deps may differ
-   * depending on the 'platform' attribute of the rule.
-   */
-  public interface SplitTransitionProvider extends SplitTransitionProviderApi {
-    /**
-     * Returns the {@link SplitTransition} given the attribute mapper of the originating rule.
-     */
-    SplitTransition apply(AttributeMap attributeMap);
-  }
-
-  /**
-   * Implementation of {@link SplitTransitionProvider} that returns a single {@link SplitTransition}
-   * regardless of the originating rule.
-   */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class BasicSplitTransitionProvider implements SplitTransitionProvider {
-    private final SplitTransition splitTransition;
-
-    @AutoCodec.VisibleForSerialization
-    BasicSplitTransitionProvider(SplitTransition splitTransition) {
-      this.splitTransition = splitTransition;
-    }
-
-    @Override
-    public SplitTransition apply(AttributeMap attributeMap) {
-      return splitTransition;
-    }
-
-    @Override
-    public void repr(SkylarkPrinter printer) {
-      printer.append("<transition object>");
-    }
-  }
-
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
   @AutoCodec
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
@@ -388,10 +378,10 @@ public final class Attribute implements Comparable<Attribute> {
   @AutoCodec
   public static class ImmutableAttributeFactory {
     private final Type<?> type;
-    private final ConfigurationTransition configTransition;
+    private final String doc;
+    private final TransitionFactory<RuleTransitionData> transitionFactory;
     private final RuleClassNamePredicate allowedRuleClassesForLabels;
     private final RuleClassNamePredicate allowedRuleClassesForLabelsWarning;
-    private final SplitTransitionProvider splitTransitionProvider;
     private final FileTypeSet allowedFileTypesForLabels;
     private final ValidityPredicate validityPredicate;
     private final Object value;
@@ -406,12 +396,12 @@ public final class Attribute implements Comparable<Attribute> {
     @AutoCodec.VisibleForSerialization
     ImmutableAttributeFactory(
         Type<?> type,
+        String doc,
         ImmutableSet<PropertyFlag> propertyFlags,
         Object value,
-        ConfigurationTransition configTransition,
+        TransitionFactory<RuleTransitionData> transitionFactory,
         RuleClassNamePredicate allowedRuleClassesForLabels,
         RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
-        SplitTransitionProvider splitTransitionProvider,
         FileTypeSet allowedFileTypesForLabels,
         ValidityPredicate validityPredicate,
         AttributeValueSource valueSource,
@@ -421,10 +411,10 @@ public final class Attribute implements Comparable<Attribute> {
         RequiredProviders requiredProviders,
         ImmutableList<RuleAspect<?>> aspects) {
       this.type = type;
-      this.configTransition = configTransition;
+      this.doc = doc;
+      this.transitionFactory = transitionFactory;
       this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
       this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
-      this.splitTransitionProvider = splitTransitionProvider;
       this.allowedFileTypesForLabels = allowedFileTypesForLabels;
       this.validityPredicate = validityPredicate;
       this.value = value;
@@ -449,7 +439,7 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
       if (valueSource == AttributeValueSource.LATE_BOUND) {
         Preconditions.checkState(isLateBound(name));
-        Preconditions.checkState(splitTransitionProvider == null);
+        Preconditions.checkState(!transitionFactory.isSplit());
       }
       // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
       // remove all allowedFileTypes() calls without parameters.
@@ -471,11 +461,11 @@ public final class Attribute implements Comparable<Attribute> {
 
       return new Attribute(
           name,
+          doc,
           type,
           propertyFlags,
           value,
-          configTransition,
-          splitTransitionProvider,
+          transitionFactory,
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
           allowedFileTypesForLabels,
@@ -496,13 +486,13 @@ public final class Attribute implements Comparable<Attribute> {
   public static class Builder <TYPE> {
     private final String name;
     private final Type<TYPE> type;
-    private ConfigurationTransition configTransition = NoTransition.INSTANCE;
+    private TransitionFactory<RuleTransitionData> transitionFactory = NoTransition.createFactory();
     private RuleClassNamePredicate allowedRuleClassesForLabels = ANY_RULE;
     private RuleClassNamePredicate allowedRuleClassesForLabelsWarning = NO_RULE;
-    private SplitTransitionProvider splitTransitionProvider;
     private FileTypeSet allowedFileTypesForLabels;
     private ValidityPredicate validityPredicate = ANY_EDGE;
     private Object value;
+    private String doc;
     private AttributeValueSource valueSource = AttributeValueSource.DIRECT;
     private boolean valueSet;
     private Predicate<AttributeMap> condition;
@@ -631,14 +621,13 @@ public final class Attribute implements Comparable<Attribute> {
           "analysis-test split transition");
     }
 
-    /**
-     * Defines the configuration transition for this attribute.
-     */
-    public Builder<TYPE> cfg(SplitTransitionProvider splitTransitionProvider) {
-      Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
+    /** Defines the configuration transition for this attribute. */
+    public Builder<TYPE> cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
+      Preconditions.checkNotNull(transitionFactory);
+      Preconditions.checkState(
+          NoTransition.isInstance(this.transitionFactory),
           "the configuration transition is already set");
-
-      this.splitTransitionProvider = Preconditions.checkNotNull(splitTransitionProvider);
+      this.transitionFactory = transitionFactory;
       return this;
     }
 
@@ -648,14 +637,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> cfg(ConfigurationTransition configTransition) {
       Preconditions.checkNotNull(configTransition);
-      Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
-          "the configuration transition is already set");
-      if (configTransition instanceof SplitTransition) {
-        return cfg(new BasicSplitTransitionProvider((SplitTransition) configTransition));
-      } else {
-        this.configTransition = configTransition;
-        return this;
-      }
+      return cfg(StaticTransitionFactory.of(configTransition));
     }
 
     /**
@@ -683,6 +665,16 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> undocumented(String reason) {
       return setPropertyFlag(PropertyFlag.UNDOCUMENTED, "undocumented");
+    }
+
+    /**
+     * Set the doc string for the attribute.
+     *
+     * @param doc The doc string for this attribute.
+     */
+    public Builder<TYPE> setDoc(String doc) {
+      this.doc = doc;
+      return this;
     }
 
     /**
@@ -856,16 +848,16 @@ public final class Attribute implements Comparable<Attribute> {
      * If this is a label or label-list attribute, then this sets the allowed rule types for the
      * labels occurring in the attribute.
      *
-     * <p>If the attribute contains Labels of any other rule type, then if they're in
-     * {@link #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if
-     * they fulfill {@link #getMandatoryNativeProvidersList()}, the build continues without error.
-     * Else the build fails during analysis.
+     * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
+     * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
+     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     * fulfill {@link #mandatoryNativeProvidersList} build without error.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
-     * works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(Iterable<String> allowedRuleClasses) {
       return allowedRuleClasses(
@@ -876,16 +868,16 @@ public final class Attribute implements Comparable<Attribute> {
      * If this is a label or label-list attribute, then this sets the allowed rule types for the
      * labels occurring in the attribute.
      *
-     * <p>If the attribute contains Labels of any other rule type, then if they're in
-     * {@link #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if
-     * they fulfill {@link #getMandatoryNativeProvidersList()}, the build continues without error.
-     * Else the build fails during analysis.
+     * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
+     * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
+     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     * fulfill {@link #mandatoryNativeProvidersList} build without error.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
-     * works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(RuleClassNamePredicate allowedRuleClasses) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
@@ -899,16 +891,16 @@ public final class Attribute implements Comparable<Attribute> {
      * If this is a label or label-list attribute, then this sets the allowed rule types for the
      * labels occurring in the attribute.
      *
-     * <p>If the attribute contains Labels of any other rule type, then if they're in
-     * {@link #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if
-     * they fulfill {@link #getMandatoryNativeProvidersList()}, the build continues without error.
-     * Else the build fails during analysis.
+     * <p>If the attribute contains Labels of any other rule type, then if they're in {@link
+     * #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if they
+     * fulfill {@link #mandatoryNativeProvidersList}, the build continues without error. Else the
+     * build fails during analysis.
      *
      * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
-     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     * fulfill {@link #mandatoryNativeProvidersList} build without error.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
-     * works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(String... allowedRuleClasses) {
       return allowedRuleClasses(ImmutableSet.copyOf(allowedRuleClasses));
@@ -1178,12 +1170,12 @@ public final class Attribute implements Comparable<Attribute> {
 
       return new ImmutableAttributeFactory(
           type,
+          doc,
           Sets.immutableEnumSet(propertyFlags),
           valueSet ? value : type.getDefaultValue(),
-          configTransition,
+          transitionFactory,
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
-          splitTransitionProvider,
           allowedFileTypesForLabels,
           validityPredicate,
           valueSource,
@@ -1307,9 +1299,9 @@ public final class Attribute implements Comparable<Attribute> {
         Rule rule,
         ComputationLimiter<TLimitException> limiter)
         throws TComputeException, TLimitException {
+      AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
       // This will hold every (value1, value2, ..) combination of the declared dependencies.
       // Collect those combinations.
-      AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
       List<Map<String, Object>> depMaps = mapper.visitAttributes(dependencies, limiter);
       // For each combination, call compute() on a specialized AttributeMap providing those
       // values.
@@ -1408,6 +1400,11 @@ public final class Attribute implements Comparable<Attribute> {
 
     <T> Iterable<T> getPossibleValues(Type<T> type, Rule rule) {
       final ComputedDefault owner = ComputedDefault.this;
+      if (dependencies.isEmpty()) {
+        AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+        Object value = owner.getDefault(mapper.createMapBackedAttributeMap(ImmutableMap.of()));
+        return Lists.newArrayList(type.cast(value));
+      }
       ComputationStrategy<RuntimeException> strategy =
           new ComputationStrategy<RuntimeException>() {
             @Override
@@ -1909,6 +1906,8 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final String name;
 
+  private final String doc;
+
   private final Type<?> type;
 
   private final Set<PropertyFlag> propertyFlags;
@@ -1925,9 +1924,7 @@ public final class Attribute implements Comparable<Attribute> {
   // (We assume a hypothetical Type.isValid(Object) predicate.)
   private final Object defaultValue;
 
-  private final ConfigurationTransition configTransition;
-
-  private final SplitTransitionProvider splitTransitionProvider;
+  private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /**
    * For label or label-list attributes, this predicate returns which rule
@@ -1974,17 +1971,17 @@ public final class Attribute implements Comparable<Attribute> {
    *     declaration in the BUILD file. Must be null, or of type "type". May be an instance of
    *     ComputedDefault, in which case its getDefault() method must return an instance of "type",
    *     or null. Must be immutable.
-   * @param configTransition the configuration transition for this attribute (which must be of type
+   * @param transitionFactory the configuration transition for this attribute (which must be of type
    *     LABEL, LABEL_LIST, NODEP_LABEL or NODEP_LABEL_LIST).
    */
   @VisibleForSerialization
   Attribute(
       String name,
+      String doc,
       Type<?> type,
       Set<PropertyFlag> propertyFlags,
       Object defaultValue,
-      ConfigurationTransition configTransition,
-      SplitTransitionProvider splitTransitionProvider,
+      TransitionFactory<RuleTransitionData> transitionFactory,
       RuleClassNamePredicate allowedRuleClassesForLabels,
       RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
       FileTypeSet allowedFileTypesForLabels,
@@ -1993,11 +1990,10 @@ public final class Attribute implements Comparable<Attribute> {
       PredicateWithMessage<Object> allowedValues,
       RequiredProviders requiredProviders,
       ImmutableList<RuleAspect<?>> aspects) {
-    Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
-        (configTransition == NoTransition.INSTANCE)
-        || type.getLabelClass() == LabelClass.DEPENDENCY
-        || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
+        (NoTransition.isInstance(transitionFactory))
+            || type.getLabelClass() == LabelClass.DEPENDENCY
+            || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
         "Configuration transitions can only be specified for label or label list attributes");
     Preconditions.checkArgument(
         isLateBound(name) == (defaultValue instanceof LateBoundDefault),
@@ -2005,17 +2001,17 @@ public final class Attribute implements Comparable<Attribute> {
         name);
     if (isLateBound(name)) {
       LateBoundDefault<?, ?> lateBoundDefault = (LateBoundDefault<?, ?>) defaultValue;
-      Preconditions.checkArgument(!lateBoundDefault.useHostConfiguration()
-          || (configTransition.isHostTransition()),
+      Preconditions.checkArgument(
+          !lateBoundDefault.useHostConfiguration() || transitionFactory.isHost(),
           "a late bound default value using the host configuration must use the host transition");
     }
 
     this.name = name;
+    this.doc = doc;
     this.type = type;
     this.propertyFlags = propertyFlags;
     this.defaultValue = defaultValue;
-    this.configTransition = configTransition;
-    this.splitTransitionProvider = splitTransitionProvider;
+    this.transitionFactory = transitionFactory;
     this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     this.allowedFileTypesForLabels = allowedFileTypesForLabels;
@@ -2024,21 +2020,22 @@ public final class Attribute implements Comparable<Attribute> {
     this.allowedValues = allowedValues;
     this.requiredProviders = requiredProviders;
     this.aspects = aspects;
-    this.hashCode = Objects.hash(
-        name,
-        type,
-        propertyFlags,
-        defaultValue,
-        configTransition,
-        splitTransitionProvider,
-        allowedRuleClassesForLabels,
-        allowedRuleClassesForLabelsWarning,
-        allowedFileTypesForLabels,
-        validityPredicate,
-        condition,
-        allowedValues,
-        requiredProviders,
-        aspects);
+    this.hashCode =
+        Objects.hash(
+            name,
+            doc,
+            type,
+            propertyFlags,
+            defaultValue,
+            transitionFactory,
+            allowedRuleClassesForLabels,
+            allowedRuleClassesForLabelsWarning,
+            allowedFileTypesForLabels,
+            validityPredicate,
+            condition,
+            allowedValues,
+            requiredProviders,
+            aspects);
   }
 
   /**
@@ -2046,6 +2043,11 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public String getName() {
     return name;
+  }
+
+  /** Returns the doc string for that attribute, if any. */
+  public String getDoc() {
+    return doc;
   }
 
   /**
@@ -2122,8 +2124,8 @@ public final class Attribute implements Comparable<Attribute> {
 
   /**
    * Returns true if this attribute uses a starlark-defined, non analysis-test configuration
-   * transition. See {@link FunctionSplitTransitionProvider}. Starlark-defined analysis-test
-   * configuration transitions are handled separately. See {@link #hasAnalysisTestTransition}.
+   * transition. Starlark-defined analysis-test configuration transitions are handled separately.
+   * See {@link #hasAnalysisTestTransition}.
    */
   public boolean hasStarlarkDefinedTransition() {
     return getPropertyFlag(PropertyFlag.HAS_STARLARK_DEFINED_TRANSITION);
@@ -2138,36 +2140,28 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the configuration transition for this attribute for label or label
-   * list attributes. For other attributes it will always return {@code NONE}.
+   * Returns the configuration transition factory for this attribute for label or label list
+   * attributes. For other attributes it will always return {@code NONE}.
    */
-  public ConfigurationTransition getConfigurationTransition() {
-    return configTransition;
+  public TransitionFactory<RuleTransitionData> getTransitionFactory() {
+    return transitionFactory;
   }
 
   /**
-   * Returns the split configuration transition for this attribute.
-   *
-   * @param attributeMapper the attribute mapper of the current {@link Rule}
-   * @return a SplitTransition<BuildOptions> object
-   * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true
+   * Returns true if this attribute transitions on a split transition. See {@link SplitTransition}.
    */
-  public SplitTransition getSplitTransition(AttributeMap attributeMapper) {
-    Preconditions.checkState(hasSplitConfigurationTransition());
-    return splitTransitionProvider.apply(attributeMapper);
-  }
-
-  @VisibleForTesting
-  public SplitTransitionProvider getSplitTransitionProviderForTesting() {
-    return splitTransitionProvider;
-  }
-
-  /**
-   * Returns true if this attribute transitions on a split transition.
-   * See {@link SplitTransition}.
-   */
+  // TODO(https://github.com/bazelbuild/bazel/issues/7814) Remove this.
   public boolean hasSplitConfigurationTransition() {
-    return (splitTransitionProvider != null);
+    return transitionFactory.isSplit();
+  }
+
+  /**
+   * Returns true if this attribute transitions to the host configuration. See {@link
+   * com.google.devtools.build.lib.analysis.config.HostTransition}.
+   */
+  // TODO(https://github.com/bazelbuild/bazel/issues/7814) Remove this.
+  public boolean hasHostConfigurationTransition() {
+    return transitionFactory.isHost();
   }
 
   /**
@@ -2246,11 +2240,11 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns a predicate that evaluates to true for rule classes that are
-   * allowed labels in this attribute. If this is not a label or label-list
-   * attribute, the returned predicate always evaluates to true.
+   * Returns a predicate that evaluates to true for rule classes that are allowed labels in this
+   * attribute. If this is not a label or label-list attribute, the returned predicate always
+   * evaluates to true.
    */
-  // TODO(b/69917891) Remove these methods once checkbuilddeps no longer depends on them.
+  // TODO(b/69917891): Remove these methods once checkbuilddeps no longer depends on them.
   public Predicate<String> getAllowedRuleClassNamesPredicate() {
     return allowedRuleClassesForLabels.asPredicateOfRuleClassName();
   }
@@ -2429,11 +2423,11 @@ public final class Attribute implements Comparable<Attribute> {
     Attribute attribute = (Attribute) o;
     return Objects.equals(hashCode, attribute.hashCode)
         && Objects.equals(name, attribute.name)
+        && Objects.equals(doc, attribute.doc)
         && Objects.equals(type, attribute.type)
         && Objects.equals(propertyFlags, attribute.propertyFlags)
         && Objects.equals(defaultValue, attribute.defaultValue)
-        && Objects.equals(configTransition, attribute.configTransition)
-        && Objects.equals(splitTransitionProvider, attribute.splitTransitionProvider)
+        && Objects.equals(transitionFactory, attribute.transitionFactory)
         && Objects.equals(allowedRuleClassesForLabels, attribute.allowedRuleClassesForLabels)
         && Objects.equals(
             allowedRuleClassesForLabelsWarning, attribute.allowedRuleClassesForLabelsWarning)
@@ -2456,14 +2450,14 @@ public final class Attribute implements Comparable<Attribute> {
   public <TYPE> Attribute.Builder<TYPE> cloneBuilder(Type<TYPE> tp) {
     Preconditions.checkArgument(tp == this.type);
     Builder<TYPE> builder = new Builder<>(name, tp);
+    builder.doc = doc;
     builder.allowedFileTypesForLabels = allowedFileTypesForLabels;
     builder.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     builder.requiredProvidersBuilder = requiredProviders.copyAsBuilder();
     builder.validityPredicate = validityPredicate;
     builder.condition = condition;
-    builder.configTransition = configTransition;
-    builder.splitTransitionProvider = splitTransitionProvider;
+    builder.transitionFactory = transitionFactory;
     builder.propertyFlags = newEnumSet(propertyFlags, PropertyFlag.class);
     builder.value = defaultValue;
     builder.valueSet = false;

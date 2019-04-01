@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -170,12 +170,19 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         // A dependency is missing, cleanup and returns null
         try {
           if (outputDirectory.exists()) {
-            FileSystemUtils.deleteTree(outputDirectory);
+            outputDirectory.deleteTree();
           }
         } catch (IOException e1) {
           throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
         }
         return null;
+      }
+      env.getListener()
+          .handle(
+              Event.info(
+                  "An error occurred during the fetch of repository '" + rule.getName() + "'"));
+      if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
+        env.getListener().handle(Event.info(rule.getDefinitionInformation()));
       }
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

@@ -20,9 +20,6 @@ _TRUE = "TRUE"
 _PY2 = "PY2"
 _PY3 = "PY3"
 
-# Keep in sync with PythonVersion.DEFAULT_TARGET_VALUE.
-_DEFAULT_PYTHON_VERSION = "PY2"
-
 def _python_version_flag_impl(ctx):
     # Version is determined using the same logic as in PythonOptions#getPythonVersion:
     #
@@ -34,7 +31,7 @@ def _python_version_flag_impl(ctx):
     elif ctx.attr.force_python_flag != _UNSET:
         version = ctx.attr.force_python_flag
     else:
-        version = _DEFAULT_PYTHON_VERSION
+        version = _PY3 if ctx.attr.incompatible_py3_is_default_flag else _PY2
 
     if version not in ["PY2", "PY3"]:
         fail("Internal error: _python_version_flag should only be able to " +
@@ -46,21 +43,29 @@ _python_version_flag = rule(
     attrs = {
         "force_python_flag": attr.string(mandatory = True, values = [_PY2, _PY3, _UNSET]),
         "python_version_flag": attr.string(mandatory = True, values = [_PY2, _PY3, _UNSET]),
+        "incompatible_py3_is_default_flag": attr.bool(mandatory = True),
     },
 )
 
 def define_python_version_flag(name):
     """Defines the target to expose the Python version to select().
 
-    For use only by @bazel_tools//python:BUILD; see the documentation comment
-    there.
+    For use only by @bazel_tools//tools/python:BUILD; see the documentation
+    comment there.
 
     Args:
-        name: The name of the target to introduce.
+        name: The name of the target to introduce. Must have value
+            "python_version". This param is present only to make the BUILD file
+            more readable.
     """
+    if native.package_name() != "tools/python":
+        fail("define_python_version_flag() is private to " +
+             "@bazel_tools//tools/python")
+    if name != "python_version":
+        fail("Python version flag must be named 'python_version'")
 
     # Config settings for the underlying native flags we depend on:
-    # --force_python and --python_version.
+    # --force_python, --python_version, and --incompatible_py3_is_default.
     native.config_setting(
         name = "_force_python_setting_PY2",
         values = {"force_python": "PY2"},
@@ -81,6 +86,16 @@ def define_python_version_flag(name):
         values = {"python_version": "PY3"},
         visibility = ["//visibility:private"],
     )
+    native.config_setting(
+        name = "_incompatible_py3_is_default_setting_false",
+        values = {"incompatible_py3_is_default": "false"},
+        visibility = ["//visibility:private"],
+    )
+    native.config_setting(
+        name = "_incompatible_py3_is_default_setting_true",
+        values = {"incompatible_py3_is_default": "true"},
+        visibility = ["//visibility:private"],
+    )
 
     _python_version_flag(
         name = name,
@@ -93,6 +108,10 @@ def define_python_version_flag(name):
             ":_python_version_setting_PY2": _PY2,
             ":_python_version_setting_PY3": _PY3,
             "//conditions:default": _UNSET,
+        }),
+        incompatible_py3_is_default_flag = select({
+            ":_incompatible_py3_is_default_setting_false": False,
+            ":_incompatible_py3_is_default_setting_true": True,
         }),
         visibility = ["//visibility:public"],
     )

@@ -42,7 +42,8 @@ filesystem or downloaded from the internet. Users can also write custom
 
 This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
 different set of rules. The full list of built-in rules are in the Build
-Encyclopedia's [Workspace Rules](be/workspace.html).
+Encyclopedia's [Workspace Rules](be/workspace.html) and the documentation
+for [Embedded Starklark Repository Rules](repo/index.html).
 
 <a name="types"></a>
 ## Supported types of external dependencies
@@ -59,8 +60,8 @@ A few basic types of external dependencies can be used:
 If you want to use targets from a second Bazel project, you can
 use
 [`local_repository`](http://docs.bazel.build/be/workspace.html#local_repository),
-[`git_repository`](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/git.bzl)
-or [`http_archive`](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/http.bzl)
+[`git_repository`](repo/git.html#git_repository)
+or [`http_archive`](repo/http.html#http_archive)
 to symlink it from the local filesystem, reference a git repository or download
 it (respectively).
 
@@ -266,9 +267,8 @@ directory. To remove all external artifacts, use `bazel clean --expunge`.
 
 ### Repository rules
 
-Prefer `http_archive` and `new_http_archive` to `git_repository`, `new_git_repository`, and
-`maven_jar`.
-
+Prefer [`http_archive`](repo/http.html#http_archive)
+to `git_repository`, `new_git_repository`, and `maven_jar`.
 `maven_jar` uses Maven's
 internal API, which generally works but is less optimized for Bazel than `http_archive`'s
 downloader logic. Track the following issues filed to remediate these problems:

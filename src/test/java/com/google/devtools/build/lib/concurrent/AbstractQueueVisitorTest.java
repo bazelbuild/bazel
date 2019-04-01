@@ -79,6 +79,27 @@ public class AbstractQueueVisitorTest {
   }
 
   @Test
+  public void externalDepWithInterrupt() throws Exception {
+    SettableFuture<Object> future = SettableFuture.create();
+    AbstractQueueVisitor counter =
+        new AbstractQueueVisitor(
+            /*parallelism=*/ 2,
+            /* keepAliveTime= */ 3L,
+            TimeUnit.SECONDS,
+            /* failFastOnException= */ true,
+            "FOO-BAR",
+            ErrorClassifier.DEFAULT);
+    counter.dependOnFuture(future);
+    Thread.currentThread().interrupt();
+    try {
+      counter.awaitQuiescence(/*interruptWorkers=*/ true);
+      fail();
+    } catch (InterruptedException expected) {
+    }
+    assertThat(future.isCancelled()).isTrue();
+  }
+
+  @Test
   public void callerOwnedPool() throws Exception {
     ThreadPoolExecutor executor = new ThreadPoolExecutor(5, 5, 0, TimeUnit.SECONDS,
                                                          new LinkedBlockingQueue<Runnable>());
@@ -152,7 +173,7 @@ public class AbstractQueueVisitorTest {
       counter.awaitQuiescence(/*interruptWorkers=*/ false);
       fail();
     } catch (Error expected) {
-      assertThat(expected).hasMessage("Could not create thread (fakeout)");
+      assertThat(expected).hasMessageThat().isEqualTo("Could not create thread (fakeout)");
     }
     assertThat(counter.getCount()).isSameAs(5);
 

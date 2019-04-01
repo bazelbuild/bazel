@@ -108,8 +108,8 @@ genrule(
     name = "ijar_desugared_java8_legacy_libs",
     srcs = ["desugared_java8_legacy_libs"],
     outs = ["desugared_java8_legacy_libs-ijar.jar"],
-    cmd = "$(location //third_party/ijar) $< $@",
-    tools = ["//third_party/ijar"],
+    cmd = "$(location @bazel_tools//tools/jdk:ijar) $< $@",
+    tools = ["@bazel_tools//tools/jdk:ijar"],
     visibility = ["//visibility:private"],
 )
 

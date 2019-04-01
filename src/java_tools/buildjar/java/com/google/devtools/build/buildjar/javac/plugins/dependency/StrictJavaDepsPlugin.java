@@ -32,6 +32,8 @@ import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
+import com.sun.tools.javac.resources.CompilerProperties.Errors;
+import com.sun.tools.javac.resources.CompilerProperties.Warnings;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeScanner;
@@ -174,10 +176,10 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       try {
         switch (dependencyModule.getStrictJavaDeps()) {
           case ERROR:
-            log.error(diagnostic.pos(), "proc.messager", diagnostic.message());
+            log.error(diagnostic.pos(), Errors.ProcMessager(diagnostic.message()));
             break;
           case WARN:
-            log.warning(diagnostic.pos(), "proc.messager", diagnostic.message());
+            log.warning(diagnostic.pos(), Warnings.ProcMessager(diagnostic.message()));
             break;
           case OFF: // continue below
         }

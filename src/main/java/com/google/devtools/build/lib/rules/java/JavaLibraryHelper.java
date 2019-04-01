@@ -168,7 +168,6 @@ public final class JavaLibraryHelper {
    * @param javaToolchainProvider used for retrieving misc java tools
    * @param hostJavabase the target of the host javabase used to retrieve the java executable and
    *     its necessary inputs
-   * @param jacocoInstrumental jacoco jars needed when running coverage
    * @param outputJarsBuilder populated with the outputs of the created actions
    * @param outputSourceJar if not-null, the output of an source jar action that will be created
    */
@@ -176,7 +175,6 @@ public final class JavaLibraryHelper {
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
       JavaRuntimeInfo hostJavabase,
-      Iterable<Artifact> jacocoInstrumental,
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar) {
@@ -184,7 +182,6 @@ public final class JavaLibraryHelper {
         semantics,
         javaToolchainProvider,
         hostJavabase,
-        jacocoInstrumental,
         outputJarsBuilder,
         createOutputSourceJar,
         outputSourceJar,
@@ -196,7 +193,6 @@ public final class JavaLibraryHelper {
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
       JavaRuntimeInfo hostJavabase,
-      Iterable<Artifact> jacocoInstrumental,
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar,
@@ -228,13 +224,7 @@ public final class JavaLibraryHelper {
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
-            ruleContext,
-            semantics,
-            javacOpts,
-            attributes,
-            javaToolchainProvider,
-            hostJavabase,
-            jacocoInstrumental);
+            ruleContext, semantics, javacOpts, attributes, javaToolchainProvider, hostJavabase);
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(output);
 
     Artifact genSourceJar = null;
@@ -252,7 +242,6 @@ public final class JavaLibraryHelper {
             output,
             manifestProtoOutput,
             genSourceJar,
-            /* instrumentationMetadataJar= */ null,
             nativeHeaderOutput);
 
     Artifact iJar = null;

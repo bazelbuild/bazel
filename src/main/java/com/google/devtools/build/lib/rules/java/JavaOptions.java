@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
@@ -32,10 +31,8 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Command-line options for building Java targets */
 public class JavaOptions extends FragmentOptions {
@@ -85,7 +82,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_toolchain",
-      defaultValue = "null",
+      defaultValue = "@bazel_tools//tools/jdk:remote_toolchain",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -94,7 +91,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "host_java_toolchain",
-      defaultValue = "null",
+      defaultValue = "@bazel_tools//tools/jdk:remote_toolchain",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -113,20 +110,8 @@ public class JavaOptions extends FragmentOptions {
   public Label hostJavaBase;
 
   @Option(
-      name = "incompatible_use_jdk10_as_host_javabase",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, the default --host_javabase is JDK 10.")
-  public boolean useJDK10AsHostJavaBase;
-
-  @Option(
       name = "incompatible_use_jdk11_as_host_javabase",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
@@ -601,34 +586,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean requireJavaToolchainHeaderCompilerDirect;
 
   @Option(
-      name = "incompatible_use_remote_java_toolchain",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, uses the remote Java tools for the default --java_toolchain. "
-              + "See #7196.")
-  public boolean useRemoteJavaToolchain;
-
-  @Option(
-      name = "incompatible_use_remote_host_java_toolchain",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, uses the remote Java tools for the default --host_java_toolchain. "
-              + "See #7197.")
-  public boolean useRemoteHostJavaToolchain;
-
-  @Option(
       name = "incompatible_disallow_resource_jars",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -667,34 +624,9 @@ public class JavaOptions extends FragmentOptions {
       if (useJDK11AsHostJavaBase) {
         return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
       }
-      if (useJDK10AsHostJavaBase) {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk10");
-      }
-      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:host_jdk");
+      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk10");
     }
     return hostJavaBase;
-  }
-
-  private Label getHostJavaToolchain() {
-    if (hostJavaToolchain == null) {
-      if (useRemoteHostJavaToolchain) {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
-      } else {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain");
-      }
-    }
-    return hostJavaToolchain;
-  }
-
-  Label getJavaToolchain() {
-    if (javaToolchain == null) {
-      if (useRemoteJavaToolchain) {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
-      } else {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain");
-      }
-    }
-    return javaToolchain;
   }
 
   @Override
@@ -705,7 +637,7 @@ public class JavaOptions extends FragmentOptions {
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
     host.javacOpts = hostJavacOpts;
-    host.javaToolchain = getHostJavaToolchain();
+    host.javaToolchain = hostJavaToolchain;
 
     host.javaLauncher = hostJavaLauncher;
 
@@ -741,12 +673,4 @@ public class JavaOptions extends FragmentOptions {
     return host;
   }
 
-  @Override
-  public Map<String, Set<Label>> getDefaultsLabels() {
-    Map<String, Set<Label>> result = new HashMap<>();
-    result.put("JDK", ImmutableSet.of(javaBase, getHostJavaBase()));
-    result.put("JAVA_TOOLCHAIN", ImmutableSet.of(getJavaToolchain()));
-
-    return result;
-  }
 }

@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -293,13 +292,17 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       ConfigurationResolver.putOnlyEntry(map, "foo", "baz");
       fail("Expected an exception when trying to add a new value to an existing key");
     } catch (VerifyException e) {
-      assertThat(e).hasMessage("couldn't insert baz: map already has values for key foo: [bar]");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("couldn't insert baz: map already has values for key foo: [bar]");
     }
     try {
       ConfigurationResolver.putOnlyEntry(map, "foo", "bar");
       fail("Expected an exception when trying to add a pre-existing <key, value> pair");
     } catch (VerifyException e) {
-      assertThat(e).hasMessage("couldn't insert bar: map already has values for key foo: [bar]");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("couldn't insert bar: map already has values for key foo: [bar]");
     }
   }
 
@@ -345,12 +348,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       return;
     }
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            /* appendToCurrentToolchain= */ false,
-            MockCcSupport.emptyToolchainForCpu("armeabi-v7a"));
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
         "java/a/BUILD",
         "cc_library(name = 'lib', srcs = ['lib.cc'])",

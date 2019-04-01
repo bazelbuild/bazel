@@ -1450,12 +1450,17 @@ genrule(
   cmd = "cp $< $@"
 )
 EOF
+
+  echo "Build #1"
+
   # build to fill the cache
   bazel build //:it || fail "Expected success"
 
   # go offline and clean everything
   bazel clean --expunge
   rm "${WRKDIR}/ext-1.1.zip"
+
+  echo "Build #2"
 
   # We still should be able to build, as the file is in cache
   bazel build //:it > "${TEST_log}" 2>&1 || fail "Expected success"
@@ -1471,6 +1476,9 @@ EOF
 w
 q
 EOI
+
+  echo "Build #3"
+
   # The build should fail, as the prefix is not found. The available prefix
   # should be reported as well as the information that the file was taken
   # from cache.
@@ -1495,6 +1503,9 @@ patch_cmds = ["cp ext-1.2/foo.txt ext-1.2/BUILD ."],
 w
 q
 EOI
+
+  echo "Build #4"
+
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Should not succeed" || :
   expect_not_log 'prefix'
   expect_log 'cp ext-1.2/foo.txt ext-1.2/BUILD'
@@ -1903,5 +1914,96 @@ EOF
   expect_log 'no need for `strip_prefix`'
 }
 
+function test_loaded_file_reported() {
+  # Verify that upon a load in the WORKSPACE file with
+  # the repository not (yet) defined, the name of the
+  # file is reported in the error message.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<'EOF'
+load("@nonexistent//path/to/package:file/to/import.bzl", "foo")
+foo()
+EOF
+  touch BUILD
+  bazel build //... > "${TEST_log}" 2>&1 && fail "Expected failure"
+
+  expect_log '@nonexistent//path/to/package:file/to/import.bzl'
+  expect_log 'nonexistent.*repository.*WORKSPACE'
+}
+
+function test_report_files_searched() {
+  # Verify that upon  a missing package, the places where a BUILD file was
+  # searched for are reported.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir ext
+  echo 'data' > ext/foo.txt
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir -p path/to/workspace
+  cd path/to/workspace
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  urls=["file://${WRKDIR}/ext.tar"],
+  build_file = "@//:ext.BUILD",
+)
+EOF
+  echo 'exports_files(["foo.txt"])' > ext.BUILD
+
+  bazel build @ext//... > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+
+  expect_log 'BUILD file not found'
+  expect_log 'path/to/workspace'
+}
+
+function test_location_reported() {
+  # Verify that some useful information is provided about where
+  # a failing repository definition occurred.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir empty
+  tar cvf x.tar empty
+  rm -rf empty
+
+  mkdir -p path/to/main
+  cd path/to/main
+  touch BUILD
+  cat > WORKSPACE <<'EOF'
+load("//:repos.bzl", "repos")
+repos()
+EOF
+  cat > repos.bzl <<"EOF"
+load("//:foo.bzl", "foo_repos")
+
+def repos():
+  # ..forgot to add the repository bar
+  foo_repos()
+EOF
+  cat > foo.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def foo_repos():
+    http_archive(
+        name = "foo",
+        url = "file://${WRKDIR}/x.tar",
+        build_file = "@bar//:foo.build",
+    )
+EOF
+
+  bazel build @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log 'error.*repository.*foo'
+  expect_log '@bar//:foo.build'
+  expect_log 'path/to/main/foo.bzl'
+  expect_log 'path/to/main/repos.bzl'
+  expect_log 'path/to/main/WORKSPACE'
+}
 
 run_suite "external tests"

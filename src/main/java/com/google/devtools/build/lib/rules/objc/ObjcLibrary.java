@@ -95,7 +95,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
     CcCompilationContext ccCompilationContext =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
                 ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel())
             .addDeclaredIncludeSrcs(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext)
@@ -136,7 +136,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
                   FileSystemUtils.removeExtension(library.getRootRelativePathString()))
               .build());
     }
-    libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));
+
+    libraries.addAll(convertLibrariesToStaticLibraries(objcProvider.get(ObjcProvider.CC_LIBRARY)));
 
     CcLinkingContext.Builder ccLinkingContext =
         CcLinkingContext.builder()
@@ -153,6 +154,27 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     return ccLinkingContext.build();
   }
 
+  /**
+   * This method removes dynamic libraries from LibraryToLink objects coming from C++ dependencies.
+   * The reason for this is that objective-C rules do not support linking the dynamic version of the
+   * libraries.
+   */
+  private ImmutableList<LibraryToLink> convertLibrariesToStaticLibraries(
+      Iterable<LibraryToLink> librariesToLink) {
+    ImmutableList.Builder<LibraryToLink> libraries = ImmutableList.builder();
+    for (LibraryToLink libraryToLink : librariesToLink) {
+      LibraryToLink.Builder staticLibraryToLink = libraryToLink.toBuilder();
+      if (libraryToLink.getPicStaticLibrary() != null || libraryToLink.getStaticLibrary() != null) {
+        staticLibraryToLink.setDynamicLibrary(null);
+        staticLibraryToLink.setResolvedSymlinkDynamicLibrary(null);
+        staticLibraryToLink.setInterfaceLibrary(null);
+        staticLibraryToLink.setResolvedSymlinkInterfaceLibrary(null);
+      }
+      libraries.add(staticLibraryToLink.build());
+    }
+    return libraries.build();
+  }
+
   /** Throws errors or warnings for bad attribute state. */
   private static void validateAttributes(RuleContext ruleContext) throws RuleErrorException {
     if (ObjcRuleClasses.objcConfiguration(ruleContext).disableObjcLibraryResources()) {
@@ -167,7 +189,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
               "structured_resources",
               "xibs");
       for (String attribute : resourceAttributes) {
-        if (!ruleContext.getPrerequisites(attribute, Mode.TARGET).isEmpty()) {
+        if (ruleContext.attributes().isAttributeValueExplicitlySpecified(attribute)) {
           ruleContext.throwWithAttributeError(
               attribute,
               "objc_library resource attributes are not allowed. Please use the 'data' "

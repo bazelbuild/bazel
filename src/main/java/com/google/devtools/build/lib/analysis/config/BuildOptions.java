@@ -23,11 +23,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.MapDifference;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -36,12 +37,13 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.trimming.ConfigurationComparer;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -58,8 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -79,26 +79,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     return starlarkOptions.entrySet().stream()
         .collect(
             Collectors.toMap(e -> Label.parseAbsoluteUnchecked(e.getKey()), Map.Entry::getValue));
-  }
-
-  /**
-   * Creates a BuildOptions object with all options set to their default values, processed by the
-   * given {@code invocationPolicy}.
-   */
-  static BuildOptions createDefaults(
-      Iterable<Class<? extends FragmentOptions>> options, InvocationPolicy invocationPolicy) {
-    return of(options, createDefaultParser(options, invocationPolicy));
-  }
-
-  private static OptionsParser createDefaultParser(
-      Iterable<Class<? extends FragmentOptions>> options, InvocationPolicy invocationPolicy) {
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(options);
-    try {
-      new InvocationPolicyEnforcer(invocationPolicy).enforce(optionsParser);
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException(e);
-    }
-    return optionsParser;
   }
 
   /** Creates a new BuildOptions instance for host. */
@@ -180,27 +160,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     return fragmentOptionsMap.containsKey(optionsClass);
   }
 
-  // It would be very convenient to use a Multimap here, but we cannot do that because we need to
-  // support defaults labels that have zero elements.
-  ImmutableMap<String, ImmutableSet<Label>> getDefaultsLabels() {
-    Map<String, Set<Label>> collector = new TreeMap<>();
-    for (FragmentOptions fragment : fragmentOptionsMap.values()) {
-      for (Map.Entry<String, Set<Label>> entry : fragment.getDefaultsLabels().entrySet()) {
-        if (!collector.containsKey(entry.getKey())) {
-          collector.put(entry.getKey(), new TreeSet<Label>());
-        }
-        collector.get(entry.getKey()).addAll(entry.getValue());
-      }
-    }
-
-    ImmutableMap.Builder<String, ImmutableSet<Label>> result = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, Set<Label>> entry : collector.entrySet()) {
-      result.put(entry.getKey(), ImmutableSet.copyOf(entry.getValue()));
-    }
-
-    return result.build();
-  }
-
   /** The cache key for the options collection. Recomputes cache key every time it's called. */
   public String computeCacheKey() {
     StringBuilder keyBuilder = new StringBuilder();
@@ -231,6 +190,11 @@ public final class BuildOptions implements Cloneable, Serializable {
   /** Returns the options contained in this collection. */
   public Collection<FragmentOptions> getNativeOptions() {
     return fragmentOptionsMap.values();
+  }
+
+  /** Returns the set of fragment classes contained in these options. */
+  public Set<Class<? extends FragmentOptions>> getFragmentClasses() {
+    return fragmentOptionsMap.keySet();
   }
 
   public ImmutableMap<Label, Object> getStarlarkOptions() {
@@ -357,6 +321,131 @@ public final class BuildOptions implements Cloneable, Serializable {
     return builder.build();
   }
 
+  /**
+   * Applies any options set in the parsing result on top of these options, returning the resulting
+   * build options.
+   *
+   * <p>To preserve fragment trimming, this method will not expand the set of included native
+   * fragments. If the parsing result contains native options whose owning fragment is not part of
+   * these options they will be ignored (i.e. not set on the resulting options). Starlark options
+   * are not affected by this restriction.
+   *
+   * @param parsingResult any options that are being modified
+   * @return the new options after applying the parsing result to the original options
+   */
+  public BuildOptions applyParsingResult(OptionsParsingResult parsingResult) {
+    Map<Class<? extends FragmentOptions>, FragmentOptions> modifiedFragments =
+        toModifiedFragments(parsingResult);
+
+    BuildOptions.Builder builder = builder();
+    for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> classAndFragment :
+        fragmentOptionsMap.entrySet()) {
+      Class<? extends FragmentOptions> fragmentClass = classAndFragment.getKey();
+      if (modifiedFragments.containsKey(fragmentClass)) {
+        builder.addFragmentOptions(modifiedFragments.get(fragmentClass));
+      } else {
+        builder.addFragmentOptions(classAndFragment.getValue());
+      }
+    }
+
+    Map<Label, Object> starlarkOptions = new HashMap<>(skylarkOptionsMap);
+    Map<Label, Object> parsedStarlarkOptions =
+        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
+    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
+      starlarkOptions.put(starlarkOption.getKey(), starlarkOption.getValue());
+    }
+    builder.addStarlarkOptions(starlarkOptions);
+    return builder.build();
+  }
+
+  private Map<Class<? extends FragmentOptions>, FragmentOptions> toModifiedFragments(
+      OptionsParsingResult parsingResult) {
+    Map<Class<? extends FragmentOptions>, FragmentOptions> replacedOptions = new HashMap<>();
+    for (ParsedOptionDescription parsedOption : parsingResult.asListOfExplicitOptions()) {
+      OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+
+      // All options obtained from an options parser are guaranteed to have been defined in an
+      // FragmentOptions class.
+      @SuppressWarnings("unchecked")
+      Class<? extends FragmentOptions> fragmentOptionClass =
+          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
+
+      FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentOptionClass);
+      if (originalFragment == null) {
+        // Preserve trimming by ignoring fragments not present in the original options.
+        continue;
+      }
+      FragmentOptions newOptions =
+          replacedOptions.computeIfAbsent(
+              fragmentOptionClass,
+              (Class<? extends FragmentOptions> k) -> originalFragment.clone());
+      try {
+        Object value =
+            parsingResult.getOptionValueDescription(optionDefinition.getOptionName()).getValue();
+        optionDefinition.getField().set(newOptions, value);
+      } catch (IllegalAccessException e) {
+        throw new IllegalStateException("Couldn't set " + optionDefinition.getField(), e);
+      }
+    }
+
+    return replacedOptions;
+  }
+
+  /**
+   * Returns true if the passed parsing result's options have the same value as these options.
+   *
+   * <p>If a native parsed option is passed whose fragment has been trimmed in these options it is
+   * considered to match.
+   *
+   * <p>If no options are present in the parsing result or all options in the parsing result have
+   * been trimmed the result is considered not to match. This is because otherwise the parsing
+   * result would match any options in a similar trimmed state, regardless of contents.
+   *
+   * @param parsingResult parsing result to be compared to these options
+   * @return true if all non-trimmed values match
+   * @throws OptionsParsingException if options cannot be parsed
+   */
+  public boolean matches(OptionsParsingResult parsingResult) throws OptionsParsingException {
+    Set<OptionDefinition> ignoredDefinitions = new HashSet<>();
+    for (ParsedOptionDescription parsedOption : parsingResult.asListOfExplicitOptions()) {
+      OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+
+      // All options obtained from an options parser are guaranteed to have been defined in an
+      // FragmentOptions class.
+      @SuppressWarnings("unchecked")
+      Class<? extends FragmentOptions> fragmentClass =
+          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
+
+      FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentClass);
+      if (originalFragment == null) {
+        // Ignore flags set in trimmed fragments.
+        ignoredDefinitions.add(optionDefinition);
+        continue;
+      }
+      Object originalValue = originalFragment.asMap().get(optionDefinition.getOptionName());
+      if (!Objects.equals(originalValue, parsedOption.getConvertedValue())) {
+        return false;
+      }
+    }
+
+    Map<Label, Object> starlarkOptions =
+        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
+    MapDifference<Label, Object> starlarkDifference =
+        Maps.difference(skylarkOptionsMap, starlarkOptions);
+    if (starlarkDifference.entriesInCommon().size() < starlarkOptions.size()) {
+      return false;
+    }
+
+    if (ignoredDefinitions.size() == parsingResult.asListOfExplicitOptions().size()
+        && starlarkOptions.isEmpty()) {
+      // Zero options were compared, either because none were passed or because all of them were
+      // trimmed.
+      return false;
+    }
+
+    return true;
+  }
+
   /** Creates a builder object for BuildOptions */
   public static Builder builder() {
     return new Builder();
@@ -382,11 +471,14 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     /**
-     * Adds a new FragmentOptions instance to the builder. Overrides previous instances of the exact
-     * same subclass of FragmentOptions.
+     * Adds a new {@link FragmentOptions} instance to the builder.
+     *
+     * <p>Overrides previous instances of the exact same subclass of {@code FragmentOptions}.
+     *
+     * <p>The options get preprocessed with {@link FragmentOptions#getNormalized}.
      */
     public <T extends FragmentOptions> Builder addFragmentOptions(T options) {
-      fragmentOptions.put(options.getClass(), options);
+      fragmentOptions.put(options.getClass(), options.getNormalized());
       return this;
     }
 

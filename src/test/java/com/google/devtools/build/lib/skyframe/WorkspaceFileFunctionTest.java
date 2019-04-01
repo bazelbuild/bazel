@@ -53,8 +53,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Matchers;
 import org.mockito.Mockito;
+import org.mockito.hamcrest.MockitoHamcrest;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
@@ -115,7 +115,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Before
   public final void setUp() throws Exception {
-    ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
+    ConfiguredRuleClassProvider ruleClassProvider =
+        TestRuleClassProvider.getRuleClassProvider(true);
     workspaceSkyFunc =
         new WorkspaceFileFunction(
             ruleClassProvider,
@@ -165,10 +166,11 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   private SkyFunction.Environment getEnv() throws InterruptedException {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(FileValue.FILE))))
+    Mockito.when(env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(FileValue.FILE))))
         .thenReturn(fakeWorkspaceFileValue);
     Mockito.when(
-            env.getValue(Matchers.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
+            env.getValue(
+                MockitoHamcrest.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
         .then(
             new Answer<SkyValue>() {
               @Override
@@ -177,7 +179,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
                 return workspaceSkyFunc.compute(key, getEnv());
               }
             });
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_AST))))
+    Mockito.when(
+            env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_AST))))
         .then(
             new Answer<SkyValue>() {
               @Override
@@ -186,7 +189,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
                 return astSkyFunc.compute(key, getEnv());
               }
             });
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
+    Mockito.when(
+            env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
         .then(
             new Answer<SkyValue>() {
               @Override

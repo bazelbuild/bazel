@@ -44,6 +44,8 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/buildeventstream:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
+        "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
+        "//src/test/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2:srcs",
@@ -635,6 +637,9 @@ java_library(
     ],
     resources = [
         "analysis/mock/MOCK_CROSSTOOL",
+        "analysis/mock/cc_toolchain_config.bzl",
+        "//tools/build_defs/cc:action_names.bzl",
+        "//tools/cpp:cc_toolchain_config_lib.bzl",
     ],
     tags = ["analysis"],
     exports = [
@@ -757,7 +762,7 @@ java_test(
 java_test(
     name = "analysis_config_test",
     srcs = glob([
-        "analysis/config/*.java",
+        "analysis/config/**/*.java",
     ]),
     tags = ["analysis"],
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -918,8 +923,10 @@ java_library(
         "packages/util/*.java",
     ]),
     resources = [
-        "packages/util/MOCK_ANDROID_CROSSTOOL",
-        "packages/util/MOCK_OSX_CROSSTOOL",
+        "//src/test/java/com/google/devtools/build/lib/packages/util/mock:android_cc_toolchain_config.bzl",
+        "//src/test/java/com/google/devtools/build/lib/packages/util/mock:osx_cc_toolchain_config.bzl",
+        "//tools/build_defs/cc:action_names.bzl",
+        "//tools/cpp:cc_toolchain_config_lib.bzl",
         "//tools/python:srcs",
     ],
     deps = [
@@ -1084,31 +1091,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
-    ],
-)
-
-java_test(
-    name = "profiler-tests",
-    srcs = glob(
-        [
-            "profiler/*.java",
-        ],
-        exclude = ["profiler/*Benchmark.java"],
-    ),
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":foundations_testutil",
-        ":guava_junit_truth",
-        ":syntax_testutil",
-        ":test_runner",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:mockito",
     ],
 )
 
@@ -1519,6 +1501,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
@@ -1563,6 +1546,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",

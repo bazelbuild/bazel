@@ -319,7 +319,7 @@ public class ProtoCompileActionBuilder {
     }
 
     for (Artifact src : protoInfo.getDirectProtoSources()) {
-      result.addPath(src.getRootRelativePath());
+      result.addPath(src.getExecPath());
     }
 
     if (!hasServices) {

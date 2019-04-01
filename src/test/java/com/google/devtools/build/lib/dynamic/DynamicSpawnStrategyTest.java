@@ -234,7 +234,7 @@ public class DynamicSpawnStrategyTest {
 
     fileSystem = FileSystems.getNativeFileSystem();
     testRoot = fileSystem.getPath(TestUtils.tmpDir());
-    FileSystemUtils.deleteTreesBelow(testRoot);
+    testRoot.deleteTreesBelow();
     executorService = Executors.newCachedThreadPool();
     inputArtifact =
         new Artifact(

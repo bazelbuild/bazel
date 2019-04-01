@@ -46,7 +46,7 @@
 
 # Pattern to match for looking for a target
 #  BAZEL_BUILD_MATCH_PATTERN__* give the pattern for label-*
-#  when looking in the the build file.
+#  when looking in the build file.
 #  BAZEL_QUERY_MATCH_PATTERN__* give the pattern for label-*
 #  when using 'bazel query'.
 # _RUNTEST is a special case for _bazel_completion_allow_tests_for_run.
@@ -210,7 +210,7 @@ _bazel__expand_rules_in_package() {
   if _bazel_completion_use_query; then
     package_name=$(echo "$package_name" | tr -d "'\"") # remove quotes
     result=$(${BAZEL} --output_base=/tmp/${BAZEL}-completion-$USER query \
-                   --keep_going --noshow_progress \
+                   --keep_going --noshow_progress --output=label \
       "kind('$pattern rule', '$package_name:*')" 2>/dev/null |
       cut -f2 -d: | "grep" "^$rule_prefix")
   else

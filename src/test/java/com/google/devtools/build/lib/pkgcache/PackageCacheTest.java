@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
@@ -158,13 +157,6 @@ public class PackageCacheTest extends FoundationTestCase {
     parser.parse("--default_visibility=public");
     parser.parse(options);
 
-    InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
-    try {
-      optionsPolicyEnforcer.enforce(parser);
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException(e);
-    }
-
     return parser;
   }
 
@@ -266,7 +258,8 @@ public class PackageCacheTest extends FoundationTestCase {
       fail();
     } catch (NoSuchTargetException e) {
       assertThat(e)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "no such target '//pkg1:not-there': target 'not-there' "
                   + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD");
     }
@@ -554,7 +547,8 @@ public class PackageCacheTest extends FoundationTestCase {
       fail();
     } catch (NoSuchPackageException e) {
       assertThat(e)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "no such package 'c/d': Package is considered deleted due to --deleted_packages");
     }
 

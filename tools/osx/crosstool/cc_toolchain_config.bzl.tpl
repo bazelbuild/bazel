@@ -602,10 +602,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -669,10 +665,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -735,10 +727,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -801,10 +789,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -867,10 +851,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -934,10 +914,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -1003,10 +979,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -1898,10 +1870,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -1969,10 +1937,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -2039,10 +2003,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -2109,10 +2069,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -2179,10 +2135,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -2250,10 +2202,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -2323,10 +2271,6 @@ def _impl(ctx):
                                 "-objc_abi_version",
                                 "-Xlinker",
                                 "2",
-                                "-Xlinker",
-                                "-rpath",
-                                "-Xlinker",
-                                "@executable_path/Frameworks",
                                 "-fobjc-link-runtime",
                                 "-ObjC",
                             ],
@@ -3517,13 +3461,15 @@ def _impl(ctx):
                     ],
                 ),
                 flag_set(
-                    actions = [ACTION_NAMES.cpp_link_nodeps_dynamic_library],
+                    actions = [
+                      ACTION_NAMES.cpp_link_dynamic_library,
+                      ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                    ],
                     flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
                 ),
                 flag_set(
                     actions = [
                         ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
                         "objc-executable",
                         "objc++-executable",
                     ],
@@ -3619,35 +3565,9 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a"
-        or ctx.attr.cpu == "watchos_arm64_32"
-        or ctx.attr.cpu == "watchos_x86_64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-m<platform_for_version_min>-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
+    if ctx.attr.cpu == "armeabi-v7a":
+        # This stub doesn't have a sensible value for this feature
+        version_min_feature = feature(name = "version_min")
     elif (ctx.attr.cpu == "ios_i386"
         or ctx.attr.cpu == "ios_x86_64"):
         version_min_feature = feature(
@@ -3732,7 +3652,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "watchos_i386"):
+    elif (ctx.attr.cpu == "watchos_i386" or ctx.attr.cpu == "watchos_x86_64"):
         version_min_feature = feature(
             name = "version_min",
             flag_sets = [
@@ -3759,7 +3679,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
+    elif (ctx.attr.cpu == "watchos_armv7k" or ctx.attr.cpu == "watchos_arm64_32"):
         version_min_feature = feature(
             name = "version_min",
             flag_sets = [

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
@@ -276,6 +277,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testConvolutedLoadRootCauseAnalysis() throws Exception {
+    useConfiguration("--incompatible_disable_third_party_license_checking=false");
     // You need license declarations in third_party. We use this constraint to
     // create targets that are loadable, but are in error.
     scratch.file("third_party/first/BUILD",
@@ -410,7 +412,10 @@ public class BuildViewTest extends BuildViewTestBase {
             NoTransition.INSTANCE,
             AspectCollection.EMPTY);
     Dependency fileDependency =
-        Dependency.withNullConfiguration(Label.parseAbsolute("//package:file", ImmutableMap.of()));
+        Dependency.withTransitionAndAspects(
+            Label.parseAbsolute("//package:file", ImmutableMap.of()),
+            NullTransition.INSTANCE,
+            AspectCollection.EMPTY);
 
     assertThat(targets).containsExactly(innerDependency, fileDependency);
   }
@@ -433,7 +438,7 @@ public class BuildViewTest extends BuildViewTestBase {
       useConfiguration("--output directory name=foo");
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e).hasMessage("Unrecognized option: --output directory name=foo");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --output directory name=foo");
     }
   }
 

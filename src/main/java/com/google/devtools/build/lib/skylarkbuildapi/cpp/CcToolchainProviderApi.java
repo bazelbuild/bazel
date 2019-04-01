@@ -19,24 +19,13 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /** Information about the C++ toolchain. */
 @SkylarkModule(name = "CcToolchainInfo", doc = "Information about the C++ compiler being used.")
 public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureConfigurationApi>
     extends ToolchainInfoApi {
-
-  @SkylarkCallable(
-      name = "use_pic_for_dynamic_libraries",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_FEATURE_CONFIGURATION_FOR_PIC,
-      doc =
-          "Deprecated (see https://github.com/bazelbuild/bazel/issues/7007)."
-              + ""
-              + "<p>Returns true if this rule's compilations should apply -fPIC, false otherwise. "
-              + "Determines if we should apply -fPIC for this rule's C++ compilations.",
-      structField = true)
-  boolean usePicForDynamicLibrariesUsingLegacyFields();
 
   @SkylarkCallable(
       name = "needs_pic_for_dynamic_libraries",
@@ -52,13 +41,21 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
             named = true,
             type = FeatureConfigurationApi.class)
       })
-  boolean usePicForDynamicLibraries(FeatureConfigurationT featureConfigurationApi);
+  boolean usePicForDynamicLibrariesFromStarlark(FeatureConfigurationT featureConfigurationApi);
 
   @SkylarkCallable(
       name = "built_in_include_directories",
       doc = "Returns the list of built-in directories of the compiler.",
       structField = true)
   public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings();
+
+  @SkylarkCallable(
+      name = "all_files",
+      doc =
+          "Returns all toolchain files (so they can be passed to actions using this "
+              + "toolchain as inputs).",
+      structField = true)
+  public SkylarkNestedSet getAllFilesForStarlark();
 
   @SkylarkCallable(
       name = "sysroot",

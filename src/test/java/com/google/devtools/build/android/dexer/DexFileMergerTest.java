@@ -221,7 +221,8 @@ public class DexFileMergerTest {
       fail("Expected DexFileMerger to fail");
     } catch (IllegalArgumentException e) {
       assertThat(e)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "--minimal-main-dex is only supported with multidex enabled, but mode is: OFF");
     }
     try {
@@ -237,7 +238,8 @@ public class DexFileMergerTest {
       fail("Expected DexFileMerger to fail");
     } catch (IllegalArgumentException e) {
       assertThat(e)
-          .hasMessage("--main-dex-list is only supported with multidex enabled, but mode is: OFF");
+          .hasMessageThat()
+          .isEqualTo("--main-dex-list is only supported with multidex enabled, but mode is: OFF");
     }
   }
 
@@ -251,7 +253,7 @@ public class DexFileMergerTest {
           MultidexStrategy.OFF, /*mainDexList=*/ null, /*minimalMainDex=*/ false, DEX_PREFIX,
           dexArchive);
     } catch (IllegalStateException e) {
-      assertThat(e).hasMessage("--forceJumbo flag not supported");
+      assertThat(e).hasMessageThat().isEqualTo("--forceJumbo flag not supported");
       System.err.println("Skipping this test due to missing --forceJumbo support in Android SDK.");
       e.printStackTrace();
       return;

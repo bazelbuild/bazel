@@ -1,7 +1,7 @@
 public abstract class com.example.gavra.java8coverage.Defaults$$CC {
   public static boolean[] $jacocoData;
 
-  public static void foo(com.example.gavra.java8coverage.Defaults);
+  public static void foo$$dflt$$(com.example.gavra.java8coverage.Defaults);
     Code:
        0: invokestatic  #12                 // Method $jacocoInit$$STATIC$$:()[Z
        3: astore_1

@@ -97,9 +97,8 @@ public final class NestedSet<E> implements Iterable<E> {
         throw new AssertionError(order);
     }
 
-    // Remember children we extracted from one-element subsets.
-    // Otherwise we can end up with two of the same child, which is a
-    // problem for the fast path in toList().
+    // Remember children we extracted from one-element subsets. Otherwise we can end up with two of
+    // the same child, which is a problem for the fast path in toList().
     Set<E> alreadyInserted = ImmutableSet.of();
     // The candidate array of children.
     Object[] children = new Object[direct.size() + transitive.size()];
@@ -121,7 +120,7 @@ public final class NestedSet<E> implements Iterable<E> {
         }
         alreadyInserted = direct;
       } else if ((pass == 1) == preorder && !transitive.isEmpty()) {
-        CompactHashSet<E> hoisted = CompactHashSet.create();
+        CompactHashSet<E> hoisted = null;
         for (NestedSet<E> subset : transitiveOrder) {
           // If this is a deserialization future, this call blocks.
           Object c = subset.getChildren();
@@ -133,12 +132,17 @@ public final class NestedSet<E> implements Iterable<E> {
             children[n++] = a;
             leaf = false;
           } else {
-            if (!alreadyInserted.contains(c) && hoisted.add((E) c)) {
-              children[n++] = c;
+            if (!alreadyInserted.contains(c)) {
+              if (hoisted == null) {
+                hoisted = CompactHashSet.create();
+              }
+              if (hoisted.add((E) c)) {
+                children[n++] = c;
+              }
             }
           }
         }
-        alreadyInserted = hoisted;
+        alreadyInserted = hoisted == null ? ImmutableSet.of() : hoisted;
       }
     }
 
@@ -194,6 +198,11 @@ public final class NestedSet<E> implements Iterable<E> {
    * have knowledge of the internal implementation of NestedSet.
    */
   Object getChildren() {
+    return getChildrenUninterruptibly();
+  }
+
+  /** Implementation of {@link #getChildren} that will catch an InterruptedException and crash. */
+  private Object getChildrenUninterruptibly() {
     if (children instanceof ListenableFuture) {
       try {
         return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
@@ -206,6 +215,22 @@ public final class NestedSet<E> implements Iterable<E> {
       }
     } else {
       return children;
+    }
+  }
+
+  /**
+   * Private implementation of getChildren that will propagate an InterruptedException from a future
+   * in the nested set based on the value of {@code handleInterruptedException}.
+   */
+  private Object getChildren(boolean handleInterruptedException) throws InterruptedException {
+    if (handleInterruptedException) {
+      return getChildrenUninterruptibly();
+    } else {
+      if (children instanceof ListenableFuture) {
+        return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
+      } else {
+        return children;
+      }
     }
   }
 
@@ -250,12 +275,33 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
+   * Returns a collection of all unique elements of the this set, similar to {@link #toCollection},
+   * but will propagate an {@code InterruptedException} if one is thrown.
+   */
+  public Collection<E> toCollectionInterruptibly() throws InterruptedException {
+    return toList(/*handleInterruptedException=*/ false);
+  }
+
+  /**
    * Returns a collection of all unique elements of this set (including subsets) in an
    * implementation-specified order as a {code List}.
    *
    * <p>Use {@link #toCollection} when possible for better efficiency.
    */
   public List<E> toList() {
+    try {
+      return toList(/*handleInterruptedException=*/ true);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("InterruptedException should have already been caught", e);
+    }
+  }
+
+  /**
+   * Private implementation of toList which will either propagate an {@code InterruptedException} if
+   * one occurs while waiting for a {@code Future} in {@link #getChildren} or will have {@link
+   * #getChildren(boolean)} handle it.
+   */
+  private List<E> toList(boolean handleInterruptedException) throws InterruptedException {
     if (isSingleton()) {
       // No need to check for ListenableFuture members - singletons can't have them.
       return ImmutableList.of((E) children);
@@ -263,7 +309,9 @@ public final class NestedSet<E> implements Iterable<E> {
     if (isEmpty()) {
       return ImmutableList.of();
     }
-    return getOrder() == Order.LINK_ORDER ? expand().reverse() : expand();
+    return getOrder() == Order.LINK_ORDER
+        ? expand(handleInterruptedException).reverse()
+        : expand(handleInterruptedException);
   }
 
   /**
@@ -366,16 +414,16 @@ public final class NestedSet<E> implements Iterable<E> {
    * this.memo}: wrap our direct items in a list, call {@link #lockedExpand} to perform the initial
    * {@link #walk}, or call {@link #replay} if we have a nontrivial memo.
    */
-  private ImmutableList<E> expand() {
+  private ImmutableList<E> expand(boolean handleInterruptedException) throws InterruptedException {
     // This value is only set in the constructor, so safe to test here with no lock.
     if (memo == LEAF_MEMO) {
       return ImmutableList.copyOf(new ArraySharingCollection<>((Object[]) children));
     }
-    CompactHashSet<E> members = lockedExpand();
+    CompactHashSet<E> members = lockedExpand(handleInterruptedException);
     if (members != null) {
       return ImmutableList.copyOf(members);
     }
-    Object[] children = (Object[]) this.getChildren();
+    Object[] children = (Object[]) this.getChildren(handleInterruptedException);
     ImmutableList.Builder<E> output = ImmutableList.builderWithExpectedSize(orderAndSize >> 2);
     replay(output, children, memo, 0);
     return output.build();
@@ -409,11 +457,12 @@ public final class NestedSet<E> implements Iterable<E> {
    * If this is the first call for this object, fills {@code this.memo} and returns a set from
    * {@link #walk}. Otherwise returns null; the caller should use {@link #replay} instead.
    */
-  private synchronized CompactHashSet<E> lockedExpand() {
+  private synchronized CompactHashSet<E> lockedExpand(boolean handleInterruptedException)
+      throws InterruptedException {
     if (memo != null) {
       return null;
     }
-    Object[] children = (Object[]) this.getChildren();
+    Object[] children = (Object[]) this.getChildren(handleInterruptedException);
     CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
     CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);

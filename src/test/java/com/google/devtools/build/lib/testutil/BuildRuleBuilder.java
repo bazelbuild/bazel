@@ -54,7 +54,7 @@ public class BuildRuleBuilder {
   private Multimap<String, String> multiValueAttributes;
   private Map<String, Object> singleValueAttributes;
   protected Map<String, RuleClass> ruleClassMap;
-  
+
   /**
    * Create a new instance.
    *
@@ -65,10 +65,6 @@ public class BuildRuleBuilder {
     this(ruleClass, ruleName, getDefaultRuleClassMap());
   }
 
-  protected static Map<String, RuleClass> getDefaultRuleClassMap() {
-    return TestRuleClassProvider.getRuleClassProvider().getRuleClassMap();
-  }
-
   public BuildRuleBuilder(String ruleClass, String ruleName, Map<String, RuleClass> ruleClassMap) {
     this.ruleClass = ruleClassMap.get(ruleClass);
     this.ruleName = ruleName;
@@ -77,9 +73,11 @@ public class BuildRuleBuilder {
     this.ruleClassMap = ruleClassMap;
   }
 
-  /**
-   * Sets the value of a single valued attribute
-   */
+  protected static Map<String, RuleClass> getDefaultRuleClassMap() {
+    return TestRuleClassProvider.getRuleClassProvider().getRuleClassMap();
+  }
+
+  /** Sets the value of a single valued attribute */
   public BuildRuleBuilder setSingleValueAttribute(String attrName, Object value) {
     Preconditions.checkState(
         !singleValueAttributes.containsKey(attrName), "attribute '%s' already set", attrName);

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.JavaSleeper;
@@ -43,7 +44,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       BuildEventProtocolOptions bepOptions,
       BuildEventServiceProtoUtil besProtoUtil,
       Clock clock,
-      ExitFunction exitFunc,
+      BuildEventServiceAbruptExitCallback abruptExitCallback,
       boolean publishLifecycleEvents,
       ArtifactGroupNamer artifactGroupNamer,
       EventBus eventBus,
@@ -56,7 +57,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             .bepOptions(bepOptions)
             .besProtoUtil(besProtoUtil)
             .clock(clock)
-            .exitFunc(exitFunc)
+            .abruptExitCallback(abruptExitCallback)
             .publishLifecycleEvents(publishLifecycleEvents)
             .sleeper(sleeper)
             .artifactGroupNamer(artifactGroupNamer)
@@ -105,7 +106,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     private ArtifactGroupNamer artifactGroupNamer;
     private BuildEventServiceProtoUtil besProtoUtil;
     private EventBus eventBus;
-    private ExitFunction exitFunction;
+    private BuildEventServiceAbruptExitCallback abruptExitCallback;
     private @Nullable Sleeper sleeper;
 
     public Builder besClient(BuildEventServiceClient value) {
@@ -148,8 +149,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       return this;
     }
 
-    public Builder exitFunction(ExitFunction value) {
-      this.exitFunction = value;
+    public Builder abruptExitCallback(BuildEventServiceAbruptExitCallback value) {
+      this.abruptExitCallback = value;
       return this;
     }
 
@@ -167,7 +168,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           checkNotNull(bepOptions),
           checkNotNull(besProtoUtil),
           checkNotNull(clock),
-          checkNotNull(exitFunction),
+          checkNotNull(abruptExitCallback),
           besOptions.besLifecycleEvents,
           checkNotNull(artifactGroupNamer),
           checkNotNull(eventBus),

@@ -1,4 +1,7 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
 <a name="#my_rule"></a>
+
 ## my_rule
 
 <pre>
@@ -73,6 +76,7 @@ These dependencies better provide MyInfo!
 
 
 <a name="#MyInfo"></a>
+
 ## MyInfo
 
 <pre>
@@ -105,6 +109,8 @@ MyInfo(<a href="#MyInfo-foo">foo</a>, <a href="#MyInfo-bar">bar</a>)
 </table>
 
 
+<a name="#exercise_the_api"></a>
+
 ## exercise_the_api
 
 <pre>
@@ -114,6 +120,8 @@ exercise_the_api()
 
 
 
+
+<a name="#my_rule_impl"></a>
 
 ## my_rule_impl
 

@@ -104,8 +104,8 @@ public class PythonToolchainTest extends BuildViewTestCase {
         "    name = 'mytarget',",
         ")");
     // Register the toolchain and ask for the platform.
-    rewriteWorkspace("register_toolchains('//pkg:my_toolchain')");
-    useConfiguration("--platforms=//platforms:my_platform");
+    useConfiguration(
+        "--platforms=//platforms:my_platform", "--extra_toolchains=//pkg:my_toolchain");
 
     getConfiguredTarget("//pkg:mytarget");
     assertContainsEvent("PY2 path: /system/python2");

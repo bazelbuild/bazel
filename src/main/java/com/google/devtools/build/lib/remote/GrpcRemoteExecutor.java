@@ -65,7 +65,8 @@ class GrpcRemoteExecutor {
     throw new ExecutionStatusException(statusProto, resp);
   }
 
-  private @Nullable ExecuteResponse getOperationResponse(Operation op) throws IOException {
+  @Nullable
+  private ExecuteResponse getOperationResponse(Operation op) throws IOException {
     if (op.getResultCase() == Operation.ResultCase.ERROR) {
       handleStatus(op.getError(), null);
     }

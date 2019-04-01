@@ -309,18 +309,18 @@ EOF
 
     # Test that Bazel respects the client environment's TMP.
     # new_tmpdir is based on $TEST_TMPDIR which is not Unix-style -- convert it.
-    assert_contains "TMP=$(cygpath -u "${new_tmpdir}")" bazel-genfiles/pkg/test.out
+    assert_contains "TMP=$(cygpath -u "${new_tmpdir}")" bazel-bin/pkg/test.out
   else
     PATH="/random/path:$PATH" TMPDIR="${new_tmpdir}" \
       bazel build //pkg:test --spawn_strategy=standalone --action_env=PATH \
       &> $TEST_log || fail "Failed to build //pkg:test"
 
     # Test that Bazel respects the client environment's TMPDIR.
-    assert_contains "TMPDIR=${new_tmpdir}" bazel-genfiles/pkg/test.out
+    assert_contains "TMPDIR=${new_tmpdir}" bazel-bin/pkg/test.out
   fi
 
   # Test that Bazel passed through the PATH from --action_env.
-  assert_contains "PATH=/random/path" bazel-genfiles/pkg/test.out
+  assert_contains "PATH=/random/path" bazel-bin/pkg/test.out
 }
 
 function test_genrule_remote() {
@@ -374,8 +374,8 @@ genrule(
 EOF
 
   bazel build @r//package:hi >$TEST_log 2>&1 || fail "Should build"
-  expect_log "bazel-.*genfiles/external/r/package/a/b"
-  expect_log "bazel-.*genfiles/external/r/package/c/d"
+  expect_log "bazel-.*bin/external/r/package/a/b"
+  expect_log "bazel-.*bin/external/r/package/c/d"
 }
 
 function test_genrule_toolchain_dependency {
@@ -389,7 +389,7 @@ genrule(
 )
 EOF
   bazel build //t:toolchain_check >$TEST_log 2>&1 || fail "Should build"
-  expect_log "bazel-.*genfiles/t/version"
+  expect_log "bazel-.*bin/t/version"
   expect_not_log "ls: cannot access"
 }
 

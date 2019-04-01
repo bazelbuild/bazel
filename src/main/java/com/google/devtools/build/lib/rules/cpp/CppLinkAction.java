@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -40,7 +42,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -244,13 +246,6 @@ public final class CppLinkAction extends AbstractAction
     return interfaceOutputLibrary;
   }
 
-  /**
-   * Returns the output of the linking.
-   */
-  public Artifact getLinkOutput() {
-    return linkOutput;
-  }
-
   /** Returns the path to the output artifact produced by the linker. */
   private Path getOutputFile(ActionExecutionContext actionExecutionContext) {
     return actionExecutionContext.getInputPath(linkOutput);
@@ -289,33 +284,38 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   @ThreadCompatible
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+  public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     if (fake) {
       executeFake(actionExecutionContext);
-      return ActionResult.EMPTY;
-    } else {
-      try {
-        Spawn spawn =
-            new SimpleSpawn(
-                this,
-                ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
-                getEnvironment(actionExecutionContext.getClientEnv()),
-                getExecutionInfo(),
-                ImmutableList.copyOf(getMandatoryInputs()),
-                getOutputs().asList(),
-                estimateResourceConsumptionLocal());
-        return ActionResult.create(
-            actionExecutionContext
-                .getContext(SpawnActionContext.class)
-                .exec(spawn, actionExecutionContext));
-      } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            "Linking of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
-            this);
-      }
+      return ActionContinuationOrResult.of(ActionResult.EMPTY);
     }
+    Spawn spawn = createSpawn(actionExecutionContext);
+    SpawnContinuation spawnContinuation =
+        SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext);
+    return new CppLinkActionContinuation(actionExecutionContext, spawnContinuation).execute();
+  }
+
+  @Override
+  @ThreadCompatible
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    ActionContinuationOrResult continuation = beginExecution(actionExecutionContext);
+    while (!continuation.isDone()) {
+      continuation = continuation.execute();
+    }
+    return continuation.get();
+  }
+
+  private Spawn createSpawn(ActionExecutionContext actionExecutionContext) {
+    return new SimpleSpawn(
+        this,
+        ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
+        getEnvironment(actionExecutionContext.getClientEnv()),
+        getExecutionInfo(),
+        ImmutableList.copyOf(getMandatoryInputs()),
+        getOutputs().asList(),
+        estimateResourceConsumptionLocal());
   }
 
   // Don't forget to update FAKE_LINK_GUID if you modify this method.
@@ -509,5 +509,38 @@ public final class CppLinkAction extends AbstractAction
   @Override
   public Iterable<Artifact> getMandatoryInputs() {
     return mandatoryInputs;
+  }
+
+  private final class CppLinkActionContinuation extends ActionContinuationOrResult {
+    private final ActionExecutionContext actionExecutionContext;
+    private final SpawnContinuation spawnContinuation;
+
+    public CppLinkActionContinuation(
+        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
+      this.actionExecutionContext = actionExecutionContext;
+      this.spawnContinuation = spawnContinuation;
+    }
+
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return spawnContinuation.getFuture();
+    }
+
+    @Override
+    public ActionContinuationOrResult execute()
+        throws ActionExecutionException, InterruptedException {
+      try {
+        SpawnContinuation nextContinuation = spawnContinuation.execute();
+        if (nextContinuation.isDone()) {
+          return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
+        }
+        return new CppLinkActionContinuation(actionExecutionContext, nextContinuation);
+      } catch (ExecException e) {
+        throw e.toActionExecutionException(
+            "Linking of rule '" + getOwner().getLabel() + "'",
+            actionExecutionContext.getVerboseFailures(),
+            CppLinkAction.this);
+      }
+    }
   }
 }

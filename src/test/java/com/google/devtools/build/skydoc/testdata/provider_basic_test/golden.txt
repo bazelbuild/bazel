@@ -1,4 +1,7 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
 <a name="#MyFooInfo"></a>
+
 ## MyFooInfo
 
 <pre>
@@ -32,6 +35,7 @@ Stores information about a foo.
 
 
 <a name="#MyPoorlyDocumentedInfo"></a>
+
 ## MyPoorlyDocumentedInfo
 
 <pre>
@@ -43,6 +47,7 @@ MyPoorlyDocumentedInfo()
 
 
 <a name="#MyVeryDocumentedInfo"></a>
+
 ## MyVeryDocumentedInfo
 
 <pre>

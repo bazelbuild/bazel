@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.common.options.OptionDefinition;
@@ -48,14 +49,14 @@ import java.util.Map;
  */
 public class FunctionTransitionUtil {
 
-  private static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
+  public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
   /**
    * Figure out what build settings the given transition changes and apply those changes to the
    * incoming {@link BuildOptions}. For native options, this involves a preprocess step of
    * converting options to their "command line form".
    *
-   * <p>Also validate that transitions output sensical results.
+   * <p>Also validate that transitions output the declared results.
    *
    * @param buildOptions the pre-transition build options
    * @param starlarkTransition the transition to apply
@@ -77,8 +78,7 @@ public class FunctionTransitionUtil {
 
       ImmutableList<Map<String, Object>> transitions =
           starlarkTransition.getChangedSettings(settings, attrObject);
-      // TODO(juliexxia): Validate that the output values correctly match the output types.
-      validateFunctionOutputs(transitions, starlarkTransition);
+    validateFunctionOutputsMatchesDeclaredOutputs(transitions, starlarkTransition);
 
       for (Map<String, Object> transition : transitions) {
         BuildOptions transitionedOptions =
@@ -88,7 +88,12 @@ public class FunctionTransitionUtil {
       return splitBuildOptions.build();
   }
 
-  private static void validateFunctionOutputs(
+  /**
+   * Validates that function outputs exactly the set of outputs it declares. More thorough checking
+   * (like type checking of output values) is done elsewhere because it requires loading. see {@link
+   * StarlarkTransition#validate}
+   */
+  private static void validateFunctionOutputsMatchesDeclaredOutputs(
       ImmutableList<Map<String, Object>> transitions,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws EvalException {
@@ -170,13 +175,14 @@ public class FunctionTransitionUtil {
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
 
-          dict.put(optionKey, optionValue, null, mutability);
+          dict.put(optionKey, optionValue == null ? Runtime.NONE : optionValue, null, mutability);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);
         }
       }
 
+      // TODO(juliexxia): Allowing reading of starlark-defined build settings.
       if (!remainingInputs.isEmpty()) {
         throw new EvalException(
             starlarkTransition.getLocationForErrorReporting(),

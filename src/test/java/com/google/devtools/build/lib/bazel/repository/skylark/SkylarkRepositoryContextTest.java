@@ -145,16 +145,16 @@ public class SkylarkRepositoryContextTest {
   @Test
   public void testFile() throws Exception {
     setUpContexForRule("test");
-    context.createFile(context.path("foobar"), "", true, null);
-    context.createFile(context.path("foo/bar"), "foobar", true, null);
-    context.createFile(context.path("bar/foo/bar"), "", true, null);
+    context.createFile(context.path("foobar"), "", true, true, null);
+    context.createFile(context.path("foo/bar"), "foobar", true, true, null);
+    context.createFile(context.path("bar/foo/bar"), "", true, true, null);
 
     testOutputFile(outputDirectory.getChild("foobar"), "");
     testOutputFile(outputDirectory.getRelative("foo/bar"), "foobar");
     testOutputFile(outputDirectory.getRelative("bar/foo/bar"), "");
 
     try {
-      context.createFile(context.path("/absolute"), "", true, null);
+      context.createFile(context.path("/absolute"), "", true, true, null);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -163,7 +163,7 @@ public class SkylarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /absolute");
     }
     try {
-      context.createFile(context.path("../somepath"), "", true, null);
+      context.createFile(context.path("../somepath"), "", true, true, null);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -172,7 +172,7 @@ public class SkylarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
     try {
-      context.createFile(context.path("foo/../../somepath"), "", true, null);
+      context.createFile(context.path("foo/../../somepath"), "", true, true, null);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -183,9 +183,46 @@ public class SkylarkRepositoryContextTest {
   }
 
   @Test
+  public void testRead() throws Exception {
+    setUpContexForRule("test");
+    context.createFile(context.path("foo/bar"), "foobar", true, true, null);
+
+    String content = context.readFile(context.path("foo/bar"), null);
+    assertThat(content).isEqualTo("foobar");
+
+    try {
+      context.readFile(context.path("/absolute"), null);
+      fail("Expected error on reading path outside of the repository directory");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Cannot read outside of the repository directory for path /absolute");
+    }
+    try {
+      context.readFile(context.path("../somepath"), null);
+      fail("Expected error on reading path outside of the repository directory");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Cannot read outside of the repository directory for path /somepath");
+    }
+    try {
+      context.readFile(context.path("foo/../../somepath"), null);
+      fail("Expected error on reading path outside of the repository directory");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Cannot read outside of the repository directory for path /somepath");
+    }
+  }
+
+  @Test
   public void testSymlink() throws Exception {
     setUpContexForRule("test");
-    context.createFile(context.path("foo"), "foobar", true, null);
+    context.createFile(context.path("foo"), "foobar", true, true, null);
 
     context.symlink(context.path("foo"), context.path("bar"), null);
     testOutputFile(outputDirectory.getChild("bar"), "foobar");

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi.ApkInfoA
  */
 public class AndroidBootstrap implements Bootstrap {
 
-  private final AndroidSkylarkCommonApi<?> androidCommon;
+  private final AndroidSkylarkCommonApi<?, ?> androidCommon;
   private final ApkInfoApiProvider apkInfoProvider;
   private final AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider;
   private final AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider;
@@ -36,7 +36,7 @@ public class AndroidBootstrap implements Bootstrap {
   private final AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider;
 
   public AndroidBootstrap(
-      AndroidSkylarkCommonApi<?> androidCommon,
+      AndroidSkylarkCommonApi<?, ?> androidCommon,
       ApkInfoApiProvider apkInfoProvider,
       AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,

@@ -56,7 +56,6 @@ public final class ParamDescriptor {
       Class<?> generic1,
       boolean noneable,
       boolean named,
-      boolean legacyNamed,
       boolean positional,
       SkylarkType skylarkType,
       @Nullable String valueOverride,
@@ -67,7 +66,7 @@ public final class ParamDescriptor {
     this.allowedTypes = allowedTypes;
     this.generic1 = generic1;
     this.noneable = noneable;
-    this.named = named || legacyNamed;
+    this.named = named;
     this.positional = positional;
     this.skylarkType = skylarkType;
     this.valueOverride = valueOverride;
@@ -103,12 +102,18 @@ public final class ParamDescriptor {
         allowedTypes,
         generic,
         noneable,
-        param.named(),
-        param.legacyNamed(),
+        isNamed(param, starlarkSemantics),
         param.positional(),
         getType(type, generic, allowedTypes, noneable),
         valueOverride,
         flagResponsibleForDisable);
+  }
+
+  private static boolean isNamed(Param param, StarlarkSemantics starlarkSemantics) {
+    if (param.named()) {
+      return true;
+    }
+    return param.legacyNamed() && !starlarkSemantics.experimentalRestrictNamedParams();
   }
 
   /** @see Param#name() */

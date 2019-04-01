@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -34,7 +33,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
 
   @Nullable
   private NodeEntry getEntryForValue(SkyKey key) throws InterruptedException {
-    NodeEntry entry = getBatch(null, Reason.WALKABLE_GRAPH_VALUE, ImmutableList.of(key)).get(key);
+    NodeEntry entry = graph.get(null, Reason.WALKABLE_GRAPH_VALUE, key);
     return entry != null && entry.isDone() ? entry : null;
   }
 
@@ -114,6 +113,14 @@ public class DelegatingWalkableGraph implements WalkableGraph {
       result.put(entry.getKey(), entry.getValue().getDirectDeps());
     }
     return result;
+  }
+
+  @Override
+  public Iterable<SkyKey> getDirectDeps(SkyKey key) throws InterruptedException {
+    NodeEntry entry = getEntryForValue(key);
+    Preconditions.checkNotNull(entry, key);
+    Preconditions.checkState(entry.isDone(), "Node %s (with key %s) isn't done yet.", entry, key);
+    return entry.getDirectDeps();
   }
 
   @Override

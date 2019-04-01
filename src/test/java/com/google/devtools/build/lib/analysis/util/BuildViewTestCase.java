@@ -157,7 +157,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -365,10 +364,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
     optionsParser.setStarlarkOptions(skylarkOptions);
 
-    InvocationPolicyEnforcer optionsPolicyEnforcer =
-        getAnalysisMock().getInvocationPolicyEnforcer();
-    optionsPolicyEnforcer.enforce(optionsParser);
-
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     return skyframeExecutor.createConfigurations(
         reporter, buildOptions, ImmutableSet.<String>of(), false);
@@ -518,14 +513,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void useConfiguration(ImmutableMap<String, Object> skylarkOptions, String... args)
       throws Exception {
-    String[] actualArgs;
-    actualArgs = Arrays.copyOf(args, args.length + 1);
-    actualArgs[args.length] =
-        "--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString());
-    masterConfig = createConfigurations(skylarkOptions, actualArgs);
+    ImmutableList<String> actualArgs =
+        ImmutableList.<String>builder()
+            .addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS)
+            .add(args)
+            .add("--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString()))
+            .build();
+
+    masterConfig = createConfigurations(skylarkOptions, actualArgs.toArray(new String[0]));
     targetConfig = getTargetConfiguration();
     targetConfigKey = BuildConfigurationValue.key(targetConfig);
-    configurationArgs = Arrays.asList(actualArgs);
+    configurationArgs = actualArgs;
     createBuildView();
   }
 
@@ -567,8 +565,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         view.getArtifactFactory(),
         actionKeyContext,
         ArtifactOwner.NullArtifactOwner.INSTANCE,
-        /*isSystemEnv=*/ true, /*extendedSanityChecks*/
-        false,
+        /*isSystemEnv=*/ true,
+        /*extendedSanityChecks=*/ false,
+        /*allowAnalysisFailures=*/ false,
         reporter,
         /* env= */ null);
   }
@@ -858,7 +857,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * that transition is applied to the given config in the returned ConfiguredTarget.
    */
   public ConfiguredTarget getConfiguredTarget(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return getConfiguredTarget(label, targetConfig);
   }
 
@@ -868,7 +867,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * applied to the given config in the returned ConfiguredTarget.
    */
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
   }
 
@@ -882,7 +881,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * evaluation, which is produced by the {@link MemoizingEvaluator#getExistingValue} call in {@link
    * SkyframeExecutor#getConfiguredTargetForTesting}. See also b/26382502.
    */
-  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
+  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config)
+      throws TransitionException {
     return view.getConfiguredTargetForTesting(reporter, BlazeTestUtils.convertLabel(label), config);
   }
 
@@ -908,29 +908,28 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified file label, configured for
-   * the "build" (aka "target") configuration.
+   * Returns the ConfiguredTarget for the specified file label, configured for the "build" (aka
+   * "target") configuration.
    */
   protected FileConfiguredTarget getFileConfiguredTarget(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return (FileConfiguredTarget) getConfiguredTarget(label, targetConfig);
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified label, configured for
-   * the "host" configuration.
+   * Returns the ConfiguredTarget for the specified label, configured for the "host" configuration.
    */
   protected ConfiguredTarget getHostConfiguredTarget(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return getConfiguredTarget(label, getHostConfiguration());
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified file label, configured for
-   * the "host" configuration.
+   * Returns the ConfiguredTarget for the specified file label, configured for the "host"
+   * configuration.
    */
   protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return (FileConfiguredTarget) getHostConfiguredTarget(label);
   }
 

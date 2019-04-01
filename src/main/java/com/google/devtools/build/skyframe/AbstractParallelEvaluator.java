@@ -305,6 +305,10 @@ public abstract class AbstractParallelEvaluator {
           // No child has a changed value. This node can be marked done and its parents signaled
           // without any re-evaluation.
           Set<SkyKey> reverseDeps = state.markClean();
+          if (matchesMissingSkyKey(skyKey)) {
+            logger.info(
+                "Marked " + skyKey + " clean: " + state + ", " + System.identityHashCode(state));
+          }
           // Tell the receiver that the value was not actually changed this run.
           evaluatorContext
               .getProgressReceiver()
@@ -390,10 +394,20 @@ public abstract class AbstractParallelEvaluator {
 
     @Override
     public void run() {
+      SkyFunctionEnvironment env = null;
       try {
         NodeEntry state =
             Preconditions.checkNotNull(graph.get(null, Reason.EVALUATION, skyKey), skyKey);
         Preconditions.checkState(state.isReady(), "%s %s", skyKey, state);
+        if (matchesMissingSkyKey(skyKey)) {
+          logger.info(
+              "Starting to evaluate "
+                  + skyKey
+                  + " with "
+                  + state
+                  + ", "
+                  + System.identityHashCode(state));
+        }
         try {
           evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.CHECK_DIRTY);
           if (maybeHandleDirtyNode(state) == DirtyOutcome.ALREADY_PROCESSED) {
@@ -403,8 +417,7 @@ public abstract class AbstractParallelEvaluator {
           evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.CHECK_DIRTY, -1);
         }
 
-        Set<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
-        SkyFunctionEnvironment env;
+        ImmutableSet<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
         try {
           evaluatorContext
               .getProgressReceiver()
@@ -698,6 +711,16 @@ public abstract class AbstractParallelEvaluator {
         // Do not put any code here! Any code here can race with a re-evaluation of this same node
         // in another thread.
       } catch (InterruptedException ie) {
+        // The current thread can be interrupted at various places during evaluation or while
+        // committing the result in this method. Since we only register the future(s) with the
+        // underlying AbstractQueueVisitor in the registerExternalDeps call above, we have to make
+        // sure that any known futures are correctly canceled if we do not reach that call. Note
+        // that it is safe to cancel a future multiple times.
+        if (env != null && env.externalDeps != null) {
+          for (ListenableFuture<?> future : env.externalDeps) {
+            future.cancel(/*mayInterruptIfRunning=*/ true);
+          }
+        }
         // InterruptedException cannot be thrown by Runnable.run, so we must wrap it.
         // Interrupts can be caught by both the Evaluator and the AbstractQueueVisitor.
         // The former will unwrap the IE and propagate it as is; the latter will throw a new IE.
@@ -890,7 +913,7 @@ public abstract class AbstractParallelEvaluator {
   private boolean maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
       SkyKey skyKey,
       NodeEntry entry,
-      Set<SkyKey> oldDeps,
+      ImmutableSet<SkyKey> oldDeps,
       SkyFunctionEnvironment env,
       boolean keepGoing)
       throws InterruptedException {
@@ -1011,5 +1034,12 @@ public abstract class AbstractParallelEvaluator {
    */
   static boolean isDoneForBuild(@Nullable NodeEntry entry) {
     return entry != null && entry.isDone();
+  }
+
+  // TODO(b/128541100): Clean this up when bug is fixed.
+  public static SkyKey missingSkyKeyToDiagnoseBug = null;
+
+  static boolean matchesMissingSkyKey(SkyKey key) {
+    return (missingSkyKeyToDiagnoseBug != null && missingSkyKeyToDiagnoseBug.equals(key));
   }
 }

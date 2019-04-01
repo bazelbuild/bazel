@@ -122,14 +122,23 @@ public final class Scratch {
   }
 
   /**
-   * Create a scratch file in the scratch filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
+   * Create a scratch file in the scratch filesystem, with the given pathName, consisting of a set
+   * of lines. The method returns a Path instance for the scratch file.
    */
   public Path file(String pathName, Charset charset, String... lines) throws IOException {
     Path file = newFile(pathName);
     FileSystemUtils.writeContent(file, charset, linesAsString(lines));
     file.setLastModifiedTime(-1L);
+    return file;
+  }
+
+  /**
+   * Create a scratch file in the given filesystem, with the given pathName, consisting of a set of
+   * lines. The method returns a Path instance for the scratch file.
+   */
+  public Path file(String pathName, byte[] content) throws IOException {
+    Path file = newFile(pathName);
+    FileSystemUtils.writeContent(file, content);
     return file;
   }
 
@@ -197,17 +206,6 @@ public final class Scratch {
    */
   public boolean deleteFile(String pathName) throws IOException {
     return resolve(pathName).delete();
-  }
-
-  /**
-   * Create a scratch file in the given filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
-   */
-  public Path file(String pathName, byte[] content) throws IOException {
-    Path file = newFile(pathName);
-    FileSystemUtils.writeContent(file, content);
-    return file;
   }
 
   /** Creates a new scratch file, ensuring parents exist. */

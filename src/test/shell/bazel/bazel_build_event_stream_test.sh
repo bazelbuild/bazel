@@ -135,4 +135,19 @@ function test_fetch_in_build() {
   expect_not_log '^fetch'
 }
 
+function test_query() {
+  # Verify that at least a minimally meaningful event stream is generated
+  # for non-build. In particular, we expect bazel not to crash.
+  bazel query --build_event_text_file=$TEST_log  //pkg:main \
+    || fail "bazel query failed"
+  expect_log '^started'
+  expect_log 'command: "query"'
+  expect_log 'args: "--build_event_text_file='
+  expect_log 'build_finished'
+  expect_not_log 'aborted'
+  expect_log '^finished'
+  expect_log 'name: "SUCCESS"'
+  expect_log 'last_message: true'
+}
+
 run_suite "Bazel-specific integration tests for the build-event stream"

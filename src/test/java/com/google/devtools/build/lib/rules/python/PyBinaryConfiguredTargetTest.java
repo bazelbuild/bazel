@@ -45,7 +45,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "py_binary(name = 'bin',",
         "    srcs = ['bin.py'],",
         "    deps = [':lib'],",
-        "    default_python_version = '" + binVersion + "')");
+        "    python_version = '" + binVersion + "')");
   }
 
   @Test

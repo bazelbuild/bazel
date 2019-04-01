@@ -333,6 +333,9 @@ public class ActionRewindStrategy {
       MutableGraph<SkyKey> rewindGraph, ActionLookupData actionKey, SkyframeAwareAction action) {
 
     ImmutableGraph<SkyKey> graph = action.getSkyframeDependenciesForRewinding(actionKey);
+    if (graph.nodes().isEmpty()) {
+      return ImmutableList.of();
+    }
     assertSkyframeAwareRewindingGraph(graph, actionKey);
 
     ImmutableList.Builder<Artifact> newlyVisitedArtifacts = ImmutableList.builder();
@@ -472,6 +475,12 @@ public class ActionRewindStrategy {
     Preconditions.checkArgument(
         !graph.allowsSelfLoops(),
         "SkyframeAwareAction's rewinding graph allows self loops. graph: %s, actionKey: %s",
+        graph,
+        actionKey);
+    Preconditions.checkArgument(
+        graph.nodes().contains(actionKey),
+        "SkyframeAwareAction's rewinding graph does not contain its action root. graph: %s, "
+            + "actionKey: %s",
         graph,
         actionKey);
     Preconditions.checkArgument(

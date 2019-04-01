@@ -147,7 +147,7 @@ class AutoCodecUtil {
   }
 
   static TypeMirror getType(Class<?> clazz, ProcessingEnvironment env) {
-    return env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType();
+    return env.getElementUtils().getTypeElement(clazz.getCanonicalName()).asType();
   }
 
   static boolean isSubType(TypeMirror type, Class<?> clazz, ProcessingEnvironment env) {

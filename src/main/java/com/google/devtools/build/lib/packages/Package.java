@@ -1057,7 +1057,7 @@ public class Package {
       return this;
     }
 
-    Builder addFeatures(Iterable<String> features) {
+    public Builder addFeatures(Iterable<String> features) {
       Iterables.addAll(this.features, features);
       return this;
     }

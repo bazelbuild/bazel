@@ -1,3 +1,7 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
+<a name="#macro_with_args"></a>
+
 ## macro_with_args
 
 <pre>
@@ -35,6 +39,8 @@ My args macro is OK.
   </tbody>
 </table>
 
+
+<a name="#macro_with_both"></a>
 
 ## macro_with_both
 
@@ -94,6 +100,8 @@ Not much else to say.
   </tbody>
 </table>
 
+
+<a name="#macro_with_kwargs"></a>
 
 ## macro_with_kwargs
 

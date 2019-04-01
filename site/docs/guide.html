@@ -858,11 +858,15 @@ $ bazel fetch //...
   <li>
     Unless the <code class='flag'>--nosystem_rc</code> is present, Bazel looks for
     the system .bazelrc file: on Unix, it lives at <code>/etc/bazel.bazelrc</code>,
-    and on Windows at <code>%%ProgramData%%/bazel.bazelrc</code>.
+    and on Windows at <code>%ProgramData%/bazel.bazelrc</code>.
 
     If another system-specified location is required, this value can be
     changed by setting <code>BAZEL_SYSTEM_BAZELRC_PATH</code> in
     <code>src/main/cpp:option_processor</code> and using this custom Bazel binary.
+
+    The system-specified location may contain environment variable
+    substitutions, as <code>%var_name%</code> on Windows
+    or <code>${var_name}</code> on Unix.
   </li>
   <li>
     Unless the <code class='flag'>--noworkspace_rc</code> is present, Bazel looks

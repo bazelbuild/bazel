@@ -17,22 +17,22 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 
 /**
  * {@link Bootstrap} for skylark objects related to cpp rules.
  */
 public class CcBootstrap implements Bootstrap {
-
   private final BazelCcModuleApi<
+          ? extends SkylarkActionFactoryApi,
           ? extends FileApi,
           ? extends SkylarkRuleContextApi,
-          ? extends CcToolchainProviderApi,
+          ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
           ? extends FeatureConfigurationApi,
-          ? extends CompilationInfoApi,
           ? extends CcCompilationContextApi,
-          ? extends CcCompilationOutputsApi,
-          ? extends LinkingInfoApi,
+          ? extends CcCompilationOutputsApi<? extends FileApi>,
+          ? extends CcLinkingOutputsApi<? extends FileApi>,
           ? extends CcLinkingContextApi,
           ? extends LibraryToLinkApi,
           ? extends CcToolchainVariablesApi,
@@ -41,14 +41,14 @@ public class CcBootstrap implements Bootstrap {
 
   public CcBootstrap(
       BazelCcModuleApi<
+              ? extends SkylarkActionFactoryApi,
               ? extends FileApi,
               ? extends SkylarkRuleContextApi,
-              ? extends CcToolchainProviderApi,
+              ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
               ? extends FeatureConfigurationApi,
-              ? extends CompilationInfoApi,
               ? extends CcCompilationContextApi,
-              ? extends CcCompilationOutputsApi,
-              ? extends LinkingInfoApi,
+              ? extends CcCompilationOutputsApi<? extends FileApi>,
+              ? extends CcLinkingOutputsApi<? extends FileApi>,
               ? extends CcLinkingContextApi,
               ? extends LibraryToLinkApi,
               ? extends CcToolchainVariablesApi,

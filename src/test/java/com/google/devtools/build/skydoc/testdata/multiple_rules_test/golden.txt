@@ -1,4 +1,7 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
 <a name="#my_rule"></a>
+
 ## my_rule
 
 <pre>
@@ -41,6 +44,7 @@ This is my rule. It does stuff.
 
 
 <a name="#other_rule"></a>
+
 ## other_rule
 
 <pre>
@@ -83,6 +87,7 @@ This is another rule.
 
 
 <a name="#yet_another_rule"></a>
+
 ## yet_another_rule
 
 <pre>
@@ -117,6 +122,8 @@ This is yet another rule
   </tbody>
 </table>
 
+
+<a name="#my_rule_impl"></a>
 
 ## my_rule_impl
 

@@ -133,7 +133,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   @Override
   public void clearAllFiles() throws IOException {
-    FileSystemUtils.deleteTree(analysisHelper.getRootDirectory());
+    analysisHelper.getRootDirectory().deleteTree();
   }
 
   @Override

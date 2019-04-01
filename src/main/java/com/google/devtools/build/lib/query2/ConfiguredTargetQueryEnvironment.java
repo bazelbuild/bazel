@@ -225,27 +225,33 @@ public class ConfiguredTargetQueryEnvironment
           reportBuildFileError(owner, exn.getMessage());
           return Futures.immediateFuture(null);
         };
-    return QueryTaskFutureImpl.ofDelegate(
-        Futures.catchingAsync(
-            patternToEval.evalAdaptedForAsync(
-                resolver,
-                ImmutableSet.of(),
-                ImmutableSet.of(),
-                (Callback<Target>)
-                    partialResult -> {
-                      List<ConfiguredTarget> transformedResult = new ArrayList<>();
-                      for (Target target : partialResult) {
-                        ConfiguredTarget configuredTarget = getConfiguredTarget(target.getLabel());
-                        if (configuredTarget != null) {
-                          transformedResult.add(configuredTarget);
+
+    try {
+      return QueryTaskFutureImpl.ofDelegate(
+          Futures.catchingAsync(
+              patternToEval.evalAdaptedForAsync(
+                  resolver,
+                  getBlacklistedPackagePrefixesPathFragments(),
+                  /* excludedSubdirectories= */ ImmutableSet.of(),
+                  (Callback<Target>)
+                      partialResult -> {
+                        List<ConfiguredTarget> transformedResult = new ArrayList<>();
+                        for (Target target : partialResult) {
+                          ConfiguredTarget configuredTarget =
+                              getConfiguredTarget(target.getLabel());
+                          if (configuredTarget != null) {
+                            transformedResult.add(configuredTarget);
+                          }
                         }
-                      }
-                      callback.process(transformedResult);
-                    },
-                QueryException.class),
-            TargetParsingException.class,
-            reportBuildFileErrorAsyncFunction,
-            MoreExecutors.directExecutor()));
+                        callback.process(transformedResult);
+                      },
+                  QueryException.class),
+              TargetParsingException.class,
+              reportBuildFileErrorAsyncFunction,
+              MoreExecutors.directExecutor()));
+    } catch (InterruptedException e) {
+      return immediateCancelledFuture();
+    }
   }
 
   private ConfiguredTarget getConfiguredTarget(Label label) throws InterruptedException {

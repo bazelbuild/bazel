@@ -47,8 +47,8 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
 
-  private static final Predicate<SkyKey> IS_AST_FILE_LOOKUP =
-      SkyFunctions.isSkyFunction(SkyFunctions.AST_FILE_LOOKUP);
+  private static final Predicate<SkyKey> IS_SKYLARK_IMPORTS_LOOKUP =
+      SkyFunctions.isSkyFunction(SkyFunctions.SKYLARK_IMPORTS_LOOKUP);
 
   private static final Predicate<SkyKey> IS_EXTERNAL_PACKAGE =
       SkyFunctions.isSkyFunction(SkyFunctions.EXTERNAL_PACKAGE);
@@ -107,9 +107,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
         || IS_EXTERNAL_PACKAGE.apply(lastPathElement)
         || IS_LOCAL_REPOSITORY_LOOKUP.apply(lastPathElement)) {
       // We have a cycle in the workspace file, report as such.
-      if (Iterables.any(cycle, IS_AST_FILE_LOOKUP)) {
+      if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
         Label fileLabel =
-            (Label) Iterables.getLast(Iterables.filter(cycle, IS_AST_FILE_LOOKUP)).argument();
+            ((SkylarkImportLookupValue.SkylarkImportLookupKey)
+                    Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
+                .getImportLabel();
         String repositoryName = fileLabel.getPackageIdentifier().getRepository().strippedName();
         eventHandler.handle(
             Event.error(
@@ -127,11 +129,10 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
                     + "' was defined too late in your WORKSPACE file."));
         return true;
       } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
-        eventHandler.handle(
-            Event.error(null, "cycle detected loading "
-                + String.join(
-                    " ", lastPathElement.functionName().toString().toLowerCase().split("_"))
-                + " '" + lastPathElement.argument().toString() + "'"));
+        PackageIdentifier pkg =
+            (PackageIdentifier)
+                Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
+        eventHandler.handle(Event.error(null, "cannot load package '" + pkg + "'"));
         return true;
       }
     }

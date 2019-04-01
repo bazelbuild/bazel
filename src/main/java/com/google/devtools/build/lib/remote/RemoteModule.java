@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -126,14 +126,7 @@ public final class RemoteModule extends BlazeModule {
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
 
-    boolean enableRestCache = SimpleBlobStoreFactory.isRestUrlOptions(remoteOptions);
-    boolean enableDiskCache = SimpleBlobStoreFactory.isDiskCache(remoteOptions);
-    if (enableRestCache && enableDiskCache) {
-      throw new AbruptExitException(
-          "Cannot enable HTTP-based and local disk cache simultaneously",
-          ExitCode.COMMAND_LINE_ERROR);
-    }
-    boolean enableBlobStoreCache = enableRestCache || enableDiskCache;
+    boolean enableBlobStoreCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
     boolean enableGrpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     if (enableBlobStoreCache && enableRemoteExecution) {
@@ -248,12 +241,6 @@ public final class RemoteModule extends BlazeModule {
       }
 
       if (enableBlobStoreCache) {
-        Retrier retrier =
-            new Retrier(
-                () -> Retrier.RETRIES_DISABLED,
-                (e) -> false,
-                retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
         executeRetrier = null;
         cache =
             new SimpleBlobStoreActionCache(
@@ -261,8 +248,7 @@ public final class RemoteModule extends BlazeModule {
                 SimpleBlobStoreFactory.create(
                     remoteOptions,
                     GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                    env.getWorkingDirectory()),
-                retrier,
+                    Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory")),
                 digestUtil);
       }
 
@@ -304,7 +290,7 @@ public final class RemoteModule extends BlazeModule {
     try {
       // Clean out old logs files.
       if (logDir.exists()) {
-        FileSystemUtils.deleteTree(logDir);
+        logDir.deleteTree();
       }
       logDir.createDirectory();
     } catch (IOException e) {

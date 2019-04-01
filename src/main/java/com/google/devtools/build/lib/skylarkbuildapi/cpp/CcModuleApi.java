@@ -68,6 +68,14 @@ public interface CcModuleApi<
       doc = "Creates a feature_configuration instance.",
       parameters = {
         @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(
             name = "cc_toolchain",
             doc = "cc_toolchain for which we configure features.",
             positional = false,
@@ -89,6 +97,7 @@ public interface CcModuleApi<
             type = SkylarkList.class),
       })
   FeatureConfigurationT configureFeatures(
+      Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
       SkylarkList<String> requestedFeatures,
       SkylarkList<String> unsupportedFeatures)
@@ -252,9 +261,7 @@ public interface CcModuleApi<
             noneable = true),
         @Param(
             name = "user_compile_flags",
-            doc =
-                "List of additional compilation flags (copts). Passing depset is deprecated and "
-                    + "will be removed by --incompatible_disable_depset_in_cc_user_flags flag.",
+            doc = "List of additional compilation flags (copts).",
             positional = false,
             named = true,
             defaultValue = "None",
@@ -262,7 +269,6 @@ public interface CcModuleApi<
             allowedTypes = {
               @ParamType(type = NoneType.class),
               @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class)
             }),
         @Param(
             name = "include_directories",
@@ -317,9 +323,7 @@ public interface CcModuleApi<
         // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "add_legacy_cxx_options",
-            doc =
-                "When true the flags will contain options coming from legacy cxx_flag crosstool "
-                    + "fields.",
+            doc = "Unused.",
             named = true,
             positional = false,
             defaultValue = "False")
@@ -378,17 +382,14 @@ public interface CcModuleApi<
             }),
         @Param(
             name = "user_link_flags",
-            doc =
-                "List of additional link flags (linkopts). Passing depset is deprecated and "
-                    + "will be removed by --incompatible_disable_depset_in_cc_user_flags flag.",
+            doc = "List of additional link flags (linkopts).",
             positional = false,
             named = true,
             defaultValue = "None",
             noneable = true,
             allowedTypes = {
               @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class)
+              @ParamType(type = SkylarkList.class)
             }),
         @Param(
             name = "output_file",
@@ -433,7 +434,6 @@ public interface CcModuleApi<
             named = true,
             positional = false,
             defaultValue = "False"),
-        // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "must_keep_debug",
             doc =
@@ -442,26 +442,16 @@ public interface CcModuleApi<
             named = true,
             positional = false,
             defaultValue = "True"),
-        // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "use_test_only_flags",
-            doc =
-                "When set to True flags coming from test_only_linker_flag crosstool fields will"
-                    + " be included."
-                    + ""
-                    + "This field will be removed once b/65151735 is fixed.",
+            doc = "When set to true, 'is_cc_test' variable will be set.",
             named = true,
             positional = false,
             defaultValue = "False"),
         // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "is_static_linking_mode",
-            doc =
-                "True when using static_linking_mode, False when using dynamic_linking_mode. "
-                    + "Caller is responsible for keeping this in sync with 'static_linking_mode' "
-                    + "and 'dynamic_linking_mode' features enabled on the feature configuration. "
-                    + ""
-                    + "This field will be removed once b/65151735 is fixed.",
+            doc = "Unused.",
             named = true,
             positional = false,
             defaultValue = "True"),

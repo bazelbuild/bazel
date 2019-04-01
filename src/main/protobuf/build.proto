@@ -506,7 +506,8 @@ message AttributeDefinition {
   optional AttributeValue default = 9; // simple (not computed/late-bound) values only
   optional bool executable = 10;       // type=label
   optional bool configurable = 11;
-  optional bool nodep = 12;            // type=label*
+  optional bool nodep = 12;            // label-valued edge does not establish a dependency
+  optional bool cfg_is_host = 13;      // edge entails a transition to "host" configuration
 }
 
 // An AttributeValue represents the value of an attribute.

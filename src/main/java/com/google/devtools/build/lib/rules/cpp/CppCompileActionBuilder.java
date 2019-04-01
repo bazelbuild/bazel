@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -60,7 +59,7 @@ public class CppCompileActionBuilder {
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
   private PathFragment tempOutputFile;
-  private DotdFile dotdFile;
+  private Artifact dotdFile;
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
   private final List<String> pluginOpts = new ArrayList<>();
@@ -287,10 +286,7 @@ public class CppCompileActionBuilder {
     }
 
     NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();
-    NestedSet<Artifact> prunableHeaders =
-        NestedSetBuilder.fromNestedSet(cppSemantics.getAdditionalPrunableIncludes())
-            .addAll(additionalPrunableHeaders)
-            .build();
+    NestedSet<Artifact> prunableHeaders = buildPrunableHeaders();
 
     configuration.modifyExecutionInfo(
         executionInfo, CppCompileAction.actionNameToMnemonic(getActionName()));
@@ -363,7 +359,7 @@ public class CppCompileActionBuilder {
 
   private ImmutableList<Artifact> getBuiltinIncludeFiles() {
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    result.addAll(ccToolchain.getBuiltinIncludeFiles());
+    result.addAll(ccToolchain.getBuiltinIncludeFiles(cppConfiguration));
     if (builtinIncludeFiles != null) {
       result.addAll(builtinIncludeFiles);
     }
@@ -386,6 +382,12 @@ public class CppCompileActionBuilder {
       realMandatoryInputsBuilder.add(grepIncludes);
     }
     return realMandatoryInputsBuilder.build();
+  }
+
+  NestedSet<Artifact> buildPrunableHeaders() {
+    return NestedSetBuilder.fromNestedSet(cppSemantics.getAdditionalPrunableIncludes())
+        .addAll(additionalPrunableHeaders)
+        .build();
   }
 
   Iterable<Artifact> buildInputsForInvalidation() {
@@ -425,6 +427,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  FeatureConfiguration getFeatureConfiguration() {
+    return featureConfiguration;
+  }
+
   /** Sets the feature build variables to be used for the action. */
   public CppCompileActionBuilder setVariables(CcToolchainVariables variables) {
     this.variables = variables;
@@ -441,9 +447,17 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  Map<String, String> getExecutionInfo() {
+    return executionInfo;
+  }
+
   public CppCompileActionBuilder setActionClassId(UUID uuid) {
     this.actionClassId = uuid;
     return this;
+  }
+
+  UUID getActionClassId() {
+    return actionClassId;
   }
 
   public CppCompileActionBuilder addMandatoryInputs(Iterable<Artifact> artifacts) {
@@ -464,7 +478,7 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setOutputs(Artifact outputFile, Artifact dotdFile) {
     this.outputFile = outputFile;
-    this.dotdFile = dotdFile == null ? null : new DotdFile(dotdFile);
+    this.dotdFile = dotdFile;
     return this;
   }
 
@@ -486,21 +500,9 @@ public class CppCompileActionBuilder {
     if (generateDotd && !useHeaderModules()) {
       String dotdFileName =
           CppHelper.getDotdFileName(ruleErrorConsumer, ccToolchain, outputCategory, outputName);
-      if (cppConfiguration.getInmemoryDotdFiles()) {
-        // Just set the path, no artifact is constructed
-        dotdFile =
-            new DotdFile(
-                configuration
-                    .getBinDirectory(label.getPackageIdentifier().getRepository())
-                    .getExecPath()
-                    .getRelative(CppHelper.getObjDirectory(label))
-                    .getRelative(dotdFileName));
-      } else {
-        dotdFile =
-            new DotdFile(
-                CppHelper.getCompileOutputArtifact(
-                    actionConstructionContext, label, dotdFileName, configuration));
-      }
+      dotdFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext, label, dotdFileName, configuration);
     } else {
       dotdFile = null;
     }
@@ -539,7 +541,7 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public DotdFile getDotdFile() {
+  public Artifact getDotdFile() {
     return this.dotdFile;
   }
 
@@ -589,6 +591,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  CoptsFilter getCoptsFilter() {
+    return coptsFilter;
+  }
+
   public CppCompileActionBuilder setBuiltinIncludeFiles(
       ImmutableList<Artifact> builtinIncludeFiles) {
     this.builtinIncludeFiles = builtinIncludeFiles;
@@ -618,6 +624,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  ActionEnvironment getActionEnvironment() {
+    return env;
+  }
+
   public CppCompileActionBuilder setAdditionalPrunableHeaders(
       Iterable<Artifact> additionalPrunableHeaders) {
     this.additionalPrunableHeaders = Preconditions.checkNotNull(additionalPrunableHeaders);
@@ -631,8 +641,12 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  ImmutableList<PathFragment> getBuiltinIncludeDirectories() {
+    return builtinIncludeDirectories;
+  }
+
   public boolean shouldCompileHeaders() {
     Preconditions.checkNotNull(featureConfiguration);
-    return ccToolchain.shouldProcessHeaders(featureConfiguration);
+    return ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration);
   }
 }

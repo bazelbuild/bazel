@@ -105,6 +105,29 @@ public class PackageLookupFunction implements SkyFunction {
     return findPackageByBuildFile(env, pkgLocator, packageKey);
   }
 
+  /**
+   * For a package identifier {@code packageKey} such that the compute for {@code
+   * PackageLookupValue.key(packageKey)} returned {@code NO_BUILD_FILE_VALUE}, provide a
+   * human-readable error message with more details on where we searched for the package.
+   */
+  public static String explainNoBuildFileValue(PackageIdentifier packageKey, Environment env)
+      throws InterruptedException {
+    if (packageKey.getRepository().isMain()) {
+      PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+      StringBuilder message = new StringBuilder();
+      message.append("BUILD file not found in any of the following directories.");
+      for (Root root : pkgLocator.getPathEntries()) {
+        message.append("\n - ").append(root.asPath().getPathString());
+      }
+      return message.toString();
+    } else {
+      return "BUILD file not found in directory '"
+          + packageKey.getPackageFragment()
+          + "' of external repository "
+          + packageKey.getRepository();
+    }
+  }
+
   @Nullable
   @Override
   public String extractTag(SkyKey skyKey) {

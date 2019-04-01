@@ -103,6 +103,7 @@ public class DefaultMethodClassFixerTest {
     DefaultMethodClassFixer fixer =
         new DefaultMethodClassFixer(
             writer,
+            /*useGeneratedBaseClasses=*/ false,
             classpathReader,
             DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING,
             /*coreLibrarySupport=*/ null,

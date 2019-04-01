@@ -22,12 +22,12 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Provider;
@@ -95,6 +95,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   private static ImmutableAttributeFactory createAttributeFactory(
       Type<?> type,
+      String doc,
       SkylarkDict<String, Object> arguments,
       FuncallExpression ast,
       Environment env,
@@ -102,29 +103,31 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       throws EvalException {
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
-    return createAttributeFactory(type, arguments, ast, env, context, "");
+    return createAttributeFactory(type, doc, arguments, ast, env, context, "");
   }
 
   private static ImmutableAttributeFactory createAttributeFactory(
       Type<?> type,
+      String doc,
       SkylarkDict<String, Object> arguments,
       FuncallExpression ast,
       Environment env,
       StarlarkContext context,
       String name)
       throws EvalException {
-    return createAttribute(type, arguments, ast, env, context, name).buildPartial();
+    return createAttribute(type, doc, arguments, ast, env, context, name).buildPartial();
   }
 
   private static Attribute.Builder<?> createAttribute(
       Type<?> type,
+      String doc,
       SkylarkDict<String, Object> arguments,
       FuncallExpression ast,
       Environment env,
       StarlarkContext context,
       String name)
       throws EvalException {
-    Attribute.Builder<?> builder = Attribute.attr(name, type);
+    Attribute.Builder<?> builder = Attribute.attr(name, type).setDoc(doc);
 
     Object defaultValue = arguments.get(DEFAULT_ARG);
     if (!EvalUtils.isNullOrNone(defaultValue)) {
@@ -249,29 +252,19 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Object trans = arguments.get(CONFIGURATION_ARG);
       boolean isSplit =
           trans instanceof SplitTransition
-              || trans instanceof SplitTransitionProvider
+              || trans instanceof TransitionFactory
               || trans instanceof StarlarkDefinedConfigTransition;
       if (isSplit && defaultValue instanceof SkylarkLateBoundDefault) {
         throw new EvalException(
             ast.getLocation(),
             "late-bound attributes must not have a split configuration transition");
       }
-      if (trans.equals("data")) {
-        // This used to apply the "disable LIPO" (a.k.a. "data") transition. But now that LIPO is
-        // turned down this is a noop. Still, there are cfg = "data"' references in the depot. So
-        // we have to remove them via b/28688645 before we can remove this path.
-        if (env.getSemantics().incompatibleDisallowDataTransition()) {
-          throw new EvalException(ast.getLocation(),
-              "Using cfg = \"data\" on an attribute is a noop and no longer supported. Please "
-                  + "remove it. You can use --incompatible_disallow_data_transition=false to "
-                  + "temporarily disable this check.");
-        }
-      } else if (trans.equals("host")) {
-        builder.cfg(HostTransition.INSTANCE);
+      if (trans.equals("host")) {
+        builder.cfg(HostTransition.createFactory());
       } else if (trans instanceof SplitTransition) {
         builder.cfg((SplitTransition) trans);
-      } else if (trans instanceof SplitTransitionProvider) {
-        builder.cfg((SplitTransitionProvider) trans);
+      } else if (trans instanceof TransitionFactory) {
+        builder.cfg((TransitionFactory) trans);
       } else if (trans instanceof StarlarkDefinedConfigTransition) {
         StarlarkDefinedConfigTransition starlarkDefinedTransition =
             (StarlarkDefinedConfigTransition) trans;
@@ -290,8 +283,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         builder.cfg(new StarlarkAttributeTransitionProvider(starlarkDefinedTransition));
       } else if (!trans.equals("target")) {
         // TODO(b/121134880): update error message when starlark build configurations is ready.
-        throw new EvalException(
-            ast.getLocation(), "cfg must be either 'data', 'host', or 'target'.");
+        throw new EvalException(ast.getLocation(), "cfg must be either 'host' or 'target'.");
       }
     }
 
@@ -400,7 +392,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       StarlarkContext context)
       throws EvalException {
     try {
-      return new Descriptor(name, createAttributeFactory(type, kwargs, ast, env, context));
+      return new Descriptor(name, createAttributeFactory(type, null, kwargs, ast, env, context));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -437,7 +429,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       // This trick makes sense only in the context of Skylark (builtin rules should not use it).
       return new Descriptor(
           name,
-          createAttribute(type, kwargs, ast, env, context, "")
+          createAttribute(type, null, kwargs, ast, env, context, "")
               .nonconfigurable(whyNotConfigurableReason)
               .buildPartial());
     } catch (ConversionException e) {
@@ -515,6 +507,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       ImmutableAttributeFactory attribute =
           createAttributeFactory(
               BuildType.LABEL,
+              doc,
               EvalUtils.<String, Object>optionMap(
                   env,
                   DEFAULT_ARG,
@@ -650,7 +643,8 @@ public final class SkylarkAttr implements SkylarkAttrApi {
             aspects);
     try {
       ImmutableAttributeFactory attribute =
-          createAttributeFactory(BuildType.LABEL_LIST, kwargs, ast, env, context, "label_list");
+          createAttributeFactory(
+              BuildType.LABEL_LIST, doc, kwargs, ast, env, context, "label_list");
       return new Descriptor("label_list", attribute);
     } catch (EvalException e) {
       throw new EvalException(ast.getLocation(), e.getMessage(), e);
@@ -703,6 +697,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       ImmutableAttributeFactory attribute =
           createAttributeFactory(
               BuildType.LABEL_KEYED_STRING_DICT,
+              doc,
               kwargs,
               ast,
               env,

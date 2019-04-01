@@ -246,6 +246,16 @@ class Desugar {
     public boolean desugarTryWithResourcesOmitRuntimeClasses;
 
     @Option(
+        name = "generate_base_classes_for_default_methods",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If desugaring default methods, generate abstract base classes for them. "
+                + "This reduces default method stubs in hand-written subclasses.")
+    public boolean generateBaseClassesForDefaultMethods;
+
+    @Option(
       name = "copy_bridges_from_classpath",
       defaultValue = "false",
       category = "misc",
@@ -455,7 +465,12 @@ class Desugar {
           bridgeMethodReader);
 
       desugarAndWriteGeneratedClasses(
-          outputFileProvider, loader, bootclasspathReader, coreLibrarySupport);
+          outputFileProvider,
+          loader,
+          classpathReader,
+          depsCollector,
+          bootclasspathReader,
+          coreLibrarySupport);
 
       copyRuntimeClasses(outputFileProvider, coreLibrarySupport);
 
@@ -677,6 +692,8 @@ class Desugar {
   private void desugarAndWriteGeneratedClasses(
       OutputFileProvider outputFileProvider,
       ClassLoader loader,
+      @Nullable ClassReaderFactory classpathReader,
+      DependencyCollector depsCollector,
       ClassReaderFactory bootclasspathReader,
       @Nullable CoreLibrarySupport coreLibrarySupport)
       throws IOException {
@@ -721,6 +738,19 @@ class Desugar {
       }
 
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
+      if (options.generateBaseClassesForDefaultMethods) {
+        // Use DefaultMethodClassFixer to make generated base classes extend other base classes if
+        // possible and add any stubs from extended interfaces
+        visitor =
+            new DefaultMethodClassFixer(
+                visitor,
+                /*useGeneratedBaseClasses=*/ true,
+                classpathReader,
+                depsCollector,
+                coreLibrarySupport,
+                bootclasspathReader,
+                loader);
+      }
       generated.getValue().accept(visitor);
       checkState(
           (options.coreLibrary && coreLibrarySupport != null)
@@ -779,6 +809,7 @@ class Desugar {
         visitor =
             new DefaultMethodClassFixer(
                 visitor,
+                options.generateBaseClassesForDefaultMethods,
                 classpathReader,
                 depsCollector,
                 coreLibrarySupport,
@@ -787,6 +818,7 @@ class Desugar {
         visitor =
             new InterfaceDesugaring(
                 visitor,
+                options.generateBaseClassesForDefaultMethods,
                 interfaceCache,
                 depsCollector,
                 coreLibrarySupport,
@@ -861,6 +893,7 @@ class Desugar {
           visitor =
               new DefaultMethodClassFixer(
                   visitor,
+                  options.generateBaseClassesForDefaultMethods,
                   classpathReader,
                   depsCollector,
                   coreLibrarySupport,
@@ -869,6 +902,7 @@ class Desugar {
           visitor =
               new InterfaceDesugaring(
                   visitor,
+                  options.generateBaseClassesForDefaultMethods,
                   interfaceCache,
                   depsCollector,
                   coreLibrarySupport,

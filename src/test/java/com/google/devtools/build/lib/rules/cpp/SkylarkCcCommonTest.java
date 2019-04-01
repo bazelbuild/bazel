@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -61,9 +61,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for the {@code cc_common} Skylark module.
- */
+/** Unit tests for the {@code cc_common} Skylark module. */
 @RunWith(JUnit4.class)
 public class SkylarkCcCommonTest extends BuildViewTestCase {
 
@@ -71,6 +69,36 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void setSkylarkSemanticsOptions() throws Exception {
     setSkylarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
     invalidatePackages();
+  }
+
+  @Test
+  public void testAllFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  return struct(all_files = toolchain.all_files)",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    SkylarkNestedSet allFiles = (SkylarkNestedSet) r.get("all_files");
+    RuleContext ruleContext = getRuleContext(r);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchain(
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+    assertThat(allFiles.getSet(Artifact.class)).isEqualTo(toolchain.getAllFiles());
   }
 
   @Test
@@ -107,7 +135,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(actionToolPath)
         .isEqualTo(featureConfiguration.getToolPathForAction(CppActionNames.CPP_COMPILE));
   }
@@ -116,7 +147,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testFeatureConfigurationWithAdditionalEnabledFeature() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "feature { name: 'foo_feature' }");
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures("foo_feature"));
     useConfiguration();
     scratch.file(
         "a/BUILD",
@@ -153,7 +185,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testFeatureConfigurationWithAdditionalUnsupportedFeature() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "feature { name: 'foo_feature' }");
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures("foo_feature"));
     useConfiguration("--features=foo_feature");
     scratch.file(
         "a/BUILD",
@@ -221,7 +254,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(commandLine)
         .containsExactlyElementsIn(
             featureConfiguration.getCommandLine("c++-link-executable", CcToolchainVariables.EMPTY));
@@ -263,7 +299,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.of(), ImmutableSet.of(), toolchain);
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            toolchain,
+            ruleContext.getFragment(CppConfiguration.class));
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
@@ -345,14 +384,42 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testFeatureConfigurationRequiresCtx() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)",
+        "  return struct()",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+    useConfiguration("--incompatible_require_ctx_in_configure_features");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("mandatory parameter 'ctx' of cc_common.configure_features is missing");
+  }
+
+  @Test
   public void testActionNames() throws Exception {
     scratch.file(
         "a/BUILD",
         "load(':rule.bzl', 'crule')",
         "cc_toolchain_alias(name='alias')",
         "crule(name='r')");
-    scratch.file("tools/build_defs/cc/BUILD");
-    scratch.file(
+    scratch.overwriteFile("tools/build_defs/cc/BUILD");
+    scratch.overwriteFile(
         "tools/build_defs/cc/action_names.bzl",
         ResourceLoader.readFromResources(
             TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
@@ -434,41 +501,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testEmptyCompileBuildVariables() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "compiler_flag: '-foo'", "cxx_flag: '-foo_for_cxx_only'");
-    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
-    SkylarkList<String> commandLine =
-        commandLineForVariables(
-            CppActionNames.CPP_COMPILE,
-            "cc_common.create_compile_variables(",
-            "feature_configuration = feature_configuration,",
-            "cc_toolchain = toolchain,",
-            ")");
-    assertThat(commandLine).contains("-foo");
-    assertThat(commandLine).doesNotContain("-foo_for_cxx_only");
-  }
-
-  @Test
-  public void testEmptyCompileBuildVariablesForCxx() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "compiler_flag: '-foo'", "cxx_flag: '-foo_for_cxx_only'");
-    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_COMPILE,
-                "cc_common.create_compile_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "add_legacy_cxx_options = True",
-                ")"))
-        .containsAllOf("-foo", "-foo_for_cxx_only")
-        .inOrder();
-  }
-
-  @Test
   public void testCompileBuildVariablesWithSourceFile() throws Exception {
     assertThat(
             commandLineForVariables(
@@ -524,10 +556,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCompileBuildVariablesForPic() throws Exception {
-    getAnalysisMock()
+    AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE, MockCcSupport.PIC_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -542,20 +576,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testUserCompileFlags() throws Exception {
-    useConfiguration("--noincompatible_disable_depset_in_cc_user_flags");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_COMPILE,
-                "cc_common.create_compile_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "user_compile_flags = depset(['-foo'])",
-                ")"))
-        .contains("-foo");
-  }
-
-  @Test
-  public void testUserCompileFlagsAsList() throws Exception {
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_COMPILE,
@@ -565,22 +585,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "user_compile_flags = ['-foo']",
                 ")"))
         .contains("-foo");
-  }
-
-  @Test
-  public void testUserCompileFlagsAsDepsetWhenDisabled() throws Exception {
-    useConfiguration("--incompatible_disable_depset_in_cc_user_flags");
-    reporter.removeHandler(failFastHandler);
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_COMPILE,
-                "cc_common.create_compile_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "user_compile_flags = depset(['-foo'])",
-                ")"))
-        .isNull();
-    assertContainsEvent("Passing depset into user flags is deprecated");
   }
 
   @Test
@@ -600,7 +604,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testEmptyLinkVariablesContainSysroot() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "builtin_sysroot: '/foo/bar/sysroot'");
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withSysroot("/foo/bar/sysroot"));
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -616,20 +621,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testLibrarySearchDirectoriesLinkVariables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            "feature {",
-            "  name: 'library_search_directories'",
-            "  enabled: true",
-            "  flag_set {",
-            "    action: 'c++-link-executable'",
-            "    flag_group {",
-            "      expand_if_all_available: 'library_search_directories'",
-            "      iterate_over: 'library_search_directories'",
-            "      flag: '--library=%{library_search_directories}'",
-            "    }",
-            "  }",
-            "}");
+            CcToolchainConfig.builder().withFeatures("library_search_directories"));
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -647,20 +641,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testRuntimeLibrarySearchDirectoriesLinkVariables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            "feature {",
-            "  name: 'runtime_library_search_directories'",
-            "  enabled: true",
-            "  flag_set {",
-            "    action: 'c++-link-executable'",
-            "    flag_group {",
-            "      expand_if_all_available: 'runtime_library_search_directories'",
-            "      iterate_over: 'runtime_library_search_directories'",
-            "      flag: '--runtime_library=%{runtime_library_search_directories}'",
-            "    }",
-            "  }",
-            "}");
+            CcToolchainConfig.builder().withFeatures("runtime_library_search_directories"));
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -676,20 +659,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testUserLinkFlagsLinkVariables() throws Exception {
-    useConfiguration("--noincompatible_disable_depset_in_cc_user_flags");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "user_link_flags = depset([ '-avocado' ]),",
-                ")"))
-        .contains("-avocado");
-  }
-
-  @Test
-  public void testUserLinkFlagsLinkVariablesAsList() throws Exception {
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
@@ -702,38 +671,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testUserLinkFlagsLinkVariablesAsDepsetWhenDisabled() throws Exception {
-    useConfiguration("--incompatible_disable_depset_in_cc_user_flags");
-    reporter.removeHandler(failFastHandler);
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "user_link_flags = depset([ '-avocado' ]),",
-                ")"))
-        .isNull();
-    assertContainsEvent("Passing depset into user flags is deprecated");
-  }
-
-  @Test
   public void testIfsoRelatedVariablesAreNotExposed() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "feature {",
-            "  name: 'uses_ifso_variables'",
-            "  enabled: true",
-            "  flag_set {",
-            "    action: 'c++-link-dynamic-library'",
-            "    flag_group {",
-            "      expand_if_all_available: 'generate_interface_library'",
-            "      flag: '--generate_interface_library_was_available'",
-            "    }",
-            "  }",
-            "}");
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures("uses_ifso_variables"));
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -760,6 +702,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testParamFileLinkVariables() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE));
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
@@ -768,26 +715,14 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "cc_toolchain = toolchain,",
                 "param_file = 'foo/bar/params',",
                 ")"))
-        .contains("-Wl,@foo/bar/params");
+        .contains("@foo/bar/params");
   }
 
   @Test
   public void testDefFileLinkVariables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "feature {",
-            "  name: 'def'",
-            "  enabled: true",
-            "  flag_set {",
-            "    action: 'c++-link-executable'",
-            "    flag_group {",
-            "      expand_if_all_available: 'def_file_path'",
-            "      flag: '-qux_%{def_file_path}'",
-            "    }",
-            "  }",
-            "}");
+        .setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder().withFeatures("def"));
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -804,19 +739,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testMustKeepDebugLinkVariables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "feature {",
-            "  name: 'strip_debug_symbols'",
-            "  enabled: true",
-            "  flag_set {",
-            "    action: 'c++-link-executable'",
-            "    flag_group {",
-            "      expand_if_all_available: 'strip_debug_symbols'",
-            "      flag: '-strip_stuff'",
-            "    }",
-            "  }",
-            "}");
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures("strip_debug_symbols"));
+
     useConfiguration();
     assertThat(
             commandLineForVariables(
@@ -891,74 +816,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "user_link_flags = [ '-i_dont_want_to_see_this_on_archiver_command_line' ],",
                 ")"))
         .doesNotContain("-i_dont_want_to_see_this_on_archiver_command_line");
-  }
-
-  @Test
-  public void testUseTestOnlyFlagsLinkVariables() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "test_only_linker_flag: '-im_only_testing_flag'");
-    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                0,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "use_test_only_flags = False,",
-                ")"))
-        .doesNotContain("-im_only_testing_flag");
-    assertThat(
-            commandLineForVariables(
-                CppActionNames.CPP_LINK_EXECUTABLE,
-                1,
-                "cc_common.create_link_variables(",
-                "feature_configuration = feature_configuration,",
-                "cc_toolchain = toolchain,",
-                "use_test_only_flags = True,",
-                ")"))
-        .contains("-im_only_testing_flag");
-  }
-
-  @Test
-  public void testIsStaticLinkingModeLinkVariables() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "linking_mode_flags {",
-            "  mode: MOSTLY_STATIC",
-            "  linker_flag: '-static_linking_mode_flag'",
-            "}",
-            "linking_mode_flags {",
-            "  mode: DYNAMIC",
-            "  linker_flag: '-dynamic_linking_mode_flag'",
-            "}");
-    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
-    SkylarkList<String> staticLinkingModeFlags =
-        commandLineForVariables(
-            CppActionNames.CPP_LINK_EXECUTABLE,
-            0,
-            "cc_common.create_link_variables(",
-            "feature_configuration = feature_configuration,",
-            "cc_toolchain = toolchain,",
-            "is_static_linking_mode = True,",
-            ")");
-    assertThat(staticLinkingModeFlags).contains("-static_linking_mode_flag");
-    assertThat(staticLinkingModeFlags).doesNotContain("-dynamic_linking_mode_flag");
-
-    SkylarkList<String> dynamicLinkingModeFlags =
-        commandLineForVariables(
-            CppActionNames.CPP_LINK_EXECUTABLE,
-            1,
-            "cc_common.create_link_variables(",
-            "feature_configuration = feature_configuration,",
-            "cc_toolchain = toolchain,",
-            "is_static_linking_mode = False,",
-            ")");
-    assertThat(dynamicLinkingModeFlags).doesNotContain("-static_linking_mode_flag");
-    assertThat(dynamicLinkingModeFlags).contains("-dynamic_linking_mode_flag");
   }
 
   private SkylarkList<String> commandLineForVariables(String actionName, String... variables)
@@ -1036,7 +893,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    defines = ['DEP2'],",
         ")",
         "crule(name='r')");
-    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.overwriteFile("tools/build_defs/cc/BUILD", "");
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "def _impl(ctx):",
@@ -1115,7 +972,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load('//tools/build_defs/cc:rule.bzl', 'crule')",
         "licenses(['notice'])",
         "crule(name='r')");
-    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.overwriteFile("tools/build_defs/cc/BUILD", "");
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "def _impl(ctx):",
@@ -1137,7 +994,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load('//tools/build_defs/cc:rule.bzl', 'crule')",
         "licenses(['notice'])",
         "crule(name='r')");
-    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.overwriteFile("tools/build_defs/cc/BUILD", "");
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "def _impl(ctx):",
@@ -1153,26 +1010,16 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFlagWhitelist() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_cc_skylark_api_enabled_packages=\"\"");
-    SkylarkCcCommonTestHelper.createFiles(scratch, "foo/bar");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:bin");
-    assertContainsEvent(
-        "You can try it out by passing "
-            + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that we "
-            + "will be making breaking changes to this API without prior warning.");
-  }
-
-  @Test
   public void testCcLinkingContextOnWindows() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
-            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
-            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.TARGETS_WINDOWS,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "libdep2.a", "b.a", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.pic.a", "c.pic.a", "e.pic.a"),
@@ -1183,11 +1030,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testCcLinkingContext() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.PIC_FEATURE,
-            MockCcSupport.SUPPORTS_PIC_FEATURE,
-            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.PIC,
+                    CppRuleClasses.SUPPORTS_PIC,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
         ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
@@ -1303,7 +1152,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ")");
     scratch.file("a/lib.a", "");
     scratch.file("a/lib.so", "");
-    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.overwriteFile("tools/build_defs/cc/BUILD", "");
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "top_linking_context_smoke = cc_common.create_linking_context(libraries_to_link=[],",
@@ -1356,109 +1205,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
   }
 
-  @Test
-  public void testCcNativeRuleDependingOnSkylarkDefinedRule() throws Exception {
-    SkylarkCcCommonTestHelper.createFiles(scratch, "tools/build_defs/cc");
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-  }
-
-  @Test
-  public void testCopts() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingCompilation(
-        scratch, "tools/build_defs/foo", "copts=depset(['-COMPILATION_OPTION'])");
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    CppCompileAction action =
-        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
-    assertThat(action.getArguments()).contains("-COMPILATION_OPTION");
-  }
-
-  @Test
-  public void testIncludeDirs() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingCompilation(
-        scratch, "tools/build_defs/foo", "includes=depset(['foo/bar', 'baz/qux'])");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(target).isNotNull();
-    CppCompileAction action =
-        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
-    assertThat(action.getArguments()).containsAllOf("-Ifoo/bar", "-Ibaz/qux");
-  }
-
-  @Test
-  public void testLinkingOutputs() throws Exception {
-    SkylarkCcCommonTestHelper.createFiles(scratch, "tools/build_defs/foo");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(target).isNotNull();
-    @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> libraries = (SkylarkList<LibraryToLink>) target.get("libraries");
-    assertThat(
-            libraries.stream()
-                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
-        .contains("libskylark_lib.so");
-  }
-
-  @Test
-  public void testLinkopts() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch, "tools/build_defs/foo", "linkopts=depset(['-LINKING_OPTION'])");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(target).isNotNull();
-    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getFlattenedUserLinkFlags())
-        .contains("-LINKING_OPTION");
-  }
-
-  @Test
-  public void testSettingDynamicLibraryArtifact() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch,
-        "tools/build_defs/foo",
-        "dynamic_library=ctx.actions.declare_file('dynamic_lib_artifact.so')");
-    assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> libraries = (SkylarkList<LibraryToLink>) target.get("libraries");
-    assertThat(
-            libraries.stream()
-                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
-        .contains("dynamic_lib_artifact.so");
-  }
-
-  @Test
-  public void testCcLinkingContexts() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch, "tools/build_defs/foo", "linking_contexts=dep_linking_contexts");
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), "bin"));
-    assertThat(action.getArguments()).containsAllOf("-DEP1_LINKOPT", "-DEP2_LINKOPT");
-  }
-
-  @Test
-  public void testNeverlinkTrue() throws Exception {
-    assertThat(setUpNeverlinkTest("True").getArguments()).doesNotContain("-NEVERLINK_OPTION");
-  }
-
-  @Test
-  public void testNeverlinkFalse() throws Exception {
-    assertThat(setUpNeverlinkTest("False").getArguments()).contains("-NEVERLINK_OPTION");
-  }
-
-  private CppLinkAction setUpNeverlinkTest(String value) throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch,
-        "tools/build_defs/foo",
-        String.join(",", "linkopts=depset(['-NEVERLINK_OPTION'])", "neverlink=" + value));
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    return (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), "bin"));
-  }
-
   private void loadCcToolchainConfigLib() throws IOException {
     scratch.appendFile("tools/cpp/BUILD", "");
-    scratch.file(
+    scratch.overwriteFile(
         "tools/cpp/cc_toolchain_config_lib.bzl",
         ResourceLoader.readFromResources(
             TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
@@ -4581,12 +4330,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   public void testGetLegacyCcFlagsMakeVariable() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            "make_variable {",
-            "  name: 'CC_FLAGS'",
-            "  value: '-test-cflag1 -testcflag2'",
-            "}");
+            CcToolchainConfig.builder()
+                .withMakeVariables(Pair.of("CC_FLAGS", "-test-cflag1 -testcflag2")));
     useConfiguration("--incompatible_disable_genrule_cc_toolchain_dependency");
 
     loadCcToolchainConfigLib();

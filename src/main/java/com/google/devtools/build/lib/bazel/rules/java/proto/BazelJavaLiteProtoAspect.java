@@ -25,6 +25,6 @@ public class BazelJavaLiteProtoAspect extends JavaLiteProtoAspect {
       "@com_google_protobuf_javalite//:javalite_toolchain";
 
   public BazelJavaLiteProtoAspect(RuleDefinitionEnvironment env) {
-    super(BazelJavaSemantics.INSTANCE, /* jacocoLabel= */ null, DEFAULT_PROTO_TOOLCHAIN_LABEL, env);
+    super(BazelJavaSemantics.INSTANCE, DEFAULT_PROTO_TOOLCHAIN_LABEL, env);
   }
 }

@@ -343,7 +343,8 @@ public class CompilationSupport {
             .setPropagateModuleMapToCompileAction(false)
             .addVariableExtension(extension)
             .setPurpose(purpose)
-            .addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext))
+            .addQuoteIncludeDirs(
+                ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
 
     if (pchHdr != null) {
@@ -446,7 +447,7 @@ public class CompilationSupport {
     }
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
         Arrays.asList(
@@ -454,16 +455,17 @@ public class CompilationSupport {
             nonObjcArcCompilationInfo.getCcCompilationContext()));
     ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
-    ccCompilationContextBuilder.addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext));
+    ccCompilationContextBuilder.addQuoteIncludeDirs(
+        ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()));
 
     CcCompilationOutputs precompiledFilesObjects =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ false))
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
 
     CcCompilationOutputs.Builder compilationOutputsBuilder =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .merge(objcArcCompilationInfo.getCcCompilationOutputs())
             .merge(nonObjcArcCompilationInfo.getCcCompilationOutputs())
             .merge(precompiledFilesObjects);
@@ -568,19 +570,19 @@ public class CompilationSupport {
     if (objcProvider.is(Flag.USES_OBJC)) {
       activatedCrosstoolSelectables.add(CONTAINS_OBJC);
     }
-    if (toolchain.useFission() && !toolchain.getCppConfiguration().disableLegacyCrosstoolFields()) {
-      activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-    }
-
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
     // particular versions of Xcode. To ensure consistency across platforms, use exactly two
     // components in the version number.
-    activatedCrosstoolSelectables.add(XCODE_VERSION_FEATURE_NAME_PREFIX
-        + XcodeConfig.getXcodeVersion(ruleContext).toStringWithComponents(2));
+    activatedCrosstoolSelectables.add(
+        XCODE_VERSION_FEATURE_NAME_PREFIX
+            + XcodeConfig.getXcodeConfigProvider(ruleContext)
+                .getXcodeVersion()
+                .toStringWithComponents(2));
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
-    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(toolchain));
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
     try {
       return ccToolchain
@@ -678,7 +680,9 @@ public class CompilationSupport {
 
     ImmutableList.Builder<String> frameworkNames =
         new ImmutableList.Builder<String>()
-            .add(AppleToolchain.sdkFrameworkDir(platform, ruleContext));
+            .add(
+                AppleToolchain.sdkFrameworkDir(
+                    platform, XcodeConfig.getXcodeConfigProvider(ruleContext)));
     // As of sdk8.1, XCTest is in a base Framework dir.
     if (platform.getType() != PlatformType.WATCHOS) { // WatchOS does not have this directory.
       frameworkNames.add(AppleToolchain.platformDeveloperFrameworkDir(platform));
@@ -1095,9 +1099,13 @@ public class CompilationSupport {
   }
 
   private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
-    return Iterables.contains(extraLinkArgs, "-dynamiclib")
-        ? StrippingType.DYNAMIC_LIB
-        : StrippingType.DEFAULT;
+    if (Iterables.contains(extraLinkArgs, "-dynamiclib")) {
+      return StrippingType.DYNAMIC_LIB;
+    }
+    if (Iterables.contains(extraLinkArgs, "-kext")) {
+      return StrippingType.KERNEL_EXTENSION;
+    }
+    return StrippingType.DEFAULT;
   }
 
   /**
@@ -1126,7 +1134,7 @@ public class CompilationSupport {
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
       CcToolchainProvider toolchain)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Iterable<Artifact> prunedJ2ObjcArchives =
         computeAndStripPrunedJ2ObjcArchives(
             j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, objcProvider);
@@ -1298,7 +1306,8 @@ public class CompilationSupport {
    * @param outputArchive the output artifact for this action
    */
   public CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider, Artifact outputArchive) throws InterruptedException {
+      ObjcProvider objcProvider, Artifact outputArchive)
+      throws InterruptedException, RuleErrorException {
     return registerFullyLinkAction(
         objcProvider, outputArchive, toolchain, toolchain.getFdoContext());
   }
@@ -1318,7 +1327,7 @@ public class CompilationSupport {
       Artifact outputArchive,
       @Nullable CcToolchainProvider ccToolchain,
       @Nullable FdoContext fdoContext)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Preconditions.checkNotNull(ccToolchain);
     Preconditions.checkNotNull(fdoContext);
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
@@ -1553,7 +1562,9 @@ public class CompilationSupport {
 
   /** Signals if stripping should include options for dynamic libraries. */
   private enum StrippingType {
-    DEFAULT, DYNAMIC_LIB
+    DEFAULT,
+    DYNAMIC_LIB,
+    KERNEL_EXTENSION
   }
 
   /**
@@ -1566,11 +1577,19 @@ public class CompilationSupport {
       // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
       // to strip off all symbols in XCTest bundle.
       stripArgs = ImmutableList.of("-S");
-    } else if (strippingType == StrippingType.DYNAMIC_LIB) {
-      // For dynamic libs must pass "-x" to strip only local symbols.
-      stripArgs = ImmutableList.of("-x");
     } else {
-      stripArgs = ImmutableList.<String>of();
+      switch (strippingType) {
+        case DYNAMIC_LIB:
+        case KERNEL_EXTENSION:
+          // For dylibs and kexts, must strip only local symbols.
+          stripArgs = ImmutableList.of("-x");
+          break;
+        case DEFAULT:
+          stripArgs = ImmutableList.<String>of();
+          break;
+        default:
+          throw new IllegalArgumentException("Unsupported stripping type " + strippingType);
+      }
     }
 
     Artifact strippedBinary = intermediateArtifacts.strippedSingleArchitectureBinary();
@@ -1809,12 +1828,14 @@ public class CompilationSupport {
             .add("--platform", appleConfiguration.getSingleArchPlatform().getLowerCaseNameInPlist())
             .add(
                 "--sdk_version",
-                XcodeConfig.getSdkVersionForPlatform(
-                        ruleContext, appleConfiguration.getSingleArchPlatform())
+                XcodeConfig.getXcodeConfigProvider(ruleContext)
+                    .getSdkVersionForPlatform(appleConfiguration.getSingleArchPlatform())
                     .toStringWithMinimumComponents(2))
             .add(
                 "--xcode_version",
-                XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2))
+                XcodeConfig.getXcodeConfigProvider(ruleContext)
+                    .getXcodeVersion()
+                    .toStringWithMinimumComponents(2))
             .add("--");
     for (ObjcHeaderThinningInfo info : infos) {
       cmdLine.addFormatted(

@@ -354,7 +354,6 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     assertStringRepresentation("attr.output_list()", "<attr.output_list>");
     assertStringRepresentation("attr.string_dict()", "<attr.string_dict>");
     assertStringRepresentation("attr.string_list_dict()", "<attr.string_list_dict>");
-    assertStringRepresentation("attr.license()", "<attr.license>");
   }
 
   @Test

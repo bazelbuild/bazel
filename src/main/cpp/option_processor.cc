@@ -20,6 +20,7 @@
 #include <string.h>
 #include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <set>
 #include <sstream>
 #include <utility>
@@ -65,7 +66,7 @@ OptionProcessor::OptionProcessor(
       system_bazelrc_path_(system_bazelrc_path) {}
 
 std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
-    const vector<string>& args, string* error) const {
+    vector<string> args, string* error) const {
   const string lowercase_product_name =
       parsed_startup_options_->GetLowercaseProductName();
 
@@ -75,13 +76,13 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
     return nullptr;
   }
 
-  const string path_to_binary(args[0]);
+  string& path_to_binary = args[0];
 
   // Process the startup options.
   vector<string> startup_args;
   vector<string>::size_type i = 1;
   while (i < args.size() && IsArg(args[i])) {
-    const string current_arg(args[i]);
+    string& current_arg = args[i];
     // If the current argument is a valid nullary startup option such as
     // --master_bazelrc or --nomaster_bazelrc proceed to examine the next
     // argument.
@@ -95,7 +96,7 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
       // The option is of the form '--bazelrc=value', hence proceed to
       // examine the next argument.
       if (current_arg.find("=") != string::npos) {
-        startup_args.push_back(current_arg);
+        startup_args.push_back(std::move(current_arg));
         i++;
       } else {
         // Otherwise, the option is of the form '--bazelrc value', hence
@@ -112,7 +113,8 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
           return nullptr;
         }
         // In this case we transform it to the form '--bazelrc=value'.
-        startup_args.push_back(current_arg + string("=") + args[i + 1]);
+        startup_args.push_back(std::move(current_arg) + "=" +
+                               std::move(args[i + 1]));
         i += 2;
       }
     } else {
@@ -129,16 +131,18 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
 
   // The command is the arg right after the startup options.
   if (i == args.size()) {
-    return std::unique_ptr<CommandLine>(
-        new CommandLine(path_to_binary, startup_args, "", {}));
+    return std::unique_ptr<CommandLine>(new CommandLine(
+        std::move(path_to_binary), std::move(startup_args), "", {}));
   }
-  const string command(args[i]);
+  string& command = args[i];
 
   // The rest are the command arguments.
-  const vector<string> command_args(args.begin() + i + 1, args.end());
+  vector<string> command_args(std::make_move_iterator(args.begin() + i + 1),
+                              std::make_move_iterator(args.end()));
 
   return std::unique_ptr<CommandLine>(
-      new CommandLine(path_to_binary, startup_args, command, command_args));
+      new CommandLine(std::move(path_to_binary), std::move(startup_args),
+                      std::move(command), std::move(command_args)));
 }
 
 namespace internal {
@@ -220,7 +224,7 @@ std::vector<std::string> DedupeBlazercPaths(
 
 std::string FindSystemWideRc(const std::string& system_bazelrc_path) {
   const std::string path =
-      blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path);
+      blaze_util::MakeAbsoluteAndResolveEnvvars(system_bazelrc_path);
   if (blaze_util::CanReadFile(path)) {
     return path;
   }
@@ -325,11 +329,11 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
   // Get the system rc (unless --nosystem_rc).
   if (SearchNullaryOption(cmd_line->startup_args, "system_rc", true)) {
-    // MakeAbsoluteAndResolveWindowsEnvvars will standardize the form of the
+    // MakeAbsoluteAndResolveEnvvars will standardize the form of the
     // provided path. This also means we accept relative paths, which is
     // is convenient for testing.
     const std::string system_rc =
-        blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path_);
+        blaze_util::MakeAbsoluteAndResolveEnvvars(system_bazelrc_path_);
     rc_files.push_back(system_rc);
   }
 

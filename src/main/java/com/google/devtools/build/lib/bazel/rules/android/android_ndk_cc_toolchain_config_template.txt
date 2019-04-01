@@ -1,0 +1,274 @@
+"""Definition of cc_toolchain_config for one NDK version.
+
+Cc_toolchain depends on targets of this rule to construct the command lines
+and to detect which C++ features are supported by this toolchain.
+"""
+load(
+    "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+    "action_config",
+    "artifact_name_pattern",
+    "env_entry",
+    "env_set",
+    "feature",
+    "feature_set",
+    "flag_group",
+    "flag_set",
+    "make_variable",
+    "tool",
+    "tool_path",
+    "variable_with_value",
+    "with_feature_set",
+)
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+
+def _impl(ctx):
+    cpu = ctx.attr.cpu
+    compiler = ctx.attr.compiler
+    version = ctx.attr.version
+    all_compile_actions = [
+        ACTION_NAMES.c_compile,
+        ACTION_NAMES.cpp_compile,
+        ACTION_NAMES.linkstamp_compile,
+        ACTION_NAMES.assemble,
+        ACTION_NAMES.preprocess_assemble,
+        ACTION_NAMES.cpp_header_parsing,
+        ACTION_NAMES.cpp_module_compile,
+        ACTION_NAMES.cpp_module_codegen,
+        ACTION_NAMES.clif_match,
+        ACTION_NAMES.lto_backend,
+    ]
+
+    all_link_actions = [
+        ACTION_NAMES.cpp_link_executable,
+        ACTION_NAMES.cpp_link_dynamic_library,
+        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+    ]
+
+    opt_feature = feature(name = "opt")
+    fastbuild_feature = feature(name = "fastbuild")
+    dbg_feature = feature(name = "dbg")
+    supports_dynamic_linker_feature = feature(name = "supports_dynamic_linker", enabled = True)
+    supports_pic_feature = feature(name = "supports_pic", enabled = True)
+    static_link_cpp_runtimes_feature = feature(name = "static_link_cpp_runtimes", enabled = True)
+
+
+    default_compile_flags = []
+    unfiltered_compile_flags = []
+    default_link_flags = []
+    default_fastbuild_flags = []
+    default_dbg_flags = []
+    default_opt_flags = []
+    cxx_builtin_include_directories = []
+    target_cpu = None
+    toolchain_identifier = None
+    host_system_name = None
+    target_system_name = None
+    abi_version = None
+    abi_libc_version = None
+    target_libc = None
+    target_compiler = None
+    abi_version = None
+    builtin_sysroot = None
+    ar_path = None
+    cpp_path = None
+    dwp_path = None
+    gcc_path = None
+    gcov_path = None
+    gcov_tool_path = None
+    ld_path = None
+    nm_path = None
+    objcopy_path = None
+    objdump_path = None
+    strip_path = None
+    llvm_profdata_path = None
+
+    %big_conditional_populating_variables%
+
+    default_compile_flag_sets = []
+    if default_compile_flags:
+        default_compile_flag_sets.append(
+            flag_set(
+                actions = all_compile_actions,
+                flag_groups = [
+                    flag_group(
+                        flags = default_compile_flags,
+                    ),
+                ],
+            ),
+        )
+    if default_fastbuild_flags:
+        default_compile_flag_sets.append(
+            flag_set(
+                actions = all_compile_actions,
+                flag_groups = [flag_group(flags = default_fastbuild_flags)],
+                with_features = [with_feature_set(features = ["fastbuild"])],
+            ),
+        )
+    if default_dbg_flags:
+        default_compile_flag_sets.append(
+            flag_set(
+                actions = all_compile_actions,
+                flag_groups = [flag_group(flags = default_dbg_flags)],
+                with_features = [with_feature_set(features = ["dbg"])],
+            ),
+        )
+    if default_opt_flags:
+        default_compile_flag_sets.append(
+            flag_set(
+                actions = all_compile_actions,
+                flag_groups = [flag_group(flags = default_opt_flags)],
+                with_features = [with_feature_set(features = ["opt"])],
+            ),
+        )
+
+    default_compile_flags_feature = feature(
+        name = "default_compile_flags",
+        enabled = True,
+        flag_sets = default_compile_flag_sets,
+    )
+
+    default_link_flag_sets = []
+    if default_link_flags:
+        default_link_flag_sets.append(
+            flag_set(
+                actions = all_link_actions,
+                flag_groups = [
+                    flag_group(
+                        flags = default_link_flags,
+                    ),
+                ],
+            ),
+        )
+
+    default_link_flags_feature = feature(
+        name = "default_link_flags",
+        enabled = True,
+        flag_sets = default_link_flag_sets,
+    )
+
+    user_compile_flags_feature = feature(
+        name = "user_compile_flags",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_compile_actions,
+                flag_groups = [
+                    flag_group(
+                        flags = ["%{user_compile_flags}"],
+                        iterate_over = "user_compile_flags",
+                        expand_if_available = "user_compile_flags",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    sysroot_feature = feature(
+                name = "sysroot",
+                enabled = True,
+                flag_sets = [
+                    flag_set(
+                        actions = all_compile_actions + all_link_actions,
+                        flag_groups = [
+                            flag_group(
+                                flags = ["--sysroot=%{sysroot}"],
+                                expand_if_available = "sysroot",
+                            ),
+                        ],
+                    ),
+                ],
+            )
+
+    unfiltered_compile_flag_sets = []
+    if unfiltered_compile_flags:
+      unfiltered_compile_flag_sets.append(
+        flag_set(
+                      actions = all_compile_actions,
+                      flag_groups = [
+                          flag_group(
+                              flags = unfiltered_compile_flags,
+                          ),
+                      ],
+                  ))
+    unfiltered_compile_flags_feature = feature(
+        name = "unfiltered_compile_flags",
+        enabled = True,
+        flag_sets = unfiltered_compile_flag_sets,
+    )
+
+    features = [
+        default_compile_flags_feature,
+        default_link_flags_feature,
+        supports_dynamic_linker_feature,
+        supports_pic_feature,
+        static_link_cpp_runtimes_feature,
+        fastbuild_feature,
+        dbg_feature,
+        opt_feature,
+        user_compile_flags_feature,
+        sysroot_feature,
+        unfiltered_compile_flags_feature,
+    ]
+
+    tool_paths = []
+    if ar_path:
+        tool_paths.append(tool_path(name = "ar", path = ar_path))
+    if cpp_path:
+        tool_paths.append(tool_path(name = "cpp", path = cpp_path))
+    if dwp_path:
+        tool_paths.append(tool_path(name = "dwp", path = dwp_path))
+    if gcc_path:
+        tool_paths.append(tool_path(name = "gcc", path = gcc_path))
+    if gcov_path:
+        tool_paths.append(tool_path(name = "gcov", path = gcov_path))
+    if gcov_tool_path:
+        tool_paths.append(tool_path(name = "gcov", path = gcov_tool_path))
+    if ld_path:
+        tool_paths.append(tool_path(name = "ld", path = ld_path))
+    if nm_path:
+        tool_paths.append(tool_path(name = "nm", path = nm_path))
+    if objcopy_path:
+        tool_paths.append(tool_path(name = "objcopy", path = objcopy_path))
+    if objdump_path:
+        tool_paths.append(tool_path(name = "objdump", path = objdump_path))
+    if strip_path:
+        tool_paths.append(tool_path(name = "strip", path = strip_path))
+    if llvm_profdata_path:
+        tool_paths.append(tool_path(name = "llvm_profdata", path = llvm_profdata_path))
+
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, "Fake executable")
+    return [
+        cc_common.create_cc_toolchain_config_info(
+            ctx = ctx,
+            features = features,
+            action_configs = [],
+            artifact_name_patterns = [],
+            cxx_builtin_include_directories = cxx_builtin_include_directories,
+            toolchain_identifier = toolchain_identifier,
+            host_system_name = host_system_name,
+            target_system_name = target_system_name,
+            target_cpu = target_cpu,
+            target_libc = target_libc,
+            compiler = target_compiler,
+            abi_version = abi_version,
+            abi_libc_version = abi_libc_version,
+            tool_paths = tool_paths,
+            make_variables = [],
+            builtin_sysroot = builtin_sysroot,
+        ),
+        DefaultInfo(
+            executable = out,
+        ),
+    ]
+
+cc_toolchain_config = rule(
+    implementation = _impl,
+    attrs = {
+        "cpu": attr.string(mandatory = True),
+        "compiler": attr.string(mandatory = True),
+        "version": attr.string(mandatory = True),
+    },
+    provides = [CcToolchainConfigInfo],
+    executable = True,
+)

@@ -80,12 +80,26 @@ public final class ProcessRunnerTest {
   }
 
   @Test
-  public void testFailure() throws Exception {
+  public void testFailureWithCode() throws Exception {
     Files.write(
         path, createScriptText(/* exit code */ 124, /* output */ null, /* error */ "Failure"));
 
     ProcessParameters parameters =
         createBuilder().setExpectedExitCode(124).setExpectedEmptyError(false).build();
+    ProcessResult result = new ProcessRunner(parameters, executorService).runSynchronously();
+
+    assertThat(result.exitCode()).isEqualTo(124);
+    assertThat(result.outString()).isEmpty();
+    assertThat(result.errString()).isEqualTo("Failure");
+  }
+
+  @Test
+  public void testFailure() throws Exception {
+    Files.write(
+        path, createScriptText(/* exit code */ 124, /* output */ null, /* error */ "Failure"));
+
+    ProcessParameters parameters =
+        createBuilder().setExpectedToFail(true).setExpectedEmptyError(false).build();
     ProcessResult result = new ProcessRunner(parameters, executorService).runSynchronously();
 
     assertThat(result.exitCode()).isEqualTo(124);

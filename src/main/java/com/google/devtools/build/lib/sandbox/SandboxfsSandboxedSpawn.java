@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /** Collection of directories where the spawn can write files to relative to {@link #execRoot}. */
   private final Set<PathFragment> writableDirs;
 
+  /** Map the targets of symlinks within the sandbox if true. */
+  private final boolean mapSymlinkTargets;
+
   /**
    * Writable directory where the spawn runner keeps control files and the execroot outside of the
    * sandboxfs instance.
@@ -90,6 +94,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    * @param outputs output files to expect from the spawn
    * @param writableDirs directories where the spawn can write files to, relative to the sandbox's
    *     dynamically-allocated execroot
+   * @param mapSymlinkTargets map the targets of symlinks within the sandbox if true
    */
   SandboxfsSandboxedSpawn(
       SandboxfsProcess process,
@@ -98,7 +103,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       Map<String, String> environment,
       Map<PathFragment, Path> inputs,
       SandboxOutputs outputs,
-      Set<PathFragment> writableDirs) {
+      Set<PathFragment> writableDirs,
+      boolean mapSymlinkTargets) {
     this.process = process;
     this.arguments = arguments;
     this.environment = environment;
@@ -114,6 +120,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       checkArgument(!path.isAbsolute(), "writable directory %s must be relative", path);
     }
     this.writableDirs = writableDirs;
+    this.mapSymlinkTargets = mapSymlinkTargets;
 
     this.sandboxPath = sandboxPath;
     this.sandboxScratchDir = sandboxPath.getRelative("scratch");
@@ -142,7 +149,19 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   public void createFileSystem() throws IOException {
     sandboxScratchDir.createDirectory();
 
-    reconfigure(inputs, writableDirs, outputs);
+    List<Mapping> mappings =
+        createMappings(innerExecRoot, sandboxScratchDir, inputs, mapSymlinkTargets);
+
+    Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
+    for (PathFragment output : outputs.files()) {
+      dirsToCreate.add(output.getParentDirectory());
+    }
+    dirsToCreate.addAll(outputs.dirs());
+    for (PathFragment dir : dirsToCreate) {
+      sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
+    }
+
+    process.map(mappings);
   }
 
   @Override
@@ -165,7 +184,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     }
 
     try {
-      FileSystemUtils.deleteTree(sandboxPath);
+      sandboxPath.deleteTree();
     } catch (IOException e) {
       // This usually means that the Spawn itself exited but still has children running that
       // we couldn't wait for, which now block deletion of the sandbox directory.  (Those processes
@@ -179,22 +198,84 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   }
 
   /**
+   * Maps the targets of relative symlinks into the sandbox.
+   *
+   * <p>Symlinks with relative targets are tricky business. Consider this simple case: the source
+   * tree contains {@code dir/file.h} and {@code dir/symlink.h} where {@code dir/symlink.h}'s target
+   * is {@code ./file.h}. If {@code dir/symlink.h} is supplied as an input, we must preserve its
+   * target "as is" to avoid confusing any tooling: for example, the C compiler will understand that
+   * both {@code dir/file.h} and {@code dir/symlink.h} are the same entity and handle them
+   * appropriately. (We did encounter a case where the compiler complained about duplicate symbols
+   * because we exposed symlinks as regular files.)
+   *
+   * <p>However, there is no guarantee that the target of the symlink is mapped in the sandbox. You
+   * may think that this is a bug in the rules, and you would probably be right, but until those
+   * rules are fixed, we must supply a workaround. Therefore, we must handle these two cases: if the
+   * target is explicitly mapped, we do nothing. If it isn't, we have to compute where the target
+   * lives within the sandbox and map that as well. Oh, and we have to do this recursively.
+   *
+   * @param path path to expose within the sandbox
+   * @param symlink path to the target of the mapping specified by {@code path}
+   * @param mappings mutable collection of mappings to extend with the new symlink entries. Note
+   *     that the entries added to this map may correspond to explicitly-mapped entries, so the
+   *     caller must check this to avoid duplicate mappings
+   * @throws IOException if we fail to resolve symbolic links
+   */
+  private static void computeSymlinkMappings(
+      PathFragment path, Path symlink, Map<PathFragment, Path> mappings) throws IOException {
+    for (; ; ) {
+      PathFragment symlinkTarget = symlink.readSymbolicLinkUnchecked();
+      if (!symlinkTarget.isAbsolute()) {
+        PathFragment keyParent = path.getParentDirectory();
+        if (keyParent == null) {
+          throw new IOException("Cannot resolve " + symlinkTarget + " relative to " + path);
+        }
+        PathFragment key = keyParent.getRelative(symlinkTarget);
+
+        Path valueParent = symlink.getParentDirectory();
+        if (valueParent == null) {
+          throw new IOException("Cannot resolve " + symlinkTarget + " relative to " + symlink);
+        }
+        Path value = valueParent.getRelative(symlinkTarget);
+        mappings.put(key, value);
+
+        if (value.isSymbolicLink()) {
+          path = key;
+          symlink = value;
+          continue;
+        }
+      }
+      break;
+    }
+  }
+
+  /**
    * Creates a new set of mappings to sandbox the given inputs.
    *
-   * @param inputs collection of paths to expose within the sandbox as read-only mappings, given
-   *     as a map of mapped path to target path. The target path may be null, in which case an empty
+   * @param root unique working directory for the command, specified as an absolute path anchored at
+   *     the sandboxfs' mount point
+   * @param scratchDir writable used as the target for all writable mappings
+   * @param inputs collection of paths to expose within the sandbox as read-only mappings, given as
+   *     a map of mapped path to target path. The target path may be null, in which case an empty
    *     read-only file is mapped.
+   * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
    * @return the collection of mappings to use for reconfiguration
    * @throws IOException if we fail to resolve symbolic links
    */
-  private List<Mapping> createMappings(Map<PathFragment, Path> inputs) throws IOException {
+  private static List<Mapping> createMappings(
+      PathFragment root,
+      Path scratchDir,
+      Map<PathFragment, Path> inputs,
+      boolean sandboxfsMapSymlinkTargets)
+      throws IOException {
     List<Mapping> mappings = new ArrayList<>();
 
-    mappings.add(Mapping.builder()
-        .setPath(innerExecRoot)
-        .setTarget(sandboxScratchDir.asFragment())
-        .setWritable(true)
-        .build());
+    mappings.add(
+        Mapping.builder()
+            .setPath(root)
+            .setTarget(scratchDir.asFragment())
+            .setWritable(true)
+            .build());
 
     // Path to the empty file used as the target of mappings that don't provide one.  This is
     // lazily created and initialized only when we need such a mapping.  It's safe to share the
@@ -204,52 +285,48 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     // FUSE file system (which sandboxfs is) requires root privileges.
     Path emptyFile = null;
 
+    // Collection of extra mappings needed to represent the targets of relative symlinks. Lazily
+    // created once we encounter the first symlink in the list of inputs.
+    Map<PathFragment, Path> symlinks = null;
+
     for (Map.Entry<PathFragment, Path> entry : inputs.entrySet()) {
       PathFragment target;
       if (entry.getValue() == null) {
         if (emptyFile == null) {
-          emptyFile = sandboxScratchDir.getRelative("empty");
+          emptyFile = scratchDir.getRelative("empty");
           FileSystemUtils.createEmptyFile(emptyFile);
         }
         target = emptyFile.asFragment();
       } else {
+        if (entry.getValue().isSymbolicLink() && sandboxfsMapSymlinkTargets) {
+          if (symlinks == null) {
+            symlinks = new HashMap<>();
+          }
+          computeSymlinkMappings(entry.getKey(), entry.getValue(), symlinks);
+        }
         target = entry.getValue().asFragment();
       }
-      mappings.add(Mapping.builder()
-          .setPath(innerExecRoot.getRelative(entry.getKey()))
-          .setTarget(target)
-          .setWritable(false)
-          .build());
+      mappings.add(
+          Mapping.builder()
+              .setPath(root.getRelative(entry.getKey()))
+              .setTarget(target)
+              .setWritable(false)
+              .build());
+    }
+
+    if (symlinks != null) {
+      for (Map.Entry<PathFragment, Path> entry : symlinks.entrySet()) {
+        if (!inputs.containsKey(entry.getKey())) {
+          mappings.add(
+              Mapping.builder()
+                  .setPath(root.getRelative(entry.getKey()))
+                  .setTarget(entry.getValue().asFragment())
+                  .setWritable(false)
+                  .build());
+        }
+      }
     }
 
     return mappings;
-  }
-
-  /**
-   * Pushes a new configuration to sandboxfs and waits for acceptance.
-   *
-   * @param inputs collection of paths to expose within the sandbox as read-only mappings, given as
-   *     a map of mapped path to target path. The target path may be null, in which case an empty
-   *     file is mapped.
-   * @param writableDirs collection of writable paths to create within the read-write portion of the
-   *     sandbox
-   * @param outputs collection of outputs to expect within the read-write portion of the sandbox
-   * @throws IOException if reconfiguration fails
-   */
-  private void reconfigure(
-      Map<PathFragment, Path> inputs, Set<PathFragment> writableDirs, SandboxOutputs outputs)
-      throws IOException {
-    List<Mapping> mappings = createMappings(inputs);
-
-    Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
-    for (PathFragment output : outputs.files()) {
-      dirsToCreate.add(output.getParentDirectory());
-    }
-    dirsToCreate.addAll(outputs.dirs());
-    for (PathFragment dir : dirsToCreate) {
-      sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
-    }
-
-    process.map(mappings);
   }
 }

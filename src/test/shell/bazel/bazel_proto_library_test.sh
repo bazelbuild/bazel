@@ -432,6 +432,62 @@ function test_proto_source_root_multiple_workspaces() {
   bazel build @main_repo//src:all_protos >& "$TEST_log" || fail "Expected success"
 }
 
+function test_cc_proto_library() {
+  write_workspace ""
+  mkdir -p a
+  cat > a/BUILD <<EOF
+proto_library(name='p', srcs=['p.proto'])
+cc_proto_library(name='cp', deps=[':p'])
+cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
+EOF
+
+  cat > a/p.proto <<EOF
+syntax = "proto2";
+package a;
+message A {
+  optional int32 a = 1;
+}
+EOF
+
+  cat > a/c.cc <<EOF
+#include "a/p.pb.h"
+
+void f() {
+  a::A a;
+}
+EOF
+
+  bazel build //a:c || fail "build failed"
+}
+
+function test_cc_proto_library_import_prefix_stripping() {
+  write_workspace ""
+  mkdir -p a/dir
+  cat > a/BUILD <<EOF
+proto_library(name='p', srcs=['dir/p.proto'], strip_import_prefix='/a')
+cc_proto_library(name='cp', deps=[':p'])
+cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
+EOF
+
+  cat > a/dir/p.proto <<EOF
+syntax = "proto2";
+package a;
+message A {
+  optional int32 a = 1;
+}
+EOF
+
+  cat > a/c.cc <<EOF
+#include "dir/p.pb.h"
+
+void f() {
+  a::A a;
+}
+EOF
+
+  bazel build //a:c || fail "build failed"
+}
+
 function test_import_prefix_stripping() {
   mkdir -p e
   touch e/WORKSPACE

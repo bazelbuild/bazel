@@ -41,12 +41,11 @@ using std::unique_ptr;
 using std::wstring;
 
 TEST(PathWindowsTest, TestNormalizeWindowsPath) {
-#define ASSERT_NORMALIZE(x, y)                                           \
-  {                                                                      \
-    std::string result;                                                  \
-    EXPECT_TRUE(                                                         \
-        blaze_util::testing::TestOnly_NormalizeWindowsPath(x, &result)); \
-    EXPECT_EQ(result, y);                                                \
+#define ASSERT_NORMALIZE(x, y)                                          \
+  {                                                                     \
+    std::string result;                                                 \
+    EXPECT_TRUE(blaze_util::TestOnly_NormalizeWindowsPath(x, &result)); \
+    EXPECT_EQ(result, y);                                               \
   }
 
   ASSERT_NORMALIZE("", "");
@@ -392,7 +391,7 @@ TEST(PathWindowsTest, MakeAbsolute) {
   EXPECT_EQ("", MakeAbsolute(""));
 }
 
-TEST(PathWindowsTest, MakeAbsoluteAndResolveWindowsEnvvars_WithTmpdir) {
+TEST(PathWindowsTest, MakeAbsoluteAndResolveEnvvars_WithTmpdir) {
   // We cannot test the system-default paths like %ProgramData% because these
   // are wiped from the test environment. TestTmpdir is set by Bazel though,
   // so serves as a fine substitute.
@@ -402,20 +401,20 @@ TEST(PathWindowsTest, MakeAbsoluteAndResolveWindowsEnvvars_WithTmpdir) {
   const std::string expected_tmpdir_bar = ConvertPath(tmpdir + "\\bar");
 
   EXPECT_EQ(expected_tmpdir_bar,
-            MakeAbsoluteAndResolveWindowsEnvvars("%TEST_TMPDIR%\\bar"));
+            MakeAbsoluteAndResolveEnvvars("%TEST_TMPDIR%\\bar"));
   EXPECT_EQ(expected_tmpdir_bar,
-            MakeAbsoluteAndResolveWindowsEnvvars("%Test_Tmpdir%\\bar"));
+            MakeAbsoluteAndResolveEnvvars("%Test_Tmpdir%\\bar"));
   EXPECT_EQ(expected_tmpdir_bar,
-            MakeAbsoluteAndResolveWindowsEnvvars("%test_tmpdir%\\bar"));
+            MakeAbsoluteAndResolveEnvvars("%test_tmpdir%\\bar"));
   EXPECT_EQ(expected_tmpdir_bar,
-            MakeAbsoluteAndResolveWindowsEnvvars("%test_tmpdir%/bar"));
+            MakeAbsoluteAndResolveEnvvars("%test_tmpdir%/bar"));
 }
 
-TEST(PathWindowsTest, MakeAbsoluteAndResolveWindowsEnvvars_LongPaths) {
+TEST(PathWindowsTest, MakeAbsoluteAndResolveEnvvars_LongPaths) {
   const std::string long_path = "c:\\" + std::string(MAX_PATH, 'a');
   blaze::SetEnv("long", long_path);
 
-  EXPECT_EQ(long_path, MakeAbsoluteAndResolveWindowsEnvvars("%long%"));
+  EXPECT_EQ(long_path, MakeAbsoluteAndResolveEnvvars("%long%"));
 }
 
 }  // namespace blaze_util

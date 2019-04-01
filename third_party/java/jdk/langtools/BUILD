@@ -21,6 +21,16 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "license-and-srcs",
+    srcs = [
+        "LICENSE",
+        "java_compiler-src.jar",
+        "javac-9+181-r4173-1.srcjar",
+        "jdk_compiler-src.jar",
+    ],
+)
+
 java_import(
     name = "javac",
     jars = ["javac-9+181-r4173-1.jar"],

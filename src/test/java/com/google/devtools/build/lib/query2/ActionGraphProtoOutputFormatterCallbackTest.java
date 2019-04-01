@@ -199,7 +199,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "genrule(name='wrong_outputs', srcs=['matching_in'], outs=['wrong_out'],",
         "        cmd='cat $(SRCS) > $(OUTS)')");
 
-    String outputs = ".*/genfiles/test/foo_matching_out";
+    String outputs = ".*/bin/test/foo_matching_out";
     AqueryActionFilter actionFilters = constructActionFilter(ImmutableMap.of("outputs", outputs));
 
     ActionGraphContainer actionGraphContainer =
@@ -921,10 +921,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
 
   private void assertMatchingOnlyActionFromFoo(ActionGraphContainer actionGraphContainer) {
     assertMatchingOnlyAction(
-        actionGraphContainer,
-        "Genrule",
-        "test/foo_matching_in.java",
-        "/genfiles/test/foo_matching_out");
+        actionGraphContainer, "Genrule", "test/foo_matching_in.java", "/bin/test/foo_matching_out");
   }
 
   private void assertMatchingOnlyAction(

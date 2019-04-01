@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.Rule;
@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A {@link RuleTransitionFactory} that composes other {@link RuleTransitionFactory}s. */
+// TODO(https://github.com/bazelbuild/bazel/issues/7814): Replace with ComposingTransitionFactory.
 @AutoCodec
 public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
 
@@ -40,8 +41,8 @@ public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
 
   @Override
   public PatchTransition buildTransitionFor(Rule rule) {
-    ConfigurationTransition composed = TransitionResolver.composeTransitions(
-        rtf1.buildTransitionFor(rule), rtf2.buildTransitionFor(rule));
+    ConfigurationTransition composed =
+        ComposingTransition.of(rtf1.buildTransitionFor(rule), rtf2.buildTransitionFor(rule));
     if (composed instanceof PatchTransition) {
       // This is one of the two input transitions. Especially if it's a NoTransition or
       // HostTransition, we should give it back so it can be specially identified as described

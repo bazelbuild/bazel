@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -231,8 +230,8 @@ public final class CleanCommand implements BlazeCommand {
       // and links right before we exit. Once the lock file is gone there will
       // be a small possibility of a server race if a client is waiting, but
       // all significant files will be gone by then.
-      FileSystemUtils.deleteTreesBelow(outputBase);
-      FileSystemUtils.deleteTree(outputBase);
+      outputBase.deleteTreesBelow();
+      outputBase.deleteTree();
     } else if (expunge && async) {
       logger.info("Expunging asynchronously...");
       env.getRuntime().prepareForAbruptShutdown();
@@ -246,7 +245,7 @@ public final class CleanCommand implements BlazeCommand {
         if (async) {
           asyncClean(env, execroot, "Output tree");
         } else {
-          FileSystemUtils.deleteTreesBelow(execroot);
+          execroot.deleteTreesBelow();
         }
       }
     }

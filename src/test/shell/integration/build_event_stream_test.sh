@@ -584,25 +584,6 @@ function test_build_only() {
   expect_log_once '^build_tool_logs'
 }
 
-function test_query() {
-  # Verify that at least a minimally meaningful event stream is generated
-  # for non-build. In particular, we expect bazel not to crash.
-  bazel query --build_event_text_file=$TEST_log 'tests(//...)' \
-    || fail "bazel query failed"
-  expect_log '^started'
-  expect_log 'command: "query"'
-  expect_log 'args: "--build_event_text_file='
-  expect_log 'build_finished'
-  expect_not_log 'aborted'
-  # For query, we also expect the full output to be contained in the protocol,
-  # as well as a proper finished event.
-  expect_log '//pkg:true'
-  expect_log '//pkg:slow'
-  expect_log '^finished'
-  expect_log 'name: "SUCCESS"'
-  expect_log 'last_message: true'
-}
-
 function test_command_whitelisting() {
   # We expect the "help" command to not generate a build-event stream,
   # but the "build" command to do.
