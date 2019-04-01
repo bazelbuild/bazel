@@ -200,7 +200,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
-    this.toolchainLabel = javaOptions.getJavaToolchain();
+    this.toolchainLabel = javaOptions.javaToolchain;
     this.runtimeLabel = javaOptions.javaBase;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
