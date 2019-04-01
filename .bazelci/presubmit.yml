@@ -104,7 +104,6 @@ platforms:
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
     - "-//src/test/shell/bazel:bazel_coverage_cc_test_llvm"
-    - "-//src/test/shell/bazel:bazel_coverage_experimental_java_test"
     - "-//src/test/shell/bazel:bazel_coverage_java_test"
     - "-//src/test/shell/bazel:bazel_coverage_sh_test"
     - "-//src/test/shell/bazel:bazel_determinism_test"
