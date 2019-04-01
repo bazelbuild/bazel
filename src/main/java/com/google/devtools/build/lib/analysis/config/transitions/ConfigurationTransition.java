@@ -52,4 +52,15 @@ public interface ConfigurationTransition {
   default String getName() {
     return this.getClass().getSimpleName();
   }
+
+  /** Allows the given {@link Visitor} to inspect this transition. */
+  default <E extends Exception> void visit(Visitor<E> visitor) throws E {
+    visitor.accept(this);
+  }
+
+  /** Helper object that can be used to inspect {@link ConfigurationTransition} instances. */
+  @FunctionalInterface
+  interface Visitor<E extends Exception> {
+    void accept(ConfigurationTransition transition) throws E;
+  }
 }
