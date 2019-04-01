@@ -1010,18 +1010,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFlagWhitelist() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_cc_skylark_api_enabled_packages=\"\"");
-    SkylarkCcCommonTestHelper.createFiles(scratch, "foo/bar");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:bin");
-    assertContainsEvent(
-        "You can try it out by passing "
-            + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that we "
-            + "will be making breaking changes to this API without prior warning.");
-  }
-
-  @Test
   public void testCcLinkingContextOnWindows() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -1215,106 +1203,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "  },",
         "  fragments = ['cpp'],",
         ");");
-  }
-
-  @Test
-  public void testCcNativeRuleDependingOnSkylarkDefinedRule() throws Exception {
-    SkylarkCcCommonTestHelper.createFiles(scratch, "tools/build_defs/cc");
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-  }
-
-  @Test
-  public void testCopts() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingCompilation(
-        scratch, "tools/build_defs/foo", "copts=depset(['-COMPILATION_OPTION'])");
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    CppCompileAction action =
-        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
-    assertThat(action.getArguments()).contains("-COMPILATION_OPTION");
-  }
-
-  @Test
-  public void testIncludeDirs() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingCompilation(
-        scratch, "tools/build_defs/foo", "includes=depset(['foo/bar', 'baz/qux'])");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(target).isNotNull();
-    CppCompileAction action =
-        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
-    assertThat(action.getArguments()).containsAllOf("-Ifoo/bar", "-Ibaz/qux");
-  }
-
-  @Test
-  public void testLinkingOutputs() throws Exception {
-    SkylarkCcCommonTestHelper.createFiles(scratch, "tools/build_defs/foo");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(target).isNotNull();
-    @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> libraries = (SkylarkList<LibraryToLink>) target.get("libraries");
-    assertThat(
-            libraries.stream()
-                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
-        .contains("libskylark_lib.so");
-  }
-
-  @Test
-  public void testLinkopts() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch, "tools/build_defs/foo", "linkopts=depset(['-LINKING_OPTION'])");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(target).isNotNull();
-    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getFlattenedUserLinkFlags())
-        .contains("-LINKING_OPTION");
-  }
-
-  @Test
-  public void testSettingDynamicLibraryArtifact() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch,
-        "tools/build_defs/foo",
-        "dynamic_library=ctx.actions.declare_file('dynamic_lib_artifact.so')");
-    assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> libraries = (SkylarkList<LibraryToLink>) target.get("libraries");
-    assertThat(
-            libraries.stream()
-                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
-        .contains("dynamic_lib_artifact.so");
-  }
-
-  @Test
-  public void testCcLinkingContexts() throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch, "tools/build_defs/foo", "linking_contexts=dep_linking_contexts");
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), "bin"));
-    assertThat(action.getArguments()).containsAllOf("-DEP1_LINKOPT", "-DEP2_LINKOPT");
-  }
-
-  @Test
-  public void testNeverlinkTrue() throws Exception {
-    assertThat(setUpNeverlinkTest("True").getArguments()).doesNotContain("-NEVERLINK_OPTION");
-  }
-
-  @Test
-  public void testNeverlinkFalse() throws Exception {
-    assertThat(setUpNeverlinkTest("False").getArguments()).contains("-NEVERLINK_OPTION");
-  }
-
-  private CppLinkAction setUpNeverlinkTest(String value) throws Exception {
-    SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch,
-        "tools/build_defs/foo",
-        String.join(",", "linkopts=depset(['-NEVERLINK_OPTION'])", "neverlink=" + value));
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    return (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), "bin"));
   }
 
   private void loadCcToolchainConfigLib() throws IOException {

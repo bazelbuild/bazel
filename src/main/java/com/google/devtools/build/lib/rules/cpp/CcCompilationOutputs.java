@@ -26,7 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
-public class CcCompilationOutputs implements CcCompilationOutputsApi {
+public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   public static final CcCompilationOutputs EMPTY = builder().build();
 
   /**
