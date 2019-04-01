@@ -1556,16 +1556,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>If a requested configured target is in error, the corresponding value is omitted from the
    * returned list.
-   *
-   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
-   *     transitions.
    */
   @ThreadSafety.ThreadSafe
   public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys)
-      throws TransitionException {
+      Iterable<Dependency> keys) {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
@@ -1576,16 +1572,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>If a requested configured target is in error, the corresponding value is omitted from the
    * returned list.
-   *
-   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
-   *     transitions.
    */
   @ThreadSafety.ThreadSafe
   public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
-      Iterable<Dependency> keys)
-      throws TransitionException {
+      Iterable<Dependency> keys) {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
@@ -1597,16 +1589,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>If a requested configured target is in error, the corresponding value is omitted from the
    * returned list.
-   *
-   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
-   *     transitions.
    */
   @ThreadSafety.ThreadSafe
   public ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
-      Iterable<Dependency> keys)
-      throws TransitionException {
+      Iterable<Dependency> keys) {
     return getConfiguredTargetMapForTesting(
         eventHandler, getConfiguration(eventHandler, originalConfig), keys);
   }
@@ -1619,15 +1607,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>If a requested configured target is in error, the corresponding value is omitted from the
    * returned list except...
-   *
-   * @throws TransitionException if there is an issue resolving a starlark-defined transition.
    */
   @ThreadSafety.ThreadSafe
   private ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys)
-      throws TransitionException {
+      Iterable<Dependency> keys) {
     checkActive();
 
     Multimap<Dependency, BuildConfiguration> configs;
@@ -1848,15 +1833,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * needed by their transitive closures. Else unconditionally includes all fragments.
    *
    * <p>Skips targets with loading phase errors.
-   *
-   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
-   *     transitions.
    */
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#getConfigurations}.
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   public Multimap<Dependency, BuildConfiguration> getConfigurations(
-      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys)
-      throws TransitionException {
+      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys) {
     Multimap<Dependency, BuildConfiguration> builder =
         ArrayListMultimap.<Dependency, BuildConfiguration>create();
     Set<Dependency> depsToEvaluate = new HashSet<>();
@@ -1928,8 +1909,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
         ImmutableMap.Builder<SkyKey, SkyValue> buildSettingValues = new ImmutableMap.Builder<>();
         buildSettingPackageKeys.forEach(k -> buildSettingValues.put(k, buildSettingsResult.get(k)));
-        StarlarkTransition.validate(
-            key.getTransition(), buildSettingValues.build(), toOptions, eventHandler);
+        try {
+          StarlarkTransition.validate(
+              key.getTransition(), buildSettingValues.build(), toOptions, eventHandler);
+        } catch (TransitionException e) {
+          eventHandler.handle(Event.error(e.getMessage()));
+        }
       }
     }
     EvaluationResult<SkyValue> configsResult =
@@ -2041,8 +2026,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   @Nullable
   public ConfiguredTarget getConfiguredTargetForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration)
-      throws TransitionException {
+      ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration) {
     return getConfiguredTargetForTesting(eventHandler, label, configuration, NoTransition.INSTANCE);
   }
 
@@ -2053,8 +2037,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
-      ConfigurationTransition transition)
-      throws TransitionException {
+      ConfigurationTransition transition) {
     ConfiguredTargetAndData configuredTargetAndData =
         getConfiguredTargetAndDataForTesting(eventHandler, label, configuration, transition);
     return configuredTargetAndData == null ? null : configuredTargetAndData.getConfiguredTarget();
@@ -2066,8 +2049,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
-      ConfigurationTransition transition)
-      throws TransitionException {
+      ConfigurationTransition transition) {
     return Iterables.getFirst(
         getConfiguredTargetsForTesting(
             eventHandler,
@@ -2083,8 +2065,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   @Nullable
   public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration)
-      throws TransitionException {
+      ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration) {
     return getConfiguredTargetAndDataForTesting(
         eventHandler, label, configuration, NoTransition.INSTANCE);
   }

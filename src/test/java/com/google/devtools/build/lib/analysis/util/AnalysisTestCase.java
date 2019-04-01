@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -438,14 +437,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    ConfiguredTargetAndData configuredTargetAndData;
-    try {
-      configuredTargetAndData =
-          skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
-    } catch (TransitionException e) {
-      throw new AssertionError(e);
-    }
-    return configuredTargetAndData;
+    return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
   }
 
   protected Target getTarget(String label) throws InterruptedException {
@@ -490,15 +482,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    ConfiguredTargetAndData configuredTargetAndData;
-    try {
-      configuredTargetAndData =
-          skyframeExecutor.getConfiguredTargetAndDataForTesting(
-              reporter, parsedLabel, configuration);
-    } catch (TransitionException e) {
-      throw new AssertionError(e);
-    }
-    return configuredTargetAndData;
+    return skyframeExecutor.getConfiguredTargetAndDataForTesting(
+        reporter, parsedLabel, configuration);
   }
 
   protected final BuildConfiguration getConfiguration(TransitiveInfoCollection ct) {
