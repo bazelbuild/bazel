@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -171,12 +170,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "--incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain");
     getConfiguredTarget("//a:c_suite");
     assertNoEvents();
-  }
-
-  private CcToolchainProvider getCcToolchainProvider() throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//a");
-    RuleContext ruleContext = getRuleContext(target);
-    return CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
   }
 
   /*

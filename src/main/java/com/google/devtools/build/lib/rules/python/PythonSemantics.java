@@ -90,7 +90,7 @@ public interface PythonSemantics {
    * @throws InterruptedException
    */
   void postInitExecutable(RuleContext ruleContext, RunfilesSupport runfilesSupport, PyCommon common)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
 }

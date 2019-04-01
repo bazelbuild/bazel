@@ -172,14 +172,15 @@ public class CppHelper {
   }
 
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
-      CppConfiguration cppConfiguration, CcToolchainProvider toolchain) {
+      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain)
+      throws RuleErrorException {
     if (cppConfiguration.collectCodeCoverage()) {
       NestedSetBuilder<Pair<String, String>> coverageEnvironment =
           NestedSetBuilder.<Pair<String, String>>stableOrder()
               .add(
                   Pair.of(
                       "COVERAGE_GCOV_PATH",
-                      toolchain.getToolPathFragment(Tool.GCOV).getPathString()));
+                      toolchain.getToolPathFragment(Tool.GCOV, ruleContext).getPathString()));
       if (cppConfiguration.getFdoInstrument() != null) {
         coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
       }

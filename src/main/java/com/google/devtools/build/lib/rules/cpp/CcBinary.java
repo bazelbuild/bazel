@@ -864,7 +864,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration,
       Artifact dwpOutput,
-      DwoArtifactsCollector dwoArtifactsCollector) {
+      DwoArtifactsCollector dwoArtifactsCollector)
+      throws RuleErrorException {
     Iterable<Artifact> allInputs =
         getDwpInputs(
             context,
@@ -931,18 +932,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcToolchainProvider toolchain,
       NestedSet<Artifact> dwpTools,
       Iterable<Artifact> inputs,
-      int intermediateDwpCount) {
+      int intermediateDwpCount)
+      throws RuleErrorException {
     List<Packager> packagers = new ArrayList<>();
 
     // Step 1: generate our batches. We currently break into arbitrary batches of fixed maximum
     // input counts, but we can always apply more intelligent heuristics if the need arises.
-    Packager currentPackager = newDwpAction(toolchain, dwpTools);
+    Packager currentPackager = newDwpAction(context, toolchain, dwpTools);
     int inputsForCurrentPackager = 0;
 
     for (Artifact dwoInput : inputs) {
       if (inputsForCurrentPackager == MAX_INPUTS_PER_DWP_ACTION) {
         packagers.add(currentPackager);
-        currentPackager = newDwpAction(toolchain, dwpTools);
+        currentPackager = newDwpAction(context, toolchain, dwpTools);
         inputsForCurrentPackager = 0;
       }
       currentPackager.spawnAction.addInput(dwoInput);
@@ -997,12 +999,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    * settings.
    */
   private static Packager newDwpAction(
-      CcToolchainProvider toolchain, NestedSet<Artifact> dwpTools) {
+      RuleContext ruleContext, CcToolchainProvider toolchain, NestedSet<Artifact> dwpTools)
+      throws RuleErrorException {
     Packager packager = new Packager();
     packager
         .spawnAction
         .addTransitiveInputs(dwpTools)
-        .setExecutable(toolchain.getToolPathFragment(Tool.DWP));
+        .setExecutable(toolchain.getToolPathFragment(Tool.DWP, ruleContext));
     return packager;
   }
 
@@ -1045,7 +1048,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcCompilationContext ccCompilationContext,
       List<LibraryToLink> libraries,
       DwoArtifactsCollector dwoArtifacts,
-      boolean fake) {
+      boolean fake)
+      throws RuleErrorException {
     List<Artifact> instrumentedObjectFiles = new ArrayList<>();
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));
