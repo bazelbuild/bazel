@@ -140,11 +140,10 @@ public interface AnalysisEnvironment extends ActionRegistry {
   /**
    * Returns the Artifacts that contain the workspace status for the current build request.
    *
-   * @param ruleContext the rule to use for error reporting.
+   * @param stamp whether stamping is enabled
    * @param config the current build configuration.
    */
-  ImmutableList<Artifact> getBuildInfo(
-      RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config)
+  ImmutableList<Artifact> getBuildInfo(boolean stamp, BuildInfoKey key, BuildConfiguration config)
       throws InterruptedException;
 
   /**
