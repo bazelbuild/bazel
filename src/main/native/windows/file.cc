@@ -143,7 +143,34 @@ typedef struct _JunctionDescription {
   Descriptor descriptor;
   WCHAR PathBuffer[ANYSIZE_ARRAY];
 } JunctionDescription;
+
+typedef struct _AllocatedJunctionDescription {
+  union {
+    uint8_t raw_data[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
+    JunctionDescription data;
+  };
+} AllocatedJunctionDescription;
 #pragma pack(pop)
+
+bool ReadJunctionByHandle(HANDLE handle, JunctionDescription* reparse_buffer,
+                          WCHAR** target_path, DWORD* target_path_len,
+                          DWORD* err) {
+  DWORD bytes_returned;
+  if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, NULL, 0,
+                         reparse_buffer, MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
+                         &bytes_returned, NULL)) {
+    *err = GetLastError();
+    return false;
+  }
+
+  *target_path = reparse_buffer->PathBuffer +
+                 reparse_buffer->descriptor.SubstituteNameOffset +
+                 /* "\??\" prefix */ 4;
+  *target_path_len =
+      reparse_buffer->descriptor.SubstituteNameLength / sizeof(WCHAR) -
+      /* "\??\" prefix */ 4;
+  return true;
+}
 
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error) {
@@ -309,15 +336,14 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
     }
   }
 
-  uint8_t reparse_buffer_bytes[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
-  JunctionDescription* reparse_buffer =
-      reinterpret_cast<JunctionDescription*>(reparse_buffer_bytes);
+  AllocatedJunctionDescription reparse_buffer_bytes;
+  JunctionDescription* reparse_buffer = &reparse_buffer_bytes.data;
   if (create) {
     // The junction doesn't exist yet, and we have an open handle to the
     // candidate directory with write access and no sharing. Proceed to turn the
     // directory into a junction.
 
-    memset(reparse_buffer_bytes, 0, MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+    memset(&reparse_buffer_bytes, 0, sizeof(AllocatedJunctionDescription));
 
     // "\??\" is meaningful to the kernel, it's a synomym for the "\DosDevices\"
     // object path. (NOT to be confused with "\\?\" which is meaningful for the
@@ -372,31 +398,73 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
     }
   } else {
     // The junction already exists. Check if it points to the right target.
-
-    DWORD bytes_returned;
-    if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, NULL, 0,
-                           reparse_buffer, MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
-                           &bytes_returned, NULL)) {
-      DWORD err = GetLastError();
+    WCHAR* actual_target;
+    DWORD target_path_len, err;
+    if (!ReadJunctionByHandle(handle, reparse_buffer, &actual_target,
+                              &target_path_len, &err)) {
       // Some unknown error occurred.
       if (error) {
-        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeviceIoControl",
-                                  name, err);
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                  L"ReadJunctionByHandle", name, err);
       }
       return CreateJunctionResult::kError;
     }
 
-    WCHAR* actual_target = reparse_buffer->PathBuffer +
-                           reparse_buffer->descriptor.SubstituteNameOffset +
-                           /* "\??\" prefix */ 4;
-    if (reparse_buffer->descriptor.SubstituteNameLength !=
-            (/* "\??\" prefix */ 4 + target.size()) * sizeof(WCHAR) ||
+    if (target_path_len != target.size() ||
         _wcsnicmp(actual_target, target.c_str(), target.size()) != 0) {
       return CreateJunctionResult::kAlreadyExistsWithDifferentTarget;
     }
   }
 
   return CreateJunctionResult::kSuccess;
+}
+
+int ReadJunction(const wstring& path, wstring* result, wstring* error) {
+  AutoHandle handle(CreateFileW(
+      path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      NULL, OPEN_EXISTING,
+      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL));
+  if (!handle.IsValid()) {
+    DWORD err = GetLastError();
+    if (err == ERROR_SHARING_VIOLATION) {
+      // The junction is held open by another process.
+      return ReadJunctionResult::kAccessDenied;
+    } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+      // The junction does not exist or one of its parent directories is not a
+      // directory.
+      return ReadJunctionResult::kDoesNotExist;
+    }
+
+    // The path seems to exist yet we cannot open it for metadata-reading.
+    // Report as much information as we have, then give up.
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW",
+                                path, err);
+    }
+    return ReadJunctionResult::kError;
+  }
+
+
+  AllocatedJunctionDescription junc;
+  memset(&junc, 0, sizeof(AllocatedJunctionDescription));
+
+  WCHAR* target_path;
+  DWORD target_path_len, err;
+  if (!ReadJunctionByHandle(handle, &junc.data, &target_path, &target_path_len,
+                            &err)) {
+    if (err == ERROR_NOT_A_REPARSE_POINT) {
+      return ReadJunctionResult::kNotAJunction;
+    }
+
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"ReadJunctionByHandle", path, err);
+    }
+    return ReadJunctionResult::kError;
+  }
+
+  *result = std::wstring(target_path, target_path_len);
+  return ReadJunctionResult::kSuccess;
 }
 
 struct DirectoryStatus {

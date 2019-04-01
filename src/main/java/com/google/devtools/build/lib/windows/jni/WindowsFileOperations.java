@@ -44,12 +44,12 @@ public class WindowsFileOperations {
 
   private static final int MAX_PATH = 260;
 
-  // Keep IS_JUNCTION_* values in sync with src/main/native/windows/file.cc.
+  // Keep IS_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int IS_JUNCTION_YES = 0;
   private static final int IS_JUNCTION_NO = 1;
   private static final int IS_JUNCTION_ERROR = 2;
 
-  // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.cc.
+  // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_JUNCTION_SUCCESS = 0;
   private static final int CREATE_JUNCTION_ERROR = 1;
   private static final int CREATE_JUNCTION_TARGET_NAME_TOO_LONG = 2;
@@ -58,7 +58,14 @@ public class WindowsFileOperations {
   private static final int CREATE_JUNCTION_ACCESS_DENIED = 5;
   private static final int CREATE_JUNCTION_DISAPPEARED = 6;
 
-  // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.cc.
+  // Keep READ_JUNCTION_* values in sync with src/main/native/windows/file.h.
+  private static final int READ_JUNCTION_SUCCESS = 0;
+  private static final int READ_JUNCTION_ERROR = 1;
+  private static final int READ_JUNCTION_DOES_NOT_EXIST = 2;
+  private static final int READ_JUNCTION_ACCESS_DENIED = 3;
+  private static final int READ_JUNCTION_NOT_A_JUNCTION = 4;
+
+  // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.h.
   private static final int DELETE_PATH_SUCCESS = 0;
   private static final int DELETE_PATH_ERROR = 1;
   private static final int DELETE_PATH_DOES_NOT_EXIST = 2;
@@ -70,6 +77,8 @@ public class WindowsFileOperations {
   private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
   private static native int nativeCreateJunction(String name, String target, String[] error);
+
+  private static native int nativeReadJunction(String path, String[] result, String[] error);
 
   private static native int nativeDeletePath(String path, String[] error);
 
@@ -166,10 +175,36 @@ public class WindowsFileOperations {
     }
   }
 
+  public static String readJunction(String path) throws IOException {
+    WindowsJniLoader.loadJni();
+    String[] target = new String[] {null};
+    String[] error = new String[] {null};
+
+    int result = nativeReadJunction(asLongPath(path), target, error);
+    if (result == READ_JUNCTION_SUCCESS) {
+      return target[0];
+    } else {
+      switch (result) {
+        case READ_JUNCTION_DOES_NOT_EXIST:
+          error[0] = "path does not exist";
+          break;
+        case READ_JUNCTION_ACCESS_DENIED:
+          error[0] = "access is denied";
+          break;
+        case READ_JUNCTION_NOT_A_JUNCTION:
+          error[0] = "not a junction";
+          break;
+        default:
+          break;
+      }
+      throw new IOException(String.format("Cannot read junction '%s': %s", path, error[0]));
+    }
+  }
+
   public static boolean deletePath(String path) throws IOException {
     WindowsJniLoader.loadJni();
     String[] error = new String[] {null};
-    int result = nativeDeletePath(asLongPath(path.replace('/', '\\')), error);
+    int result = nativeDeletePath(asLongPath(path), error);
     switch (result) {
       case DELETE_PATH_SUCCESS:
         return true;

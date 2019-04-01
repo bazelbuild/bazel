@@ -97,6 +97,29 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeCreat
   return result;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeReadJunction(
+    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
+    jobjectArray error_msg_holder) {
+  std::wstring target, error;
+  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
+  int result = bazel::windows::ReadJunction(wpath, &target, &error);
+  if (result == bazel::windows::ReadJunctionResult::kSuccess) {
+    env->SetObjectArrayElement(
+        result_holder, 0,
+        env->NewString(reinterpret_cast<const jchar*>(target.c_str()),
+                       target.size()));
+  } else {
+    if (!error.empty() && CanReportError(env, error_msg_holder)) {
+      ReportLastError(
+          bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                           L"nativeReadJunction", wpath, error),
+          env, error_msg_holder);
+    }
+  }
+  return result;
+}
+
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeDeletePath(
     JNIEnv* env, jclass clazz, jstring path, jobjectArray error_msg_holder) {
