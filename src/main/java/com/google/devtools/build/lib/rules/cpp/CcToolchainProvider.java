@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -322,11 +321,11 @@ public final class CcToolchainProvider extends ToolchainInfo
    *
    * @throws RuleErrorException when the tool is not specified by the toolchain.
    */
-  public PathFragment getToolPathFragment(CppConfiguration.Tool tool, RuleContext ruleContext)
-      throws RuleErrorException {
+  public PathFragment getToolPathFragment(
+      CppConfiguration.Tool tool, RuleErrorConsumer ruleErrorConsumer) throws RuleErrorException {
     PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
     if (toolPathFragment == null) {
-      throw ruleContext.throwWithRuleError(
+      throw ruleErrorConsumer.throwWithRuleError(
           String.format(
               "cc_toolchain '%s' with identifier '%s' doesn't define a tool path for '%s'",
               getCcToolchainLabel(), getToolchainIdentifier(), tool.getNamePart()));

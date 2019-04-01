@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -90,9 +89,6 @@ public class CppLinkActionBuilder {
 
   public static final String SHARED_NONLTO_BACKEND_ROOT_PREFIX = "shared.nonlto";
 
-  // Builder-only
-  // Null when invoked from tests (e.g. via createTestBuilder).
-  @Nullable private final RuleContext ruleContext;
   private final Artifact output;
   private final CppSemantics cppSemantics;
   @Nullable private String mnemonic;
@@ -148,36 +144,18 @@ public class CppLinkActionBuilder {
   private final RuleErrorConsumer ruleErrorConsumer;
   private final RepositoryName repositoryName;
 
-  /**
-   * Creates a builder that builds {@link CppLinkAction} instances.
-   *
-   * @param ruleContext the rule that owns the action
-   * @param output the output artifact
-   * @param toolchain the C++ toolchain provider
-   * @param fdoContext the C++ FDO optimization support
-   * @param cppSemantics to be used for linkstamp compiles
-   */
-  public CppLinkActionBuilder(
-      RuleContext ruleContext,
-      Artifact output,
-      CcToolchainProvider toolchain,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration,
-      CppSemantics cppSemantics) {
-    this(
-        ruleContext,
-        output,
-        ruleContext.getConfiguration(),
-        toolchain,
-        fdoContext,
-        featureConfiguration,
-        cppSemantics);
-  }
+  private Artifact grepIncludes;
+  // TODO(plf): This is not exactly the same as `useTestOnlyFlags` but perhaps we can remove one
+  //  of them.
+  private boolean isTestOrTestOnlyTarget;
+  private boolean isStampingEnabled;
 
   /**
    * Creates a builder that builds {@link CppLinkAction}s.
    *
-   * @param ruleContext the rule that owns the action
+   * @param ruleErrorConsumer the RuleErrorConsumer of the rule being built
+   * @param actionConstructionContext the ActionConstructionContext of the rule being built
+   * @param label the Label of the rule being built
    * @param output the output artifact
    * @param configuration the configuration used to determine the tool chain and the default link
    *     options
@@ -186,14 +164,15 @@ public class CppLinkActionBuilder {
    * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
-      @Nullable RuleContext ruleContext,
+      RuleErrorConsumer ruleErrorConsumer,
+      ActionConstructionContext actionConstructionContext,
+      Label label,
       Artifact output,
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
-    this.ruleContext = ruleContext;
     this.output = Preconditions.checkNotNull(output);
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -205,9 +184,9 @@ public class CppLinkActionBuilder {
     this.featureConfiguration = featureConfiguration;
     this.cppSemantics = Preconditions.checkNotNull(cppSemantics);
 
-    actionConstructionContext = ruleContext;
-    repositoryName = ruleContext.getLabel().getPackageIdentifier().getRepository();
-    ruleErrorConsumer = ruleContext;
+    this.ruleErrorConsumer = ruleErrorConsumer;
+    this.actionConstructionContext = actionConstructionContext;
+    repositoryName = label.getPackageIdentifier().getRepository();
   }
 
   /** Returns the action name for purposes of querying the crosstool. */
@@ -353,7 +332,9 @@ public class CppLinkActionBuilder {
     LtoBackendArtifacts ltoArtifact =
         createSharedNonLto
             ? new LtoBackendArtifacts(
-                ruleContext,
+                ruleErrorConsumer,
+                configuration.getOptions(),
+                cppConfiguration,
                 ltoOutputRootPrefix,
                 bitcodeFile,
                 actionConstructionContext,
@@ -367,7 +348,9 @@ public class CppLinkActionBuilder {
                 toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
                 argv)
             : new LtoBackendArtifacts(
-                ruleContext,
+                ruleErrorConsumer,
+                configuration.getOptions(),
+                cppConfiguration,
                 ltoOutputRootPrefix,
                 bitcodeFile,
                 allBitcode,
@@ -637,7 +620,7 @@ public class CppLinkActionBuilder {
         !linkstamps.isEmpty()
             ? actionConstructionContext
                 .getAnalysisEnvironment()
-                .getBuildInfo(ruleContext, CppBuildInfo.KEY, configuration)
+                .getBuildInfo(isStampingEnabled, CppBuildInfo.KEY, configuration)
             : ImmutableList.of();
 
     boolean needWholeArchive =
@@ -662,8 +645,7 @@ public class CppLinkActionBuilder {
             CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
     boolean includeLinkStaticInLtoIndexing =
         canIncludeAnyLinkStaticInLtoIndexing
-            && (canIncludeAnyLinkStaticTestTargetInLtoIndexing
-                || !(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget()));
+            && (canIncludeAnyLinkStaticTestTargetInLtoIndexing || !isTestOrTestOnlyTarget);
     boolean allowLtoIndexing =
         includeLinkStaticInLtoIndexing
             || (linkingMode == Link.LinkingMode.DYNAMIC && !ltoCompilationContext.isEmpty());
@@ -837,8 +819,7 @@ public class CppLinkActionBuilder {
     // Add build variables necessary to template link args into the crosstool.
     CcToolchainVariables.Builder buildVariablesBuilder =
         CcToolchainVariables.builder(
-            toolchain.getBuildVariables(
-                ruleContext.getConfiguration().getOptions(), cppConfiguration));
+            toolchain.getBuildVariables(configuration.getOptions(), cppConfiguration));
     Preconditions.checkState(!isLtoIndexing || allowLtoIndexing);
     Preconditions.checkState(allowLtoIndexing || thinltoParamFile == null);
     Preconditions.checkState(allowLtoIndexing || thinltoMergedObjectFile == null);
@@ -890,7 +871,7 @@ public class CppLinkActionBuilder {
               mustKeepDebug,
               toolchain,
               cppConfiguration,
-              ruleContext.getConfiguration().getOptions(),
+              configuration.getOptions(),
               featureConfiguration,
               useTestOnlyFlags,
               isLtoIndexing,
@@ -1035,7 +1016,10 @@ public class CppLinkActionBuilder {
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
         actionConstructionContext.registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
-                ruleContext,
+                ruleErrorConsumer,
+                actionConstructionContext,
+                grepIncludes,
+                configuration,
                 linkstampEntry.getKey().getArtifact(),
                 linkstampEntry.getValue(),
                 linkstampEntry.getKey().getDeclaredIncludeSrcs(),
@@ -1089,7 +1073,7 @@ public class CppLinkActionBuilder {
         configuration.getActionEnvironment(),
         toolchainEnv,
         ImmutableMap.copyOf(executionRequirements),
-        toolchain.getToolPathFragment(Tool.LD, ruleContext),
+        toolchain.getToolPathFragment(Tool.LD, ruleErrorConsumer),
         toolchain.getHostSystemName(),
         toolchain.getTargetCpu());
   }
@@ -1522,6 +1506,26 @@ public class CppLinkActionBuilder {
    */
   public CppLinkActionBuilder setUseTestOnlyFlags(boolean useTestOnlyFlags) {
     this.useTestOnlyFlags = useTestOnlyFlags;
+    return this;
+  }
+
+  /** Used to set the runfiles path for tests' dynamic libraries. */
+  public CppLinkActionBuilder setTestOrTestOnlyTarget(boolean isTestOrTestOnlyTarget) {
+    this.isTestOrTestOnlyTarget = isTestOrTestOnlyTarget;
+    return this;
+  }
+
+  /**
+   * Used to test the grep-includes tool. This is needing during linking because of linkstamping.
+   */
+  public CppLinkActionBuilder setGrepIncludes(Artifact grepIncludes) {
+    this.grepIncludes = grepIncludes;
+    return this;
+  }
+
+  /** Whether linkstamping is enabled. */
+  public CppLinkActionBuilder setIsStampingEnabled(boolean isStampingEnabled) {
+    this.isStampingEnabled = isStampingEnabled;
     return this;
   }
 
