@@ -605,7 +605,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     @Option(
         name = "incompatible_cc_coverage",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
           OptionEffectTag.CHANGES_INPUTS,
