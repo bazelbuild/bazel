@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionFactoryData;
 
 /**
  * A transition factory that composes two other transition factories in an ordered sequence.
@@ -30,8 +29,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
  * </pre>
  */
 @AutoValue
-public abstract class ComposingTransitionFactory<T extends TransitionFactoryData>
-    implements TransitionFactory<T> {
+public abstract class ComposingTransitionFactory<T> implements TransitionFactory<T> {
 
   /**
    * Creates a {@link ComposingTransitionFactory} that applies the given factories in sequence:
@@ -41,7 +39,7 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactoryData
    * one of the transitions is {@link NoTransition} or the host transition, and returns an
    * efficiently composed transition.
    */
-  public static <T extends TransitionFactoryData> TransitionFactory<T> of(
+  public static <T> TransitionFactory<T> of(
       TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
 
     Preconditions.checkNotNull(transitionFactory1);
@@ -70,12 +68,11 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactoryData
     return create(transitionFactory1, transitionFactory2);
   }
 
-  private static <T extends TransitionFactoryData> boolean isFinal(
-      TransitionFactory<T> transitionFactory) {
+  private static <T> boolean isFinal(TransitionFactory<T> transitionFactory) {
     return NullTransition.isInstance(transitionFactory) || transitionFactory.isHost();
   }
 
-  private static <T extends TransitionFactoryData> TransitionFactory<T> create(
+  private static <T> TransitionFactory<T> create(
       TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
     return new AutoValue_ComposingTransitionFactory(transitionFactory1, transitionFactory2);
   }
