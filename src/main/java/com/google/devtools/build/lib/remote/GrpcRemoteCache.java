@@ -66,6 +66,8 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -154,10 +156,14 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    // check against 'http' rather than 'grpc' because gRPC is a default protocol when none provided
-    return options.remoteCache != null
-        && !options.remoteCache.isEmpty()
-        && !options.remoteCache.toLowerCase().startsWith("http");
+    if (options.remoteCache == null || options.remoteCache.isEmpty()) return false;
+    String scheme;
+    try {
+      scheme = new URI(options.remoteCache).getScheme();
+    } catch (URISyntaxException e) {
+      return false;
+    }
+    return scheme == null || scheme.toLowerCase().startsWith("grpc");
   }
 
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(

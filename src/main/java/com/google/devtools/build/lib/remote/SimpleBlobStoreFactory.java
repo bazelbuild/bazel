@@ -73,7 +73,7 @@ public final class SimpleBlobStoreFactory {
 
   private static SimpleBlobStore createHttp(RemoteOptions options, Credentials creds) {
     Preconditions.checkNotNull(options.remoteCache, "remoteCache");
-    Preconditions.checkArgument(options.remoteCache.startsWith("http"), "remoteCache should start with http");
+    Preconditions.checkArgument(options.remoteCache.toLowerCase().startsWith("http"), "remoteCache should start with http");
     try {
       URI uri = URI.create(options.remoteCache);
 

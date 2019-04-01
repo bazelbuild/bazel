@@ -64,17 +64,17 @@ function test_remote_http_cache_flag() {
   mkdir -p a
   cat > a/BUILD <<EOF
 genrule(
-  name = 'test-remote-http-cache',
+  name = 'foo',
   srcs = [],
-  outs = ["test.txt"],
+  outs = ["foo.txt"],
   cmd = "echo \"foo bar\" > \$@",
 )
 EOF
 
   bazel build \
       --remote_http_cache=http://localhost:${http_port} \
-      //a:test-remote-http-cache \
-      || fail "Failed to build //a:test-remote-http-cache with remote cache"
+      //a:foo \
+      || fail "Failed to build //a:foo with remote cache"
 }
 
 function test_cc_binary_http_cache() {
