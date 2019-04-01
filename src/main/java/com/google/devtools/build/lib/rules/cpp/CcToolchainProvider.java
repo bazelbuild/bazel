@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
@@ -212,60 +211,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.licensesProvider = licensesProvider;
   }
 
-  /** Returns c++ Make variables. */
-  public static Map<String, String> getCppBuildVariables(
-      Function<Tool, PathFragment> getToolPathFragment,
-      String targetLibc,
-      String compiler,
-      PathFragment crosstoolTopPathFragment,
-      String abiGlibcVersion,
-      String abi,
-      Map<String, String> additionalMakeVariables) {
-    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
-
-    // hardcoded CC->gcc setting for unit tests
-    result.put("CC", getToolPathFragment.apply(Tool.GCC).getPathString());
-
-    // Make variables provided by crosstool/gcc compiler suite.
-    result.put("AR", getToolPathFragment.apply(Tool.AR).getPathString());
-    result.put("NM", getToolPathFragment.apply(Tool.NM).getPathString());
-    result.put("LD", getToolPathFragment.apply(Tool.LD).getPathString());
-    PathFragment objcopyTool = getToolPathFragment.apply(Tool.OBJCOPY);
-    if (objcopyTool != null) {
-      // objcopy is optional in Crosstool
-      result.put("OBJCOPY", objcopyTool.getPathString());
-    }
-    result.put("STRIP", getToolPathFragment.apply(Tool.STRIP).getPathString());
-
-    PathFragment gcovtool = getToolPathFragment.apply(Tool.GCOVTOOL);
-    if (gcovtool != null) {
-      // gcov-tool is optional in Crosstool
-      result.put("GCOVTOOL", gcovtool.getPathString());
-    }
-
-    if (targetLibc.startsWith("glibc-")) {
-      result.put("GLIBC_VERSION", targetLibc.substring("glibc-".length()));
-    } else {
-      result.put("GLIBC_VERSION", targetLibc);
-    }
-
-    result.put("C_COMPILER", compiler);
-
-    // Deprecated variables
-
-    // TODO(bazel-team): delete all of these.
-    result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
-
-    // TODO(kmensah): Remove when skylark dependencies can be updated to rely on
-    // CcToolchainProvider.
-    result.putAll(additionalMakeVariables);
-
-    result.put("ABI_GLIBC_VERSION", abiGlibcVersion);
-    result.put("ABI", abi);
-
-    return result.build();
-  }
-
   /**
    * See {@link #usePicForDynamicLibraries(FeatureConfigurationForStarlark)}. This method is there
    * only to serve Starlark callers.
@@ -326,15 +271,82 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    globalMakeEnvBuilder.putAll(
-        getCppBuildVariables(
-            this::getToolPathFragment,
-            getTargetLibc(),
-            getCompiler(),
-            crosstoolTopPathFragment,
-            getAbiGlibcVersion(),
-            getAbi(),
-            getAdditionalMakeVariables()));
+    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
+
+    // hardcoded CC->gcc setting for unit tests
+    result.put("CC", getToolPathStringOrNull(Tool.GCC));
+
+    // Make variables provided by crosstool/gcc compiler suite.
+    result.put("AR", getToolPathStringOrNull(Tool.AR));
+    result.put("NM", getToolPathStringOrNull(Tool.NM));
+    result.put("LD", getToolPathStringOrNull(Tool.LD));
+    String objcopyTool = getToolPathStringOrNull(Tool.OBJCOPY);
+    if (objcopyTool != null) {
+      // objcopy is optional in Crosstool
+      result.put("OBJCOPY", objcopyTool);
+    }
+    result.put("STRIP", getToolPathStringOrNull(Tool.STRIP));
+
+    String gcovtool = getToolPathStringOrNull(Tool.GCOVTOOL);
+    if (gcovtool != null) {
+      // gcov-tool is optional in Crosstool
+      result.put("GCOVTOOL", gcovtool);
+    }
+
+    if (getTargetLibc().startsWith("glibc-")) {
+      result.put("GLIBC_VERSION", getTargetLibc().substring("glibc-".length()));
+    } else {
+      result.put("GLIBC_VERSION", getTargetLibc());
+    }
+
+    result.put("C_COMPILER", getCompiler());
+
+    // Deprecated variables
+
+    // TODO(bazel-team): delete all of these.
+    result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
+
+    // TODO(kmensah): Remove when skylark dependencies can be updated to rely on
+    // CcToolchainProvider.
+    result.putAll(getAdditionalMakeVariables());
+
+    result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
+    result.put("ABI", getAbi());
+
+    globalMakeEnvBuilder.putAll(result.build());
+  }
+
+  /**
+   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * used to execute the given tool.
+   *
+   * @throws RuleErrorException when the tool is not specified by the toolchain.
+   */
+  public PathFragment getToolPathFragment(CppConfiguration.Tool tool, RuleContext ruleContext)
+      throws RuleErrorException {
+    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
+    if (toolPathFragment == null) {
+      throw ruleContext.throwWithRuleError(
+          String.format(
+              "cc_toolchain '%s' with identifier '%s' doesn't define a tool path for '%s'",
+              getCcToolchainLabel(), getToolchainIdentifier(), tool.getNamePart()));
+    }
+    return toolPathFragment;
+  }
+
+  /**
+   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * used to execute the given tool.
+   */
+  @Nullable
+  public String getToolPathStringOrNull(Tool tool) {
+    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
+    return toolPathFragment == null ? null : toolPathFragment.getPathString();
+  }
+
+  @Nullable
+  public PathFragment getToolPathFragmentOrNull(CppConfiguration.Tool tool) {
+    return toolchainInfo.getToolPathFragment(tool);
   }
 
   @Override
@@ -661,14 +673,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
-   * Returns the path fragment that is either absolute or relative to the execution root that can be
-   * used to execute the given tool.
-   */
-  public PathFragment getToolPathFragment(CppConfiguration.Tool tool) {
-    return toolchainInfo.getToolPathFragment(tool);
-  }
-
-  /**
    * Returns the abi we're using, which is a gcc version. E.g.: "gcc-3.4". Note that in practice we
    * might be using gcc-3.4 as ABI even when compiling with gcc-4.1.0, because ABIs are backwards
    * compatible.
@@ -773,7 +777,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   @Override
   public String getLdExecutableForSkylark() {
-    PathFragment ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
+    PathFragment ldExecutable = getToolPathFragmentOrNull(CppConfiguration.Tool.LD);
     return ldExecutable != null ? ldExecutable.getPathString() : "";
   }
 
@@ -786,43 +790,43 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   @Override
   public String getObjCopyExecutableForSkylark() {
-    PathFragment objCopyExecutable = getToolPathFragment(Tool.OBJCOPY);
+    PathFragment objCopyExecutable = getToolPathFragmentOrNull(Tool.OBJCOPY);
     return objCopyExecutable != null ? objCopyExecutable.getPathString() : "";
   }
 
   @Override
   public String getCppExecutableForSkylark() {
-    PathFragment cppExecutable = getToolPathFragment(Tool.GCC);
+    PathFragment cppExecutable = getToolPathFragmentOrNull(Tool.GCC);
     return cppExecutable != null ? cppExecutable.getPathString() : "";
   }
 
   @Override
   public String getCpreprocessorExecutableForSkylark() {
-    PathFragment cpreprocessorExecutable = getToolPathFragment(Tool.CPP);
+    PathFragment cpreprocessorExecutable = getToolPathFragmentOrNull(Tool.CPP);
     return cpreprocessorExecutable != null ? cpreprocessorExecutable.getPathString() : "";
   }
 
   @Override
   public String getNmExecutableForSkylark() {
-    PathFragment nmExecutable = getToolPathFragment(Tool.NM);
+    PathFragment nmExecutable = getToolPathFragmentOrNull(Tool.NM);
     return nmExecutable != null ? nmExecutable.getPathString() : "";
   }
 
   @Override
   public String getObjdumpExecutableForSkylark() {
-    PathFragment objdumpExecutable = getToolPathFragment(Tool.OBJDUMP);
+    PathFragment objdumpExecutable = getToolPathFragmentOrNull(Tool.OBJDUMP);
     return objdumpExecutable != null ? objdumpExecutable.getPathString() : "";
   }
 
   @Override
   public String getArExecutableForSkylark() {
-    PathFragment arExecutable = getToolPathFragment(Tool.AR);
+    PathFragment arExecutable = getToolPathFragmentOrNull(Tool.AR);
     return arExecutable != null ? arExecutable.getPathString() : "";
   }
 
   @Override
   public String getStripExecutableForSkylark() {
-    PathFragment stripExecutable = getToolPathFragment(Tool.STRIP);
+    PathFragment stripExecutable = getToolPathFragmentOrNull(Tool.STRIP);
     return stripExecutable != null ? stripExecutable.getPathString() : "";
   }
 

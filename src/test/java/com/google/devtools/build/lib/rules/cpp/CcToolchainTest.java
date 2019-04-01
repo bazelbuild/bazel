@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -31,9 +32,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -579,11 +578,12 @@ public class CcToolchainTest extends BuildViewTestCase {
     useConfiguration("--cpu=k8");
 
     ConfiguredTarget target = getConfiguredTarget("//a:a");
+    RuleContext ruleContext = getRuleContext(target);
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(toolchainProvider.getToolPathFragment(Tool.AR).toString())
+    assertThat(toolchainProvider.getToolPathFragment(Tool.AR, ruleContext).toString())
         .isEqualTo("/absolute/path");
-    assertThat(toolchainProvider.getToolPathFragment(Tool.CPP).toString())
+    assertThat(toolchainProvider.getToolPathFragment(Tool.CPP, ruleContext).toString())
         .isEqualTo("a/relative/path");
   }
 
@@ -681,26 +681,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
     assertThat(toolchainProvider.supportsDynamicLinker(FeatureConfiguration.EMPTY)).isFalse();
-  }
-
-  private FeatureConfiguration getFeatureConfigurationForStaticLinkCppRuntimes(
-      String partialToolchain, String... configurationToUse) throws Exception {
-    scratch.file("a/BUILD", "cc_binary(name = 'a')");
-    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    TextFormat.merge(partialToolchain, toolchainBuilder);
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig, MockCcSupport.STATIC_LINK_CPP_RUNTIMES_FEATURE, partialToolchain);
-    useConfiguration(configurationToUse);
-    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//a:a");
-    CppLinkAction action =
-        (CppLinkAction)
-            target.getActions().stream()
-                .filter(a -> a.getMnemonic().equals("CppLink"))
-                .findFirst()
-                .get();
-    return action.getLinkCommandLine().getFeatureConfiguration();
   }
 
   @Test

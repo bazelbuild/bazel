@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -343,7 +344,8 @@ public class CppLinkActionBuilder {
       Map<PathFragment, Artifact> allBitcode,
       PathFragment ltoOutputRootPrefix,
       boolean createSharedNonLto,
-      List<String> argv) {
+      List<String> argv)
+      throws RuleErrorException {
     // Depending on whether LTO indexing is allowed, generate an LTO backend
     // that will be fed the results of the indexing step, or a dummy LTO backend
     // that simply compiles the bitcode into native code without any index-based
@@ -404,7 +406,8 @@ public class CppLinkActionBuilder {
       PathFragment ltoOutputRootPrefix,
       NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
       boolean allowLtoIndexing,
-      boolean includeLinkStaticInLtoIndexing) {
+      boolean includeLinkStaticInLtoIndexing)
+      throws RuleErrorException {
     Set<Artifact> compiled = new LinkedHashSet<>();
     for (LinkerInputs.LibraryToLink lib : uniqueLibraries) {
       compiled.addAll(lib.getLtoCompilationContext().getBitcodeFiles());
@@ -486,7 +489,7 @@ public class CppLinkActionBuilder {
   }
 
   private ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
-      boolean isLtoIndexing) {
+      boolean isLtoIndexing) throws RuleErrorException {
     // Only create the shared LTO artifacts for a statically linked library that has bitcode files.
     if (ltoCompilationContext == null
         || isLtoIndexing
@@ -591,7 +594,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Builds the Action as configured and returns it. */
-  public CppLinkAction build() throws InterruptedException {
+  public CppLinkAction build() throws InterruptedException, RuleErrorException {
     NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = null;
 
     if (librariesToLink.isEmpty()) {
@@ -1086,7 +1089,7 @@ public class CppLinkActionBuilder {
         configuration.getActionEnvironment(),
         toolchainEnv,
         ImmutableMap.copyOf(executionRequirements),
-        toolchain.getToolPathFragment(Tool.LD),
+        toolchain.getToolPathFragment(Tool.LD, ruleContext),
         toolchain.getHostSystemName(),
         toolchain.getTargetCpu());
   }
