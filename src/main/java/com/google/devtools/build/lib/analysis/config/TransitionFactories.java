@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionFactoryData;
 
 /** Useful implementations of {@link TransitionFactory}. */
 // This class is in lib.analysis.config in order to access HostTransition, which is not visible to
@@ -29,8 +28,7 @@ public final class TransitionFactories {
   private TransitionFactories() {}
 
   /** Returns a {@link TransitionFactory} that wraps a static transition. */
-  public static <T extends TransitionFactoryData> TransitionFactory<T> of(
-      ConfigurationTransition transition) {
+  public static <T> TransitionFactory<T> of(ConfigurationTransition transition) {
     if (transition instanceof HostTransition) {
       return HostTransition.createFactory();
     } else if (transition instanceof NoTransition) {
@@ -44,15 +42,13 @@ public final class TransitionFactories {
   }
 
   /** Returns a {@link TransitionFactory} that wraps a static split transition. */
-  public static <T extends TransitionFactoryData> TransitionFactory<T> split(
-      SplitTransition splitTransition) {
+  public static <T> TransitionFactory<T> split(SplitTransition splitTransition) {
     return new AutoValue_TransitionFactories_SplitTransitionFactory<T>(splitTransition);
   }
 
   /** A {@link TransitionFactory} implementation that wraps a static transition. */
   @AutoValue
-  abstract static class IdentityFactory<T extends TransitionFactoryData>
-      implements TransitionFactory<T> {
+  abstract static class IdentityFactory<T> implements TransitionFactory<T> {
 
     abstract ConfigurationTransition transition();
 
@@ -64,8 +60,7 @@ public final class TransitionFactories {
 
   /** A {@link TransitionFactory} implementation that wraps a split transition. */
   @AutoValue
-  abstract static class SplitTransitionFactory<T extends TransitionFactoryData>
-      implements TransitionFactory<T> {
+  abstract static class SplitTransitionFactory<T> implements TransitionFactory<T> {
     abstract SplitTransition splitTransition();
 
     @Override

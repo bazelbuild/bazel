@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 // This class is in lib.packages in order to access AttributeMap, which is not available to
 // the lib.analysis.config.transitions package.
 @AutoValue
-public abstract class RuleTransitionData implements TransitionFactory.TransitionFactoryData {
+public abstract class RuleTransitionData {
   /** Returns the {@link AttributeMap} which can be used to create a transition. */
   public abstract AttributeMap attributes();
 
