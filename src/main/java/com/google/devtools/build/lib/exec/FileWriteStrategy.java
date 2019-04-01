@@ -52,7 +52,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
       DeterministicWriter deterministicWriter,
       boolean makeExecutable, boolean isRemotable)
       throws ExecException {
-    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, null));
+    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
         AutoProfiler.logged(
