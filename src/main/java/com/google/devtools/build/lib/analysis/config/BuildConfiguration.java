@@ -1847,7 +1847,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.hostCpu;
   }
 
-  public boolean runfilesEnabled() {
+  public static boolean runfilesEnabled(Options options) {
     switch (options.enableRunfiles) {
       case YES:
         return true;
@@ -1856,6 +1856,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
       default:
         return OS.getCurrent() != OS.WINDOWS;
     }
+  }
+
+  public boolean runfilesEnabled() {
+    return runfilesEnabled(this.options);
   }
 
   /**
