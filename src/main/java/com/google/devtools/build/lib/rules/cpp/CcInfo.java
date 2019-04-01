@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class CcInfo extends NativeInfo implements CcInfoApi {
   public static final Provider PROVIDER = new Provider();
-  public static final CcInfo EMPTY = CcInfo.builder().build();
+  public static final CcInfo EMPTY = builder().build();
 
   private final CcCompilationContext ccCompilationContext;
   private final CcLinkingContext ccLinkingContext;
@@ -62,7 +62,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       ccLinkingContexts.add(ccInfo.getCcLinkingContext());
     }
     CcCompilationContext.Builder builder =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
 
     return new CcInfo(
@@ -92,6 +92,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
   }
 
   public static Builder builder() {
+    // private to avoid class initialization deadlock between this class and its outer class
     return new Builder();
   }
 
@@ -99,6 +100,8 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
   public static class Builder {
     private CcCompilationContext ccCompilationContext;
     private CcLinkingContext ccLinkingContext;
+
+    private Builder() {}
 
     public CcInfo.Builder setCcCompilationContext(CcCompilationContext ccCompilationContext) {
       Preconditions.checkState(this.ccCompilationContext == null);

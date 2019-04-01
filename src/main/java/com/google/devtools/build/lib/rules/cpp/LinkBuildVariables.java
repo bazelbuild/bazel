@@ -114,7 +114,7 @@ public enum LinkBuildVariables {
       boolean addIfsoRelatedVariables)
       throws EvalException {
     CcToolchainVariables.Builder buildVariables =
-        new CcToolchainVariables.Builder(
+        CcToolchainVariables.builder(
             ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration));
 
     // pic

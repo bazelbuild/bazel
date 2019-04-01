@@ -194,7 +194,7 @@ public enum CompileBuildVariables {
     Preconditions.checkNotNull(systemIncludeDirs);
     Preconditions.checkNotNull(defines);
     CcToolchainVariables.Builder buildVariables =
-        new CcToolchainVariables.Builder(
+        CcToolchainVariables.builder(
             ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration));
 
     buildVariables.addStringSequenceVariable(

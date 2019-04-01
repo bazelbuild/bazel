@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 /** A structured representation of the link outputs of a C++ rule. */
 public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
 
-  public static final CcLinkingOutputs EMPTY = new Builder().build();
+  public static final CcLinkingOutputs EMPTY = builder().build();
 
   @Nullable private final LibraryToLink libraryToLink;
 
@@ -95,8 +95,13 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
     return new Builder();
   }
 
+  /** Builder for {@link CcLinkingOutputs. */
   public static final class Builder {
     private LibraryToLink libraryToLink;
+
+    private Builder() {
+      // private to avoid class initialization deadlock between this class and its outer class
+    }
 
     // TODO(plf): Return a list of debug artifacts instead of lto back end artifacts and in that
     // same list return the .pdb file for Windows.

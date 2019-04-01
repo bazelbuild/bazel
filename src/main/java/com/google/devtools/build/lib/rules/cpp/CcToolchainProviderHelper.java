@@ -205,7 +205,7 @@ public class CcToolchainProviderHelper {
             == (dynamicRuntimeLinkSymlinks == null || dynamicRuntimeLinkSymlinks.isEmpty()));
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     CppModuleMap moduleMap = createCrosstoolModuleMap(attributes);
     if (moduleMap != null) {
@@ -519,7 +519,7 @@ public class CcToolchainProviderHelper {
       CppConfiguration cppConfiguration,
       PathFragment sysroot,
       AdditionalBuildVariablesComputer additionalBuildVariablesComputer) {
-    CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
+    CcToolchainVariables.Builder variables = CcToolchainVariables.builder();
 
     String minOsVersion = cppConfiguration.getMinimumOsVersion();
     if (minOsVersion != null) {
