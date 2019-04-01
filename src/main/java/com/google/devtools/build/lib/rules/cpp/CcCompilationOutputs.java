@@ -27,7 +27,7 @@ import java.util.Set;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
 public class CcCompilationOutputs implements CcCompilationOutputsApi {
-  public static final CcCompilationOutputs EMPTY = new CcCompilationOutputs.Builder().build();
+  public static final CcCompilationOutputs EMPTY = builder().build();
 
   /**
    * All .o files built by the target.
@@ -146,6 +146,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
     return files.build();
   }
 
+  /** Creates a new builder. */
+  public static Builder builder() {
+    return new Builder();
+  }
+
   /** Builder for CcCompilationOutputs. */
   public static final class Builder {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();
@@ -156,6 +161,10 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
     private final Set<Artifact> picDwoFiles = new LinkedHashSet<>();
     private final NestedSetBuilder<Artifact> temps = NestedSetBuilder.stableOrder();
     private final Set<Artifact> headerTokenFiles = new LinkedHashSet<>();
+
+    private Builder() {
+      // private to avoid class initialization deadlock between this class and its outer class
+    }
 
     public CcCompilationOutputs build() {
       return new CcCompilationOutputs(

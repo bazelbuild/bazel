@@ -102,7 +102,7 @@ public final class CompileCommandLine {
 
     CcToolchainVariables updatedVariables = variables;
     if (variables != null && overwrittenVariables != null) {
-      CcToolchainVariables.Builder variablesBuilder = new CcToolchainVariables.Builder(variables);
+      CcToolchainVariables.Builder variablesBuilder = CcToolchainVariables.builder(variables);
       variablesBuilder.addAllNonTransitive(overwrittenVariables);
       updatedVariables = variablesBuilder.build();
     }

@@ -61,7 +61,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   /** Structure of CcLinkingContext. */
   public static class CcLinkingContext implements CcLinkingContextApi {
-    public static final CcLinkingContext EMPTY = CcLinkingContext.builder().build();
+    public static final CcLinkingContext EMPTY = builder().build();
 
     /** A list of link options contributed by a single configured target/aspect. */
     @Immutable
@@ -316,6 +316,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     }
 
     public static Builder builder() {
+      // private to avoid class initialization deadlock between this class and its outer class
       return new Builder();
     }
 

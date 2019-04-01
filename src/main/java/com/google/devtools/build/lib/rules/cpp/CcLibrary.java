@@ -282,12 +282,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     CompilationInfo compilationInfo = compilationHelper.compile();
     CcCompilationOutputs precompiledFilesObjects =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
     CcCompilationOutputs ccCompilationOutputs =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .merge(precompiledFilesObjects)
             .merge(compilationInfo.getCcCompilationOutputs())
             .build();

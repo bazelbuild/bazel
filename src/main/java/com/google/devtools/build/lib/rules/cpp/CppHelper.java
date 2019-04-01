@@ -633,7 +633,7 @@ public class CppHelper {
     }
 
     CcToolchainVariables variables =
-        new CcToolchainVariables.Builder(
+        CcToolchainVariables.builder(
                 toolchain.getBuildVariables(
                     ruleContext.getConfiguration().getOptions(), cppConfiguration))
             .addStringVariable(

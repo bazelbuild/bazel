@@ -447,7 +447,7 @@ public class CompilationSupport {
     }
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
         Arrays.asList(
@@ -459,13 +459,13 @@ public class CompilationSupport {
         ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()));
 
     CcCompilationOutputs precompiledFilesObjects =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ false))
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
 
     CcCompilationOutputs.Builder compilationOutputsBuilder =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .merge(objcArcCompilationInfo.getCcCompilationOutputs())
             .merge(nonObjcArcCompilationInfo.getCcCompilationOutputs())
             .merge(precompiledFilesObjects);
