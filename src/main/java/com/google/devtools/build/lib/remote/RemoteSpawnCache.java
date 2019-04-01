@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
+import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -39,9 +41,11 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsStrategy;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.grpc.Context;
@@ -111,15 +115,14 @@ final class RemoteSpawnCache implements SpawnCache {
         RemoteSpawnRunner.parsePlatform(
             spawn.getExecutionPlatform(), options.remoteDefaultPlatformProperties);
 
-    Command command =
-        RemoteSpawnRunner.buildCommand(
-            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
+    Command command = RemoteSpawnRunner.buildCommand(spawn.getOutputFiles(), spawn.getArguments(),
+        spawn.getEnvironment(), platform);
+    RemoteOutputsStrategy remoteOutputsStrategy = options.remoteOutputsStrategy;
     Action action =
-        RemoteSpawnRunner.buildAction(
-            digestUtil.compute(command), merkleTreeRoot, context.getTimeout(), true);
-    // Look up action cache, and reuse the action output if it is found.
+          RemoteSpawnRunner.buildAction(
+              digestUtil.compute(command), merkleTreeRoot, context.getTimeout(), true);
+      // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
-
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
 
@@ -135,16 +138,24 @@ final class RemoteSpawnCache implements SpawnCache {
         if (result != null && result.getExitCode() == 0) {
           // In case if failed action returned (exit code != 0) we treat it as a cache miss
           // Otherwise, we know that result exists.
-          try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {
-            remoteCache.download(result, execRoot, context.getFileOutErr());
+          PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
+          InMemoryOutput inMemoryOutput = null;
+          switch (remoteOutputsStrategy) {
+            case MINIMAL:
+              try (SilentCloseable c = Profiler.instance().profile("RemoteCache.downloadMinimal")) {
+                inMemoryOutput = remoteCache.downloadMinimal(result, spawn.getOutputFiles(),
+                    inMemoryOutputPath, context.getFileOutErr(), execRoot,
+                    context.getMetadataInjector());
+              }
+              break;
+            case ALL:
+              try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {
+                remoteCache.download(result, execRoot, context.getFileOutErr());
+              }
+              break;
           }
-          SpawnResult spawnResult =
-              new SpawnResult.Builder()
-                  .setStatus(Status.SUCCESS)
-                  .setExitCode(result.getExitCode())
-                  .setCacheHit(true)
-                  .setRunnerName("remote cache hit")
-                  .build();
+          SpawnResult spawnResult = createSpawnResult(result.getExitCode(), /* cacheHit= */ true,
+              "remote", inMemoryOutput);
           return SpawnCache.success(spawnResult);
         }
       } catch (CacheNotFoundException e) {
@@ -160,6 +171,9 @@ final class RemoteSpawnCache implements SpawnCache {
         withMetadata.detach(previous);
       }
     }
+
+    context.prefetchInputs();
+
     if (options.remoteUploadLocalResults) {
       return new CacheHandle() {
         @Override

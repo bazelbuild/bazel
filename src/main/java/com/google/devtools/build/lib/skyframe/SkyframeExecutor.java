@@ -123,6 +123,8 @@ import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsStrategy;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -1389,6 +1391,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 
+  private void setRemoteOutputsStrategy(RemoteOutputsStrategy remoteOutputsStrategy) {
+    PrecomputedValue.REMOTE_OUTPUTS_STRATEGY.set(injectable(), remoteOutputsStrategy);
+  }
+
   /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result.
@@ -2411,6 +2417,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options);
+    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
+    if (remoteOptions != null) {
+      setRemoteOutputsStrategy(remoteOptions.remoteOutputsStrategy);
+    }
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,

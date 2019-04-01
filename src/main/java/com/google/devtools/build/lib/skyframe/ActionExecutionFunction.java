@@ -124,6 +124,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       PrecomputedValue.BUILD_ID.get(env);
     }
 
+    // Declare a dependency on precomputed value. If the flag changes every action should be
+    // invalidated.
+    PrecomputedValue.REMOTE_OUTPUTS_STRATEGY.get(env);
+
     // Look up the parts of the environment that influence the action.
     Map<SkyKey, SkyValue> clientEnvLookup =
         env.getValues(

@@ -160,6 +160,14 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     }
   }
 
+  /**
+   * Returns the remote cache object if any.
+   */
+  @Nullable
+  AbstractRemoteActionCache getRemoteCache() {
+    return cache;
+  }
+
   @Override
   public void executionPhaseEnding() {
     if (cache != null) {

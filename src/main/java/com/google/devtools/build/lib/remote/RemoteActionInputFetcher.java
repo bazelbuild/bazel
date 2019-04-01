@@ -39,7 +39,7 @@ import javax.annotation.concurrent.GuardedBy;
  * Stages output files that are stored remotely to the local filesystem.
  *
  * <p>This is necessary for remote caching/execution when {@code
- * --experimental_remote_fetch_outputs=minimal} is specified.
+ * --experimental_remote_download_outputs=minimal} is specified.
  */
 class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
@@ -126,7 +126,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
                   new IOException(
                       String.format(
                           "Failed to fetch file with hash '%s' because it does not exist remotely."
-                              + " --experimental_remote_fetch_outputs=minimal does not work if"
+                              + " --experimental_remote_download_outputs=minimal does not work if"
                               + " your remote cache evicts files during builds.",
                           ((CacheNotFoundException) e).getMissingDigest().getHash()));
             }
