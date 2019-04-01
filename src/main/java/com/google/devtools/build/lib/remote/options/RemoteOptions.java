@@ -61,10 +61,9 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-        "A base URL of a caching service in the format PROTOCOL://HOST or PROTOCOL://HOST:PORT."
-            + "Supported protocols: http, https, grpc, grpcs. "
-            + "If no protocol provided, will default to gRPC."
-            + "Format: (http|https|grpc|grpcs)://host:port")
+          "A URI of a caching endpoint. The supported schemas are http(s) and grpc. "
+              + "If no schema is provided we'll default to grpc. "
+              + "See https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
 
   @Option(

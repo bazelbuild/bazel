@@ -141,6 +141,12 @@ public class SimpleBlobStoreFactoryTest {
   }
 
   @Test
+  public void isRemoteCacheOptions_httpCacheEnabledInUpperCase() {
+    remoteOptions.remoteCache = "HTTP://doesnotexist:90";
+    assertThat(SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
+  }
+
+  @Test
   public void isRemoteCacheOptions_httpsCacheEnabled() {
     remoteOptions.remoteCache = "https://doesnotexist:90";
     assertThat(SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)).isTrue();

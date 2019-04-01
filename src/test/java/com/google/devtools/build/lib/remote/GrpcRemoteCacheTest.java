@@ -1050,6 +1050,14 @@ public class GrpcRemoteCacheTest {
   }
 
   @Test
+  public void isRemoteCacheOptionsWhenHttpEnabledWithUpperCase() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "HTTP://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
   public void isRemoteCacheOptionsWhenHttpsEnabled() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "https://some-host.com";

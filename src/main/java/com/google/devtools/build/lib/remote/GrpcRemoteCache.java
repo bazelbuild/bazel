@@ -157,7 +157,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     // check against 'http' rather than 'grpc' because gRPC is a default protocol when none provided
     return options.remoteCache != null
         && !options.remoteCache.isEmpty()
-        && !options.remoteCache.startsWith("http");
+        && !options.remoteCache.toLowerCase().startsWith("http");
   }
 
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(

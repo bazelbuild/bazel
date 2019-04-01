@@ -59,37 +59,22 @@ function tear_down() {
   rm -rf "${work_path}"
 }
 
-function test_cc_binary_http_cache_old_flag() {
+function test_remote_http_cache_flag() {
+  # Test that the deprecated --remote_http_cache flag still works.
   mkdir -p a
   cat > a/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-cc_binary(
-name = 'test',
-srcs = [ 'test.cc' ],
+genrule(
+  name = 'test-remote-http-cache',
+  srcs = [],
+  outs = ["test.txt"],
+  cmd = "echo \"foo bar\" > \$@",
 )
 EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Hello world!" << std::endl; return 0; }
-EOF
-  bazel build //a:test \
-    || fail "Failed to build //a:test without remote cache"
-  cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean
   bazel build \
       --remote_http_cache=http://localhost:${http_port} \
-      //a:test \
-      || fail "Failed to build //a:test with remote REST cache service"
-  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
-      || fail "Remote cache generated different result"
-  # Check that persistent connections are closed after the build. Is there a good cross-platform way
-  # to check this?
-  if [[ "$PLATFORM" = "linux" ]]; then
-    if netstat -tn | grep -qE ":${http_port}\\s+ESTABLISHED$"; then
-      fail "connections to to cache not closed"
-    fi
-  fi
+      //a:test-remote-http-cache \
+      || fail "Failed to build //a:test-remote-http-cache with remote cache"
 }
 
 function test_cc_binary_http_cache() {
@@ -113,7 +98,7 @@ EOF
   bazel build \
       --remote_cache=http://localhost:${http_port} \
       //a:test \
-      || fail "Failed to build //a:test with remote REST cache service"
+      || fail "Failed to build //a:test with remote HTTP cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote cache generated different result"
   # Check that persistent connections are closed after the build. Is there a good cross-platform way
@@ -146,7 +131,7 @@ EOF
   bazel build \
       --remote_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
-      || fail "Failed to build //a:test with remote REST cache service"
+      || fail "Failed to build //a:test with remote HTTP cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote cache generated different result"
   # Check that persistent connections are closed after the build. Is there a good cross-platform way
@@ -311,39 +296,39 @@ function test_directory_artifact_skylark_grpc_cache() {
       || fail "Remote cache hit generated different result"
 }
 
-function test_directory_artifact_skylark_rest_cache() {
+function test_directory_artifact_skylark_http_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
       --remote_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
-      || fail "Failed to build //a:test with remote REST cache"
+      || fail "Failed to build //a:test with remote HTTP cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
       --remote_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
-      || fail "Failed to build //a:test with remote REST cache"
+      || fail "Failed to build //a:test with remote HTTP cache"
   expect_log "remote cache hit"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache hit generated different result"
 }
 
-function test_directory_artifact_in_runfiles_skylark_rest_cache() {
+function test_directory_artifact_in_runfiles_skylark_http_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
       --remote_cache=http://localhost:${http_port} \
       //a:test2 >& $TEST_log \
-      || fail "Failed to build //a:test2 with remote REST cache"
+      || fail "Failed to build //a:test2 with remote HTTP cache"
   diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
       --remote_cache=http://localhost:${http_port} \
       //a:test2 >& $TEST_log \
-      || fail "Failed to build //a:test2 with remote REST cache"
+      || fail "Failed to build //a:test2 with remote HTTP cache"
   expect_log "remote cache hit"
   diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache hit generated different result"
