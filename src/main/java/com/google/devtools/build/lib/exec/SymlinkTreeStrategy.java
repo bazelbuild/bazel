@@ -48,7 +48,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ActionExecutionException, InterruptedException {
-    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, null));
+    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     try (AutoProfiler p =
         AutoProfiler.logged(
             "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {

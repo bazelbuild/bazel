@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 
 /**
@@ -32,7 +34,7 @@ public class RunningActionEvent implements ProgressLike {
   /** Constructs a new event. */
   public RunningActionEvent(ActionExecutionMetadata action, String strategy) {
     this.action = action;
-    this.strategy = strategy;
+    this.strategy = checkNotNull(strategy, "Strategy names are not optional");
   }
 
   /** Gets the metadata associated with the action that is running. */
