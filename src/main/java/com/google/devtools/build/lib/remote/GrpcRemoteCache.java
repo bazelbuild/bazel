@@ -156,7 +156,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    if (options.remoteCache == null || options.remoteCache.isEmpty()) return false;
+    if (options.remoteCache == null || options.remoteCache.isEmpty()) {
+      return false;
+    }
     String scheme;
     try {
       scheme = new URI(options.remoteCache).getScheme();
