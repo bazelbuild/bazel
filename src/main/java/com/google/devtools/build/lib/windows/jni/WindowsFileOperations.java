@@ -182,7 +182,7 @@ public class WindowsFileOperations {
 
     int result = nativeReadJunction(asLongPath(path), target, error);
     if (result == READ_JUNCTION_SUCCESS) {
-      return target[0];
+      return removeUncPrefixAndUseSlashes(target[0]);
     } else {
       switch (result) {
         case READ_JUNCTION_DOES_NOT_EXIST:
