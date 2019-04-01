@@ -507,7 +507,8 @@ public class ToolchainResolver {
      * Finishes preparing the {@link ToolchainContext} by finding the specific toolchain providers
      * to be used for each toolchain type.
      */
-    public ToolchainContext load(Iterable<ConfiguredTargetAndData> toolchainTargets) {
+    public ToolchainContext load(Iterable<ConfiguredTargetAndData> toolchainTargets)
+        throws ToolchainException {
 
       ToolchainContext.Builder toolchainContext =
           ToolchainContext.builder()
@@ -534,10 +535,15 @@ public class ToolchainResolver {
         ToolchainTypeInfo toolchainType = toolchainTypeToResolved().inverse().get(discoveredLabel);
         ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target.getConfiguredTarget());
 
-        // If the toolchainType hadn't been resolved to an actual toolchain, resolution would have
-        // failed with an error much earlier. This null check is just for safety.
-        if (toolchainType != null && toolchainInfo != null) {
-          toolchains.put(toolchainType, toolchainInfo);
+        // If the toolchainType hadn't been resolved to an actual target, resolution would have
+        // failed with an error much earlier. However, the target might still not be an actual
+        // toolchain.
+        if (toolchainType != null) {
+          if (toolchainInfo != null) {
+            toolchains.put(toolchainType, toolchainInfo);
+          } else {
+            throw new TargetNotToolchainException(toolchainType, discoveredLabel);
+          }
         }
 
         // Find any template variables present for this toolchain.
@@ -603,6 +609,20 @@ public class ToolchainResolver {
           String.format(
               "no matching toolchains found for types %s",
               missingToolchainTypes.stream().map(Label::toString).collect(joining(", "))));
+    }
+  }
+
+  /**
+   * Exception used when a toolchain type is required but the resolved target does not have
+   * ToolchainInfo.
+   */
+  static final class TargetNotToolchainException extends ToolchainException {
+    TargetNotToolchainException(ToolchainTypeInfo toolchainType, Label resolvedTargetLabel) {
+      super(
+          String.format(
+              "toolchain type %s resolved to target %s, but that target does not provide"
+                  + " ToolchainInfo",
+              toolchainType.typeLabel(), resolvedTargetLabel));
     }
   }
 }
