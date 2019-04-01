@@ -1964,4 +1964,46 @@ EOF
   expect_log 'path/to/workspace'
 }
 
+function test_location_reported() {
+  # Verify that some useful information is provided about where
+  # a failing repository definition occurred.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir empty
+  tar cvf x.tar empty
+  rm -rf empty
+
+  mkdir -p path/to/main
+  cd path/to/main
+  touch BUILD
+  cat > WORKSPACE <<'EOF'
+load("//:repos.bzl", "repos")
+repos()
+EOF
+  cat > repos.bzl <<"EOF"
+load("//:foo.bzl", "foo_repos")
+
+def repos():
+  # ..forgot to add the repository bar
+  foo_repos()
+EOF
+  cat > foo.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def foo_repos():
+    http_archive(
+        name = "foo",
+        url = "file://${WRKDIR}/x.tar",
+        build_file = "@bar//:foo.build",
+    )
+EOF
+
+  bazel build @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log 'error.*repository.*foo'
+  expect_log '@bar//:foo.build'
+  expect_log 'path/to/main/foo.bzl'
+  expect_log 'path/to/main/repos.bzl'
+  expect_log 'path/to/main/WORKSPACE'
+}
+
 run_suite "external tests"
