@@ -75,8 +75,7 @@ the steps in this section.
 
    a. Since cache-reading Bazel invocations will have a different command-line set
       up, take additional care to ensure that they are properly set up to
-      communicate with the remote cache. Ensure `--remote_cache` or
-      `--remote_http_cache` flags are set and there are no warnings in the output.
+      communicate with the remote cache. Ensure `--remote_cache` flag is set and there are no warnings in the output.
 
    b. Ensure your cache-reading Bazel invocations build the same targets as the
       cache-writing Bazel invocations.

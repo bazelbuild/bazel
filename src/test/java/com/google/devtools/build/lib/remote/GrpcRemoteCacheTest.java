@@ -1016,4 +1016,59 @@ public class GrpcRemoteCacheTest {
       assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
     }
   }
+
+  @Test
+  public void isRemoteCacheOptionsWhenGrpcEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "grpc://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenGrpcsEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "grpcs://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenDefaultRemoteCacheEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenHttpEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "http://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenHttpsEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "https://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenEmptyCacheProvided() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenRemoteCacheDisabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
 }

@@ -59,7 +59,7 @@ function tear_down() {
   rm -rf "${work_path}"
 }
 
-function test_cc_binary_http_cache() {
+function test_cc_binary_http_cache_old_flag() {
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -92,6 +92,39 @@ EOF
   fi
 }
 
+function test_cc_binary_http_cache() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
+  bazel build //a:test \
+    || fail "Failed to build //a:test without remote cache"
+  cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
+
+  bazel clean
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      //a:test \
+      || fail "Failed to build //a:test with remote REST cache service"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+      || fail "Remote cache generated different result"
+  # Check that persistent connections are closed after the build. Is there a good cross-platform way
+  # to check this?
+  if [[ "$PLATFORM" = "linux" ]]; then
+    if netstat -tn | grep -qE ":${http_port}\\s+ESTABLISHED$"; then
+      fail "connections to to cache not closed"
+    fi
+  fi
+}
+
 function test_cc_binary_http_cache_bad_server() {
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -111,7 +144,7 @@ EOF
 
   bazel clean >& $TEST_log
   bazel build \
-      --remote_http_cache=http://bad.hostname/bad/cache \
+      --remote_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
@@ -135,7 +168,7 @@ genrule(
 EOF
     bazel build \
           --noremote_allow_symlink_upload \
-          --remote_http_cache=http://localhost:${http_port} \
+          --remote_cache=http://localhost:${http_port} \
           //:make-link &> $TEST_log \
           && fail "should have failed" || true
     expect_log "/l is a symbolic link"
@@ -151,7 +184,7 @@ genrule(
 EOF
     bazel build \
           --noremote_allow_symlink_upload \
-          --remote_http_cache=http://localhost:${http_port} \
+          --remote_cache=http://localhost:${http_port} \
           //:make-link &> $TEST_log \
           && fail "should have failed" || true
     expect_log "dir/l is a symbolic link"
@@ -282,14 +315,14 @@ function test_directory_artifact_skylark_rest_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
-      --remote_rest_cache=http://localhost:${http_port} \
+      --remote_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
-      --remote_rest_cache=http://localhost:${http_port} \
+      --remote_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache"
   expect_log "remote cache hit"
@@ -301,14 +334,14 @@ function test_directory_artifact_in_runfiles_skylark_rest_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
-      --remote_rest_cache=http://localhost:${http_port} \
+      --remote_cache=http://localhost:${http_port} \
       //a:test2 >& $TEST_log \
       || fail "Failed to build //a:test2 with remote REST cache"
   diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
-      --remote_rest_cache=http://localhost:${http_port} \
+      --remote_cache=http://localhost:${http_port} \
       //a:test2 >& $TEST_log \
       || fail "Failed to build //a:test2 with remote REST cache"
   expect_log "remote cache hit"
@@ -331,7 +364,7 @@ genrule(
 EOF
 
   bazel build \
-      --remote_http_cache=http://localhost:${http_port} \
+      --remote_cache=http://localhost:${http_port} \
       //a:gen1 \
     || fail "Failed to build //a:gen1 with remote cache"
 
@@ -349,7 +382,7 @@ function test_genrule_combined_disk_http_cache() {
 
   local cache="${TEST_TMPDIR}/cache"
   local disk_flags="--disk_cache=$cache"
-  local http_flags="--remote_http_cache=http://localhost:${http_port}"
+  local http_flags="--remote_cache=http://localhost:${http_port}"
 
   mkdir -p a
   cat > a/BUILD <<EOF

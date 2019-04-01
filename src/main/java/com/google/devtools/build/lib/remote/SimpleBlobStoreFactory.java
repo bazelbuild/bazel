@@ -72,8 +72,10 @@ public final class SimpleBlobStoreFactory {
   }
 
   private static SimpleBlobStore createHttp(RemoteOptions options, Credentials creds) {
+    Preconditions.checkNotNull(options.remoteCache, "remoteCache");
+    Preconditions.checkArgument(options.remoteCache.startsWith("http"), "remoteCache should start with http");
     try {
-      URI uri = URI.create(options.remoteHttpCache);
+      URI uri = URI.create(options.remoteCache);
 
       if (options.remoteCacheProxy != null) {
         if (options.remoteCacheProxy.startsWith("unix:")) {
@@ -121,6 +123,8 @@ public final class SimpleBlobStoreFactory {
   }
 
   private static boolean isHttpUrlOptions(RemoteOptions options) {
-    return options.remoteHttpCache != null && !options.remoteHttpCache.isEmpty();
+    return options.remoteCache != null
+        && !options.remoteCache.isEmpty()
+        && options.remoteCache.startsWith("http");
   }
 }

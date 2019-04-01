@@ -24,17 +24,6 @@ import com.google.devtools.common.options.OptionsBase;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
-  @Option(
-      name = "remote_http_cache",
-      oldName = "remote_rest_cache",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "A base URL of a HTTP caching service. Both http:// and https:// are supported. BLOBs"
-              + " are stored with PUT and retrieved with GET. See remote/README.md for more"
-              + " information.")
-  public String remoteHttpCache;
 
   @Option(
       name = "remote_cache_proxy",
@@ -67,10 +56,15 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "remote_cache",
+      oldName = "remote_http_cache",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "HOST or HOST:PORT of a remote caching endpoint.")
+      help =
+        "A base URL of a caching service in the format PROTOCOL://HOST or PROTOCOL://HOST:PORT."
+            + "Supported protocols: http, https, grpc, grpcs. "
+            + "If no protocol provided, will default to gRPC."
+            + "Format: (http|https|grpc|grpcs)://host:port")
   public String remoteCache;
 
   @Option(
