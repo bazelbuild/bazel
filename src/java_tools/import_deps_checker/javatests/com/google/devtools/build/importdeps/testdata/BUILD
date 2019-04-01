@@ -54,8 +54,9 @@ java_library(
 
 java_library(
     name = "testdata_lib_LibraryModuleInfo",
-    srcs = ["LibraryModuleInfo.java", "module-info.java"],
-    javacopts = ["-source 9", "-target 9"],
+    resources = ["module-info.class"],
+    resource_strip_prefix = package_name(),
+    srcs = ["LibraryModuleInfo.java"],
 )
 
 java_library(
