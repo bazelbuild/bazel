@@ -74,6 +74,8 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   private boolean containsErrors;
 
+  private String definitionInformation;
+
   private final Location location;
 
   private final ImplicitOutputsFunction implicitOutputsFunction;
@@ -115,6 +117,10 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   void setVisibility(RuleVisibility visibility) {
     this.visibility = visibility;
+  }
+
+  void setDefinitionInformation(String info) {
+    this.definitionInformation = info;
   }
 
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
@@ -258,6 +264,10 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   @Override
   public Location getLocation() {
     return location;
+  }
+
+  public String getDefinitionInformation() {
+    return definitionInformation;
   }
 
   public ImplicitOutputsFunction getImplicitOutputsFunction() {
