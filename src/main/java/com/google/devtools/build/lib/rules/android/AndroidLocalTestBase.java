@@ -191,8 +191,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                 srcJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(srcJar));
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
-    Artifact instrumentationMetadata =
-        helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
     Artifact executable; // the artifact for the rule itself
     if (OS.getCurrent() == OS.WINDOWS) {
       executable =
@@ -215,15 +213,16 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     String mainClass = javaSemantics.getTestRunnerMainClass();
     String originalMainClass = mainClass;
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      mainClass = addCoverageSupport(
-          ruleContext,
-          javaSemantics,
-          helper,
-          executable,
-          instrumentationMetadata,
-          javaArtifactsBuilder,
-          attributesBuilder,
-          mainClass);
+      mainClass =
+          addCoverageSupport(
+              ruleContext,
+              javaSemantics,
+              helper,
+              executable,
+              /* instrumentationMetadata= */ null,
+              javaArtifactsBuilder,
+              attributesBuilder,
+              mainClass);
     }
 
     // JavaCompilationHelper.getAttributes() builds the JavaTargetAttributes, after which the
@@ -246,7 +245,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             classJar,
             manifestProtoOutput,
             genSourceJar,
-            instrumentationMetadata,
             /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
     javaRuleOutputJarsProviderBuilder.setJdeps(javaCompileAction.getOutputDepsProto());

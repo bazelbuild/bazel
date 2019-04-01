@@ -355,30 +355,7 @@ public interface JavaSemantics {
    *
    * @return new main class
    */
-  String addCoverageSupport(
-      JavaCompilationHelper helper,
-      JavaTargetAttributes.Builder attributes,
-      Artifact executable,
-      Artifact instrumentationMetadata,
-      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
-      String mainClass)
-      throws InterruptedException;
-
-  /**
-   * Same as {@link #addCoverageSupport(JavaCompilationHelper, JavaTargetAttributes.Builder,
-   * Artifact, Artifact, JavaCompilationArtifacts.Builder, String)}.
-   *
-   * <p>In *experimental* coverage mode omits dealing with instrumentation metadata and does not
-   * create the instrumented jar.
-   */
-  String addCoverageSupport(
-      JavaCompilationHelper helper,
-      JavaTargetAttributes.Builder attributes,
-      Artifact executable,
-      Artifact instrumentationMetadata,
-      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
-      String mainClass,
-      boolean isExperimentalCoverage)
+  String addCoverageSupport(JavaCompilationHelper helper, Artifact executable)
       throws InterruptedException;
 
   /** Return the JVM flags to be used in a Java binary. */

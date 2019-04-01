@@ -585,25 +585,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean collectCodeCoverage;
 
     @Option(
-        name = "incompatible_java_coverage",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        oldName = "experimental_java_coverage",
-        help =
-            "If true Bazel will use a new way of computing code coverage for java targets. "
-                + "It allows collecting  coverage for Starlark JVM rules and java_import. "
-                + "Only includes JVM files in the coverage report (e.g. dismisses data files). "
-                + "The report includes the actual path of the files relative to the workspace root "
-                + "instead of the package path (e.g. src/com/google/Action.java instead of "
-                + "com/google/Action.java.")
-    public boolean experimentalJavaCoverage;
-
-    @Option(
         name = "incompatible_cc_coverage",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1737,10 +1718,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   @Override
   public boolean isCodeCoverageEnabled() {
     return options.collectCodeCoverage;
-  }
-
-  public boolean isExperimentalJavaCoverage() {
-    return true;
   }
 
   public boolean useGcovCoverage() {
