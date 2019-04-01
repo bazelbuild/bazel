@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -65,6 +64,13 @@ public class ComposingTransition implements ConfigurationTransition {
   @Override
   public String getName() {
     return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+  }
+
+  // Override to allow recursive visiting.
+  @Override
+  public <E extends Exception> void visit(Visitor<E> visitor) throws E {
+    this.transition1.visit(visitor);
+    this.transition2.visit(visitor);
   }
 
   @Override
@@ -117,30 +123,5 @@ public class ComposingTransition implements ConfigurationTransition {
 
   private static boolean isFinal(ConfigurationTransition transition) {
     return transition == NullTransition.INSTANCE || transition.isHostTransition();
-  }
-
-  /**
-   * Recursively decompose a composing transition into all the {@link ConfigurationTransition}
-   * instances that it holds.
-   *
-   * @param root {@link ComposingTransition} to decompose
-   */
-  public static ImmutableList<ConfigurationTransition> decomposeTransition(
-      ConfigurationTransition root) {
-    ArrayList<ConfigurationTransition> toBeInspected = new ArrayList<>();
-    ImmutableList.Builder<ConfigurationTransition> transitions = new ImmutableList.Builder<>();
-    toBeInspected.add(root);
-    ConfigurationTransition current;
-    while (!toBeInspected.isEmpty()) {
-      current = toBeInspected.remove(0);
-      if (current instanceof ComposingTransition) {
-        ComposingTransition composingCurrent = (ComposingTransition) current;
-        toBeInspected.addAll(
-            ImmutableList.of(composingCurrent.transition1, composingCurrent.transition2));
-      } else {
-        transitions.add(current);
-      }
-    }
-    return transitions.build();
   }
 }

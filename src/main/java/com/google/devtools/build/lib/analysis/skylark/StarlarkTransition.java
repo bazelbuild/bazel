@@ -88,12 +88,16 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   // TODO(juliexxia): handle the possibility of aliased build settings.
   public static ImmutableSet<SkyKey> getBuildSettingPackageKeys(ConfigurationTransition root) {
     ImmutableSet.Builder<SkyKey> keyBuilder = new ImmutableSet.Builder<>();
-    for (ConfigurationTransition transition : ComposingTransition.decomposeTransition(root)) {
-      if (transition instanceof StarlarkTransition) {
-        for (Label setting : getChangedStarlarkSettings((StarlarkTransition) transition)) {
-          keyBuilder.add(PackageValue.key(setting.getPackageIdentifier()));
-        }
-      }
+    try {
+      root.visit(
+          (StarlarkTransitionVisitor)
+              transition -> {
+                for (Label setting : getChangedStarlarkSettings(transition)) {
+                  keyBuilder.add(PackageValue.key(setting.getPackageIdentifier()));
+                }
+              });
+    } catch (TransitionException e) {
+      // Not actually thrown in the visitor, but declared.
     }
     return keyBuilder.build();
   }
@@ -129,42 +133,41 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       throws TransitionException {
     replayEvents(eventHandler, root);
 
-    List<ConfigurationTransition> transitions = ComposingTransition.decomposeTransition(root);
     // collect settings changed during this transition and their types
     Map<Label, Type<?>> changedSettingToType = Maps.newHashMap();
-    for (ConfigurationTransition transition : transitions) {
-      if (!(transition instanceof StarlarkTransition)) {
-        continue;
-      }
-      StarlarkTransition starlarkTransition = (StarlarkTransition) transition;
-      List<Label> changedSettings = getChangedStarlarkSettings(starlarkTransition);
-      for (Label setting : changedSettings) {
-        Package buildSettingPackage =
-            ((PackageValue)
-                    buildSettingPackages.get(PackageValue.key(setting.getPackageIdentifier())))
-                .getPackage();
-        Target buildSettingTarget;
-        try {
-          buildSettingTarget = buildSettingPackage.getTarget(setting.getName());
-        } catch (NoSuchTargetException e) {
-          throw new TransitionException(e);
-        }
-        if (buildSettingTarget.getAssociatedRule() == null
-            || buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting()
-                == null) {
-          throw new TransitionException(
-              String.format(
-                  "attempting to transition on '%s' which is not a build setting", setting));
-        }
-        changedSettingToType.put(
-            setting,
-            buildSettingTarget
-                .getAssociatedRule()
-                .getRuleClassObject()
-                .getBuildSetting()
-                .getType());
-      }
-    }
+    root.visit(
+        (StarlarkTransitionVisitor)
+            transition -> {
+              List<Label> changedSettings = getChangedStarlarkSettings(transition);
+              for (Label setting : changedSettings) {
+                Package buildSettingPackage =
+                    ((PackageValue)
+                            buildSettingPackages.get(
+                                PackageValue.key(setting.getPackageIdentifier())))
+                        .getPackage();
+                Target buildSettingTarget;
+                try {
+                  buildSettingTarget = buildSettingPackage.getTarget(setting.getName());
+                } catch (NoSuchTargetException e) {
+                  throw new TransitionException(e);
+                }
+                if (buildSettingTarget.getAssociatedRule() == null
+                    || buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting()
+                        == null) {
+                  throw new TransitionException(
+                      String.format(
+                          "attempting to transition on '%s' which is not a build setting",
+                          setting));
+                }
+                changedSettingToType.put(
+                    setting,
+                    buildSettingTarget
+                        .getAssociatedRule()
+                        .getRuleClassObject()
+                        .getBuildSetting()
+                        .getType());
+              }
+            });
 
     // verify changed settings were changed to something reasonable for their type
     for (BuildOptions options : toOptions) {
@@ -193,18 +196,17 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    */
   private static void replayEvents(ExtendedEventHandler eventHandler, ConfigurationTransition root)
       throws TransitionException {
-    List<ConfigurationTransition> transitions = ComposingTransition.decomposeTransition(root);
-    for (ConfigurationTransition transition : transitions) {
-      if (transition instanceof StarlarkTransition) {
-        StarlarkTransition starlarkTransition = (StarlarkTransition) transition;
-        // Replay events and errors and throw if there were errors
-        boolean hasErrors = starlarkTransition.hasErrors();
-        starlarkTransition.replayOn(eventHandler);
-        if (hasErrors) {
-          throw new TransitionException("Errors encountered while applying Starlark transition");
-        }
-      }
-    }
+    root.visit(
+        (StarlarkTransitionVisitor)
+            transition -> {
+              // Replay events and errors and throw if there were errors
+              boolean hasErrors = transition.hasErrors();
+              transition.replayOn(eventHandler);
+              if (hasErrors) {
+                throw new TransitionException(
+                    "Errors encountered while applying Starlark transition");
+              }
+            });
   }
 
   @Override
@@ -223,5 +225,20 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   @Override
   public int hashCode() {
     return Objects.hashCode(starlarkDefinedConfigTransition);
+  }
+
+  @FunctionalInterface
+  // This is only used in this class to handle the cast and the exception
+  @SuppressWarnings("FunctionalInterfaceMethodChanged")
+  private interface StarlarkTransitionVisitor
+      extends ConfigurationTransition.Visitor<TransitionException> {
+    @Override
+    default void accept(ConfigurationTransition transition) throws TransitionException {
+      if (transition instanceof StarlarkTransition) {
+        this.accept((StarlarkTransition) transition);
+      }
+    }
+
+    void accept(StarlarkTransition transition) throws TransitionException;
   }
 }
