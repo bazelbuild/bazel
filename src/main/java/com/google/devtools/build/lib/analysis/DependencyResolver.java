@@ -535,7 +535,7 @@ public abstract class DependencyResolver {
       Attribute attribute,
       BuildConfiguration ruleConfig,
       BuildConfiguration hostConfig) {
-    Preconditions.checkState(!attribute.hasSplitConfigurationTransition());
+    Preconditions.checkState(!attribute.getTransitionFactory().isSplit());
     @SuppressWarnings("unchecked")
     LateBoundDefault<FragmentT, ?> lateBoundDefault =
         (LateBoundDefault<FragmentT, ?>) attribute.getLateBoundDefault();

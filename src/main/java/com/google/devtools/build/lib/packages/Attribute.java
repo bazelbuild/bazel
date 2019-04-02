@@ -2150,14 +2150,6 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns true if this attribute transitions on a split transition. See {@link SplitTransition}.
-   */
-  // TODO(https://github.com/bazelbuild/bazel/issues/7814) Remove this.
-  public boolean hasSplitConfigurationTransition() {
-    return transitionFactory.isSplit();
-  }
-
-  /**
    * Returns true if this attribute transitions to the host configuration. See {@link
    * com.google.devtools.build.lib.analysis.config.HostTransition}.
    */

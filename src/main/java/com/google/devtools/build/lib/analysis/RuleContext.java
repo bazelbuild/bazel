@@ -813,7 +813,7 @@ public final class RuleContext extends TargetContext
   public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargetAndTargets(
       String attributeName, Mode mode) {
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
-    if ((mode == Mode.TARGET) && (attributeDefinition.hasSplitConfigurationTransition())) {
+    if ((mode == Mode.TARGET) && (attributeDefinition.getTransitionFactory().isSplit())) {
       // TODO(bazel-team): If you request a split-configured attribute in the target configuration,
       // we return only the list of configured targets for the first architecture; this is for
       // backwards compatibility with existing code in cases where the call to getPrerequisites is
@@ -837,7 +837,7 @@ public final class RuleContext extends TargetContext
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
     checkAttribute(attributeName, Mode.SPLIT);
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
-    Preconditions.checkState(attributeDefinition.hasSplitConfigurationTransition());
+    Preconditions.checkState(attributeDefinition.getTransitionFactory().isSplit());
     SplitTransition transition =
         (SplitTransition)
             attributeDefinition
@@ -1192,7 +1192,7 @@ public final class RuleContext extends TargetContext
           + getRuleClassNameForLogging() + " attribute " + attributeName
           + ": DATA transition no longer supported"); // See b/80157700.
     } else if (mode == Mode.SPLIT) {
-      if (!(attributeDefinition.hasSplitConfigurationTransition())) {
+      if (!(attributeDefinition.getTransitionFactory().isSplit())) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for a split transition");
