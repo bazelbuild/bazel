@@ -1,3 +1,53 @@
+## Release 0.24.1 (2019-04-02)
+
+```
+Baseline: 235e76b0e756d05599a6cbe1663ff8e13df84a86
+
+Cherry picks:
+
+   + badd82e4c5cda7b3232481e1c63a5550ac898cd8:
+     Automated rollback of commit
+     1b4c37c38804559b5c1ade6f9c93501875e231b0.
+   + 33e571939085dd158422e1b3503cfc738e0a3165:
+     Fix the Python version select() mechanism to handle
+     PY3-as-default
+   + 56366ee3a73e2c92b2fa36a9840478202b9618ca:
+     Set non-empty values for msvc_env_* when VC not installed
+   + 22b3fbf4800113df51d603d943bd9eb9517ef904:
+     Windows, test wrapper: fix broken integration test
+   + f14d447cb56aee563f6e686b8f5b086a3bb55d47:
+     Add whitelist file for starlark transitions
+   + d99bc478db1f3414b4f6cd3dc14ca70aacf6b375:
+     Update BUILD
+   + 3529ad7ccf0c26dfb20a9d67b9d96de15f309f8b:
+     Rename tools/function_transition_whitelist/BUILD to
+     tools/whitelists/function_transition_whitelist/BUILD
+   + de0612ad3ef7cc8c44069261befdeb0d15b97c10:
+     Update bazel_toolchains to latest release and add toolchain
+     config target for BuildKite CI (rbe_ubuntu1604)
+   + 3e660ad178926648e8e10e2ee7a1a30b12f9b3d1:
+     Automated rollback of commit
+     087734009801242b83655efb863b2d5a761ae3dc.
+   + 314cf1f9e4b332955c4800b2451db4e926c3e092:
+     Pass -undefined dynamic_lookup to dynamic library linking
+     actions on Mac
+   + fc586a86b614667a21e5a01aea3544ac0338de78:
+     Move cc_flags target into @bazel_tools//tools/cpp.
+   + ea1703b30f9ac43a0c3262f5729c34658ed8d473:
+     C++: Fix crash reported in #7721
+   + 803801d1494f06f0ce977a1f2241ef6a4d85df09:
+     Pass execution info to xml generating spawn. Fixes #7794
+   + f092ec388a4b58788285b928c86f0f81561d4be4:
+     Release 0.24.0 (2019-03-26)
+   + c56c489119e6587975964c44ceb9e429ad950736:
+     Wrap StatusRuntimeExceptions from GrpcRemoteCache
+```
+
+Baseline: f092ec388a4b58788285b928c86f0f81561d4be4
+
+Cherrypicks:
++ c56c489119e6587975964c44ceb9e429ad950736: Wrap StatusRuntimeExceptions from GrpcRemoteCache
+
 ## Release 0.24.0 (2019-03-26)
 
 ```
