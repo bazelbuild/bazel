@@ -581,7 +581,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrCfg() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
-    assertThat(attr.hasHostConfigurationTransition()).isTrue();
+    assertThat(attr.getTransitionFactory().isHost()).isTrue();
   }
 
   @Test

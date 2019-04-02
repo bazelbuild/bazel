@@ -304,7 +304,7 @@ public class AttributeTest {
   public void testHostTransition() throws Exception {
     Attribute attr =
         attr("foo", LABEL).cfg(HostTransition.createFactory()).allowedFileTypes().build();
-    assertThat(attr.hasHostConfigurationTransition()).isTrue();
+    assertThat(attr.getTransitionFactory().isHost()).isTrue();
     assertThat(attr.getTransitionFactory().isSplit()).isFalse();
   }
 

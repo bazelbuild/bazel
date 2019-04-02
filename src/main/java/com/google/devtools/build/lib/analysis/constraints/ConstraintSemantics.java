@@ -852,7 +852,7 @@ public class ConstraintSemantics {
         if (!DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
             // We can't identify host deps by calling BuildConfiguration.isHostConfiguration()
             // because --nodistinct_host_configuration subverts that call.
-            || attrDef.hasHostConfigurationTransition()) {
+            || attrDef.getTransitionFactory().isHost()) {
           continue;
         }
       }
