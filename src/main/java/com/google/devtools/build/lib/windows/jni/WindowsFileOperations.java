@@ -180,9 +180,12 @@ public class WindowsFileOperations {
     String[] target = new String[] {null};
     String[] error = new String[] {null};
 
-    int result = nativeReadJunction(asLongPath(path), target, error);
+    path = asLongPath(path);
+    int result = nativeReadJunction(path, target, error);
     if (result == READ_JUNCTION_SUCCESS) {
-      return removeUncPrefixAndUseSlashes(target[0]);
+      error[0] = removeUncPrefixAndUseSlashes(target[0]);
+      System.err.printf(" | DEBUG | readJunc(%s) -> (%s) (%s)%n", path, target[0], error[0]);
+      return error[0];
     } else {
       switch (result) {
         case READ_JUNCTION_DOES_NOT_EXIST:
