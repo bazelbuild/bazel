@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 
 /**
  * Class used for implementing whitelists using package groups.
@@ -82,13 +83,24 @@ public final class Whitelist {
    */
   private static boolean isAvailableFor(
       RuleContext ruleContext, String whitelistName, Label relevantLabel) {
+    PackageSpecificationProvider packageSpecificationProvider =
+        fetchPackageSpecificationProvider(ruleContext, whitelistName);
+    return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
+  }
+
+  public static PackageSpecificationProvider fetchPackageSpecificationProvider(
+      RuleContext ruleContext, String whitelistName) {
     String attributeName = getAttributeNameFromWhitelistName(whitelistName);
     Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL));
     TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName, Mode.HOST);
     PackageSpecificationProvider packageSpecificationProvider =
         packageGroup.getProvider(PackageSpecificationProvider.class);
-    requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
-    return Streams.stream(packageSpecificationProvider.getPackageSpecifications())
+    return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
+  }
+
+  public static boolean isAvailableFor(
+      Iterable<PackageGroupContents> packageGroupContents, Label relevantLabel) {
+    return Streams.stream(packageGroupContents)
         .anyMatch(p -> p.containsPackage(relevantLabel.getPackageIdentifier()));
   }
 
