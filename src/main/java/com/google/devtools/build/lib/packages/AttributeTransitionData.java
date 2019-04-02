@@ -23,15 +23,15 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 // This class is in lib.packages in order to access AttributeMap, which is not available to
 // the lib.analysis.config.transitions package.
 @AutoValue
-public abstract class RuleTransitionData {
+public abstract class AttributeTransitionData {
   /** Returns the {@link AttributeMap} which can be used to create a transition. */
   public abstract AttributeMap attributes();
 
   // TODO(https://github.com/bazelbuild/bazel/issues/7814): Add further data fields as needed by
   // transition factory instances.
 
-  /** Returns a new {@link RuleTransitionData} instance. */
-  public static RuleTransitionData create(AttributeMap attributes) {
-    return new AutoValue_RuleTransitionData(attributes);
+  /** Returns a new {@link AttributeTransitionData} instance. */
+  public static AttributeTransitionData create(AttributeMap attributes) {
+    return new AutoValue_AttributeTransitionData(attributes);
   }
 }

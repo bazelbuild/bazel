@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
@@ -52,7 +52,7 @@ import java.util.List;
  * instead of just labels (see {@link SkylarkAttributesCollection#addAttribute}).
  */
 public class StarlarkAttributeTransitionProvider
-    implements TransitionFactory<RuleTransitionData>, SplitTransitionProviderApi {
+    implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
   StarlarkAttributeTransitionProvider(
@@ -66,7 +66,7 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
-  public SplitTransition create(RuleTransitionData data) {
+  public SplitTransition create(AttributeTransitionData data) {
     AttributeMap attributeMap = data.attributes();
     Preconditions.checkArgument(attributeMap instanceof ConfiguredAttributeMapper);
     return new FunctionSplitTransition(

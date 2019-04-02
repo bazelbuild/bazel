@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
@@ -89,7 +90,6 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -843,7 +843,7 @@ public final class RuleContext extends TargetContext
             attributeDefinition
                 .getTransitionFactory()
                 .create(
-                    RuleTransitionData.create(
+                    AttributeTransitionData.create(
                         ConfiguredAttributeMapper.of(rule, configConditions)));
     BuildOptions fromOptions = getConfiguration().getOptions();
     List<BuildOptions> splitOptions = transition.split(fromOptions);
@@ -1173,7 +1173,7 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
-    TransitionFactory<RuleTransitionData> transitionFactory =
+    TransitionFactory<AttributeTransitionData> transitionFactory =
         attributeDefinition.getTransitionFactory();
     if (mode == Mode.HOST) {
       if (transitionFactory.isSplit()) {

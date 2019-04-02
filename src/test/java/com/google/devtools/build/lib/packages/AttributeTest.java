@@ -283,7 +283,8 @@ public class AttributeTest {
     Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
     ConfigurationTransition transition =
-        attr.getTransitionFactory().create(RuleTransitionData.create(FakeAttributeMapper.empty()));
+        attr.getTransitionFactory()
+            .create(AttributeTransitionData.create(FakeAttributeMapper.empty()));
     assertThat(transition).isEqualTo(splitTransition);
   }
 
@@ -294,7 +295,8 @@ public class AttributeTest {
         attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
     ConfigurationTransition transition =
-        attr.getTransitionFactory().create(RuleTransitionData.create(FakeAttributeMapper.empty()));
+        attr.getTransitionFactory()
+            .create(AttributeTransitionData.create(FakeAttributeMapper.empty()));
     assertThat(transition).isInstanceOf(TestSplitTransition.class);
   }
 
@@ -314,9 +316,9 @@ public class AttributeTest {
   }
 
   private static class TestSplitTransitionProvider
-      implements TransitionFactory<RuleTransitionData> {
+      implements TransitionFactory<AttributeTransitionData> {
     @Override
-    public SplitTransition create(RuleTransitionData data) {
+    public SplitTransition create(AttributeTransitionData data) {
       return new TestSplitTransition();
     }
 
