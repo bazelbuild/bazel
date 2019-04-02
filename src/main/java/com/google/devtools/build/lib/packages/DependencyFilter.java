@@ -43,7 +43,7 @@ public abstract class DependencyFilter
             return true;
           }
 
-          return !attribute.hasHostConfigurationTransition();
+          return !attribute.getTransitionFactory().isHost();
         }
       };
   /** Dependency predicate that excludes implicit dependencies */

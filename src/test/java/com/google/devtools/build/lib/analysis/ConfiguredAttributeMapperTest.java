@@ -183,7 +183,8 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
                 .getAssociatedRule()
                 .getRuleClassObject()
                 .getAttributeByName("tools")
-                .hasHostConfigurationTransition())
+                .getTransitionFactory()
+                .isHost())
         .isTrue();
     assertThat(getHostConfiguration().getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }

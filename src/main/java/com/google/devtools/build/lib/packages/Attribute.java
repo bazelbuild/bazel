@@ -2150,15 +2150,6 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns true if this attribute transitions to the host configuration. See {@link
-   * com.google.devtools.build.lib.analysis.config.HostTransition}.
-   */
-  // TODO(https://github.com/bazelbuild/bazel/issues/7814) Remove this.
-  public boolean hasHostConfigurationTransition() {
-    return transitionFactory.isHost();
-  }
-
-  /**
    * Returns whether the target is required to be executable for label or label
    * list attributes. For other attributes it always returns {@code false}.
    */
