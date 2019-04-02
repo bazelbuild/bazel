@@ -38,6 +38,17 @@ public final class HiddenConversions {
     return j$.time.LocalDate.of(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
   }
 
+  public static void registerAppUsageLimitObserver(
+      UsageStatsManager receiver,
+      int observerId,
+      String[] observedEntities,
+      j$.time.Duration timeLimit,
+      j$.time.Duration timeUsed,
+      PendingIntent callbackIntent) {
+    receiver.registerAppUsageLimitObserver(
+        observerId, observedEntities, toDuration(timeLimit), toDuration(timeUsed), callbackIntent);
+  }
+
   public static void registerUsageSessionObserver(
       UsageStatsManager receiver,
       int sessionObserverId,
