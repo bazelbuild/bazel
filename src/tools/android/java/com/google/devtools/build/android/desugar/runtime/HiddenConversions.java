@@ -13,14 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar.runtime;
 
+import android.app.PendingIntent;
+import android.app.usage.UsageStatsManager;
+import java.util.concurrent.TimeUnit;
+
 /**
- * Conversions for hidden Android APIs that use desugared primitives (see b/79121791).  These are
+ * Conversions for hidden Android APIs that use desugared primitives (see b/79121791). These are
  * grouped into a separate class to simplify building with them, since they use APIs that are
  * omitted in the android.jar.
  */
 @SuppressWarnings("AndroidApiChecker")
 public final class HiddenConversions {
-  private HiddenConversions() {}  // static methods only
+  private HiddenConversions() {} // static methods only
 
   public static j$.time.LocalDate getLocalDate(
       android.hardware.display.AmbientBrightnessDayStats stats) {
@@ -32,5 +36,48 @@ public final class HiddenConversions {
       return null;
     }
     return j$.time.LocalDate.of(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
+  }
+
+  public static void registerUsageSessionObserver(
+      UsageStatsManager receiver,
+      int sessionObserverId,
+      String[] observedEntities,
+      j$.time.Duration timeLimit,
+      j$.time.Duration sessionThresholdTime,
+      PendingIntent limitReachedCallbackIntent,
+      PendingIntent sessionEndCallbackIntent) {
+    receiver.registerUsageSessionObserver(
+        sessionObserverId,
+        observedEntities,
+        toDuration(timeLimit),
+        toDuration(sessionThresholdTime),
+        limitReachedCallbackIntent,
+        sessionEndCallbackIntent);
+  }
+
+  public static void registerUsageSessionObserver(
+      UsageStatsManager receiver,
+      int sessionObserverId,
+      String[] observedEntities,
+      long timeLimit,
+      TimeUnit timeLimitUnit,
+      long sessionThreshold,
+      TimeUnit sessionThresholdUnit,
+      PendingIntent limitReachedCallbackIntent,
+      PendingIntent sessionEndCallbackIntent) {
+    receiver.registerUsageSessionObserver(
+        sessionObserverId,
+        observedEntities,
+        java.time.Duration.ofMillis(timeLimitUnit.toMillis(timeLimit)),
+        java.time.Duration.ofMillis(sessionThresholdUnit.toMillis(sessionThreshold)),
+        limitReachedCallbackIntent,
+        sessionEndCallbackIntent);
+  }
+
+  private static java.time.Duration toDuration(j$.time.Duration duration) {
+    if (duration == null) {
+      return null;
+    }
+    return java.time.Duration.ofSeconds(duration.getSeconds(), duration.getNano());
   }
 }
