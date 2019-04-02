@@ -94,7 +94,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites(
                 "package_configuration", Mode.HOST, JavaPackageConfigurationProvider.class));
 
-    JavaConfiguration configuration = ruleContext.getFragment(JavaConfiguration.class);
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(
             ruleContext.getLabel(),
@@ -103,7 +102,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             javacSupportsWorkers,
             bootclasspath,
             extclasspath,
-            configuration.getDefaultJavacFlags(),
             javac,
             tools,
             javabuilder,
