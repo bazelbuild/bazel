@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     name = "cc_common",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
+    FileT extends FileApi,
     CcToolchainProviderT extends CcToolchainProviderApi,
     FeatureConfigurationT extends FeatureConfigurationApi,
     CompilationContextT extends CcCompilationContextApi,
@@ -576,11 +577,19 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = SkylarkList.class)
+            type = SkylarkList.class),
+        @Param(
+            name = "additional_inputs",
+            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
       })
   LinkingContextT createCcLinkingInfo(
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
+      SkylarkList<FileT> nonCodeInputs,
       Location location,
       StarlarkContext context)
       throws EvalException, InterruptedException;

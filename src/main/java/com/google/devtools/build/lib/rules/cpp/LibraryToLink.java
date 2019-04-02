@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
 import java.util.Collection;
@@ -290,6 +291,11 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     @Override
     public SkylarkList<LibraryToLinkApi> getSkylarkLibrariesToLink() {
       return SkylarkList.createImmutable(libraries.toList());
+    }
+
+    @Override
+    public SkylarkNestedSet getSkylarkNonCodeInputs() {
+      return SkylarkNestedSet.of(Artifact.class, nonCodeInputs);
     }
 
     public NestedSet<LinkOptions> getUserLinkFlags() {

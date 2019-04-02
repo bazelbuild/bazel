@@ -74,6 +74,7 @@ import javax.annotation.Nullable;
 /** A module that contains Skylark utilities for C++ support. */
 public class CcModule
     implements CcModuleApi<
+        Artifact,
         CcToolchainProvider,
         FeatureConfigurationForStarlark,
         CcCompilationContext,
@@ -517,6 +518,7 @@ public class CcModule
   public CcLinkingContext createCcLinkingInfo(
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
+      SkylarkList<Artifact> nonCodeInputs,
       Location location,
       StarlarkContext context)
       throws EvalException {
@@ -541,6 +543,8 @@ public class CcModule
                         userLinkFlags.getImmutableList(),
                         ((BazelStarlarkContext) context).getSymbolGenerator()))));
       }
+      ccLinkingContextBuilder.addNonCodeInputs(
+          NestedSetBuilder.wrap(Order.LINK_ORDER, nonCodeInputs));
       return ccLinkingContextBuilder.build();
     }
 
