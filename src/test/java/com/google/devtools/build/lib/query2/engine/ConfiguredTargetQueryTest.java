@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -92,13 +93,15 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
                 "rule_with_transitions",
                 attr("patch_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(new TestArgPatchTransition("SET BY PATCH")),
+                    .cfg(TransitionFactories.of(new TestArgPatchTransition("SET BY PATCH"))),
                 attr("split_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(new TestArgSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2")),
+                    .cfg(
+                        TransitionFactories.of(
+                            new TestArgSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2"))),
                 attr("patch_dep_list", LABEL_LIST)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(new TestArgPatchTransition("SET BY PATCH 2")));
+                    .cfg(TransitionFactories.of(new TestArgPatchTransition("SET BY PATCH 2"))));
     MockRule noAttributeRule = () -> MockRule.define("no_attribute_rule");
 
     helper.useRuleClassProvider(

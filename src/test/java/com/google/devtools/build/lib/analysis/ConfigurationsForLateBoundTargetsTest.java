@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -67,7 +68,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
                                 .value(
                                     Attribute.LateBoundDefault.fromConstantForTesting(
                                         Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
-                                .cfg(CHANGE_FOO_FLAG_TRANSITION))
+                                .cfg(TransitionFactories.of(CHANGE_FOO_FLAG_TRANSITION)))
                         .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class);
                   });
 

@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -133,7 +134,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                         .add(
                             attr("deps", LABEL_LIST)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
-                                .cfg(attributePatchTransition))
+                                .cfg(TransitionFactories.of(attributePatchTransition)))
                         .add(
                             attr(RESOLVED_TOOLCHAINS_ATTR, LABEL_LIST)
                                 .nonconfigurable("Used in toolchain resolution")

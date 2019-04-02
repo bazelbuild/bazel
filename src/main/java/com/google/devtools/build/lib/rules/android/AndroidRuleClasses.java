@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -573,7 +574,7 @@ public final class AndroidRuleClasses {
           .override(
               builder
                   .copy("deps")
-                  .cfg(ANDROID_SPLIT_TRANSITION)
+                  .cfg(TransitionFactories.of(ANDROID_SPLIT_TRANSITION))
                   .allowedRuleClasses(ALLOWED_DEPENDENCIES)
                   .allowedFileTypes()
                   .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
@@ -841,7 +842,7 @@ public final class AndroidRuleClasses {
           // We need the C++ toolchain for every sub-configuration to get the correct linker.
           .add(
               attr("$cc_toolchain_split", LABEL)
-                  .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
+                  .cfg(TransitionFactories.of(ANDROID_SPLIT_TRANSITION))
                   .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_values) -->
           A dictionary of values to be overridden in the manifest. Any instance of ${name} in the
