@@ -125,7 +125,8 @@ def find_vc_path(repository_ctx):
         return vc_dir
 
     # 3. User might have purged all environment variables. If so, look for Visual C++ in registry.
-    # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019.)
+    # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019 Preview.)
+    # TODO(laszlocsomor): check if "16.0" also has this registry key, after VS 2019 is released.
     _auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
