@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -269,9 +269,9 @@ public class CircularDependencyTest extends BuildViewTestCase {
                   .mandatory()
                   .allowedFileTypes()
                   .cfg(
-                      new TransitionFactory<RuleTransitionData>() {
+                      new TransitionFactory<AttributeTransitionData>() {
                         @Override
-                        public SplitTransition create(RuleTransitionData data) {
+                        public SplitTransition create(AttributeTransitionData data) {
                           return (BuildOptions options) -> {
                             String define = data.attributes().get("define", STRING);
                             BuildOptions newOptions = options.clone();
