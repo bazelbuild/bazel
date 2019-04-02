@@ -76,11 +76,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
   }
 
   @Override
-  public String getMockCrosstoolVersion() {
-    return "gcc-4.4.0-glibc-2.3.6";
-  }
-
-  @Override
   public Label getMockCrosstoolLabel() {
     return Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:toolchain");
   }

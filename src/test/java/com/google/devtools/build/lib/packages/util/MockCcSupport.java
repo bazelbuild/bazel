@@ -27,9 +27,6 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.protobuf.TextFormat;
 import java.io.IOException;
 
 /**
@@ -56,9 +53,6 @@ public abstract class MockCcSupport {
 
   /** This feature will prevent bazel from patching the crosstool. */
   public static final String NO_LEGACY_FEATURES_FEATURE = "feature { name: 'no_legacy_features' }";
-
-  public static final String SUPPORTS_DYNAMIC_LINKER_FEATURE =
-      "feature { name: '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + "' enabled: true}";
 
   public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE =
       "feature { name: '" + CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES + "' enabled: true}";
@@ -89,9 +83,6 @@ public abstract class MockCcSupport {
 
   public static final String EMPTY_EXECUTABLE_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
-
-  public static final String STATIC_LINK_CPP_RUNTIMES_FEATURE =
-      "feature { name: 'static_link_cpp_runtimes' enabled: true }";
 
   public static final String EMPTY_CC_TOOLCHAIN =
       Joiner.on("\n")
@@ -162,42 +153,12 @@ public abstract class MockCcSupport {
         }
       };
 
-  public static String mergeCrosstoolConfig(String original, CToolchain toolchain)
-      throws TextFormat.ParseException {
-    CrosstoolConfig.CrosstoolRelease.Builder builder =
-        CrosstoolConfig.CrosstoolRelease.newBuilder();
-    TextFormat.merge(original, builder);
-    for (CToolchain.Builder toolchainBuilder : builder.getToolchainBuilderList()) {
-      toolchainBuilder.mergeFrom(toolchain);
-    }
-    return TextFormat.printToString(builder.build());
-  }
-
   public abstract Predicate<String> labelNameFilter();
 
   /**
    * Setup the support for building C/C++.
    */
   public abstract void setup(MockToolsConfig config) throws IOException;
-
-  /**
-   * Creates a crosstool package by merging {@code toolchain} with the default mock CROSSTOOL file.
-   *
-   * @param partialToolchain A string representation of a CToolchain protocol buffer; note that this
-   *     is allowed to be a partial buffer (required fields may be omitted).
-   */
-  public void setupCrosstool(MockToolsConfig config, String... partialToolchain)
-      throws IOException {
-    String toolchainString = Joiner.on("\n").join(partialToolchain);
-
-    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    TextFormat.merge(toolchainString, toolchainBuilder);
-    String crosstoolFile =
-        mergeCrosstoolConfig(readCrosstoolFile(), toolchainBuilder.buildPartial());
-    createCrosstoolPackage(
-        config,
-        crosstoolFile);
-  }
 
   public void setupCcToolchainConfigForCpu(MockToolsConfig config, String... cpus)
       throws IOException {
@@ -210,7 +171,7 @@ public abstract class MockCcSupport {
       for (String cpu : cpus) {
         toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
       }
-      new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+      new Crosstool(config, crosstoolTop)
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(getCrosstoolArchs())
           .setToolchainConfigs(toolchainConfigBuilder.build())
@@ -229,26 +190,10 @@ public abstract class MockCcSupport {
     if (config.isRealFileSystem()) {
       config.linkTools(getRealFilesystemTools(crosstoolTop));
     } else {
-      new Crosstool(config, crosstoolTop, /* disableCrosstool= */ true)
+      new Crosstool(config, crosstoolTop)
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(getCrosstoolArchs())
           .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
-          .setSupportsHeaderParsing(true)
-          .write();
-    }
-  }
-
-  protected void createCrosstoolPackage(
-      MockToolsConfig config,
-      String crosstoolFile)
-      throws IOException {
-    String crosstoolTop = getCrosstoolTopPathForConfig(config);
-    if (config.isRealFileSystem()) {
-      config.linkTools(getRealFilesystemTools(crosstoolTop));
-    } else {
-      new Crosstool(config, crosstoolTop, /* disableCrosstool= */ false)
-          .setCrosstoolFile(getMockCrosstoolVersion(), crosstoolFile)
-          .setSupportedArchs(getCrosstoolArchs())
           .setSupportsHeaderParsing(true)
           .write();
     }
@@ -275,17 +220,10 @@ public abstract class MockCcSupport {
     }
   }
 
-  protected String readCrosstoolFile() throws IOException {
-    return ResourceLoader.readFromResources(
-        "com/google/devtools/build/lib/analysis/mock/MOCK_CROSSTOOL");
-  }
-
   protected String readCcToolchainConfigFile() throws IOException {
     return ResourceLoader.readFromResources(
         "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl");
   }
-
-  public abstract String getMockCrosstoolVersion();
 
   public abstract Label getMockCrosstoolLabel();
 

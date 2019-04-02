@@ -20,15 +20,11 @@ import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -327,23 +323,14 @@ public final class Crosstool {
   private final MockToolsConfig config;
 
   private final String crosstoolTop;
-  private String version;
-  private String crosstoolFileContents;
   private String ccToolchainConfigFileContents;
   private ImmutableList<String> archs;
   private boolean supportsHeaderParsing;
   private ImmutableList<CcToolchainConfig> ccToolchainConfigList = ImmutableList.of();
-  private final boolean disableCrosstool;
-  Crosstool(MockToolsConfig config, String crosstoolTop, boolean disableCrosstool) {
+
+  Crosstool(MockToolsConfig config, String crosstoolTop) {
     this.config = config;
     this.crosstoolTop = crosstoolTop;
-    this.disableCrosstool = disableCrosstool;
-  }
-
-  public Crosstool setCrosstoolFile(String version, String crosstoolFileContents) {
-    this.version = version;
-    this.crosstoolFileContents = crosstoolFileContents;
-    return this;
   }
 
   public Crosstool setCcToolchainFile(String ccToolchainConfigFileContents) {
@@ -385,42 +372,10 @@ public final class Crosstool {
             String.format("filegroup(name = '%s', srcs = [':everything-multilib'])\n", archTarget));
       }
     }
-    ImmutableList<CcToolchainConfig> ccToolchainConfigs;
-    if (disableCrosstool) {
-      ccToolchainConfigs = ccToolchainConfigList;
-    } else {
-      CrosstoolConfig.CrosstoolRelease.Builder configBuilder =
-          CrosstoolConfig.CrosstoolRelease.newBuilder();
-      TextFormat.merge(crosstoolFileContents, configBuilder);
-      List<CToolchain> toolchainList = configBuilder.build().getToolchainList();
-      ImmutableList.Builder<CcToolchainConfig> toolchainConfigInfoBuilder = ImmutableList.builder();
-      for (CToolchain toolchain : toolchainList) {
-        toolchainConfigInfoBuilder.add(
-            new CcToolchainConfig(
-                toolchain.getTargetCpu(),
-                toolchain.getCompiler(),
-                toolchain.getToolchainIdentifier(),
-                toolchain.getHostSystemName(),
-                toolchain.getTargetSystemName(),
-                toolchain.getAbiVersion(),
-                toolchain.getAbiLibcVersion(),
-                toolchain.getTargetLibc(),
-                toolchain.getBuiltinSysroot(),
-                toolchain.getCcTargetOs(),
-                toolchain.getFeatureList().stream()
-                    .map(feature -> feature.getName())
-                    .collect(ImmutableList.toImmutableList()),
-                /* actionConfigs= */ ImmutableList.of(),
-                /* artifactNamePatterns= */ ImmutableList.of(),
-                /* toolPaths= */ ImmutableList.of(),
-                /* cxxBuiltinIncludeDirectories= */ ImmutableList.of(),
-                /* makeVariables= */ ImmutableList.of()));
-      }
-      ccToolchainConfigs = toolchainConfigInfoBuilder.build();
-    }
+
     Set<String> seenCpus = new LinkedHashSet<>();
     StringBuilder compilerMap = new StringBuilder();
-    for (CcToolchainConfig toolchain : ccToolchainConfigs) {
+    for (CcToolchainConfig toolchain : ccToolchainConfigList) {
       String staticRuntimeLabel =
           toolchain.hasStaticLinkCppRuntimesFeature()
               ? "mock-static-runtimes-target-for-" + toolchain.getToolchainIdentifier()
@@ -475,11 +430,11 @@ public final class Crosstool {
                   "  toolchain_type = ':toolchain_type',",
                   "  toolchain = ':cc-compiler-" + suffix + "',",
                   ")",
-                  disableCrosstool ? toolchain.getCcToolchainConfigRule() : "",
+                  toolchain.getCcToolchainConfigRule(),
                   "cc_toolchain(",
                   "  name = 'cc-compiler-" + suffix + "',",
                   "  toolchain_identifier = '" + toolchain.getToolchainIdentifier() + "',",
-                  disableCrosstool ? "  toolchain_config = ':" + suffix + "_config'," : "",
+                  "  toolchain_config = ':" + suffix + "_config',",
                   "  output_licenses = ['unencumbered'],",
                   "  module_map = 'crosstool.cppmap',",
                   "  ar_files = 'ar-" + toolchain.getTargetCpu() + "',",
@@ -508,12 +463,12 @@ public final class Crosstool {
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
-                disableCrosstool ? "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')" : "",
+                "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
                 "toolchain_type(name = 'toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "alias(name = 'toolchain', actual = 'everything')",
                 "filegroup(name = 'everything-multilib',",
-                "          srcs = glob(['" + version + "/**/*'],",
+                "          srcs = glob(['mock_version/**/*'],",
                 "              exclude_directories = 1),",
                 "          output_licenses = ['unencumbered'])",
                 "",
@@ -534,24 +489,20 @@ public final class Crosstool {
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')");
 
-    config.create(crosstoolTop + "/" + version + "/x86/bin/gcc");
-    config.create(crosstoolTop + "/" + version + "/x86/bin/ld");
+    config.create(crosstoolTop + "/mock_version/x86/bin/gcc");
+    config.create(crosstoolTop + "/mock_version/x86/bin/ld");
     config.overwrite(crosstoolTop + "/BUILD", build);
-    if (disableCrosstool) {
-      config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
-      config.overwrite(
-          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
-          ResourceLoader.readFromResources(
-              TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
-      config.overwrite(
-          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
-          ResourceLoader.readFromResources(
-              TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
-      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
-      config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
-    } else {
-      config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
-    }
+    config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+    config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
   }
 

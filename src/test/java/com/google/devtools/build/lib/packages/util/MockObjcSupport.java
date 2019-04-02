@@ -202,7 +202,7 @@ public final class MockObjcSupport {
         toolchainConfigBuilder.add(darwinX86_64().build());
       }
 
-      new Crosstool(config, DEFAULT_OSX_CROSSTOOL_DIR, /* disableCrosstool= */ true)
+      new Crosstool(config, DEFAULT_OSX_CROSSTOOL_DIR)
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(toolchainConfigBuilder.build())
@@ -218,7 +218,7 @@ public final class MockObjcSupport {
       }
       config.linkTools(DEFAULT_OSX_CROSSTOOL_DIR);
     } else {
-      new Crosstool(config, DEFAULT_OSX_CROSSTOOL_DIR, /* disableCrosstool= */ true)
+      new Crosstool(config, DEFAULT_OSX_CROSSTOOL_DIR)
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(getDefaultCcToolchainConfigs())
