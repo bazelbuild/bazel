@@ -52,11 +52,9 @@ java_library(
     srcs = ["LibraryInterface.java"],
 )
 
-java_library(
+java_import(
     name = "testdata_lib_LibraryModuleInfo",
-    resources = ["module-info.class"],
-    resource_strip_prefix = package_name(),
-    srcs = ["LibraryModuleInfo.java"],
+    jars = ["LibraryModuleInfo.jar"],
 )
 
 java_library(
