@@ -143,6 +143,36 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
+  public void packageNameCanHaveHyphenIfImports() throws Exception {
+    scratchConfiguredTarget("pkg-hyphenated", "foo",
+            ruleName + "(",
+            "    name = 'foo',",
+            "    srcs = ['foo.py'],",
+            "    imports = ['.'],",
+            ")");
+    assertNoEvents();
+  }
+
+  @Test
+  public void depsPackageNameCanHaveHyphenIfImports() throws Exception {
+    scratch.file(
+            "pkg-hyphenated/BUILD", //
+            "py_library(",
+            "    name = 'bar',",
+            "    srcs = ['bar.py'],",
+            "    imports = ['.']",
+            ")");
+    scratchConfiguredTarget("otherpkg", "foo",
+            ruleName + "(",
+            "    name = 'foo',",
+            "    srcs = ['foo.py'],",
+            "    deps = ['//pkg-hyphenated:bar'],",
+            ")");
+    assertNoEvents();
+  }
+
+
+  @Test
   public void producesBothModernAndLegacyProviders_WithoutIncompatibleFlag() throws Exception {
     useConfiguration("--incompatible_disallow_legacy_py_provider=false");
     scratch.file(

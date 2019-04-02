@@ -792,11 +792,12 @@ public final class PyCommon {
    */
   public List<Artifact> validateSrcs() {
     List<Artifact> sourceFiles = new ArrayList<>();
+    boolean emptyImports = getImports().isEmpty();
     // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
     for (TransitiveInfoCollection src :
         ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class)) {
       // Make sure that none of the sources contain hyphens.
-      if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
+      if (Util.containsHyphen(src.getLabel().getPackageFragment()) && emptyImports) {
         ruleContext.attributeError("srcs",
             src.getLabel() + ": paths to Python packages may not contain '-'");
       }
@@ -819,7 +820,8 @@ public final class PyCommon {
    * Checks that the package name of this Python rule does not contain a '-'.
    */
   void validatePackageName() {
-    if (Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
+    if (Util.containsHyphen(ruleContext.getLabel().getPackageFragment()) &&
+            getImports().isEmpty()) {
       ruleContext.ruleError("paths to Python packages may not contain '-'");
     }
   }
