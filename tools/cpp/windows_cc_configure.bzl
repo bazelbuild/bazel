@@ -94,27 +94,27 @@ def find_vc_path(repository_ctx):
                                                   "start looking for the latest Visual C++ installed.")
 
     # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
-    # vcvarsqueryregistry.bat to detect VC++.
+    # vcvarsqueryregistry.bat / VsDevCmd.bat to detect VC++.
     _auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
                                                   "eg. VS140COMNTOOLS")
-    for vscommontools_env in [
-        "VS160COMNTOOLS",
-        "VS150COMNTOOLS",
-        "VS140COMNTOOLS",
-        "VS120COMNTOOLS",
-        "VS110COMNTOOLS",
-        "VS100COMNTOOLS",
-        "VS90COMNTOOLS",
+    for vscommontools_env, script in [
+        ("VS160COMNTOOLS", "VsDevCmd.bat"),
+        ("VS150COMNTOOLS", "VsDevCmd.bat"),
+        ("VS140COMNTOOLS", "vcvarsqueryregistry.bat"),
+        ("VS120COMNTOOLS", "vcvarsqueryregistry.bat"),
+        ("VS110COMNTOOLS", "vcvarsqueryregistry.bat"),
+        ("VS100COMNTOOLS", "vcvarsqueryregistry.bat"),
+        ("VS90COMNTOOLS", "vcvarsqueryregistry.bat"),
     ]:
         if vscommontools_env not in repository_ctx.os.environ:
             continue
-        vcvarsqueryregistry = repository_ctx.os.environ[vscommontools_env] + "\\vcvarsqueryregistry.bat"
-        if not repository_ctx.path(vcvarsqueryregistry).exists:
+        script = repository_ctx.os.environ[vscommontools_env] + "\\" + script
+        if not repository_ctx.path(script).exists:
             continue
         repository_ctx.file(
             "get_vc_dir.bat",
             "@echo off\n" +
-            "call \"" + vcvarsqueryregistry + "\"\n" +
+            "call \"" + script + "\"\n" +
             "echo %VCINSTALLDIR%",
             True,
         )
@@ -124,13 +124,13 @@ def find_vc_path(repository_ctx):
         _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 3. User might clean up all environment variables, if so looking for Visual C++ through registry.
-    # Works for all VS versions, including Visual Studio 2017.
+    # 3. User might have purged all environment variables. If so, look for Visual C++ in registry.
+    # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019.)
     _auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
     for key, suffix in (("VC7", ""), ("VS7", "\\VC")):
-        for version in ["16.0", "15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
+        for version in ["15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
             if vc_dir:
                 break
             result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\" + key, "/v", version])
@@ -149,6 +149,7 @@ def find_vc_path(repository_ctx):
     _auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     program_files_dir = get_env_var(repository_ctx, "PROGRAMFILES(X86)", default = "C:\\Program Files (x86)", enable_warning = True)
     for path in [
+        "Microsoft Visual Studio\\2019\\Preview\\VC",
         "Microsoft Visual Studio\\2019\\BuildTools\\VC",
         "Microsoft Visual Studio\\2019\\Community\\VC",
         "Microsoft Visual Studio\\2019\\Professional\\VC",
