@@ -57,7 +57,7 @@ public abstract class FileSystem {
    */
   protected static final class NotASymlinkException extends IOException {
     public NotASymlinkException(Path path) {
-      super(path.toString());
+      super(path + " is not a symlink");
     }
   }
 

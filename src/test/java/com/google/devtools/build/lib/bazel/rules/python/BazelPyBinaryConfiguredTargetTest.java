@@ -94,7 +94,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         ")");
     String pythonTop =
         analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
-    useConfiguration("--experimental_use_python_toolchains=false", "--python_top=" + pythonTop);
+    useConfiguration("--incompatible_use_python_toolchains=false", "--python_top=" + pythonTop);
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("/system/python2");
   }
@@ -107,7 +107,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'pybin',",
         "    srcs = ['pybin.py'],",
         ")");
-    useConfiguration("--experimental_use_python_toolchains=false", "--python_path=/system/python2");
+    useConfiguration("--incompatible_use_python_toolchains=false", "--python_path=/system/python2");
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("/system/python2");
   }
@@ -120,7 +120,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'pybin',",
         "    srcs = ['pybin.py'],",
         ")");
-    useConfiguration("--experimental_use_python_toolchains=false");
+    useConfiguration("--incompatible_use_python_toolchains=false");
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("python");
   }
@@ -141,7 +141,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     String pythonTop =
         analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
     useConfiguration(
-        "--experimental_use_python_toolchains=false",
+        "--incompatible_use_python_toolchains=false",
         "--python_top=" + pythonTop,
         "--python_path=/better/not/be/this/one");
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
@@ -205,7 +205,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    python_version = 'PY3',",
         ")");
     useConfiguration(
-        "--experimental_use_python_toolchains=true",
+        "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain");
 
     String py2Path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
@@ -225,7 +225,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    python_version = 'PY2',",
         ")");
     useConfiguration(
-        "--experimental_use_python_toolchains=true",
+        "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain_for_py2_only");
 
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
@@ -237,24 +237,14 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     defineToolchains();
     scratch.file(
         "pkg/BUILD",
-        "py_runtime(",
-        "    name = 'dont_use_this_runtime',",
-        "    interpreter_path = '/dont/use/me',",
-        "    python_version = 'PY2',",
-        ")",
         "py_binary(",
         "    name = 'py2_bin',",
         "    srcs = ['py2_bin.py'],",
         "    python_version = 'PY2',",
         ")");
-    String pythonTop =
-        analysisMock
-            .pySupport()
-            .createPythonTopEntryPoint(mockToolsConfig, "//pkg:dont_use_this_runtime");
     useConfiguration(
-        "--experimental_use_python_toolchains=true",
+        "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain",
-        "--python_top=" + pythonTop,
         "--python_path=/better/not/be/this/one");
 
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
@@ -273,7 +263,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    python_version = 'PY3',",
         ")");
     useConfiguration(
-        "--experimental_use_python_toolchains=true",
+        "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain_for_py2_only");
 
     getConfiguredTarget("//pkg:py3_bin");
@@ -324,7 +314,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    python_version = 'PY2',",
         ")");
     useConfiguration(
-        "--experimental_use_python_toolchains=true",
+        "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:custom_toolchain");
     getConfiguredTarget("//pkg:pybin");
   }

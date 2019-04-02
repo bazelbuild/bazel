@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -63,6 +65,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -330,6 +333,20 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public List<Map.Entry<String, String>> commandLineBuildVariables;
 
     @Option(
+        name = "collapse_duplicate_defines",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help =
+            "When enabled, redundant --defines will be removed early in the build. This avoids"
+                + " unnecessary loss of the analysis cache for certain types of equivalent"
+                + " builds.")
+    public boolean collapseDuplicateDefines;
+
+    @Option(
       name = "cpu",
       defaultValue = "",
       converter = AutoCpuConverter.class,
@@ -568,27 +585,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean collectCodeCoverage;
 
     @Option(
-        name = "incompatible_java_coverage",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        oldName = "experimental_java_coverage",
-        help =
-            "If true Bazel will use a new way of computing code coverage for java targets. "
-                + "It allows collecting  coverage for Starlark JVM rules and java_import. "
-                + "Only includes JVM files in the coverage report (e.g. dismisses data files). "
-                + "The report includes the actual path of the files relative to the workspace root "
-                + "instead of the package path (e.g. src/com/google/Action.java instead of "
-                + "com/google/Action.java.")
-    public boolean experimentalJavaCoverage;
-
-    @Option(
         name = "incompatible_cc_coverage",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
           OptionEffectTag.CHANGES_INPUTS,
@@ -957,7 +955,30 @@ public class BuildConfiguration implements BuildConfigurationApi {
       return host;
     }
 
+    @Override
+    public Options getNormalized() {
+      Options result = (Options) super.getNormalized();
 
+      if (collapseDuplicateDefines) {
+        LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : result.commandLineBuildVariables) {
+          // If the same --define flag is passed multiple times we keep the last value.
+          flagValueByName.put(entry.getKey(), entry.getValue());
+        }
+
+        // This check is an optimization to avoid creating a new list if the normalization was a
+        // no-op.
+        if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
+          result.commandLineBuildVariables =
+              flagValueByName.entrySet().stream()
+                  // The entries in the transformed list must be serializable.
+                  .map(SimpleEntry::new)
+                  .collect(toImmutableList());
+        }
+      }
+
+      return result;
+    }
   }
 
   private final String checksum;
@@ -1699,10 +1720,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.collectCodeCoverage;
   }
 
-  public boolean isExperimentalJavaCoverage() {
-    return options.experimentalJavaCoverage;
-  }
-
   public boolean useGcovCoverage() {
     return options.useGcovCoverage;
   }
@@ -1807,7 +1824,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.hostCpu;
   }
 
-  public boolean runfilesEnabled() {
+  public static boolean runfilesEnabled(Options options) {
     switch (options.enableRunfiles) {
       case YES:
         return true;
@@ -1816,6 +1833,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
       default:
         return OS.getCurrent() != OS.WINDOWS;
     }
+  }
+
+  public boolean runfilesEnabled() {
+    return runfilesEnabled(this.options);
   }
 
   /**

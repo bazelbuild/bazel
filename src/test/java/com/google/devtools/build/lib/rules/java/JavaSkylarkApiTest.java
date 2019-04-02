@@ -196,7 +196,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("must point to a Java runtime");
+    assertContainsEvent("pass a java_common.JavaRuntimeInfo instead of a configured target");
   }
 
   @Test
@@ -2245,7 +2245,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   @Test
   public void testConfiguredTargetHostJavabase() throws Exception {
     writeBuildFileForJavaToolchain();
-    setSkylarkSemanticsOptions("--incompatible_use_toolchain_providers_in_java_common=true");
 
     scratch.file(
         "a/BUILD",
@@ -2279,13 +2278,12 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("java_common.JavaRuntimeInfo");
+    assertContainsEvent("pass a java_common.JavaRuntimeInfo instead of a configured target");
   }
 
   @Test
   public void testConfiguredTargetToolchain() throws Exception {
     writeBuildFileForJavaToolchain();
-    setSkylarkSemanticsOptions("--incompatible_use_toolchain_providers_in_java_common=true");
 
     scratch.file(
         "a/BUILD",
@@ -2319,7 +2317,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("java_common.JavaToolchainInfo");
+    assertContainsEvent("pass a java_common.JavaToolchainInfo instead of a configured target");
   }
 
   @Test
@@ -2398,14 +2396,14 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testIsToolchainResolutionEnabled_disabled() throws Exception {
-    useConfiguration("--experimental_use_toolchain_resolution_for_java_rules=false");
+    useConfiguration("--incompatible_use_toolchain_resolution_for_java_rules=false");
 
     assertThat(toolchainResolutionEnabled()).isFalse();
   }
 
   @Test
   public void testIsToolchainResolutionEnabled_enabled() throws Exception {
-    useConfiguration("--experimental_use_toolchain_resolution_for_java_rules");
+    useConfiguration("--incompatible_use_toolchain_resolution_for_java_rules");
 
     assertThat(toolchainResolutionEnabled()).isTrue();
   }

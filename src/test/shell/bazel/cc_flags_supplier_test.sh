@@ -93,7 +93,6 @@ cc_toolchain(
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
     linker_files = ":empty",
     objcopy_files = ":empty",

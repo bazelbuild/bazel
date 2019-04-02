@@ -105,7 +105,7 @@ public class PythonOptions extends FragmentOptions {
    */
   @Option(
       name = "incompatible_py3_is_default",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -125,7 +125,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_py2_outputs_are_suffixed",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {
@@ -230,11 +230,14 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatibleDisallowLegacyPyProvider;
 
   @Option(
-      // TODO(brandjon): Rename to --incompatible_use_python_toolchains when ready to make available
-      name = "experimental_use_python_toolchains",
+      name = "incompatible_use_python_toolchains",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
       help =
           "If set to true, executable native Python rules will use the Python runtime specified by "
               + "the Python toolchain, rather than the runtime given by legacy flags like "

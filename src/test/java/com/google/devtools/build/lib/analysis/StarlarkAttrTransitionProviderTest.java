@@ -113,11 +113,38 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTargetNotInWhitelist() throws Exception {
-    writeBasicTestFiles();
+  public void testTargetAndRuleNotInWhitelist() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    writeWhitelistFile();
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+    scratch.file(
+        "test/not_whitelisted/my_rule.bzl",
+        "def transition_func(settings, attr):",
+        "  return {",
+        "      't0': {'//command_line_option:cpu': 'k8'},",
+        "      't1': {'//command_line_option:cpu': 'armeabi-v7a'},",
+        "  }",
+        "my_transition = transition(implementation = transition_func, inputs = [],",
+        "  outputs = ['//command_line_option:cpu'])",
+        "def impl(ctx): ",
+        "  return struct(",
+        "    split_attr_deps = ctx.split_attr.deps,",
+        "    split_attr_dep = ctx.split_attr.dep,",
+        "    k8_deps = ctx.split_attr.deps.get('k8', None),",
+        "    attr_deps = ctx.attr.deps,",
+        "    attr_dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(cfg = my_transition),",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
     scratch.file(
         "test/not_whitelisted/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "load('//test/not_whitelisted:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main')",
         "cc_binary(name = 'main', srcs = ['main.c'])");
 

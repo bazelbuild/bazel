@@ -354,7 +354,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       xFile.readSymbolicLink(); // not a link
       fail();
     } catch (NotASymlinkException e) {
-      assertThat(e).hasMessageThat().isEqualTo(xFile.toString());
+      assertThat(e).hasMessageThat().isEqualTo(xFile.toString() + " is not a symlink");
     }
 
     try {

@@ -42,7 +42,7 @@ public final class BazelPyTestRule implements RuleDefinition {
         .cfg(PyRuleClasses.VERSION_TRANSITION)
         .add(
             attr("$zipper", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/zip:zipper")))
         .override(
@@ -57,7 +57,7 @@ public final class BazelPyTestRule implements RuleDefinition {
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .add(
             attr("$launcher", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(env.getToolsLabel("//tools/launcher:launcher")))
         .build();
   }

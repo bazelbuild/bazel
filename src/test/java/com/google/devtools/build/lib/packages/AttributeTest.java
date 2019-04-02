@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -97,10 +98,12 @@ public class AttributeTest {
 
   @Test
   public void testDoublePropertySet() {
-    Attribute.Builder<String> builder = attr("x", STRING).mandatory()
-        .cfg(HostTransition.INSTANCE)
-        .undocumented("")
-        .value("y");
+    Attribute.Builder<String> builder =
+        attr("x", STRING)
+            .mandatory()
+            .cfg(HostTransition.createFactory())
+            .undocumented("")
+            .value("y");
     try {
       builder.mandatory();
       fail();
@@ -108,7 +111,7 @@ public class AttributeTest {
       // expected
     }
     try {
-      builder.cfg(HostTransition.INSTANCE);
+      builder.cfg(HostTransition.createFactory());
       fail();
     } catch (IllegalStateException expected) {
       // expected
@@ -279,7 +282,9 @@ public class AttributeTest {
     TestSplitTransition splitTransition = new TestSplitTransition();
     Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
-    assertThat(attr.getSplitTransition(FakeAttributeMapper.empty())).isEqualTo(splitTransition);
+    ConfigurationTransition transition =
+        attr.getTransitionFactory().create(RuleTransitionData.create(FakeAttributeMapper.empty()));
+    assertThat(transition).isEqualTo(splitTransition);
   }
 
   @Test
@@ -288,13 +293,15 @@ public class AttributeTest {
     Attribute attr =
         attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
-    assertThat(attr.getSplitTransition(FakeAttributeMapper.empty()) instanceof TestSplitTransition)
-        .isTrue();
+    ConfigurationTransition transition =
+        attr.getTransitionFactory().create(RuleTransitionData.create(FakeAttributeMapper.empty()));
+    assertThat(transition).isInstanceOf(TestSplitTransition.class);
   }
 
   @Test
   public void testHostTransition() throws Exception {
-    Attribute attr = attr("foo", LABEL).cfg(HostTransition.INSTANCE).allowedFileTypes().build();
+    Attribute attr =
+        attr("foo", LABEL).cfg(HostTransition.createFactory()).allowedFileTypes().build();
     assertThat(attr.hasHostConfigurationTransition()).isTrue();
     assertThat(attr.hasSplitConfigurationTransition()).isFalse();
   }

@@ -426,11 +426,19 @@ public class CompilationSupport {
     CcLinkingHelper resultLink =
         new CcLinkingHelper(
                 ruleContext,
+                ruleContext.getLabel(),
+                ruleContext,
+                ruleContext,
                 semantics,
                 featureConfiguration,
                 ccToolchain,
                 fdoContext,
-                buildConfiguration)
+                buildConfiguration,
+                ruleContext.getFragment(CppConfiguration.class),
+                ruleContext.getSymbolGenerator())
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
             .addCcLinkingContexts(
                 CppHelper.getLinkingContextsFromDeps(
                     ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET))))
@@ -447,7 +455,7 @@ public class CompilationSupport {
     }
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
         Arrays.asList(
@@ -459,13 +467,13 @@ public class CompilationSupport {
         ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()));
 
     CcCompilationOutputs precompiledFilesObjects =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ false))
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
 
     CcCompilationOutputs.Builder compilationOutputsBuilder =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .merge(objcArcCompilationInfo.getCcCompilationOutputs())
             .merge(nonObjcArcCompilationInfo.getCcCompilationOutputs())
             .merge(precompiledFilesObjects);
@@ -570,13 +578,6 @@ public class CompilationSupport {
     if (objcProvider.is(Flag.USES_OBJC)) {
       activatedCrosstoolSelectables.add(CONTAINS_OBJC);
     }
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (cppConfiguration.fissionIsActiveForCurrentCompilationMode()
-        && toolchain.supportsFission()
-        && !cppConfiguration.disableLegacyCrosstoolFields()) {
-      activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-    }
-
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
     // particular versions of Xcode. To ensure consistency across platforms, use exactly two
     // components in the version number.
@@ -588,6 +589,7 @@ public class CompilationSupport {
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
     try {
@@ -1140,7 +1142,7 @@ public class CompilationSupport {
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
       CcToolchainProvider toolchain)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Iterable<Artifact> prunedJ2ObjcArchives =
         computeAndStripPrunedJ2ObjcArchives(
             j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, objcProvider);
@@ -1183,12 +1185,18 @@ public class CompilationSupport {
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
                 ruleContext,
+                ruleContext,
+                ruleContext.getLabel(),
                 binaryToLink,
+                ruleContext.getConfiguration(),
                 toolchain,
                 fdoContext,
                 getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())
@@ -1312,7 +1320,8 @@ public class CompilationSupport {
    * @param outputArchive the output artifact for this action
    */
   public CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider, Artifact outputArchive) throws InterruptedException {
+      ObjcProvider objcProvider, Artifact outputArchive)
+      throws InterruptedException, RuleErrorException {
     return registerFullyLinkAction(
         objcProvider, outputArchive, toolchain, toolchain.getFdoContext());
   }
@@ -1332,7 +1341,7 @@ public class CompilationSupport {
       Artifact outputArchive,
       @Nullable CcToolchainProvider ccToolchain,
       @Nullable FdoContext fdoContext)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Preconditions.checkNotNull(ccToolchain);
     Preconditions.checkNotNull(fdoContext);
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
@@ -1353,12 +1362,18 @@ public class CompilationSupport {
     CppLinkAction fullyLinkAction =
         new CppLinkActionBuilder(
                 ruleContext,
+                ruleContext,
+                ruleContext.getLabel(),
                 outputArchive,
+                ruleContext.getConfiguration(),
                 ccToolchain,
                 fdoContext,
                 getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())

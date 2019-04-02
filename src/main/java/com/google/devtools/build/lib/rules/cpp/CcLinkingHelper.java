@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -85,7 +86,6 @@ public final class CcLinkingHelper {
     }
   }
 
-  private final RuleContext ruleContext;
   private final CppSemantics semantics;
   private final BuildConfiguration configuration;
   private final CppConfiguration cppConfiguration;
@@ -125,11 +125,19 @@ public final class CcLinkingHelper {
   private final Label label;
   private final ActionRegistry actionRegistry;
   private final RuleErrorConsumer ruleErrorConsumer;
+  private final SymbolGenerator<?> symbolGenerator;
+
+  private Artifact grepIncludes;
+  private boolean isStampingEnabled;
+  private boolean isTestOrTestOnlyTarget;
 
   /**
    * Creates a CcLinkingHelper that outputs artifacts in a given configuration.
    *
-   * @param ruleContext the RuleContext for the rule being built
+   * @param ruleErrorConsumer the RuleErrorConsumer
+   * @param label the Label of the rule being built
+   * @param actionRegistry the ActionRegistry of the rule being built
+   * @param actionConstructionContext the ActionConstructionContext of the rule being built
    * @param semantics CppSemantics for the build
    * @param featureConfiguration activated features and action configs for the build
    * @param ccToolchain the C++ toolchain provider for the build
@@ -137,28 +145,32 @@ public final class CcLinkingHelper {
    * @param configuration the configuration that gives the directory of output artifacts
    */
   public CcLinkingHelper(
-      RuleContext ruleContext,
+      RuleErrorConsumer ruleErrorConsumer,
+      Label label,
+      ActionRegistry actionRegistry,
+      ActionConstructionContext actionConstructionContext,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      BuildConfiguration configuration) {
-    this.ruleContext = Preconditions.checkNotNull(ruleContext);
+      BuildConfiguration configuration,
+      CppConfiguration cppConfiguration,
+      SymbolGenerator<?> symbolGenerator) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.configuration = Preconditions.checkNotNull(configuration);
-    this.cppConfiguration =
-        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
-    this.ruleErrorConsumer = ruleContext;
-    this.label = ruleContext.getLabel();
-    this.actionRegistry = ruleContext;
-    this.actionConstructionContext = ruleContext;
+    this.cppConfiguration = cppConfiguration;
+    this.ruleErrorConsumer = ruleErrorConsumer;
+    this.label = label;
+    this.actionRegistry = actionRegistry;
+    this.actionConstructionContext = actionConstructionContext;
+    this.symbolGenerator = symbolGenerator;
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcLinkingHelper fromCommon(CcCommon common) {
+  public CcLinkingHelper fromCommon(RuleContext ruleContext, CcCommon common) {
     addCcLinkingContexts(
         CppHelper.getLinkingContextsFromDeps(
             ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET))));
@@ -353,7 +365,7 @@ public final class CcLinkingHelper {
           new Linkstamp(
               linkstamp,
               ccCompilationContext.getDeclaredIncludeSrcs(),
-              ruleContext.getActionKeyContext()));
+              actionConstructionContext.getActionKeyContext()));
     }
     CcLinkingContext ccLinkingContext = CcLinkingContext.EMPTY;
     if (!neverlink) {
@@ -366,8 +378,7 @@ public final class CcLinkingHelper {
                       ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
                       : NestedSetBuilder.create(
                           Order.LINK_ORDER,
-                          CcLinkingContext.LinkOptions.of(
-                              linkopts, ruleContext.getSymbolGenerator())))
+                          CcLinkingContext.LinkOptions.of(linkopts, symbolGenerator)))
               .addLibraries(
                   NestedSetBuilder.<LibraryToLink>linkOrder().addAll(libraryToLinks).build())
               .addNonCodeInputs(
@@ -455,6 +466,26 @@ public final class CcLinkingHelper {
 
   public CcLinkingHelper setUseTestOnlyFlags(boolean useTestOnlyFlags) {
     this.useTestOnlyFlags = useTestOnlyFlags;
+    return this;
+  }
+
+  /** Used to set the runfiles path for test rules' dynamic libraries. */
+  public CcLinkingHelper setTestOrTestOnlyTarget(boolean isTestOrTestOnlyTarget) {
+    this.isTestOrTestOnlyTarget = isTestOrTestOnlyTarget;
+    return this;
+  }
+
+  /**
+   * Used to test the grep-includes tool. This is needing during linking because of linkstamping.
+   */
+  public CcLinkingHelper setGrepIncludes(Artifact grepIncludes) {
+    this.grepIncludes = grepIncludes;
+    return this;
+  }
+
+  /** Whether linkstamping is enabled. */
+  public CcLinkingHelper setIsStampingEnabled(boolean isStampingEnabled) {
+    this.isStampingEnabled = isStampingEnabled;
     return this;
   }
 
@@ -768,13 +799,18 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkActionBuilder(
-            ruleContext,
+            ruleErrorConsumer,
+            actionConstructionContext,
+            label,
             outputArtifact,
             configuration,
             ccToolchain,
             fdoContext,
             featureConfiguration,
             semantics)
+        .setGrepIncludes(grepIncludes)
+        .setIsStampingEnabled(isStampingEnabled)
+        .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
         .setLinkerFiles(ccToolchain.getLinkerFiles())
         .setLinkArtifactFactory(linkArtifactFactory)
         .setUseTestOnlyFlags(useTestOnlyFlags);

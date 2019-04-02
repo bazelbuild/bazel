@@ -293,7 +293,7 @@ EOF
   [ $exitCode != 0 ] || fail "building @foo//:data.txt succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "cannot load package '@foo//'"
+  expect_log "Failed to load Starlark extension '@foo//:ext.bzl'"
 }
 
 function test_load_nonexistent_with_subworkspace() {
@@ -311,7 +311,7 @@ EOF
   [ $exitCode != 0 ] || fail "building //... succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "cannot load package '@does_not_exist//'"
+  expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
 
   # Retest with query //...
   bazel clean --expunge
@@ -319,7 +319,7 @@ EOF
   [ $exitCode != 0 ] || fail "querying //... succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "cannot load package '@does_not_exist//'"
+  expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
 }
 
 function test_skylark_local_repository() {

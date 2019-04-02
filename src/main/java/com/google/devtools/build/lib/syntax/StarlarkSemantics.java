@@ -174,6 +174,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
+  public abstract boolean incompatibleStringJoinRequiresStrings();
+
   public abstract boolean internalSkylarkFlagTestCanary();
 
   public abstract boolean incompatibleUseToolchainProvidersInJavaCommon();
@@ -203,11 +205,11 @@ public abstract class StarlarkSemantics {
           .experimentalPlatformsApi(false)
           .experimentalRestrictNamedParams(false)
           .experimentalStarlarkConfigTransitions(false)
-          .incompatibleUseToolchainProvidersInJavaCommon(false)
+          .incompatibleUseToolchainProvidersInJavaCommon(true)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
-          .incompatibleDisableThirdPartyLicenseChecking(false)
+          .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
           .incompatibleDisallowDictPlus(true)
@@ -227,6 +229,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNoTransitiveLoads(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
+          .incompatibleStringJoinRequiresStrings(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(false)
           .build();
@@ -297,6 +300,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRemapMainRepo(boolean value);
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
+
+    public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
     public abstract Builder incompatibleUseToolchainProvidersInJavaCommon(boolean value);
 

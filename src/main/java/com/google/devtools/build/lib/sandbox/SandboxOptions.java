@@ -302,7 +302,7 @@ public class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {

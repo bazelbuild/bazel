@@ -34,6 +34,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
@@ -52,8 +53,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -88,6 +89,7 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -414,6 +416,16 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * We have to re-implement this method here because it is declared in the interface {@link
+   * ActionConstructionContext}. This class inherits from {@link TargetContext} which doesn't
+   * implement the {@link ActionConstructionContext} interface.
+   */
+  @Override
+  public ActionKeyContext getActionKeyContext() {
+    return super.getActionKeyContext();
+  }
+
+  /**
    * An opaque symbol generator to be used when identifying objects by their action owner/index of
    * creation. Only needed if an object needs to know whether it was created by the same action
    * owner in the same order as another object. Each symbol must call {@link
@@ -491,7 +503,9 @@ public final class RuleContext extends TargetContext
   }
 
   public ImmutableList<Artifact> getBuildInfo(BuildInfoKey key) throws InterruptedException {
-    return getAnalysisEnvironment().getBuildInfo(this, key, getConfiguration());
+    return getAnalysisEnvironment()
+        .getBuildInfo(
+            AnalysisUtils.isStampingEnabled(this, getConfiguration()), key, getConfiguration());
   }
 
   @VisibleForTesting
@@ -823,9 +837,14 @@ public final class RuleContext extends TargetContext
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
     checkAttribute(attributeName, Mode.SPLIT);
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
+    Preconditions.checkState(attributeDefinition.hasSplitConfigurationTransition());
     SplitTransition transition =
-        attributeDefinition.getSplitTransition(
-            ConfiguredAttributeMapper.of(rule, configConditions));
+        (SplitTransition)
+            attributeDefinition
+                .getTransitionFactory()
+                .create(
+                    RuleTransitionData.create(
+                        ConfiguredAttributeMapper.of(rule, configConditions)));
     BuildOptions fromOptions = getConfiguration().getOptions();
     List<BuildOptions> splitOptions = transition.split(fromOptions);
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
@@ -1154,17 +1173,16 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
-    // TODO(https://github.com/bazelbuild/bazel/issues/7814): Refactor this to be more clear and
-    // not require a specific ConfigurationTransition.
-    ConfigurationTransition transition = attributeDefinition.getConfigurationTransition(null);
+    TransitionFactory<RuleTransitionData> transitionFactory =
+        attributeDefinition.getTransitionFactory();
     if (mode == Mode.HOST) {
-      if (!(transition instanceof PatchTransition)) {
+      if (transitionFactory.isSplit()) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the host configuration");
       }
     } else if (mode == Mode.TARGET) {
-      if (!(transition instanceof PatchTransition) && transition != NoTransition.INSTANCE) {
+      if (transitionFactory.isSplit() && !NoTransition.isInstance(transitionFactory)) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the target configuration");

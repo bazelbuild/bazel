@@ -43,7 +43,6 @@ public class ToolchainTypeTest extends BuildViewTestCase {
         ")",
         "cc_toolchain(",
         "    name = 'b',",
-        "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.syntax.Type;
 public final class CcToolchainRule implements RuleDefinition {
 
   public static final String LIBC_TOP_ATTR = ":libc_top";
+  public static final String TARGET_LIBC_TOP_ATTR = ":target_libc_top";
   public static final String FDO_OPTIMIZE_ATTR = ":fdo_optimize";
   public static final String FDO_PROFILE_ATTR = ":fdo_profile";
   public static final String XFDO_PROFILE_ATTR = ":xfdo_profile";
@@ -61,6 +62,22 @@ public final class CcToolchainRule implements RuleDefinition {
           (rule, attributes, cppConfig) -> {
             // Is the libcTop directly set via a flag?
             Label cppOptionLibcTop = cppConfig.getLibcTopLabel();
+            if (cppOptionLibcTop != null) {
+              return cppOptionLibcTop;
+            }
+
+            // Look up the value from the attribute.
+            // This avoids analyzing the label from the CROSSTOOL if the attribute is set.
+            return getLabel(attributes, "libc_top", /* defaultValue= */ null);
+          });
+
+  private static final LabelLateBoundDefault<?> TARGET_LIBC_TOP_VALUE =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> {
+            // Is the libcTop directly set via a flag?
+            Label cppOptionLibcTop = cppConfig.getTargetLibcTopLabel();
             if (cppOptionLibcTop != null) {
               return cppOptionLibcTop;
             }
@@ -161,7 +178,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("all_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler_files) -->
         Collection of all cc_toolchain artifacts required for compile actions.
@@ -173,7 +190,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("compiler_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler_files_without_includes) -->
         Collection of all cc_toolchain artifacts required for compile actions in case when
@@ -182,14 +199,14 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("compiler_files_without_includes", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE))
+                .cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(strip_files) -->
         Collection of all cc_toolchain artifacts required for strip actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("strip_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(objcopy_files) -->
         Collection of all cc_toolchain artifacts required for objcopy actions.
@@ -197,20 +214,20 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("objcopy_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(as_files) -->
         Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
 
         <p>Collection of all cc_toolchain artifacts required for assembly actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(as_files) -->
         Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
 
         <p>Collection of all cc_toolchain artifacts required for archiving actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("ar_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        .add(attr("ar_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(linker_files) -->
         Collection of all cc_toolchain artifacts required for linking actions.
 
@@ -220,7 +237,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("linker_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(dwp_files) -->
         Collection of all cc_toolchain artifacts required for dwp actions.
@@ -228,13 +245,16 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("dwp_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(coverage_files) -->
         Collection of all cc_toolchain artifacts required for coverage actions. If not specified,
         all_files are used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("coverage_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        .add(
+            attr("coverage_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(static_runtime_lib) -->
         Static library artifact for the C++ runtime library (e.g. libstdc++.a).
 
@@ -252,7 +272,7 @@ public final class CcToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(module_map) -->
         Module map artifact to be used for modular builds.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(supports_param_files) -->
         Set to True when cc_toolchain supports using param files for linking actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -263,12 +283,12 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         .add(
             attr("$interface_library_builder", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:interface_library_builder")))
         .add(
             attr("$link_dynamic_library_tool", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         .add(
@@ -276,7 +296,7 @@ public final class CcToolchainRule implements RuleDefinition {
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(
             attr(":zipper", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(
                     LabelLateBoundDefault.fromTargetConfiguration(
@@ -291,6 +311,7 @@ public final class CcToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("libc_top", LABEL).allowedFileTypes())
         .add(attr(LIBC_TOP_ATTR, LABEL).value(LIBC_TOP_VALUE))
+        .add(attr(TARGET_LIBC_TOP_ATTR, LABEL).value(TARGET_LIBC_TOP_VALUE))
         .add(attr(FDO_OPTIMIZE_ATTR, LABEL).value(FDO_OPTIMIZE_VALUE))
         .add(
             attr(XFDO_PROFILE_ATTR, LABEL)

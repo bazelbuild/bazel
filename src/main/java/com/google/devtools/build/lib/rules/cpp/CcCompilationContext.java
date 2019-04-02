@@ -57,8 +57,7 @@ import javax.annotation.Nullable;
 public final class CcCompilationContext implements CcCompilationContextApi {
   /** An empty {@code CcCompilationContext}. */
   public static final CcCompilationContext EMPTY =
-      new Builder(
-              /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
+      builder(/* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
           .build();
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
@@ -432,7 +431,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   public static CcCompilationContext merge(Collection<CcCompilationContext> ccCompilationContexts) {
     CcCompilationContext.Builder builder =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
     builder.mergeDependentCcCompilationContexts(ccCompilationContexts);
     return builder.build();
@@ -465,6 +464,14 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       this.systemIncludeDirs = systemIncludeDirs;
       this.defines = defines;
     }
+  }
+
+  /** Creates a new builder for a {@link CcCompilationContext} instance. */
+  public static Builder builder(
+      ActionConstructionContext actionConstructionContext,
+      BuildConfiguration configuration,
+      Label label) {
+    return new Builder(actionConstructionContext, configuration, label);
   }
 
   /** Builder class for {@link CcCompilationContext}. */
@@ -501,10 +508,11 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Label label;
 
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
-    public Builder(
+    private Builder(
         ActionConstructionContext actionConstructionContext,
         BuildConfiguration configuration,
         Label label) {
+      // private to avoid class initialization deadlock between this class and its outer class
       this.actionConstructionContext = actionConstructionContext;
       this.configuration = configuration;
       this.label = label;

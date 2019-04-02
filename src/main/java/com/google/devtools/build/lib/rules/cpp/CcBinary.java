@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -218,7 +219,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // inputs for compilation. Node that these cannot be middlemen because Runfiles does not
       // know how to expand them.
       builder.addTransitiveArtifacts(toolchain.getAllFiles());
-      builder.addTransitiveArtifacts(toolchain.getLibcLink());
+      builder.addTransitiveArtifacts(toolchain.getLibcLink(cppConfiguration));
       // Add the sources files that are used to compile the object files.
       // We add the headers in the transitive closure and our own sources in the srcs
       // attribute. We do not provide the auxiliary inputs, because they are only used when we
@@ -346,12 +347,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CompilationInfo compilationInfo = compilationHelper.compile();
     CcCompilationContext ccCompilationContext = compilationInfo.getCcCompilationContext();
     CcCompilationOutputs precompiledFileObjects =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ false))
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
     CcCompilationOutputs ccCompilationOutputs =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .merge(precompiledFileObjects)
             .merge(compilationInfo.getCcCompilationOutputs())
             .build();
@@ -383,12 +384,20 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcLinkingHelper linkingHelper =
           new CcLinkingHelper(
                   ruleContext,
+                  ruleContext.getLabel(),
+                  ruleContext,
+                  ruleContext,
                   semantics,
                   featureConfiguration,
                   ccToolchain,
                   fdoContext,
-                  ruleContext.getConfiguration())
-              .fromCommon(common)
+                  ruleContext.getConfiguration(),
+                  cppConfiguration,
+                  ruleContext.getSymbolGenerator())
+              .fromCommon(ruleContext, common)
+              .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+              .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+              .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
               .addCcLinkingContexts(
                   CppHelper.getLinkingContextsFromDeps(
                       ImmutableList.of(CppHelper.mallocForTarget(ruleContext))))
@@ -675,19 +684,27 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       Artifact customDefFile)
       throws InterruptedException, RuleErrorException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addPicObjectFiles(ccCompilationOutputs.getObjectFiles(/* usePic= */ true))
             .addObjectFiles(ccCompilationOutputs.getObjectFiles(/* usePic= */ false))
             .addLtoCompilationContext(ccCompilationOutputs.getLtoCompilationContext());
     CcCompilationOutputs ccCompilationOutputsWithOnlyObjects = ccCompilationOutputsBuilder.build();
     CcLinkingHelper ccLinkingHelper =
         new CcLinkingHelper(
-            ruleContext,
-            cppSemantics,
-            featureConfiguration,
-            ccToolchain,
-            fdoContext,
-            ruleContext.getConfiguration());
+                ruleContext,
+                ruleContext.getLabel(),
+                ruleContext,
+                ruleContext,
+                cppSemantics,
+                featureConfiguration,
+                ccToolchain,
+                fdoContext,
+                ruleContext.getConfiguration(),
+                cppConfiguration,
+                ruleContext.getSymbolGenerator())
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget());
 
     CcInfo depsCcInfo = CcInfo.builder().setCcLinkingContext(depsCcLinkingContext).build();
 
@@ -700,7 +717,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 .add(ccLinkingOutputs.getLibraryToLink())
                 .build());
       }
-      ccCompilationOutputsWithOnlyObjects = new CcCompilationOutputs.Builder().build();
+      ccCompilationOutputsWithOnlyObjects = CcCompilationOutputs.builder().build();
     }
 
     // Determine the libraries to link in.
@@ -864,7 +881,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration,
       Artifact dwpOutput,
-      DwoArtifactsCollector dwoArtifactsCollector) {
+      DwoArtifactsCollector dwoArtifactsCollector)
+      throws RuleErrorException {
     Iterable<Artifact> allInputs =
         getDwpInputs(
             context,
@@ -931,18 +949,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcToolchainProvider toolchain,
       NestedSet<Artifact> dwpTools,
       Iterable<Artifact> inputs,
-      int intermediateDwpCount) {
+      int intermediateDwpCount)
+      throws RuleErrorException {
     List<Packager> packagers = new ArrayList<>();
 
     // Step 1: generate our batches. We currently break into arbitrary batches of fixed maximum
     // input counts, but we can always apply more intelligent heuristics if the need arises.
-    Packager currentPackager = newDwpAction(toolchain, dwpTools);
+    Packager currentPackager = newDwpAction(context, toolchain, dwpTools);
     int inputsForCurrentPackager = 0;
 
     for (Artifact dwoInput : inputs) {
       if (inputsForCurrentPackager == MAX_INPUTS_PER_DWP_ACTION) {
         packagers.add(currentPackager);
-        currentPackager = newDwpAction(toolchain, dwpTools);
+        currentPackager = newDwpAction(context, toolchain, dwpTools);
         inputsForCurrentPackager = 0;
       }
       currentPackager.spawnAction.addInput(dwoInput);
@@ -997,12 +1016,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    * settings.
    */
   private static Packager newDwpAction(
-      CcToolchainProvider toolchain, NestedSet<Artifact> dwpTools) {
+      RuleContext ruleContext, CcToolchainProvider toolchain, NestedSet<Artifact> dwpTools)
+      throws RuleErrorException {
     Packager packager = new Packager();
     packager
         .spawnAction
         .addTransitiveInputs(dwpTools)
-        .setExecutable(toolchain.getToolPathFragment(Tool.DWP));
+        .setExecutable(toolchain.getToolPathFragment(Tool.DWP, ruleContext));
     return packager;
   }
 
@@ -1045,7 +1065,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcCompilationContext ccCompilationContext,
       List<LibraryToLink> libraries,
       DwoArtifactsCollector dwoArtifacts,
-      boolean fake) {
+      boolean fake)
+      throws RuleErrorException {
     List<Artifact> instrumentedObjectFiles = new ArrayList<>();
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));

@@ -105,7 +105,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             binTools,
             action.getLocalShellEnvironment(),
             action.isEnableRunfiles());
-    Path tmpDir = tmpDirRoot.getChild(TestStrategy.getTmpDirName(action));
+    Path tmpDir =
+        actionExecutionContext
+            .getPathResolver()
+            .convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
     Map<String, String> env = setupEnvironment(
         action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
     if (executionOptions.splitXmlGeneration) {

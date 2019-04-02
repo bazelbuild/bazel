@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.auto.value.AutoValue;
@@ -473,6 +474,38 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     assertThat(toolchainContext.forToolchainType(testToolchainType).hasField("data")).isTrue();
     assertThat(toolchainContext.forToolchainType(testToolchainType).getValue("data"))
         .isEqualTo("baz");
+  }
+
+  @Test
+  public void unloadedToolchainContext_load_notToolchain() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "filegroup(name = 'not_a_toolchain')",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain(",
+        "    name = 'test_toolchain',",
+        "    toolchain_type = ':toolchain_type',",
+        "    toolchain = ':not_a_toolchain')");
+    rewriteWorkspace("register_toolchains('//foo:test_toolchain')");
+
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create(
+            "test",
+            ImmutableSet.of(Label.parseAbsoluteUnchecked("//foo:toolchain_type")),
+            targetConfigKey);
+
+    // Create the UnloadedToolchainContext.
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key).unloadedToolchainContext();
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    // Create the prerequisites, which is not actually a valid toolchain.
+    ConfiguredTargetAndData toolchain =
+        getConfiguredTargetAndData(
+            Label.parseAbsoluteUnchecked("//foo:not_a_toolchain"), targetConfig);
+    assertThrows(
+        ToolchainException.class, () -> unloadedToolchainContext.load(ImmutableList.of(toolchain)));
   }
 
   @Test

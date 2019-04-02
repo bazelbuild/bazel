@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # TODO(#7843): integration tests for failure to find python / wrong version
 # found / error while trying to print version

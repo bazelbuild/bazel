@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -89,34 +88,6 @@ public final class TransitionResolver {
   }
 
   /**
-   * Composes two transitions together efficiently.
-   */
-  public static ConfigurationTransition composeTransitions(ConfigurationTransition transition1,
-      ConfigurationTransition transition2) {
-    Preconditions.checkNotNull(transition1);
-    Preconditions.checkNotNull(transition2);
-    if (isFinal(transition1) || transition2 == NoTransition.INSTANCE) {
-      return transition1;
-    } else if (isFinal(transition2) || transition1 == NoTransition.INSTANCE) {
-      // When the second transition is a HOST transition, there's no need to compose. But this also
-      // improves performance: host transitions are common, and ConfiguredTargetFunction has special
-      // optimized logic to handle them. If they were buried in the last segment of a
-      // ComposingTransition, those optimizations wouldn't trigger.
-      return transition2;
-    } else {
-      return new ComposingTransition(transition1, transition2);
-    }
-  }
-
-  /**
-   * Returns true if once the given transition is applied to a dep no followup transitions should
-   * be composed after it.
-   */
-  private static boolean isFinal(ConfigurationTransition transition) {
-    return (transition == NullTransition.INSTANCE || transition.isHostTransition());
-  }
-
-  /**
    * @param currentTransition a pre-existing transition to be composed with
    * @param toTarget target whose associated rule's incoming transition should be applied
    */
@@ -137,11 +108,8 @@ public final class TransitionResolver {
       ConfigurationTransition currentTransition,
       Target toTarget,
       @Nullable RuleTransitionFactory transitionFactory) {
-    if (isFinal(currentTransition)) {
-      return currentTransition;
-    }
     if (transitionFactory != null) {
-      return composeTransitions(
+      return ComposingTransition.of(
           currentTransition, transitionFactory.buildTransitionFor(toTarget.getAssociatedRule()));
     }
     return currentTransition;

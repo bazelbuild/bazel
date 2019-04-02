@@ -110,6 +110,10 @@ public class SkylarkImportLookupValue implements SkyValue {
       return importLabel + (inWorkspace ? " (in workspace)" : "");
     }
 
+    Label getImportLabel() {
+      return importLabel;
+    }
+
     @Override
     public boolean equals(Object obj) {
       if (this == obj) {

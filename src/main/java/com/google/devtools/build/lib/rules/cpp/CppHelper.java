@@ -171,74 +171,16 @@ public class CppHelper {
     return result;
   }
 
-  /**
-   * Returns the immutable list of linker options for fully statically linked outputs. Does not
-   * include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param config the CppConfiguration for this build
-   * @param toolchain the c++ toolchain
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  public static ImmutableList<String> getFullyStaticLinkOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, boolean sharedLib) {
-    if (sharedLib) {
-      return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getLegacyMostlyStaticLinkFlags(config.getCompilationMode()));
-    } else {
-      return toolchain.getLegacyFullyStaticLinkFlags(config.getCompilationMode());
-    }
-  }
-
-  /**
-   * Returns the immutable list of linker options for mostly statically linked outputs. Does not
-   * include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param config the CppConfiguration for this build
-   * @param toolchain the c++ toolchain
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  public static ImmutableList<String> getMostlyStaticLinkOptions(
-      CppConfiguration config,
-      CcToolchainProvider toolchain,
-      boolean sharedLib,
-      boolean shouldStaticallyLinkCppRuntimes) {
-    if (sharedLib) {
-      return toolchain.getSharedLibraryLinkOptions(
-          shouldStaticallyLinkCppRuntimes
-              ? toolchain.getLegacyMostlyStaticSharedLinkFlags(config.getCompilationMode())
-              : toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode()));
-    } else {
-      return toolchain.getLegacyMostlyStaticLinkFlags(config.getCompilationMode());
-    }
-  }
-
-  /**
-   * Returns the immutable list of linker options for artifacts that are not fully or mostly
-   * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param config the CppConfiguration for this build
-   * @param toolchain the c++ toolchain
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  public static ImmutableList<String> getDynamicLinkOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, Boolean sharedLib) {
-    if (sharedLib) {
-      return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode()));
-    } else {
-      return toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode());
-    }
-  }
-
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
-      CppConfiguration cppConfiguration, CcToolchainProvider toolchain) {
+      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain)
+      throws RuleErrorException {
     if (cppConfiguration.collectCodeCoverage()) {
       NestedSetBuilder<Pair<String, String>> coverageEnvironment =
           NestedSetBuilder.<Pair<String, String>>stableOrder()
               .add(
                   Pair.of(
                       "COVERAGE_GCOV_PATH",
-                      toolchain.getToolPathFragment(Tool.GCOV).getPathString()));
+                      toolchain.getToolPathFragment(Tool.GCOV, ruleContext).getPathString()));
       if (cppConfiguration.getFdoInstrument() != null) {
         coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
       }
@@ -670,16 +612,16 @@ public class CppHelper {
 
   /** Creates an action to strip an executable. */
   public static void createStripAction(
-      RuleContext context,
+      RuleContext ruleContext,
       CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration,
       Artifact input,
       Artifact output,
       FeatureConfiguration featureConfiguration) {
     if (featureConfiguration.isEnabled(CppRuleClasses.NO_STRIPPING)) {
-      context.registerAction(
+      ruleContext.registerAction(
           SymlinkAction.toArtifact(
-              context.getActionOwner(),
+              ruleContext.getActionOwner(),
               input,
               output,
               "Symlinking original binary as stripped binary"));
@@ -687,12 +629,14 @@ public class CppHelper {
     }
 
     if (!featureConfiguration.actionIsConfigured(CppActionNames.STRIP)) {
-      context.ruleError("Expected action_config for 'strip' to be configured.");
+      ruleContext.ruleError("Expected action_config for 'strip' to be configured.");
       return;
     }
 
     CcToolchainVariables variables =
-        new CcToolchainVariables.Builder(toolchain.getBuildVariables())
+        CcToolchainVariables.builder(
+                toolchain.getBuildVariables(
+                    ruleContext.getConfiguration().getOptions(), cppConfiguration))
             .addStringVariable(
                 StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
             .addStringSequenceVariable(
@@ -716,11 +660,11 @@ public class CppHelper {
                 PathFragment.create(
                     featureConfiguration.getToolPathForAction(CppActionNames.STRIP)))
             .setExecutionInfo(executionInfoBuilder.build())
-            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
+            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), ruleContext.getLabel())
             .setMnemonic("CcStrip")
             .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
-            .build(context);
-    context.registerAction(stripAction);
+            .build(ruleContext);
+    ruleContext.registerAction(stripAction);
   }
 
   public static void maybeAddStaticLinkMarkerProvider(

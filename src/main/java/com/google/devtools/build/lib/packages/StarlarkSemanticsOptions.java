@@ -239,7 +239,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   // 3) Remove --check_third_party_targets_have_licenses.
   @Option(
       name = "incompatible_disable_third_party_license_checking",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       metadataTags = {
@@ -324,6 +324,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
           "If set to true, the native module is not accessible in BUILD files. "
               + "Use for example `cc_library` instead of `native.cc_library`.")
   public boolean incompatibleDisallowNativeInBuildFile;
+
+  @Option(
+      name = "incompatible_string_join_requires_strings",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the argument of `string.join` must be an iterable whose elements are "
+              + "strings. If set to false, elements are first converted to string. "
+              + "See https://github.com/bazelbuild/bazel/issues/7802")
+  public boolean incompatibleStringJoinRequiresStrings;
 
   @Option(
       name = "incompatible_disallow_struct_provider_syntax",
@@ -487,7 +502,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_use_toolchain_providers_in_java_common",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -552,6 +567,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
         .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
+        .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
         .incompatibleUseToolchainProvidersInJavaCommon(
             incompatibleUseToolchainProvidersInJavaCommon)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)

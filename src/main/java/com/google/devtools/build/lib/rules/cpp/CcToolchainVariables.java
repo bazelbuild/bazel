@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +26,6 @@ import com.google.common.collect.Sets.SetView;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -298,7 +296,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /** An empty variables instance. */
-  public static final CcToolchainVariables EMPTY = new CcToolchainVariables.Builder().build();
+  public static final CcToolchainVariables EMPTY = builder().build();
 
   private Map<String, VariableValue> cache;
 
@@ -603,61 +601,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public StructureValue build() {
       return new StructureValue(fields.build());
-    }
-  }
-
-  /**
-   * Lazily computed string sequence. Exists as a memory optimization. Make sure the {@param
-   * supplier} doesn't capture anything that shouldn't outlive analysis phase (e.g. {@link
-   * RuleContext}).
-   */
-  @AutoCodec
-  @VisibleForSerialization
-  static final class LazyStringSequence extends VariableValueAdapter {
-    private final Supplier<ImmutableList<String>> supplier;
-
-    @VisibleForSerialization
-    LazyStringSequence(Supplier<ImmutableList<String>> supplier) {
-      this.supplier = Preconditions.checkNotNull(supplier);
-    }
-
-    @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-      return supplier
-          .get()
-          .stream()
-          .map(flag -> new StringValue(flag))
-          .collect(ImmutableList.toImmutableList());
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !supplier.get().isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof LazyStringSequence)) {
-        return false;
-      }
-      if (this == other) {
-        return true;
-      }
-      LazyStringSequence that = (LazyStringSequence) other;
-      if (this.supplier == that.supplier) {
-        return true;
-      }
-      return Objects.equals(supplier.get(), ((LazyStringSequence) other).supplier.get());
-    }
-
-    @Override
-    public int hashCode() {
-      return supplier.get().hashCode();
     }
   }
 
@@ -1116,6 +1059,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
+  public static Builder builder() {
+    return new Builder(null);
+  }
+
+  public static Builder builder(@Nullable CcToolchainVariables parent) {
+    return new Builder(parent);
+  }
+
   /** Builder for {@code Variables}. */
   // TODO(b/65472725): Forbid sequences with empty string in them.
   public static class Builder {
@@ -1123,11 +1074,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
     private final CcToolchainVariables parent;
 
-    public Builder() {
-      parent = null;
-    }
-
-    public Builder(@Nullable CcToolchainVariables parent) {
+    private Builder(@Nullable CcToolchainVariables parent) {
+      // private to avoid class initialization deadlock between this class and its outer class
       this.parent = parent;
     }
 
@@ -1149,14 +1097,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder overrideStringVariable(String name, String value) {
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
       stringVariablesMap.put(name, value);
-      return this;
-    }
-
-    /** Overrides a variable to expand {@code name} to {@code value} instead. */
-    public Builder overrideLazyStringSequenceVariable(
-        String name, Supplier<ImmutableList<String>> supplier) {
-      Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new LazyStringSequence(supplier));
       return this;
     }
 
@@ -1199,14 +1139,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, new StringSequence(values));
-      return this;
-    }
-
-    public Builder addLazyStringSequenceVariable(
-        String name, Supplier<ImmutableList<String>> supplier) {
-      checkVariableNotPresentAlready(name);
-      Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new LazyStringSequence(supplier));
       return this;
     }
 

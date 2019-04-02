@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -175,6 +176,13 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
         }
         return null;
+      }
+      env.getListener()
+          .handle(
+              Event.info(
+                  "An error occurred during the fetch of repository '" + rule.getName() + "'"));
+      if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
+        env.getListener().handle(Event.info(rule.getDefinitionInformation()));
       }
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

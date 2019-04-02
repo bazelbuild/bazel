@@ -160,7 +160,11 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
       FindMissingBlobsRequest request) throws IOException, InterruptedException {
     Context ctx = Context.current();
-    return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
+    try {
+      return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
+    } catch (StatusRuntimeException e) {
+      throw new IOException(e);
+    }
   }
 
   private ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
@@ -274,6 +278,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
           @Override
           public void onFailure(Throwable t) {
+            if (t instanceof StatusRuntimeException) {
+              t = new IOException(t);
+            }
             outerF.setException(t);
           }
         },
@@ -289,12 +296,17 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     Context ctx = Context.current();
     AtomicLong offset = new AtomicLong(0);
     ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
-    return retrier.executeAsync(
-        () ->
-            ctx.call(
-                () ->
-                    requestRead(
-                        resourceName, offset, progressiveBackoff, digest, out, hashSupplier)));
+    return Futures.catchingAsync(
+        retrier.executeAsync(
+            () ->
+                ctx.call(
+                    () ->
+                        requestRead(
+                            resourceName, offset, progressiveBackoff, digest, out, hashSupplier)),
+            progressiveBackoff),
+        StatusRuntimeException.class,
+        (e) -> Futures.immediateFailedFuture(new IOException(e)),
+        MoreExecutors.directExecutor());
   }
 
   static class ProgressiveBackoff implements Backoff {

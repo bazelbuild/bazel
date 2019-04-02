@@ -174,12 +174,19 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingHelper linkingHelper =
         new CcLinkingHelper(
                 ruleContext,
+                ruleContext.getLabel(),
+                ruleContext,
+                ruleContext,
                 semantics,
                 featureConfiguration,
                 ccToolchain,
                 fdoContext,
-                ruleContext.getConfiguration())
-            .fromCommon(common)
+                ruleContext.getConfiguration(),
+                ruleContext.getFragment(CppConfiguration.class),
+                ruleContext.getSymbolGenerator())
+            .fromCommon(ruleContext, common)
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())
             .addLinkopts(common.getLinkopts())
             .emitInterfaceSharedLibraries(true)
             .setAlwayslink(alwaysLink)
@@ -282,12 +289,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     CompilationInfo compilationInfo = compilationHelper.compile();
     CcCompilationOutputs precompiledFilesObjects =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
     CcCompilationOutputs ccCompilationOutputs =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .merge(precompiledFilesObjects)
             .merge(compilationInfo.getCcCompilationOutputs())
             .build();

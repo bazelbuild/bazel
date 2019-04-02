@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionFactoryData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** No-op configuration transition. */
@@ -31,7 +30,7 @@ public final class NoTransition implements PatchTransition {
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the no transition. */
-  public static <T extends TransitionFactoryData> TransitionFactory<T> createFactory() {
+  public static <T> TransitionFactory<T> createFactory() {
     return new AutoValue_NoTransition_Factory<>();
   }
 
@@ -39,16 +38,15 @@ public final class NoTransition implements PatchTransition {
    * Returns {@code true} if the given {@link TransitionFactory} is an instance of the no
    * transition.
    */
-  public static <T extends TransitionFactoryData> boolean isInstance(
-      TransitionFactory<T> instance) {
+  public static <T> boolean isInstance(TransitionFactory<T> instance) {
     return instance instanceof Factory;
   }
 
   /** A {@link TransitionFactory} implementation that generates the no transition. */
   @AutoValue
-  abstract static class Factory<T extends TransitionFactoryData> implements TransitionFactory<T> {
+  abstract static class Factory<T> implements TransitionFactory<T> {
     @Override
-    public ConfigurationTransition create(TransitionFactoryData unused) {
+    public ConfigurationTransition create(T unused) {
       return INSTANCE;
     }
   }

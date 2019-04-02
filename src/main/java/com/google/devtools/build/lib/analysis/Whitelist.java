@@ -47,26 +47,49 @@ public final class Whitelist {
   public static Attribute.Builder<Label> getAttributeFromWhitelistName(String whitelistName) {
     String attributeName = getAttributeNameFromWhitelistName(whitelistName);
     return attr(attributeName, LABEL)
-        .cfg(HostTransition.INSTANCE)
+        .cfg(HostTransition.createFactory())
         .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class));
   }
 
   /**
-   * Returns whether the rule in the given RuleContext is in a whitelist.
+   * Returns whether the rule in the given RuleContext *was defined* in a whitelist.
+   *
+   * @param ruleContext The context in which this check is being executed.
+   * @param whitelistName The name of the whitelist being used.
+   */
+  public static boolean isAvailableBasedOnRuleLocation(
+      RuleContext ruleContext, String whitelistName) {
+    return isAvailableFor(
+        ruleContext,
+        whitelistName,
+        ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel());
+  }
+
+  /**
+   * Returns whether the rule in the given RuleContext *was instantiated* in a whitelist.
    *
    * @param ruleContext The context in which this check is being executed.
    * @param whitelistName The name of the whitelist being used.
    */
   public static boolean isAvailable(RuleContext ruleContext, String whitelistName) {
+    return isAvailableFor(ruleContext, whitelistName, ruleContext.getLabel());
+  }
+
+  /**
+   * @param relevantLabel the label to check for in the whitelist. This allows features that
+   *     whitelist on rule definition location and features that whitelist on rule instantiation
+   *     location to share logic.
+   */
+  private static boolean isAvailableFor(
+      RuleContext ruleContext, String whitelistName, Label relevantLabel) {
     String attributeName = getAttributeNameFromWhitelistName(whitelistName);
     Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL));
     TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName, Mode.HOST);
-    Label label = ruleContext.getLabel();
     PackageSpecificationProvider packageSpecificationProvider =
         packageGroup.getProvider(PackageSpecificationProvider.class);
     requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
     return Streams.stream(packageSpecificationProvider.getPackageSpecifications())
-        .anyMatch(p -> p.containsPackage(label.getPackageIdentifier()));
+        .anyMatch(p -> p.containsPackage(relevantLabel.getPackageIdentifier()));
   }
 
   /**

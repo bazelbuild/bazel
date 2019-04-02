@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.PlatformOptions.LEGACY_DEFAULT_TARGET_PLATFORM;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -57,6 +56,8 @@ public class PlatformMappingValueTest {
   private static final BuildOptions.OptionsDiffForReconstruction EMPTY_DIFF =
       BuildOptions.diffForReconstruction(
           DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+  private static final Label DEFAULT_TARGET_PLATFORM =
+      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:target_platform");
 
   @Test
   public void testMapNoMappings() throws OptionsParsingException {
@@ -70,7 +71,7 @@ public class PlatformMappingValueTest {
         mappingValue.map(key, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
     assertThat(toMappedOptions(mapped).get(PlatformOptions.class).platforms)
-        .containsExactly(LEGACY_DEFAULT_TARGET_PLATFORM);
+        .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
   @Test
@@ -148,7 +149,7 @@ public class PlatformMappingValueTest {
         mappingValue.map(keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
     assertThat(toMappedOptions(mapped).get(PlatformOptions.class).platforms)
-        .containsExactly(LEGACY_DEFAULT_TARGET_PLATFORM);
+        .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
   @Test

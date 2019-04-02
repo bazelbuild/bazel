@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.apple.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
+import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -51,21 +54,30 @@ public class AppleCcToolchain extends CcToolchain {
   public static final String APPLE_SDK_PLATFORM_VALUE_KEY = "apple_sdk_platform_value";
 
   @Override
-  protected CcToolchainVariables getAdditionalBuildVariables(RuleContext ruleContext)
-      throws RuleErrorException {
-    ApplePlatform platform =
-        ruleContext.getFragment(AppleConfiguration.class).getSingleArchPlatform();
-    XcodeConfigProvider xcodeConfig = XcodeConfig.getXcodeConfigProvider(ruleContext);
-    String cpu = ruleContext.getConfiguration().getCpu();
+  protected AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
+      RuleContext ruleContextPossiblyInHostConfiguration) {
+    // xcode config is shared between target and host configuration therefore we can use it.
+    XcodeConfigProvider xcodeConfig =
+        XcodeConfig.getXcodeConfigProvider(ruleContextPossiblyInHostConfiguration);
+    return getAdditionalBuildVariablesComputer(xcodeConfig);
+  }
 
-    if (xcodeConfig.getXcodeVersion() == null) {
-      ruleContext.throwWithRuleError(
-          "Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has "
-              + "changed recently, try: \"bazel clean --expunge\" to re-run Xcode configuration");
-    }
+  /** Returns {@link AdditionalBuildVariablesComputer} lambda without capturing instance state. */
+  private static AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
+      XcodeConfigProvider xcodeConfig) {
+    return (AdditionalBuildVariablesComputer & Serializable)
+        (BuildOptions buildOptions) -> computeCcToolchainVariables(xcodeConfig, buildOptions);
+  }
+
+  private static CcToolchainVariables computeCcToolchainVariables(
+      XcodeConfigProvider xcodeConfig, BuildOptions buildOptions) {
+    AppleConfiguration.Loader appleConfigurationLoader = new AppleConfiguration.Loader();
+    AppleConfiguration appleConfiguration = appleConfigurationLoader.create(buildOptions);
+    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
+    String cpu = buildOptions.get(Options.class).cpu;
 
     Map<String, String> appleEnv = getEnvironmentBuildVariables(xcodeConfig, cpu);
-    CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
+    CcToolchainVariables.Builder variables = CcToolchainVariables.builder();
     variables
         .addStringVariable(
             XCODE_VERSION_KEY, xcodeConfig.getXcodeVersion().toStringWithMinimumComponents(2))
@@ -116,8 +128,9 @@ public class AppleCcToolchain extends CcToolchain {
     builder.putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion()));
     if (ApplePlatform.isApplePlatform(cpu)) {
       ApplePlatform platform = ApplePlatform.forTargetCpu(cpu);
-      builder.putAll(AppleConfiguration.appleTargetPlatformEnv(
-          platform, xcodeConfig.getSdkVersionForPlatform(platform)));
+      builder.putAll(
+          AppleConfiguration.appleTargetPlatformEnv(
+              platform, xcodeConfig.getSdkVersionForPlatform(platform)));
     }
     return ImmutableMap.copyOf(builder);
   }
@@ -125,5 +138,14 @@ public class AppleCcToolchain extends CcToolchain {
   @Override
   protected boolean isAppleToolchain() {
     return true;
+  }
+
+  @Override
+  protected void validateToolchain(RuleContext ruleContext) throws RuleErrorException {
+    if (XcodeConfig.getXcodeConfigProvider(ruleContext).getXcodeVersion() == null) {
+      ruleContext.throwWithRuleError(
+          "Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has "
+              + "changed recently, try: \"bazel clean --expunge\" to re-run Xcode configuration");
+    }
   }
 }
