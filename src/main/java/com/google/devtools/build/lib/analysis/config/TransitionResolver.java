@@ -109,7 +109,6 @@ public final class TransitionResolver {
       Target toTarget,
       @Nullable TransitionFactory<Rule> transitionFactory) {
     if (transitionFactory != null) {
-      // TODO(https://github.com/bazelbuild/bazel/issues/7814): Change to use a factory.
       return ComposingTransition.of(
           currentTransition, transitionFactory.create(toTarget.getAssociatedRule()));
     }
