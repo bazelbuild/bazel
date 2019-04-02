@@ -23,8 +23,12 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.LinkBuildVariables;
+import com.google.devtools.build.lib.rules.cpp.LinkCommandLine;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -152,6 +156,20 @@ public abstract class MockCcSupport {
           return labelNameFilter().apply("//" + label.getPackageName());
         }
       };
+
+  /** Returns the additional linker options for this link. */
+  public static ImmutableList<String> getLinkopts(LinkCommandLine linkCommandLine)
+      throws ExpansionException {
+    if (linkCommandLine
+        .getBuildVariables()
+        .isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
+      return CcToolchainVariables.toStringList(
+          linkCommandLine.getBuildVariables(),
+          LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
+    } else {
+      return ImmutableList.of();
+    }
+  }
 
   public abstract Predicate<String> labelNameFilter();
 

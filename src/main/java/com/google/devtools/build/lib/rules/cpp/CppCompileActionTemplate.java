@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
@@ -155,22 +156,26 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
     Fingerprint fp = new Fingerprint();
-    CppCompileAction.computeKey(
-        actionKeyContext,
-        fp,
-        cppCompileActionBuilder.getActionClassId(),
-        cppCompileActionBuilder.getActionEnvironment(),
-        commandLine.getEnvironment(),
-        cppCompileActionBuilder.getExecutionInfo(),
-        CppCompileAction.computeCommandLineKey(
-            commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
-        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
-        cppCompileActionBuilder.buildMandatoryInputs(),
-        cppCompileActionBuilder.buildPrunableHeaders(),
-        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
-        cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-        cppCompileActionBuilder.buildInputsForInvalidation());
-    cachedKey = fp.hexDigestAndReset();
+    try {
+      CppCompileAction.computeKey(
+          actionKeyContext,
+          fp,
+          cppCompileActionBuilder.getActionClassId(),
+          cppCompileActionBuilder.getActionEnvironment(),
+          commandLine.getEnvironment(),
+          cppCompileActionBuilder.getExecutionInfo(),
+          CppCompileAction.computeCommandLineKey(
+              commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
+          cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
+          cppCompileActionBuilder.buildMandatoryInputs(),
+          cppCompileActionBuilder.buildPrunableHeaders(),
+          cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
+          cppCompileActionBuilder.getBuiltinIncludeDirectories(),
+          cppCompileActionBuilder.buildInputsForInvalidation());
+      cachedKey = fp.hexDigestAndReset();
+    } catch (CommandLineExpansionException e) {
+      cachedKey = CppCompileAction.KEY_ERROR;
+    }
     return cachedKey;
   }
 

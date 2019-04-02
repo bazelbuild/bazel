@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -850,9 +851,14 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
-    assertThat(action.getLinkCommandLine().getLinkopts()).containsExactly(
-        String.format("-Wl,@%s/a/a.lds", getTargetConfiguration().getGenfilesDirectory(
-            RepositoryName.MAIN).getExecPath().getPathString()));
+    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
+        .containsExactly(
+            String.format(
+                "-Wl,@%s/a/a.lds",
+                getTargetConfiguration()
+                    .getGenfilesDirectory(RepositoryName.MAIN)
+                    .getExecPath()
+                    .getPathString()));
   }
 
   @Test

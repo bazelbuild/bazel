@@ -1104,7 +1104,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .build();
 
-    assertThat(linkAction.getLinkCommandLine().getLinkopts()).isEmpty();
+    assertThat(MockCcSupport.getLinkopts(linkAction.getLinkCommandLine())).isEmpty();
   }
 
   @Test

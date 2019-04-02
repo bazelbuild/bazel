@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
@@ -411,16 +412,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertAppleSdkVersionEnv(action, DEFAULT_IOS_SDK_VERSION.toString());
   }
 
-  protected void assertAppleSdkVersionEnv(CommandAction action, String versionString) {
+  protected void assertAppleSdkVersionEnv(CommandAction action, String versionString)
+      throws ActionExecutionException {
     assertThat(action.getIncompleteEnvironmentForTesting())
         .containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionString);
   }
 
-  protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName) {
+  protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName)
+      throws ActionExecutionException {
     assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("APPLE_SDK_PLATFORM", platformName);
   }
 
-  protected void assertXcodeVersionEnv(CommandAction action, String versionNumber) {
+  protected void assertXcodeVersionEnv(CommandAction action, String versionNumber)
+      throws ActionExecutionException {
     assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
   }
 

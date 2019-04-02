@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
@@ -617,7 +618,8 @@ public class CppHelper {
       CppConfiguration cppConfiguration,
       Artifact input,
       Artifact output,
-      FeatureConfiguration featureConfiguration) {
+      FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (featureConfiguration.isEnabled(CppRuleClasses.NO_STRIPPING)) {
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
@@ -644,7 +646,7 @@ public class CppHelper {
             .addStringVariable(CcCommon.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
             .build();
     ImmutableList<String> commandLine =
-        ImmutableList.copyOf(featureConfiguration.getCommandLine(CppActionNames.STRIP, variables));
+        getCommandLine(ruleContext, featureConfiguration, variables, CppActionNames.STRIP);
     ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
     for (String executionRequirement :
         featureConfiguration.getToolRequirementsForAction(CppActionNames.STRIP)) {
@@ -665,6 +667,32 @@ public class CppHelper {
             .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
             .build(ruleContext);
     ruleContext.registerAction(stripAction);
+  }
+
+  public static ImmutableList<String> getCommandLine(
+      RuleErrorConsumer ruleErrorConsumer,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainVariables variables,
+      String actionName)
+      throws RuleErrorException {
+    try {
+      return ImmutableList.copyOf(featureConfiguration.getCommandLine(actionName, variables));
+    } catch (ExpansionException e) {
+      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+    }
+  }
+
+  public static ImmutableMap<String, String> getEnvironmentVariables(
+      RuleErrorConsumer ruleErrorConsumer,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainVariables variables,
+      String actionName)
+      throws RuleErrorException {
+    try {
+      return featureConfiguration.getEnvironmentVariables(actionName, variables);
+    } catch (ExpansionException e) {
+      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+    }
   }
 
   public static void maybeAddStaticLinkMarkerProvider(
