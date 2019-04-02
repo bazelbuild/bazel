@@ -636,7 +636,6 @@ java_library(
         "//tools/jdk:srcs",
     ],
     resources = [
-        "analysis/mock/MOCK_CROSSTOOL",
         "analysis/mock/cc_toolchain_config.bzl",
         "//tools/build_defs/cc:action_names.bzl",
         "//tools/cpp:cc_toolchain_config_lib.bzl",

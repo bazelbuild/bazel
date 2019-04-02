@@ -25,7 +25,7 @@ import java.io.IOException;
 public class BazelMockAndroidSupport {
 
   public static void setupNdk(MockToolsConfig config) throws IOException {
-    new Crosstool(config, "android/crosstool", /* disableCrosstool= */ true)
+    new Crosstool(config, "android/crosstool")
         .setCcToolchainFile(
             ResourceLoader.readFromResources(
                 "com/google/devtools/build/lib/packages/util/mock/android_cc_toolchain_config.bzl"))
