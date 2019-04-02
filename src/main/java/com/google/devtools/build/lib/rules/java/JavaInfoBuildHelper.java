@@ -404,7 +404,7 @@ final class JavaInfoBuildHelper {
             .setSourcePathEntries(sourcepathEntries)
             .setJavacOpts(
                 ImmutableList.<String>builder()
-                    .addAll(toolchainProvider.getJavacOptions())
+                    .addAll(toolchainProvider.getJavacOptions(skylarkRuleContext.getRuleContext()))
                     .addAll(
                         javaSemantics.getCompatibleJavacOptions(
                             skylarkRuleContext.getRuleContext(), toolchainProvider))

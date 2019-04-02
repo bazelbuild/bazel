@@ -191,7 +191,8 @@ public class JavaSkylarkCommon
   // delete
   public ImmutableList<String> getDefaultJavacOpts(
       JavaToolchainProvider javaToolchain, Location location) throws EvalException {
-    return javaToolchain.getJavacOptions();
+    // We don't have a rule context if the default_javac_opts.java_toolchain parameter is set
+    return ((JavaToolchainProvider) javaToolchain).getJavacOptions(/* ruleContext= */ null);
   }
 
   @Override

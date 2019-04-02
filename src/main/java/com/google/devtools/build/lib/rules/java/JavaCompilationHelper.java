@@ -741,7 +741,7 @@ public final class JavaCompilationHelper {
   private static ImmutableList<String> getDefaultJavacOptsFromRule(RuleContext ruleContext) {
     return ImmutableList.copyOf(
         Iterables.concat(
-            JavaToolchainProvider.from(ruleContext).getJavacOptions(),
+            JavaToolchainProvider.from(ruleContext).getJavacOptions(ruleContext),
             ruleContext.getExpander().withDataLocations().tokenized("javacopts")));
   }
 
