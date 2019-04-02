@@ -26,7 +26,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
@@ -53,7 +52,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -61,14 +59,6 @@ import org.junit.runners.JUnit4;
 /** Tests for toolchain features. */
 @RunWith(JUnit4.class)
 public class CcToolchainFeaturesTest extends BuildViewTestCase {
-
-  private RuleContext ruleContext;
-
-  @Before
-  public void setup() throws Exception {
-    scratch.file("foo/BUILD", "cc_library(name = 'foo')");
-    ruleContext = getRuleContext(getConfiguredTarget("//foo:foo"));
-  }
 
   /**
    * Creates a {@code Variables} configuration from a list of key/value pairs.
@@ -155,7 +145,6 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testFeatureConfigurationCodec() throws Exception {
     FeatureConfiguration emptyConfiguration =
         buildEmptyFeatures("").getFeatureConfiguration(ImmutableSet.of());
-    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//foo:foo"));
     FeatureConfiguration emptyFeatures =
         buildFeatures("feature {name: 'a'}", "feature {name: 'b'}")
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));
@@ -209,7 +198,6 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   @Test
   public void testUnconditionalFeature() throws Exception {
-    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//foo:foo"));
     assertThat(buildFeatures("").getFeatureConfiguration(ImmutableSet.of("a")).isEnabled("a"))
         .isFalse();
     assertThat(
@@ -1708,7 +1696,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLibraryToLinkValue() {
+  public void testLibraryToLinkValue() throws ExpansionException {
     assertThat(
             LibraryToLinkValue.forDynamicLibrary("foo")
                 .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME)

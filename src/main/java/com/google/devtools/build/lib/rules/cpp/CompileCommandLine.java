@@ -17,7 +17,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -62,8 +64,12 @@ public final class CompileCommandLine {
   }
 
   /** Returns the environment variables that should be set for C++ compile actions. */
-  protected Map<String, String> getEnvironment() {
-    return featureConfiguration.getEnvironmentVariables(actionName, variables);
+  protected Map<String, String> getEnvironment() throws CommandLineExpansionException {
+    try {
+      return featureConfiguration.getEnvironmentVariables(actionName, variables);
+    } catch (ExpansionException e) {
+      throw new CommandLineExpansionException(e.getMessage());
+    }
   }
 
   /** Returns the tool path for the compilation based on the current feature configuration. */
@@ -81,8 +87,8 @@ public final class CompileCommandLine {
    *     unmodified original variables are used.
    */
   protected List<String> getArguments(
-      @Nullable PathFragment parameterFilePath,
-      @Nullable CcToolchainVariables overwrittenVariables) {
+      @Nullable PathFragment parameterFilePath, @Nullable CcToolchainVariables overwrittenVariables)
+      throws CommandLineExpansionException {
     List<String> commandLine = new ArrayList<>();
 
     // first: The command name.
@@ -97,19 +103,24 @@ public final class CompileCommandLine {
     return commandLine;
   }
 
-  public List<String> getCompilerOptions(@Nullable CcToolchainVariables overwrittenVariables) {
-    List<String> options = new ArrayList<>();
+  public List<String> getCompilerOptions(@Nullable CcToolchainVariables overwrittenVariables)
+      throws CommandLineExpansionException {
+    try {
+      List<String> options = new ArrayList<>();
 
-    CcToolchainVariables updatedVariables = variables;
-    if (variables != null && overwrittenVariables != null) {
-      CcToolchainVariables.Builder variablesBuilder = CcToolchainVariables.builder(variables);
-      variablesBuilder.addAllNonTransitive(overwrittenVariables);
-      updatedVariables = variablesBuilder.build();
+      CcToolchainVariables updatedVariables = variables;
+      if (variables != null && overwrittenVariables != null) {
+        CcToolchainVariables.Builder variablesBuilder = CcToolchainVariables.builder(variables);
+        variablesBuilder.addAllNonTransitive(overwrittenVariables);
+        updatedVariables = variablesBuilder.build();
+      }
+      addFilteredOptions(
+          options, featureConfiguration.getPerFeatureExpansions(actionName, updatedVariables));
+
+      return options;
+    } catch (ExpansionException e) {
+      throw new CommandLineExpansionException(e.getMessage());
     }
-    addFilteredOptions(
-        options, featureConfiguration.getPerFeatureExpansions(actionName, updatedVariables));
-
-    return options;
   }
 
   // For each option in 'in', add it to 'out' unless it is matched by the 'coptsFilter' regexp.
@@ -151,8 +162,13 @@ public final class CompileCommandLine {
    */
   public ImmutableList<String> getCopts() {
     if (variables.isAvailable(CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName())) {
-      return CcToolchainVariables.toStringList(
-          variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+      try {
+        return CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+      } catch (ExpansionException e) {
+        throw new IllegalStateException(
+            "Should not happen - 'user_compile_flags' should be a string list, but wasn't.");
+      }
     } else {
       return ImmutableList.of();
     }

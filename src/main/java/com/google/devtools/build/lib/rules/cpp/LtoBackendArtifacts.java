@@ -274,7 +274,8 @@ public final class LtoBackendArtifacts {
     List<String> execArgs = new ArrayList<>();
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
     execArgs.addAll(
-        featureConfiguration.getCommandLine(CppActionNames.LTO_BACKEND, buildVariables));
+        CppHelper.getCommandLine(
+            ruleErrorConsumer, featureConfiguration, buildVariables, CppActionNames.LTO_BACKEND));
     // If this is a PIC compile (set based on the CppConfiguration), the PIC
     // option should be added after the rest of the command line so that it
     // cannot be overridden. This is consistent with the ordering in the

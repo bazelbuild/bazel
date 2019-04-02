@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -66,7 +67,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         skylarkRuleContext =
             new SkylarkRuleContext(
                 ruleContext, aspectDescriptor, analysisEnv.getSkylarkSemantics());
-      } catch (EvalException e) {
+      } catch (EvalException | RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
       }

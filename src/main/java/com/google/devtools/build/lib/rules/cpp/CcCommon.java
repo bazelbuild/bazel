@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -435,17 +436,23 @@ public final class CcCommon {
 
     @Override
     @Nullable
-    public String getMakeVariable(String variableName) {
+    public String getMakeVariable(String variableName) throws ExpansionException {
       if (!variableName.equals(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME)) {
         return null;
       }
 
-      return CcCommon.computeCcFlags(ruleContext, ruleContext.getPrerequisite(
-          CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET));
+      try {
+        return CcCommon.computeCcFlags(
+            ruleContext,
+            ruleContext.getPrerequisite(
+                CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET));
+      } catch (RuleErrorException e) {
+        throw new ExpansionException(e.getMessage());
+      }
     }
 
     @Override
-    public ImmutableMap<String, String> getAllMakeVariables() {
+    public ImmutableMap<String, String> getAllMakeVariables() throws ExpansionException {
       return ImmutableMap.of(
           CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME,
           getMakeVariable(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME));
@@ -911,7 +918,8 @@ public final class CcCommon {
    * Computes the appropriate value of the {@code $(CC_FLAGS)} Make variable based on the given
    * toolchain.
    */
-  public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
+  public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain)
+      throws RuleErrorException {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
 
@@ -962,7 +970,7 @@ public final class CcCommon {
   }
 
   private static List<String> computeCcFlagsFromFeatureConfig(
-      RuleContext ruleContext, CcToolchainProvider toolchainProvider) {
+      RuleContext ruleContext, CcToolchainProvider toolchainProvider) throws RuleErrorException {
     FeatureConfiguration featureConfiguration = null;
     CppConfiguration cppConfiguration;
     if (toolchainProvider.requireCtxInConfigureFeatures()) {
@@ -988,8 +996,8 @@ public final class CcCommon {
       CcToolchainVariables buildVariables =
           toolchainProvider.getBuildVariables(
               ruleContext.getConfiguration().getOptions(), cppConfiguration);
-      return featureConfiguration.getCommandLine(
-          CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables);
+      return CppHelper.getCommandLine(
+          ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
     }
     return ImmutableList.of();
   }

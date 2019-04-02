@@ -59,6 +59,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -148,8 +149,7 @@ import javax.annotation.Nullable;
  */
 public class CompilationSupport {
 
-  @VisibleForTesting
-  static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
+  @VisibleForTesting static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
 
   @VisibleForTesting
   static final String MODULES_CACHE_PATH_WARNING =
@@ -242,16 +242,12 @@ public class CompilationSupport {
           "c-compile",
           "c++-compile");
 
-  /**
-   * Returns the location of the xcrunwrapper tool.
-   */
+  /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
     return ruleContext.getExecutablePrerequisite("$xcrunwrapper", Mode.HOST);
   }
 
-  /**
-   * Returns the location of the libtool tool.
-   */
+  /** Returns the location of the libtool tool. */
   public static final FilesToRunProvider libtool(RuleContext ruleContext) {
     return ruleContext.getExecutablePrerequisite(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, Mode.HOST);
   }
@@ -267,9 +263,7 @@ public class CompilationSupport {
           .withSourceAttributes("srcs", "non_arc_srcs", "hdrs")
           .withDependencyAttributes("deps", "data", "binary", "xctest_app");
 
-  /**
-   * Defines a library that contains the transitive closure of dependencies.
-   */
+  /** Defines a library that contains the transitive closure of dependencies. */
   public static final SafeImplicitOutputsFunction FULLY_LINKED_LIB =
       fromTemplates("%{name}_fully_linked.a");
 
@@ -602,9 +596,7 @@ public class CompilationSupport {
     }
   }
 
-  /**
-   * Iterable wrapper providing strong type safety for arguments to binary linking.
-   */
+  /** Iterable wrapper providing strong type safety for arguments to binary linking. */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
     ExtraLinkArgs(String... args) {
       super(args);
@@ -615,19 +607,17 @@ public class CompilationSupport {
     }
   }
 
-  /**
-   * Iterable wrapper providing strong type safety for extra compile flags.
-   */
+  /** Iterable wrapper providing strong type safety for extra compile flags. */
   static final class ExtraCompileArgs extends IterableWrapper<String> {
     static final ExtraCompileArgs NONE = new ExtraCompileArgs();
+
     ExtraCompileArgs(String... args) {
       super(args);
     }
   }
 
   @VisibleForTesting
-  static final String FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT =
-      "File '%s' is in both srcs and hdrs.";
+  static final String FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT = "File '%s' is in both srcs and hdrs.";
 
   @VisibleForTesting
   static final String FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT =
@@ -650,25 +640,23 @@ public class CompilationSupport {
           CppFileTypes.CPP_SOURCE,
           CppFileTypes.C_SOURCE);
 
-  /**
-   * Returns information about the given rule's compilation artifacts.
-   */
+  /** Returns information about the given rule's compilation artifacts. */
   // TODO(bazel-team): Remove this information from ObjcCommon and move it internal to this class.
   static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
-    return compilationArtifacts(ruleContext,  ObjcRuleClasses.intermediateArtifacts(ruleContext));
+    return compilationArtifacts(ruleContext, ObjcRuleClasses.intermediateArtifacts(ruleContext));
   }
 
   /**
-   * Returns information about the given rule's compilation artifacts. Dependencies specified
-   * in the current rule's attributes are obtained via {@code ruleContext}. Output locations
-   * are determined using the given {@code intermediateArtifacts} object. The fact that these
-   * are distinct objects allows the caller to generate compilation actions pertaining to
-   * a configuration separate from the current rule's configuration.
+   * Returns information about the given rule's compilation artifacts. Dependencies specified in the
+   * current rule's attributes are obtained via {@code ruleContext}. Output locations are determined
+   * using the given {@code intermediateArtifacts} object. The fact that these are distinct objects
+   * allows the caller to generate compilation actions pertaining to a configuration separate from
+   * the current rule's configuration.
    */
-  static CompilationArtifacts compilationArtifacts(RuleContext ruleContext,
-      IntermediateArtifacts intermediateArtifacts) {
-    PrerequisiteArtifacts srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
-        .errorsForNonMatching(SRCS_TYPE);
+  static CompilationArtifacts compilationArtifacts(
+      RuleContext ruleContext, IntermediateArtifacts intermediateArtifacts) {
+    PrerequisiteArtifacts srcs =
+        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).errorsForNonMatching(SRCS_TYPE);
     return new CompilationArtifacts.Builder()
         .addSrcs(srcs.filter(COMPILABLE_SRCS_TYPE).list())
         .addNonArcSrcs(
@@ -758,9 +746,11 @@ public class CompilationSupport {
     this.outputGroupCollector = outputGroupCollector;
     this.objectFilesCollector = objectFilesCollector;
     this.usePch = usePch;
-    if (toolchain == null && ruleContext.attributes().has(
-        CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
-      toolchain =  CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    if (toolchain == null
+        && ruleContext
+            .attributes()
+            .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
+      toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     }
 
     this.toolchain = toolchain;
@@ -812,9 +802,7 @@ public class CompilationSupport {
       return this;
     }
 
-    /**
-     * Indicates that this CompilationSupport is for use in a test rule.
-     */
+    /** Indicates that this CompilationSupport is for use in a test rule. */
     public Builder setIsTestRule() {
       this.isTestRule = true;
       return this;
@@ -1628,7 +1616,7 @@ public class CompilationSupport {
 
   private CompilationSupport registerGenerateUmbrellaHeaderAction(
       Artifact umbrellaHeader, Iterable<Artifact> publicHeaders) {
-     ruleContext.registerAction(
+    ruleContext.registerAction(
         new UmbrellaHeaderAction(
             ruleContext.getActionOwner(),
             umbrellaHeader,
@@ -1672,6 +1660,7 @@ public class CompilationSupport {
 
   /**
    * Registers an action that will generate a clang module map.
+   *
    * @param moduleMap the module map to generate
    * @param publicHeaders the headers that should be directly accessible by dependers
    * @return this compilation support
@@ -1769,31 +1758,37 @@ public class CompilationSupport {
   private void registerHeaderScanningActions(
       CcCompilationOutputs ccCompilationOutputs,
       ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts) {
+      CompilationArtifacts compilationArtifacts)
+      throws RuleErrorException {
     // PIC is not used for Obj-C builds, if that changes this method will need to change
     if (!isHeaderThinningEnabled() || ccCompilationOutputs.getObjectFiles(false).isEmpty()) {
       return;
     }
 
-    ImmutableList.Builder<ObjcHeaderThinningInfo> headerThinningInfos = ImmutableList.builder();
-    AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    for (Artifact objectFile : ccCompilationOutputs.getObjectFiles(false)) {
-      ActionAnalysisMetadata generatingAction =
-          analysisEnvironment.getLocalGeneratingAction(objectFile);
-      if (generatingAction instanceof CppCompileAction) {
-        CppCompileAction action = (CppCompileAction) generatingAction;
-        Artifact sourceFile = action.getSourceFile();
-        if (!sourceFile.isTreeArtifact()
-            && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
-          headerThinningInfos.add(
-              new ObjcHeaderThinningInfo(
-                  sourceFile,
-                  intermediateArtifacts.headersListFile(objectFile),
-                  action.getCompilerOptions()));
+    try {
+      ImmutableList.Builder<ObjcHeaderThinningInfo> headerThinningInfos = ImmutableList.builder();
+      AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
+      for (Artifact objectFile : ccCompilationOutputs.getObjectFiles(false)) {
+        ActionAnalysisMetadata generatingAction =
+            analysisEnvironment.getLocalGeneratingAction(objectFile);
+        if (generatingAction instanceof CppCompileAction) {
+          CppCompileAction action = (CppCompileAction) generatingAction;
+          Artifact sourceFile = action.getSourceFile();
+          if (!sourceFile.isTreeArtifact()
+              && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
+            headerThinningInfos.add(
+                new ObjcHeaderThinningInfo(
+                    sourceFile,
+                    intermediateArtifacts.headersListFile(objectFile),
+                    action.getCompilerOptions()));
+          }
         }
       }
+      registerHeaderScanningActions(
+          headerThinningInfos.build(), objcProvider, compilationArtifacts);
+    } catch (CommandLineExpansionException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
     }
-    registerHeaderScanningActions(headerThinningInfos.build(), objcProvider, compilationArtifacts);
   }
 
   /**

@@ -284,7 +284,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact sharedObject = getOnlyElement(FileType.filter(getFilesToBuild(hello),
         CppFileTypes.SHARED_LIBRARY));
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
-    for (String option : action.getLinkCommandLine().getLinkopts()) {
+    for (String option : MockCcSupport.getLinkopts(action.getLinkCommandLine())) {
       assertThat(option).doesNotContain("-Wl,-soname");
     }
 
@@ -295,7 +295,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     sharedObject =
         FileType.filter(getFilesToBuild(hello), CppFileTypes.SHARED_LIBRARY).iterator().next();
     action = (CppLinkAction) getGeneratingAction(sharedObject);
-    assertThat(action.getLinkCommandLine().getLinkopts())
+    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
         .contains("-Wl,-soname=libhello_Slibhello.so");
   }
 
@@ -321,7 +321,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(info.getMnemonic()).isEqualTo("CppLink");
 
     CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
-    assertThat(cppLinkInfo).isNotNull();
 
     Iterable<String> inputs =
         Artifact.asExecPaths(action.getLinkCommandLine().getLinkerInputArtifacts());
@@ -360,7 +359,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(info.getMnemonic()).isEqualTo("CppLink");
 
     CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
-    assertThat(cppLinkInfo).isNotNull();
 
     Iterable<String> inputs =
         Artifact.asExecPaths(action.getLinkCommandLine().getLinkerInputArtifacts());
