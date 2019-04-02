@@ -281,7 +281,7 @@ public class AttributeTest {
   public void testSplitTransition() throws Exception {
     TestSplitTransition splitTransition = new TestSplitTransition();
     Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
-    assertThat(attr.hasSplitConfigurationTransition()).isTrue();
+    assertThat(attr.getTransitionFactory().isSplit()).isTrue();
     ConfigurationTransition transition =
         attr.getTransitionFactory()
             .create(AttributeTransitionData.create(FakeAttributeMapper.empty()));
@@ -293,7 +293,7 @@ public class AttributeTest {
     TestSplitTransitionProvider splitTransitionProvider = new TestSplitTransitionProvider();
     Attribute attr =
         attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
-    assertThat(attr.hasSplitConfigurationTransition()).isTrue();
+    assertThat(attr.getTransitionFactory().isSplit()).isTrue();
     ConfigurationTransition transition =
         attr.getTransitionFactory()
             .create(AttributeTransitionData.create(FakeAttributeMapper.empty()));
@@ -305,7 +305,7 @@ public class AttributeTest {
     Attribute attr =
         attr("foo", LABEL).cfg(HostTransition.createFactory()).allowedFileTypes().build();
     assertThat(attr.hasHostConfigurationTransition()).isTrue();
-    assertThat(attr.hasSplitConfigurationTransition()).isFalse();
+    assertThat(attr.getTransitionFactory().isSplit()).isFalse();
   }
 
   private static class TestSplitTransition implements SplitTransition {

@@ -312,7 +312,7 @@ public final class ConfigurationResolver {
           Dependency resolvedDep = Dependency.withConfigurationAndAspects(originalDep.getLabel(),
               trimmedConfig.getConfiguration(), originalDep.getAspects());
           Attribute attribute = attr.dependencyKind.getAttribute();
-          if (attribute != null && attribute.hasSplitConfigurationTransition()) {
+          if (attribute != null && attribute.getTransitionFactory().isSplit()) {
             resolvedDeps.put(attr, resolvedDep);
           } else {
             putOnlyEntry(resolvedDeps, attr, resolvedDep);
