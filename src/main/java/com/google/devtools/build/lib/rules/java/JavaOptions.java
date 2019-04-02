@@ -68,8 +68,6 @@ public class JavaOptions extends FragmentOptions {
     }
   }
 
-  private static final String DEFAULT_JAVABASE = "@bazel_tools//tools/jdk:jdk";
-
   @Option(
       name = "experimental_disallow_legacy_java_toolchain_flags",
       defaultValue = "false",
@@ -80,6 +78,8 @@ public class JavaOptions extends FragmentOptions {
               + " --java_toolchain, --host_java_toolchain) and require the use of --platforms"
               + " instead; see #7849")
   public boolean disallowLegacyJavaToolchainFlags;
+
+  private static final String DEFAULT_JAVABASE = "@bazel_tools//tools/jdk:jdk";
 
   @Option(
       name = "javabase",
@@ -649,7 +649,7 @@ public class JavaOptions extends FragmentOptions {
     if (useJDK11AsHostJavaBase) {
       return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
     }
-    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:host_jdk");
+    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk10");
   }
 
   Label defaultJavaToolchain() {
