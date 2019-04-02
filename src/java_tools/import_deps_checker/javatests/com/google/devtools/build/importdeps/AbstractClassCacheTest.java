@@ -85,6 +85,8 @@ public abstract class AbstractClassCacheTest {
           PACKAGE_NAME + "LibraryInterface$InterfaceFoo",
           PACKAGE_NAME + "LibraryInterface$InterfaceBar");
 
+  final Path libraryModuleInfoJar = getPathFromSystemProperty("classcache.test.LibraryModuleInfo");
+
   static Path getPathFromSystemProperty(String propertyName) {
     String path =
         checkNotNull(
