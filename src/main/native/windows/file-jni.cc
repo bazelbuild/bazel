@@ -100,15 +100,18 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeCreat
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeReadJunction(
     JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
-    jobjectArray error_msg_holder) {
+    jintArray result_len_holder, jobjectArray error_msg_holder) {
   std::wstring target, error;
+  int target_len;
   std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
-  int result = bazel::windows::ReadJunction(wpath, &target, &error);
+  int result = bazel::windows::ReadJunction(wpath, &target, &target_len, &error);
   if (result == bazel::windows::ReadJunctionResult::kSuccess) {
     env->SetObjectArrayElement(
         result_holder, 0,
         env->NewString(reinterpret_cast<const jchar*>(target.c_str()),
                        target.size()));
+    jint targetlen = target_len;
+    env->SetIntArrayRegion(result_len_holder, 0, 1, &targetlen);
   } else {
     if (!error.empty() && CanReportError(env, error_msg_holder)) {
       ReportLastError(

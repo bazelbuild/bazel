@@ -134,7 +134,8 @@ wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error);
 
-int ReadJunction(const wstring& path, wstring* result, wstring* error);
+int ReadJunction(const wstring& path, wstring* result, int* result_len,
+                 wstring* error);
 
 // Deletes the file, junction, or empty directory at `path`.
 // Returns DELETE_PATH_SUCCESS if it successfully deleted the path, otherwise

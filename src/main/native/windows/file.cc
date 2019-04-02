@@ -419,7 +419,7 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
   return CreateJunctionResult::kSuccess;
 }
 
-int ReadJunction(const wstring& path, wstring* result, wstring* error) {
+int ReadJunction(const wstring& path, wstring* result, int* result_len, wstring* error) {
   AutoHandle handle(CreateFileW(
       path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
       NULL, OPEN_EXISTING,
@@ -464,6 +464,7 @@ int ReadJunction(const wstring& path, wstring* result, wstring* error) {
   }
 
   result->assign(target_path);
+  *result_len = target_path_len;
   return ReadJunctionResult::kSuccess;
 }
 
