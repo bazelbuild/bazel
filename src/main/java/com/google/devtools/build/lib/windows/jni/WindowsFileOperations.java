@@ -78,7 +78,7 @@ public class WindowsFileOperations {
 
   private static native int nativeCreateJunction(String name, String target, String[] error);
 
-  private static native int nativeReadJunction(String path, String[] result, int[] target_len, String[] error);
+  private static native int nativeReadJunction(String path, String[] result, int[] DEBUG_target_len, String[] error);
 
   private static native int nativeDeletePath(String path, String[] error);
 
@@ -178,15 +178,15 @@ public class WindowsFileOperations {
   public static String readJunction(String path) throws IOException {
     WindowsJniLoader.loadJni();
     String[] target = new String[] {null};
-    int[] target_len = new int[] { 0 };
+    int[] DEBUG_target_len = new int[] { 0 };
     String[] error = new String[] {null};
 
     path = asLongPath(path);
-    int result = nativeReadJunction(path, target, target_len, error);
+    int result = nativeReadJunction(path, target, DEBUG_target_len, error);
     if (result == READ_JUNCTION_SUCCESS) {
       error[0] = removeUncPrefixAndUseSlashes(target[0]);
       System.err.printf(" | DEBUG | readJunc(%s) -> (%s) %d %d (%s)%n",
-          path, target[0], target_len[0], target[0].length(), error[0]);
+          path, target[0], DEBUG_target_len[0], target[0].length(), error[0]);
       return error[0];
     } else {
       switch (result) {

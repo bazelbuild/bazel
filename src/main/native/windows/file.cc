@@ -18,6 +18,7 @@
 
 #include <windows.h>
 #include <WinIoCtl.h>
+#include <fileapi.h>
 
 #include <stdint.h>  // uint8_t
 
@@ -152,9 +153,9 @@ typedef struct _AllocatedJunctionDescription {
 } AllocatedJunctionDescription;
 #pragma pack(pop)
 
-bool ReadJunctionByHandle(HANDLE handle, JunctionDescription* reparse_buffer,
-                          WCHAR** target_path, DWORD* target_path_len,
-                          DWORD* err) {
+static bool ReadJunctionByHandle(
+    HANDLE handle, JunctionDescription* reparse_buffer, WCHAR** target_path,
+    DWORD* target_path_len, DWORD* err) {
   DWORD bytes_returned;
   if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, NULL, 0,
                          reparse_buffer, MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
@@ -419,11 +420,16 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
   return CreateJunctionResult::kSuccess;
 }
 
-int ReadJunction(const wstring& path, wstring* result, int* result_len, wstring* error) {
-  AutoHandle handle(CreateFileW(
+static inline HANDLE OpenJunction(const wstring& path) {
+  return CreateFileW(
       path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
       NULL, OPEN_EXISTING,
-      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL));
+      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
+}
+
+int ReadJunction(const wstring& path, wstring* result, int* DEBUG_result_len,
+                 wstring* error) {
+  AutoHandle handle(OpenJunction(path));
   if (!handle.IsValid()) {
     DWORD err = GetLastError();
     if (err == ERROR_SHARING_VIOLATION) {
@@ -438,12 +444,35 @@ int ReadJunction(const wstring& path, wstring* result, int* result_len, wstring*
     // The path seems to exist yet we cannot open it for metadata-reading.
     // Report as much information as we have, then give up.
     if (error) {
-      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW",
-                                path, err);
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW", path,
+                                err);
     }
     return ReadJunctionResult::kError;
   }
 
+  BY_HANDLE_FILE_INFORMATION info;
+  if (!GetFileInformationByHandle(handle, &info)) {
+    DWORD err = GetLastError();
+    // Some unknown error occurred.
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"GetFileInformationByHandle", path, err);
+    }
+    return ReadJunctionResult::kError;
+  }
+
+  if (info.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+    // Some unknown error occurred.
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"Failed to get attributes", path, 0);
+    }
+    return ReadJunctionResult::kError;
+  }
+
+  if (!(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+    return ReadJunctionResult::kNotAJunction;
+  }
 
   AllocatedJunctionDescription junc;
   memset(&junc, 0, sizeof(AllocatedJunctionDescription));
@@ -463,8 +492,24 @@ int ReadJunction(const wstring& path, wstring* result, int* result_len, wstring*
     return ReadJunctionResult::kError;
   }
 
+  // DEBUG
+//  {
+//    FILE* fff=fopen("C:\\src\\bazel\\jni.log", "at");
+//    fseek(fff, 0, SEEK_END);
+//    fprintf(fff, "ReadJunc(%ls) -> %d %d %d (%ls) | %d %d (%ls)\n",
+//        path.c_str(),
+//        junc.data.descriptor.SubstituteNameOffset,
+//        junc.data.descriptor.SubstituteNameLength,
+//        (int) wcslen(junc.data.PathBuffer + junc.data.descriptor.SubstituteNameOffset),
+//        junc.data.PathBuffer + junc.data.descriptor.SubstituteNameOffset,
+//        target_path_len,
+//        (int) wcslen(target_path),
+//        target_path);
+//    fclose(fff);
+//  }
+
   result->assign(target_path);
-  *result_len = target_path_len;
+  *DEBUG_result_len = target_path_len;
   return ReadJunctionResult::kSuccess;
 }
 
