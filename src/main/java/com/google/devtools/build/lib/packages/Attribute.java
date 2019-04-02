@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.collect.Sets.newEnumSet;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -32,10 +31,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -81,34 +77,6 @@ public final class Attribute implements Comparable<Attribute> {
   public static final RuleClassNamePredicate ANY_RULE = RuleClassNamePredicate.unspecified();
 
   public static final RuleClassNamePredicate NO_RULE = RuleClassNamePredicate.only();
-
-  /** Wrapper for a single configuration transition. */
-  // TODO(https://github.com/bazelbuild/bazel/issues/7814): Remove this, have callers create
-  // factories.
-  @AutoValue
-  abstract static class StaticTransitionFactory
-      implements TransitionFactory<AttributeTransitionData> {
-    abstract ConfigurationTransition transition();
-
-    @Override
-    public ConfigurationTransition create(AttributeTransitionData unused) {
-      return transition();
-    }
-
-    @Override
-    public boolean isHost() {
-      return transition().isHostTransition();
-    }
-
-    @Override
-    public boolean isSplit() {
-      return transition() instanceof SplitTransition;
-    }
-
-    static TransitionFactory<AttributeTransitionData> of(ConfigurationTransition transition) {
-      return new AutoValue_Attribute_StaticTransitionFactory(transition);
-    }
-  }
 
   /** Wraps the information necessary to construct an Aspect. */
   @VisibleForSerialization
@@ -631,15 +599,6 @@ public final class Attribute implements Comparable<Attribute> {
           "the configuration transition is already set");
       this.transitionFactory = transitionFactory;
       return this;
-    }
-
-    /**
-     * Defines the configuration transition for this attribute (e.g. a {@link PatchTransition} or
-     * {@link SplitTransition}). Defaults to {@code NONE}.
-     */
-    public Builder<TYPE> cfg(ConfigurationTransition configTransition) {
-      Preconditions.checkNotNull(configTransition);
-      return cfg(StaticTransitionFactory.of(configTransition));
     }
 
     /**

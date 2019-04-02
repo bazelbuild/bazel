@@ -1049,11 +1049,12 @@ public class RuleClass {
      * Applies the given transition to all incoming edges for this rule class.
      *
      * <p>This cannot be a {@link SplitTransition} because that requires coordination with the
-     * rule's parent: use {@link Attribute.Builder#cfg(ConfigurationTransition)} on the parent to
-     * declare splits.
+     * rule's parent: use {@link
+     * Attribute.Builder#cfg(com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory)}
+     * on the parent to declare splits.
      *
-     * <p>If you need the transition to depend on the rule it's being applied to, use
-     * {@link #cfg(RuleTransitionFactory)}.
+     * <p>If you need the transition to depend on the rule it's being applied to, use {@link
+     * #cfg(RuleTransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
       return cfg(new FixedTransitionFactory(transition));
