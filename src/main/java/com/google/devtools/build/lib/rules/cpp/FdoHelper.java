@@ -129,7 +129,8 @@ public class FdoHelper {
       Artifact profileArtifact = null;
       if (branchFdoMode == BranchFdoMode.LLVM_FDO) {
         profileArtifact =
-            convertLLVMRawProfileToIndexed(attributes, fdoInputFile, toolchainInfo, ruleContext);
+            convertLLVMRawProfileToIndexed(
+                attributes, fdoInputFile, toolchainInfo, ruleContext, cppConfiguration);
         if (ruleContext.hasErrors()) {
           return null;
         }
@@ -216,7 +217,11 @@ public class FdoHelper {
       CcToolchainAttributesProvider attributes,
       FdoInputFile fdoProfile,
       CppToolchainInfo toolchainInfo,
-      RuleContext ruleContext) {
+      RuleContext ruleContext,
+      CppConfiguration cppConfiguration) {
+    if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+      return null;
+    }
 
     Artifact profileArtifact =
         ruleContext.getUniqueDirectoryArtifact(
