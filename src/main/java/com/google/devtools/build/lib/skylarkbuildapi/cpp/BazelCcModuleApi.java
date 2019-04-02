@@ -45,6 +45,7 @@ public interface BazelCcModuleApi<
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi>
     extends CcModuleApi<
+        FileT,
         CcToolchainProviderT,
         FeatureConfigurationT,
         CompilationContextT,

@@ -460,7 +460,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "      lto_backend_action_name=LTO_BACKEND_ACTION_NAME,",
         "      cpp_link_executable_action_name=CPP_LINK_EXECUTABLE_ACTION_NAME,",
         "      cpp_link_dynamic_library_action_name=CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,",
-        "      cpp_link_nodeps_dynamic_library_action_name=CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,",
+        "     "
+            + " cpp_link_nodeps_dynamic_library_action_name=CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,",
         "      cpp_link_static_library_action_name=CPP_LINK_STATIC_LIBRARY_ACTION_NAME,",
         "      strip_action_name=STRIP_ACTION_NAME)",
         "crule = rule(",
@@ -1059,6 +1060,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
     @SuppressWarnings("unchecked")
+    SkylarkNestedSet additionalInputs = info.getValue("additional_inputs", SkylarkNestedSet.class);
+    assertThat(
+            additionalInputs.toCollection(Artifact.class).stream()
+                .map(x -> x.getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("b.lds", "d.lds");
+    @SuppressWarnings("unchecked")
     SkylarkList<LibraryToLink> librariesToLink =
         (SkylarkList<LibraryToLink>) info.getValue("libraries_to_link", SkylarkList.class);
     assertThat(
@@ -1121,6 +1129,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "   pic_static_library = 'b.pic.a',",
         "   dynamic_library = 'b.so',",
         "   deps = [':c', ':d'],",
+        "   additional_inputs = ['b.lds'],",
         ")",
         "crule(name='c',",
         "   static_library = 'c.a',",
@@ -1131,6 +1140,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "   static_library = 'd.a',",
         "   alwayslink = True,",
         "   deps = [':e'],",
+        "   additional_inputs = ['d.lds'],",
         ")",
         "crule(name='e',",
         "   pic_static_library = 'e.pic.a',",
@@ -1171,8 +1181,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "  library_to_link = _create(ctx, feature_configuration, ctx.file.static_library, ",
         "     ctx.file.pic_static_library, ctx.file.dynamic_library, ctx.file.interface_library,",
         "     ctx.attr.alwayslink)",
-        "  linking_context = cc_common.create_linking_context(libraries_to_link=[library_to_link],",
-        "     user_link_flags=ctx.attr.user_link_flags)",
+        "  linking_context = cc_common.create_linking_context(",
+        "     libraries_to_link=[library_to_link],",
+        "     user_link_flags=ctx.attr.user_link_flags,",
+        "     additional_inputs=ctx.files.additional_inputs)",
         "  cc_infos = [CcInfo(linking_context=linking_context)]",
         "  for dep in ctx.attr.deps:",
         "      cc_infos.append(dep[CcInfo])",
@@ -1181,6 +1193,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "     info = struct(",
         "       cc_info = merged_cc_info,",
         "       user_link_flags = merged_cc_info.linking_context.user_link_flags,",
+        "       additional_inputs = merged_cc_info.linking_context.additional_inputs,",
         "       libraries_to_link = merged_cc_info.linking_context.libraries_to_link,",
         "       static_library = library_to_link.static_library,",
         "       pic_static_library = library_to_link.pic_static_library,",
@@ -1193,6 +1206,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "  _impl,",
         "  attrs = { ",
         "    'user_link_flags' : attr.string_list(),",
+        "    'additional_inputs': attr.label_list(allow_files=True),",
         "    'static_library': attr.label(allow_single_file=True),",
         "    'pic_static_library': attr.label(allow_single_file=True),",
         "    'dynamic_library': attr.label(allow_single_file=True),",
