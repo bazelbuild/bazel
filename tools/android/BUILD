@@ -208,7 +208,10 @@ filegroup(
             "*~",
             ".*",
         ],
-    ) + ["//tools/android/emulator:srcs"],
+    ) + [
+        "//tools/android/emulator:srcs",
+        "//tools/android/runtime_deps:srcs",
+    ],
 )
 
 filegroup(
