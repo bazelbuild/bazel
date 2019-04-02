@@ -463,7 +463,7 @@ int ReadJunction(const wstring& path, wstring* result, wstring* error) {
     return ReadJunctionResult::kError;
   }
 
-  *result = std::wstring(target_path, target_path_len);
+  result->assign(target_path);
   return ReadJunctionResult::kSuccess;
 }
 
