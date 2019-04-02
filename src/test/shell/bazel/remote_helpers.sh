@@ -33,20 +33,22 @@ esac
 #   * nc_port - the port nc is listening on.
 #   * nc_log - the path to nc's log.
 #   * nc_pid - the PID of nc.
-#   * http_response - the full response nc will provide to a request.
-# This also creates the file $TEST_TMPDIR/http_response.
 function serve_file() {
-  http_response=$TEST_TMPDIR/http_response
-  cat > $http_response <<EOF
-HTTP/1.0 200 OK
-
-EOF
-  cat $1 >> $http_response
-  # Assign random_port to nc_port if not already set.
-  echo ${nc_port:=$(pick_random_unused_tcp_port)} > /dev/null
-  nc_log=$TEST_TMPDIR/nc.log
-  nc_l $nc_port < $http_response >& $nc_log &
+  file_name=served_file.$$
+  cat $1 > "${TEST_TMPDIR}/$file_name"
+  nc_log="${TEST_TMPDIR}/nc.log"
+  rm -f $nc_log
+  touch $nc_log
+  cd "${TEST_TMPDIR}"
+  port_file=server-port.$$
+  rm -f $port_file
+  python $python_server always $file_name > $port_file &
   nc_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  nc_port=$(head -n 1 $port_file)
+  fileserver_port=$nc_port
+  wait_for_server_startup
+  cd -
 }
 
 # Creates a jar carnivore.Mongoose and serves it using serve_file.
@@ -150,7 +152,7 @@ EOF
 # connections, which causes flakes.
 function wait_for_server_startup() {
   touch some-file
-  while ! curl localhost:$fileserver_port/some-file; do
+  while ! curl http://localhost:$fileserver_port/some-file > /dev/null; do
     echo "waiting for server, exit code: $?"
     sleep 1
   done
@@ -195,17 +197,23 @@ function serve_artifact() {
 function startup_server() {
   fileserver_root=$1
   cd $fileserver_root
-  fileserver_port=$(pick_random_unused_tcp_port) || exit 1
-  python $python_server $fileserver_port &
+  port_file=server-port.$$
+  rm -f $port_file
+  python $python_server > $port_file &
   fileserver_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  fileserver_port=$(head -n 1 $port_file)
   wait_for_server_startup
   cd -
 }
 
 function startup_auth_server() {
-  fileserver_port=$(pick_random_unused_tcp_port) || exit 1
-  python $python_server $fileserver_port auth &
+  port_file=server-port.$$
+  rm -f $port_file
+  python $python_server auth > $port_file &
   fileserver_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  fileserver_port=$(head -n 1 $port_file)
   wait_for_server_startup
 }
 
@@ -214,6 +222,7 @@ function shutdown_server() {
   # didn't make a request to it.
   [ -z "${fileserver_pid:-}" ] || kill $fileserver_pid || true
   [ -z "${redirect_pid:-}" ] || kill $redirect_pid || true
+  [ -z "${nc_pid:-}" ] || kill $nc_pid || true
   [ -z "${nc_log:-}" ] || cat $nc_log
   [ -z "${redirect_log:-}" ] || cat $redirect_log
 }
