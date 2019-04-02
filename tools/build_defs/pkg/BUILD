@@ -217,6 +217,7 @@ pkg_deb(
     description = "toto ®, Й, ק ,م, ๗, あ, 叶, 葉, 말, ü and é",
     distribution = "trusty",
     maintainer = "soméone@somewhere.com",
+    built_using = "some_test_data (0.1.2)",
     make_deb = ":make_deb",
     package = "titi",
     urgency = "low",
