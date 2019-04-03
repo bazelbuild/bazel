@@ -164,7 +164,9 @@ the key securely, as anyone with the key can read and write arbitrary data
 to/from your GCS bucket.
 
 4. Connect to Cloud Storage by adding the following flags to your Bazel command:
-   * Pass the following URL to Bazel by using the flag: `--remote_http_cache=https://storage.googleapis.com/bucket-name` where `bucket-name` is the name of your storage bucket.
+   * Pass the following URL to Bazel by using the flag:
+       `--remote_cache=https://storage.googleapis.com/bucket-name`
+       where `bucket-name` is the name of your storage bucket.
    * Pass the authentication key using the flag: `--google_credentials=/path/to/your/secret-key.json`.
 
 5. You can configure Cloud Storage to automatically delete old files. To do so, see
@@ -243,7 +245,7 @@ Use the following flags to:
 * disable sandboxing
 
 ```
-build --remote_http_cache=http://replace-with-your.host:port
+build --remote_cache=http://replace-with-your.host:port
 build --spawn_strategy=standalone
 ```
 
@@ -252,7 +254,7 @@ following flags to read and write from the remote cache with sandboxing
 enabled:
 
 ```
-build --remote_http_cache=http://replace-with-your.host:port
+build --remote_cache=http://replace-with-your.host:port
 ```
 
 ### Read only from the remote cache
@@ -261,7 +263,7 @@ Use the following flags to: read from the remote cache with sandboxing
 disabled.
 
 ```
-build --remote_http_cache=http://replace-with-your.host:port
+build --remote_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
 build --spawn_strategy=standalone
 ```
@@ -270,7 +272,7 @@ Using the remote cache with sandboxing enabled is experimental. Use the
 following flags to read from the remote cache with sandboxing enabled:
 
 ```
-build --remote_http_cache=http://replace-with-your.host:port
+build --remote_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
 ```
 
@@ -309,7 +311,7 @@ is similar to curl's `--unix-socket` flag. Use the following to configure unix
 domain socket:
 
 ```
-build --remote_http_cache=http://replace-with-your.host:port
+build --remote_cache=http://replace-with-your.host:port
 build --remote_cache_proxy=unix:/replace/with/socket/path
 ```
 
