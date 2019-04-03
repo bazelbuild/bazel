@@ -1345,9 +1345,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.o".
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, String owner) {
     BuildConfiguration config = getConfiguration(owner);
@@ -1357,9 +1357,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.o".
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner) {
     BuildConfiguration configuration =
@@ -1370,15 +1370,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner},
-   * where the given artifact belongs to the given ConfiguredTarget together with the given Aspect.
-   * So to specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect,
-   * {@code packageRelativePath} should just be "foo.o", and aspectOfOwner should be
-   * FooAspect.class. This method is necessary when an Apsect of the target, not the target itself,
-   * is creating an Artifact.
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}, where
+   * the given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
+   * specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect, {@code
+   * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
+   * method is necessary when an Apsect of the target, not the target itself, is creating an
+   * Artifact.
    */
-  protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner,
-      NativeAspectClass creatingAspectFactory) {
+  protected Artifact getGenfilesArtifact(
+      String packageRelativePath, ConfiguredTarget owner, NativeAspectClass creatingAspectFactory) {
     return getGenfilesArtifact(
         packageRelativePath, owner, creatingAspectFactory, AspectParameters.EMPTY);
   }
@@ -1395,6 +1395,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         getOwnerForAspect(owner, creatingAspectFactory, params));
   }
 
+  /**
+   * Gets a derived Artifact for testing in the subdirectory of the {@link
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
+   */
+  private Artifact getGenfilesArtifact(
+      String packageRelativePath, ArtifactOwner owner, BuildConfiguration config) {
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
+  }
+
   protected AspectValue.AspectKey getOwnerForAspect(
       ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
     return (AspectValue.AspectKey)
@@ -1408,21 +1420,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}. So to
    * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
-   * "foo.o".
-   */
-  private Artifact getGenfilesArtifact(
-      String packageRelativePath, ArtifactOwner owner, BuildConfiguration config) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
-  }
-
-  /**
-   * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.h".
+   * "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, String owner) {
     return getIncludeArtifact(packageRelativePath, makeConfiguredTargetKey(owner));
