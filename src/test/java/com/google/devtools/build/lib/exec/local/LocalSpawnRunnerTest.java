@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Options;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -78,7 +79,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Filter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -552,7 +552,7 @@ public class LocalSpawnRunnerTest {
     FileSystem fs = setupEnvironmentForFakeExecution();
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.allowedLocalAction = Pattern.compile("none");
+    options.allowedLocalAction = new RegexPatternConverter().convert("none");
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
