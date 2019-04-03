@@ -43,9 +43,9 @@ import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileT
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeModule.ModuleEnvironment;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
@@ -284,7 +284,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       }
 
       // Wait synchronously for all the futures to finish.
-      Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesMap.values()));
+      try (AutoProfiler p = AutoProfiler.logged("waiting for BES close", logger)) {
+        Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesMap.values()));
+      }
     } catch (ExecutionException exception) {
       throw new AbruptExitException(
           "Failed to close a build event transport",
