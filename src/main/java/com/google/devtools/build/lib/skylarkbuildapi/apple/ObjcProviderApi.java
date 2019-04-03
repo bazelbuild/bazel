@@ -169,10 +169,9 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "merge_zip",
       structField = true,
       doc =
-           "Merge zips to include in the bundle. The entries of these zip files are included "
+          "Merge zips to include in the bundle. The entries of these zip files are included "
               + "in the final bundle with the same path. The entries in the merge zips should not "
-              + "include the bundle root path (e.g. 'Foo.app').",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
+              + "include the bundle root path (e.g. 'Foo.app').")
   public NestedSet<FileApiT> mergeZip();
 
   @SkylarkCallable(name = "module_map",
