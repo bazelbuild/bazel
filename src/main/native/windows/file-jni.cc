@@ -40,20 +40,26 @@ static void ReportLastError(const std::wstring& error_str, JNIEnv* env,
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeIsJunction(
-    JNIEnv* env, jclass clazz, jstring path, jobjectArray error_msg_holder) {
+Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeIsSymlinkOrJunction(
+    JNIEnv* env, jclass clazz, jstring path, jbooleanArray result_holder,
+    jobjectArray error_msg_holder) {
   std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
   std::wstring error;
-  int result =
-      bazel::windows::IsJunctionOrDirectorySymlink(wpath.c_str(), &error);
-  if (result == bazel::windows::IS_JUNCTION_ERROR &&
-      CanReportError(env, error_msg_holder)) {
-    ReportLastError(
-        bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                         L"nativeIsJunction", wpath, error),
-        env, error_msg_holder);
+  bool is_sym = false;
+  int result = bazel::windows::IsSymlinkOrJunction(wpath.c_str(), &is_sym,
+                                                   &error);
+  if (result == bazel::windows::IsSymlinkOrJunctionResult::kSuccess) {
+    jboolean is_sym_jbool = is_sym ? JNI_TRUE : JNI_FALSE;
+    env->SetBooleanArrayRegion(result_holder, 0, 1, &is_sym_jbool);
+  } else {
+    if (!error.empty() && CanReportError(env, error_msg_holder)) {
+      ReportLastError(
+          bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                           L"nativeIsJunction", wpath, error),
+          env, error_msg_holder);
+    }
   }
-  return result;
+  return static_cast<jint>(result);
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
