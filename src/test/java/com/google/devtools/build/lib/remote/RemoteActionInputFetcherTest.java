@@ -106,6 +106,7 @@ public class RemoteActionInputFetcherTest {
     assertThat(a2.getPath().isExecutable()).isTrue();
     assertThat(actionInputFetcher.downloadedFiles()).hasSize(2);
     assertThat(actionInputFetcher.downloadedFiles()).containsAllOf(a1.getPath(), a2.getPath());
+    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
   }
 
   @Test
@@ -126,6 +127,7 @@ public class RemoteActionInputFetcherTest {
     assertThat(FileSystemUtils.readContent(p, StandardCharsets.UTF_8)).isEqualTo("hello world");
     assertThat(p.isExecutable()).isFalse();
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
   }
 
   @Test
@@ -151,7 +153,8 @@ public class RemoteActionInputFetcherTest {
     }
 
     // assert
-    assertThat(actionInputFetcher.downloadedFiles()).containsExactly(a.getPath());
+    assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
   }
 
   @Test
@@ -174,6 +177,28 @@ public class RemoteActionInputFetcherTest {
 
     // assert
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
+    assertThat(actionInputFetcher.downloadsInProgress).isEmpty();
+  }
+
+  @Test
+  public void testDownloadFile() throws Exception {
+    // arrange
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<Digest, ByteString> cacheEntries = new HashMap<>();
+    Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cacheEntries);
+    AbstractRemoteActionCache remoteCache =
+        new StaticRemoteActionCache(options, digestUtil, cacheEntries);
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher(remoteCache, execRoot, Context.current());
+
+    // act
+    actionInputFetcher.downloadFile(a1.getPath(), metadata.get(a1));
+
+    // assert
+    assertThat(FileSystemUtils.readContent(a1.getPath(), StandardCharsets.UTF_8))
+        .isEqualTo("hello world");
+    assertThat(a1.getPath().isExecutable()).isTrue();
+    assertThat(a1.getPath().isReadable()).isTrue();
   }
 
   private Artifact createRemoteArtifact(

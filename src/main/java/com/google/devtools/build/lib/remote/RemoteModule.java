@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -75,6 +76,8 @@ public final class RemoteModule extends BlazeModule {
 
   private RemoteActionContextProvider actionContextProvider;
   private RemoteActionInputFetcher actionInputFetcher;
+  private RemoteOutputsMode remoteOutputsMode;
+  private RemoteOutputService remoteOutputService;
 
   private final BuildEventArtifactUploaderFactoryDelegate
       buildEventArtifactUploaderFactoryDelegate = new BuildEventArtifactUploaderFactoryDelegate();
@@ -126,12 +129,15 @@ public final class RemoteModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
+    Preconditions.checkState(remoteOutputsMode == null, "remoteOutputsMode must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
       // Quit if no supported command is being used. See getCommandOptions for details.
       return;
     }
+
+    remoteOutputsMode = remoteOptions.remoteOutputsMode;
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
@@ -361,6 +367,8 @@ public final class RemoteModule extends BlazeModule {
     buildEventArtifactUploaderFactoryDelegate.reset();
     actionContextProvider = null;
     actionInputFetcher = null;
+    remoteOutputsMode = null;
+    remoteOutputService = null;
 
     if (failure != null) {
       throw new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, failure);
@@ -404,6 +412,8 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
+    Preconditions.checkNotNull(remoteOutputsMode, "remoteOutputsMode must not be null");
+
     if (actionContextProvider == null) {
       return;
     }
@@ -420,7 +430,17 @@ public final class RemoteModule extends BlazeModule {
           new RemoteActionInputFetcher(
               actionContextProvider.getRemoteCache(), env.getExecRoot(), ctx);
       builder.setActionInputPrefetcher(actionInputFetcher);
+      remoteOutputService.setActionInputFetcher(actionInputFetcher);
     }
+  }
+
+  @Override
+  public OutputService getOutputService() {
+    Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
+    if (remoteOutputsMode != null && !remoteOutputsMode.downloadAllOutputs()) {
+      remoteOutputService = new RemoteOutputService();
+    }
+    return remoteOutputService;
   }
 
   @Override
