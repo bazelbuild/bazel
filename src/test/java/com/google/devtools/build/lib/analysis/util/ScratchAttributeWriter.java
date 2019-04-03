@@ -181,6 +181,12 @@ public class ScratchAttributeWriter {
     return this;
   }
 
+  /** Sets an integer attribute (like cc_binary.linkstatic) for this target. */
+  public ScratchAttributeWriter set(String name, int value) {
+    new IntegerAttribute(name, value).appendLine(this.buildString);
+    return this;
+  }
+
   /** Sets a list attribute (like cc_library.srcs) for this target. */
   public ScratchAttributeWriter setList(String name, Iterable<String> value) {
     new StringListAttribute(name, value).appendLine(this.buildString);
@@ -190,12 +196,6 @@ public class ScratchAttributeWriter {
   /** Sets a list attribute (like cc_library.srcs) for this target */
   public ScratchAttributeWriter setList(String name, String... value) {
     return setList(name, Arrays.asList(value));
-  }
-
-  /** Sets an integer attribute (like cc_binary.linkstatic) for this target. */
-  public ScratchAttributeWriter set(String name, int value) {
-    new IntegerAttribute(name, value).appendLine(this.buildString);
-    return this;
   }
 
   /**
