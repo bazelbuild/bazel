@@ -1079,6 +1079,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testSkylarkCanAccessProvidedBundleFiles() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=false");
     // Since the collections of structs with Artifact values are extremely difficult to test with
     // Truth, we fudge them in the Skylark side to return easily comparable dictionaries instead.
     scratch.file("examples/rule/BUILD");

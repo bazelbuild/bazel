@@ -981,7 +981,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAssetCatalogsAttributeErrorForNotInXcAssetsDir() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    useConfiguration(
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
+        "--incompatible_disable_objc_library_resources=false");
     scratch.file("lib/ac/notinxcassets1");
     scratch.file("lib/ac/notinxcassets2");
     scratch.file("lib/ac/foo.xcassets/isinxcassets");
@@ -993,7 +995,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testXcdatamodelsAttributeErrorForNotInXcdatamodelDir() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    useConfiguration(
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
+        "--incompatible_disable_objc_library_resources=false");
     scratch.file("lib/xcd/notinxcdatamodel1");
     scratch.file("lib/xcd/notinxcdatamodel2");
     scratch.file("lib/xcd/foo.xcdatamodel/isinxcdatamodel");
@@ -1130,6 +1134,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testProvidesXcassetCatalogsTransitively() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=false");
     scratch.file("lib1/ac.xcassets/foo");
     scratch.file("lib1/ac.xcassets/bar");
     createLibraryTargetWriter("//lib1:lib1")
