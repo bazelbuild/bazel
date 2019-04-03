@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
@@ -575,7 +574,9 @@ public final class ConfigurationResolver {
    *
    * <ol>
    *   <li>Apply the per-target transitions specified in {@code asDeps}. This can be used, e.g., to
-   *       apply {@link RuleTransitionFactory}s over global top-level configurations.
+   *       apply {@link
+   *       com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory}s over global
+   *       top-level configurations.
    *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This is
    *       triggered by {@link BuildConfiguration.Options#trimConfigurations}.
    * </ol>
