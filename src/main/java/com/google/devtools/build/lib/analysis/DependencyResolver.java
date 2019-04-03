@@ -278,7 +278,7 @@ public abstract class DependencyResolver {
     }
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
-        partiallyResolveDependencies(outgoingLabels, fromRule, attributeMap, aspects);
+        partiallyResolveDependencies(outgoingLabels, fromRule, attributeMap, toolchainContext, aspects);
 
     OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
         fullyResolveDependencies(
@@ -300,6 +300,7 @@ public abstract class DependencyResolver {
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           Rule fromRule,
           ConfiguredAttributeMapper attributeMap,
+          @Nullable ToolchainContext toolchainContext,
           Iterable<Aspect> aspects) {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
@@ -343,8 +344,12 @@ public abstract class DependencyResolver {
       collectPropagatingAspects(
           aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
 
+      Label executionPlatformLabel = null;
+      if (toolchainContext != null && toolchainContext.executionPlatform() != null) {
+        executionPlatformLabel = toolchainContext.executionPlatform().label();
+      }
       ConfigurationTransition attributeTransition =
-          attribute.getTransitionFactory().create(AttributeTransitionData.create(attributeMap));
+          attribute.getTransitionFactory().create(AttributeTransitionData.create(attributeMap, executionPlatformLabel));
       partiallyResolvedDeps.put(
           entry.getKey(),
           PartiallyResolvedDependency.of(toLabel, attributeTransition, propagatingAspects.build()));
