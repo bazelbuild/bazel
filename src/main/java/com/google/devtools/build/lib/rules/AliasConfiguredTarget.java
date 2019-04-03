@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -168,5 +169,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<alias target " + label + " of " + actual.getLabel() + ">");
+  }
+
+  @Override
+  @Nullable
+  public ToolchainContext getToolchainContext() {
+    return actual.getToolchainContext();
   }
 }

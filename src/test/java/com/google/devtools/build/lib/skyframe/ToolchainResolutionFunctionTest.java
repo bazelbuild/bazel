@@ -24,6 +24,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -271,6 +272,12 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     public boolean containsKey(Object key, Location loc, StarlarkContext context)
         throws EvalException {
       return false;
+    }
+
+    @Override
+    @Nullable
+    public ToolchainContext getToolchainContext() {
+      return null;
     }
   }
 }

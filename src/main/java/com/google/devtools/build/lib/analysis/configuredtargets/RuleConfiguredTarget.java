@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
@@ -102,13 +103,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       Label label,
       BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility,
+      ToolchainContext toolchainContext,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
       String ruleClassString,
       ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableMap<Artifact, Integer> generatingActionIndex) {
-    super(label, configurationKey, visibility);
+    super(label, configurationKey, visibility, toolchainContext);
 
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
@@ -143,6 +145,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         ruleContext.getLabel(),
         ruleContext.getConfigurationKey(),
         ruleContext.getVisibility(),
+        ruleContext.getToolchainContext(),
         providers,
         ruleContext.getConfigConditions(),
         Util.findImplicitDeps(ruleContext),
