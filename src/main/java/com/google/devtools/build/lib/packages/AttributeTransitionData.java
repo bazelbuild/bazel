@@ -15,23 +15,33 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
+import javax.annotation.Nullable;
 
 /**
  * Helper class which contains data used by a {@link TransitionFactory} to create a transition for
  * attributes.
  */
-// This class is in lib.packages in order to access AttributeMap, which is not available to
-// the lib.analysis.config.transitions package.
 @AutoValue
 public abstract class AttributeTransitionData {
   /** Returns the {@link AttributeMap} which can be used to create a transition. */
   public abstract AttributeMap attributes();
 
-  // TODO(https://github.com/bazelbuild/bazel/issues/7814): Add further data fields as needed by
-  // transition factory instances.
+  /**
+   * Returns the {@link Label} of the execution platform used by the configured target this
+   * transition factory is part of.
+   */
+  @Nullable
+  public abstract Label executionPlatform();
 
   /** Returns a new {@link AttributeTransitionData} instance. */
   public static AttributeTransitionData create(AttributeMap attributes) {
-    return new AutoValue_AttributeTransitionData(attributes);
+    return create(attributes, null);
+  }
+
+  /** Returns a new {@link AttributeTransitionData} instance. */
+  public static AttributeTransitionData create(
+      AttributeMap attributes, @Nullable Label executionPlatform) {
+    return new AutoValue_AttributeTransitionData(attributes, executionPlatform);
   }
 }
