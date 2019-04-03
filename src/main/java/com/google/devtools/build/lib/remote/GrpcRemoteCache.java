@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 
 import build.bazel.remote.execution.v2.Action;
@@ -34,6 +35,7 @@ import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -153,8 +155,14 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     channel.release();
   }
 
+  /** Returns true if 'options.remoteCache' uses 'grpc' or an empty scheme */
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return options.remoteCache != null;
+    if (isNullOrEmpty(options.remoteCache)) {
+      return false;
+    }
+    // TODO(ishikhman): add proper URI validation/parsing for remote options
+    return !(Ascii.toLowerCase(options.remoteCache).startsWith("http://")
+        || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
   }
 
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(

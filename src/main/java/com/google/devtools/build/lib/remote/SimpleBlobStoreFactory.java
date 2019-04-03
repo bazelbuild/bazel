@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.auth.Credentials;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.remote.blobstore.CombinedDiskHttpBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
@@ -72,8 +73,13 @@ public final class SimpleBlobStoreFactory {
   }
 
   private static SimpleBlobStore createHttp(RemoteOptions options, Credentials creds) {
+    Preconditions.checkNotNull(options.remoteCache, "remoteCache");
+
     try {
-      URI uri = URI.create(options.remoteHttpCache);
+      URI uri = URI.create(options.remoteCache);
+      Preconditions.checkArgument(
+          Ascii.toLowerCase(uri.getScheme()).startsWith("http"),
+          "remoteCache should start with http");
 
       if (options.remoteCacheProxy != null) {
         if (options.remoteCacheProxy.startsWith("unix:")) {
@@ -121,6 +127,8 @@ public final class SimpleBlobStoreFactory {
   }
 
   private static boolean isHttpUrlOptions(RemoteOptions options) {
-    return options.remoteHttpCache != null && !options.remoteHttpCache.isEmpty();
+    return options.remoteCache != null
+        && (Ascii.toLowerCase(options.remoteCache).startsWith("http://")
+            || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
   }
 }
