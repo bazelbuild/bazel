@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformSemantics;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ToolchainResolver;
 import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -338,7 +338,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Preconditions.checkNotNull(depValueMap);
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      ToolchainContext toolchainContext = null;
+      ResolvedToolchainContext toolchainContext = null;
       if (unloadedToolchainContext != null) {
         toolchainContext =
             unloadedToolchainContext.load(depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
@@ -787,7 +787,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext,
+      @Nullable ResolvedToolchainContext toolchainContext,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();

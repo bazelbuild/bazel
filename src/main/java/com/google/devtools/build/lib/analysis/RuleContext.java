@@ -186,7 +186,7 @@ public final class RuleContext extends TargetContext
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
   private final RuleErrorConsumer reporter;
-  @Nullable private final ToolchainContext toolchainContext;
+  @Nullable private final ResolvedToolchainContext toolchainContext;
   private final ConstraintSemantics constraintSemantics;
 
   private ActionOwner actionOwner;
@@ -205,7 +205,7 @@ public final class RuleContext extends TargetContext
       String ruleClassNameForLogging,
       ActionLookupValue.ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
-      @Nullable ToolchainContext toolchainContext,
+      @Nullable ResolvedToolchainContext toolchainContext,
       ConstraintSemantics constraintSemantics) {
     super(
         builder.env,
@@ -1146,7 +1146,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public ToolchainContext getToolchainContext() {
+  public ResolvedToolchainContext getToolchainContext() {
     return toolchainContext;
   }
 
@@ -1490,7 +1490,7 @@ public final class RuleContext extends TargetContext
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
-    private ToolchainContext toolchainContext;
+    private ResolvedToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
 
     @VisibleForTesting
@@ -1597,8 +1597,8 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /** Sets the {@link ToolchainContext} used to access toolchains used by this rule. */
-    public Builder setToolchainContext(ToolchainContext toolchainContext) {
+    /** Sets the {@link ResolvedToolchainContext} used to access toolchains used by this rule. */
+    public Builder setToolchainContext(ResolvedToolchainContext toolchainContext) {
       this.toolchainContext = toolchainContext;
       return this;
     }
