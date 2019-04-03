@@ -143,7 +143,14 @@ public class GrpcRemoteExecutionClientTest {
   private static ListeningScheduledExecutorService retryService;
 
   private static final OutputFile DUMMY_OUTPUT =
-      OutputFile.newBuilder().setPath("dummy.txt").build();
+      OutputFile.newBuilder()
+          .setPath("dummy.txt")
+          .setDigest(
+              Digest.newBuilder()
+                  .setHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+                  .setSizeBytes(0)
+                  .build())
+          .build();
 
   private final SpawnExecutionContext simplePolicy =
       new SpawnExecutionContext() {
@@ -154,7 +161,6 @@ public class GrpcRemoteExecutionClientTest {
 
         @Override
         public void prefetchInputs() {
-          throw new UnsupportedOperationException();
         }
 
         @Override

@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import com.google.common.base.Strings;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -248,6 +250,26 @@ public final class RemoteOptions extends OptionsBase {
   public boolean allowSymlinkUpload;
 
   @Option(
+      name = "experimental_remote_download_outputs",
+      defaultValue = "all",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = RemoteOutputsStrategyConverter.class,
+      help =
+          "If set to 'minimal' doesn't download any remote build outputs to the local machine, "
+              + "except the ones required by local actions. This option can significantly reduce"
+              + " build times if network bandwidth is a bottleneck.")
+  public RemoteOutputsMode remoteOutputsMode;
+
+  /** Outputs strategy flag parser */
+  public static class RemoteOutputsStrategyConverter extends EnumConverter<RemoteOutputsMode> {
+    public RemoteOutputsStrategyConverter() {
+      super(RemoteOutputsMode.class, "download remote outputs");
+    }
+  }
+
+  @Option(
       name = "remote_result_cache_priority",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -295,4 +317,10 @@ public final class RemoteOptions extends OptionsBase {
 
   /** The maximum size of an outbound message sent via a gRPC channel. */
   public int maxOutboundMessageSize = 1024 * 1024;
+
+  public boolean isRemoteEnabled() {
+    return !Strings.isNullOrEmpty(remoteCache)
+        || !Strings.isNullOrEmpty(remoteExecutor)
+        || !Strings.isNullOrEmpty(remoteHttpCache);
+  }
 }

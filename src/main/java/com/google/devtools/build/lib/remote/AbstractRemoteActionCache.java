@@ -393,7 +393,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     if (!metadata.symlinks().isEmpty()) {
       throw new IOException(
           "Symlinks in action outputs are not yet supported by "
-              + "--experimental_remote_fetch_outputs");
+              + "--experimental_remote_download_outputs=minimal");
     }
 
     ActionInput inMemoryOutput = null;
@@ -443,7 +443,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       if (!directory.symlinks().isEmpty()) {
         throw new IOException(
             "Symlinks in action outputs are not yet supported by "
-                + "--experimental_remote_fetch_outputs");
+                + "--experimental_remote_download_outputs=minimal");
       }
       ImmutableMap.Builder<PathFragment, RemoteFileArtifactValue> childMetadata =
           ImmutableMap.builder();

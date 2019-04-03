@@ -124,6 +124,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       PrecomputedValue.BUILD_ID.get(env);
     }
 
+    if (skyframeActionExecutor.isBazelRemoteExecutionEnabled()) {
+      // Declaring a dependency on the precomputed value so that all actions are invalidated if
+      // the value of the flag changes. We are doing this conditionally only in Bazel if remote
+      // execution is available in order to not introduce additional skyframe edges in Blaze.
+      PrecomputedValue.REMOTE_OUTPUTS_MODE.get(env);
+    }
+
     // Look up the parts of the environment that influence the action.
     Map<SkyKey, SkyValue> clientEnvLookup =
         env.getValues(
