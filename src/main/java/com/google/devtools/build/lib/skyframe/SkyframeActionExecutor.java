@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
@@ -198,6 +199,8 @@ public final class SkyframeActionExecutor {
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
   private final Function<PathFragment, SourceArtifact> sourceArtifactFactory;
+
+  private boolean bazelRemoteExecutionEnabled;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -407,6 +410,8 @@ public final class SkyframeActionExecutor {
     this.useAsyncExecution = options.getOptions(BuildRequestOptions.class).useAsyncExecution;
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
     this.outputService = outputService;
+    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
+    this.bazelRemoteExecutionEnabled = remoteOptions != null && remoteOptions.isRemoteEnabled();
   }
 
   public void setActionLogBufferPathGenerator(
@@ -734,6 +739,10 @@ public final class SkyframeActionExecutor {
           actionExecutionContext.getFileOutErr(),
           ErrorTiming.BEFORE_EXECUTION);
     }
+  }
+
+  boolean isBazelRemoteExecutionEnabled() {
+    return bazelRemoteExecutionEnabled;
   }
 
   private MetadataProvider createFileCache(

@@ -8,10 +8,11 @@ filegroup(
 
 java_library(
     name = "options",
-    srcs = ["RemoteOptions.java"],
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
