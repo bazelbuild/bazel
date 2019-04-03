@@ -28,9 +28,10 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Options interface for {@link BuildRequest}: can be used to parse command-line arguments.
@@ -100,14 +101,14 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean verboseExplanations;
 
   @Option(
-    name = "output_filter",
-    converter = Converters.RegexPatternConverter.class,
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Only shows warnings for rules with a name matching the provided regular expression."
-  )
-  public Pattern outputFilter;
+      name = "output_filter",
+      converter = Converters.RegexPatternConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Only shows warnings for rules with a name matching the provided regular expression.")
+  @Nullable
+  public RegexPatternOption outputFilter;
 
   @Option(
     name = "analyze",
@@ -189,15 +190,15 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean announce;
 
   @Option(
-    name = "symlink_prefix",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "The prefix that is prepended to any of the convenience symlinks that are created "
-            + "after a build. If '/' is passed, then no symlinks are created and no warning is "
-            + "emitted. If omitted, the default value is the name of the build tool."
-  )
+      name = "symlink_prefix",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "The prefix that is prepended to any of the convenience symlinks that are created "
+              + "after a build. If '/' is passed, then no symlinks are created and no warning is "
+              + "emitted. If omitted, the default value is the name of the build tool.")
+  @Nullable
   public String symlinkPrefix;
 
   @Option(

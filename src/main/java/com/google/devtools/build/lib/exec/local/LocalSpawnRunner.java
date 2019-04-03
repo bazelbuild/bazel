@@ -254,11 +254,21 @@ public class LocalSpawnRunner implements SpawnRunner {
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
       if (localExecutionOptions.allowedLocalAction != null
-          && !localExecutionOptions.allowedLocalAction.matcher(actionType).matches()) {
+          && !localExecutionOptions
+              .allowedLocalAction
+              .regexPattern()
+              .matcher(actionType)
+              .matches()) {
         setState(State.PERMANENT_ERROR);
-        outErr.getErrorStream().write(
-            ("Action type " + actionType + " is not allowed to run locally due to regex filter: "
-                + localExecutionOptions.allowedLocalAction + "\n").getBytes(UTF_8));
+        outErr
+            .getErrorStream()
+            .write(
+                ("Action type "
+                        + actionType
+                        + " is not allowed to run locally due to regex filter: "
+                        + localExecutionOptions.allowedLocalAction.regexPattern()
+                        + "\n")
+                    .getBytes(UTF_8));
         return new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.EXECUTION_DENIED)
