@@ -177,7 +177,7 @@ public abstract class DependencyResolver {
    *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspect the aspect applied to this target (if any)
    * @param configConditions resolver for config_setting labels
-   * @param toolchainLabels required toolchain labels
+   * @param toolchainContext required toolchain context for this configured target
    * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
@@ -187,7 +187,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableSet<Label> toolchainLabels,
+      @Nullable ToolchainContext toolchainContext,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
@@ -197,7 +197,7 @@ public abstract class DependencyResolver {
             hostConfig,
             aspect != null ? ImmutableList.of(aspect) : ImmutableList.<Aspect>of(),
             configConditions,
-            toolchainLabels,
+            toolchainContext,
             rootCauses,
             trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
@@ -231,10 +231,10 @@ public abstract class DependencyResolver {
    *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspects the aspects applied to this target (if any)
    * @param configConditions resolver for config_setting labels
-   * @param toolchainLabels required toolchain labels
+   * @param toolchainContext required toolchain labels
+   * @param rootCauses collector for dep labels that can't be (loading phase) loaded
    * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
-   * @param rootCauses collector for dep labels that can't be (loading phase) loaded
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
@@ -242,7 +242,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableSet<Label> toolchainLabels,
+      @Nullable ToolchainContext toolchainContext,
       NestedSetBuilder<Cause> rootCauses,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
@@ -260,7 +260,7 @@ public abstract class DependencyResolver {
     } else if (target instanceof EnvironmentGroup) {
       visitTargetVisibility(node, outgoingLabels);
     } else if (target instanceof Rule) {
-      visitRule(node, hostConfig, aspects, configConditions, toolchainLabels, outgoingLabels);
+      visitRule(node, hostConfig, aspects, configConditions, toolchainContext, outgoingLabels);
     } else if (target instanceof PackageGroup) {
       outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
     } else {
@@ -278,7 +278,8 @@ public abstract class DependencyResolver {
     }
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
-        partiallyResolveDependencies(outgoingLabels, fromRule, attributeMap, aspects);
+        partiallyResolveDependencies(
+            outgoingLabels, fromRule, attributeMap, toolchainContext, aspects);
 
     OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
         fullyResolveDependencies(
@@ -300,6 +301,7 @@ public abstract class DependencyResolver {
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           Rule fromRule,
           ConfiguredAttributeMapper attributeMap,
+          @Nullable ToolchainContext toolchainContext,
           Iterable<Aspect> aspects) {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
@@ -343,8 +345,14 @@ public abstract class DependencyResolver {
       collectPropagatingAspects(
           aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
 
+      Label executionPlatformLabel = null;
+      if (toolchainContext != null) {
+        executionPlatformLabel = toolchainContext.executionPlatform().label();
+      }
       ConfigurationTransition attributeTransition =
-          attribute.getTransitionFactory().create(AttributeTransitionData.create(attributeMap));
+          attribute
+              .getTransitionFactory()
+              .create(AttributeTransitionData.create(attributeMap, executionPlatformLabel));
       partiallyResolvedDeps.put(
           entry.getKey(),
           PartiallyResolvedDependency.of(toLabel, attributeTransition, propagatingAspects.build()));
@@ -400,7 +408,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableSet<Label> toolchainLabels,
+      @Nullable ToolchainContext toolchainContext,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
       throws EvalException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule, node);
@@ -454,7 +462,9 @@ public abstract class DependencyResolver {
           rule.getPackage().getDefaultRestrictedTo());
     }
 
-    outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainLabels);
+    if (toolchainContext != null) {
+      outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContext.resolvedToolchainLabels());
+    }
   }
 
   private void resolveAttributes(

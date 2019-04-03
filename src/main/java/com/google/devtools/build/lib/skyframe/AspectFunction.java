@@ -441,9 +441,7 @@ public final class AspectFunction implements SkyFunction {
                 originalTargetAndAspectConfiguration,
                 aspectPath,
                 configConditions,
-                unloadedToolchainContext == null
-                    ? ImmutableSet.of()
-                    : unloadedToolchainContext.resolvedToolchainLabels(),
+                unloadedToolchainContext,
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
