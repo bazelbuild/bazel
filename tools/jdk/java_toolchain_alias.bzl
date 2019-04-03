@@ -14,16 +14,6 @@
 
 """Experimental re-implementations of Java toolchain aliases using toolchain resolution."""
 
-load(":toolchain_utils.bzl", "find_java_runtime_toolchain", "find_java_toolchain")
-
-def _copy_default_info(info):
-    # TODO(b/123999008): should copying DefaultInfo be necessary?
-    return DefaultInfo(
-        default_runfiles = info.default_runfiles,
-        data_runfiles = info.data_runfiles,
-        files = info.files,
-    )
-
 def _java_runtime_alias(ctx):
     """An experimental implementation of java_runtime_alias using toolchain resolution."""
     if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
@@ -59,7 +49,7 @@ def _java_host_runtime_alias(ctx):
     return [
         runtime[java_common.JavaRuntimeInfo],
         runtime[platform_common.TemplateVariableInfo],
-        _copy_default_info(runtime[DefaultInfo]),
+        runtime[DefaultInfo],
     ]
 
 java_host_runtime_alias = rule(
