@@ -254,13 +254,36 @@ function assert_singlejar_works() {
   mkdir -p "$pkg/jvm"
   cat > "$pkg/jvm/BUILD" <<EOF
 package(default_visibility=["//visibility:public"])
-java_runtime(name='runtime', java_home='$javabase')
+java_runtime(
+    name='runtime',
+    java_home='$javabase',
+)
+constraint_setting(
+    name = 'constraint_setting',
+)
+constraint_value(
+    name = 'constraint',
+    constraint_setting = ':constraint_setting',
+)
+toolchain(
+    name = 'java_runtime_toolchain',
+    toolchain = ':runtime',
+    toolchain_type = '//tools/jdk:runtime_toolchain_type',
+    target_compatible_with = [':constraint'],
+)
+platform(
+    name = 'platform',
+    constraint_values = [":constraint"],
+)
 EOF
 
 
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
-      "$stamp_arg" --javabase="//$pkg/jvm:runtime" "$embed_label" >&"$TEST_log" \
+      "$stamp_arg" --javabase="//$pkg/jvm:runtime" \
+      --extra_toolchains="//$pkg/jvm:all,//tools/jdk:all" \
+      --platforms="//$pkg/jvm:platform" \
+      "$embed_label" >&"$TEST_log" \
       || fail "Build failed"
 
   mkdir $pkg/ugly/ || fail "mkdir failed"

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CROSSTOOL_L
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.BuilderFactoryForTesting;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 
 /**
@@ -130,8 +129,10 @@ public class TestConstants {
   public static final String CC_DEPENDENCY_CORRECTION =
       " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")";
 
+  public static final String PLATFORM_BASE = "@bazel_tools//platforms";
+
   public static final String PLATFORM_LABEL =
-      "@bazel_tools//platforms:host_platform + @bazel_tools//platforms:target_platform";
+      PLATFORM_BASE + ":host_platform + " + PLATFORM_BASE + ":target_platform";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {
