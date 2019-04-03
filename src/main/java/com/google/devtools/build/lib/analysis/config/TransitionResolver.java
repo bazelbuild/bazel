@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import javax.annotation.Nullable;
 
@@ -53,7 +53,7 @@ public final class TransitionResolver {
       BuildConfiguration fromConfig,
       ConfigurationTransition baseTransition,
       Target toTarget,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory) {
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory) {
 
     // I. The null configuration always remains the null configuration. We could fold this into
     // (III), but NoTransition doesn't work if the source is the null configuration.
@@ -94,7 +94,7 @@ public final class TransitionResolver {
   private static ConfigurationTransition applyRuleTransition(
       ConfigurationTransition currentTransition, Target toTarget) {
     Rule associatedRule = toTarget.getAssociatedRule();
-    RuleTransitionFactory transitionFactory =
+    TransitionFactory<Rule> transitionFactory =
         associatedRule.getRuleClassObject().getTransitionFactory();
     return applyTransitionFromFactory(currentTransition, toTarget, transitionFactory);
   }
@@ -107,10 +107,10 @@ public final class TransitionResolver {
   private static ConfigurationTransition applyTransitionFromFactory(
       ConfigurationTransition currentTransition,
       Target toTarget,
-      @Nullable RuleTransitionFactory transitionFactory) {
+      @Nullable TransitionFactory<Rule> transitionFactory) {
     if (transitionFactory != null) {
       return ComposingTransition.of(
-          currentTransition, transitionFactory.buildTransitionFor(toTarget.getAssociatedRule()));
+          currentTransition, transitionFactory.create(toTarget.getAssociatedRule()));
     }
     return currentTransition;
   }

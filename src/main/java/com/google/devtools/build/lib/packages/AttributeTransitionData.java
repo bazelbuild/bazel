@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 
 /**
  * Helper class which contains data used by a {@link TransitionFactory} to create a transition for
- * rules and attributes.
+ * attributes.
  */
 // This class is in lib.packages in order to access AttributeMap, which is not available to
 // the lib.analysis.config.transitions package.

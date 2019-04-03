@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -143,7 +143,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           OutputStream outputStream,
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
-          @Nullable RuleTransitionFactory trimmingTransitionFactory,
+          @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
           PackageManager packageManager);
 
   public abstract String getOutputFormat();

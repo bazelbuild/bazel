@@ -35,16 +35,16 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -439,7 +439,7 @@ public final class TrimmableTestConfigurationFragments {
     }
   }
 
-  private static final class TestFragmentTransitionFactory implements RuleTransitionFactory {
+  private static final class TestFragmentTransitionFactory implements TransitionFactory<Rule> {
     private static final class SetValuesTransition implements PatchTransition {
       private final String alpha;
       private final String bravo;
@@ -479,8 +479,8 @@ public final class TrimmableTestConfigurationFragments {
     }
 
     @Override
-    public PatchTransition buildTransitionFor(Rule rule) {
-      NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
+    public PatchTransition create(Rule rule) {
+      AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
       return new SetValuesTransition(
           attributes.get("alpha", Type.STRING),
           attributes.get("bravo", Type.STRING),

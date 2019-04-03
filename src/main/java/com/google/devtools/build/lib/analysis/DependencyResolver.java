@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -188,7 +188,7 @@ public abstract class DependencyResolver {
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<Label> toolchainLabels,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory)
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
@@ -244,7 +244,7 @@ public abstract class DependencyResolver {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<Label> toolchainLabels,
       NestedSetBuilder<Cause> rootCauses,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory)
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
@@ -366,7 +366,7 @@ public abstract class DependencyResolver {
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
       Map<Label, Target> targetMap,
       BuildConfiguration originalConfiguration,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory)
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws InconsistentAspectOrderException {
     OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges = OrderedSetMultimap.create();
 
