@@ -77,6 +77,17 @@ struct CreateJunctionResult {
   };
 };
 
+struct ReadSymlinkOrJunctionResult {
+  enum {
+    kSuccess = 0,
+    kError = 1,
+    kAccessDenied = 2,
+    kDoesNotExist = 3,
+    kNotALink = 4,
+    kUnknownLinkType = 5,
+  };
+};
+
 // Determines whether `path` is a junction (or directory symlink).
 //
 // `path` should be an absolute, normalized, Windows-style path, with "\\?\"
@@ -123,6 +134,9 @@ wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 // function will add the right prefixes as necessary.
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error);
+
+int ReadSymlinkOrJunction(const wstring& path, wstring* result,
+                          wstring* error);
 
 // Deletes the file, junction, or empty directory at `path`.
 // Returns DELETE_PATH_SUCCESS if it successfully deleted the path, otherwise

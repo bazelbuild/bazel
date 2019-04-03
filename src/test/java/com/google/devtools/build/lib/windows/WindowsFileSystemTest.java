@@ -331,4 +331,42 @@ public class WindowsFileSystemTest {
       assertThat(p.isFile()).isTrue();
     }
   }
+
+  @Test
+  public void testReadJunction() throws Exception {
+    testUtil.scratchFile("dir\\hello.txt", "hello");
+    testUtil.createJunctions(ImmutableMap.of("junc", "dir"));
+
+    Path dirPath = testUtil.createVfsPath(fs, "dir");
+    Path juncPath = testUtil.createVfsPath(fs, "junc");
+
+    assertThat(dirPath.isDirectory()).isTrue();
+    assertThat(juncPath.isDirectory()).isTrue();
+
+    assertThat(dirPath.isSymbolicLink()).isFalse();
+    assertThat(juncPath.isSymbolicLink()).isTrue();
+
+    try {
+      testUtil.createVfsPath(fs, "does-not-exist").readSymbolicLink();
+      fail("expected exception");
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().matches(".*path does not exist");
+    }
+
+    try {
+      testUtil.createVfsPath(fs, "dir\\hello.txt").readSymbolicLink();
+      fail("expected exception");
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().matches(".*path is not a link");
+    }
+
+    try {
+      dirPath.readSymbolicLink();
+      fail("expected exception");
+    } catch (IOException expected) {
+      assertThat(expected).hasMessageThat().matches(".*path is not a link");
+    }
+
+    assertThat(juncPath.readSymbolicLink()).isEqualTo(dirPath.asFragment());
+  }
 }
