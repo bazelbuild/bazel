@@ -112,7 +112,14 @@ public final class BazelAnalysisMock extends AnalysisMock {
     }
     config.create(
         "/bazel_tools_workspace/tools/jdk/BUILD",
-        "load(':java_toolchain_alias.bzl', 'java_host_runtime_alias')",
+        "load(",
+        "    ':java_toolchain_alias.bzl',",
+        "    'java_toolchain_alias',",
+        "    'java_runtime_alias',",
+        "    'java_host_runtime_alias',",
+        "    'legacy_java_toolchain_alias',",
+        "    'legacy_java_runtime_alias',",
+        ")",
         "package(default_visibility=['//visibility:public'])",
         "java_toolchain(",
         "  name = 'toolchain',",
@@ -158,7 +165,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "java_runtime(name = 'remote_jdk10', srcs = [])",
         "java_runtime(name = 'remote_jdk11', srcs = [])",
         "java_toolchain_alias(name = 'current_java_toolchain')",
+        "legacy_java_toolchain_alias(name = 'legacy_current_java_toolchain')",
         "java_runtime_alias(name = 'current_java_runtime')",
+        "legacy_java_runtime_alias(name = 'legacy_current_java_runtime')",
         "java_host_runtime_alias(name = 'current_host_java_runtime')",
         "filegroup(name='langtools', srcs=['jdk/lib/tools.jar'])",
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
@@ -412,4 +421,3 @@ public final class BazelAnalysisMock extends AnalysisMock {
     repositoryHandlers.put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction());
   }
 }
-

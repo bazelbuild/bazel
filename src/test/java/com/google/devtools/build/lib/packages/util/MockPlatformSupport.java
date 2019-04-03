@@ -117,6 +117,18 @@ public class MockPlatformSupport {
         "        ':windows',",
         "    ],",
         ")");
+    mockToolsConfig.create(
+        bazelToolsPlatformsPath + "/java/constraints/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "constraint_setting(name = 'runtime')",
+        "constraint_value(",
+        "    name = 'jdk8',",
+        "    constraint_setting = ':runtime',",
+        ")",
+        "constraint_value(",
+        "    name = 'jdk11',",
+        "    constraint_setting = ':runtime',",
+        ")");
     if (localConfigPlatformPath != null) {
       // Only create these if the local config workspace exists.
       mockToolsConfig.create(
