@@ -312,7 +312,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_objc_library_resources",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {

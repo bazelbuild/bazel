@@ -1042,6 +1042,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected ConfiguredTarget createTargetWithStoryboards(RuleType ruleType) throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=false");
     scratch.file("x/1.storyboard");
     scratch.file("x/2.storyboard");
     scratch.file("x/subdir_for_no_reason/en.lproj/loc.storyboard");
@@ -1052,7 +1053,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
 
   protected void checkProvidesStoryboardObjects(RuleType ruleType) throws Exception {
-    useConfiguration();
     createTargetWithStoryboards(ruleType);
     ObjcProvider provider = providerForTarget("//x:x");
     ImmutableList<Artifact> storyboardInputs = ImmutableList.of(
@@ -2005,6 +2005,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
      *
      * All libraries prefixed with "avoid" shouldn't be statically linked in the top level target.
      */
+    useConfiguration("--incompatible_disable_objc_library_resources=false");
     ruleType.scratchTarget(scratch,
         "deps", "['//package:objcLib']",
         "dylibs", "['//package:avoidLib']");
