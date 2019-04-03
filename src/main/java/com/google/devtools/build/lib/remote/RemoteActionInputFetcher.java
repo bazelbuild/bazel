@@ -13,9 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import build.bazel.remote.execution.v2.Digest;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -33,7 +38,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.concurrent.GuardedBy;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
@@ -43,13 +51,17 @@ import javax.annotation.concurrent.GuardedBy;
  */
 class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
+  private static final Logger logger = Logger.getLogger(RemoteActionInputFetcher.class.getName());
+
   private final Object lock = new Object();
 
+  /** Set of successfully downloaded output files. */
   @GuardedBy("lock")
   private final Set<Path> downloadedPaths = new HashSet<>();
 
+  @VisibleForTesting
   @GuardedBy("lock")
-  private final Map<Path, ListenableFuture<Void>> downloadsInProgress = new HashMap<>();
+  final Map<Path, ListenableFuture<Void>> downloadsInProgress = new HashMap<>();
 
   private final AbstractRemoteActionCache remoteCache;
   private final Path execRoot;
@@ -95,19 +107,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
             if (downloadedPaths.contains(path)) {
               continue;
             }
-
-            ListenableFuture<Void> download = downloadsInProgress.get(path);
-            if (download == null) {
-              Context prevCtx = ctx.attach();
-              try {
-                download =
-                    remoteCache.downloadFile(
-                        path, DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()));
-                downloadsInProgress.put(path, download);
-              } finally {
-                ctx.detach(prevCtx);
-              }
-            }
+            ListenableFuture<Void> download = downloadFileAsync(path, metadata);
             downloadsToWaitFor.putIfAbsent(path, download);
           }
         }
@@ -115,32 +115,22 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
       IOException ioException = null;
       InterruptedException interruptedException = null;
-      try {
-        for (Map.Entry<Path, ListenableFuture<Void>> entry : downloadsToWaitFor.entrySet()) {
-          try {
-            Utils.getFromFuture(entry.getValue());
-            entry.getKey().setExecutable(true);
-          } catch (IOException e) {
-            if (e instanceof CacheNotFoundException) {
-              e =
-                  new IOException(
-                      String.format(
-                          "Failed to fetch file with hash '%s' because it does not exist remotely."
-                              + " --experimental_remote_download_outputs=minimal does not work if"
-                              + " your remote cache evicts files during builds.",
-                          ((CacheNotFoundException) e).getMissingDigest().getHash()));
-            }
-            ioException = ioException == null ? e : ioException;
-          } catch (InterruptedException e) {
-            interruptedException = interruptedException == null ? e : interruptedException;
+      for (Map.Entry<Path, ListenableFuture<Void>> entry : downloadsToWaitFor.entrySet()) {
+        try {
+          Utils.getFromFuture(entry.getValue());
+        } catch (IOException e) {
+          if (e instanceof CacheNotFoundException) {
+            e =
+                new IOException(
+                    String.format(
+                        "Failed to fetch file with hash '%s' because it does not exist remotely."
+                            + " --experimental_remote_outputs=minimal does not work if"
+                            + " your remote cache evicts files during builds.",
+                        ((CacheNotFoundException) e).getMissingDigest().getHash()));
           }
-        }
-      } finally {
-        synchronized (lock) {
-          for (Path path : downloadsToWaitFor.keySet()) {
-            downloadsInProgress.remove(path);
-            downloadedPaths.add(path);
-          }
+          ioException = ioException == null ? e : ioException;
+        } catch (InterruptedException e) {
+          interruptedException = interruptedException == null ? e : interruptedException;
         }
       }
 
@@ -156,6 +146,74 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
   ImmutableSet<Path> downloadedFiles() {
     synchronized (lock) {
       return ImmutableSet.copyOf(downloadedPaths);
+    }
+  }
+
+  void downloadFile(Path path, FileArtifactValue metadata)
+      throws IOException, InterruptedException {
+    try {
+      downloadFileAsync(path, metadata).get();
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof IOException) {
+        throw (IOException) e.getCause();
+      }
+      throw new IOException(e.getCause());
+    }
+  }
+
+  private ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata)
+      throws IOException {
+    synchronized (lock) {
+      if (downloadedPaths.contains(path)) {
+        return Futures.immediateFuture(null);
+      }
+
+      ListenableFuture<Void> download = downloadsInProgress.get(path);
+      if (download == null) {
+        Context prevCtx = ctx.attach();
+        try {
+          Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+          download = remoteCache.downloadFile(path, digest);
+          downloadsInProgress.put(path, download);
+          Futures.addCallback(
+              download,
+              new FutureCallback<Void>() {
+                @Override
+                public void onSuccess(Void v) {
+                  synchronized (lock) {
+                    downloadsInProgress.remove(path);
+                    downloadedPaths.add(path);
+                  }
+
+                  try {
+                    path.setReadable(true);
+                    path.setExecutable(true);
+                  } catch (IOException e) {
+                    logger.log(Level.WARNING, "Failed to chmod +xr on " + path, e);
+                  }
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                  synchronized (lock) {
+                    downloadsInProgress.remove(path);
+                  }
+                  try {
+                    path.delete();
+                  } catch (IOException e) {
+                    logger.log(
+                        Level.WARNING,
+                        "Failed to delete output file after incomplete download: " + path,
+                        e);
+                  }
+                }
+              },
+              MoreExecutors.directExecutor());
+        } finally {
+          ctx.detach(prevCtx);
+        }
+      }
+      return download;
     }
   }
 }
