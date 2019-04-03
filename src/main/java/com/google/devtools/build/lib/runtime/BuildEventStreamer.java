@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
@@ -56,8 +57,11 @@ import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -65,24 +69,35 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
  * Streamer in charge of listening to {@link BuildEvent} and post them to each of the {@link
  * BuildEventTransport}.
  */
+@ThreadSafe
 public class BuildEventStreamer {
-  private static final Logger logger = Logger.getLogger(BuildEventStreamer.class.getName());
-
   private final Collection<BuildEventTransport> transports;
   private final BuildEventStreamOptions options;
+
+  @GuardedBy("this")
   private Set<BuildEventId> announcedEvents;
+
+  @GuardedBy("this")
   private final Set<BuildEventId> postedEvents = new HashSet<>();
+
+  @GuardedBy("this")
   private final Set<BuildEventId> configurationsPosted = new HashSet<>();
+
+  @GuardedBy("this")
   private List<Pair<String, String>> bufferedStdoutStderrPairs = new ArrayList<>();
+
+  @GuardedBy("this")
   private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
+
+  @GuardedBy("this")
   private int progressCount;
+
   private final CountingArtifactGroupNamer artifactGroupNamer;
   private OutErrProvider outErrProvider;
   private volatile AbortReason abortReason = AbortReason.UNKNOWN;
@@ -92,9 +107,12 @@ public class BuildEventStreamer {
   // After #buildComplete is called, contains the set of events that the streamer is expected to
   // process. The streamer will fully close after seeing them. This field is null until
   // #buildComplete is called.
+  // Thread-safety note: finalEventsToCome is only non-null in the final, sequential phase of the
+  // build (all final events are issued from the main thread).
   private Set<BuildEventId> finalEventsToCome = null;
 
   // True, if we already closed the stream.
+  @GuardedBy("this")
   private boolean closed;
 
   /** Holds the futures for the closing of each transport */
@@ -139,6 +157,7 @@ public class BuildEventStreamer {
     this(transports, new BuildEventStreamOptions(), namer);
   }
 
+  @ThreadCompatible
   public void registerOutErrProvider(OutErrProvider outErrProvider) {
     this.outErrProvider = outErrProvider;
   }
@@ -150,6 +169,9 @@ public class BuildEventStreamer {
    * <p>Moreover, link unannounced events to the progress stream; we only expect failure events to
    * come before their parents.
    */
+  // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
+  // will be running under the synchronized block.
+  @SuppressWarnings("GuardedBy")
   private void post(BuildEvent event) {
     List<BuildEvent> linkEvents = null;
     BuildEventId id = event.getEventId();
@@ -250,7 +272,7 @@ public class BuildEventStreamer {
    * moreover, make that artificial start event announce all events blocked on it, as well as the
    * {@link BuildCompletingEvent} that caused the early end of the stream.
    */
-  private void clearMissingStartEvent(BuildEventId id) {
+  private synchronized void clearMissingStartEvent(BuildEventId id) {
     if (pendingEvents.containsKey(BuildEventId.buildStartedId())) {
       ImmutableSet.Builder<BuildEventId> children = ImmutableSet.<BuildEventId>builder();
       children.add(ProgressEvent.INITIAL_PROGRESS_UPDATE);
@@ -267,7 +289,7 @@ public class BuildEventStreamer {
   }
 
   /** Clear pending events by generating aborted events for all their requisits. */
-  private void clearPendingEvents() {
+  private synchronized void clearPendingEvents() {
     while (!pendingEvents.isEmpty()) {
       BuildEventId id = pendingEvents.keySet().iterator().next();
       buildEvent(new AbortedEvent(id, abortReason, ""));
@@ -278,7 +300,7 @@ public class BuildEventStreamer {
    * Clear all events that are still announced; events not naturally closed by the expected event
    * normally only occur if the build is aborted.
    */
-  private void clearAnnouncedEvents(Collection<BuildEventId> dontclear) {
+  private synchronized void clearAnnouncedEvents(Collection<BuildEventId> dontclear) {
     if (announcedEvents != null) {
       // create a copy of the identifiers to clear, as the post method
       // will change the set of already announced events.
@@ -380,6 +402,7 @@ public class BuildEventStreamer {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void buildEvent(BuildEvent event) {
     if (finalEventsToCome != null) {
       synchronized (this) {
@@ -423,7 +446,10 @@ public class BuildEventStreamer {
     post(event);
 
     // Reconsider all events blocked by the event just posted.
-    Collection<BuildEvent> toReconsider = pendingEvents.removeAll(event.getEventId());
+    Collection<BuildEvent> toReconsider;
+    synchronized (this) {
+      toReconsider = pendingEvents.removeAll(event.getEventId());
+    }
     for (BuildEvent freedEvent : toReconsider) {
       buildEvent(freedEvent);
     }
@@ -459,6 +485,9 @@ public class BuildEventStreamer {
     return updateEvent;
   }
 
+  // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
+  // will be running under the synchronized block.
+  @SuppressWarnings("GuardedBy")
   void flush() {
     List<BuildEvent> updateEvents = null;
     synchronized (this) {
@@ -556,6 +585,9 @@ public class BuildEventStreamer {
     consumeAsPairsofStrings(leftIterable, rightIterable, biConsumer, biConsumer);
   }
 
+  // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
+  // will be running under the synchronized block.
+  @SuppressWarnings("GuardedBy")
   private synchronized void clearEventsAndPostFinalProgress(ChainableEvent event) {
     clearPendingEvents();
     Iterable<String> allOut = ImmutableList.of();
@@ -583,7 +615,7 @@ public class BuildEventStreamer {
   }
 
   /** Returns whether a {@link BuildEvent} should be ignored. */
-  public boolean shouldIgnoreBuildEvent(BuildEvent event) {
+  private boolean shouldIgnoreBuildEvent(BuildEvent event) {
     if (event instanceof ActionExecutedEvent
         && !shouldPublishActionExecutedEvent((ActionExecutedEvent) event)) {
       return true;
@@ -623,7 +655,7 @@ public class BuildEventStreamer {
     return (event.getAction() instanceof ExtraAction);
   }
 
-  private boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
+  private synchronized boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
     if (!(event instanceof BuildEventWithOrderConstraint)) {
       return false;
     }
