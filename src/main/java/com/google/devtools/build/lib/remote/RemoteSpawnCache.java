@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -127,13 +128,14 @@ final class RemoteSpawnCache implements SpawnCache {
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
 
+    Profiler prof = Profiler.instance();
     if (checkCache) {
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
       Context previous = withMetadata.attach();
       try {
         ActionResult result;
-        try (SilentCloseable c = Profiler.instance().profile("RemoteCache.getCachedActionResult")) {
+        try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
           result = remoteCache.getCachedActionResult(actionKey);
         }
         if (result != null && result.getExitCode() == 0) {
@@ -143,7 +145,7 @@ final class RemoteSpawnCache implements SpawnCache {
           InMemoryOutput inMemoryOutput = null;
           switch (remoteOutputsMode) {
             case MINIMAL:
-              try (SilentCloseable c = Profiler.instance().profile("RemoteCache.downloadMinimal")) {
+              try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs minimal")) {
                 inMemoryOutput =
                     remoteCache.downloadMinimal(
                         result,
@@ -155,7 +157,7 @@ final class RemoteSpawnCache implements SpawnCache {
               }
               break;
             case ALL:
-              try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {
+              try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {
                 remoteCache.download(result, execRoot, context.getFileOutErr());
               }
               break;
@@ -206,8 +208,7 @@ final class RemoteSpawnCache implements SpawnCache {
           }
 
           if (options.experimentalGuardAgainstConcurrentChanges) {
-            try (SilentCloseable c =
-                Profiler.instance().profile("RemoteCache.checkForConcurrentModifications")) {
+            try (SilentCloseable c = prof.profile("RemoteCache.checkForConcurrentModifications")) {
               checkForConcurrentModifications();
             } catch (IOException e) {
               report(Event.warn(e.getMessage()));
@@ -218,7 +219,7 @@ final class RemoteSpawnCache implements SpawnCache {
           Context previous = withMetadata.attach();
           Collection<Path> files =
               RemoteSpawnRunner.resolveActionInputs(execRoot, spawn.getOutputFiles());
-          try (SilentCloseable c = Profiler.instance().profile("RemoteCache.upload")) {
+          try (SilentCloseable c = prof.profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
             remoteCache.upload(
                 actionKey, action, command, execRoot, files, context.getFileOutErr());
           } catch (IOException e) {
