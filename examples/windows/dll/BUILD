@@ -9,9 +9,7 @@ filegroup(
 # Define the shared library
 cc_shared_library(
     name = "hellolib",
-    srcs = [
-        "hello-library.cpp",
-    ],
+    srcs = ["hello-library.cpp"],
     hdrs = ["hello-library.h"],
     # Define COMPILING_DLL to export symbols during compiling the DLL.
     # See hello-library.h
@@ -23,9 +21,7 @@ cc_shared_library(
 ## Declare hellolib.dll as data dependency and load it explicitly in code.
 cc_binary(
     name = "hello_world-load-dll-at-runtime",
-    srcs = [
-        "hello_world-load-dll-at-runtime.cpp",
-    ],
+    srcs = ["hello_world-load-dll-at-runtime.cpp"],
     data = [":hellolib.dll"],
 )
 
@@ -34,8 +30,6 @@ cc_binary(
 ## Link to hellolib.dll through its import library.
 cc_binary(
     name = "hello_world-link-to-dll-via-lib",
-    srcs = [
-        "hello_world-link-to-dll-via-lib.cpp",
-    ],
+    srcs = ["hello_world-link-to-dll-via-lib.cpp"],
     deps = [":hellolib"],
 )
