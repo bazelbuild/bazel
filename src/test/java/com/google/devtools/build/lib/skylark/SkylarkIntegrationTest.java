@@ -1629,6 +1629,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     }
     assertContainsEvent(
         "cycle detected in extension files: \n"
+            + "    test/skylark/BUILD\n"
             + "    //test/skylark:ext1.bzl\n"
             + ".-> //test/skylark:ext2.bzl\n"
             + "|   //test/skylark:ext3.bzl\n"

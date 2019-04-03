@@ -71,9 +71,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
     if (alreadyReported) {
       return true;
     } else if (Iterables.all(cycle, IS_SKYLARK_MODULE_SKY_KEY)
-        // The last element before the cycle has to be a PackageFunction or SkylarkModule.
+        // The last element before the cycle has to be a PackageFunction, SkylarkModule, or the
+        // WORKSPACE
         && (IS_PACKAGE_SKY_KEY.apply(lastPathElement)
-            || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement))) {
+            || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement)
+            || IS_WORKSPACE_FILE.apply(lastPathElement))) {
 
       Function printer =
           new Function<SkyKey, String>() {
@@ -84,6 +86,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
                     .importLabel.toString();
               } else if (input.argument() instanceof PackageIdentifier) {
                 return ((PackageIdentifier) input.argument()) + "/BUILD";
+              } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
+                return ((WorkspaceFileValue.WorkspaceFileKey) input.argument())
+                    .getPath()
+                    .getRootRelativePath()
+                    .toString();
               } else {
                 throw new UnsupportedOperationException();
               }
@@ -91,11 +98,20 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
           };
 
       StringBuilder cycleMessage =
-          new StringBuilder()
-              .append("cycle detected in extension files: ")
-              .append("\n    ")
-              .append(printer.apply(lastPathElement));
+          new StringBuilder().append("cycle detected in extension files: ");
 
+      // go back the path that lead to the cycle till we found the BUILD or WORKSPACE
+      // file that lead to the circular load.
+      int startIndex = pathToCycle.size() - 1;
+      while (startIndex > 0
+          && (IS_PACKAGE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
+              || IS_SKYLARK_MODULE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
+              || IS_WORKSPACE_FILE.apply(pathToCycle.get(startIndex - 1)))) {
+        startIndex--;
+      }
+      for (int i = startIndex; i < pathToCycle.size(); i++) {
+        cycleMessage.append("\n    ").append(printer.apply(pathToCycle.get(i)));
+      }
       AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage, printer);
       // TODO(bazel-team): it would be nice to pass the Location of the load Statement in the
       // BUILD file.
