@@ -22,7 +22,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 # Check if all the tools required by CC coverage are installed.
-[[ ! -x /usr/bin/lcov ]] && echo "lcov not installed. Skipping test" && exit 0
 [[ -z $( which gcov ) ]] && fail "gcov not installed. Skipping test" && exit 0
 [[ -z $( which g++ ) ]] && fail "g++ not installed. Skipping test" && exit 0
 
@@ -166,26 +165,6 @@ function tear_down() {
   rm -rf coverage_srcs/
 }
 
-# # Usage: run_coverage <coverage_tool>
-# Runs the script that computes the code coverage report for CC code.
-# Sets up the sub-shell environment accordingly:
-# COVERAGE_DIR            Directory containing gcda files.
-# COVERAGE_MANIFEST       Location of the instrumented file manifest.
-# COVERAGE_GCOV_PATH      Location of gcov.
-# ROOT                    Location from where the code coverage collection
-#                         was invoked.
-#
-# - coverage_tool         The tool to be used when computing the code
-#                          coverage report. Can be lcov or gcov.
-function run_coverage() {
-   local coverage_tool="${1}"; shift
-  (COVERAGE_DIR="$COVERAGE_DIR_VAR" \
-   COVERAGE_GCOV_PATH="$COVERAGE_GCOV_PATH_VAR" \
-   ROOT="$ROOT_VAR" COVERAGE_MANIFEST="$COVERAGE_MANIFEST_VAR" \
-   BAZEL_CC_COVERAGE_TOOL="$coverage_tool" \
-   "$COLLECT_CC_COVERAGE_SCRIPT")
-}
-
 # Asserts if the given expected coverage result is included in the given output
 # file.
 #
@@ -204,76 +183,6 @@ function assert_coverage_entry_in_file() {
 <$expected_coverage>
 was not found in actual coverage report:
 <$( cat $output_file )>"
-}
-
-# Asserts if coverage result in lcov format for coverage_srcs/a.cc is included
-# in the given output file.
-#
-# - output_file    The location of the coverage output file.
-function assert_lcov_coverage_srcs_a_cc() {
-    local output_file="${1}"; shift
-
-    # The expected coverage result for coverage_srcs/a.cc in lcov format.
-    local expected_lcov_result_a_cc="TN:
-SF:coverage_srcs/a.cc
-FN:4,_Z1ab
-FNDA:1,_Z1ab
-FNF:1
-FNH:1
-DA:4,1
-DA:5,1
-DA:6,1
-DA:8,0
-LF:4
-LH:3
-end_of_record"
-    assert_coverage_entry_in_file "$expected_lcov_result_a_cc" "$output_file"
-}
-
-# Asserts if coverage result in lcov format for coverage_srcs/a.cc is included
-# in the given output file.
-#
-# - output_file    The location of the coverage output file.
-function assert_lcov_coverage_srcs_b_h() {
-    local output_file="${1}"; shift
-
-    # The expected coverage result for coverage_srcs/a.cc in lcov format.
-    local expected_lcov_result="SF:coverage_srcs/b.h
-FN:1,_Z1bi
-FNDA:1,_Z1bi
-FNF:1
-FNH:1
-DA:1,1
-DA:2,1
-DA:3,1
-DA:5,0
-LF:4
-LH:3
-end_of_record"
-    assert_coverage_entry_in_file "$expected_lcov_result" "$output_file"
-}
-
-# Asserts if coverage result in lcov format for coverage_srcs/t.cc is included
-# in the given output file.
-#
-# - output_file    The location of the coverage output file.
-function assert_lcov_coverage_srcs_t_cc() {
-    local output_file="${1}"; shift
-
-    # The expected coverage result for coverage_srcs/t.cc in lcov format.
-    local expected_lcov_result_t_cc="TN:
-SF:coverage_srcs/t.cc
-FN:4,main
-FNDA:1,main
-FNF:1
-FNH:1
-DA:4,1
-DA:5,1
-DA:6,1
-LF:3
-LH:3
-end_of_record"
-    assert_coverage_entry_in_file "$expected_lcov_result_t_cc" "$output_file"
 }
 
 # Asserts if coverage result in gcov format for coverage_srcs/a.cc is included
@@ -323,32 +232,6 @@ lcount:5,0"
     assert_coverage_entry_in_file "$expected_gcov_result" "$output_file"
 }
 
-function test_cc_test_coverage_lcov() {
-    # Run the C++ coverage script with the environment setup accordingly.
-    # This will get coverage results for coverage_srcs/a.cc and
-    # coverage_srcs/t.cc.
-    run_coverage "LCOV" > "$TEST_log"
-
-    # Location of the output file of the C++ coverage script when lcov is used.
-    local output_file="$COVERAGE_DIR_VAR/_cc_coverage.dat"
-
-    # Assert that the coverage output file contains the coverage data for the
-    # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.
-    # The result for each source file must be asserted separately because the
-    # coverage lcov does not guarantee any particular order.
-    # The order can differ for example based on OS or version. The source files
-    # order in the coverage report is not relevant.
-    assert_lcov_coverage_srcs_a_cc "$output_file"
-    assert_lcov_coverage_srcs_t_cc "$output_file"
-    assert_lcov_coverage_srcs_b_h "$output_file"
-
-    # This assertion is needed to make sure no other source files are included
-    # in the output file.
-    local nr_lines="$(wc -l < "$output_file")"
-    [[ "$nr_lines" == 37 ]] || \
-      fail "Number of lines in C++ lcov coverage output file is "\
-      "$nr_lines and different than 37"
-}
 
 function test_cc_test_coverage_gcov() {
     "$gcov_location" -version | grep "LLVM" && \
@@ -360,7 +243,11 @@ function test_cc_test_coverage_gcov() {
         && echo "gcov version before 7.0 is not supported. Skipping test." \
         && return
 
-    run_coverage "GCOV" > "$TEST_log"
+    (COVERAGE_DIR="$COVERAGE_DIR_VAR" \
+    COVERAGE_GCOV_PATH="$COVERAGE_GCOV_PATH_VAR" \
+    ROOT="$ROOT_VAR" COVERAGE_MANIFEST="$COVERAGE_MANIFEST_VAR" \
+    BAZEL_CC_COVERAGE_TOOL="GCOV" \
+    "$COLLECT_CC_COVERAGE_SCRIPT") > "$TEST_log"
 
     # Location of the output file of the C++ coverage script when gcov is used.
     local output_file="$COVERAGE_DIR_VAR/_cc_coverage.gcov"
