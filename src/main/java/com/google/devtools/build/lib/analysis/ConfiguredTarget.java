@@ -75,4 +75,7 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
   default SourceArtifact getSourceArtifact() {
     return null;
   }
+
+  @Nullable
+  ToolchainContext getToolchainContext();
 }

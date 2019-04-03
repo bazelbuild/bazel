@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -50,29 +51,40 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractConfiguredTarget
     implements ConfiguredTarget, VisibilityProvider, ClassObject {
-  private final Label label;
-  private final BuildConfigurationValue.Key configurationKey;
-
-  private final NestedSet<PackageGroupContents> visibility;
-
-  // Cached on-demand default provider
-  private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
 
   // Accessors for Skylark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
 
+  private final Label label;
+  private final BuildConfigurationValue.Key configurationKey;
+  private final NestedSet<PackageGroupContents> visibility;
+  @Nullable private final ToolchainContext toolchainContext;
+
+  // Cached on-demand default provider
+  private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
+
   public AbstractConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
     this(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
+
 
   protected AbstractConfiguredTarget(
       Label label,
       BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility) {
+    this(label, configurationKey, visibility, null);
+  }
+
+  protected AbstractConfiguredTarget(
+      Label label,
+      BuildConfigurationValue.Key configurationKey,
+      NestedSet<PackageGroupContents> visibility,
+      @Nullable ToolchainContext toolchainContext) {
     this.label = label;
     this.configurationKey = configurationKey;
     this.visibility = visibility;
+    this.toolchainContext = toolchainContext;
   }
 
   @Override
@@ -234,5 +246,11 @@ public abstract class AbstractConfiguredTarget
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<unknown target " + getLabel() + ">");
+  }
+
+  @Override
+  @Nullable
+  public ToolchainContext getToolchainContext() {
+    return toolchainContext;
   }
 }
