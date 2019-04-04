@@ -139,9 +139,21 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    public Builder addPassedLog(Path passedLog) {
+      checkMutation(passedLog);
+      summary.passedLogs.add(passedLog);
+      return this;
+    }
+
     public Builder addFailedLogs(List<Path> failedLogs) {
       checkMutation(failedLogs);
       summary.failedLogs.addAll(failedLogs);
+      return this;
+    }
+
+    public Builder addFailedLog(Path failedLog) {
+      checkMutation(failedLog);
+      summary.failedLogs.add(failedLog);
       return this;
     }
 
@@ -354,15 +366,6 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
    */
   public static Builder newBuilder() {
     return new Builder();
-  }
-
-  /**
-   * Creates a new Builder initialized with a copy of the existing object's values.
-   */
-  public static Builder newBuilderFromExisting(TestSummary existing) {
-    Builder builder = new Builder();
-    builder.mergeFrom(existing);
-    return builder;
   }
 
   public Label getLabel() {
