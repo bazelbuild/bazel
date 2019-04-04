@@ -51,7 +51,8 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.stream.ChunkedWriteHandler;
-import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.ReadTimeoutException;
+import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.internal.PlatformDependent;
@@ -143,7 +144,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
       @Nullable final Credentials creds)
       throws Exception {
 
-      if (KQueue.isAvailable()) {
+    if (KQueue.isAvailable()) {
       return new HttpBlobStore(
           KQueueEventLoopGroup::new,
           KQueueDomainSocketChannel.class,
@@ -152,7 +153,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
           remoteMaxConnections,
           creds,
           domainSocketAddress);
-      } else if (Epoll.isAvailable()) {
+    } else if (Epoll.isAvailable()) {
       return new HttpBlobStore(
           EpollEventLoopGroup::new,
           EpollDomainSocketChannel.class,
@@ -161,9 +162,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
           remoteMaxConnections,
           creds,
           domainSocketAddress);
-      } else {
-        throw new Exception("Unix domain sockets are unsupported on this platform");
-      }
+    } else {
+      throw new Exception("Unix domain sockets are unsupported on this platform");
+    }
   }
 
   private HttpBlobStore(
@@ -261,6 +262,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   return;
                 }
 
+                p.addFirst(
+                    "timeout-handler",
+                    new IdleTimeoutHandler(timeoutSeconds, WriteTimeoutException.INSTANCE));
                 p.addLast(new HttpResponseDecoder());
                 // The 10KiB limit was chosen at random. We only expect HTTP servers to respond with
                 // an error message in the body and that should always be less than 10KiB.
@@ -298,6 +302,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private void releaseUploadChannel(Channel ch) {
     if (ch.isOpen()) {
       try {
+        ch.pipeline().remove(IdleTimeoutHandler.class);
         ch.pipeline().remove(HttpResponseDecoder.class);
         ch.pipeline().remove(HttpObjectAggregator.class);
         ch.pipeline().remove(HttpRequestEncoder.class);
@@ -334,8 +339,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
                       new IllegalStateException("Channel pipeline is not empty."));
                   return;
                 }
-
-                p.addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutSeconds));
+                p.addFirst(
+                    "timeout-handler",
+                    new IdleTimeoutHandler(timeoutSeconds, ReadTimeoutException.INSTANCE));
                 p.addLast(new HttpClientCodec());
                 synchronized (credentialsLock) {
                   p.addLast(new HttpDownloadHandler(creds));
@@ -365,7 +371,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
       // The channel might have been closed due to an error, in which case its pipeline
       // has already been cleared. Closed channels can't be reused.
       try {
-        ch.pipeline().remove(ReadTimeoutHandler.class);
+        ch.pipeline().remove(IdleTimeoutHandler.class);
         ch.pipeline().remove(HttpClientCodec.class);
         ch.pipeline().remove(HttpDownloadHandler.class);
       } catch (NoSuchElementException e) {

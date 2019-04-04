@@ -257,7 +257,7 @@ public class HttpBlobStoreTest {
   }
 
   @Test(expected = ConnectException.class, timeout = 30000)
-  public void timeoutShouldWork_connect() throws Exception {
+  public void connectTimeout() throws Exception {
     ServerChannel server = testServer.start(new ChannelInboundHandlerAdapter() {});
     testServer.stop(server);
 
@@ -268,8 +268,33 @@ public class HttpBlobStoreTest {
     fail("Exception expected");
   }
 
+  @Test(expected = UploadTimeoutException.class, timeout = 30000)
+  public void uploadTimeout() throws Exception {
+    ServerChannel server = null;
+    try {
+      server =
+          testServer.start(
+              new SimpleChannelInboundHandler<FullHttpRequest>() {
+                @Override
+                protected void channelRead0(
+                    ChannelHandlerContext channelHandlerContext, FullHttpRequest fullHttpRequest) {
+                  // Don't respond and force a client timeout.
+                }
+              });
+
+      Credentials credentials = newCredentials();
+      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
+      ByteArrayInputStream in = new ByteArrayInputStream(data);
+      blobStore.put("key", data.length, in);
+      fail("Exception expected");
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
   @Test(expected = DownloadTimeoutException.class, timeout = 30000)
-  public void timeoutShouldWork_read() throws Exception {
+  public void downloadTimeout() throws Exception {
     ServerChannel server = null;
     try {
       server =
