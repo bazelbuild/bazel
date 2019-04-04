@@ -671,8 +671,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /** Invokes {@link BlazeModule#blazeShutdown()} on all registered modules. */
   public void shutdown() {
-    for (BlazeModule module : blazeModules) {
-      module.blazeShutdown();
+    try {
+      for (BlazeModule module : blazeModules) {
+        module.blazeShutdown();
+      }
+    } finally {
+      flushServerLog();
     }
   }
 
@@ -684,8 +688,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /** Invokes {@link BlazeModule#blazeShutdownOnCrash()} on all registered modules. */
   public void shutdownOnCrash() {
-    for (BlazeModule module : blazeModules) {
-      module.blazeShutdownOnCrash();
+    try {
+      for (BlazeModule module : blazeModules) {
+        module.blazeShutdownOnCrash();
+      }
+    } finally {
+      flushServerLog();
     }
   }
 
