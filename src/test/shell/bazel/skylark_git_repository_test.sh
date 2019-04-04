@@ -173,12 +173,13 @@ function test_git_repositry_cache_is_populated() {
   export BAZEL_GIT_REPOSITORY_CACHE=$cache_dir
 
   # Do not run tests if the git worktree command does not exist.
-  if git worktree --help; then
-    do_git_repository_test $commit_hash
+  # Testing without if check - is windows timing out due to that?
+  # if git worktree --help; then
+  do_git_repository_test $commit_hash
 
-    cache_commit_hash="$(cat $cache_dir/worktrees/pluto/HEAD)"
-    assert_equals $commit_hash $cache_commit_hash
-  fi
+  cache_commit_hash="$(cat $cache_dir/worktrees/pluto/HEAD)"
+  assert_equals $commit_hash $cache_commit_hash
+  # fi
 }
 
 function test_git_repository() {
