@@ -44,27 +44,28 @@ public class WindowsFileOperations {
 
   private static final int MAX_PATH = 260;
 
-  // Keep IS_JUNCTION_* values in sync with src/main/native/windows/file.cc.
+  // Keep IS_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int IS_JUNCTION_YES = 0;
   private static final int IS_JUNCTION_NO = 1;
-  private static final int IS_JUNCTION_ERROR = 2;
+  // IS_JUNCTION_ERROR = 2;
 
-  // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.cc.
+  // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_JUNCTION_SUCCESS = 0;
-  private static final int CREATE_JUNCTION_ERROR = 1;
+  // CREATE_JUNCTION_ERROR = 1;
   private static final int CREATE_JUNCTION_TARGET_NAME_TOO_LONG = 2;
   private static final int CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET = 3;
   private static final int CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION = 4;
   private static final int CREATE_JUNCTION_ACCESS_DENIED = 5;
   private static final int CREATE_JUNCTION_DISAPPEARED = 6;
 
-  // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.cc.
+  // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.h.
   private static final int DELETE_PATH_SUCCESS = 0;
-  private static final int DELETE_PATH_ERROR = 1;
+  // DELETE_PATH_ERROR = 1;
   private static final int DELETE_PATH_DOES_NOT_EXIST = 2;
   private static final int DELETE_PATH_DIRECTORY_NOT_EMPTY = 3;
   private static final int DELETE_PATH_ACCESS_DENIED = 4;
 
+  // Keep READ_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int READ_SYMLINK_OR_JUNCTION_SUCCESS = 0;
   // READ_SYMLINK_OR_JUNCTION_ERROR = 1;
   private static final int READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED = 2;
@@ -93,6 +94,7 @@ public class WindowsFileOperations {
       case IS_JUNCTION_NO:
         return false;
       default:
+        // This is IS_JUNCTION_ERROR. The JNI code puts a custom message in 'error[0]'.
         throw new IOException(error[0]);
     }
   }
@@ -169,6 +171,7 @@ public class WindowsFileOperations {
         error[0] = "the junction's path got modified unexpectedly";
         break;
       default:
+        // This is CREATE_JUNCTION_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         break;
     }
     throw new IOException(
@@ -195,6 +198,8 @@ public class WindowsFileOperations {
         error[0] = "unknown link type";
         break;
       default:
+        // This is READ_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
+        // 'error[0]'.
         break;
     }
     throw new IOException(String.format("Cannot read link (name=%s): %s", name, error[0]));
@@ -214,6 +219,7 @@ public class WindowsFileOperations {
       case DELETE_PATH_ACCESS_DENIED:
         throw new java.nio.file.AccessDeniedException(path);
       default:
+        // This is DELETE_PATH_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         throw new IOException(String.format("Cannot delete path '%s': %s", path, error[0]));
     }
   }
