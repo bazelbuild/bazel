@@ -279,20 +279,8 @@ function test_sha256_caching() {
   # Download with correct sha256.
   http_archive_helper zip_up
 
-  # Create another HTTP response.
-  http_response=$TEST_TMPDIR/http_response
-  cat > $http_response <<EOF
-HTTP/1.0 200 OK
-
-
-
-EOF
-
-  nc_log=$TEST_TMPDIR/nc.log
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
-  # "Webserver" for http_archive rule.
-  nc_l $nc_port < $http_response >& $nc_log &
-  pid=$!
+  echo 'not a zip file' > "${TEST_TMPDIR}/wrong.zip"
+  serve_file "${TEST_TMPDIR}/wrong.zip"
 
   bazel fetch //zoo:breeding-program || fail "Fetch failed"
   bazel run //zoo:breeding-program >& $TEST_log \
@@ -352,21 +340,14 @@ EOF
 }
 
 function test_http_to_https_redirect() {
-  http_response=$TEST_TMPDIR/http_response
-  cat > $http_response <<EOF
-HTTP/1.0 301 Moved Permantently
-Location: https://127.0.0.1:123456789/bad-port-shouldnt-work
-EOF
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
-  nc_l $nc_port < $http_response &
-  nc_pid=$!
+  serve_redirect https://127.0.0.1:123456789/bad-port-shouldnt-work
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
-    urls = ['http://127.0.0.1:$nc_port/toto'],
+    urls = ['http://127.0.0.1:$redirect_port/toto'],
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
