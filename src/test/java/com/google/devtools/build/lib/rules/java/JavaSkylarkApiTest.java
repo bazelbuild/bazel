@@ -204,15 +204,17 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     useConfiguration(
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
+    // TODO(b/129637690): the runtime shouldn't be resolved in the host config
+    ConfiguredTarget genrule = getHostConfiguredTarget("//a:gen");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked")
     PathFragment javaHomeExecPath = (PathFragment) ct.get("java_home_exec_path");
     assertThat(javaHomeExecPath.getPathString())
-        .isEqualTo(getGenfilesArtifactWithNoOwner("a/foo/bar").getExecPathString());
+        .isEqualTo(getGenfilesArtifact("foo/bar", genrule).getExecPathString());
     @SuppressWarnings("unchecked")
     PathFragment javaExecutableExecPath = (PathFragment) ct.get("java_executable_exec_path");
     assertThat(javaExecutableExecPath.getPathString())
-        .startsWith(getGenfilesArtifactWithNoOwner("a/foo/bar/bin/java").getExecPathString());
+        .startsWith(getGenfilesArtifact("foo/bar/bin/java", genrule).getExecPathString());
     @SuppressWarnings("unchecked")
     PathFragment javaHomeRunfilesPath = (PathFragment) ct.get("java_home_runfiles_path");
     assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("a/foo/bar");
