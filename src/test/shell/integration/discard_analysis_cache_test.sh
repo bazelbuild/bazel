@@ -141,6 +141,8 @@ EOF
       || fail "Expected success"
   [[ -e "bazel-bin/foo/foo.out.aspect" ]] || fail "Aspect foo not run"
   [[ -e "bazel-bin/foo/dep.out.aspect" ]] || fail "Aspect bar not run"
+  # Make sure to clear out garbage, sometimes a spare aspect hangs around.
+  bazel info used-heap-size-after-gc >& /dev/null
   "$bazel_javabase"/bin/jmap -histo:live "$server_pid" > histo.txt
   cat histo.txt >> "$TEST_log"
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
