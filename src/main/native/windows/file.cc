@@ -78,31 +78,31 @@ static wstring uint32asHexString(uint32_t value) {
   return wstring(attr_str, 8);
 }
 
-int IsJunctionOrDirectorySymlink(const WCHAR* path, wstring* error) {
+int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
   if (!IsAbsoluteNormalizedWindowsPath(path)) {
     if (error) {
-      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"IsJunctionOrDirectorySymlink", path,
-                                L"expected an absolute Windows path");
+      *error =
+          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"IsSymlinkOrJunction",
+                           path, L"expected an absolute Windows path");
     }
-    return IS_JUNCTION_ERROR;
+    return IsSymlinkOrJunctionResult::kError;
   }
 
   DWORD attrs = ::GetFileAttributesW(path);
   if (attrs == INVALID_FILE_ATTRIBUTES) {
     DWORD err = GetLastError();
+    if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+      return IsSymlinkOrJunctionResult::kDoesNotExist;
+    }
+
     if (error) {
       *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"IsJunctionOrDirectorySymlink", path, err);
+                                L"IsSymlinkOrJunction", path, err);
     }
-    return IS_JUNCTION_ERROR;
+    return IsSymlinkOrJunctionResult::kError;
   } else {
-    if ((attrs & FILE_ATTRIBUTE_DIRECTORY) &&
-        (attrs & FILE_ATTRIBUTE_REPARSE_POINT)) {
-      return IS_JUNCTION_YES;
-    } else {
-      return IS_JUNCTION_NO;
-    }
+    *result = (attrs & FILE_ATTRIBUTE_REPARSE_POINT);
+    return IsSymlinkOrJunctionResult::kSuccess;
   }
 }
 
