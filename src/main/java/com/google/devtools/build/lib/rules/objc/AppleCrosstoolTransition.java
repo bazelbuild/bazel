@@ -115,10 +115,19 @@ public class AppleCrosstoolTransition implements PatchTransition {
           return AppleConfiguration.iosCpuFromCpu(configOptions.cpu);
         }
       case WATCHOS:
+        if (appleOptions.watchosCpus.isEmpty()) {
+          return AppleCommandLineOptions.DEFAULT_WATCHOS_CPU;
+        }
         return appleOptions.watchosCpus.get(0);
       case TVOS:
+        if (appleOptions.tvosCpus.isEmpty()) {
+          return AppleCommandLineOptions.DEFAULT_TVOS_CPU;
+        }
         return appleOptions.tvosCpus.get(0);
       case MACOS:
+        if (appleOptions.macosCpus.isEmpty()) {
+          return AppleCommandLineOptions.DEFAULT_MACOS_CPU;
+        }
         return appleOptions.macosCpus.get(0);
       default:
         throw new IllegalArgumentException(
