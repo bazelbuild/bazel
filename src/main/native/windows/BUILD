@@ -25,6 +25,7 @@ cc_library(
     hdrs = ["file.h"],
     visibility = [
         "//src/main/cpp:__subpackages__",
+        "//src/main/tools:__pkg__",
         "//src/test/cpp:__subpackages__",
         "//src/test/native:__subpackages__",
         "//tools/test:__pkg__",
