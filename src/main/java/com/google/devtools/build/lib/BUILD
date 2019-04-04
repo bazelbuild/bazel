@@ -816,22 +816,6 @@ java_library(
 )
 
 java_library(
-    name = "bazel/LicenseCheckingModule",
-    srcs = ["bazel/LicenseCheckingModule.java"],
-    deps = [
-        ":build-base",
-        ":events",
-        ":packages-internal",
-        ":runtime",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "bazel-main",
     srcs = ["bazel/Bazel.java"],
     resources = [
@@ -869,10 +853,8 @@ java_library(
         exclude = [
             "bazel/Bazel.java",
             "bazel/BazelRepositoryModule.java",
-            "bazel/LicenseCheckingModule.java",
         ],
     ),
-    exports = [":bazel/LicenseCheckingModule"],
     deps = [
         ":build-base",
         ":build-info",
