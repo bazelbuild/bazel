@@ -2004,4 +2004,63 @@ EOF
   expect_log 'path/to/main/WORKSPACE'
 }
 
+function test_circular_definition_reported() {
+  # Verify that bazel reports a useful error message upon
+  # detecting a circular definition of a repository
+
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir ext
+  touch ext/BUILD
+  cat > ext/a.BUILD <<'EOF'
+genrule(
+  name = "a",
+  outs = ["a.txt"],
+  cmd = "echo Hello World > $@",
+)
+EOF
+  cat > ext/b.BUILD <<'EOF'
+genrule(
+  name = "b",
+  outs = ["b.txt"],
+  cmd = "echo Hello World > $@",
+)
+EOF
+  cat > ext/notabuildfile.bzl <<'EOF'
+x = 42
+EOF
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+  name = "a",
+  url = "file://${WRKDIR}/ext.tar",
+  build_file = "@b//:a.BUILD",
+)
+
+http_archive(
+  name = "b",
+  url = "file://${WRKDIR}/ext.tar",
+  build_file = "@a//:b.BUILD",
+)
+
+load("@a//:notabuildfile.bzl", "x")
+EOF
+  touch BUILD
+
+  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+
+  expect_not_log '[iI]nternal [eE]rror'
+  expect_not_log 'IllegalStateException'
+  expect_log '[Cc]ircular definition.*repositor'
+  expect_log '@a'
+  expect_log '@b'
+}
+
 run_suite "external tests"

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -43,6 +44,9 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
 
   private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
       SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
+
+  private static final Predicate<SkyKey> IS_REPOSITORY =
+      SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY);
 
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
@@ -117,6 +121,25 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       // BUILD file.
       eventHandler.handle(Event.error(null, cycleMessage.toString()));
       return true;
+    } else if (Iterables.all(
+        cycle, Predicates.or(IS_PACKAGE_LOOKUP, IS_REPOSITORY, IS_REPOSITORY_DIRECTORY))) {
+      StringBuilder cycleMessage =
+          new StringBuilder().append("Circular definition of repositories:");
+      Iterable<SkyKey> repos = Iterables.filter(cycle, IS_REPOSITORY);
+      Function printer =
+          new Function<SkyKey, String>() {
+            @Override
+            public String apply(SkyKey input) {
+              if (input instanceof RepositoryValue.Key) {
+                return ((RepositoryValue.Key) input).argument().getName();
+              } else {
+                throw new UnsupportedOperationException();
+              }
+            }
+          };
+      AbstractLabelCycleReporter.printCycle(ImmutableList.copyOf(repos), cycleMessage, printer);
+      eventHandler.handle(Event.error(null, cycleMessage.toString()));
+      return true;
     } else if (Iterables.any(cycle, IS_WORKSPACE_FILE)
         || IS_REPOSITORY_DIRECTORY.apply(lastPathElement)
         || IS_PACKAGE_SKY_KEY.apply(lastPathElement)
@@ -152,6 +175,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
         return true;
       }
     }
+
     return false;
   }
 }
