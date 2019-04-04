@@ -44,10 +44,10 @@ public class WindowsFileOperations {
 
   private static final int MAX_PATH = 260;
 
-  // Keep IS_JUNCTION_* values in sync with src/main/native/windows/file.h.
-  private static final int IS_JUNCTION_YES = 0;
-  private static final int IS_JUNCTION_NO = 1;
-  // IS_JUNCTION_ERROR = 2;
+  // Keep IS_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.cc.
+  private static final int IS_SYMLINK_OR_JUNCTION_SUCCESS = 0;
+  // IS_SYMLINK_OR_JUNCTION_ERROR = 1;
+  private static final int IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 2;
 
   // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_JUNCTION_SUCCESS = 0;
@@ -73,7 +73,8 @@ public class WindowsFileOperations {
   private static final int READ_SYMLINK_OR_JUNCTION_NOT_A_LINK = 4;
   private static final int READ_SYMLINK_OR_JUNCTION_UNKNOWN_LINK_TYPE = 5;
 
-  private static native int nativeIsJunction(String path, String[] error);
+  private static native int nativeIsSymlinkOrJunction(
+      String path, boolean[] result, String[] error);
 
   private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
@@ -85,18 +86,22 @@ public class WindowsFileOperations {
   private static native int nativeDeletePath(String path, String[] error);
 
   /** Determines whether `path` is a junction point or directory symlink. */
-  public static boolean isJunction(String path) throws IOException {
+  public static boolean isSymlinkOrJunction(String path) throws IOException {
     WindowsJniLoader.loadJni();
+    boolean[] result = new boolean[] {false};
     String[] error = new String[] {null};
-    switch (nativeIsJunction(asLongPath(path), error)) {
-      case IS_JUNCTION_YES:
-        return true;
-      case IS_JUNCTION_NO:
-        return false;
+    switch (nativeIsSymlinkOrJunction(asLongPath(path), result, error)) {
+      case IS_SYMLINK_OR_JUNCTION_SUCCESS:
+        return result[0];
+      case IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
+        error[0] = "path does not exist";
+        break;
       default:
-        // This is IS_JUNCTION_ERROR. The JNI code puts a custom message in 'error[0]'.
-        throw new IOException(error[0]);
+        // This is IS_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
+        // 'error[0]'.
+        break;
     }
+    throw new IOException(String.format("Cannot tell if '%s' is link: %s", path, error[0]));
   }
 
   /**
