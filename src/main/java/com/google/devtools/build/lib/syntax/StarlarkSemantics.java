@@ -39,6 +39,7 @@ public abstract class StarlarkSemantics {
    * the exact name of the flag transformed to upper case (for error representation).
    */
   public enum FlagIdentifier {
+    EXPERIMENTAL_DEMONSTRATIONAL(StarlarkSemantics::experimentalDemonstrational),
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
         StarlarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
@@ -119,6 +120,8 @@ public abstract class StarlarkSemantics {
   public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
 
   public abstract boolean experimentalEnableAndroidMigrationApis();
+
+  public abstract boolean experimentalDemonstrational();
 
   public abstract ImmutableList<String> experimentalJavaCommonCreateProviderEnabledPackages();
 
@@ -201,6 +204,7 @@ public abstract class StarlarkSemantics {
           .experimentalBuildSettingApi(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableAndroidMigrationApis(false)
+          .experimentalDemonstrational(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
           .experimentalRestrictNamedParams(false)
@@ -246,6 +250,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
 
     public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
+
+    public abstract Builder experimentalDemonstrational(boolean value);
 
     public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 

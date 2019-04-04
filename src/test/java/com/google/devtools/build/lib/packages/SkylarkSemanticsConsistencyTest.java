@@ -125,6 +125,7 @@ public class SkylarkSemanticsConsistencyTest {
             + ","
             + rand.nextDouble(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
+        "--experimental_demonstrational=" + rand.nextBoolean(),
         "--experimental_java_common_create_provider_enabled_packages="
             + rand.nextDouble()
             + ","
@@ -173,6 +174,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalCcSkylarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
+        .experimentalDemonstrational(rand.nextBoolean())
         .experimentalJavaCommonCreateProviderEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalPlatformsApi(rand.nextBoolean())

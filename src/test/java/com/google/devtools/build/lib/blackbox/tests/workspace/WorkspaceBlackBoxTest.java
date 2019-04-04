@@ -225,6 +225,14 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     bazel.help();
   }
 
+  @Test
+  public void testShouldFail() throws Exception {
+    context().write(WORKSPACE,
+            "workspace(name = 'test_ws', fictive = 'abc')");
+    // should fail because we did not set the flag
+    context().bazel().shouldFail().info();
+  }
+
   private boolean isWindows() {
     return OS.WINDOWS.equals(OS.getCurrent());
   }

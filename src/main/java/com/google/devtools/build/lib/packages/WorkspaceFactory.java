@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -305,7 +306,14 @@ public class WorkspaceFactory {
               + "description of the project, using underscores as separators, e.g., "
               + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
               + "start with a letter and can only contain letters, numbers, and underscores.",
-      parameters = {@Param(name = "name", type = String.class, doc = "the name of the workspace.")},
+      parameters = {
+          @Param(name = "name", type = String.class, doc = "the name of the workspace."),
+          @Param(name = "fictive",
+              defaultValue = "\"\"",
+              type = String.class,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_DEMONSTRATIONAL,
+              doc = "TODO")
+      },
       useAst = true,
       useEnvironment = true)
   private static final BuiltinFunction.Factory newWorkspaceFunction =
@@ -313,8 +321,8 @@ public class WorkspaceFactory {
         public BuiltinFunction create(boolean allowOverride, final RuleFactory ruleFactory) {
           if (allowOverride) {
             return new BuiltinFunction(
-                "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST_ENV) {
-              public Object invoke(String name, FuncallExpression ast, Environment env)
+                "workspace", FunctionSignature.of(1, "name", "fictive"), BuiltinFunction.USE_AST_ENV) {
+              public Object invoke(String name, String fictive, FuncallExpression ast, Environment env)
                   throws EvalException, InterruptedException {
                 if (!isLegalWorkspaceName(name)) {
                   throw new EvalException(
@@ -352,8 +360,8 @@ public class WorkspaceFactory {
             };
           } else {
             return new BuiltinFunction(
-                "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST) {
-              public Object invoke(String name, FuncallExpression ast) throws EvalException {
+                "workspace", FunctionSignature.of(1, "name", "fictive"), BuiltinFunction.USE_AST) {
+              public Object invoke(String name, String fictive, FuncallExpression ast) throws EvalException {
                 throw new EvalException(
                     ast.getLocation(),
                     "workspace() function should be used only at the top of the WORKSPACE file");
