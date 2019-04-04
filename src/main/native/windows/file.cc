@@ -127,7 +127,7 @@ wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
 #pragma pack(push, 4)
 // See https://msdn.microsoft.com/en-us/windows/desktop/ff552012
 typedef struct _REPARSE_DATA_BUFFER {
-  ULONG  ReparseTag;
+  ULONG ReparseTag;
   USHORT ReparseDataLength;
   USHORT Reserved;
   union {
@@ -136,15 +136,15 @@ typedef struct _REPARSE_DATA_BUFFER {
       USHORT SubstituteNameLength;
       USHORT PrintNameOffset;
       USHORT PrintNameLength;
-      ULONG  Flags;
-      WCHAR  PathBuffer[1];
+      ULONG Flags;
+      WCHAR PathBuffer[1];
     } SymbolicLinkReparseBuffer;
     struct {
       USHORT SubstituteNameOffset;
       USHORT SubstituteNameLength;
       USHORT PrintNameOffset;
       USHORT PrintNameLength;
-      WCHAR  PathBuffer[1];
+      WCHAR PathBuffer[1];
     } MountPointReparseBuffer;
     struct {
       UCHAR DataBuffer[1];
@@ -193,11 +193,11 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
   // The sum of these must not exceed MAXIMUM_REPARSE_DATA_BUFFER_SIZE.
   // We can rearrange this to get the limit for target.size().
   static const size_t kMaxJunctionTargetLen =
-      ((MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 
-       offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer)) /
-       sizeof(WCHAR) -
+      ((MAXIMUM_REPARSE_DATA_BUFFER_SIZE -
+        offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer)) /
+           sizeof(WCHAR) -
        /* one "\??\" prefix */ 4 -
-       /* two null terminators */ 2) / 
+       /* two null terminators */ 2) /
       /* two copies of the string are stored */ 2;
   if (target_size > kMaxJunctionTargetLen) {
     if (error) {
@@ -351,18 +351,15 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
     // object path. (NOT to be confused with "\\?\" which is meaningful for the
     // Win32 API.) We need to use this prefix to tell the kernel where the
     // reparse point is pointing to.
-    memcpy(
-        (uint8_t*) reparse_buffer->MountPointReparseBuffer.PathBuffer +
-            reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset,
-        L"\\??\\",
-        4 * sizeof(WCHAR));
-    memcpy(
-        (uint8_t*) reparse_buffer->MountPointReparseBuffer.PathBuffer +
-            reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset +
-            4 * sizeof(WCHAR),
-        target,
-        reparse_buffer->MountPointReparseBuffer.SubstituteNameLength -
-            4 * sizeof(WCHAR));
+    memcpy((uint8_t*)reparse_buffer->MountPointReparseBuffer.PathBuffer +
+               reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset,
+           L"\\??\\", 4 * sizeof(WCHAR));
+    memcpy((uint8_t*)reparse_buffer->MountPointReparseBuffer.PathBuffer +
+               reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset +
+               4 * sizeof(WCHAR),
+           target,
+           reparse_buffer->MountPointReparseBuffer.SubstituteNameLength -
+               4 * sizeof(WCHAR));
 
     // In addition to their target, junctions also have another string which is
     // a user-visible name of where the junction points, as listed by "dir".
@@ -372,18 +369,16 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
     // behaves. Using a dummy or fake display name would be misleading, it would
     // make the output of `dir` look like:
     //   2017-01-18  01:37 PM    <JUNCTION>     juncname [dummy string]
-    memcpy(
-        (uint8_t*) reparse_buffer->MountPointReparseBuffer.PathBuffer +
-            reparse_buffer->MountPointReparseBuffer.PrintNameOffset,
-        target,
-        reparse_buffer->MountPointReparseBuffer.PrintNameLength);
+    memcpy((uint8_t*)reparse_buffer->MountPointReparseBuffer.PathBuffer +
+               reparse_buffer->MountPointReparseBuffer.PrintNameOffset,
+           target, reparse_buffer->MountPointReparseBuffer.PrintNameLength);
 
     DWORD bytes_returned;
     if (!::DeviceIoControl(
-          handle, FSCTL_SET_REPARSE_POINT, reparse_buffer,
-          reparse_buffer->ReparseDataLength +
-              offsetof(REPARSE_DATA_BUFFER, GenericReparseBuffer.DataBuffer),
-          NULL, 0, &bytes_returned, NULL)) {
+            handle, FSCTL_SET_REPARSE_POINT, reparse_buffer,
+            reparse_buffer->ReparseDataLength +
+                offsetof(REPARSE_DATA_BUFFER, GenericReparseBuffer.DataBuffer),
+            NULL, 0, &bytes_returned, NULL)) {
       DWORD err = GetLastError();
       if (err == ERROR_DIR_NOT_EMPTY) {
         return CreateJunctionResult::kAlreadyExistsButNotJunction;
@@ -411,9 +406,10 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
       return CreateJunctionResult::kError;
     }
 
-    WCHAR* actual_target = reparse_buffer->MountPointReparseBuffer.PathBuffer +
-                           reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset +
-                           /* "\??\" prefix */ 4;
+    WCHAR* actual_target =
+        reparse_buffer->MountPointReparseBuffer.PathBuffer +
+        reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset +
+        /* "\??\" prefix */ 4;
     if (reparse_buffer->MountPointReparseBuffer.SubstituteNameLength !=
             (/* "\??\" prefix */ 4 + target_size) * sizeof(WCHAR) ||
         _wcsnicmp(actual_target, target, target_size) != 0) {

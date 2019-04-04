@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,7 +40,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -65,7 +66,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
   protected final BuildConfiguration hostConfiguration;
 
   private final HashMap<Label, Target> partialResultMap;
-  @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
+  @Nullable private final TransitionFactory<Rule> trimmingTransitionFactory;
 
   @Override
   public String getName() {
@@ -83,7 +84,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       BuildConfiguration hostConfiguration,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory) {
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.hostConfiguration = hostConfiguration;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
@@ -187,15 +188,11 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
   private String getRuleClassTransition(ConfiguredTarget ct, Target target) {
     String output = "";
     if (ct instanceof RuleConfiguredTarget) {
-      RuleTransitionFactory factory =
+      TransitionFactory<Rule> factory =
           target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
       if (factory != null) {
         output =
-            factory
-                .buildTransitionFor(target.getAssociatedRule())
-                .getClass()
-                .getSimpleName()
-                .concat(" -> ");
+            factory.create(target.getAssociatedRule()).getClass().getSimpleName().concat(" -> ");
       }
     }
     return output;

@@ -716,17 +716,20 @@ public final class CcCompilationHelper {
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
       RuleContext ruleContext) {
-    Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
-    outputGroups.put(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps());
+    ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroupsBuilder = ImmutableMap.builder();
+    outputGroupsBuilder.put(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps());
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
     boolean usePic = ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
-    outputGroups.put(
+    outputGroupsBuilder.put(
         OutputGroupInfo.FILES_TO_COMPILE,
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
-    outputGroups.put(
+    outputGroupsBuilder.put(
         OutputGroupInfo.COMPILATION_PREREQUISITES,
         CcCommon.collectCompilationPrerequisites(ruleContext, ccCompilationContext));
-    return outputGroups;
+    outputGroupsBuilder.putAll(
+        CcCommon.createSaveFeatureStateArtifacts(
+            cppConfiguration, featureConfiguration, ruleContext));
+    return outputGroupsBuilder.build();
   }
 
   @Immutable

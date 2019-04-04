@@ -937,6 +937,69 @@ EOF
   expect_log "1 process: 1 remote"
 }
 
+function test_downloads_minimal_native_prefetch() {
+  # Test that when using --experimental_remote_outputs=minimal a remotely stored output that's an
+  # input to a native action (ctx.actions.expand_template) is staged lazily for action execution.
+  mkdir -p a
+  cat > a/substitute_username.bzl <<'EOF'
+def _substitute_username_impl(ctx):
+    ctx.actions.expand_template(
+        template = ctx.file.template,
+        output = ctx.outputs.out,
+        substitutions = {
+            "{USERNAME}": ctx.attr.username,
+        },
+    )
+
+substitute_username = rule(
+    implementation = _substitute_username_impl,
+    attrs = {
+        "username": attr.string(mandatory = True),
+        "template": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+        ),
+    },
+    outputs = {"out": "%{name}.txt"},
+)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":substitute_username.bzl", "substitute_username")
+genrule(
+    name = "generate-template",
+    cmd = "echo -n \"Hello {USERNAME}!\" > $@",
+    outs = ["template.txt"],
+    srcs = [],
+)
+
+substitute_username(
+    name = "substitute-buchgr",
+    username = "buchgr",
+    template = ":generate-template",
+)
+EOF
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=localhost:${worker_port} \
+    --experimental_inmemory_jdeps_files \
+    --experimental_inmemory_dotd_files \
+    --experimental_remote_download_outputs=minimal \
+    //a:substitute-buchgr >& $TEST_log || fail "Failed to build //a:substitute-buchgr"
+
+  # The genrule //a:generate-template should run remotely and //a:substitute-buchgr
+  # should be a native action running locally.
+  expect_log "1 process: 1 remote"
+
+  outtxt="bazel-bin/a/substitute-buchgr.txt"
+  [[ $(< ${outtxt}) == "Hello buchgr!" ]] \
+  || fail "Unexpected contents in "${outtxt}":" $(< ${outtxt})
+
+  (! [[ -f bazel-bin/a/template.txt ]]) \
+  || fail "Expected bazel-bin/a/template.txt to have been deleted again"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

@@ -26,17 +26,6 @@ import com.google.devtools.common.options.OptionsBase;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
-  @Option(
-      name = "remote_http_cache",
-      oldName = "remote_rest_cache",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "A base URL of a HTTP caching service. Both http:// and https:// are supported. BLOBs"
-              + " are stored with PUT and retrieved with GET. See remote/README.md for more"
-              + " information.")
-  public String remoteHttpCache;
 
   @Option(
       name = "remote_cache_proxy",
@@ -69,10 +58,14 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "remote_cache",
+      oldName = "remote_http_cache",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "HOST or HOST:PORT of a remote caching endpoint.")
+      help =
+          "A URI of a caching endpoint. The supported schemas are http(s) and grpc. "
+              + "If no schema is provided we'll default to grpc. "
+              + "See https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
 
   @Option(
@@ -319,8 +312,6 @@ public final class RemoteOptions extends OptionsBase {
   public int maxOutboundMessageSize = 1024 * 1024;
 
   public boolean isRemoteEnabled() {
-    return !Strings.isNullOrEmpty(remoteCache)
-        || !Strings.isNullOrEmpty(remoteExecutor)
-        || !Strings.isNullOrEmpty(remoteHttpCache);
+    return !Strings.isNullOrEmpty(remoteCache) || !Strings.isNullOrEmpty(remoteExecutor);
   }
 }
