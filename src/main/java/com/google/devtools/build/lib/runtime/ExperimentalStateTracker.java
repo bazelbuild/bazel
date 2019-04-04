@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.AnalyzingActionEvent;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -99,19 +100,20 @@ class ExperimentalStateTracker {
     }
   }
 
-  private final Map<String, ActionState> activeActions;
-  private final Map<String, String> notStartedActionStatus;
+  private final Map<Artifact, ActionState> activeActions;
+  private final Map<Artifact, String> notStartedActionStatus;
 
   // running downloads are identified by the original URL they were trying to access.
   private final Deque<String> runningDownloads;
   private final Map<String, Long> downloadNanoStartTimes;
   private final Map<String, FetchProgress> downloads;
 
-  // For each test, the list of actions (again identified by the path of the
-  // primary output) currently running for that test (identified by its label),
-  // in order they got started. A key is present in the map if and only if that
-  // was discovered as a test.
-  private final Map<Label, Set<String>> testActions;
+  /**
+   * For each test, the list of actions (as identified by the primary output artifact) currently
+   * running for that test (identified by its label), in the order they got started. A key is
+   * present in the map if and only if that was discovered as a test.
+   */
+  private final Map<Label, Set<Artifact>> testActions;
 
   private final AtomicInteger actionsCompleted;
   private int totalTests;
@@ -262,66 +264,67 @@ class ExperimentalStateTracker {
 
   void actionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
-    String name = action.getPrimaryOutput().getPath().getPathString();
+    Artifact actionId = action.getPrimaryOutput();
     long nanoStartTime = event.getNanoTimeStart();
 
-    String status = notStartedActionStatus.remove(name);
+    String status = notStartedActionStatus.remove(actionId);
     boolean nowExecuting = status != null;
     activeActions.put(
-        name,
+        actionId,
         new ActionState(action, nanoStartTime, nowExecuting, nowExecuting ? status : null));
 
     if (action.getOwner() != null) {
       Label owner = action.getOwner().getLabel();
       if (owner != null) {
-        Set<String> testActionsForOwner = testActions.get(owner);
+        Set<Artifact> testActionsForOwner = testActions.get(owner);
         if (testActionsForOwner != null) {
-          testActionsForOwner.add(name);
+          testActionsForOwner.add(actionId);
         }
       }
     }
   }
 
   void analyzingAction(AnalyzingActionEvent event) {
-    String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
-    ActionState state = activeActions.remove(name);
+    Artifact actionId = event.getActionMetadata().getPrimaryOutput();
+    ActionState state = activeActions.remove(actionId);
     if (state != null) {
       activeActions.put(
-          name, new ActionState(state.action, clock.nanoTime(), /*executing=*/ false, "Analyzing"));
+          actionId,
+          new ActionState(state.action, clock.nanoTime(), /*executing=*/ false, "Analyzing"));
     }
-    notStartedActionStatus.remove(name);
+    notStartedActionStatus.remove(actionId);
   }
 
   void schedulingAction(SchedulingActionEvent event) {
-    String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
-    ActionState state = activeActions.remove(name);
+    Artifact actionId = event.getActionMetadata().getPrimaryOutput();
+    ActionState state = activeActions.remove(actionId);
     if (state != null) {
       activeActions.put(
-          name,
+          actionId,
           new ActionState(state.action, clock.nanoTime(), /*executing=*/ false, "Scheduling"));
     }
-    notStartedActionStatus.remove(name);
+    notStartedActionStatus.remove(actionId);
   }
 
   void runningAction(RunningActionEvent event) {
+    Artifact actionId = event.getActionMetadata().getPrimaryOutput();
     String strategy = event.getStrategy();
-    String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
 
-    ActionState state = activeActions.remove(name);
+    ActionState state = activeActions.remove(actionId);
     if (state != null) {
       activeActions.put(
-          name, new ActionState(state.action, clock.nanoTime(), /*executing=*/ true, strategy));
+          actionId, new ActionState(state.action, clock.nanoTime(), /*executing=*/ true, strategy));
     } else {
-      notStartedActionStatus.put(name, strategy);
+      notStartedActionStatus.put(actionId, strategy);
     }
   }
 
   void actionCompletion(ActionCompletionEvent event) {
     actionsCompleted.incrementAndGet();
     Action action = event.getAction();
-    String name = action.getPrimaryOutput().getPath().getPathString();
-    activeActions.remove(name);
-    boolean removed = notStartedActionStatus.containsKey(name);
+    Artifact actionId = action.getPrimaryOutput();
+    activeActions.remove(actionId);
+    boolean removed = notStartedActionStatus.containsKey(actionId);
     if (removed && !action.discoversInputs()) {
       BugReport.sendBugReport(
           new IllegalStateException(
@@ -333,9 +336,9 @@ class ExperimentalStateTracker {
     if (action.getOwner() != null) {
       Label owner = action.getOwner().getLabel();
       if (owner != null) {
-        Set<String> testActionsForOwner = testActions.get(owner);
+        Set<Artifact> testActionsForOwner = testActions.get(owner);
         if (testActionsForOwner != null) {
-          testActionsForOwner.remove(name);
+          testActionsForOwner.remove(actionId);
         }
       }
     }
@@ -400,7 +403,7 @@ class ExperimentalStateTracker {
 
   // Describe a group of actions running for the same test.
   private String describeTestGroup(
-      Label owner, long nanoTime, int desiredWidth, Set<String> allActions) {
+      Label owner, long nanoTime, int desiredWidth, Set<Artifact> allActions) {
     String prefix = "Testing ";
     String labelSep = " [";
     String postfix = " (" + allActions.size() + " actions)]";
@@ -419,8 +422,8 @@ class ExperimentalStateTracker {
 
     String sep = "";
     boolean allReported = true;
-    for (String action : allActions) {
-      ActionState actionState = activeActions.get(action);
+    for (Artifact actionId : allActions) {
+      ActionState actionState = activeActions.get(actionId);
       if (actionState == null) {
         // This action must have completed while we were constructing this output. Skip it.
         continue;
@@ -444,12 +447,12 @@ class ExperimentalStateTracker {
   // describing other actions, add those to the to set of actions to skip in further samples of
   // actions.
   private String describeAction(
-      ActionState actionState, long nanoTime, int desiredWidth, Set<String> toSkip) {
+      ActionState actionState, long nanoTime, int desiredWidth, Set<Artifact> toSkip) {
     Action action = actionState.action;
     if (action.getOwner() != null) {
       Label owner = action.getOwner().getLabel();
       if (owner != null) {
-        Set<String> allRelatedActions = testActions.get(owner);
+        Set<Artifact> allRelatedActions = testActions.get(owner);
         if (allRelatedActions != null && allRelatedActions.size() > 1) {
           if (toSkip != null) {
             toSkip.addAll(allRelatedActions);
@@ -579,12 +582,13 @@ class ExperimentalStateTracker {
     int totalCount = 0;
     long nanoTime = clock.nanoTime();
     int actionCount = activeActions.size();
-    Set<String> toSkip = new TreeSet<>();
-    ArrayList<Map.Entry<String, ActionState>> copy = new ArrayList<>(activeActions.entrySet());
+    Set<Artifact> toSkip = new TreeSet<>();
+    ArrayList<Map.Entry<Artifact, ActionState>> copy = new ArrayList<>(activeActions.entrySet());
     copy.sort(
-        Comparator.comparing((Map.Entry<String, ActionState> entry) -> !entry.getValue().executing)
+        Comparator.comparing(
+                (Map.Entry<Artifact, ActionState> entry) -> !entry.getValue().executing)
             .thenComparing(entry -> entry.getValue().nanoStartTime));
-    for (Map.Entry<String, ActionState> entry : copy) {
+    for (Map.Entry<Artifact, ActionState> entry : copy) {
       totalCount++;
       if (toSkip.contains(entry.getKey())) {
         continue;
