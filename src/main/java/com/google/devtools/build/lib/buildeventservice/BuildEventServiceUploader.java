@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -68,7 +69,6 @@ import io.grpc.StatusException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
@@ -609,7 +609,7 @@ public final class BuildEventServiceUploader implements Runnable {
 
   private ListenableFuture<PathConverter> uploadReferencedLocalFiles(
       Collection<LocalFile> localFiles) {
-    Map<Path, LocalFile> localFileMap = new TreeMap<>();
+    Map<Path, LocalFile> localFileMap = Maps.newHashMapWithExpectedSize(localFiles.size());
     for (LocalFile localFile : localFiles) {
       // It is possible for targets to have duplicate artifacts (same path but different owners)
       // in their output groups. Since they didn't trigger an artifact conflict they are the
