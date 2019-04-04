@@ -262,6 +262,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testFilesToBuildWithSaveFeatureState() throws Exception {
+    useConfiguration("--experimental_save_feature_state");
+    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+    Artifact archive = getBinArtifact("libhello.a", hello);
+    assertThat(getFilesToBuild(hello)).containsExactly(archive);
+    assertThat(ActionsTestUtil.baseArtifactNames(getOutputGroup(hello, OutputGroupInfo.DEFAULT)))
+        .containsAllOf("enabled_features.txt", "requested_features.txt");
+  }
+
+  @Test
   public void testEmptyLinkopts() throws Exception {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     assertThat(hello.get(CcInfo.PROVIDER).getCcLinkingContext().getUserLinkFlags().isEmpty())

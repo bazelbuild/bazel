@@ -257,4 +257,24 @@ EOF
   bazel run //dynamic_lookup:main || fail "Run of the binary failed."
 }
 
+function test_save_feature_state() {
+  mkdir -p ea
+  cat > ea/BUILD <<EOF
+cc_library(
+    name = "cc",
+    srcs = ["cc.cc", "cc1.cc"],
+    features = ["test_feature"],
+)
+EOF
+
+  echo 'void cc() {}' > ea/cc.cc
+  echo 'void cc1() {}' > ea/cc1.cc
+
+  bazel build --experimental_save_feature_state //ea:cc || fail "expected success"
+  ls bazel-bin/ea/feature_debug/cc/requested_features.txt || "requested_features.txt not created"
+  ls bazel-bin/ea/feature_debug/cc/enabled_features.txt || "enabled_features.txt not created"
+  # This assumes "grep" is supported in any environment bazel is used.
+  grep "test_feature" bazel-bin/ea/feature_debug/cc/requested_features.txt || "test_feature should have been found in  requested_features."
+}
+
 run_suite "cc_integration_test"

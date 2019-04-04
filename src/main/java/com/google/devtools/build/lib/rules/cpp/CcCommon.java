@@ -25,8 +25,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -1000,5 +1002,42 @@ public final class CcCommon {
           ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
     }
     return ImmutableList.of();
+  }
+
+  /** Returns artifacts that help debug the state of C++ features for the given ruleContext. */
+  public static Map<String, NestedSet<Artifact>> createSaveFeatureStateArtifacts(
+      CppConfiguration cppConfiguration,
+      FeatureConfiguration featureConfiguration,
+      RuleContext ruleContext) {
+
+    ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroupsBuilder = ImmutableMap.builder();
+
+    if (cppConfiguration.saveFeatureState()) {
+      Artifact enabledFeaturesFile =
+          ruleContext.getUniqueDirectoryArtifact("feature_debug", "enabled_features.txt");
+      ruleContext.registerAction(
+          FileWriteAction.create(
+              ruleContext,
+              enabledFeaturesFile,
+              featureConfiguration.getEnabledFeatureNames().toString(),
+              /* makeExecutable= */ false));
+
+      Artifact requestedFeaturesFile =
+          ruleContext.getUniqueDirectoryArtifact("feature_debug", "requested_features.txt");
+      ruleContext.registerAction(
+          FileWriteAction.create(
+              ruleContext,
+              requestedFeaturesFile,
+              featureConfiguration.getRequestedFeatures().toString(),
+              /* makeExecutable= */ false));
+
+      outputGroupsBuilder.put(
+          OutputGroupInfo.DEFAULT,
+          NestedSetBuilder.<Artifact>stableOrder()
+              .add(enabledFeaturesFile)
+              .add(requestedFeaturesFile)
+              .build());
+    }
+    return outputGroupsBuilder.build();
   }
 }

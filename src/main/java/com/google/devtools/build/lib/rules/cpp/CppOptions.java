@@ -856,6 +856,15 @@ public class CppOptions extends FragmentOptions {
       help = "If true, cc rules use toolchain resolution to find the cc_toolchain.")
   public boolean enableCcToolchainResolution;
 
+  @Option(
+      name = "experimental_save_feature_state",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Save the state of enabled and requested feautres as an output of compilation.")
+  public boolean saveFeatureState;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
