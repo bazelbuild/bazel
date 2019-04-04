@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Flag.SingleChunkFlag;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagGroup;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
@@ -2298,6 +2299,29 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "       iterate_over = " + iterateOver + "))",
         "crule = rule(implementation = _impl)");
     scratch.file(pkg + "/BUILD", "load(':foo.bzl', 'crule')", "crule(name = 'a')");
+  }
+
+  @Test
+  public void testSingleChunkFlagIsUsed() throws Exception {
+    loadCcToolchainConfigLib();
+
+    createCustomFlagGroupRule(
+        "single_chunk_flag",
+        /* flags= */ "['a']",
+        /* flagGroups= */ "[]",
+        /* iterateOver= */ "''",
+        /* expandIfTrue= */ "''",
+        /* expandIfFalse= */ "''",
+        /* expandIfAvailable= */ "''",
+        /* expandIfNotAvailable= */ "''",
+        /* expandIfEqual= */ "None");
+
+    ConfiguredTarget t = getConfiguredTarget("//single_chunk_flag:a");
+    SkylarkInfo flagGroupProvider = (SkylarkInfo) t.get("flaggroup");
+    assertThat(flagGroupProvider).isNotNull();
+    FlagGroup flagGroup = CcModule.flagGroupFromSkylark(flagGroupProvider);
+    assertThat(flagGroup.getExpandables()).isNotEmpty();
+    assertThat(flagGroup.getExpandables().get(0)).isInstanceOf(SingleChunkFlag.class);
   }
 
   @Test
