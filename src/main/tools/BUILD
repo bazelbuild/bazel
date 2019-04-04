@@ -53,7 +53,10 @@ cc_binary(
         "//src/conditions:windows": ["build-runfiles-windows.cc"],
         "//conditions:default": ["build-runfiles.cc"],
     }),
-    deps = ["//src/main/cpp/util:filesystem"],
+    deps = ["//src/main/cpp/util:filesystem"] + select({
+        "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_binary(

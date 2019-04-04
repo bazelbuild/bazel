@@ -209,13 +209,6 @@ void ForEachDirectoryEntry(const std::string &path,
 std::wstring GetCwdW();
 bool MakeDirectoriesW(const std::wstring &path, unsigned int mode);
 
-// Resolve a symlink to its target.
-// If `path` is a symlink, result will contain the target it points to,
-// If `path` is a not a symlink, result will contain `path` itself.
-// If the resolving succeeds, this function returns true,
-// otherwise it returns false.
-bool ReadSymlinkW(const std::wstring &path, std::wstring *result);
-
 // Check if `path` is a directory.
 bool IsDirectoryW(const std::wstring &path);
 

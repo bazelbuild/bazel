@@ -23,6 +23,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows/file.h"
 
 using std::ifstream;
 using std::string;
@@ -102,6 +103,30 @@ wstring GetParentDirFromPath(const wstring& path) {
 inline void Trim(wstring& str) {
   str.erase(0, str.find_first_not_of(' '));
   str.erase(str.find_last_not_of(' ') + 1);
+}
+
+bool ReadSymlink(const wstring& abs_path, wstring* target, wstring* error) {
+  switch (bazel::windows::ReadSymlinkOrJunction(abs_path, target, error)) {
+    case bazel::windows::ReadSymlinkOrJunctionResult::kSuccess:
+      return true;
+    case bazel::windows::ReadSymlinkOrJunctionResult::kAccessDenied:
+      *error = L"access is denied";
+      break;
+    case bazel::windows::ReadSymlinkOrJunctionResult::kDoesNotExist:
+      *error = L"path does not exist";
+      break;
+    case bazel::windows::ReadSymlinkOrJunctionResult::kNotALink:
+      *error = L"path is not a link";
+      break;
+    case bazel::windows::ReadSymlinkOrJunctionResult::kUnknownLinkType:
+      *error = L"unknown link type";
+      break;
+    default:
+      // This is bazel::windows::ReadSymlinkOrJunctionResult::kError (1).
+      // The JNI code puts a custom message in 'error'.
+      break;
+  }
+  return false;
 }
 
 }  // namespace
@@ -266,10 +291,10 @@ class RunfilesCreator {
         bool is_symlink =
             (metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
         if (is_symlink) {
-          wstring target;
-          if (!blaze_util::ReadSymlinkW(subpath, &target)) {
+          wstring target, werror;
+          if (!ReadSymlink(subpath, &target, &werror)) {
             die(L"ReadSymlinkW failed (%s): %hs", subpath.c_str(),
-                GetLastErrorString().c_str());
+                werror.c_str());
           }
 
           target = AsAbsoluteWindowsPath(target.c_str());
