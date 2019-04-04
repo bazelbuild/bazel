@@ -120,7 +120,9 @@ public class TestConstants {
       ImmutableList.of(
           // TODO(#7903): Remove once our own tests are migrated.
           "--incompatible_py3_is_default=false",
-          "--incompatible_py2_outputs_are_suffixed=false");
+          "--incompatible_py2_outputs_are_suffixed=false",
+          // TODO(#7849): Remove after flag flip.
+          "--incompatible_use_toolchain_resolution_for_java_rules");
 
   public static final BuilderFactoryForTesting PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING =
       PackageFactoryBuilderFactoryForBazelUnitTests.INSTANCE;
