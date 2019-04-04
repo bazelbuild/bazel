@@ -65,6 +65,7 @@ struct DeletePathResult {
   };
 };
 
+// Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 struct CreateJunctionResult {
   enum {
     kSuccess = 0,
@@ -74,6 +75,18 @@ struct CreateJunctionResult {
     kAlreadyExistsButNotJunction = 4,
     kAccessDenied = 5,
     kDisappeared = 6,
+  };
+};
+
+// Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
+struct ReadSymlinkOrJunctionResult {
+  enum {
+    kSuccess = 0,
+    kError = 1,
+    kAccessDenied = 2,
+    kDoesNotExist = 3,
+    kNotALink = 4,
+    kUnknownLinkType = 5,
   };
 };
 
@@ -123,6 +136,12 @@ wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 // function will add the right prefixes as necessary.
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error);
+
+// Reads the symlink or junction into 'result'.
+// Returns a value from 'ReadSymlinkOrJunctionResult'.
+// When the method returns 'ReadSymlinkOrJunctionResult::kError' and 'error' is
+// non-null then 'error' receives an error message.
+int ReadSymlinkOrJunction(const wstring& path, wstring* result, wstring* error);
 
 // Deletes the file, junction, or empty directory at `path`.
 // Returns DELETE_PATH_SUCCESS if it successfully deleted the path, otherwise

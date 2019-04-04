@@ -94,7 +94,30 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeCreat
                         wname + L", " + wtarget, error),
                     env, error_msg_holder);
   }
-  return result;
+  return static_cast<jint>(result);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeReadSymlinkOrJunction(
+    JNIEnv* env, jclass clazz, jstring name, jobjectArray target_holder,
+    jobjectArray error_msg_holder) {
+  std::wstring wname(bazel::windows::GetJavaWstring(env, name));
+  std::wstring target, error;
+  int result = bazel::windows::ReadSymlinkOrJunction(wname, &target, &error);
+  if (result == bazel::windows::ReadSymlinkOrJunctionResult::kSuccess) {
+    env->SetObjectArrayElement(
+        target_holder, 0,
+        env->NewString(reinterpret_cast<const jchar*>(target.c_str()),
+                       target.size()));
+  } else {
+    if (!error.empty() && CanReportError(env, error_msg_holder)) {
+      ReportLastError(bazel::windows::MakeErrorMessage(
+                          WSTR(__FILE__), __LINE__,
+                          L"nativeReadSymlinkOrJunction", wname, error),
+                      env, error_msg_holder);
+    }
+  }
+  return static_cast<jint>(result);
 }
 
 extern "C" JNIEXPORT jint JNICALL

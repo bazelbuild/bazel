@@ -161,7 +161,7 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
           WSTR(__FILE__), __LINE__, L"CreateJunction", junction_name,
           L"expected an absolute Windows path for junction_name");
     }
-    CreateJunctionResult::kError;
+    return CreateJunctionResult::kError;
   }
   if (!IsAbsoluteNormalizedWindowsPath(junction_target)) {
     if (error) {
@@ -169,7 +169,7 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
           WSTR(__FILE__), __LINE__, L"CreateJunction", junction_target,
           L"expected an absolute Windows path for junction_target");
     }
-    CreateJunctionResult::kError;
+    return CreateJunctionResult::kError;
   }
 
   const WCHAR* target = HasUncPrefix(junction_target.c_str())
@@ -418,6 +418,82 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
   }
 
   return CreateJunctionResult::kSuccess;
+}
+
+int ReadSymlinkOrJunction(const wstring& path, wstring* result,
+                          wstring* error) {
+  if (!IsAbsoluteNormalizedWindowsPath(path)) {
+    if (error) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"ReadSymlinkOrJunction", path,
+          L"expected an absolute Windows path for 'path'");
+    }
+    return ReadSymlinkOrJunctionResult::kError;
+  }
+
+  AutoHandle handle(CreateFileW(
+      AddUncPrefixMaybe(path).c_str(), 0,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+      OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+      NULL));
+  if (!handle.IsValid()) {
+    DWORD err = GetLastError();
+    if (err == ERROR_SHARING_VIOLATION) {
+      // The path is held open by another process.
+      return ReadSymlinkOrJunctionResult::kAccessDenied;
+    } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+      // Path or a parent directory does not exist.
+      return ReadSymlinkOrJunctionResult::kDoesNotExist;
+    }
+
+    // The path seems to exist yet we cannot open it for metadata-reading.
+    // Report as much information as we have, then give up.
+    if (error) {
+      *error =
+          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW", path, err);
+    }
+    return ReadSymlinkOrJunctionResult::kError;
+  }
+
+  uint8_t raw_buf[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
+  PREPARSE_DATA_BUFFER buf = reinterpret_cast<PREPARSE_DATA_BUFFER>(raw_buf);
+  DWORD bytes_returned;
+  if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, NULL, 0, buf,
+                         MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &bytes_returned,
+                         NULL)) {
+    DWORD err = GetLastError();
+    if (err == ERROR_NOT_A_REPARSE_POINT) {
+      return ReadSymlinkOrJunctionResult::kNotALink;
+    }
+
+    // Some unknown error occurred.
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeviceIoControl",
+                                path, err);
+    }
+    return ReadSymlinkOrJunctionResult::kError;
+  }
+
+  switch (buf->ReparseTag) {
+    case IO_REPARSE_TAG_SYMLINK: {
+      wchar_t* p =
+          (wchar_t*)(((uint8_t*)buf->SymbolicLinkReparseBuffer.PathBuffer) +
+                     buf->SymbolicLinkReparseBuffer.SubstituteNameOffset);
+      *result = wstring(p, buf->SymbolicLinkReparseBuffer.SubstituteNameLength /
+                               sizeof(WCHAR));
+      return ReadSymlinkOrJunctionResult::kSuccess;
+    }
+    case IO_REPARSE_TAG_MOUNT_POINT: {
+      wchar_t* p =
+          (wchar_t*)(((uint8_t*)buf->MountPointReparseBuffer.PathBuffer) +
+                     buf->MountPointReparseBuffer.SubstituteNameOffset);
+      *result = wstring(
+          p, buf->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR));
+      return ReadSymlinkOrJunctionResult::kSuccess;
+    }
+    default:
+      return ReadSymlinkOrJunctionResult::kUnknownLinkType;
+  }
 }
 
 struct DirectoryStatus {
