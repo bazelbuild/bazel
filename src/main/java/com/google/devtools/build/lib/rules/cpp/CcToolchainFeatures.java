@@ -152,7 +152,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** A single environment key/value pair to be expanded under a set of variables. */
-    private static Expandable create(ImmutableList<StringChunk> chunks) {
+    public static Expandable create(ImmutableList<StringChunk> chunks) {
       if (chunks.size() == 1) {
         return new SingleChunkFlag(chunks.get(0));
       }
@@ -190,6 +190,10 @@ public class CcToolchainFeatures implements Serializable {
         }
         SingleChunkFlag that = (SingleChunkFlag) o;
         return chunk.equals(that.chunk);
+      }
+
+      String getString() {
+        return chunk.getString();
       }
 
       @Override

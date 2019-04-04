@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNameP
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Flag.SingleChunkFlag;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagGroup;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
@@ -248,8 +249,12 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     for (Expandable expandable : flagGroup.getExpandables()) {
       if (expandable instanceof FlagGroup) {
         flagGroups.add(flagGroupToProto((FlagGroup) expandable));
-      } else {
+      } else if (expandable instanceof SingleChunkFlag) {
+        flags.add(((SingleChunkFlag) expandable).getString());
+      } else if (expandable instanceof CcToolchainFeatures.Flag) {
         flags.add(((CcToolchainFeatures.Flag) expandable).getString());
+      } else {
+        throw new IllegalStateException("Unexpected subclass of Expandable.");
       }
     }
 
