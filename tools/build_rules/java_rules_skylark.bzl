@@ -84,10 +84,12 @@ def java_library_impl(ctx):
     runfiles = ctx.runfiles(collect_data = True)
 
     return struct(
-        files = depset([class_jar]),
         compile_time_jars = compile_time_jars + [class_jar],
         runtime_jars = runtime_jars + [class_jar],
-        runfiles = runfiles,
+        providers = [DefaultInfo(
+            files = depset([class_jar]),
+            runfiles = runfiles,
+        )],
     )
 
 def java_binary_impl(ctx):
@@ -168,9 +170,9 @@ def java_binary_impl(ctx):
 
     runfiles = ctx.runfiles(files = [deploy_jar, executable] + ctx.files._jdk, collect_data = True)
     files_to_build = depset([deploy_jar, manifest, executable])
-    files_to_build += library_result.files
+    files_to_build += library_result.providers[0].files
 
-    return struct(files = files_to_build, runfiles = runfiles)
+    return [DefaultInfo(files = files_to_build, runfiles = runfiles)]
 
 def java_import_impl(ctx):
     # TODO(bazel-team): Why do we need to filter here? The attribute
@@ -179,10 +181,9 @@ def java_import_impl(ctx):
     neverlink_jars = depset(ctx.files.neverlink_jars)
     runfiles = ctx.runfiles(collect_data = True)
     return struct(
-        files = jars,
         compile_time_jars = jars + neverlink_jars,
         runtime_jars = jars,
-        runfiles = runfiles,
+        providers = [DefaultInfo(files = jars, runfiles = runfiles)],
     )
 
 java_library_attrs = {
