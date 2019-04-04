@@ -184,6 +184,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                     Label.parseAbsoluteUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
         .add(
+            attr("$jre_emul_module", LABEL)
+                .cfg(HostTransition.createFactory())
+                .value(
+                    Label.parseAbsoluteUnchecked(
+                        toolsRepository + "//third_party/java/j2objc:jre_emul_module")))
+        .add(
             attr(":dead_code_report", LABEL)
                 .cfg(HostTransition.createFactory())
                 .value(DEAD_CODE_REPORT))
@@ -523,6 +529,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Artifact bootclasspathJar = ruleContext.getPrerequisiteArtifact("$jre_emul_jar", Mode.HOST);
     argBuilder.addFormatted("-Xbootclasspath:%s", bootclasspathJar);
 
+    // A valid Java system module contains 3 files. The top directory contains a file "release".
+    ImmutableList<Artifact> moduleFiles =
+        ruleContext.getPrerequisiteArtifacts("$jre_emul_module", Mode.HOST).list();
+    for (Artifact a : moduleFiles) {
+      if (a.getFilename().equals("release")) {
+        argBuilder.add("--system", a.getDirname());
+        break;
+      }
+    }
+
     Artifact deadCodeReport = ruleContext.getPrerequisiteArtifact(":dead_code_report", Mode.HOST);
     if (deadCodeReport != null) {
       argBuilder.addExecPath("--dead-code-report", deadCodeReport);
@@ -544,6 +560,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", Mode.HOST))
             .addInput(j2ObjcDeployJar)
             .addInput(bootclasspathJar)
+            .addInputs(moduleFiles)
             .addInputs(sources)
             .addInputs(sourceJars)
             .addTransitiveInputs(compileTimeJars)

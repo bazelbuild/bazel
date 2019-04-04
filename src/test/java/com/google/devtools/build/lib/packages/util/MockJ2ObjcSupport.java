@@ -26,6 +26,8 @@ public final class MockJ2ObjcSupport {
    */
   public static void setup(MockToolsConfig config) throws IOException {
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/jre_emul.jar");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/mod/release");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/mod/lib/mods");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/jre.h");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/jre.m");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/runtime.h");
@@ -38,6 +40,10 @@ public final class MockJ2ObjcSupport {
         "licenses(['notice'])",
         "",
         "exports_files(['jre_emul.jar'])",
+        "",
+        "filegroup(",
+        "    name = 'jre_emul_module',",
+        "    srcs = ['mod/release', 'mod/lib/mods'])",
         "",
         "objc_library(",
         "    name = 'jre_emul_lib',",
