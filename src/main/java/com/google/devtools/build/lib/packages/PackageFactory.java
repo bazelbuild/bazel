@@ -751,9 +751,7 @@ public final class PackageFactory {
             == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
           checkLicenses = false;
         } else {
-          checkLicenses =
-              env.getSemantics().checkThirdPartyTargetsHaveLicenses()
-                  && !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
+          checkLicenses = !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
         }
 
         if (checkLicenses

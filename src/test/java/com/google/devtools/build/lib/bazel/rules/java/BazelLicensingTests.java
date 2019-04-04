@@ -14,22 +14,17 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
+import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LicensingTests;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.License;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Integration tests for {@link License}.
- */
+/** Integration tests for {@link License}. */
 @RunWith(JUnit4.class)
-public class BazelLicensingTests extends LicensingTests {
+public class BazelLicensingTests extends BuildViewTestCase {
   @Test
   public void testJavaPluginAllowsOutputLicenseDeclaration() throws Exception {
     scratch.file("ise/BUILD",
@@ -47,14 +42,7 @@ public class BazelLicensingTests extends LicensingTests {
         "             srcs = ['library.java'],",
         "             plugins = ['//ise:plugin'])");
 
-    ConfiguredTarget library = getConfiguredTarget("//gsa:library");
-    Map<Label, License> actual = Maps.filterKeys(getTransitiveLicenses(library),
-        CC_OR_JAVA_OR_SH_LABEL_FILTER);
-    Map<Label, License> expected = licenses(
-        "//ise:plugin", "unencumbered",
-        "//gsa:library", "unencumbered"
-    );
-
-    assertSameMapEntries(expected, actual);
+    assertThat(getConfiguredTarget("//gsa:library")).isNotNull();
+    assertNoEvents();
   }
 }
