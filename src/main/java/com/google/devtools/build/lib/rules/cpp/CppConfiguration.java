@@ -657,4 +657,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public boolean enableCcToolchainResolution() {
     return cppOptions.enableCcToolchainResolution;
   }
+
+  public boolean saveFeatureState() {
+    return cppOptions.saveFeatureState;
+  }
 }
