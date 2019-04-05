@@ -52,7 +52,7 @@ genrule(
         "//src/main/cpp/util:cpp_util_with_deps_zip",
         "//src:zlib_zip",
     ],
-    outs = ["ijar_srcs_with_deps.zip"],
+    outs = ["singlejar_transitive.zip"],
     cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
     tools = ["//src:merge_zip_files"],
     visibility = ["//src:__pkg__"],
