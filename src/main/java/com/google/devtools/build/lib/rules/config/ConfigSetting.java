@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -61,6 +60,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -79,6 +79,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     AttributeMap attributes = NonconfigurableAttributeMapper.of(ruleContext.getRule());
+
     // Get the built-in Blaze flag settings that match this rule.
     ImmutableMultimap<String, String> nativeFlagSettings =
         ImmutableMultimap.<String, String>builder()
@@ -93,28 +94,17 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     // Get the user-defined flag settings that match this rule.
     Map<Label, String> userDefinedFlagSettings =
-        NonconfigurableAttributeMapper.of(ruleContext.getRule())
-            .get(
-                ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-                BuildType.LABEL_KEYED_STRING_DICT);
+        attributes.get(
+            ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, BuildType.LABEL_KEYED_STRING_DICT);
 
-    List<? extends TransitiveInfoCollection> flagValues =
-        ruleContext.getPrerequisites(
-            ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET);
-
-    // Get the constraint values that match this rule
-    Iterable<ConstraintValueInfo> constraintValues =
-        PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(
-                ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, Mode.DONT_CHECK));
-
-    // Get the target platform
-    PlatformInfo targetPlatform = ruleContext.getToolchainContext().targetPlatform();
+    // Get the platform constraint settings that match this rule.
+    List<Label> constraintValueSettings =
+        attributes.get(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, BuildType.LABEL_LIST);
 
     // Check that this config_setting contains at least one of {values, define_values,
     // constraint_values}
-    if (!checkValidConditions(
-        nativeFlagSettings, userDefinedFlagSettings, constraintValues, ruleContext)) {
+    if (!valuesAreSet(
+        nativeFlagSettings, userDefinedFlagSettings, constraintValueSettings, ruleContext)) {
       return null;
     }
 
@@ -126,9 +116,11 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     ConfigFeatureFlagMatch featureFlags =
         ConfigFeatureFlagMatch.fromAttributeValueAndPrerequisites(
-            userDefinedFlagSettings, flagValues, ruleContext);
+            userDefinedFlagSettings,
+            ruleContext.getPrerequisites(ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET),
+            ruleContext);
 
-    boolean constraintValuesMatch = targetPlatform.constraints().containsAll(constraintValues);
+    boolean constraintValuesMatch = constraintValuesMatch(ruleContext);
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -150,12 +142,26 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private boolean checkValidConditions(
-      ImmutableMultimap<String, String> nativeFlagSettings,
-      Map<Label, String> userDefinedFlagSettings,
-      Iterable<ConstraintValueInfo> constraintValues,
-      RuleErrorConsumer errors) {
-    if (!valuesAreSet(nativeFlagSettings, userDefinedFlagSettings, constraintValues, errors)) {
+  /**
+   * Returns true if all <code>constraint_values</code> settings are valid and match this
+   * configuration, false otherwise.
+   *
+   * <p>May generate rule errors on bad settings (e.g. wrong target types).
+   */
+  boolean constraintValuesMatch(RuleContext ruleContext) {
+    List<ConstraintValueInfo> constraintValues = new ArrayList<>();
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites(
+            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, Mode.DONT_CHECK)) {
+      if (!PlatformProviderUtils.hasConstraintValue(dep)) {
+        ruleContext.attributeError(
+            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE,
+            String.format(dep.getLabel() + " is not a constraint_value"));
+      } else {
+        constraintValues.add(PlatformProviderUtils.constraintValue(dep));
+      }
+    }
+    if (ruleContext.hasErrors()) {
       return false;
     }
 
@@ -165,12 +171,16 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     try {
       ConstraintCollection.validateConstraints(constraintValues);
     } catch (ConstraintCollection.DuplicateConstraintException e) {
-      errors.ruleError(
+      ruleContext.ruleError(
           ConstraintCollection.DuplicateConstraintException.formatError(e.duplicateConstraints()));
         return false;
     }
 
-    return true;
+    return ruleContext
+        .getToolchainContext()
+        .targetPlatform()
+        .constraints()
+        .containsAll(constraintValues);
   }
 
   private static RepositoryName getToolsRepository(RuleContext ruleContext) {
@@ -212,7 +222,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   private boolean valuesAreSet(
       ImmutableMultimap<String, String> nativeFlagSettings,
       Map<Label, String> userDefinedFlagSettings,
-      Iterable<ConstraintValueInfo> constraintValues,
+      Iterable<Label> constraintValues,
       RuleErrorConsumer errors) {
     if (nativeFlagSettings.isEmpty()
         && userDefinedFlagSettings.isEmpty()
