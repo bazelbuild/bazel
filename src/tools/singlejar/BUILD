@@ -9,7 +9,6 @@ filegroup(
 )
 
 SOURCES = [
-    "BUILD",
     "combiners.cc",
     "combiners.h",
     "diag.h",
@@ -33,8 +32,30 @@ SOURCES = [
 
 filegroup(
     name = "embedded_tools",
-    srcs = SOURCES,
+    srcs = SOURCES + ["BUILD"],
     visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "embedded_java_tools",
+    srcs = SOURCES + [
+        "//src/main/cpp/util:embedded_java_tools",
+        "//third_party/zlib:embedded_tools",
+    ],
+    visibility = ["//src:__pkg__"]
+)
+
+genrule(
+    name = "singlejar_transitive_zip",
+    srcs = [
+        ":singlejar_zip",
+        "//src/main/cpp/util:cpp_util_with_deps_zip",
+        "//src:zlib_zip",
+    ],
+    outs = ["ijar_srcs_with_deps.zip"],
+    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
+    tools = ["//src:merge_zip_files"],
+    visibility = ["//src:__pkg__"],
 )
 
 genrule(
@@ -43,7 +64,7 @@ genrule(
     outs = ["singlejar.zip"],
     cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
     tools = ["//src:zip_files"],
-    visibility = ["//src:__pkg__"],
+    visibility = ["//visibility:private"],
 )
 
 cc_binary(

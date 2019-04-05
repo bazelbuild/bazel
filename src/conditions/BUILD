@@ -4,16 +4,6 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-genrule(
-    name = "conditions_zip",
-    srcs = ["BUILD"],
-    outs = [
-        "conditions.zip"
-    ],
-    visibility = ["//src:__pkg__"],
-    cmd = "zip -q $@ $<"
-)
-
 filegroup(
     name = "embedded_tools",
     srcs = ["BUILD.tools"],
