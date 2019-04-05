@@ -1429,6 +1429,23 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ");");
   }
 
+  @Test
+  public void notAConstraintValue() throws Exception {
+    checkError(
+        "test",
+        "match",
+        "//test:what_am_i is not a constraint_value",
+        "genrule(",
+        "    name = 'what_am_i',",
+        "    srcs = [],",
+        "    outs = ['the_answer'],",
+        "    cmd = 'echo an eternal enigma > $@')",
+        "config_setting(",
+        "    name = 'match',",
+        "    constraint_values = [':what_am_i'],",
+        ")");
+  }
+
   private Set<LicenseType> getLicenses(String label) throws Exception {
     return getTarget(label).getLicense().getLicenseTypes();
   }
