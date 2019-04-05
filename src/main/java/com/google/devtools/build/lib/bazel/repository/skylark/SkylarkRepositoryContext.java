@@ -426,9 +426,14 @@ public class SkylarkRepositoryContext
 
   @Override
   public StructImpl download(
-      Object url, Object output, String sha256, Boolean executable, Location location)
+      Object url,
+      Object output,
+      String sha256,
+      Boolean executable,
+      Boolean allowFail,
+      Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    List<URL> urls = getUrls(url);
+    List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
       warnAboutSha256Error(urls, sha256);
@@ -459,7 +464,12 @@ public class SkylarkRepositoryContext
       throw new RepositoryFunctionException(
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      if (allowFail) {
+        SkylarkDict<String, Object> dict = SkylarkDict.of(null, "success", false);
+        return StructProvider.STRUCT.createStruct(dict, null);
+      } else {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
     }
     if (sha256Validation != null) {
       throw sha256Validation;
@@ -473,7 +483,8 @@ public class SkylarkRepositoryContext
               "Couldn't hash downloaded file (" + downloadedPath.getPathString() + ")", e),
           Transience.PERSISTENT);
     }
-    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
+    SkylarkDict<String, Object> dict =
+        SkylarkDict.of(null, "sha256", finalSha256, "susccess", true);
     return StructProvider.STRUCT.createStruct(dict, null);
   }
 
@@ -514,9 +525,15 @@ public class SkylarkRepositoryContext
 
   @Override
   public StructImpl downloadAndExtract(
-      Object url, Object output, String sha256, String type, String stripPrefix, Location location)
+      Object url,
+      Object output,
+      String sha256,
+      String type,
+      String stripPrefix,
+      Boolean allowFail,
+      Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    List<URL> urls = getUrls(url);
+    List<URL> urls = getUrls(url, /* ensureNonEmpty= */ !allowFail);
     RepositoryFunctionException sha256Validation = validateSha256(sha256, location);
     if (sha256Validation != null) {
       warnAboutSha256Error(urls, sha256);
@@ -555,7 +572,12 @@ public class SkylarkRepositoryContext
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       env.getListener().post(w);
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      if (allowFail) {
+        SkylarkDict<String, Object> dict = SkylarkDict.of(null, "success", false);
+        return StructProvider.STRUCT.createStruct(dict, null);
+      } else {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
     }
     if (sha256Validation != null) {
       throw sha256Validation;
@@ -588,7 +610,7 @@ public class SkylarkRepositoryContext
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
-    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
+    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256, "success", true);
     return StructProvider.STRUCT.createStruct(dict, null);
   }
 
@@ -636,13 +658,18 @@ public class SkylarkRepositoryContext
 
   private static List<URL> getUrls(Object urlOrList)
       throws RepositoryFunctionException, EvalException {
+    return getUrls(urlOrList, /* ensureNonEmpty= */ true);
+  }
+
+  private static List<URL> getUrls(Object urlOrList, boolean ensureNonEmpty)
+      throws RepositoryFunctionException, EvalException {
     List<String> urlStrings;
     if (urlOrList instanceof String) {
       urlStrings = ImmutableList.of((String) urlOrList);
     } else {
       urlStrings = checkAllUrls((Iterable<?>) urlOrList);
     }
-    if (urlStrings.isEmpty()) {
+    if (ensureNonEmpty && urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
     }
     List<URL> urls = new ArrayList<>();

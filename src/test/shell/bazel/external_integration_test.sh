@@ -1389,6 +1389,92 @@ EOF
   expect_log '@ext//:foo'
 }
 
+function test_cache_probe() {
+  # Verify that repository rules are able to probe for cache hits.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name = "ext",
+  outs = ["ext.txt"],
+  cmd = "echo True external file > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  zip ext.zip ext/*
+  rm -rf ext
+  sha256=$(sha256sum ext.zip | head -c 64)
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("//:rule.bzl", "probe")
+
+http_archive(
+  name = "ext",
+  url = "file://${WRKDIR}/ext.zip",
+  strip_prefix="ext",
+)
+
+probe(
+  name = "probe",
+  sha256 = "${sha256}",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  outs = ["it.txt"],
+  srcs = ["@probe//:ext"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > rule.bzl <<'EOF'
+def _rule_impl(ctx):
+  result = ctx.download_and_extract(
+    url = [],
+    type = "zip",
+    stripPrefix="ext",
+    sha256 = ctx.attr.sha256,
+    allow_fail = True,
+  )
+  if not result.success:
+    # provide default implementation; a real probe
+    # should ask for credentials here and then download
+    # the actual (restricted) file.
+    ctx.file(
+      "BUILD",
+      "genrule(name='ext', outs = ['ext.txt'], cmd = 'echo no cache hit > $@', "
+      + "visibility = ['//visibility:public'],)" ,
+    )
+
+probe = repository_rule(
+  implementation = _rule_impl,
+  attrs = {"sha256" : attr.string()},
+  environ = ["ATTEMPT"],
+)
+EOF
+
+  echo; echo initial build; echo
+  # initially, no cache hit, should show default
+  env ATTEMPT=1 bazel build //:it
+  grep -q 'no cache hit' `bazel info bazel-genfiles`/it.txt \
+      || fail "didn't find the default implementation"
+
+  echo; echo build of ext; echo
+  # ensure the cache is filled
+  bazel build @ext//...
+
+  echo; echo build with cache hit; echo
+  # now we should get the real external dependency
+  env ATTEMPT=2 bazel build //:it
+  grep -q 'True external file' `bazel info bazel-genfiles`/it.txt \
+      || fail "didn't find the default implementation"
+}
+
 function test_cache_hit_reported() {
   # Verify that information about a chache hit is reported
   # if an error happend in that repository. This information
