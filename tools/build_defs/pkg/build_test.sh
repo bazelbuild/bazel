@@ -186,6 +186,7 @@ function test_deb() {
   expect_log "Package: titi"
   expect_log "soméone@somewhere.com"
   expect_log "Depends: dep1, dep2"
+  expect_log "Built-Using: some_test_data"
 
   get_changes titi_test_all.changes >$TEST_log
   expect_log "Urgency: low"
