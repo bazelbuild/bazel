@@ -156,11 +156,8 @@ public final class MockProtoSupport {
         "        cmd = '')",
         "proto_library(name='descriptor',",
         "              srcs=['descriptor.proto'])");
-    config.create(
-        "net/proto2/go/BUILD",
+    config.create("net/proto2/go/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "go_library(name = 'proto_gendeps',",
-        "           srcs = [ 'proto_gendeps.go' ])",
         "go_library(name = 'proto',",
         "           srcs = [ 'proto.go' ])");
     config.create("net/proto2/compiler/go/BUILD",
