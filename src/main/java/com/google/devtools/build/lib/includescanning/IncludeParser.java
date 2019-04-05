@@ -570,17 +570,16 @@ class IncludeParser {
   }
 
   /**
-   * Skips whitespace, \+NL pairs, and block-style / * * / comments. Assumes
-   * line comments are handled outside. Does not handle digraphs, trigraphs or
-   * decahexagraphs.
+   * Skips whitespace, \+NL pairs, and block-style / * * / comments. Assumes line comments are
+   * handled outside. Does not handle digraphs, trigraphs or decahexagraphs.
    *
    * @param chars characters to scan
    * @param pos the starting position
    * @return the resulting position after skipping whitespace and comments.
    */
-  protected static int skipWhitespace(char[] chars, int pos, int end) {
+  protected static int skipWhitespace(byte[] chars, int pos, int end) {
     while (pos < end) {
-      if (Character.isWhitespace(chars[pos])) {
+      if (Character.isWhitespace(chars[pos] & 0xff)) {
         pos++;
       } else if (chars[pos] == '\\' && pos + 1 < end && chars[pos + 1] == '\n') {
         pos++;
@@ -613,11 +612,12 @@ class IncludeParser {
    *
    * <p>This code runs on every line that starts with " *# *", so it should be as fast as possible.
    */
-  private static int skipThroughHasInclude(char[] chars, int pos, int end) {
+  private static int skipThroughHasInclude(byte[] chars, int pos, int end) {
     int lastPos = end - NECESSARY_HAS_INCLUDE_LENGTH;
     while (pos <= lastPos) {
       int curPos = 0;
-      while (curPos < HAS_INCLUDE_LENGTH && chars[pos + curPos] == HAS_INCLUDE.charAt(curPos)) {
+      while (curPos < HAS_INCLUDE_LENGTH
+          && (chars[pos + curPos] & 0xff) == HAS_INCLUDE.charAt(curPos)) {
         curPos++;
       }
       if (curPos == HAS_INCLUDE_LENGTH) {
@@ -639,14 +639,14 @@ class IncludeParser {
    * @param expected the expected token
    * @return the resulting position if found, otherwise -1
    */
-  protected static int expect(char[] chars, int pos, int end, String expected) {
+  protected static int expect(byte[] chars, int pos, int end, String expected) {
     int si = 0;
     int expectedLen = expected.length();
     while (pos < end) {
       if (si == expectedLen) {
         return pos;
       }
-      if (chars[pos++] != expected.charAt(si++)) {
+      if ((chars[pos++] & 0xff) != expected.charAt(si++)) {
         return -1;
       }
     }
@@ -661,7 +661,7 @@ class IncludeParser {
    * @param echar the character to find
    * @return the resulting position of echar if found, otherwise -1
    */
-  private static int indexOf(char[] chars, int pos, int end, char echar) {
+  private static int indexOf(byte[] chars, int pos, int end, char echar) {
     while (pos < end) {
       if (chars[pos] == echar) {
         return pos;
@@ -718,7 +718,7 @@ class IncludeParser {
 
   @VisibleForTesting
   Inclusion extractInclusion(String line) {
-    return extractInclusion(line.toCharArray(), 0, line.length());
+    return extractInclusion(line.getBytes(ISO_8859_1), 0, line.length());
   }
 
   /**
@@ -729,7 +729,7 @@ class IncludeParser {
    * @param lineEnd the position of the character after the last
    * @return the inclusion object if possible, null if none
    */
-  private Inclusion extractInclusion(char[] chars, int lineBegin, int lineEnd) {
+  private Inclusion extractInclusion(byte[] chars, int lineBegin, int lineEnd) {
     // expect WS#WS(include|include_next|__has_include\(_next\)?)WS\(?("name"|<name>|<name>)\)?
     IncludesKeywordData data = expectIncludeKeyword(chars, lineBegin, lineEnd);
     int pos = data.pos;
@@ -757,7 +757,7 @@ class IncludeParser {
       }
     }
     if (chars[pos] == '"' || chars[pos] == '<') {
-      char qchar = chars[pos++];
+      char qchar = (char) (chars[pos++] & 0xff);
       int spos = pos;
       pos = indexOf(chars, pos + 1, lineEnd, qchar == '<' ? '>' : '"');
       if (pos < 0) {
@@ -787,7 +787,7 @@ class IncludeParser {
    * @return a new set of inclusions, normalized to the cache
    */
   @VisibleForTesting
-  List<Inclusion> extractInclusions(char[] chars) {
+  List<Inclusion> extractInclusions(byte[] chars) {
     List<Inclusion> inclusions = new ArrayList<>();
     int lineBegin = 0;  // the first char of each line
     int end = chars.length;  // the file end
@@ -860,7 +860,7 @@ class IncludeParser {
           Profiler.instance().profile(ProfilerTask.SCANNER, file.getExecPathString())) {
         inclusions =
             extractInclusions(
-                FileSystemUtils.readContentAsLatin1(actionExecutionContext.getInputPath(file)));
+                FileSystemUtils.readContent(actionExecutionContext.getInputPath(file)));
       } catch (IOException e) {
         if (remoteIncludeScanner != null) {
           logger.log(
@@ -930,7 +930,7 @@ class IncludeParser {
    * include keyword or -1 if keyword was not found, along with information to aid future parsing.
    * Can be overridden by subclasses.
    */
-  protected IncludesKeywordData expectIncludeKeyword(char[] chars, int position, int end) {
+  protected IncludesKeywordData expectIncludeKeyword(byte[] chars, int position, int end) {
     int pos = expect(chars, skipWhitespace(chars, position, end), end, "#");
     if (pos > 0) {
       int npos = skipWhitespace(chars, pos, end);
