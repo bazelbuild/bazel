@@ -123,7 +123,7 @@ public class ToolchainResolver {
    * report the specific toolchain targets to depend on, and those can be found using the typical
    * dependency machinery. Once dependencies, including toolchains, have been loaded, the {@link
    * UnloadedToolchainContext#load} method can be called to generate the final {@link
-   * ToolchainContext} to be used by the target.
+   * ResolvedToolchainContext} to be used by the target.
    *
    * <p>This makes several SkyFrame calls, particularly to {@link
    * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction} (to load platforms and
@@ -504,14 +504,14 @@ public class ToolchainResolver {
     }
 
     /**
-     * Finishes preparing the {@link ToolchainContext} by finding the specific toolchain providers
-     * to be used for each toolchain type.
+     * Finishes preparing the {@link ResolvedToolchainContext} by finding the specific toolchain
+     * providers to be used for each toolchain type.
      */
-    public ToolchainContext load(Iterable<ConfiguredTargetAndData> toolchainTargets)
+    public ResolvedToolchainContext load(Iterable<ConfiguredTargetAndData> toolchainTargets)
         throws ToolchainException {
 
-      ToolchainContext.Builder toolchainContext =
-          ToolchainContext.builder()
+      ResolvedToolchainContext.Builder toolchainContext =
+          ResolvedToolchainContext.builder()
               .setTargetDescription(targetDescription())
               .setExecutionPlatform(executionPlatform())
               .setTargetPlatform(targetPlatform())

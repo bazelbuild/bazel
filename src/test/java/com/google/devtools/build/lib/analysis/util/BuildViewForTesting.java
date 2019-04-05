@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ToolchainResolver;
 import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -493,7 +493,7 @@ public class BuildViewForTesting {
             configuredTarget,
             configurations,
             unloadedToolchainContext.resolvedToolchainLabels());
-    ToolchainContext toolchainContext =
+    ResolvedToolchainContext toolchainContext =
         unloadedToolchainContext.load(prerequisiteMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
 
     return new RuleContext.Builder(
