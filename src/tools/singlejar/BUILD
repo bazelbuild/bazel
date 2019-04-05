@@ -32,7 +32,7 @@ SOURCES = [
 
 filegroup(
     name = "embedded_tools",
-    srcs = [],
+    srcs = SOURCES,
     visibility = ["//visibility:public"],
 )
 
