@@ -395,8 +395,7 @@ public final class SkyframeActionExecutor {
       OutputService outputService) {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
-    this.progressSuppressingEventHandler =
-        new ProgressSuppressingEventHandler(this.executorEngine.getEventHandler());
+    this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
 
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
@@ -564,6 +563,12 @@ public final class SkyframeActionExecutor {
         env, actionLookupData, action, completionReceiver);
   }
 
+  private ExtendedEventHandler selectEventHandler(ProgressEventBehavior progressEventBehavior) {
+    return progressEventBehavior.equals(ProgressEventBehavior.EMIT)
+        ? reporter
+        : progressSuppressingEventHandler;
+  }
+
   /**
    * Returns an ActionExecutionContext suitable for executing a particular action. The caller should
    * pass the returned context to {@link #executeAction}, and any other method that needs to execute
@@ -587,9 +592,7 @@ public final class SkyframeActionExecutor {
         actionKeyContext,
         metadataHandler,
         fileOutErr,
-        progressEventBehavior.equals(ProgressEventBehavior.EMIT)
-            ? executorEngine.getEventHandler()
-            : progressSuppressingEventHandler,
+        selectEventHandler(progressEventBehavior),
         clientEnv,
         topLevelFilesets,
         new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
@@ -633,9 +636,10 @@ public final class SkyframeActionExecutor {
       if (action instanceof NotifyOnActionCacheHit) {
         NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
         ExtendedEventHandler contextEventHandler =
-            probeCompletedAndReset(action)
-                ? progressSuppressingEventHandler
-                : executorEngine.getEventHandler();
+            selectEventHandler(
+                probeCompletedAndReset(action)
+                    ? ProgressEventBehavior.SUPPRESS
+                    : ProgressEventBehavior.EMIT);
         ActionCachedContext context =
             new ActionCachedContext() {
               @Override
@@ -711,9 +715,7 @@ public final class SkyframeActionExecutor {
             actionLogBufferPathGenerator.generate(
                 ArtifactPathResolver.createPathResolver(
                     actionFileSystem, executorEngine.getExecRoot())),
-            progressEventBehavior.equals(ProgressEventBehavior.EMIT)
-                ? executorEngine.getEventHandler()
-                : progressSuppressingEventHandler,
+            selectEventHandler(progressEventBehavior),
             clientEnv,
             env,
             actionFileSystem);

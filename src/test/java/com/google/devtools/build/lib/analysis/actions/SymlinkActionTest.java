@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -86,7 +87,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 actionKeyContext,
                 null,
                 null,
-                executor.getEventHandler(),
+                new StoredEventHandler(),
                 ImmutableMap.<String, String>of(),
                 ImmutableMap.of(),
                 null,

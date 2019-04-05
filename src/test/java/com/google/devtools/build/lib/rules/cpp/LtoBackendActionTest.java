@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -82,15 +83,15 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     context =
         new ActionExecutionContext(
             executor,
-            null,
+            /*actionInputFileCache=*/ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            null,
+            /*metadataHandler=*/ null,
             new FileOutErr(),
-            executor.getEventHandler(),
-            ImmutableMap.<String, String>of(),
-            ImmutableMap.of(),
-            null,
+            new StoredEventHandler(),
+            /*clientEnv=*/ ImmutableMap.of(),
+            /*topLevelFilesets=*/ ImmutableMap.of(),
+            /*artifactExpander=*/ null,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null);
   }
