@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcomma
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
@@ -29,20 +28,14 @@ public class DummyExecutor implements Executor {
 
   private final FileSystem fileSystem;
   private final Path inputDir;
-  private final ExtendedEventHandler eventHandler;
 
   public DummyExecutor(FileSystem fileSystem, Path inputDir) {
-    this(fileSystem, inputDir, null);
-  }
-
-  public DummyExecutor(ExtendedEventHandler eventHandler) {
-    this(null, null, eventHandler);
-  }
-
-  public DummyExecutor(FileSystem fileSystem, Path inputDir, ExtendedEventHandler eventHandler) {
     this.fileSystem = fileSystem;
     this.inputDir = inputDir;
-    this.eventHandler = eventHandler;
+  }
+
+  public DummyExecutor() {
+    this(/*fileSystem=*/ null, /*inputDir=*/ null);
   }
 
   @Override
@@ -68,11 +61,6 @@ public class DummyExecutor implements Executor {
   @Override
   public boolean getVerboseFailures() {
     throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ExtendedEventHandler getEventHandler() {
-    return eventHandler;
   }
 
   @Override

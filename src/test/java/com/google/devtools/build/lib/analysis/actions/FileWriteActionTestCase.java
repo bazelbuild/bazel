@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -68,7 +69,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
             actionKeyContext,
             null,
             new FileOutErr(),
-            executor.getEventHandler(),
+            new StoredEventHandler(),
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             null,

@@ -2212,7 +2212,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     public ActionExecutionContext build() {
       return new ActionExecutionContext(
-          new DummyExecutor(fileSystem, getExecRoot(), reporter),
+          new DummyExecutor(fileSystem, getExecRoot()),
           actionInputFileCache,
           /*actionInputPrefetcher=*/ null,
           actionKeyContext,
