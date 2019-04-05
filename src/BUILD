@@ -591,6 +591,7 @@ genrule(
         "//src/java_tools/buildjar:srcs",
         "//src/java_tools/junitrunner:srcs",
         "//src/java_tools/singlejar:srcs",
+        "//src/tools/singlejar:embedded_tools",
         "//third_party/jarjar:srcs",
         "//third_party/java/jdk/langtools:license-and-srcs",
         "//third_party/zlib:embedded_tools",
@@ -606,9 +607,10 @@ genrule(
 genrule(
     name = "java_tools_zip",
     srcs = [
-        "//third_party/ijar:ijar_with_deps_zip",
         ":jars_java_tools_zip",
         ":zlib_zip",
+        "//src/tools/singlejar:singlejar_zip",
+        "//third_party/ijar:ijar_with_deps_zip",
     ],
     outs = ["java_tools.zip"],
     cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
