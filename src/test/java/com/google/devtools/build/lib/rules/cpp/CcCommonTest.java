@@ -380,55 +380,6 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(baseNamesOf(getFilesToBuild(alwaysLink))).contains("libalways_link.lo");
   }
 
-  /**
-   * Tests that nocopts= "-fPIC" takes '-fPIC' out of a compile invocation even if the crosstool
-   * requires fPIC compilation (i.e. nocopts overrides crosstool settings on a rule-specific
-   * basis).
-   */
-  @Test
-  public void testNoCoptfPicOverride() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
-    // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
-    useConfiguration("--fat_apk_cpu=k8");
-
-    scratch.file(
-        "a/BUILD",
-        "cc_binary(name = 'pic',",
-        "           srcs = [ 'binary.cc' ])",
-        "cc_binary(name = 'libpic.so',",
-        "           srcs = [ 'binary.cc' ])",
-        "cc_library(name = 'piclib',",
-        "           srcs = [ 'library.cc' ])",
-        "cc_binary(name = 'nopic',",
-        "           srcs = [ 'binary.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')",
-        "cc_binary(name = 'libnopic.so',",
-        "           srcs = [ 'binary.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')",
-        "cc_library(name = 'nopiclib',",
-        "           srcs = [ 'library.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')");
-
-    assertThat(getCppCompileAction("//a:pic").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:libpic.so").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:piclib").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:piclib").getOutputFile().getFilename())
-        .contains("library.pic.o");
-    assertThat(getCppCompileAction("//a:nopic").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:libnopic.so").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:nopiclib").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:nopiclib").getOutputFile().getFilename())
-        .contains("library.o");
-  }
-
   @Test
   public void testPicModeAssembly() throws Exception {
     AnalysisMock.get()
