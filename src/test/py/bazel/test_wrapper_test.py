@@ -549,12 +549,12 @@ class TestWrapperTest(test_base.TestBase):
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--noincompatible_windows_native_test_wrapper'
-#    self._AssertPassingTest(flag)
-#    self._AssertFailingTest(flag)
-#    self._AssertPrintingTest(flag)
-#    self._AssertRunfiles(flag)
-#    self._AssertShardedTest(flag)
-#    self._AssertUnexportsEnvvars(flag)
+    self._AssertPassingTest(flag)
+    self._AssertFailingTest(flag)
+    self._AssertPrintingTest(flag)
+    self._AssertRunfiles(flag)
+    self._AssertShardedTest(flag)
+    self._AssertUnexportsEnvvars(flag)
     self._AssertTestArgs(
         flag,
         [
@@ -573,22 +573,22 @@ class TestWrapperTest(test_base.TestBase):
             # merely to guard against unwanted future change of behavior.
             '(\\" qux)'
         ])
-#    self._AssertUndeclaredOutputs(flag)
-#    self._AssertUndeclaredOutputsAnnotations(flag)
-#    self._AssertXmlGeneration(flag, split_xml=False)
-#    self._AssertXmlGeneration(flag, split_xml=True)
-#    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
-#    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
+    self._AssertUndeclaredOutputs(flag)
+    self._AssertUndeclaredOutputsAnnotations(flag)
+    self._AssertXmlGeneration(flag, split_xml=False)
+    self._AssertXmlGeneration(flag, split_xml=True)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
     flag = '--incompatible_windows_native_test_wrapper'
-#    self._AssertPassingTest(flag)
-#    self._AssertFailingTest(flag)
-#    self._AssertPrintingTest(flag)
-#    self._AssertRunfiles(flag)
-#    self._AssertShardedTest(flag)
-#    self._AssertUnexportsEnvvars(flag)
+    self._AssertPassingTest(flag)
+    self._AssertFailingTest(flag)
+    self._AssertPrintingTest(flag)
+    self._AssertRunfiles(flag)
+    self._AssertShardedTest(flag)
+    self._AssertUnexportsEnvvars(flag)
     self._AssertTestArgs(
         flag,
         [
@@ -609,12 +609,12 @@ class TestWrapperTest(test_base.TestBase):
             '("")',
             '(qux)',
         ])
-#    self._AssertUndeclaredOutputs(flag)
-#    self._AssertUndeclaredOutputsAnnotations(flag)
-#    self._AssertXmlGeneration(flag, split_xml=False)
-#    self._AssertXmlGeneration(flag, split_xml=True)
-#    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
-#    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
+    self._AssertUndeclaredOutputs(flag)
+    self._AssertUndeclaredOutputsAnnotations(flag)
+    self._AssertXmlGeneration(flag, split_xml=False)
+    self._AssertXmlGeneration(flag, split_xml=True)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
 
 
 if __name__ == '__main__':
