@@ -362,7 +362,7 @@ def configure_windows_toolchain(repository_ctx):
             )
 
     tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw, _ = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
-    tool_paths, tool_bin_path, inc_dir, artifact_patterns = _get_escaped_windows_msys_starlark_content(repository_ctx)
+    tool_paths, tool_bin_path, inc_dir_msys, artifact_patterns = _get_escaped_windows_msys_starlark_content(repository_ctx)
     if not vc_path or missing_tools:
         repository_ctx.template(
             "cc_toolchain_config.bzl",
@@ -377,6 +377,7 @@ def configure_windows_toolchain(repository_ctx):
                 "%{msvc_ml_path}": "vc_installation_error.bat",
                 "%{msvc_link_path}": "vc_installation_error.bat",
                 "%{msvc_lib_path}": "vc_installation_error.bat",
+                "%{msvc_cxx_builtin_include_directories}": "",
                 "%{msys_x64_mingw_cxx_content}": get_starlark_list(["-std=gnu++0x"]),
                 "%{msys_x64_mingw_link_content}": get_starlark_list(["-lstdc++"]),
                 "%{dbg_mode_debug}": "/DEBUG",
@@ -388,7 +389,7 @@ def configure_windows_toolchain(repository_ctx):
                 "%{opt_link_content}": "",
                 "%{unfiltered_content}": "",
                 "%{dbg_compile_content}": "",
-                "%{cxx_builtin_include_directories}": inc_dir,
+                "%{cxx_builtin_include_directories}": inc_dir_msys,
                 "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
                 "%{coverage_feature}": "",
                 "%{use_coverage_feature}": "",
@@ -477,7 +478,8 @@ def configure_windows_toolchain(repository_ctx):
             "%{opt_link_content}": "",
             "%{unfiltered_content}": "",
             "%{dbg_compile_content}": "",
-            "%{cxx_builtin_include_directories}": inc_dir + ",\n        ".join(escaped_cxx_include_directories),
+            "%{cxx_builtin_include_directories}": inc_dir_msys + ",\n        ".join(escaped_cxx_include_directories),
+            "%{msvc_cxx_builtin_include_directories}": "        " + ",\n        ".join(escaped_cxx_include_directories),
             "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw + ",\n        ".join(escaped_cxx_include_directories),
             "%{coverage_feature}": "",
             "%{use_coverage_feature}": "",
