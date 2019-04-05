@@ -164,6 +164,16 @@ py_test(
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
     }),
+    data = select({
+        "//src/conditions:windows": [":printargs"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_binary(
+    name = "printargs",
+    srcs = ["printargs.cc"],
+    testonly = 1,
 )
 
 py_test(
