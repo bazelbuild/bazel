@@ -43,6 +43,7 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/util.h"
+#include "src/tools/launcher/util/launcher_util.h"
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
@@ -1118,7 +1119,7 @@ bool AddCommandLineArg(const wchar_t* arg, const size_t arg_size,
 }
 
 bool CreateCommandLine(const Path& path,
-                       const std::vector<const wchar_t*>& args,
+                       const std::vector<std::wstring>& args,
                        std::unique_ptr<WCHAR[]>* result) {
   // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
   static constexpr size_t kMaxCmdline = 32767;
@@ -1132,9 +1133,9 @@ bool CreateCommandLine(const Path& path,
     return false;
   }
 
-  for (const auto arg : args) {
-    if (!AddCommandLineArg(arg, wcslen(arg), false, result->get(), kMaxCmdline,
-                           &total_len)) {
+  for (const std::wstring& arg : args) {
+    if (!AddCommandLineArg(arg.c_str(), arg.size(), false, result->get(),
+                           kMaxCmdline, &total_len)) {
       return false;
     }
   }
@@ -1145,7 +1146,7 @@ bool CreateCommandLine(const Path& path,
   return true;
 }
 
-bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
+bool StartSubprocess(const Path& path, const std::vector<std::wstring>& args,
                      const Path& outerr, std::unique_ptr<Tee>* tee,
                      LARGE_INTEGER* start_time,
                      bazel::windows::AutoHandle* process) {
@@ -1342,7 +1343,7 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
 
 bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
                std::wstring* out_test_path_arg,
-               std::vector<const wchar_t*>* out_args) {
+               std::vector<std::wstring>* out_args) {
   if (!out_argv0->Set(argv[0])) {
     return false;
   }
@@ -1358,7 +1359,7 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   out_args->clear();
   out_args->reserve(argc - 1);
   for (int i = 1; i < argc; i++) {
-    out_args->push_back(argv[i]);
+    out_args->push_back(bazel::launcher::WindowsEscapeArg2(argv[i]));
   }
   return true;
 }
@@ -1434,7 +1435,7 @@ bool TeeImpl::MainFunc() const {
 }
 
 int RunSubprocess(const Path& test_path,
-                  const std::vector<const wchar_t*>& args,
+                  const std::vector<std::wstring>& args,
                   const Path& test_outerr, Duration* test_duration) {
   std::unique_ptr<Tee> tee;
   bazel::windows::AutoHandle process;
@@ -1871,7 +1872,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   std::wstring test_path_arg;
   Path test_path, exec_root, srcdir, tmpdir, test_outerr, xml_log;
   UndeclaredOutputs undecl;
-  std::vector<const wchar_t*> args;
+  std::vector<std::wstring> args;
   if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
       !PrintTestLogStartMarker() ||
       !FindTestBinary(argv0, test_path_arg, &test_path) ||
