@@ -43,7 +43,7 @@ DEBIAN_FIELDS = [
     ('Maintainer', True, False),
     ('Description', True, True),
     ('Homepage', False, False),
-    ('Built-Using', False, False, 'Bazel'),
+    ('Built-Using', False, False, None),
     ('Distribution', False, False, 'unstable'),
     ('Urgency', False, False, 'medium'),
 ]

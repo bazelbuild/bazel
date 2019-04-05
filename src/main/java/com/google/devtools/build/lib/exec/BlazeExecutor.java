@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
@@ -21,13 +20,11 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The Executor class provides a dynamic abstraction of the various actual primitive system
@@ -44,11 +41,9 @@ public final class BlazeExecutor implements Executor {
   private final ShowSubcommands showSubcommands;
   private final FileSystem fileSystem;
   private final Path execRoot;
-  private final Reporter reporter;
   private final EventBus eventBus;
   private final Clock clock;
   private final OptionsProvider options;
-  private AtomicBoolean inExecutionPhase;
 
   private final Map<Class<? extends ActionContext>, ActionContext> contextMap;
 
@@ -78,11 +73,9 @@ public final class BlazeExecutor implements Executor {
     this.showSubcommands = executionOptions.showSubcommands;
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
-    this.reporter = reporter;
     this.eventBus = eventBus;
     this.clock = clock;
     this.options = options;
-    this.inExecutionPhase = new AtomicBoolean(false);
     this.contextMap = spawnActionContextMaps.contextMap();
 
     if (executionOptions.debugPrintActionContexts) {
@@ -108,11 +101,6 @@ public final class BlazeExecutor implements Executor {
   }
 
   @Override
-  public ExtendedEventHandler getEventHandler() {
-    return reporter;
-  }
-
-  @Override
   public EventBus getEventBus() {
     return eventBus;
   }
@@ -125,25 +113,6 @@ public final class BlazeExecutor implements Executor {
   @Override
   public ShowSubcommands reportsSubcommands() {
     return showSubcommands;
-  }
-
-  /**
-   * This method is called before the start of the execution phase of each
-   * build request.
-   */
-  public void executionPhaseStarting() {
-    Preconditions.checkState(!inExecutionPhase.getAndSet(true));
-  }
-
-  /**
-   * This method is called after the end of the execution phase of each build
-   * request (even if there was an interrupt).
-   */
-  public void executionPhaseEnding() {
-    if (!inExecutionPhase.get()) {
-      return;
-    }
-    inExecutionPhase.set(false);
   }
 
   @Override
