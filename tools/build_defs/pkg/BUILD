@@ -205,6 +205,7 @@ pkg_tar(
 
 pkg_deb(
     name = "test-deb",
+    built_using = "some_test_data (0.1.2)",
     conffiles = [
         "/etc/nsswitch.conf",
         "/etc/other",

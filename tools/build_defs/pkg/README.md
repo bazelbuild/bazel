@@ -50,7 +50,7 @@ pkg_tar(
 pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
-    built_using = "bazel (0.1.1)",
+    built_using = "unzip (6.0.1)",
     data = ":debian-data",
     depends = [
         "zlib1g-dev",
@@ -432,7 +432,7 @@ for more details on this.
     <tr>
       <td><code>built_using</code>, <code>built_using_file</code></td>
       <td>
-        <code>String or File, default to 'Bazel'</code>
+        <code>String or File</code>
         <p>
           The tool that were used to build this package provided either inline
           (with <code>built_using</code>) or from a file (with <code>built_using_file</code>).
