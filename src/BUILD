@@ -609,6 +609,7 @@ genrule(
     srcs = [
         ":jars_java_tools_zip",
         ":zlib_zip",
+        "//src/conditions:conditions_zip",
         "//src/tools/singlejar:singlejar_zip",
         "//third_party/ijar:ijar_with_deps_zip",
     ],
