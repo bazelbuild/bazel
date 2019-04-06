@@ -647,21 +647,7 @@ public final class BytecodeTypeInference extends MethodVisitor {
   }
 
   private static String convertToDescriptor(String type) {
-    char firstChar = type.charAt(0);
-    switch (firstChar) {
-      case 'Z':
-      case 'B':
-      case 'C':
-      case 'S':
-      case 'I':
-      case 'J':
-      case 'D':
-      case 'F':
-      case '[':
-        return type;
-      default:
-        return 'L' + type + ';';
-    }
+    return (type.length() > 1 && type.charAt(0) != '[') ? 'L' + type + ';' : type;
   }
 
   private void push(InferredType type) {
