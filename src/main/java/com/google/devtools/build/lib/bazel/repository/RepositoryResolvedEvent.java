@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.DEFINITION_INFORMATION;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ORIGINAL_ATTRIBUTES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ORIGINAL_RULE_CLASS;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.OUTPUT_TREE_HASH;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
@@ -65,6 +67,10 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     String originalClass =
         rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
     builder.put(ORIGINAL_RULE_CLASS, originalClass);
+
+    if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
+      builder.put(DEFINITION_INFORMATION, rule.getDefinitionInformation());
+    }
 
     ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
     ImmutableMap.Builder<String, Object> defaults = ImmutableMap.builder();

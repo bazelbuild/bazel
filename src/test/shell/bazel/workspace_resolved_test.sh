@@ -1069,4 +1069,74 @@ EOF
         //:it || fail "Expected success"
 }
 
+test_definition_location_recorded() {
+  # Verify that for Starlark repositories the location of the definition
+  # is recorded in the resolved file.
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  mkdir ext
+  touch ext/BUILD
+
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir main
+  cd main
+  touch BUILD
+  mkdir -p first/path
+  cat > first/path/foo.bzl <<'EOF'
+load("//:another/directory/bar.bzl", "bar")
+
+def foo():
+  bar()
+EOF
+  mkdir -p another/directory
+  cat > another/directory/bar.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def bar():
+  http_archive(
+    name = "ext",
+    url = "file://${EXTREPODIR}/ext.tar",
+  )
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:first/path/foo.bzl", "foo")
+
+foo()
+EOF
+
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=resolved.bzl
+
+  echo; cat resolved.bzl; echo
+
+  cat > BUILD <<'EOF'
+load("//:finddef.bzl", "finddef")
+
+genrule(
+  name = "ext_def",
+  outs = ["ext_def.txt"],
+  cmd = "echo '%s' > $@" % (finddef("ext"),),
+)
+EOF
+  cat > finddef.bzl <<'EOF'
+load("//:resolved.bzl", "resolved")
+
+def finddef(name):
+  for repo in resolved:
+    if repo["original_attributes"]["name"] == name:
+      return repo["definition_information"]
+EOF
+
+  bazel build //:ext_def
+
+  cat `bazel info bazel-genfiles`/ext_def.txt > "${TEST_log}"
+
+  expect_log "WORKSPACE:3"
+  expect_log "first/path/foo.bzl:4"
+  expect_log "another/directory/bar.bzl:4"
+}
+
 run_suite "workspace_resolved_test tests"
