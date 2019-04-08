@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
@@ -22,7 +23,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -58,7 +58,7 @@ public class ShowIncludesFilter {
     private static final int NEWLINE = '\n';
     // "Note: including file:" in 14 languages,
     // cl.exe will print different prefix according to the locale configured for MSVC.
-    private static final List<String> SHOW_INCLUDES_PREFIXS = Arrays.asList(
+    private static final List<String> SHOW_INCLUDES_PREFIXS = ImmutableList.of(
         HexToUTF8String("4E6F74653A20696E636C7564696E672066696C653A"), // English
         HexToUTF8String("E6B3A8E6848F3A20E58C85E590ABE6AA94E6A1883A"), // Traditional Chinese
         HexToUTF8String("506F7A6EC3A16D6B613A2056C48D65746EC49B20736F75626F72753A"), // Czech
