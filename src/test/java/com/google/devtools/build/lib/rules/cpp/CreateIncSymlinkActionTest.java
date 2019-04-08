@@ -144,7 +144,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Path extra = rootDirectory.getRelative("out/extra");
     FileSystemUtils.createEmptyFile(extra);
     assertThat(extra.exists()).isTrue();
-    action.prepare(fileSystem, rootDirectory);
+    action.prepare(rootDirectory);
     assertThat(extra.exists()).isFalse();
   }
 
