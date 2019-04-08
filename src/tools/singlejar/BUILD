@@ -41,6 +41,7 @@ filegroup(
     srcs = SOURCES + [
         "//src/main/cpp/util:embedded_java_tools",
         "//third_party/zlib:embedded_tools",
+        "//src/main/protobuf:desugar_deps_filegroup",
     ],
     visibility = ["//src:__pkg__"]
 )
@@ -49,8 +50,9 @@ genrule(
     name = "singlejar_transitive_zip",
     srcs = [
         ":singlejar_zip",
-        "//src/main/cpp/util:cpp_util_with_deps_zip",
         "//src:zlib_zip",
+        "//src/main/cpp/util:cpp_util_with_deps_zip",
+        "//src/main/protobuf:desugar_deps_zip",
     ],
     outs = ["singlejar_transitive.zip"],
     cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",

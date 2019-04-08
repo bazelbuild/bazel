@@ -391,6 +391,16 @@ cc_library(
     ],
 )
 
+proto_library(
+  name = "desugar_deps_proto",
+  srcs = ["java_tools/src/main/protobuf/desugar_deps.proto"]
+)
+
+cc_proto_library(
+    name = "desugar_deps_cc_proto",
+    deps = [":desugar_deps_proto"],
+)
+
 cc_library(
     name = "desugar_checking",
     srcs = ["java_tools/src/tools/singlejar/desugar_checking.cc"],
@@ -398,7 +408,7 @@ cc_library(
     strip_include_prefix = "java_tools",
     deps = [
         ":combiners",
-        "//src/main/protobuf:desugar_deps_cc_proto",
+        ":desugar_deps_cc_proto",
     ],
 )
 
@@ -498,11 +508,9 @@ filegroup(
         "java_tools/src/tools/singlejar/zlib_interface.h",
         ":zip_headers",
     ],
-    strip_include_prefix = "java_tools",
 )
 
 filegroup(
     name = "zip_headers",
     srcs = ["java_tools/src/tools/singlejar/zip_headers.h"],
-    strip_include_prefix = "java_tools",
 )
