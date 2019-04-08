@@ -476,7 +476,7 @@ public class RunCommand implements BlazeCommand  {
 
   private boolean prepareTestEnvironment(CommandEnvironment env, TestRunnerAction action) {
     try {
-      action.prepare(env.getRuntime().getFileSystem(), env.getExecRoot());
+      action.prepare(env.getExecRoot());
       return true;
     } catch (IOException e) {
       env.getReporter().handle(Event.error("Error while setting up test: " + e.getMessage()));
