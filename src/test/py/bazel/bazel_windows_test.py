@@ -151,6 +151,48 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertNotIn('foo=bar2', result_in_lower_case)
     self.assertIn('foo=bar3', result_in_lower_case)
 
+
+  def testRunPowershellInAction(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'load(":execute.bzl", "run_powershell")',
+        'run_powershell(name = "powershell_test", out = "out.txt")',
+    ])
+    self.ScratchFile('write.bat', [
+        'powershell.exe -NoP -NonI -Command "Add-Content \'%1\' \'%2\'"',
+    ])
+    self.ScratchFile('execute.bzl', [
+        'def _impl(ctx):',
+        '    ctx.actions.run(',
+        '        outputs = [ctx.outputs.out],',
+        '        arguments = [ctx.outputs.out.path, "hello-world"],',
+        '        use_default_shell_env = True,',
+        '        executable = ctx.executable.tool,',
+        '    )',
+        'run_powershell = rule(',
+        '    implementation = _impl,',
+        '    attrs = {',
+        '        "out": attr.output(mandatory = True),',
+        '        "tool": attr.label(',
+        '            executable = True,',
+        '            cfg = "host",',
+        '            allow_files = True,',
+        '            default = Label("//:write.bat"),',
+        '        ),',
+        '    },',
+        ')',
+    ])
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '//:powershell_test',
+            '--incompatible_strict_action_env',
+        ],
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+
+
   def testAnalyzeCcRuleWithoutVCInstalled(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('BUILD', [

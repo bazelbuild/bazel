@@ -188,10 +188,15 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void pathOrDefaultOnWindows() {
-    assertThat(pathOrDefault(OS.WINDOWS, null, null)).isNull();
-    assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", null)).isNull();
+    String defaultWindowsPath = "";
+    String systemRoot = System.getenv("SYSTEMROOT");
+    defaultWindowsPath += ";" + systemRoot;
+    defaultWindowsPath += ";" + systemRoot + "\\System32";
+    defaultWindowsPath += ";" + systemRoot + "\\System32\\WindowsPowerShell\\v1.0";
+    assertThat(pathOrDefault(OS.WINDOWS, null, null)).isEqualTo(defaultWindowsPath);
+    assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", null)).isEqualTo("C:/mypath;" + defaultWindowsPath);
     assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", PathFragment.create("D:/foo/shell")))
-        .isEqualTo("D:\\foo;C:/mypath");
+        .isEqualTo("D:\\foo;C:/mypath;" + defaultWindowsPath);
   }
 
   @Test
