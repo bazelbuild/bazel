@@ -195,6 +195,8 @@ platforms:
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
     - "-//src/test/shell/integration:minimal_jdk_test"
+      # C++ coverage is not supported on macOS yet.
+    - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
