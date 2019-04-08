@@ -1,6 +1,6 @@
 package(default_visibility = ["//src/tools/launcher:__subpackages__"])
 
-load("//src/tools/launcher:win_rules.bzl", "cc_library", "cc_binary", "cc_test")
+load("//src/tools/launcher:win_rules.bzl", "cc_binary", "cc_library", "cc_test")
 
 filegroup(
     name = "srcs",
@@ -19,6 +19,10 @@ cc_library(
     name = "util",
     srcs = ["launcher_util.cc"],
     hdrs = ["launcher_util.h"],
+    visibility = [
+        "//src/tools/launcher:__subpackages__",
+        "//tools/test:__pkg__",
+    ],
     deps = ["//src/main/cpp/util:filesystem"],
 )
 

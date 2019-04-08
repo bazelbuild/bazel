@@ -81,9 +81,9 @@ class TestWrapperTest(test_base.TestBase):
         '    srcs = ["unexported.bat"],',
         ')',
         'sh_test(',
-        '    name = "testargs_test.bat",',
-        '    srcs = ["testargs.bat"],',
-        '    args = ["foo", "a b", "", "bar"],',
+        '    name = "testargs_test.exe",',
+        '    srcs = ["testargs.exe"],',
+        r'    args = ["foo", "a b", "", "\"c d\"", "\"\"", "bar"],',
         ')',
         'py_test(',
         '    name = "undecl_test",',
@@ -134,20 +134,10 @@ class TestWrapperTest(test_base.TestBase):
             '@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%',
         ],
         executable=True)
-    self.ScratchFile(
-        'foo/testargs.bat',
-        [
-            '@echo arg=(%~nx0)',  # basename of $0
-            '@echo arg=(%1)',
-            '@echo arg=(%2)',
-            '@echo arg=(%3)',
-            '@echo arg=(%4)',
-            '@echo arg=(%5)',
-            '@echo arg=(%6)',
-            '@echo arg=(%7)',
-            '@echo arg=(%8)',
-            '@echo arg=(%9)',
-        ],
+
+    self.CopyFile(
+        src_path=self.Rlocation('io_bazel/src/test/py/bazel/printargs.exe'),
+        dst_path='foo/testargs.exe',
         executable=True)
 
     # A single white pixel as an ".ico" file. /usr/bin/file should identify this
@@ -385,7 +375,7 @@ class TestWrapperTest(test_base.TestBase):
 
     exit_code, stdout, stderr = self.RunBazel([
         'test',
-        '//foo:testargs_test.bat',
+        '//foo:testargs_test.exe',
         '-t-',
         '--test_output=all',
         '--test_arg=baz',
@@ -568,24 +558,20 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertTestArgs(
         flag,
         [
-            '(testargs_test.bat)',
             '(foo)',
             '(a)',
             '(b)',
+            '(c d)',
+            '()',
             '(bar)',
-            # Note: debugging shows that test-setup.sh receives more-or-less
-            # good arguments (let's ignore issues #6276 and #6277 for now), but
-            # mangles the last few.
-            # I (laszlocsomor@) don't know the reason (as of 2018-10-01) but
-            # since I'm planning to phase out test-setup.sh on Windows in favor
-            # of the native test wrapper, I don't intend to debug this further.
-            # The test is here merely to guard against unwanted future change of
-            # behavior.
             '(baz)',
-            '("\\"x)',
-            '(y\\"")',
-            '("\\\\\\")',
-            '(qux")'
+            '("x y")',
+            # I (laszlocsomor@) don't know the exact reason (as of 2019-04-05)
+            # why () and (qux) are mangled as they are, but since I'm planning
+            # to phase out test-setup.sh on Windows in favor of the native test
+            # wrapper, I don't intend to debug this further.  The test is here
+            # merely to guard against unwanted future change of behavior.
+            '(\\" qux)'
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
@@ -606,7 +592,6 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertTestArgs(
         flag,
         [
-            '(testargs_test.bat)',
             '(foo)',
             # TODO(laszlocsomor): assert that "a b" is passed as one argument,
             # not two, after https://github.com/bazelbuild/bazel/issues/6277
@@ -616,12 +601,13 @@ class TestWrapperTest(test_base.TestBase):
             # TODO(laszlocsomor): assert that the empty string argument is
             # passed, after https://github.com/bazelbuild/bazel/issues/6276
             # is fixed.
+            '(c d)',
+            '()',
             '(bar)',
             '(baz)',
             '("x y")',
             '("")',
             '(qux)',
-            '()'
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
