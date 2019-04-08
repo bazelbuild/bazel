@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -53,11 +52,6 @@ public interface Executor {
    * performance measurements / reporting.
    */
   Clock getClock();
-
-  /**
-   * The EventBus for the current build.
-   */
-  EventBus getEventBus();
 
   /**
    * Returns whether failures should have verbose error messages.

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
@@ -41,7 +40,6 @@ public final class BlazeExecutor implements Executor {
   private final ShowSubcommands showSubcommands;
   private final FileSystem fileSystem;
   private final Path execRoot;
-  private final EventBus eventBus;
   private final Clock clock;
   private final OptionsProvider options;
 
@@ -62,7 +60,6 @@ public final class BlazeExecutor implements Executor {
       FileSystem fileSystem,
       Path execRoot,
       Reporter reporter,
-      EventBus eventBus,
       Clock clock,
       OptionsProvider options,
       SpawnActionContextMaps spawnActionContextMaps,
@@ -73,7 +70,6 @@ public final class BlazeExecutor implements Executor {
     this.showSubcommands = executionOptions.showSubcommands;
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
-    this.eventBus = eventBus;
     this.clock = clock;
     this.options = options;
     this.contextMap = spawnActionContextMaps.contextMap();
@@ -98,11 +94,6 @@ public final class BlazeExecutor implements Executor {
   @Override
   public Path getExecRoot() {
     return execRoot;
-  }
-
-  @Override
-  public EventBus getEventBus() {
-    return eventBus;
   }
 
   @Override

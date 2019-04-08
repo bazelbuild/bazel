@@ -192,7 +192,6 @@ public class ExecutionTool {
         runtime.getFileSystem(),
         env.getExecRoot(),
         getReporter(),
-        env.getEventBus(),
         runtime.getClock(),
         request,
         spawnActionContextMaps,
