@@ -1,8 +1,8 @@
-# This is a simple cc_shared_library rule for builing a DLL Windows
+# This is a simple windows_dll_library rule for builing a DLL Windows
 # that can be depended on by other cc rules.
 #
 # Example useage:
-#   cc_shared_library(
+#   windows_dll_library(
 #       name = "hellolib",
 #       srcs = [
 #           "hello-library.cpp",
@@ -13,7 +13,7 @@
 #   )
 #
 
-def cc_shared_library(
+def windows_dll_library(
     name,
     srcs = [],
     hdrs = [],
