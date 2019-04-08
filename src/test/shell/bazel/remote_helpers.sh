@@ -119,32 +119,41 @@ EOF
 #   * redirect_log - the path to nc's log.
 #   * redirect_pid - the PID of nc.
 function serve_redirect() {
-  # Assign random_port to nc_port if not already set.
-  echo ${redirect_port:=$(pick_random_unused_tcp_port)} > /dev/null
-  redirect_log=$TEST_TMPDIR/redirect.log
-  local response=$(cat <<EOF
-HTTP/1.0 301 Moved Permanently
-Location: $1
-
-EOF
-)
-  nc_l $redirect_port >& $redirect_log <<<"$response" &
+  redirect_log="${TEST_TMPDIR}/redirect.log"
+  rm -f $redirect_log
+  touch $redirect_log
+  cd "${TEST_TMPDIR}"
+  port_file=server-port.$$
+  # While we "own" the port_file for the life time of this process, there can
+  # be a left-over file from a previous process that had the process id (there
+  # are not that many possible process ids after all) or even the same process
+  # having started and shut down a server for a different test case in the same
+  # shard. So we have to remove any left-over file in order to not exit the
+  # while loop below too early because of finding the string "started" in the
+  # old file (and thus potentially even getting an outdated port information).
+  rm -f $port_file
+  python $python_server redirect $1 > $port_file &
   redirect_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  redirect_port=$(head -n 1 $port_file)
+  fileserver_port=$redirect_port
+  wait_for_server_startup
+  cd -
 }
 
 # Serves a HTTP 404 Not Found response with an optional parameter for the
 # response body.
 function serve_not_found() {
-  RESPONSE_BODY=${1:-}
-  http_response=$TEST_TMPDIR/http_response
-  cat > $http_response <<EOF
-HTTP/1.0 404 Not Found
-
-$RESPONSE_BODY
-EOF
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
-  nc_l $nc_port < $http_response &
+  port_file=server-port.$$
+  cd "${TEST_TMPDIR}"
+  rm -f $port_file
+  python $python_server 404 > $port_file &
   nc_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  nc_port=$(head -n 1 $port_file)
+  fileserver_port=$nc_port
+  wait_for_server_startup
+  cd -
 }
 
 # Waits for the SimpleHTTPServer to actually start up before the test is run.
