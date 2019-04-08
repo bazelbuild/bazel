@@ -901,7 +901,7 @@ public final class SkyframeActionExecutor {
               actionExecutionContext.getMetadataHandler(),
               metadataHandler);
           if (!actionFileSystemType().inMemoryFileSystem()) {
-            try {
+            try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
               // keep previous outputs in place.
@@ -962,7 +962,7 @@ public final class SkyframeActionExecutor {
       // one that returns a new ActionContinuationStep. Unfortunately, that requires some code
       // duplication.
       ActionContinuationOrResult nextActionContinuationOrResult;
-      try {
+      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "ActionContinuation.execute")) {
         nextActionContinuationOrResult = actionContinuation.execute();
       } catch (ActionExecutionException e) {
         boolean isLostInputsException = e instanceof LostInputsActionExecutionException;
