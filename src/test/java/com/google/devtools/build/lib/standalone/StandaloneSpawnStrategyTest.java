@@ -119,8 +119,6 @@ public class StandaloneSpawnStrategyTest {
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
 
-    EventBus bus = new EventBus();
-
     ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
@@ -130,7 +128,6 @@ public class StandaloneSpawnStrategyTest {
             fileSystem,
             execRoot,
             reporter,
-            bus,
             BlazeClock.instance(),
             optionsParser,
             SpawnActionContextMaps.createStub(

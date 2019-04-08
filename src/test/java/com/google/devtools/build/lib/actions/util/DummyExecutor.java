@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.util;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
@@ -51,11 +50,6 @@ public class DummyExecutor implements Executor {
   @Override
   public Clock getClock() {
     return BlazeClock.instance();
-  }
-
-  @Override
-  public EventBus getEventBus() {
-    return new EventBus();
   }
 
   @Override
