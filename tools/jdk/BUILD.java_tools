@@ -101,7 +101,7 @@ config_setting(
 alias(
     name = "singlejar",
     actual = select({
-         "//src/conditions:remote": ":singlejar_cc_bin",
+         "//:remote": ":singlejar_cc_bin",
          "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
      }),
 )
