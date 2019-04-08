@@ -260,6 +260,22 @@ public class BazelRulesModule extends BlazeModule {
         help = "Obsolete, no effect.")
     public boolean disableLegacyToolchainSkylarkApi;
 
+    @Option(
+        name = "incompatible_cc_coverage",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+            OptionEffectTag.UNKNOWN,
+        },
+        oldName = "experimental_cc_coverage",
+        metadataTags = {
+            OptionMetadataTag.INCOMPATIBLE_CHANGE,
+            OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+            OptionMetadataTag.DEPRECATED
+        },
+        help = "Obsolete, no effect.")
+    public boolean useGcovCoverage;
+
     @Deprecated
     @Option(
         name = "direct_run",
