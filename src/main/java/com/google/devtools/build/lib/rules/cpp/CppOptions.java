@@ -34,10 +34,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /** Command-line options for C++. */
 public class CppOptions extends FragmentOptions {
@@ -608,6 +605,24 @@ public class CppOptions extends FragmentOptions {
   )
   public Label hostLibcTopLabel;
 
+  /**
+   * This is a fake option used to pass data from target configuration to the host configuration.
+   * It's a horrible hack that will be removed once toolchain-transitions are implemented.
+   */
+  // TODO(b/129045294): Remove once toolchain-transitions are implemented.
+  @Option(
+      name = "target libcTop label",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      converter = LibcTopLabelConverter.class,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      metadataTags = {OptionMetadataTag.INTERNAL})
+  public Label targetLibcTopLabel;
+
   @Option(
     name = "experimental_inmemory_dotd_files",
     defaultValue = "false",
@@ -686,6 +701,14 @@ public class CppOptions extends FragmentOptions {
   public boolean useLLVMCoverageMapFormat;
 
   @Option(
+      name = "experimental_disable_cc_context_quote_includes_hook",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
+  public boolean disableCcContextQuoteIncludesHook;
+
+  @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -700,8 +723,7 @@ public class CppOptions extends FragmentOptions {
   public boolean dontEnableHostNonhost;
 
   @Option(
-      name = "incompatible_disable_legacy_crosstool_fields",
-      oldName = "experimental_disable_legacy_crosstool_fields",
+      name = "incompatible_require_ctx_in_configure_features",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -710,9 +732,9 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If true, Bazel will not read crosstool flags from legacy crosstool fields "
-              + "(see https://github.com/bazelbuild/bazel/issues/6861 for migration instructions).")
-  public boolean disableLegacyCrosstoolFields;
+          "If true, Bazel will require 'ctx' parameter in to cc_common.configure_features "
+              + "(see https://github.com/bazelbuild/bazel/issues/7793 for more information).")
+  public boolean requireCtxInConfigureFeatures;
 
   @Option(
       name = "incompatible_remove_legacy_whole_archive",
@@ -730,7 +752,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -745,7 +767,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_expand_if_all_available_in_flag_set",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -759,7 +781,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_crosstool_file",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -786,21 +808,6 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalIncludesAttributeSubpackageTraversal;
 
   @Option(
-      name = "incompatible_disable_depset_in_cc_user_flags",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, C++ toolchain Starlark API will not accept depset in `user_compile_flags` "
-              + "param of `create_compile_variables`, and in `user_link_flags` of "
-              + "`create_link_variables`. Use list instead.")
-  public boolean disableDepsetInUserFlags;
-
-  @Option(
       name = "experimental_do_not_use_cpu_transformer",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -811,7 +818,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_genrule_cc_toolchain_dependency",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -826,7 +833,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_legacy_cc_provider",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -849,6 +856,15 @@ public class CppOptions extends FragmentOptions {
       help = "If true, cc rules use toolchain resolution to find the cc_toolchain.")
   public boolean enableCcToolchainResolution;
 
+  @Option(
+      name = "experimental_save_feature_state",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Save the state of enabled and requested feautres as an output of compilation.")
+  public boolean saveFeatureState;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -867,6 +883,8 @@ public class CppOptions extends FragmentOptions {
     // The default is whatever the host's crosstool (which might have been specified
     // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
     host.libcTopLabel = hostLibcTopLabel;
+    // TODO(b/129045294): Remove once toolchain-transitions are implemented.
+    host.targetLibcTopLabel = libcTopLabel;
 
     // -g0 is the default, but allowMultiple options cannot have default values so we just pass
     // -g0 first and let the user options override it.
@@ -885,41 +903,23 @@ public class CppOptions extends FragmentOptions {
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
-    host.fdoOptimizeForBuild = null;
-    host.fdoProfileLabel = null;
-    host.xfdoProfileLabel = null;
+    host.fdoOptimizeForBuild = fdoOptimizeForBuild;
+    host.fdoProfileLabel = fdoProfileLabel;
+    host.xfdoProfileLabel = xfdoProfileLabel;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
+    host.enableFdoProfileAbsolutePath = enableFdoProfileAbsolutePath;
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
     host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
-    host.disableDepsetInUserFlags = disableDepsetInUserFlags;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
-    host.disableLegacyCrosstoolFields = disableLegacyCrosstoolFields;
     host.disableCrosstool = disableCrosstool;
     host.enableCcToolchainResolution = enableCcToolchainResolution;
     host.removeLegacyWholeArchive = removeLegacyWholeArchive;
     host.dontEnableHostNonhost = dontEnableHostNonhost;
+    host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     return host;
-  }
-
-  @Override
-  public Map<String, Set<Label>> getDefaultsLabels() {
-    Set<Label> crosstoolLabels = new LinkedHashSet<>();
-    crosstoolLabels.add(crosstoolTop);
-    if (hostCrosstoolTop != null) {
-      crosstoolLabels.add(hostCrosstoolTop);
-    }
-
-    if (libcTopLabel != null) {
-      Label libcLabel = libcTopLabel;
-      if (libcLabel != null) {
-        crosstoolLabels.add(libcLabel);
-      }
-    }
-
-    return ImmutableMap.of("CROSSTOOL", crosstoolLabels);
   }
 
   /**

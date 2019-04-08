@@ -618,7 +618,7 @@ public class Artifact
   @Immutable
   @AutoCodec
   public static final class TreeFileArtifact extends Artifact {
-    private final SpecialArtifact parentTreeArtifact;
+    private final Artifact parentTreeArtifact;
     private final PathFragment parentRelativePath;
 
     /**
@@ -627,7 +627,7 @@ public class Artifact
      * of the parent TreeArtifact.
      */
     @VisibleForTesting
-    public TreeFileArtifact(SpecialArtifact parent, PathFragment parentRelativePath) {
+    public TreeFileArtifact(Artifact parent, PathFragment parentRelativePath) {
       this(parent, parentRelativePath, parent.getArtifactOwner());
     }
 
@@ -637,7 +637,7 @@ public class Artifact
      */
     @AutoCodec.Instantiator
     TreeFileArtifact(
-        SpecialArtifact parentTreeArtifact, PathFragment parentRelativePath, ArtifactOwner owner) {
+        Artifact parentTreeArtifact, PathFragment parentRelativePath, ArtifactOwner owner) {
       super(
           parentTreeArtifact.getRoot(),
           parentTreeArtifact.getExecPath().getRelative(parentRelativePath),
@@ -651,6 +651,10 @@ public class Artifact
           !parentRelativePath.containsUplevelReferences() && !parentRelativePath.isAbsolute(),
           "%s is not a proper normalized relative path",
           parentRelativePath);
+      Preconditions.checkState(
+          parentTreeArtifact.isTreeArtifact(),
+          "Given parent %s must be a TreeArtifact",
+          parentTreeArtifact);
       this.parentTreeArtifact = parentTreeArtifact;
       this.parentRelativePath = parentRelativePath;
     }

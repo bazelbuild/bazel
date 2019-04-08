@@ -27,7 +27,8 @@ class DownloadTimeoutException extends IOException {
       return String.format("Download of '%s' timed out. Received %d bytes.", url, bytesReceived);
     } else {
       return String.format(
-          "Download of '%s' timed out. Received %d/%d bytes.", url, bytesReceived, contentLength);
+          "Download of '%s' timed out. Received %d of %d bytes.",
+          url, bytesReceived, contentLength);
     }
   }
 }

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.devtools.build.lib.syntax.Runtime.NONE;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -33,8 +35,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -47,6 +51,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
@@ -153,6 +158,21 @@ public final class PyCommon {
   private final boolean hasPy3OnlySources;
 
   /**
+   * Information about the runtime, as obtained from the toolchain.
+   *
+   * <p>This is non-null only if
+   *
+   * <ol>
+   *   <li>the configuration says to pull the runtime from the toolchain (rather than from the
+   *       legacy flags),
+   *   <li>the target defines the attribute "$py_toolchain_type" (in which case it MUST also declare
+   *       that it requires the Python toolchain type), and
+   *   <li>we can successfully read the runtime info from the toolchain provider.
+   * </ol>
+   */
+  @Nullable private final PyRuntimeInfo runtimeFromToolchain;
+
+  /**
    * Symlink map from root-relative paths to 2to3 converted source artifacts.
    *
    * <p>Null if no 2to3 conversion is required.
@@ -180,6 +200,7 @@ public final class PyCommon {
     this.imports = initImports(ruleContext, semantics);
     this.hasPy2OnlySources = initHasPy2OnlySources(ruleContext, this.sourcesVersion);
     this.hasPy3OnlySources = initHasPy3OnlySources(ruleContext, this.sourcesVersion);
+    this.runtimeFromToolchain = initRuntimeFromToolchain(ruleContext, this.version);
     this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
     maybeValidateVersionCompatibleWithOwnSourcesAttr();
     validateTargetPythonVersionAttr(DEFAULT_PYTHON_VERSION_ATTRIBUTE);
@@ -336,6 +357,122 @@ public final class PyCommon {
       }
     }
     return false;
+  }
+
+  /**
+   * Retrieves the {@link PyRuntimeInfo} object in the given field of the given {@link
+   * ToolchainInfo}.
+   *
+   * <p>If the field holds {@code None}, null is returned instead.
+   *
+   * <p>If the field does not exist on the given {@code ToolchainInfo}, or is not a {@code
+   * PyRuntimeInfo} and not {@code None}, an error is reported on the {@code ruleContext} and null
+   * is returned.
+   *
+   * <p>If the {@code PyRuntimeInfo} does not have {@code expectedVersion} as its Python version, an
+   * error is reported on the {@code ruleContext} (but the provider is still returned).
+   */
+  @Nullable
+  private static PyRuntimeInfo parseRuntimeField(
+      RuleContext ruleContext,
+      PythonVersion expectedVersion,
+      ToolchainInfo toolchainInfo,
+      String field) {
+    Object fieldValue;
+    try {
+      fieldValue = toolchainInfo.getValue(field);
+    } catch (EvalException e) {
+      ruleContext.ruleError(
+          String.format(
+              "Error parsing the Python toolchain's ToolchainInfo: Could not retrieve field "
+                  + "'%s': %s",
+              field, e.getMessage()));
+      return null;
+    }
+    if (fieldValue == null) {
+      ruleContext.ruleError(
+          String.format(
+              "Error parsing the Python toolchain's ToolchainInfo: field '%s' is missing", field));
+      return null;
+    }
+    if (fieldValue == NONE) {
+      return null;
+    }
+    if (!(fieldValue instanceof PyRuntimeInfo)) {
+      ruleContext.ruleError(
+          String.format(
+              "Error parsing the Python toolchain's ToolchainInfo: Expected a PyRuntimeInfo in "
+                  + "field '%s', but got '%s'",
+              field, EvalUtils.getDataTypeName(fieldValue)));
+      return null;
+    }
+    PyRuntimeInfo pyRuntimeInfo = (PyRuntimeInfo) fieldValue;
+    if (pyRuntimeInfo.getPythonVersion() != expectedVersion) {
+      ruleContext.ruleError(
+          String.format(
+              "Error retrieving the Python runtime from the toolchain: Expected field '%s' to have "
+                  + "a runtime with python_version = '%s', but got python_version = '%s'",
+              field, expectedVersion.name(), pyRuntimeInfo.getPythonVersion().name()));
+    }
+    return pyRuntimeInfo;
+  }
+
+  /**
+   * Returns a {@link PyRuntimeInfo} representing the runtime to use for this target, as retrieved
+   * from the resolved Python toolchain.
+   *
+   * <p>If the configuration says to use the legacy mechanism for obtaining the runtime rather than
+   * the toolchain mechanism, OR if this target's rule class does not define the
+   * "$py_toolchain_type" attribute, then null is returned. In this case no attempt is made to
+   * retrieve any toolchain information, and no errors are reported.
+   *
+   * <p>Otherwise, the toolchain provider structure is retrieved and validated, and any errors are
+   * reported on the rule context. If we're unable to determine the runtime due to an error, or if
+   * the toolchain does not specify a runtime for the version of Python we need, null is returned.
+   *
+   * @throws IllegalArgumentException if the rule class defines the "$py_toolchain_type" attribute
+   *     but does not declare a requirement on the toolchain type
+   */
+  @Nullable
+  private static PyRuntimeInfo initRuntimeFromToolchain(
+      RuleContext ruleContext, PythonVersion version) {
+    if (!shouldGetRuntimeFromToolchain(ruleContext)
+        || !ruleContext.attributes().has("$py_toolchain_type", BuildType.NODEP_LABEL)) {
+      return null;
+    }
+    Label toolchainType = ruleContext.attributes().get("$py_toolchain_type", BuildType.NODEP_LABEL);
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    Preconditions.checkArgument(
+        toolchainInfo != null,
+        "Could not retrieve a Python toolchain for '%s' rule",
+        ruleContext.getRule().getRuleClass());
+
+    PyRuntimeInfo py2RuntimeInfo =
+        parseRuntimeField(ruleContext, PythonVersion.PY2, toolchainInfo, "py2_runtime");
+    PyRuntimeInfo py3RuntimeInfo =
+        parseRuntimeField(ruleContext, PythonVersion.PY3, toolchainInfo, "py3_runtime");
+    Preconditions.checkState(version == PythonVersion.PY2 || version == PythonVersion.PY3);
+    PyRuntimeInfo result = version == PythonVersion.PY2 ? py2RuntimeInfo : py3RuntimeInfo;
+    if (result == null) {
+      ruleContext.ruleError(
+          String.format(
+              "The Python toolchain does not provide a runtime for Python version %s",
+              version.name()));
+    }
+
+    // Hack around the fact that the autodetecting Python toolchain, which is automatically
+    // registered, does not yet support windows. In this case, we want to return null so that
+    // BazelPythonSemantics falls back on --python_path. See toolchain.bzl.
+    // TODO(#7844): Remove this hack when the autodetecting toolchain has a windows implementation.
+    if (py2RuntimeInfo != null
+        && py2RuntimeInfo.getInterpreterPathString() != null
+        && py2RuntimeInfo
+            .getInterpreterPathString()
+            .equals("/_magic_pyruntime_sentinel_do_not_use")) {
+      return null;
+    }
+
+    return result;
   }
 
   /**
@@ -538,6 +675,44 @@ public final class PyCommon {
 
   public boolean hasPy3OnlySources() {
     return hasPy3OnlySources;
+  }
+
+  /**
+   * Returns {@code true} if the Python runtime should be obtained from the Python toolchain (as per
+   * {@code --incompatible_use_python_toolchains}), as opposed to through the legacy mechanism
+   * specified in the {@link PythonSemantics} (e.g., {@code --python_top}).
+   */
+  public boolean shouldGetRuntimeFromToolchain() {
+    return shouldGetRuntimeFromToolchain(ruleContext);
+  }
+
+  private static boolean shouldGetRuntimeFromToolchain(RuleContext ruleContext) {
+    return ruleContext.getFragment(PythonConfiguration.class).useToolchains();
+  }
+
+  /**
+   * Returns a {@link PyRuntimeInfo} representing the runtime to use for this target, as retrieved
+   * from the resolved toolchain.
+   *
+   * <p>This may only be called for executable Python rules (rules defining the attribute
+   * "$py_toolchain_type", i.e. {@code py_binary} and {@code py_test}). In addition, it may not be
+   * called if {@link #shouldGetRuntimeFromToolchain()} returns false.
+   *
+   * <p>If there was a problem retrieving the runtime information from the toolchain, null is
+   * returned. An error would have already been reported on the rule context at {@code PyCommon}
+   * initialization time.
+   */
+  @Nullable
+  public PyRuntimeInfo getRuntimeFromToolchain() {
+    Preconditions.checkArgument(
+        ruleContext.attributes().has("$py_toolchain_type", BuildType.NODEP_LABEL),
+        "Cannot retrieve Python toolchain information for '%s' rule",
+        ruleContext.getRule().getRuleClass());
+    Preconditions.checkArgument(
+        shouldGetRuntimeFromToolchain(),
+        "Access to the Python toolchain is disabled by --incompatible_use_python_toolchains=false");
+
+    return runtimeFromToolchain;
   }
 
   public Map<PathFragment, Artifact> getConvertedFiles() {

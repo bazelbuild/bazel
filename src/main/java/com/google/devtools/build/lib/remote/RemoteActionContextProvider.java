@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -157,6 +158,12 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               strategyName, validStrategies),
           ExitCode.COMMAND_LINE_ERROR);
     }
+  }
+
+  /** Returns the remote cache object if any. */
+  @Nullable
+  AbstractRemoteActionCache getRemoteCache() {
+    return cache;
   }
 
   @Override

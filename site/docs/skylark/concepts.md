@@ -7,8 +7,29 @@ title: Extension Overview
 
 <!-- [TOC] -->
 
-Bazel extensions are files ending in `.bzl`. Use a
-[load statement](../build-ref.html#load) to import a symbol from an extension.
+## Getting started
+
+Bazel extensions are files ending in `.bzl`. Use a [load statement](
+../build-ref.html#load) to import a symbol from an extension.
+
+Before learning the more advanced concepts, we recommend that you first:
+
+* Read about the [Starlark language](language.md), used in both the BUILD and
+  `.bzl` files.
+
+* Learn how you can [share variables](tutorial-sharing-variables.md) between two
+  BUILD files.
+
+* [Create your first macro](tutorial-creating-a-macro.md) in order to reuse some
+  code.
+
+The two links below will be very useful when writing your own extensions. Keep
+them within reach:
+
+* The [API reference](lib/skylark-overview.html)
+
+* [Examples](https://github.com/bazelbuild/examples/tree/master/rules)
+
 
 ## Macros and rules
 
@@ -60,3 +81,21 @@ Bazel tries to be clever: it uses dependency analysis to know which files must
 be loaded, which rules must be analyzed, and which actions must be executed. For
 example, if a rule generates actions that we don't need for the current build,
 they will not be executed.
+
+## Going further
+
+In addition to [macro](macros.md) and [rules](rules.md), you may want to write
+[aspects](aspects.md) and [repository rules](repository_rules.md).
+
+* Use [Buildifier](https://github.com/bazelbuild/buildtools) to format and lint
+  your code. We recommend that you use it consistently.
+
+* Follow the [`.bzl` style guide](bzl-style.md).
+
+* [Test](testing.md) your code.
+
+* [Generate documentation](https://skydoc.bazel.build/) to help your users.
+
+* [Optimize the performance](performance.md) of your code.
+
+* [Deploy](deploying.md) your extensions to other people.

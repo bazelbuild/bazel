@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -29,8 +31,8 @@ public class EmptyRunfilesSupplier implements RunfilesSupplier {
   private EmptyRunfilesSupplier() {}
 
   @Override
-  public Iterable<Artifact> getArtifacts() {
-    return ImmutableList.<Artifact>of();
+  public NestedSet<Artifact> getArtifacts() {
+    return NestedSetBuilder.<Artifact>stableOrder().build();
   }
 
   @Override

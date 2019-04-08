@@ -93,7 +93,8 @@ public final class CcCompilationHelper {
       CppCompileActionBuilder builder,
       FeatureConfiguration featureConfiguration,
       FdoContext fdoContext,
-      String fdoInstrument) {
+      String fdoInstrument,
+      CppConfiguration cppConfiguration) {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
           CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
@@ -101,7 +102,7 @@ public final class CcCompilationHelper {
 
     // FDO is disabled -> do nothing.
     Preconditions.checkNotNull(fdoContext);
-    if (!fdoContext.hasArtifacts()) {
+    if (!fdoContext.hasArtifacts(cppConfiguration)) {
       return;
     }
 
@@ -292,11 +293,11 @@ public final class CcCompilationHelper {
     this.configuration = buildConfiguration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     setGenerateNoPicAction(
-        !ccToolchain.usePicForDynamicLibraries(featureConfiguration)
-            || !CppHelper.usePicForBinaries(ccToolchain, featureConfiguration));
+        !ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+            || !CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
     setGeneratePicAction(
-        ccToolchain.usePicForDynamicLibraries(featureConfiguration)
-            || CppHelper.usePicForBinaries(ccToolchain, featureConfiguration));
+        ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+            || CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
     this.ruleErrorConsumer = actionConstructionContext.getRuleErrorConsumer();
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
@@ -414,7 +415,8 @@ public final class CcCompilationHelper {
         CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(privateHeader.getExecPath());
     Preconditions.checkState(isHeader || isTextualInclude);
 
-    if (ccToolchain.shouldProcessHeaders(featureConfiguration) && !isTextualInclude) {
+    if (ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        && !isTextualInclude) {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
     }
@@ -470,7 +472,9 @@ public final class CcCompilationHelper {
         CppFileTypes.CPP_HEADER.matches(header.getExecPath()) || header.isTreeArtifact();
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(header.getExecPath());
     publicHeaders.add(header);
-    if (isTextualInclude || !isHeader || !ccToolchain.shouldProcessHeaders(featureConfiguration)) {
+    if (isTextualInclude
+        || !isHeader
+        || !ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)) {
       return;
     }
 
@@ -712,17 +716,20 @@ public final class CcCompilationHelper {
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
       RuleContext ruleContext) {
-    Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
-    outputGroups.put(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps());
+    ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroupsBuilder = ImmutableMap.builder();
+    outputGroupsBuilder.put(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps());
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = ccToolchain.usePicForDynamicLibraries(featureConfiguration);
-    outputGroups.put(
+    boolean usePic = ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
+    outputGroupsBuilder.put(
         OutputGroupInfo.FILES_TO_COMPILE,
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
-    outputGroups.put(
+    outputGroupsBuilder.put(
         OutputGroupInfo.COMPILATION_PREREQUISITES,
         CcCommon.collectCompilationPrerequisites(ruleContext, ccCompilationContext));
-    return outputGroups;
+    outputGroupsBuilder.putAll(
+        CcCommon.createSaveFeatureStateArtifacts(
+            cppConfiguration, featureConfiguration, ruleContext));
+    return outputGroupsBuilder.build();
   }
 
   @Immutable
@@ -871,7 +878,7 @@ public final class CcCompilationHelper {
    */
   private CcCompilationContext initializeCcCompilationContext() {
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(actionConstructionContext, configuration, label);
+        CcCompilationContext.builder(actionConstructionContext, configuration, label);
 
     // Setup the include path; local include directories come before those inherited from deps or
     // from the toolchain; in case of aliasing (same include file found on different entries),
@@ -1210,7 +1217,7 @@ public final class CcCompilationHelper {
    * specified on the current object. This method should only be called once.
    */
   private CcCompilationOutputs createCcCompileActions() throws RuleErrorException {
-    CcCompilationOutputs.Builder result = new CcCompilationOutputs.Builder();
+    CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
     if (shouldProvideHeaderModules()) {
@@ -1284,7 +1291,7 @@ public final class CcCompilationHelper {
                 // The source action does not generate dwo when it has bitcode
                 // output (since it isn't generating a native object with debug
                 // info). In that case the LtoBackendAction will generate the dwo.
-                ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
+                ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
                 bitcodeOutput,
                 isGenerateDotdFile(sourceArtifact));
             break;
@@ -1343,7 +1350,7 @@ public final class CcCompilationHelper {
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(
             actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    // TODO(rduan): Dotd file output is not supported yet.
+    // Dotd file output is specified in the execution phase.
     builder.setOutputs(outputFiles, /* dotdFile= */ null);
     builder.setVariables(
         setupCompileBuildVariables(
@@ -1363,6 +1370,8 @@ public final class CcCompilationHelper {
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
+            CppHelper.getDotdOutputTreeArtifact(
+                actionConstructionContext, label, sourceArtifact, outputName, usePic),
             builder,
             ccToolchain,
             outputCategories,
@@ -1430,12 +1439,15 @@ public final class CcCompilationHelper {
           builder,
           featureConfiguration,
           fdoContext,
-          cppConfiguration.getFdoInstrument());
+          cppConfiguration.getFdoInstrument(),
+          cppConfiguration);
     }
     return CompileBuildVariables.setupVariablesOrReportRuleError(
         ruleErrorConsumer,
         featureConfiguration,
         ccToolchain,
+        configuration.getOptions(),
+        cppConfiguration,
         toPathString(sourceFile),
         toPathString(builder.getOutputFile()),
         toPathString(gcnoFile),
@@ -1512,7 +1524,8 @@ public final class CcCompilationHelper {
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
 
-    boolean generateDwo = ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration);
+    boolean generateDwo =
+        ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration);
     Artifact dwoFile = generateDwo ? getDwoFile(builder.getOutputFile()) : null;
     // TODO(tejohnson): Add support for ThinLTO if needed.
     boolean bitcodeOutput =

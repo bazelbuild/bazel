@@ -338,7 +338,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return getAndroidSdk().getProguard().getExecutable();
   }
 
-  private AndroidSdkProvider getAndroidSdk() {
+  private AndroidSdkProvider getAndroidSdk() throws Exception {
     Label sdk = targetConfig.getFragment(AndroidConfiguration.class).getSdk();
     return getConfiguredTarget(sdk, targetConfig).get(AndroidSdkProvider.PROVIDER);
   }

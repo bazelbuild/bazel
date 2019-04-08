@@ -18,7 +18,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -35,6 +38,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Action to expand a template and write the expanded content to a file. */
 @AutoCodec
@@ -125,12 +129,64 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
+  public final ActionContinuationOrResult beginExecution(
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    SpawnContinuation first =
+        new SpawnContinuation() {
+          @Override
+          public ListenableFuture<?> getFuture() {
+            return null;
+          }
+
+          @Override
+          public SpawnContinuation execute() throws ExecException, InterruptedException {
+            TemplateExpansionContext expansionContext =
+                actionExecutionContext.getContext(TemplateExpansionContext.class);
+            return expansionContext.expandTemplate(
+                TemplateExpansionAction.this, actionExecutionContext);
+          }
+        };
+
+    return new ActionContinuationOrResult() {
+      private SpawnContinuation spawnContinuation = first;
+
+      @Nullable
+      @Override
+      public ListenableFuture<?> getFuture() {
+        return spawnContinuation.getFuture();
+      }
+
+      @Override
+      public ActionContinuationOrResult execute()
+          throws ActionExecutionException, InterruptedException {
+        SpawnContinuation next;
+        try {
+          next = spawnContinuation.execute();
+          if (!next.isDone()) {
+            spawnContinuation = next;
+            return this;
+          }
+        } catch (ExecException e) {
+          throw e.toActionExecutionException(
+              "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",
+              actionExecutionContext.getVerboseFailures(),
+              TemplateExpansionAction.this);
+        }
+        return ActionContinuationOrResult.of(ActionResult.create(next.get()));
+      }
+    }.execute();
+  }
+
+  @Override
   public final ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     TemplateExpansionContext expansionContext =
         actionExecutionContext.getContext(TemplateExpansionContext.class);
     try {
-      return ActionResult.create(expansionContext.expandTemplate(this, actionExecutionContext));
+      return ActionResult.create(
+          SpawnContinuation.completeBlocking(
+              expansionContext.expandTemplate(this, actionExecutionContext)));
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",

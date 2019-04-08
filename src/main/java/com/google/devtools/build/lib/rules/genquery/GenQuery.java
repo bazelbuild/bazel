@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.BlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -313,9 +312,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             OutputFormatter.formatterNames(OutputFormatter.getDefaultFormatters())));
         return null;
       }
-      // All the packages are already loaded at this point, so there is no need
-      // to start up many threads. 4 are started up to make good use of multiple
-      // cores.
       BlazeQueryEnvironment queryEnvironment =
           (BlazeQueryEnvironment)
               QUERY_ENVIRONMENT_FACTORY.create(
@@ -329,12 +325,15 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   ruleContext.attributes().get("strict", Type.BOOLEAN),
                   /*orderedResults=*/ !QueryOutputUtils.shouldStreamResults(
                       queryOptions, formatter),
-                  /*universeScope=*/ ImmutableList.<String>of(),
-                  /*loadingPhaseThreads=*/ 4,
+                  /*universeScope=*/ ImmutableList.of(),
+                  // Use a single thread to prevent race conditions causing nondeterministic output
+                  // (b/127644784). All the packages are already loaded at this point, so there is
+                  // no need to start up multiple threads anyway.
+                  /*loadingPhaseThreads=*/ 1,
                   labelFilter,
                   getEventHandler(ruleContext),
                   settings,
-                  ImmutableList.<QueryFunction>of(),
+                  /*extraFunctions=*/ ImmutableList.of(),
                   /*packagePath=*/ null,
                   /*blockUniverseEvaluationErrors=*/ false);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);

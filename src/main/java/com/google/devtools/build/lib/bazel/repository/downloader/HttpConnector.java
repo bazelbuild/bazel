@@ -167,6 +167,8 @@ class HttpConnector {
         }
       } catch (UnrecoverableHttpException e) {
         throw e;
+      } catch (IllegalArgumentException e) {
+        throw new UnrecoverableHttpException(e.getMessage());
       } catch (IOException e) {
         if (connection != null) {
           // If we got here, it means we might not have consumed the entire payload of the

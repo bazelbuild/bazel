@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -29,12 +30,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class JavaCompileActionContext implements ActionContext {
   private final ConcurrentHashMap<Artifact, Deps.Dependencies> cache = new ConcurrentHashMap<>();
 
-  Deps.Dependencies getDependencies(Artifact jdepsFile) {
+  Deps.Dependencies getDependencies(
+      Artifact jdepsFile, ActionExecutionContext actionExecutionContext) {
     // TODO(djasper): Investigate caching across builds.
     return cache.computeIfAbsent(
         jdepsFile,
         file -> {
-          try (InputStream input = file.getPath().getInputStream()) {
+          try (InputStream input = actionExecutionContext.getInputPath(file).getInputStream()) {
             return Deps.Dependencies.parseFrom(input);
           } catch (IOException e) {
             throw new UncheckedIOException(e);

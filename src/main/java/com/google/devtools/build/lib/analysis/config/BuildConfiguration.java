@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -26,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -64,6 +65,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -112,8 +114,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
 
-  private static final Interner<ImmutableMap<String, String>>
-      executionInfoInterner = BlazeInterners.newWeakInterner();
+  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   /** Compute the default shell environment for actions from the command line options. */
   public interface ActionEnvironmentProvider {
@@ -264,25 +266,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     }
   }
 
-  /** TODO(bazel-team): document this */
-  public static class PluginOptionConverter implements Converter<Map.Entry<String, String>> {
-    @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
-      int index = input.indexOf('=');
-      if (index == -1) {
-        throw new OptionsParsingException("Plugin option not in the plugin=option format");
-      }
-      String option = input.substring(0, index);
-      String value = input.substring(index + 1);
-      return Maps.immutableEntry(option, value);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "An option for a plugin";
-    }
-  }
-
   /**
    * Values for the --strict_*_deps option
    */
@@ -328,7 +311,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     @Option(
         name = "incompatible_merge_genfiles_directory",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         metadataTags = {
@@ -348,6 +331,20 @@ public class BuildConfiguration implements BuildConfigurationApi {
       help = "Each --define option specifies an assignment for a build variable."
     )
     public List<Map.Entry<String, String>> commandLineBuildVariables;
+
+    @Option(
+        name = "collapse_duplicate_defines",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help =
+            "When enabled, redundant --defines will be removed early in the build. This avoids"
+                + " unnecessary loss of the analysis cache for certain types of equivalent"
+                + " builds.")
+    public boolean collapseDuplicateDefines;
 
     @Option(
       name = "cpu",
@@ -586,44 +583,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
               + " not be specified directly - 'bazel coverage' command should be used instead."
     )
     public boolean collectCodeCoverage;
-
-    @Option(
-        name = "incompatible_java_coverage",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        oldName = "experimental_java_coverage",
-        help =
-            "If true Bazel will use a new way of computing code coverage for java targets. "
-                + "It allows collecting  coverage for Starlark JVM rules and java_import. "
-                + "Only includes JVM files in the coverage report (e.g. dismisses data files). "
-                + "The report includes the actual path of the files relative to the workspace root "
-                + "instead of the package path (e.g. src/com/google/Action.java instead of "
-                + "com/google/Action.java.")
-    public boolean experimentalJavaCoverage;
-
-    @Option(
-        name = "incompatible_cc_coverage",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS
-        },
-        oldName = "experimental_cc_coverage",
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If specified, Bazel will use gcov to collect code coverage for C++ test targets. "
-                + "This option only works for gcc compilation.")
-    public boolean useGcovCoverage;
 
     @Option(
       name = "build_runfile_manifests",
@@ -977,7 +936,30 @@ public class BuildConfiguration implements BuildConfigurationApi {
       return host;
     }
 
+    @Override
+    public Options getNormalized() {
+      Options result = (Options) super.getNormalized();
 
+      if (collapseDuplicateDefines) {
+        LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : result.commandLineBuildVariables) {
+          // If the same --define flag is passed multiple times we keep the last value.
+          flagValueByName.put(entry.getKey(), entry.getValue());
+        }
+
+        // This check is an optimization to avoid creating a new list if the normalization was a
+        // no-op.
+        if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
+          result.commandLineBuildVariables =
+              flagValueByName.entrySet().stream()
+                  // The entries in the transformed list must be serializable.
+                  .map(SimpleEntry::new)
+                  .collect(toImmutableList());
+        }
+      }
+
+      return result;
+    }
   }
 
   private final String checksum;
@@ -1437,6 +1419,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /** Returns the genfiles directory for this build configuration. */
   public ArtifactRoot getGenfilesDirectory() {
+    if (mergeGenfilesDirectory) {
+      return getBinDirectory();
+    }
+
     return getGenfilesDirectory(RepositoryName.MAIN);
   }
 
@@ -1715,14 +1701,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.collectCodeCoverage;
   }
 
-  public boolean isExperimentalJavaCoverage() {
-    return options.experimentalJavaCoverage;
-  }
-
-  public boolean useGcovCoverage() {
-    return options.useGcovCoverage;
-  }
-
   public RunUnder getRunUnder() {
     return options.runUnder;
   }
@@ -1823,7 +1801,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.hostCpu;
   }
 
-  public boolean runfilesEnabled() {
+  public static boolean runfilesEnabled(Options options) {
     switch (options.enableRunfiles) {
       case YES:
         return true;
@@ -1832,6 +1810,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
       default:
         return OS.getCurrent() != OS.WINDOWS;
     }
+  }
+
+  public boolean runfilesEnabled() {
+    return runfilesEnabled(this.options);
   }
 
   /**
@@ -1843,9 +1825,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
     if (!options.executionInfoModifier.matches(mnemonic)) {
       return executionInfo;
     }
-    LinkedHashMap<String, String> mutableCopy = new LinkedHashMap<>(executionInfo);
+    Map<String, String> mutableCopy = new HashMap<>(executionInfo);
     modifyExecutionInfo(mutableCopy, mnemonic);
-    return executionInfoInterner.intern(ImmutableMap.copyOf(mutableCopy));
+    return executionInfoInterner.intern(ImmutableSortedMap.copyOf(mutableCopy));
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */

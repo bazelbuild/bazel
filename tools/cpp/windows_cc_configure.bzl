@@ -94,25 +94,27 @@ def find_vc_path(repository_ctx):
                                                   "start looking for the latest Visual C++ installed.")
 
     # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
-    # vcvarsqueryregistry.bat to detect VC++.
+    # vcvarsqueryregistry.bat / VsDevCmd.bat to detect VC++.
     _auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
                                                   "eg. VS140COMNTOOLS")
-    for vscommontools_env in [
-        "VS140COMNTOOLS",
-        "VS120COMNTOOLS",
-        "VS110COMNTOOLS",
-        "VS100COMNTOOLS",
-        "VS90COMNTOOLS",
+    for vscommontools_env, script in [
+        ("VS160COMNTOOLS", "VsDevCmd.bat"),
+        ("VS150COMNTOOLS", "VsDevCmd.bat"),
+        ("VS140COMNTOOLS", "vcvarsqueryregistry.bat"),
+        ("VS120COMNTOOLS", "vcvarsqueryregistry.bat"),
+        ("VS110COMNTOOLS", "vcvarsqueryregistry.bat"),
+        ("VS100COMNTOOLS", "vcvarsqueryregistry.bat"),
+        ("VS90COMNTOOLS", "vcvarsqueryregistry.bat"),
     ]:
         if vscommontools_env not in repository_ctx.os.environ:
             continue
-        vcvarsqueryregistry = repository_ctx.os.environ[vscommontools_env] + "\\vcvarsqueryregistry.bat"
-        if not repository_ctx.path(vcvarsqueryregistry).exists:
+        script = repository_ctx.os.environ[vscommontools_env] + "\\" + script
+        if not repository_ctx.path(script).exists:
             continue
         repository_ctx.file(
             "get_vc_dir.bat",
             "@echo off\n" +
-            "call \"" + vcvarsqueryregistry + "\"\n" +
+            "call \"" + script + "\"\n" +
             "echo %VCINSTALLDIR%",
             True,
         )
@@ -122,8 +124,9 @@ def find_vc_path(repository_ctx):
         _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 3. User might clean up all environment variables, if so looking for Visual C++ through registry.
-    # Works for all VS versions, including Visual Studio 2017.
+    # 3. User might have purged all environment variables. If so, look for Visual C++ in registry.
+    # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019 Preview.)
+    # TODO(laszlocsomor): check if "16.0" also has this registry key, after VS 2019 is released.
     _auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
@@ -147,6 +150,11 @@ def find_vc_path(repository_ctx):
     _auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     program_files_dir = get_env_var(repository_ctx, "PROGRAMFILES(X86)", default = "C:\\Program Files (x86)", enable_warning = True)
     for path in [
+        "Microsoft Visual Studio\\2019\\Preview\\VC",
+        "Microsoft Visual Studio\\2019\\BuildTools\\VC",
+        "Microsoft Visual Studio\\2019\\Community\\VC",
+        "Microsoft Visual Studio\\2019\\Professional\\VC",
+        "Microsoft Visual Studio\\2019\\Enterprise\\VC",
         "Microsoft Visual Studio\\2017\\BuildTools\\VC",
         "Microsoft Visual Studio\\2017\\Community\\VC",
         "Microsoft Visual Studio\\2017\\Professional\\VC",
@@ -164,18 +172,18 @@ def find_vc_path(repository_ctx):
     _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
 
-def _is_vs_2017(vc_path):
+def _is_vs_2017_or_2019(vc_path):
     """Check if the installed VS version is Visual Studio 2017."""
 
-    # In VS 2017, the location of VC is like:
+    # In VS 2017 and 2019, the location of VC is like:
     # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\
     # In VS 2015 or older version, it is like:
     # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
-    return vc_path.find("2017") != -1
+    return vc_path.find("2017") != -1 or vc_path.find("2019") != -1
 
 def _find_vcvarsall_bat_script(repository_ctx, vc_path):
     """Find vcvarsall.bat script. Doesn't %-escape the result."""
-    if _is_vs_2017(vc_path):
+    if _is_vs_2017_or_2019(vc_path):
         vcvarsall = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
     else:
         vcvarsall = vc_path + "\\VCVARSALL.BAT"
@@ -211,8 +219,8 @@ def setup_vc_env_vars(repository_ctx, vc_path):
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
     tool_path = ""
-    if _is_vs_2017(vc_path):
-        # For VS 2017, the tools are under a directory like:
+    if _is_vs_2017_or_2019(vc_path):
+        # For VS 2017 and 2019, the tools are under a directory like:
         # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.10.24930\bin\HostX64\x64
         dirs = repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()
         if len(dirs) < 1:
@@ -354,21 +362,22 @@ def configure_windows_toolchain(repository_ctx):
             )
 
     tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw, _ = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
-    tool_paths, tool_bin_path, inc_dir, artifact_patterns = _get_escaped_windows_msys_starlark_content(repository_ctx)
+    tool_paths, tool_bin_path, inc_dir_msys, artifact_patterns = _get_escaped_windows_msys_starlark_content(repository_ctx)
     if not vc_path or missing_tools:
         repository_ctx.template(
             "cc_toolchain_config.bzl",
             paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl"],
             {
                 "%{toolchain_identifier}": "msys_x64",
-                "%{msvc_env_tmp}": "",
-                "%{msvc_env_path}": "",
-                "%{msvc_env_include}": "",
-                "%{msvc_env_lib}": "",
+                "%{msvc_env_tmp}": "msvc_not_found",
+                "%{msvc_env_path}": "msvc_not_found",
+                "%{msvc_env_include}": "msvc_not_found",
+                "%{msvc_env_lib}": "msvc_not_found",
                 "%{msvc_cl_path}": "vc_installation_error.bat",
                 "%{msvc_ml_path}": "vc_installation_error.bat",
                 "%{msvc_link_path}": "vc_installation_error.bat",
                 "%{msvc_lib_path}": "vc_installation_error.bat",
+                "%{msvc_cxx_builtin_include_directories}": "",
                 "%{msys_x64_mingw_cxx_content}": get_starlark_list(["-std=gnu++0x"]),
                 "%{msys_x64_mingw_link_content}": get_starlark_list(["-lstdc++"]),
                 "%{dbg_mode_debug}": "/DEBUG",
@@ -380,7 +389,7 @@ def configure_windows_toolchain(repository_ctx):
                 "%{opt_link_content}": "",
                 "%{unfiltered_content}": "",
                 "%{dbg_compile_content}": "",
-                "%{cxx_builtin_include_directories}": inc_dir,
+                "%{cxx_builtin_include_directories}": inc_dir_msys,
                 "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
                 "%{coverage_feature}": "",
                 "%{use_coverage_feature}": "",
@@ -469,7 +478,8 @@ def configure_windows_toolchain(repository_ctx):
             "%{opt_link_content}": "",
             "%{unfiltered_content}": "",
             "%{dbg_compile_content}": "",
-            "%{cxx_builtin_include_directories}": inc_dir + ",\n        ".join(escaped_cxx_include_directories),
+            "%{cxx_builtin_include_directories}": inc_dir_msys + ",\n        ".join(escaped_cxx_include_directories),
+            "%{msvc_cxx_builtin_include_directories}": "        " + ",\n        ".join(escaped_cxx_include_directories),
             "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw + ",\n        ".join(escaped_cxx_include_directories),
             "%{coverage_feature}": "",
             "%{use_coverage_feature}": "",

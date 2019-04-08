@@ -56,9 +56,14 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,6 +128,24 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     assertThat(value.getMetadata().getDigest()).isEqualTo(value.getDigest());
     // Java zero-fills arrays.
     assertThat(value.getDigest()).isEqualTo(new byte[16]);
+  }
+
+  @Test
+  public void testTreeArtifactOrdering() throws Exception {
+    int rangeSize = 100;
+    int attempts = 10;
+    List<PathFragment> children =
+        IntStream.range(0, rangeSize)
+            .mapToObj(i -> PathFragment.create("file" + i))
+            .collect(Collectors.toList());
+
+    for (int i = 0; i < attempts; i++) {
+      Collections.shuffle(children, new Random());
+      Artifact treeArtifact = createTreeArtifact("out");
+      TreeArtifactValue value = evaluateTreeArtifact(treeArtifact, children);
+      assertThat(value.getChildPaths()).containsExactlyElementsIn(children);
+      assertThat(value.getChildPaths()).isOrdered(Comparator.naturalOrder());
+    }
   }
 
   @Test

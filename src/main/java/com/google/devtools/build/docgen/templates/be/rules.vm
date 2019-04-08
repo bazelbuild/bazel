@@ -10,6 +10,8 @@ title: ${ruleFamily.name} Rules
 
 <h1>${ruleFamily.name} Rules</h1>
 
+${ruleFamily.summary}
+
 <div class="toc">
   <h2>Rules</h2>
   <ul>

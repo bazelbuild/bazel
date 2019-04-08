@@ -57,24 +57,18 @@ android/ @ahumesky @jin
 
 # Remote caching and execution
 
-/src/main/java/com/google/devtools/build/lib/remote/ @buchgr @philwo @ola-rozenfeld
+/src/main/java/com/google/devtools/build/lib/remote/ @buchgr @ishikhman @ola-rozenfeld
 
-/src/test/shell/bazel/remote/ @buchgr @philwo @ola-rozenfeld
+/src/test/shell/bazel/remote/ @buchgr @ishikhman @ola-rozenfeld
 
 /src/tools/execlog/ @buchgr @ola-rozenfeld
-/src/tools/remote/ @buchgr @philwo @ola-rozenfeld
+/src/tools/remote/ @buchgr @ishikhman @ola-rozenfeld
 
 # Execution and I/O related code
 
-/src/main/java/com/google/devtools/build/lib/authandtls/ @philwo
-/src/main/java/com/google/devtools/build/lib/clock/ @philwo
-/src/main/java/com/google/devtools/build/lib/exec/ @philwo
 /src/main/java/com/google/devtools/build/lib/sandbox/ @philwo
-/src/main/java/com/google/devtools/build/lib/shell/ @philwo
 /src/main/java/com/google/devtools/build/lib/ssd/ @philwo
 /src/main/java/com/google/devtools/build/lib/standalone/ @philwo
-/src/main/java/com/google/devtools/build/lib/unix/ @philwo
-/src/main/java/com/google/devtools/build/lib/vfs/ @philwo
 /src/main/java/com/google/devtools/build/lib/worker/ @philwo
 /src/main/java/com/google/devtools/build/lib/rules/java/ @iirina
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki

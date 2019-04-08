@@ -25,6 +25,19 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 
+# On Mac, set host config to use PY2 because our CI Mac workers don't have a
+# Python 3 runtime.
+# TODO(https://github.com/bazelbuild/continuous-integration/issues/578):
+# Remove this workaround.
+if [[ "$(uname -s | tr [:upper:] [:lower:] | grep -E 'darwin.*')" ]]; then
+    HOST_PY_FLAG="--host_force_python=PY2"
+    echo "Setting host Python to PY2 to workaround unavailability of Python 3 \
+on Mac CI"
+else
+    HOST_PY_FLAG=""
+fi
+
+
 test_pkg_tar() {
   rm -rf main
   mkdir main
@@ -40,9 +53,9 @@ pkg_tar(
     srcs = glob(["*.txt"]),
 )
 EOF
-  bazel build --all_incompatible_changes ... \
+  bazel build --all_incompatible_changes $HOST_PY_FLAG ... \
     || fail "Expect success, even with all upcoming Skylark changes"
-  grep -q 'Hello World' `bazel info bazel-bin --all_incompatible_changes`/data.tar \
+  grep -q 'Hello World' `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/data.tar \
     || fail "Output not generated correctly"
 }
 
@@ -65,9 +78,9 @@ pkg_tar(
   symlinks = {"link_with_colons" : "some:dangling:link"},
 )
 EOF
-  bazel build --all_incompatible_changes :fancy || fail "Expected success"
+  bazel build --all_incompatible_changes $HOST_PY_FLAG :fancy || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes`/fancy.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/fancy.tar
 
   grep equal ../out/foo=bar || fail "file with equal sign not packed correctly"
   grep option ../out/--foo || fail "file with double minus not packed correctly"
@@ -115,9 +128,9 @@ create_banana_directory = rule(
     implementation = _create_banana_directory_impl,
 )
 EOF
-  bazel build --all_incompatible_changes :banana_tarball || fail "Expected success"
+  bazel build --all_incompatible_changes $HOST_PY_FLAG :banana_tarball || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes`/banana_tarball.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/banana_tarball.tar
 
   test -f ../out/pear/grape || fail "expected file to be present"
 }

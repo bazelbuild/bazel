@@ -103,10 +103,10 @@ message SpawnExec {
   // this will be the name of the runner executing the spawn, e.g. remote or
   // linux-sandbox. If it was a remote cache hit, the runner will be
   // "remote cache hit". If it was a local cache hit, the action will not be
-  // inluded in the log in the first place.
+  // included in the log in the first place.
   //
-  // Note this is not the same as the "strategy" string -- even
-  // though the action strategy may be remote, a particular action may still
+  // Note, this is not the same as the "strategy" string -- even
+  // though the action strategy may be remote. A particular action may still
   // fall back to local execution due to a variety of reasons. This field
   // indicates what really happened for the particular Spawn+execution.
   string runner = 12;

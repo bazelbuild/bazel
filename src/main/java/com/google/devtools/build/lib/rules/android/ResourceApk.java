@@ -291,7 +291,7 @@ public final class ResourceApk {
         .withResourceDependencies(resourceDeps)
         .withAssetDependencies(assetDeps)
         .setDebug(dataContext.useDebug())
-        .setThrowOnResourceConflict(dataContext.getAndroidConfig().throwOnResourceConflict())
+        .setThrowOnResourceConflict(dataContext.throwOnResourceConflict())
         .buildWithoutLocalResources(dataContext, manifest, dataBindingContext);
   }
 }

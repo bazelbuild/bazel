@@ -50,8 +50,6 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
-    INCOMPATIBLE_REQUIRE_FEATURE_CONFIGURATION_FOR_PIC(
-        StarlarkSemantics::incompatibleRequireFeatureConfigurationForPic),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -76,22 +74,21 @@ public abstract class StarlarkSemantics {
    * Returns true if a feature attached to the given toggling flags should be enabled.
    *
    * <ul>
-   *   <li>If both parameters are {@code NONE}, this indicates the feature is not
-   *       controlled by flags, and should thus be enabled.</li>
-   *   <li>If the {@code enablingFlag} parameter is non-{@code NONE}, this returns
-   *       true if and only if that flag is true. (This represents a feature that is only on
-   *       if a given flag is *on*).</li>
-   *   <li>If the {@code disablingFlag} parameter is non-{@code NONE}, this returns
-   *       true if and only if that flag is false. (This represents a feature that is only on
-   *       if a given flag is *off*).</li>
-   *   <li>It is illegal to pass both parameters as non-{@code NONE}.</li>
+   *   <li>If both parameters are {@code NONE}, this indicates the feature is not controlled by
+   *       flags, and should thus be enabled.
+   *   <li>If the {@code enablingFlag} parameter is non-{@code NONE}, this returns true if and only
+   *       if that flag is true. (This represents a feature that is only on if a given flag is
+   *       *on*).
+   *   <li>If the {@code disablingFlag} parameter is non-{@code NONE}, this returns true if and only
+   *       if that flag is false. (This represents a feature that is only on if a given flag is
+   *       *off*).
+   *   <li>It is illegal to pass both parameters as non-{@code NONE}.
    * </ul>
    */
   public boolean isFeatureEnabledBasedOnTogglingFlags(
-      FlagIdentifier enablingFlag,
-      FlagIdentifier disablingFlag) {
-    Preconditions.checkArgument(enablingFlag == FlagIdentifier.NONE
-        || disablingFlag == FlagIdentifier.NONE,
+      FlagIdentifier enablingFlag, FlagIdentifier disablingFlag) {
+    Preconditions.checkArgument(
+        enablingFlag == FlagIdentifier.NONE || disablingFlag == FlagIdentifier.NONE,
         "at least one of 'enablingFlag' or 'disablingFlag' must be NONE");
     if (enablingFlag != FlagIdentifier.NONE) {
       return enablingFlag.semanticsFunction.apply(this);
@@ -115,8 +112,6 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
-  public abstract boolean checkThirdPartyTargetsHaveLicenses();
-
   public abstract boolean experimentalBuildSettingApi();
 
   public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
@@ -131,8 +126,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalStarlarkConfigTransitions();
 
-  public abstract String experimentalTransitionWhitelistLocation();
-
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetIsNotIterable();
@@ -144,8 +137,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDisableDeprecatedAttrParams();
 
   public abstract boolean incompatibleDisableObjcProviderResources();
-
-  public abstract boolean incompatibleDisallowDataTransition();
 
   public abstract boolean incompatibleDisallowDictPlus();
 
@@ -181,13 +172,13 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
-  public abstract boolean incompatibleRequireFeatureConfigurationForPic();
-
-  public abstract boolean incompatibleStricArgumentOrdering();
+  public abstract boolean incompatibleStringJoinRequiresStrings();
 
   public abstract boolean internalSkylarkFlagTestCanary();
 
   public abstract boolean incompatibleUseToolchainProvidersInJavaCommon();
+
+  public abstract boolean incompatibleDoNotSplitLinkingCmdline();
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
@@ -204,7 +195,6 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
-          .checkThirdPartyTargetsHaveLicenses(true)
           .experimentalBuildSettingApi(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableAndroidMigrationApis(false)
@@ -212,35 +202,33 @@ public abstract class StarlarkSemantics {
           .experimentalPlatformsApi(false)
           .experimentalRestrictNamedParams(false)
           .experimentalStarlarkConfigTransitions(false)
-          .experimentalTransitionWhitelistLocation("")
-          .incompatibleUseToolchainProvidersInJavaCommon(false)
-          .incompatibleBzlDisallowLoadAfterStatement(false)
+          .incompatibleUseToolchainProvidersInJavaCommon(true)
+          .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
-          .incompatibleDisableThirdPartyLicenseChecking(false)
+          .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
-          .incompatibleDisallowDataTransition(true)
           .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowFileType(true)
           .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowLegacyJavaInfo(false)
-          .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(false)
+          .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(true)
           .incompatibleDisallowNativeInBuildFile(false)
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(false)
-          .incompatibleNoAttrLicense(false)
+          .incompatibleNoAttrLicense(true)
           .incompatibleNoOutputAttrDefault(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
-          .incompatibleNoTransitiveLoads(false)
+          .incompatibleNoTransitiveLoads(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
-          .incompatibleRequireFeatureConfigurationForPic(true)
-          .incompatibleStricArgumentOrdering(true)
+          .incompatibleStringJoinRequiresStrings(false)
           .internalSkylarkFlagTestCanary(false)
+          .incompatibleDoNotSplitLinkingCmdline(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -248,8 +236,6 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
-    public abstract Builder checkThirdPartyTargetsHaveLicenses(boolean value);
-
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
@@ -264,8 +250,6 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
-    public abstract Builder experimentalTransitionWhitelistLocation(String value);
-
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
@@ -276,11 +260,7 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
 
-    public abstract Builder incompatibleRequireFeatureConfigurationForPic(boolean value);
-
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
-
-    public abstract Builder incompatibleDisallowDataTransition(boolean value);
 
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
@@ -316,11 +296,13 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
 
-    public abstract Builder incompatibleStricArgumentOrdering(boolean value);
+    public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
     public abstract Builder incompatibleUseToolchainProvidersInJavaCommon(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
+
+    public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
 
     public abstract StarlarkSemantics build();
   }

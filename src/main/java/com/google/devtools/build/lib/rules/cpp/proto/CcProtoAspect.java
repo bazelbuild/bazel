@@ -312,6 +312,24 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               .addQuoteIncludeDirs(cppSemantics.getQuoteIncludes(ruleContext));
       // Don't instrument the generated C++ files even when --collect_code_coverage is set.
       helper.setCodeCoverageEnabled(false);
+
+      String protoRoot = protoInfo.getDirectProtoSourceRoot();
+      PathFragment repositoryRoot =
+          ruleContext.getLabel().getPackageIdentifier().getRepository().getSourceRoot();
+      if (protoRoot.equals(".") || protoRoot.equals(repositoryRoot.getPathString())) {
+        return helper;
+      }
+
+      PathFragment protoRootFragment = PathFragment.create(protoRoot);
+      PathFragment binOrGenfiles = ruleContext.getBinOrGenfilesDirectory().getExecPath();
+      if (protoRootFragment.startsWith(binOrGenfiles)) {
+        protoRootFragment = protoRootFragment.relativeTo(binOrGenfiles);
+      }
+
+      String stripIncludePrefix =
+          PathFragment.create("//").getRelative(protoRootFragment).toString();
+      helper.setStripIncludePrefix(stripIncludePrefix);
+
       return helper;
     }
 
@@ -320,12 +338,19 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcLinkingHelper helper =
           new CcLinkingHelper(
-              ruleContext,
-              cppSemantics,
-              featureConfiguration,
-              toolchain,
-              toolchain.getFdoContext(),
-              ruleContext.getConfiguration());
+                  ruleContext,
+                  ruleContext.getLabel(),
+                  ruleContext,
+                  ruleContext,
+                  cppSemantics,
+                  featureConfiguration,
+                  toolchain,
+                  toolchain.getFdoContext(),
+                  ruleContext.getConfiguration(),
+                  ruleContext.getFragment(CppConfiguration.class),
+                  ruleContext.getSymbolGenerator())
+              .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+              .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget());
       helper.addCcLinkingContexts(CppHelper.getLinkingContextsFromDeps(deps));
       // TODO(dougk): Configure output artifact with action_config
       // once proto compile action is configurable from the crosstool.
@@ -376,13 +401,14 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private void createProtoCompileAction(Collection<Artifact> outputs) {
-      String protoRoot = protoInfo.getDirectProtoSourceRoot();
-      String genfilesPath =
-          ruleContext
-              .getConfiguration()
-              .getGenfilesFragment()
-              .getRelative(protoRoot)
-              .getPathString();
+      PathFragment protoRootFragment = PathFragment.create(protoInfo.getDirectProtoSourceRoot());
+      String genfilesPath;
+      PathFragment genfilesFragment = ruleContext.getConfiguration().getGenfilesFragment();
+      if (protoRootFragment.startsWith(genfilesFragment)) {
+        genfilesPath = protoRootFragment.getPathString();
+      } else {
+        genfilesPath = genfilesFragment.getRelative(protoRootFragment).getPathString();
+      }
 
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
       invocations.add(

@@ -1629,6 +1629,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     }
     assertContainsEvent(
         "cycle detected in extension files: \n"
+            + "    test/skylark/BUILD\n"
             + "    //test/skylark:ext1.bzl\n"
             + ".-> //test/skylark:ext2.bzl\n"
             + "|   //test/skylark:ext3.bzl\n"
@@ -2052,6 +2053,30 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "load('//test:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'r')");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:r");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure failure = info.getCauses().toList().get(0);
+    assertThat(failure.getMessage()).contains("This Is My Failure Message");
+    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
+  }
+
+  @Test
+  public void testAnalysisFailureInfoWithOutput() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "   fail('This Is My Failure Message')",
+        "   return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "    outputs = {'my_output': '%{name}.txt'})");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'custom_rule')", "", "custom_rule(name = 'r')");
 
     useConfiguration("--allow_analysis_failures=true");
 
@@ -2623,7 +2648,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
-    assertContainsEvent("Use of function-based split transition without whitelist");
+    assertContainsEvent("Use of Starlark transition without whitelist");
   }
 
   @Test
@@ -2726,7 +2751,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
                     .getAssociatedRule()
                     .getRuleClassObject()
                     .getAttributeByName("dep")
-                    .getSplitTransitionProviderForTesting())
+                    .getTransitionFactory())
             .getStarlarkDefinedConfigTransitionForTesting();
 
     StarlarkDefinedConfigTransition attrTransition =
@@ -2782,6 +2807,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     // Note that attr.license is deprecated, and thus this test is subject to imminent removal.
     // (See --incompatible_no_attr_license). However, this verifies that until the attribute
     // is removed, values of the attribute are a valid Starlark type.
+    setSkylarkSemanticsOptions("--incompatible_no_attr_license=false");
     scratch.file(
         "test/rule.bzl",
         "def _my_rule_impl(ctx): ",
@@ -2797,6 +2823,26 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     getConfiguredTarget("//test:test");
 
     assertContainsEvent("<license object>");
+  }
+
+  @Test
+  public void testNativeModuleFields() throws Exception {
+    // Check that
+    scratch.file(
+        "test/file.bzl",
+        "def valid(s):",
+        "    if not s[0].isalpha(): return False",
+        "    for c in s.elems():",
+        "        if not (c.isalpha() or c == '_' or c.isdigit()): return False",
+        "    return True",
+        "",
+        "bad_names = [name for name in dir(native) if not valid(name)]",
+        "print('bad_names =', bad_names)");
+    scratch.file("test/BUILD", "load('//test:file.bzl', 'bad_names')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:anything");
+    assertContainsEvent("bad_names = []");
   }
 
   @Test

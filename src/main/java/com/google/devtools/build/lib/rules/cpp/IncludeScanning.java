@@ -47,6 +47,6 @@ public class IncludeScanning implements IncludeProcessing {
         includeScanningHeaderData,
         action,
         actionExecutionContext,
-        actionExecutionContext.getInputPath(action.getSourceFile()).getPathString());
+        action.getSourceFile().getExecPathString());
   }
 }

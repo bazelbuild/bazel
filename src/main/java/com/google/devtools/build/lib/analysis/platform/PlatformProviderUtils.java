@@ -59,6 +59,11 @@ public class PlatformProviderUtils {
     return target.get(ConstraintValueInfo.PROVIDER);
   }
 
+  /** Returns if a target provides {@link ConstraintValueInfo}. * */
+  public static boolean hasConstraintValue(ProviderCollection target) {
+    return target.get(ConstraintValueInfo.PROVIDER) != null;
+  }
+
   /** Retrieves and casts {@link ConstraintValueInfo} providers from the given targets. */
   public static Iterable<ConstraintValueInfo> constraintValues(
       Iterable<? extends ProviderCollection> targets) {

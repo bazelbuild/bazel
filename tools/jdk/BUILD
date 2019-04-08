@@ -1,17 +1,22 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
-    "java_runtime_files",
     "JDK8_JVM_OPTS",
     "bootclasspath",
+    "default_java_toolchain",
+    "java_runtime_files",
 )
 load(
     "//tools/jdk:java_toolchain_alias.bzl",
-    "java_toolchain_alias",
-    "java_runtime_alias",
     "java_host_runtime_alias",
-    "legacy_java_toolchain_alias",
+    "java_runtime_alias",
+    "java_toolchain_alias",
     "legacy_java_runtime_alias",
+    "legacy_java_toolchain_alias",
+)
+load(
+    "//tools/jdk:remote_java_tools_aliases.bzl",
+    "remote_java_tools_filegroup",
+    "remote_java_tools_java_import",
 )
 
 package(default_visibility = ["//visibility:public"])
@@ -126,12 +131,9 @@ alias(
 # On Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent. Thus, we create a little filegroup that
 # contains the appropriate platform-dependent file.
-filegroup(
+remote_java_tools_filegroup(
     name = "ijar",
-    srcs = select({
-        "//src/conditions:remote": ["//third_party/ijar:ijar"],
-        "//conditions:default": glob(["ijar/*"]),
-    }),
+    target = ":ijar",
 )
 
 # On Windows, Java implementation of singlejar is used. We create a little
@@ -148,101 +150,101 @@ filegroup(
     }),
 )
 
-exports_files(["BUILD.pkg"])
+exports_files(["BUILD.java_tools"])
 
-filegroup(
+remote_java_tools_filegroup(
     name = "genclass",
-    srcs = ["@remote_java_tools//:GenClass"],
+    target = ":GenClass",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "GenClass_deploy.jar",
-    srcs = ["@remote_java_tools//:java_tools/GenClass_deploy.jar"],
+    target = ":java_tools/GenClass_deploy.jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "bazel-singlejar_deploy.jar",
-    srcs = ["@remote_java_tools//:java_tools/bazel-singlejar_deploy.jar"],
+    target = ":java_tools/bazel-singlejar_deploy.jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "turbine",
-    srcs = ["@remote_java_tools//:Turbine"],
+    target = ":Turbine",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "turbine_deploy.jar",
-    srcs = ["@remote_java_tools//:java_tools/turbine_deploy.jar"],
+    target = ":java_tools/turbine_deploy.jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "turbine_direct",
-    srcs = ["@remote_java_tools//:TurbineDirect"],
+    target = ":TurbineDirect",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "turbine_direct_binary_deploy.jar",
-    srcs = ["@remote_java_tools//:java_tools/turbine_direct_binary_deploy.jar"],
+    target = ":java_tools/turbine_direct_binary_deploy.jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "javabuilder",
-    srcs = ["@remote_java_tools//:JavaBuilder"],
+    target = ":JavaBuilder",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "JavaBuilder_deploy.jar",
-    srcs = ["@remote_java_tools//:java_tools/JavaBuilder_deploy.jar"],
+    target = ":java_tools/JavaBuilder_deploy.jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "vanillajavabuilder",
-    srcs = ["@remote_java_tools//:VanillaJavaBuilder"],
+    target = ":VanillaJavaBuilder",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "javac_jar",
-    srcs = ["@remote_java_tools//:javac_jar"],
+    target = ":javac_jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "jdk_compiler_jar",
-    srcs = ["@remote_java_tools//:jdk_compiler_jar"],
+    target = ":jdk_compiler_jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "java_compiler_jar",
-    srcs = ["@remote_java_tools//:java_compiler_jar"],
+    target = ":java_compiler_jar",
 )
 
-java_import(
+remote_java_tools_java_import(
     name = "JacocoCoverageRunner",
-    jars = ["@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar"],
+    target = ":java_tools/JacocoCoverage_jarjar_deploy.jar",
 )
 
-java_import(
+remote_java_tools_java_import(
     name = "JacocoCoverage",
-    jars = ["@remote_java_tools//:java_tools/JacocoCoverage_jarjar_deploy.jar"],
+    target = ":java_tools/JacocoCoverage_jarjar_deploy.jar",
 )
 
-java_import(
+remote_java_tools_java_import(
     name = "TestRunner",
-    jars = ["@remote_java_tools//:java_tools/Runner_deploy.jar"],
+    target = ":java_tools/Runner_deploy.jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "TestRunner_deploy.jar",
-    srcs = ["@remote_java_tools//:java_tools/Runner_deploy.jar"],
+    target = ":java_tools/Runner_deploy.jar",
 )
 
-java_import(
+remote_java_tools_java_import(
     name = "ExperimentalTestRunner",
-    jars = ["@remote_java_tools//:java_tools/ExperimentalRunner_deploy.jar"],
+    target = ":java_tools/ExperimentalRunner_deploy.jar",
 )
 
-filegroup(
+remote_java_tools_filegroup(
     name = "ExperimentalRunner_deploy.jar",
-    srcs = ["@remote_java_tools//:java_tools/ExperimentalRunner_deploy.jar"],
+    target = ":java_tools/ExperimentalRunner_deploy.jar",
 )
 
 BOOTCLASS_JARS = [
@@ -359,6 +361,8 @@ RELEASES = (8, 9)
 filegroup(
     name = "srcs",
     srcs = [
+        "BUILD.java_langtools",
+        "BUILD.java_tools",
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
@@ -366,6 +370,7 @@ filegroup(
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",
+        "remote_java_tools_aliases.bzl",
         "toolchain_utils.bzl",
     ],
 )
@@ -400,9 +405,9 @@ alias(
     actual = "//third_party/java/jacoco:blaze-agent",
 )
 
-java_import(
+remote_java_tools_java_import(
     name = "JarJar",
-    jars = [":jarjar_command_deploy.jar"],
+    target = ":JarJar",
 )
 
 test_suite(

@@ -1,0 +1,41 @@
+#!/bin/sh -eu
+
+# Use /bin/sh rather than /bin/bash for portability. See discussion here:
+# https://groups.google.com/forum/?nomobile=true#!topic/bazel-dev/4Ql_7eDcLC0
+# We do lose the ability to set -o pipefail.
+
+# TODO(#7843): integration tests for failure to find python / wrong version
+# found / error while trying to print version
+
+GENERAL_FAILURE_MESSAGE="Error: The default python toolchain \
+(@bazel_tools//tools/python:autodetecting_toolchain) was unable to locate a \
+suitable Python interpreter on the target platform at execution time. Please \
+register an appropriate Python toolchain. See the documentation for \
+py_runtime_pair here:
+https://github.com/bazelbuild/bazel/blob/master/tools/python/toolchain.bzl."
+
+# Try the "python%VERSION%" command name first, then fall back on "python".
+PYTHON_BIN=`which python%VERSION% || echo ""`
+USED_FALLBACK=0
+if [ -z "${PYTHON_BIN:-}" ]; then
+    PYTHON_BIN=`which python || echo ""`
+    USED_FALLBACK=1
+fi
+if [ -z "${PYTHON_BIN:-}" ]; then
+    echo "$GENERAL_FAILURE_MESSAGE"
+    echo "Failure reason: Cannot locate 'python%VERSION%' or 'python' on the \
+target platform's PATH, which is:
+$PATH"
+    exit 1
+fi
+
+# Verify that we grabbed an interpreter with the right version.
+VERSION_STR=`"$PYTHON_BIN" -V 2>&1`
+if ! echo "$VERSION_STR" | grep -q " %VERSION%\." ; then
+    echo "$GENERAL_FAILURE_MESSAGE"
+    echo "Failure reason: According to '$PYTHON_BIN -V', version is \
+'$VERSION_STR', but we need version %VERSION%"
+    exit 1
+fi
+
+exec "$PYTHON_BIN" "$@"

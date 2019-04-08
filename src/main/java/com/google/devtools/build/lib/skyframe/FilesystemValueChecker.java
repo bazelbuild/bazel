@@ -26,6 +26,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
@@ -80,7 +81,7 @@ public class FilesystemValueChecker {
   private static final Predicate<SkyKey> ACTION_FILTER =
       SkyFunctionName.functionIs(SkyFunctions.ACTION_EXECUTION);
 
-  private final TimestampGranularityMonitor tsgm;
+  @Nullable private final TimestampGranularityMonitor tsgm;
   @Nullable
   private final Range<Long> lastExecutionTimeRange;
   private AtomicInteger modifiedOutputFilesCounter = new AtomicInteger(0);
@@ -398,8 +399,8 @@ public class FilesystemValueChecker {
     try {
       Set<PathFragment> currentDirectoryValue =
           TreeArtifactValue.explodeDirectory(artifact.getPath());
-      Set<PathFragment> valuePaths = value.getChildPaths();
-      return !currentDirectoryValue.equals(valuePaths);
+      return !(currentDirectoryValue.isEmpty() && value.isRemote())
+          && !currentDirectoryValue.equals(value.getChildPaths());
     } catch (IOException e) {
       return true;
     }
@@ -417,7 +418,10 @@ public class FilesystemValueChecker {
         try {
           ArtifactFileMetadata fileMetadata =
               ActionMetadataHandler.fileMetadataFromArtifact(file, null, tsgm);
-          if (!fileMetadata.equals(lastKnownData)) {
+          FileArtifactValue fileValue = actionValue.getArtifactValue(file);
+          boolean lastSeenRemotely = (fileValue != null) && fileValue.isRemote();
+          boolean trustRemoteValue = !fileMetadata.exists() && lastSeenRemotely;
+          if (!trustRemoteValue && !fileMetadata.equals(lastKnownData)) {
             updateIntraBuildModifiedCounter(
                 fileMetadata.exists() ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW) : -1,
                 lastKnownData.isSymlink(),

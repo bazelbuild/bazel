@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CROSSTOOL_L
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.BuilderFactoryForTesting;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 
 /**
@@ -118,7 +117,12 @@ public class TestConstants {
    * some reason.
    */
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
-      ImmutableList.of();
+      ImmutableList.of(
+          // TODO(#7903): Remove once our own tests are migrated.
+          "--incompatible_py3_is_default=false",
+          "--incompatible_py2_outputs_are_suffixed=false",
+          // TODO(#7849): Remove after flag flip.
+          "--incompatible_use_toolchain_resolution_for_java_rules");
 
   public static final BuilderFactoryForTesting PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING =
       PackageFactoryBuilderFactoryForBazelUnitTests.INSTANCE;
@@ -127,8 +131,10 @@ public class TestConstants {
   public static final String CC_DEPENDENCY_CORRECTION =
       " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")";
 
+  public static final String PLATFORM_BASE = "@bazel_tools//platforms";
+
   public static final String PLATFORM_LABEL =
-      "@bazel_tools//platforms:host_platform + @bazel_tools//platforms:target_platform";
+      PLATFORM_BASE + ":host_platform + " + PLATFORM_BASE + ":target_platform";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {

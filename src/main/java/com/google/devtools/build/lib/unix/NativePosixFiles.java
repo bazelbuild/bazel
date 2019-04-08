@@ -453,18 +453,32 @@ public final class NativePosixFiles {
   }
 
   /**
-   * Removes entire directory tree. Doesn't follow symlinks.
+   * Deletes all directory trees recursively beneath the given path, which is expected to be a
+   * directory. Does not remove the top directory.
    *
-   * @param path the file or directory to remove.
-   * @throws IOException if the remove failed.
+   * @param dir the directory hierarchy to remove
+   * @throws IOException if the hierarchy cannot be removed successfully or if the given path is not
+   *     a directory
    */
-  public static void rmTree(String path) throws IOException {
-    if (isDirectory(path)) {
-      String[] contents = readdir(path);
-      for (String entry : contents) {
-        rmTree(path + "/" + entry);
-      }
-    }
-    remove(path.toString());
-  }
+  public static native void deleteTreesBelow(String dir) throws IOException;
+
+  /**
+   * Open a file descriptor for writing.
+   *
+   * <p>This is a low level API. The caller is responsible for calling {@link close} on the returned
+   * file descriptor.
+   *
+   * @param path file to open
+   * @param append whether to open is append mode
+   */
+  public static native int openWrite(String path, boolean append) throws FileNotFoundException;
+
+  /** Write a segment of data to a file descriptor. */
+  public static native int write(int fd, byte[] data, int off, int len) throws IOException;
+
+  /**
+   * Close a file descriptor. Additionally, accept and ignore an object; this can be used to keep a
+   * reference alive.
+   */
+  public static native int close(int fd, Object ignored) throws IOException;
 }

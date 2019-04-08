@@ -50,9 +50,13 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.util.StringActionInput;
+import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -79,8 +83,6 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -195,11 +197,10 @@ public class GrpcRemoteCacheTest {
       creds = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
     }
     RemoteRetrier retrier =
-        new RemoteRetrier(
-            remoteOptions,
+        TestUtils.newRemoteRetrier(
+            () -> new ExponentialBackoff(remoteOptions),
             RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-            retryService,
-            Retrier.ALLOW_ALL_CALLS);
+            retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor()
             .intercept(new CallCredentialsInterceptor(creds)).build());
@@ -214,49 +215,18 @@ public class GrpcRemoteCacheTest {
         uploader);
   }
 
-  static class StringVirtualActionInput implements VirtualActionInput {
-    private final String contents;
-    private final PathFragment execPath;
-
-    StringVirtualActionInput(String contents, PathFragment execPath) {
-      this.contents = contents;
-      this.execPath = execPath;
-    }
-
-    @Override
-    public void writeTo(OutputStream out) throws IOException {
-      out.write(contents.getBytes(StandardCharsets.UTF_8));
-    }
-
-    @Override
-    public ByteString getBytes() throws IOException {
-      ByteString.Output out = ByteString.newOutput();
-      writeTo(out);
-      return out.toByteString();
-    }
-
-    @Override
-    public String getExecPathString() {
-      return execPath.getPathString();
-    }
-
-    @Override
-    public PathFragment getExecPath() {
-      return execPath;
-    }
-  }
-
   @Test
   public void testVirtualActionInputSupport() throws Exception {
     GrpcRemoteCache client = newClient();
-    TreeNodeRepository treeNodeRepository =
-        new TreeNodeRepository(execRoot, fakeFileCache, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
-    VirtualActionInput virtualActionInput = new StringVirtualActionInput("hello", execPath);
+    VirtualActionInput virtualActionInput = new StringActionInput("hello", execPath);
+    MerkleTree merkleTree =
+        MerkleTree.build(
+            ImmutableSortedMap.of(execPath, virtualActionInput),
+            fakeFileCache,
+            execRoot,
+            DIGEST_UTIL);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
-    TreeNode root =
-        treeNodeRepository.buildFromActionInputs(
-            ImmutableSortedMap.of(execPath, virtualActionInput));
 
     // Add a fake CAS that responds saying that the above virtual action input is missing
     serviceRegistry.addService(
@@ -302,13 +272,7 @@ public class GrpcRemoteCacheTest {
         });
 
     // Upload all missing inputs (that is, the virtual action input from above)
-    client.ensureInputsPresent(
-        treeNodeRepository,
-        execRoot,
-        root,
-        Action.getDefaultInstance(),
-        Command.getDefaultInstance());
-    assertThat(writeOccurred.get()).named("WriteOccurred").isTrue();
+    client.ensureInputsPresent(merkleTree, ImmutableMap.of(), execRoot);
   }
 
   @Test
@@ -997,5 +961,148 @@ public class GrpcRemoteCacheTest {
           }
         });
     assertThat(client.getCachedActionResult(actionKey)).isNull();
+  }
+
+  @Test
+  public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
+    final GrpcRemoteCache client = newClient();
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            ByteString data = ByteString.copyFromUtf8("abcdefg");
+            int off = (int) request.getReadOffset();
+            if (off == 0) {
+              data = data.substring(0, 1);
+            } else {
+              data = data.substring(off);
+            }
+            responseObserver.onNext(ReadResponse.newBuilder().setData(data).build());
+            if (off == 0) {
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+            } else {
+              responseObserver.onCompleted();
+            }
+          }
+        });
+    assertThat(new String(getFromFuture(client.downloadBlob(digest)), UTF_8)).isEqualTo("abcdefg");
+  }
+
+  @Test
+  public void downloadBlobPassesThroughDeadlineExceededWithoutProgress()
+      throws IOException, InterruptedException {
+    final GrpcRemoteCache client = newClient();
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            ByteString data = ByteString.copyFromUtf8("abcdefg");
+            if (request.getReadOffset() == 0) {
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(data.substring(0, 2)).build());
+            }
+            responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+          }
+        });
+    try {
+      getFromFuture(client.downloadBlob(digest));
+      fail("Should have thrown an exception.");
+    } catch (IOException e) {
+      Status st = Status.fromThrowable(e);
+      assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
+    }
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenGrpcEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "grpc://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenGrpcEnabledUpperCase() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "GRPC://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenDefaultRemoteCacheEnabledForLocalhost() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "localhost:1234";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenDefaultRemoteCacheEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "some-host.com:1234";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenHttpEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "http://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenHttpEnabledWithUpperCase() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "HTTP://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenHttpsEnabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "https://some-host.com";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenUnknownScheme() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "grp://some-host.com";
+
+    // TODO(ishikhman): add proper vaildation and flip to false
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenUnknownSchemeStartsAsGrpc() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "grpcsss://some-host.com";
+
+    // TODO(ishikhman): add proper vaildation and flip to false
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenEmptyCacheProvided() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteCache = "";
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void isRemoteCacheOptionsWhenRemoteCacheDisabled() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+
+    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
   }
 }

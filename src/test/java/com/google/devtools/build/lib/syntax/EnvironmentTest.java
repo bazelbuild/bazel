@@ -68,7 +68,7 @@ public class EnvironmentTest extends EvaluationTestCase {
       eval("foo");
       fail();
     } catch (EvalException e) {
-      assertThat(e).hasMessage("name 'foo' is not defined");
+      assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
     }
     update("foo", "bar");
     assertThat(eval("foo")).isEqualTo("bar");
@@ -82,7 +82,7 @@ public class EnvironmentTest extends EvaluationTestCase {
       eval("foo");
       fail();
     } catch (EvalException e) {
-      assertThat(e).hasMessage("name 'foo' is not defined");
+      assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
     }
     eval("foo = 'bar'");
     assertThat(eval("foo")).isEqualTo("bar");
@@ -161,7 +161,7 @@ public class EnvironmentTest extends EvaluationTestCase {
       update("some_name", null);
       fail();
     } catch (NullPointerException e) {
-      assertThat(e).hasMessage("trying to assign null to 'some_name'");
+      assertThat(e).hasMessageThat().isEqualTo("trying to assign null to 'some_name'");
     }
   }
 
@@ -188,14 +188,14 @@ public class EnvironmentTest extends EvaluationTestCase {
       env.update("x", 4);
       throw new Exception("failed to fail"); // not an AssertionError like fail()
     } catch (AssertionError e) {
-      assertThat(e).hasMessage("Can't update x to 4 in frozen environment");
+      assertThat(e).hasMessageThat().isEqualTo("Can't update x to 4 in frozen environment");
     }
     try {
       // This update to a new variable should also fail because the environment was frozen.
       env.update("newvar", 5);
       throw new Exception("failed to fail"); // not an AssertionError like fail()
     } catch (AssertionError e) {
-      assertThat(e).hasMessage("Can't update newvar to 5 in frozen environment");
+      assertThat(e).hasMessageThat().isEqualTo("Can't update newvar to 5 in frozen environment");
     }
   }
 

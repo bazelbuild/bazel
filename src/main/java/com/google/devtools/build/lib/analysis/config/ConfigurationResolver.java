@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,7 +41,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
@@ -49,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -125,9 +128,7 @@ public final class ConfigurationResolver {
     // Split transitions may map to multiple values. All other transitions map to one.
     Map<FragmentsAndTransition, List<BuildOptions>> transitionsMap = new LinkedHashMap<>();
 
-    // The fragments used by the current target's configuration.
-    FragmentClassSet ctgFragments = ctgValue.getConfiguration().fragmentClasses();
-    BuildOptions ctgOptions = ctgValue.getConfiguration().getOptions();
+    BuildConfiguration currentConfiguration = ctgValue.getConfiguration();
 
     // Stores the configuration-resolved versions of each dependency. This method must preserve the
     // original label ordering of each attribute. For example, if originalDeps.get("data") is
@@ -157,16 +158,17 @@ public final class ConfigurationResolver {
       Dependency dep = depsEntry.getValue();
       DependencyEdge dependencyEdge = new DependencyEdge(depsEntry.getKey(), dep.getLabel());
       attributesAndLabels.add(dependencyEdge);
-      // Certain targets (like output files) trivially re-use their input configuration. Likewise,
-      // deps with null configurations (e.g. source files), can be trivially computed. So we skip
-      // all logic in this method for these cases and just reinsert their original configurations
-      // when preparing final results. Note that null-configured deps are received with
-      // NullConfigurationDependency instead of
-      // Dependency(label, transition=Attribute.Configuration.Transition.NULL)).
-      //
-      // A *lot* of targets have null deps, so this produces real savings. Profiling tests over a
-      // simple cc_binary show this saves ~1% of total analysis phase time.
-      if (dep.hasExplicitConfiguration()) {
+      // DependencyResolver should never emit a Dependency with an explicit configuration
+      Preconditions.checkState(!dep.hasExplicitConfiguration());
+
+      // The null configuration can be trivially computed (it's, well, null), so special-case that
+      // transition here and skip the rest of the logic. A *lot* of targets have null deps, so
+      // this produces real savings. Profiling tests over a simple cc_binary show this saves ~1% of
+      // total analysis phase time.
+      ConfigurationTransition transition = dep.getTransition();
+      if (transition == NullTransition.INSTANCE) {
+        putOnlyEntry(
+            resolvedDeps, dependencyEdge, Dependency.withNullConfiguration(dep.getLabel()));
         continue;
       }
 
@@ -184,19 +186,20 @@ public final class ConfigurationResolver {
             env, ctgValue, dependencyEdge.dependencyKind.getAttribute(), dep, depFragments);
       }
 
-      boolean sameFragments = depFragments.equals(ctgFragments.fragmentClasses());
-      ConfigurationTransition transition = dep.getTransition();
+      boolean sameFragments =
+          depFragments.equals(currentConfiguration.fragmentClasses().fragmentClasses());
 
       if (sameFragments) {
         if (transition == NoTransition.INSTANCE) {
-          // The dep uses the same exact configuration.
+          // The dep uses the same exact configuration. Let's re-use the current configuration and
+          // skip adding a Skyframe dependency edge on it.
           putOnlyEntry(
               resolvedDeps,
               dependencyEdge,
               Dependency.withConfigurationAndAspects(
                   dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
           continue;
-        } else if (transition == HostTransition.INSTANCE) {
+        } else if (transition.isHostTransition()) {
           // The current rule's host configuration can also be used for the dep. We short-circuit
           // the standard transition logic for host transitions because these transitions are
           // uniquely frequent. It's possible, e.g., for every node in the configured target graph
@@ -215,21 +218,36 @@ public final class ConfigurationResolver {
       FragmentsAndTransition transitionKey = new FragmentsAndTransition(depFragments, transition);
       List<BuildOptions> toOptions = transitionsMap.get(transitionKey);
       if (toOptions == null) {
-        toOptions = applyTransition(ctgOptions, transition, depFragments, ruleClassProvider,
-            !sameFragments);
+        toOptions =
+            applyTransition(
+                currentConfiguration.getOptions(),
+                transition,
+                depFragments,
+                ruleClassProvider,
+                !sameFragments);
         transitionsMap.put(transitionKey, toOptions);
       }
 
+      // Post-process transitions on starlark build settings
+      // TODO(juliexxia): combine these skyframe calls with other skyframe calls for this
+      // configured target.
       try {
-        StarlarkTransition.postProcessStarlarkTransitions(env.getListener(), transition);
+        ImmutableSet<SkyKey> buildSettingPackageKeys =
+            StarlarkTransition.getBuildSettingPackageKeys(transition);
+        Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        StarlarkTransition.validate(transition, buildSettingPackages, toOptions, env.getListener());
       } catch (TransitionException e) {
         throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
       }
 
       // If the transition doesn't change the configuration, trivially re-use the original
       // configuration.
-      if (sameFragments && toOptions.size() == 1
-          && Iterables.getOnlyElement(toOptions).equals(ctgOptions)) {
+      if (sameFragments
+          && toOptions.size() == 1
+          && Iterables.getOnlyElement(toOptions).equals(currentConfiguration.getOptions())) {
         putOnlyEntry(
             resolvedDeps,
             dependencyEdge,
@@ -243,7 +261,8 @@ public final class ConfigurationResolver {
         if (sameFragments) {
           keysToEntries.put(
               BuildConfigurationValue.key(
-                  ctgFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
+                  currentConfiguration.fragmentClasses(),
+                  BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
               depsEntry);
 
         } else {
@@ -292,7 +311,7 @@ public final class ConfigurationResolver {
           Dependency resolvedDep = Dependency.withConfigurationAndAspects(originalDep.getLabel(),
               trimmedConfig.getConfiguration(), originalDep.getAspects());
           Attribute attribute = attr.dependencyKind.getAttribute();
-          if (attribute != null && attribute.hasSplitConfigurationTransition()) {
+          if (attribute != null && attribute.getTransitionFactory().isSplit()) {
             resolvedDeps.put(attr, resolvedDep);
           } else {
             putOnlyEntry(resolvedDeps, attr, resolvedDep);
@@ -555,7 +574,9 @@ public final class ConfigurationResolver {
    *
    * <ol>
    *   <li>Apply the per-target transitions specified in {@code asDeps}. This can be used, e.g., to
-   *       apply {@link RuleTransitionFactory}s over global top-level configurations.
+   *       apply {@link
+   *       com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory}s over global
+   *       top-level configurations.
    *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This is
    *       triggered by {@link BuildConfiguration.Options#trimConfigurations}.
    * </ol>
@@ -575,7 +596,6 @@ public final class ConfigurationResolver {
    *     transitions
    * @param eventHandler the error event handler
    * @param skyframeExecutor the executor used for resolving Skyframe keys
-   * @throws TransitionException if there was an issue applying a Starlark-defined transition
    */
   // TODO(bazel-team): error out early for targets that fail - failed configuration evaluations
   //   should never make it through analysis (and especially not seed ConfiguredTargetValues)
@@ -586,8 +606,7 @@ public final class ConfigurationResolver {
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
-      SkyframeExecutor skyframeExecutor)
-      throws TransitionException {
+      SkyframeExecutor skyframeExecutor) {
 
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
     for (TargetAndConfiguration targetAndConfig : defaultContext) {

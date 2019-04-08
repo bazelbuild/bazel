@@ -14,15 +14,17 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
+
 import com.google.common.base.Optional;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.io.OutputStream;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -68,15 +70,7 @@ public abstract class CompressedTarFunction implements Decompressor {
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
             PathFragment linkName = PathFragment.create(entry.getLinkName());
-            boolean wasAbsolute = linkName.isAbsolute();
-            // Strip the prefix from the link path if set.
-            linkName =
-                StripPrefixedPath.maybeDeprefix(linkName.getPathString(), prefix).getPathFragment();
-            if (wasAbsolute) {
-              // Recover the path to an absolute path as maybeDeprefix() relativize the path
-              // even if the prefix is not set
-              linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
-            }
+            linkName = maybeDeprefixSymlink(linkName, prefix, descriptor.repositoryPath());
             if (filename.exists()) {
               filename.delete();
             }
@@ -87,8 +81,9 @@ public abstract class CompressedTarFunction implements Decompressor {
                   filename, descriptor.repositoryPath().getRelative(linkName));
             }
           } else {
-            Files.copy(
-                tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
+            try (OutputStream out = filename.getOutputStream()) {
+              ByteStreams.copy(tarStream, out);
+            }
             filename.chmod(entry.getMode());
 
             // This can only be done on real files, not links, or it will skip the reader to

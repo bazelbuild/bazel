@@ -51,6 +51,7 @@ public final class BuilderRunner {
   private int errorCode = 0;
   private List<String> flags;
   private boolean shouldFail;
+  private boolean enableDebug;
 
   /**
    * Creates the BuilderRunner
@@ -128,6 +129,17 @@ public final class BuilderRunner {
   public BuilderRunner withTimeout(long timeoutMillis) {
     Preconditions.checkState(this.timeoutMillis > 0);
     this.timeoutMillis = timeoutMillis;
+    return this;
+  }
+
+  /**
+   * Should be used ONLY FOR TESTS DEBUG. Adds "--host_jvm_debug" to the Bazel startup options, so
+   * that the JVM waits for the debugger process to connect before executing any code.
+   *
+   * @return this BuilderRunner instance
+   */
+  public BuilderRunner enableDebug() {
+    this.enableDebug = true;
     return this;
   }
 
@@ -225,6 +237,22 @@ public final class BuilderRunner {
   }
 
   /**
+   * Runs <code>bazel query &lt;args&gt;</code> and returns the result. Asserts that the process
+   * exit code is zero. Does not assert that the error stream is empty.
+   *
+   * @param args arguments to pass to query command
+   * @return ProcessResult with process exit code, strings with stdout and error streams contents
+   * @throws TimeoutException in case of timeout
+   * @throws IOException in case of the process startup/interaction problems
+   * @throws InterruptedException if the current thread is interrupted while waiting
+   * @throws ProcessRunnerException if the process return code is not zero or error stream is not
+   *     empty when it was expected
+   */
+  public ProcessResult query(String... args) throws Exception {
+    return runBinary("query", args);
+  }
+
+  /**
    * Runs <code>bazel run &lt;args&gt;</code> and returns the result. Asserts that the process exit
    * code is zero. Does not assert that the error stream is empty.
    *
@@ -266,6 +294,11 @@ public final class BuilderRunner {
         list.add("--bazelrc");
         list.add(bazelRc.toAbsolutePath().toString());
       }
+    }
+    if (enableDebug) {
+      list.add("--host_jvm_debug");
+      // 10 min for debug
+      this.flags.add("--max_idle_secs=600");
     }
     list.add(command);
     list.addAll(this.flags);

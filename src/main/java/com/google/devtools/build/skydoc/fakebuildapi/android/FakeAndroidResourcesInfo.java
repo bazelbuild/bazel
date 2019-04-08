@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInf
 import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Fake implementation of {@link AndroidResourcesInfoApi}. */
@@ -139,7 +140,43 @@ public class FakeAndroidResourcesInfo
   }
 
   /** Fake implementation of {@link ValidatedAndroidDataApi}. */
-  public static class FakeValidatedAndroidDataApi implements ValidatedAndroidDataApi {}
+  public static class FakeValidatedAndroidDataApi implements ValidatedAndroidDataApi<FileApi> {
+
+    @Override
+    public FileApi getRTxt() {
+      return null;
+    }
+
+    @Override
+    public FileApi getJavaSourceJar() {
+      return null;
+    }
+
+    @Override
+    public FileApi getApk() {
+      return null;
+    }
+
+    @Override
+    public FileApi getAapt2RTxt() {
+      return null;
+    }
+
+    @Override
+    public FileApi getAapt2SourceJar() {
+      return null;
+    }
+
+    @Override
+    public FileApi getStaticLibrary() {
+      return null;
+    }
+
+    @Override
+    public SkylarkList<FileApi> getResourcesList() {
+      return null;
+    }
+  }
 
   /** Fake implementation of {@link AndroidManifestInfoApi}. */
   public static class FakeAndroidManifestInfoApi implements AndroidManifestInfoApi<FileApi> {

@@ -141,7 +141,7 @@ bool IsSharedLibrary(const string &filename) {
 
 string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
-  string javahome = GetEnv("JAVA_HOME");
+  string javahome = GetPathEnv("JAVA_HOME");
 
   if (!javahome.empty()) {
     string javac = blaze_util::JoinPath(javahome, "bin/javac");
@@ -155,7 +155,8 @@ string GetSystemJavabase() {
   return "/usr/local/openjdk8";
 }
 
-int ConfigureDaemonProcess(posix_spawnattr_t* attrp) {
+int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
+                           const StartupOptions *options) {
   // No interesting platform-specific details to configure on this platform.
   return 0;
 }

@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
 import com.google.devtools.build.lib.profiler.chart.AggregatingChartCreator;
 import com.google.devtools.build.lib.profiler.chart.Chart;
@@ -252,14 +252,15 @@ public class ProfilerChartTest extends FoundationTestCase {
     Profiler profiler = Profiler.instance();
     try (OutputStream out = cacheFile.getOutputStream()) {
       profiler.start(
-          ProfiledTaskKinds.ALL,
+          ImmutableSet.copyOf(ProfilerTask.values()),
           out,
           Profiler.Format.BINARY_BAZEL_FORMAT,
           "basic test",
           false,
           BlazeClock.instance(),
           BlazeClock.instance().nanoTime(),
-          /* enabledCpuUsageProfiling= */ false);
+          /* enabledCpuUsageProfiling= */ false,
+          /* slimProfile= */ false);
 
       // Write from multiple threads to generate multiple rows in the chart.
       for (int i = 0; i < noOfRows; i++) {

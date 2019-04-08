@@ -99,7 +99,9 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
+            new AtomicReference<TimestampGranularityMonitor>(),
+            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
@@ -292,7 +294,8 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(localRepositoryKey)
         .hasExceptionThat()
-        .hasMessage(
+        .hasMessageThat()
+        .isEqualTo(
             "FileSymlinkException while checking if there is a WORKSPACE file in "
                 + "/workspace/local/repo");
   }

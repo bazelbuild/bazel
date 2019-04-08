@@ -107,7 +107,7 @@ public class DexFileAggregatorTest {
     try {
       dexer.close();
     } catch (IllegalStateException e) {
-      assertThat(e).hasMessage("--forceJumbo flag not supported");
+      assertThat(e).hasMessageThat().isEqualTo("--forceJumbo flag not supported");
       System.err.println("Skipping this test due to missing --forceJumbo support in Android SDK.");
       e.printStackTrace();
       return;

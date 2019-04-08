@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkAp
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Iterator;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
@@ -76,7 +75,6 @@ public class JavaToolchainProvider extends ToolchainInfo
       boolean javacSupportsWorkers,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
-      List<String> defaultJavacFlags,
       Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
@@ -111,9 +109,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         timezoneData,
         ijar,
         compatibleJavacOptions,
-        // merges the defaultJavacFlags from
-        // {@link JavaConfiguration} with the flags from the {@code java_toolchain} rule.
-        ImmutableList.<String>builder().addAll(javacOptions).addAll(defaultJavacFlags).build(),
+        javacOptions,
         jvmOptions,
         javacSupportsWorkers,
         packageConfiguration,
@@ -300,8 +296,14 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   /** @return the list of default options for the java compiler */
-  public ImmutableList<String> getJavacOptions() {
-    return javacOptions;
+  public ImmutableList<String> getJavacOptions(RuleContext ruleContext) {
+    ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(javacOptions);
+    if (ruleContext != null) {
+      // TODO(b/78512644): require ruleContext to be non-null after java_common.default_javac_opts
+      // is turned down
+      result.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJavacFlags());
+    }
+    return result.build();
   }
 
   /**
@@ -329,7 +331,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getSourceVersion() {
-    Iterator<String> it = getJavacOptions().iterator();
+    Iterator<String> it = javacOptions.iterator();
     while (it.hasNext()) {
       if (it.next().equals("-source") && it.hasNext()) {
         return it.next();
@@ -342,7 +344,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getTargetVersion() {
-    Iterator<String> it = getJavacOptions().iterator();
+    Iterator<String> it = javacOptions.iterator();
     while (it.hasNext()) {
       if (it.next().equals("-target") && it.hasNext()) {
         return it.next();

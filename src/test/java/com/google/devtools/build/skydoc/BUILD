@@ -45,6 +45,13 @@ skydoc_test(
 )
 
 skydoc_test(
+    name = "repo_rule_test",
+    golden_file = "testdata/repo_rules_test/golden.txt",
+    input_file = "testdata/repo_rules_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
     name = "unknown_name",
     golden_file = "testdata/unknown_name_test/golden.txt",
     input_file = "testdata/unknown_name_test/input.bzl",

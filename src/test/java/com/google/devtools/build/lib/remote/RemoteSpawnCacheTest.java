@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -35,13 +36,16 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -52,12 +56,15 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -69,6 +76,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 import org.junit.Before;
 import org.junit.Test;
@@ -103,6 +111,8 @@ public class RemoteSpawnCacheTest {
 
   private StoredEventHandler eventHandler = new StoredEventHandler();
 
+  private Reporter reporter;
+
   private final SpawnExecutionContext simplePolicy =
       new SpawnExecutionContext() {
         @Override
@@ -111,10 +121,7 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
-        public void prefetchInputs() {
-          // CachedLocalSpawnRunner should never prefetch itself, though the nested SpawnRunner may.
-          throw new UnsupportedOperationException();
-        }
+        public void prefetchInputs() {}
 
         @Override
         public void lockOutputFiles() throws InterruptedException {
@@ -150,13 +157,49 @@ public class RemoteSpawnCacheTest {
         public SortedMap<PathFragment, ActionInput> getInputMapping(
             boolean expandTreeArtifactsInRunfiles) throws IOException {
           return new SpawnInputExpander(execRoot, /*strict*/ false)
-              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, ArtifactPathResolver.IDENTITY,
-                  fakeFileCache, true);
+              .getInputMapping(
+                  simpleSpawn,
+                  SIMPLE_ARTIFACT_EXPANDER,
+                  ArtifactPathResolver.IDENTITY,
+                  fakeFileCache,
+                  true);
         }
 
         @Override
         public void report(ProgressStatus state, String name) {
           progressUpdates.add(Pair.of(state, name));
+        }
+
+        @Override
+        public MetadataInjector getMetadataInjector() {
+          return new MetadataInjector() {
+            @Override
+            public void injectRemoteFile(
+                Artifact output, byte[] digest, long size, int locationIndex) {
+              throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void injectRemoteDirectory(
+                Artifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+              throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void markOmitted(ActionInput output) {
+              throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void addExpandedTreeOutput(TreeFileArtifact output) {
+              throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+              throw new UnsupportedOperationException();
+            }
+          };
         }
       };
 
@@ -184,7 +227,7 @@ public class RemoteSpawnCacheTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    Reporter reporter = new Reporter(new EventBus());
+    reporter = new Reporter(new EventBus());
     eventHandler = new StoredEventHandler();
     reporter.addHandler(eventHandler);
     cache =
@@ -502,5 +545,75 @@ public class RemoteSpawnCacheTest {
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
+  }
+
+  @Test
+  public void failedCacheActionAsCacheMiss() throws Exception {
+    ActionResult actionResult = ActionResult.newBuilder().setExitCode(1).build();
+    when(remoteCache.getCachedActionResult(any(ActionKey.class))).thenReturn(actionResult);
+
+    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
+
+    assertThat(entry.hasResult()).isFalse();
+  }
+
+  @Test
+  public void testDownloadMinimal() throws Exception {
+    // arrange
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    cache =
+        new RemoteSpawnCache(
+            execRoot,
+            remoteOptions,
+            remoteCache,
+            "build-req-id",
+            "command-id",
+            reporter,
+            digestUtil);
+
+    ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
+    when(remoteCache.getCachedActionResult(any())).thenReturn(success);
+
+    // act
+    CacheHandle cacheHandle = cache.lookup(simpleSpawn, simplePolicy);
+
+    // assert
+    assertThat(cacheHandle.hasResult()).isTrue();
+    assertThat(cacheHandle.getResult().exitCode()).isEqualTo(0);
+    verify(remoteCache).downloadMinimal(any(), anyCollection(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testDownloadMinimalIoError() throws Exception {
+    // arrange
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    cache =
+        new RemoteSpawnCache(
+            execRoot,
+            remoteOptions,
+            remoteCache,
+            "build-req-id",
+            "command-id",
+            reporter,
+            digestUtil);
+    IOException downloadFailure = new IOException("downloadMinimal failed");
+
+    ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
+    when(remoteCache.getCachedActionResult(any())).thenReturn(success);
+    when(remoteCache.downloadMinimal(any(), anyCollection(), any(), any(), any(), any()))
+        .thenThrow(downloadFailure);
+
+    // act
+    CacheHandle cacheHandle = cache.lookup(simpleSpawn, simplePolicy);
+
+    // assert
+    assertThat(cacheHandle.hasResult()).isFalse();
+    verify(remoteCache).downloadMinimal(any(), anyCollection(), any(), any(), any(), any());
+    assertThat(eventHandler.getEvents().size()).isEqualTo(1);
+    Event evt = eventHandler.getEvents().get(0);
+    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
+    assertThat(evt.getMessage()).contains(downloadFailure.getMessage());
   }
 }

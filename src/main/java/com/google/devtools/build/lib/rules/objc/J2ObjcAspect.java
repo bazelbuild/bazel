@@ -154,7 +154,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addRequiredToolchains(ccToolchainType)
         .add(
             attr("$j2objc", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(
                     Label.parseAbsoluteUnchecked(
@@ -162,7 +162,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(
             attr("$j2objc_wrapper", LABEL)
                 .allowedFileTypes(FileType.of(".py"))
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .singleArtifact()
                 .value(
@@ -171,7 +171,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(
             attr("$j2objc_header_map", LABEL)
                 .allowedFileTypes(FileType.of(".py"))
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .singleArtifact()
                 .value(
@@ -179,11 +179,20 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//tools/j2objc:j2objc_header_map")))
         .add(
             attr("$jre_emul_jar", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(
                     Label.parseAbsoluteUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
-        .add(attr(":dead_code_report", LABEL).cfg(HostTransition.INSTANCE).value(DEAD_CODE_REPORT))
+        .add(
+            attr("$jre_emul_module", LABEL)
+                .cfg(HostTransition.createFactory())
+                .value(
+                    Label.parseAbsoluteUnchecked(
+                        toolsRepository + "//third_party/java/j2objc:jre_emul_module")))
+        .add(
+            attr(":dead_code_report", LABEL)
+                .cfg(HostTransition.createFactory())
+                .value(DEAD_CODE_REPORT))
         .add(
             attr("$jre_lib", LABEL)
                 .value(
@@ -191,12 +200,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//third_party/java/j2objc:jre_core_lib")))
         .add(
             attr("$xcrunwrapper", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/objc:xcrunwrapper")))
         .add(
             attr(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/objc:libtool")))
         .add(
@@ -207,7 +216,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .value(AppleToolchain.getXcodeConfigLabel(toolsRepository)))
         .add(
             attr("$zipper", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/zip:zipper")))
         .add(
@@ -520,6 +529,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Artifact bootclasspathJar = ruleContext.getPrerequisiteArtifact("$jre_emul_jar", Mode.HOST);
     argBuilder.addFormatted("-Xbootclasspath:%s", bootclasspathJar);
 
+    // A valid Java system module contains 3 files. The top directory contains a file "release".
+    ImmutableList<Artifact> moduleFiles =
+        ruleContext.getPrerequisiteArtifacts("$jre_emul_module", Mode.HOST).list();
+    for (Artifact a : moduleFiles) {
+      if (a.getFilename().equals("release")) {
+        argBuilder.add("--system", a.getDirname());
+        break;
+      }
+    }
+
     Artifact deadCodeReport = ruleContext.getPrerequisiteArtifact(":dead_code_report", Mode.HOST);
     if (deadCodeReport != null) {
       argBuilder.addExecPath("--dead-code-report", deadCodeReport);
@@ -541,6 +560,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", Mode.HOST))
             .addInput(j2ObjcDeployJar)
             .addInput(bootclasspathJar)
+            .addInputs(moduleFiles)
             .addInputs(sources)
             .addInputs(sourceJars)
             .addTransitiveInputs(compileTimeJars)

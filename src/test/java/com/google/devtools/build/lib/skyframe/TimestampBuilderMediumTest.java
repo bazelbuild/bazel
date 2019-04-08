@@ -419,7 +419,9 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
       createCache();
       fail("Expected IOException");
     } catch (IOException e) {
-      assertThat(e).hasMessage("Failed action cache referential integrity check: empty index");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Failed action cache referential integrity check: empty index");
     }
 
     buildArtifacts(persistentBuilder(createCache()), hello);

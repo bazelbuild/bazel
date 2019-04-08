@@ -46,7 +46,7 @@ class OutputJar {
   // own the instance of the combiner and will delete it on self destruction.
   void ExtraCombiner(const std::string& entry_name, Combiner *combiner);
   // Additional file handler to be redefined by a subclass.
-  virtual void ExtraHandler(const CDH *entry,
+  virtual void ExtraHandler(const std::string &input_jar_path, const CDH *entry,
                             const std::string *input_jar_aux_label);
   // Return jar path.
   const char *path() const { return options_->output_jar.c_str(); }

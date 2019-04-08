@@ -58,10 +58,17 @@ class CorePackageRenamer extends ClassRemapper {
       remapper.didSomething = false;
       super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
       // TODO(b/79121791): Make this more precise: look for all unsupported core library members
-      checkState(!remapper.didSomething
-          || !owner.startsWith("android/") || owner.startsWith("android/support/"),
+      checkState(
+          !remapper.didSomething
+              || !owner.startsWith("android/")
+              || owner.startsWith("android/arch/")
+              || owner.startsWith("android/support/"),
           "%s calls %s.%s%s which is not supported with core library desugaring. Please file "
-              + "a feature request to support this method", internalName, owner, name, descriptor);
+              + "a feature request to support this method",
+          internalName,
+          owner,
+          name,
+          descriptor);
     }
 
     @Override
@@ -70,10 +77,17 @@ class CorePackageRenamer extends ClassRemapper {
       remapper.didSomething = false;
       super.visitFieldInsn(opcode, owner, name, descriptor);
       // TODO(b/79121791): Make this more precise: look for all unsupported core library members
-      checkState(!remapper.didSomething
-              || !owner.startsWith("android/") || owner.startsWith("android/support/"),
+      checkState(
+          !remapper.didSomething
+              || !owner.startsWith("android/")
+              || owner.startsWith("android/arch/")
+              || owner.startsWith("android/support/"),
           "%s accesses %s.%s: %s which is not supported with core library desugaring. Please file "
-              + "a feature request to support this field", internalName, owner, name, descriptor);
+              + "a feature request to support this field",
+          internalName,
+          owner,
+          name,
+          descriptor);
     }
   }
 

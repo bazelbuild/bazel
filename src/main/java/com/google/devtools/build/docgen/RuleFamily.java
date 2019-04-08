@@ -20,7 +20,6 @@ import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
 import java.util.List;
 
 /**
@@ -37,6 +36,7 @@ public class RuleFamily {
       .addEscapes(new char[] {' ', '/'}, "-")
       .toEscaper();
 
+  private final String summary;
   private final String name;
   private final String id;
 
@@ -48,9 +48,10 @@ public class RuleFamily {
 
   private final ImmutableList<RuleDocumentation> rules;
 
-  RuleFamily(ListMultimap<RuleType, RuleDocumentation> ruleTypeMap, String name) {
+  RuleFamily(ListMultimap<RuleType, RuleDocumentation> ruleTypeMap, String name, String summary) {
     this.name = name;
     this.id = normalize(name);
+    this.summary = summary;
     this.binaryRules = ImmutableList.copyOf(ruleTypeMap.get(RuleType.BINARY));
     this.libraryRules = ImmutableList.copyOf(ruleTypeMap.get(RuleType.LIBRARY));
     this.testRules = ImmutableList.copyOf(ruleTypeMap.get(RuleType.TEST));
@@ -90,6 +91,10 @@ public class RuleFamily {
 
   public String getName() {
     return name;
+  }
+
+  public String getSummary() {
+    return summary;
   }
 
   public String getId() {

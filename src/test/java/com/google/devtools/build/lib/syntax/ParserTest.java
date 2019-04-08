@@ -1495,7 +1495,7 @@ public class ParserTest extends EvaluationTestCase {
         "    *[2],",
         "    *[3],", // error on this line
         ")\n");
-    assertContainsError(":4:5: more than one *stararg");
+    assertContainsError(":4:5: *arg argument is misplaced");
   }
 
   @Test
@@ -1507,7 +1507,7 @@ public class ParserTest extends EvaluationTestCase {
         "    a = 4,",
         "    3,", // error on this line
         ")\n");
-    assertContainsError(":4:5: non-keyword arg after keyword arg");
+    assertContainsError(":4:5: positional argument is misplaced (positional arguments come first)");
   }
 
   @Test

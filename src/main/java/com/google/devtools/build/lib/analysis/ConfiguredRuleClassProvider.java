@@ -29,9 +29,10 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
@@ -52,7 +53,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
@@ -252,7 +252,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         new Digraph<>();
     private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
         new ArrayList<>();
-    @Nullable private RuleTransitionFactory trimmingTransitionFactory;
+    @Nullable private TransitionFactory<Rule> trimmingTransitionFactory;
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
@@ -410,12 +410,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      * feature flags, and support for this transition factory will likely be removed at some point
      * in the future (whenever automatic trimming is sufficiently workable).
      */
-    public Builder addTrimmingTransitionFactory(RuleTransitionFactory factory) {
+    public Builder addTrimmingTransitionFactory(TransitionFactory<Rule> factory) {
+      Preconditions.checkNotNull(factory);
+      Preconditions.checkArgument(!factory.isSplit());
       if (trimmingTransitionFactory == null) {
-        trimmingTransitionFactory = Preconditions.checkNotNull(factory);
+        trimmingTransitionFactory = factory;
       } else {
-        trimmingTransitionFactory = new ComposingRuleTransitionFactory(
-            trimmingTransitionFactory, Preconditions.checkNotNull(factory));
+        trimmingTransitionFactory =
+            ComposingTransitionFactory.of(trimmingTransitionFactory, factory);
       }
       return this;
     }
@@ -423,10 +425,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     /**
      * Overrides the transition factory run over all targets.
      *
-     * @see {@link #addTrimmingTransitionFactory(RuleTransitionFactory)}
+     * @see {@link #addTrimmingTransitionFactory(TransitionFactory<Rule>)}
      */
     @VisibleForTesting(/* for testing trimming transition factories without relying on prod use */ )
-    public Builder overrideTrimmingTransitionFactoryForTesting(RuleTransitionFactory factory) {
+    public Builder overrideTrimmingTransitionFactoryForTesting(TransitionFactory<Rule> factory) {
       trimmingTransitionFactory = null;
       return this.addTrimmingTransitionFactory(factory);
     }
@@ -609,7 +611,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final Map<String, Class<? extends Fragment>> optionsToFragmentMap;
 
   /** The transition factory used to produce the transition that will trim targets. */
-  @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
+  @Nullable private final TransitionFactory<Rule> trimmingTransitionFactory;
 
   /** The predicate used to determine whether a diff requires the cache to be invalidated. */
   private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
@@ -649,7 +651,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
       ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory,
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
@@ -769,12 +771,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /**
    * Returns the transition factory used to produce the transition to trim targets.
    *
-   * <p>This is a temporary measure for supporting manual trimming of feature flags, and support
-   * for this transition factory will likely be removed at some point in the future (whenever
-   * automatic trimming is sufficiently workable
+   * <p>This is a temporary measure for supporting manual trimming of feature flags, and support for
+   * this transition factory will likely be removed at some point in the future (whenever automatic
+   * trimming is sufficiently workable
    */
   @Nullable
-  public RuleTransitionFactory getTrimmingTransitionFactory() {
+  public TransitionFactory<Rule> getTrimmingTransitionFactory() {
     return trimmingTransitionFactory;
   }
 

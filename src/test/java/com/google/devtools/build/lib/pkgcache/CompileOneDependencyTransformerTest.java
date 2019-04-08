@@ -172,9 +172,11 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
       parseCompileOneDep("//foo:missing.cc");
       fail();
     } catch (TargetParsingException e) {
-      assertThat(e).hasMessage(
-          "no such target '//foo:missing.cc': target 'missing.cc' not declared in package 'foo' "
-          + "defined by /workspace/foo/BUILD");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(
+              "no such target '//foo:missing.cc': target 'missing.cc' not declared in package "
+                  + "'foo' defined by /workspace/foo/BUILD");
     }
 
     // Also, try a valid input file which has no dependent rules in its package.
@@ -182,7 +184,9 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
       parseCompileOneDep("//foo:baz/bang");
       fail();
     } catch (TargetParsingException e) {
-      assertThat(e).hasMessage("Couldn't find dependency on target '//foo:baz/bang'");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Couldn't find dependency on target '//foo:baz/bang'");
     }
 
     // Try a header that is in a package but where no cc_library explicitly lists it.
@@ -190,9 +194,10 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
       parseCompileOneDep("//foo/bar:undeclared.h");
       fail();
     } catch (TargetParsingException e) {
-      assertThat(e).hasMessage("Couldn't find dependency on target '//foo/bar:undeclared.h'");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Couldn't find dependency on target '//foo/bar:undeclared.h'");
     }
-
   }
 
   @Test
@@ -202,7 +207,9 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
       parseCompileOneDep("//foo:foo1");
       fail();
     } catch (TargetParsingException e) {
-      assertThat(e).hasMessage("--compile_one_dependency target '//foo:foo1' must be a file");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("--compile_one_dependency target '//foo:foo1' must be a file");
     }
   }
 
@@ -243,7 +250,9 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
       parseCompileOneDep("//recursive:foo");
       fail();
     } catch (TargetParsingException e) {
-      assertThat(e).hasMessage("Couldn't find dependency on target '//recursive:foo'");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Couldn't find dependency on target '//recursive:foo'");
     }
   }
 

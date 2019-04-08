@@ -156,6 +156,10 @@ py_test(
         "//src/conditions:windows": ["test_wrapper_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
+    data = select({
+        "//src/conditions:windows": [":printargs"],
+        "//conditions:default": [],
+    }),
     main = select({
         "//src/conditions:windows": "test_wrapper_test.py",
         "//conditions:default": "empty_test.py",
@@ -164,6 +168,12 @@ py_test(
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
     }),
+)
+
+cc_binary(
+    name = "printargs",
+    testonly = 1,
+    srcs = ["printargs.cc"],
 )
 
 py_test(

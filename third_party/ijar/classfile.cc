@@ -530,7 +530,7 @@ struct InnerClassesAttribute : Attribute {
       iteration += 1;
     } while (entry_count != static_cast<int>(kept_entries.size()));
 
-    if (kept_entries.size() == 0) {
+    if (kept_entries.empty()) {
       return;
     }
 

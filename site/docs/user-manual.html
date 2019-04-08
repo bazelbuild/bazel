@@ -920,15 +920,17 @@ other flags for specifying strategy.
   affect the amount of memory that the Bazel server itself will use.
 </p>
 
-<h4 id='flag--local_resources'><code class='flag'>--local_resources</code> <var>availableRAM,availableCPU,availableIO</var></h4>
+<h4 id='flag--local_{ram,cpu}_resources'><code class='flag'>--local_{ram,cpu}_resources</code>
+  <var>resources or resource expression</var></h4>
 <p>
-  This option, which takes three comma-separated floating point arguments,
-specifies the amount of local resources that Bazel can take into
-consideration when scheduling build and test activities. Option expects amount of
-available RAM (in MB), number of CPU cores (with 1.0 representing single full
-core) and workstation I/O capability (with 1.0 representing average
-workstation). By default Bazel will estimate amount of RAM and number of CPU
-cores directly from system configuration and will assume 1.0 I/O resource.
+  These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
+  that Bazel can take into consideration when scheduling build and test activities. They take
+  an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<float>float</float>]
+  (for example, <code class='flag'>--local_cpu_resources=2</code>,
+  <code class='flag'>--local_ram_resources=HOST_RAM*.5</code>,
+  <code class='flag'>--local_cpu_resources=HOST_CPUS-1</code>).
+  The flags are independent; one or both may be set. By default Bazel will estimate amount of RAM
+  and number of CPU cores directly from system configuration.
 </p>
 <p>
   If this option is used, Bazel will ignore --ram_utilization_factor.

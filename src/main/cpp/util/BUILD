@@ -7,6 +7,8 @@ package_group(
     ],
 )
 
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
 cc_library(
     name = "util",
     hdrs = [
@@ -185,4 +187,35 @@ filegroup(
     name = "embedded_tools",
     srcs = glob(["*.cc"]) + glob(["*.h"]) + ["BUILD"],
     visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "embedded_java_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]) + ["//src/main/native/windows:embedded_java_tools"],
+    visibility = ["//visibility:public"],
+)
+
+# A zip containing source files used by ijar.
+genrule(
+    name = "cpp_util_with_deps_zip",
+    srcs = [
+        ":cpp_util_zip",
+        "//src/main/native/windows:native_windows_zip",
+    ],
+    outs = ["cpp_util_with_deps.zip"],
+    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
+    tools = ["//src:merge_zip_files"],
+    visibility = [
+        "//src/tools/singlejar:__pkg__",
+        "//third_party/ijar:__pkg__",
+    ],
+)
+
+genrule(
+    name = "cpp_util_zip",
+    srcs = glob(["*.cc"]) + glob(["*.h"]),
+    outs = ["cpp_util.zip"],
+    cmd = "$(location //src:zip_files) src/main/cpp/util $@ $(SRCS)",
+    tools = ["//src:zip_files"],
+    visibility = ["//visibility:private"],
 )

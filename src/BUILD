@@ -123,10 +123,8 @@ JAVA_TOOLS = [
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/tools/singlejar:embedded_tools",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-    "//third_party/ijar",
-    "//third_party/ijar:zipper",
-    "//third_party/ijar:embedded_tools",
     "//third_party/java/jacoco:srcs",
+    "//third_party/jarjar:embedded_build_and_license",
 ] + select({
     "//src/conditions:arm": [],
     "//conditions:default": [
@@ -142,7 +140,8 @@ JAVA_TOOLS = [
                "BUILD.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
-               "//third_party/java/java_tools:bazel_embedded_java_tools",
+               "//third_party/ijar:embedded_zipper_sources",
+               "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/concurrent:srcs",
                "//third_party/py/gflags:srcs",
@@ -548,4 +547,84 @@ alias(
     name = "windows",
     actual = "//src/conditions:windows",
     visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "zip_files",
+    srcs = ["zip_files.sh"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "merge_zip_files",
+    srcs = ["merge_zip_files.sh"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "jars_java_tools_zip",
+    srcs = [
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+        "//third_party/java/jdk/langtools:java_compiler_jar",
+        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:jdk_compiler_jar",
+        "//third_party/jarjar:jarjar_command_deploy.jar",
+    ] + select({
+        "//src/conditions:arm": ["//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar"],
+        "//conditions:default": [],
+    }),
+    outs = ["jars_java_tools.zip"],
+    cmd = "zip -q -j $@ $$(echo $(SRCS) | sort)",
+    visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "java_tools_dist",
+    srcs = [
+        "//src/java_tools/buildjar:srcs",
+        "//src/java_tools/junitrunner:srcs",
+        "//src/java_tools/singlejar:srcs",
+        "//src/tools/singlejar:embedded_java_tools",
+        "//third_party/jarjar:srcs",
+        "//third_party/java/jdk/langtools:license-and-srcs",
+        "//third_party/ijar:transitive_sources",
+    ],
+    outs = ["java_tools_dist.zip"],
+    cmd = "zip -Xr $@ $$(echo $(SRCS) | sort)",
+    output_to_bindir = 1,
+)
+
+# Builds the remote Java tools archive. Not embedded or used in Bazel, but used
+# by the Java tools release process.
+genrule(
+    name = "java_tools_zip",
+    srcs = [
+        ":jars_java_tools_zip",
+        "//src/tools/singlejar:singlejar_transitive_zip",
+        "//third_party/ijar:ijar_transitive_zip",
+    ],
+    outs = ["java_tools.zip"],
+    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
+    output_to_bindir = 1,
+    tools = ["//src:merge_zip_files"],
+)
+
+# Part of the Java tools remote archive. Not embedded or used in Bazel.
+genrule(
+    name = "zlib_zip",
+    srcs = ["//third_party/zlib:embedded_tools"],
+    outs = ["zlib.zip"],
+    cmd = "$(location //src:zip_files) zlib $@ $(SRCS)",
+    tools = ["//src:zip_files"],
+    visibility = [
+        "//src/tools/singlejar:__pkg__",
+        "//third_party/ijar:__pkg__",
+    ],
 )

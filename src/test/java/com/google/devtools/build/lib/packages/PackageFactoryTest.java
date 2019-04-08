@@ -356,7 +356,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
       fail();
     } catch (NoSuchTargetException e) {
       assertThat(e)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "no such target '//foo:A': "
                   + "target 'A' not declared in package 'foo' defined by /foo/BUILD");
     }
@@ -367,33 +368,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
       inputFiles.add(inputFile.getName());
     }
     assertThat(Lists.newArrayList(inputFiles)).containsExactly("BUILD", "Z").inOrder();
-  }
-
-  @Test
-  public void testThirdPartyLicenseError() throws Exception {
-    events.setFailFast(false);
-    Path buildFile =
-        scratch.file("/third_party/foo/BUILD", "# line 1", "cc_library(name='bar')", "# line 3");
-    Package pkg =
-        packages.createPackage("third_party/foo", RootedPath.toRootedPath(root, buildFile));
-    events.assertContainsError(
-        "third-party rule '//third_party/foo:bar' lacks a license "
-            + "declaration with one of the following types: "
-            + "notice, reciprocal, permissive, restricted, unencumbered, by_exception_only");
-    assertThat(pkg.containsErrors()).isTrue();
-  }
-
-  @Test
-  public void testThirdPartyLicenseExportsFileError() throws Exception {
-    events.setFailFast(false);
-    Path buildFile = scratch.file("/third_party/foo/BUILD", "exports_files(['bar'])");
-    Package pkg =
-        packages.createPackage("third_party/foo", RootedPath.toRootedPath(root, buildFile));
-    events.assertContainsError(
-        "third-party file 'bar' lacks a license "
-            + "declaration with one of the following types: "
-            + "notice, reciprocal, permissive, restricted, unencumbered, by_exception_only");
-    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
@@ -519,7 +493,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
       fail();
     } catch (NoSuchTargetException e) {
       assertThat(e)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "no such target '//x:y.cc': "
                   + "target 'y.cc' not declared in package 'x'; "
                   + "however, a source file of this name exists.  "
@@ -532,7 +507,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
       fail();
     } catch (NoSuchTargetException e) {
       assertThat(e)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "no such target '//x:z.cc': "
                   + "target 'z.cc' not declared in package 'x' (did you mean 'x.cc'?) "
                   + "defined by /x/BUILD");
@@ -543,7 +519,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
       fail();
     } catch (NoSuchTargetException e) {
       assertThat(e)
-          .hasMessage(
+          .hasMessageThat()
+          .isEqualTo(
               "no such target '//x:dir': target 'dir' not declared in package 'x'; "
                   + "however, a source directory of this name exists.  "
                   + "(Perhaps add 'exports_files([\"dir\"])' to x/BUILD, "
@@ -751,7 +728,9 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
           /* excludeDirs= */ true);
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessage("ERROR /globs/BUILD:2:73: name 'this_will_fail' is not defined");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("ERROR /globs/BUILD:2:73: name 'this_will_fail' is not defined");
     }
   }
 

@@ -59,6 +59,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -148,8 +149,7 @@ import javax.annotation.Nullable;
  */
 public class CompilationSupport {
 
-  @VisibleForTesting
-  static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
+  @VisibleForTesting static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
 
   @VisibleForTesting
   static final String MODULES_CACHE_PATH_WARNING =
@@ -242,16 +242,12 @@ public class CompilationSupport {
           "c-compile",
           "c++-compile");
 
-  /**
-   * Returns the location of the xcrunwrapper tool.
-   */
+  /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
     return ruleContext.getExecutablePrerequisite("$xcrunwrapper", Mode.HOST);
   }
 
-  /**
-   * Returns the location of the libtool tool.
-   */
+  /** Returns the location of the libtool tool. */
   public static final FilesToRunProvider libtool(RuleContext ruleContext) {
     return ruleContext.getExecutablePrerequisite(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, Mode.HOST);
   }
@@ -267,9 +263,7 @@ public class CompilationSupport {
           .withSourceAttributes("srcs", "non_arc_srcs", "hdrs")
           .withDependencyAttributes("deps", "data", "binary", "xctest_app");
 
-  /**
-   * Defines a library that contains the transitive closure of dependencies.
-   */
+  /** Defines a library that contains the transitive closure of dependencies. */
   public static final SafeImplicitOutputsFunction FULLY_LINKED_LIB =
       fromTemplates("%{name}_fully_linked.a");
 
@@ -343,7 +337,8 @@ public class CompilationSupport {
             .setPropagateModuleMapToCompileAction(false)
             .addVariableExtension(extension)
             .setPurpose(purpose)
-            .addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext))
+            .addQuoteIncludeDirs(
+                ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
 
     if (pchHdr != null) {
@@ -425,11 +420,19 @@ public class CompilationSupport {
     CcLinkingHelper resultLink =
         new CcLinkingHelper(
                 ruleContext,
+                ruleContext.getLabel(),
+                ruleContext,
+                ruleContext,
                 semantics,
                 featureConfiguration,
                 ccToolchain,
                 fdoContext,
-                buildConfiguration)
+                buildConfiguration,
+                ruleContext.getFragment(CppConfiguration.class),
+                ruleContext.getSymbolGenerator())
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
             .addCcLinkingContexts(
                 CppHelper.getLinkingContextsFromDeps(
                     ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET))))
@@ -446,7 +449,7 @@ public class CompilationSupport {
     }
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
         Arrays.asList(
@@ -454,16 +457,17 @@ public class CompilationSupport {
             nonObjcArcCompilationInfo.getCcCompilationContext()));
     ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
-    ccCompilationContextBuilder.addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext));
+    ccCompilationContextBuilder.addQuoteIncludeDirs(
+        ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()));
 
     CcCompilationOutputs precompiledFilesObjects =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ false))
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
 
     CcCompilationOutputs.Builder compilationOutputsBuilder =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .merge(objcArcCompilationInfo.getCcCompilationOutputs())
             .merge(nonObjcArcCompilationInfo.getCcCompilationOutputs())
             .merge(precompiledFilesObjects);
@@ -568,19 +572,19 @@ public class CompilationSupport {
     if (objcProvider.is(Flag.USES_OBJC)) {
       activatedCrosstoolSelectables.add(CONTAINS_OBJC);
     }
-    if (toolchain.useFission() && !toolchain.getCppConfiguration().disableLegacyCrosstoolFields()) {
-      activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-    }
-
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
     // particular versions of Xcode. To ensure consistency across platforms, use exactly two
     // components in the version number.
-    activatedCrosstoolSelectables.add(XCODE_VERSION_FEATURE_NAME_PREFIX
-        + XcodeConfig.getXcodeVersion(ruleContext).toStringWithComponents(2));
+    activatedCrosstoolSelectables.add(
+        XCODE_VERSION_FEATURE_NAME_PREFIX
+            + XcodeConfig.getXcodeConfigProvider(ruleContext)
+                .getXcodeVersion()
+                .toStringWithComponents(2));
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
-    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(toolchain));
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
     try {
       return ccToolchain
@@ -592,9 +596,7 @@ public class CompilationSupport {
     }
   }
 
-  /**
-   * Iterable wrapper providing strong type safety for arguments to binary linking.
-   */
+  /** Iterable wrapper providing strong type safety for arguments to binary linking. */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
     ExtraLinkArgs(String... args) {
       super(args);
@@ -605,19 +607,17 @@ public class CompilationSupport {
     }
   }
 
-  /**
-   * Iterable wrapper providing strong type safety for extra compile flags.
-   */
+  /** Iterable wrapper providing strong type safety for extra compile flags. */
   static final class ExtraCompileArgs extends IterableWrapper<String> {
     static final ExtraCompileArgs NONE = new ExtraCompileArgs();
+
     ExtraCompileArgs(String... args) {
       super(args);
     }
   }
 
   @VisibleForTesting
-  static final String FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT =
-      "File '%s' is in both srcs and hdrs.";
+  static final String FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT = "File '%s' is in both srcs and hdrs.";
 
   @VisibleForTesting
   static final String FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT =
@@ -640,25 +640,23 @@ public class CompilationSupport {
           CppFileTypes.CPP_SOURCE,
           CppFileTypes.C_SOURCE);
 
-  /**
-   * Returns information about the given rule's compilation artifacts.
-   */
+  /** Returns information about the given rule's compilation artifacts. */
   // TODO(bazel-team): Remove this information from ObjcCommon and move it internal to this class.
   static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
-    return compilationArtifacts(ruleContext,  ObjcRuleClasses.intermediateArtifacts(ruleContext));
+    return compilationArtifacts(ruleContext, ObjcRuleClasses.intermediateArtifacts(ruleContext));
   }
 
   /**
-   * Returns information about the given rule's compilation artifacts. Dependencies specified
-   * in the current rule's attributes are obtained via {@code ruleContext}. Output locations
-   * are determined using the given {@code intermediateArtifacts} object. The fact that these
-   * are distinct objects allows the caller to generate compilation actions pertaining to
-   * a configuration separate from the current rule's configuration.
+   * Returns information about the given rule's compilation artifacts. Dependencies specified in the
+   * current rule's attributes are obtained via {@code ruleContext}. Output locations are determined
+   * using the given {@code intermediateArtifacts} object. The fact that these are distinct objects
+   * allows the caller to generate compilation actions pertaining to a configuration separate from
+   * the current rule's configuration.
    */
-  static CompilationArtifacts compilationArtifacts(RuleContext ruleContext,
-      IntermediateArtifacts intermediateArtifacts) {
-    PrerequisiteArtifacts srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
-        .errorsForNonMatching(SRCS_TYPE);
+  static CompilationArtifacts compilationArtifacts(
+      RuleContext ruleContext, IntermediateArtifacts intermediateArtifacts) {
+    PrerequisiteArtifacts srcs =
+        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).errorsForNonMatching(SRCS_TYPE);
     return new CompilationArtifacts.Builder()
         .addSrcs(srcs.filter(COMPILABLE_SRCS_TYPE).list())
         .addNonArcSrcs(
@@ -678,7 +676,9 @@ public class CompilationSupport {
 
     ImmutableList.Builder<String> frameworkNames =
         new ImmutableList.Builder<String>()
-            .add(AppleToolchain.sdkFrameworkDir(platform, ruleContext));
+            .add(
+                AppleToolchain.sdkFrameworkDir(
+                    platform, XcodeConfig.getXcodeConfigProvider(ruleContext)));
     // As of sdk8.1, XCTest is in a base Framework dir.
     if (platform.getType() != PlatformType.WATCHOS) { // WatchOS does not have this directory.
       frameworkNames.add(AppleToolchain.platformDeveloperFrameworkDir(platform));
@@ -746,9 +746,11 @@ public class CompilationSupport {
     this.outputGroupCollector = outputGroupCollector;
     this.objectFilesCollector = objectFilesCollector;
     this.usePch = usePch;
-    if (toolchain == null && ruleContext.attributes().has(
-        CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
-      toolchain =  CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    if (toolchain == null
+        && ruleContext
+            .attributes()
+            .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
+      toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     }
 
     this.toolchain = toolchain;
@@ -800,9 +802,7 @@ public class CompilationSupport {
       return this;
     }
 
-    /**
-     * Indicates that this CompilationSupport is for use in a test rule.
-     */
+    /** Indicates that this CompilationSupport is for use in a test rule. */
     public Builder setIsTestRule() {
       this.isTestRule = true;
       return this;
@@ -1095,9 +1095,13 @@ public class CompilationSupport {
   }
 
   private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
-    return Iterables.contains(extraLinkArgs, "-dynamiclib")
-        ? StrippingType.DYNAMIC_LIB
-        : StrippingType.DEFAULT;
+    if (Iterables.contains(extraLinkArgs, "-dynamiclib")) {
+      return StrippingType.DYNAMIC_LIB;
+    }
+    if (Iterables.contains(extraLinkArgs, "-kext")) {
+      return StrippingType.KERNEL_EXTENSION;
+    }
+    return StrippingType.DEFAULT;
   }
 
   /**
@@ -1126,7 +1130,7 @@ public class CompilationSupport {
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
       CcToolchainProvider toolchain)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Iterable<Artifact> prunedJ2ObjcArchives =
         computeAndStripPrunedJ2ObjcArchives(
             j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, objcProvider);
@@ -1169,12 +1173,18 @@ public class CompilationSupport {
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
                 ruleContext,
+                ruleContext,
+                ruleContext.getLabel(),
                 binaryToLink,
+                ruleContext.getConfiguration(),
                 toolchain,
                 fdoContext,
                 getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())
@@ -1298,7 +1308,8 @@ public class CompilationSupport {
    * @param outputArchive the output artifact for this action
    */
   public CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider, Artifact outputArchive) throws InterruptedException {
+      ObjcProvider objcProvider, Artifact outputArchive)
+      throws InterruptedException, RuleErrorException {
     return registerFullyLinkAction(
         objcProvider, outputArchive, toolchain, toolchain.getFdoContext());
   }
@@ -1318,7 +1329,7 @@ public class CompilationSupport {
       Artifact outputArchive,
       @Nullable CcToolchainProvider ccToolchain,
       @Nullable FdoContext fdoContext)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Preconditions.checkNotNull(ccToolchain);
     Preconditions.checkNotNull(fdoContext);
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
@@ -1339,12 +1350,18 @@ public class CompilationSupport {
     CppLinkAction fullyLinkAction =
         new CppLinkActionBuilder(
                 ruleContext,
+                ruleContext,
+                ruleContext.getLabel(),
                 outputArchive,
+                ruleContext.getConfiguration(),
                 ccToolchain,
                 fdoContext,
                 getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
@@ -1553,7 +1570,9 @@ public class CompilationSupport {
 
   /** Signals if stripping should include options for dynamic libraries. */
   private enum StrippingType {
-    DEFAULT, DYNAMIC_LIB
+    DEFAULT,
+    DYNAMIC_LIB,
+    KERNEL_EXTENSION
   }
 
   /**
@@ -1566,11 +1585,19 @@ public class CompilationSupport {
       // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
       // to strip off all symbols in XCTest bundle.
       stripArgs = ImmutableList.of("-S");
-    } else if (strippingType == StrippingType.DYNAMIC_LIB) {
-      // For dynamic libs must pass "-x" to strip only local symbols.
-      stripArgs = ImmutableList.of("-x");
     } else {
-      stripArgs = ImmutableList.<String>of();
+      switch (strippingType) {
+        case DYNAMIC_LIB:
+        case KERNEL_EXTENSION:
+          // For dylibs and kexts, must strip only local symbols.
+          stripArgs = ImmutableList.of("-x");
+          break;
+        case DEFAULT:
+          stripArgs = ImmutableList.<String>of();
+          break;
+        default:
+          throw new IllegalArgumentException("Unsupported stripping type " + strippingType);
+      }
     }
 
     Artifact strippedBinary = intermediateArtifacts.strippedSingleArchitectureBinary();
@@ -1589,7 +1616,7 @@ public class CompilationSupport {
 
   private CompilationSupport registerGenerateUmbrellaHeaderAction(
       Artifact umbrellaHeader, Iterable<Artifact> publicHeaders) {
-     ruleContext.registerAction(
+    ruleContext.registerAction(
         new UmbrellaHeaderAction(
             ruleContext.getActionOwner(),
             umbrellaHeader,
@@ -1633,6 +1660,7 @@ public class CompilationSupport {
 
   /**
    * Registers an action that will generate a clang module map.
+   *
    * @param moduleMap the module map to generate
    * @param publicHeaders the headers that should be directly accessible by dependers
    * @return this compilation support
@@ -1730,31 +1758,37 @@ public class CompilationSupport {
   private void registerHeaderScanningActions(
       CcCompilationOutputs ccCompilationOutputs,
       ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts) {
+      CompilationArtifacts compilationArtifacts)
+      throws RuleErrorException {
     // PIC is not used for Obj-C builds, if that changes this method will need to change
     if (!isHeaderThinningEnabled() || ccCompilationOutputs.getObjectFiles(false).isEmpty()) {
       return;
     }
 
-    ImmutableList.Builder<ObjcHeaderThinningInfo> headerThinningInfos = ImmutableList.builder();
-    AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    for (Artifact objectFile : ccCompilationOutputs.getObjectFiles(false)) {
-      ActionAnalysisMetadata generatingAction =
-          analysisEnvironment.getLocalGeneratingAction(objectFile);
-      if (generatingAction instanceof CppCompileAction) {
-        CppCompileAction action = (CppCompileAction) generatingAction;
-        Artifact sourceFile = action.getSourceFile();
-        if (!sourceFile.isTreeArtifact()
-            && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
-          headerThinningInfos.add(
-              new ObjcHeaderThinningInfo(
-                  sourceFile,
-                  intermediateArtifacts.headersListFile(objectFile),
-                  action.getCompilerOptions()));
+    try {
+      ImmutableList.Builder<ObjcHeaderThinningInfo> headerThinningInfos = ImmutableList.builder();
+      AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
+      for (Artifact objectFile : ccCompilationOutputs.getObjectFiles(false)) {
+        ActionAnalysisMetadata generatingAction =
+            analysisEnvironment.getLocalGeneratingAction(objectFile);
+        if (generatingAction instanceof CppCompileAction) {
+          CppCompileAction action = (CppCompileAction) generatingAction;
+          Artifact sourceFile = action.getSourceFile();
+          if (!sourceFile.isTreeArtifact()
+              && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
+            headerThinningInfos.add(
+                new ObjcHeaderThinningInfo(
+                    sourceFile,
+                    intermediateArtifacts.headersListFile(objectFile),
+                    action.getCompilerOptions()));
+          }
         }
       }
+      registerHeaderScanningActions(
+          headerThinningInfos.build(), objcProvider, compilationArtifacts);
+    } catch (CommandLineExpansionException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
     }
-    registerHeaderScanningActions(headerThinningInfos.build(), objcProvider, compilationArtifacts);
   }
 
   /**
@@ -1809,12 +1843,14 @@ public class CompilationSupport {
             .add("--platform", appleConfiguration.getSingleArchPlatform().getLowerCaseNameInPlist())
             .add(
                 "--sdk_version",
-                XcodeConfig.getSdkVersionForPlatform(
-                        ruleContext, appleConfiguration.getSingleArchPlatform())
+                XcodeConfig.getXcodeConfigProvider(ruleContext)
+                    .getSdkVersionForPlatform(appleConfiguration.getSingleArchPlatform())
                     .toStringWithMinimumComponents(2))
             .add(
                 "--xcode_version",
-                XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2))
+                XcodeConfig.getXcodeConfigProvider(ruleContext)
+                    .getXcodeVersion()
+                    .toStringWithMinimumComponents(2))
             .add("--");
     for (ObjcHeaderThinningInfo info : infos) {
       cmdLine.addFormatted(

@@ -14,6 +14,8 @@
 // Copyright 2017 The Bazel Authors. All rights reserved.
 package com.google.devtools.build.android;
 
+import static java.util.logging.Level.SEVERE;
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
@@ -29,6 +31,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /** Performs resource validation and static linking for compiled android resources. */
@@ -145,6 +148,9 @@ public class ValidateAndLinkResourcesAction {
     public Path sourceJarOut;
   }
 
+  private static final Logger logger =
+      Logger.getLogger(ValidateAndLinkResourcesAction.class.getName());
+
   public static void main(String[] args) throws Exception {
     final OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
@@ -190,6 +196,9 @@ public class ValidateAndLinkResourcesAction {
           .copySourceJarTo(options.sourceJarOut)
           .copyRTxtTo(options.rTxtOut);
       profiler.recordEndOf("link");
+    } catch (Exception e) {
+      logger.log(SEVERE, "Error while validating and linking resources", e);
+      throw e;
     }
   }
 }

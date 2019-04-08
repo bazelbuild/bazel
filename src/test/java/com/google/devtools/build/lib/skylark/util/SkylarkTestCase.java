@@ -168,7 +168,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       evalRuleContextCode(ruleContext, lines);
       fail();
     } catch (EvalException e) {
-      assertThat(e).hasMessage(errorMsg);
+      assertThat(e).hasMessageThat().isEqualTo(errorMsg);
     }
   }
 

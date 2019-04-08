@@ -61,7 +61,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
 
   private static FeatureConfiguration getMockFeatureConfiguration(
       RuleContext ruleContext, String... crosstool) throws Exception {
-    return CcToolchainFeaturesTest.buildFeatures(ruleContext, crosstool)
+    return CcToolchainFeaturesTest.buildFeatures(crosstool)
         .getFeatureConfiguration(
             ImmutableSet.of(
                 CppActionNames.ASSEMBLE,
@@ -99,7 +99,9 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                     "  }",
                     "}"))
             .build();
-    assertThat(compileCommandLine.getArguments(/* overwrittenVariables= */ null))
+    assertThat(
+            compileCommandLine.getArguments(
+                /* parameterFilePath= */ null, /* overwrittenVariables= */ null))
         .contains("-some_foo_flag");
   }
 
@@ -142,7 +144,8 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                     "}"))
             .setCoptsFilter(CoptsFilter.fromRegex(Pattern.compile(".*i_am_a_flag.*")))
             .build();
-    return compileCommandLine.getArguments(/* overwrittenVariables= */ null);
+    return compileCommandLine.getArguments(
+        /* parameterFilePath= */ null, /* overwrittenVariables= */ null);
   }
 
   private CompileCommandLine.Builder makeCompileCommandLineBuilder() throws Exception {

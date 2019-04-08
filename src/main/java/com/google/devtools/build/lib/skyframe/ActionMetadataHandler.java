@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -478,9 +480,35 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+    Preconditions.checkArgument(
+        isKnownOutput(output), output + " is not a declared output of this action");
+    Preconditions.checkArgument(
+        !output.isTreeArtifact(),
+        "injectRemoteFile must not be " + "called on TreeArtifacts '%s'",
+        output);
+    Preconditions.checkState(
+        executionMode.get(), "Tried to inject %s outside of execution", output);
+    store.injectRemoteFile(output, digest, size, locationIndex);
+  }
+
+  @Override
+  public void injectRemoteDirectory(
+      Artifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+    Preconditions.checkArgument(
+        isKnownOutput(output), output + " is not a declared output of this action");
+    Preconditions.checkArgument(output.isTreeArtifact(), "output must be a tree artifact");
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution.", output);
-    store.injectRemoteFile(output, digest, size, locationIndex);
+
+    ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> childFileValues =
+        ImmutableMap.builder();
+    for (Map.Entry<PathFragment, RemoteFileArtifactValue> child : children.entrySet()) {
+      childFileValues.put(
+          ActionInputHelper.treeFileArtifact(output, child.getKey()), child.getValue());
+    }
+
+    TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(childFileValues.build());
+    store.putTreeArtifactData(output, treeArtifactValue);
   }
 
   @Override

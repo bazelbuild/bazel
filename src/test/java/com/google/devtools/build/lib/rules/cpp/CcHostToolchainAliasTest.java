@@ -44,6 +44,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
   public void testThatHostCrosstoolTopCommandLineArgumentWorks() throws Exception {
     scratch.file(
         "b/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain_suite(",
         "  name = 'my_custom_toolchain_suite',",
         "  toolchains = {",
@@ -56,7 +57,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "cc_toolchain(",
         "    name = 'toolchain_b',",
         "    toolchain_identifier = 'mock-llvm-toolchain-k8',",
-        "    cpu = 'ED-E',",
+        "    toolchain_config = ':mock_config',",
         "    all_files = ':banana',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -64,8 +65,10 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "    dwp_files = ':empty',",
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
-        "    objcopy_files = ':empty')");
-    scratch.file("b/CROSSTOOL", MockCcSupport.EMPTY_CROSSTOOL);
+        "    objcopy_files = ':empty')",
+        "cc_toolchain_config(name='mock_config')");
+
+    scratch.file("b/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
 
     scratch.file("a/BUILD", "cc_host_toolchain_alias(name='current_cc_host_toolchain')");
 

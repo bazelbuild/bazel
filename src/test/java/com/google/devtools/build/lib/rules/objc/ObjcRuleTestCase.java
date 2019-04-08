@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
@@ -380,7 +381,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .add(frameworkDir(ApplePlatform.forTarget(PlatformType.IOS, arch)))
             .addAll(frameworkPathFragmentParents.build())
             .add("-Xlinker -objc_abi_version -Xlinker 2")
-            .add("-Xlinker -rpath -Xlinker @executable_path/Frameworks")
             .add("-fobjc-link-runtime")
             .add("-ObjC")
             .addAll(
@@ -412,16 +412,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertAppleSdkVersionEnv(action, DEFAULT_IOS_SDK_VERSION.toString());
   }
 
-  protected void assertAppleSdkVersionEnv(CommandAction action, String versionString) {
+  protected void assertAppleSdkVersionEnv(CommandAction action, String versionString)
+      throws ActionExecutionException {
     assertThat(action.getIncompleteEnvironmentForTesting())
         .containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionString);
   }
 
-  protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName) {
+  protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName)
+      throws ActionExecutionException {
     assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("APPLE_SDK_PLATFORM", platformName);
   }
 
-  protected void assertXcodeVersionEnv(CommandAction action, String versionNumber) {
+  protected void assertXcodeVersionEnv(CommandAction action, String versionNumber)
+      throws ActionExecutionException {
     assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
   }
 
@@ -1039,6 +1042,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected ConfiguredTarget createTargetWithStoryboards(RuleType ruleType) throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=false");
     scratch.file("x/1.storyboard");
     scratch.file("x/2.storyboard");
     scratch.file("x/subdir_for_no_reason/en.lproj/loc.storyboard");
@@ -1049,7 +1053,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
 
   protected void checkProvidesStoryboardObjects(RuleType ruleType) throws Exception {
-    useConfiguration();
     createTargetWithStoryboards(ruleType);
     ObjcProvider provider = providerForTarget("//x:x");
     ImmutableList<Artifact> storyboardInputs = ImmutableList.of(
@@ -2002,6 +2005,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
      *
      * All libraries prefixed with "avoid" shouldn't be statically linked in the top level target.
      */
+    useConfiguration("--incompatible_disable_objc_library_resources=false");
     ruleType.scratchTarget(scratch,
         "deps", "['//package:objcLib']",
         "dylibs", "['//package:avoidLib']");

@@ -6,7 +6,6 @@
 //tools/test:tw_lib
 //tools/test:xml
 //third_party/ijar:zipper
-//third_party/ijar:ijar
 //third_party/ijar:zip
 //third_party/ijar:zlib_client
 //third_party/ijar:platform_utils
@@ -30,7 +29,6 @@
 //src/tools/launcher:launcher_base
 //src/tools/launcher/util:data_parser
 //src/tools/launcher/util:util
-//src/main/native/windows:windows_jni.dll
 //src/main/cpp/util:util
 //src/main/cpp/util:numbers
 //src/main/cpp/util:md5

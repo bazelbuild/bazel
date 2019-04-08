@@ -20,8 +20,8 @@ package com.google.devtools.build.lib.buildeventstream;
  */
 public interface BuildEventContext {
   /**
-   * Return the {@link PathConverter} to be used in order to obtain URIs for the the file paths to
-   * be reported in the event.
+   * Return the {@link PathConverter} to be used in order to obtain URIs for the file paths to be
+   * reported in the event.
    */
   PathConverter pathConverter();
 

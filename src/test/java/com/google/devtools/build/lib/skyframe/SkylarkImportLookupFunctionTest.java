@@ -195,8 +195,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage)
-        .isEqualTo(
-            "Unable to load package for '//pkg:ext.bzl': BUILD file not found on package path");
+        .contains(
+            "Every .bzl file must have a corresponding package, but '//pkg:ext.bzl' does not");
   }
 
   @Test
@@ -211,9 +211,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
-    assertThat(errorMessage)
-        .isEqualTo(
-            "Unable to load package for '//pkg:ext.bzl': BUILD file not found on package path");
+    assertThat(errorMessage).contains("Every .bzl file must have a corresponding package");
   }
 
   @Test
@@ -276,6 +274,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfSamePkg() throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_load_labels_to_cross_package_boundaries");
+
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/BUILD", "");
@@ -314,6 +314,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   @Test
   public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfDifferentPkgUnder()
       throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_load_labels_to_cross_package_boundaries");
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a/b:c/c.bzl', 'c')");
     scratch.file("a/b/BUILD", "");
@@ -355,6 +356,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   @Test
   public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfDifferentPkgAbove()
       throws Exception {
+    setSkylarkSemanticsOptions("--noincompatible_disallow_load_labels_to_cross_package_boundaries");
     scratch.file("a/b/BUILD");
     scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
     scratch.file("a/BUILD");
@@ -477,7 +479,5 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
     assertThat(result.get(skylarkImportLookupKey).getEnvironmentExtension().getBindings())
         .containsEntry("a_symbol", 5);
-    assertThat(result.get(skylarkImportLookupKey).getEnvironmentExtension().getBindings())
-        .containsEntry("y_symbol", 5);
   }
 }

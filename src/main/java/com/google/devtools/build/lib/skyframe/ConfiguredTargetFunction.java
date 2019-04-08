@@ -30,15 +30,14 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformSemantics;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ToolchainResolver;
-import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
+import com.google.devtools.build.lib.analysis.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -68,6 +67,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -270,7 +270,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           getConfigConditions(
               ctgValue.getTarget(),
               env,
-              resolver,
               ctgValue,
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses);
@@ -339,7 +338,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Preconditions.checkNotNull(depValueMap);
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      ToolchainContext toolchainContext = null;
+      ResolvedToolchainContext toolchainContext = null;
       if (unloadedToolchainContext != null) {
         toolchainContext =
             unloadedToolchainContext.load(depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
@@ -395,6 +394,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
                 cause.getMessage(), target.getLabel(), configuration));
+      } else if (e.getCause() instanceof TransitionException) {
+        TransitionException cause = (TransitionException) e.getCause();
+        env.getListener().handle(Event.error(cause.getMessage()));
+        throw new ConfiguredTargetFunctionException(
+            new ConfiguredValueCreationException(e.getMessage(), target.getLabel(), configuration));
       } else {
         // Unknown exception type.
         throw new ConfiguredTargetFunctionException(
@@ -509,16 +513,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
-    if (ctgValue.getConfiguration() != null) {
-      depValueNames =
-          ConfigurationResolver.resolveConfigurations(
-              env,
-              ctgValue,
-              depValueNames,
-              hostConfiguration,
-              ruleClassProvider,
-              defaultBuildOptions);
-    }
+    depValueNames =
+        ConfigurationResolver.resolveConfigurations(
+            env,
+            ctgValue,
+            depValueNames,
+            hostConfiguration,
+            ruleClassProvider,
+            defaultBuildOptions);
 
     // Return early in case packages were not loaded yet. In theory, we could start configuring
     // dependent targets in loaded packages. However, that creates an artificial sync boundary
@@ -572,7 +574,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   static ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions(
       Target target,
       Environment env,
-      SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
       NestedSetBuilder<Cause> transitiveRootCauses)
@@ -580,22 +581,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (!(target instanceof Rule)) {
       return NO_CONFIG_CONDITIONS;
     }
-
-    Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
+    RawAttributeMapper attrs = RawAttributeMapper.of(((Rule) target));
+    if (!attrs.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
+      return NO_CONFIG_CONDITIONS;
+    }
 
     // Collect the labels of the configured targets we need to resolve.
-    OrderedSetMultimap<DependencyKind, Label> configLabelMap = OrderedSetMultimap.create();
-    RawAttributeMapper attributeMap = RawAttributeMapper.of(((Rule) target));
-    for (Attribute a : ((Rule) target).getAttributes()) {
-      for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
-        if (!BuildType.Selector.isReservedLabel(configLabel)) {
-          configLabelMap.put(
-              AttributeDependencyKind.forRule(a),
-              target.getLabel().resolveRepositoryRelative(configLabel));
-        }
-      }
-    }
-    if (configLabelMap.isEmpty()) {
+    List<Label> configLabels =
+        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).stream()
+            .map(configLabel -> target.getLabel().resolveRepositoryRelative(configLabel))
+            .collect(Collectors.toList());
+    if (configLabels.isEmpty()) {
       return NO_CONFIG_CONDITIONS;
     }
 
@@ -604,7 +600,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // (erroneously) something that needs the null configuration, its analysis will be
     // short-circuited. That error will be reported later.
     ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
-    for (Label configurabilityLabel : configLabelMap.values()) {
+    for (Label configurabilityLabel : configLabels) {
       Dependency configurabilityDependency =
           Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
       depsBuilder.add(configurabilityDependency);
@@ -622,6 +618,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (configValues == null) {
       return null;
     }
+
+    Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configConditionDeps) {
@@ -703,11 +701,29 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 aliasDepsToRedo.add(dep);
                 continue;
               } else {
-                pkgValue =
-                    Preconditions.checkNotNull(
-                        (PackageValue) packageResult.get(),
-                        "Package should have been loaded during dep resolution: %s",
-                        dep);
+                pkgValue = (PackageValue) packageResult.get();
+                if (pkgValue == null) {
+                  // In a race, the getValuesOrThrow call above may have retrieved the package
+                  // before it was done but the configured target after it was done. However, the
+                  // configured target being done implies that the package is now done, so we can
+                  // retrieve it from the graph.
+                  pkgValue = (PackageValue) env.getValue(packageKey);
+                  if (pkgValue == null) {
+                    BugReport.sendBugReport(
+                        new IllegalStateException(
+                            "Package should have been loaded during dep resolution: "
+                                + dep
+                                + ", ("
+                                + depValue
+                                + ", "
+                                + packageResult
+                                + ", "
+                                + ctgValue
+                                + ")"));
+                    missedValues = true;
+                    continue;
+                  }
+                }
               }
             } else {
               // We were doing AliasConfiguredTarget mop-up.
@@ -771,7 +787,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext,
+      @Nullable ResolvedToolchainContext toolchainContext,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();

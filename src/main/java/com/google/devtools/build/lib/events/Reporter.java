@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
+import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -24,16 +26,27 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * information and diagnostic information to the user. It is not intended as a logging mechanism for
  * developer-only messages; use a Logger for that.
  *
- * <p>The reporter instance is consumed by the build system, and passes events to {@link
- * EventHandler} instances. These handlers are registered via {@link #addHandler(EventHandler)}. The
- * reporter's main use is in the blaze runtime and its lifetime is the lifetime of the blaze server.
+ * <p>The reporter instance is consumed by the build system, and passes events using {@link
+ * #handle(Event)} or {@link #post(Postable)} to {@link EventHandler} instances. The latter only
+ * occurs to the {@link EventHandler} instances that are also {@link ExtendedEventHandler}
+ * instances. Additionally, when events are passed using {@link #post(Postable)} they are also
+ * posted to the {@link EventBus} registered in this reporter.
+ *
+ * <p>The reporter's main use is in the blaze runtime and its lifetime is the lifetime of the blaze
+ * server.
  *
  * <p>Thread-safe: calls to {@code #report} may be made on any thread. Handlers may be run in an
  * arbitrary thread (but right now, they will not be run concurrently).
  */
 public final class Reporter implements ExtendedEventHandler, ExceptionListener {
 
-  private final ConcurrentLinkedQueue<EventHandler> handlers = new ConcurrentLinkedQueue<>();
+  /** Set of {@link EventHandler} registered in this reporter. */
+  private final ConcurrentLinkedQueue<EventHandler> eventHandlers = new ConcurrentLinkedQueue<>();
+
+  /**
+   * {@link EventBus} registered in this reporter. Calls to {@link #post(Postable)} will propagate
+   * events to the event bus.
+   */
   private EventBus eventBus;
 
   /** An OutErr that sends all of its output to this Reporter.
@@ -44,25 +57,24 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
   private EventHandler ansiAllowingHandler;
   private EventHandler ansiStrippingHandler;
   private boolean ansiAllowingHandlerRegistered;
+  private final HashSet<String> eventsShown = new HashSet<>();
+
+  /**
+   * The tag that indicates to the reporter to suppress this event if it's a duplicate of another
+   * event with this tag.
+   */
+  public static final String SHOW_ONCE_TAG = "showOnce";
 
   public Reporter(EventBus eventBus) {
     this.eventBus = eventBus;
   }
 
-  public static OutErr outErrForReporter(EventHandler rep) {
-    return OutErr.create(
-        // We don't use BufferedOutputStream here, because in general the Blaze
-        // code base assumes that the output streams are not buffered.
-        new ReporterStream(rep, EventKind.STDOUT),
-        new ReporterStream(rep, EventKind.STDERR));
-  }
-
   /**
-   * A copy constructor, to make it convenient to replicate a reporter
-   * config for temporary configuration changes.
+   * A copy constructor, to make it convenient to replicate a reporter config for temporary
+   * configuration changes.
    */
   public Reporter(Reporter template) {
-    handlers.addAll(template.handlers);
+    eventHandlers.addAll(template.eventHandlers);
     this.eventBus = template.eventBus;
   }
 
@@ -74,25 +86,40 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     }
   }
 
+  public static OutErr outErrForReporter(EventHandler rep) {
+    return OutErr.create(
+        // We don't use BufferedOutputStream here, because in general the Blaze
+        // code base assumes that the output streams are not buffered.
+        new ReporterStream(rep, EventKind.STDOUT), new ReporterStream(rep, EventKind.STDERR));
+  }
+
   /**
-   * Returns an OutErr that sends all of its output to this Reporter.
-   * Each write to the OutErr will cause an EventKind.STDOUT or EventKind.STDERR event.
+   * Returns an OutErr that sends all of its output to this Reporter. Each write to the OutErr will
+   * cause an EventKind.STDOUT or EventKind.STDERR event.
    */
   public OutErr getOutErr() {
     return outErrToReporter;
   }
 
-  /** Adds a handler to this reporter. */
+  /** Registers an {@link EventHandler} in this reporter. */
   public void addHandler(EventHandler handler) {
-    handlers.add(Preconditions.checkNotNull(handler));
+    checkNotNull(handler);
+    eventHandlers.add(handler);
   }
 
-  /** Removes handler from this reporter. */
+  /**
+   * Removes an {@link EventHandler} from this reporter. If the handler wasn't registered in this
+   * reporter this method is a no-op.
+   */
   public void removeHandler(EventHandler handler) {
-     handlers.remove(handler);
+    checkNotNull(handler);
+    eventHandlers.remove(handler);
   }
 
-  /** This method is called by the build system to report an event. */
+  /**
+   * Handle the provided {@link Event} using all the {@link EventHandler} registered in this
+   * reporter.
+   */
   @Override
   public void handle(Event e) {
     if (e.getKind() != EventKind.ERROR
@@ -101,15 +128,33 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
         && !showOutput(e.getTag())) {
       return;
     }
-    for (EventHandler handler : handlers) {
+
+    if (SHOW_ONCE_TAG.equals(e.getTag())) {
+      if (eventsShown.contains(e.toString())) {
+        return;
+      }
+      eventsShown.add(e.toString());
+    }
+
+    for (EventHandler handler : eventHandlers) {
       handler.handle(e);
     }
   }
 
+  /**
+   * Post the provided {@link com.google.devtools.build.lib.events.ExtendedEventHandler.Postable} to
+   * the {@link EventBus} and all the {@link ExtendedEventHandler} registered in this reporter.
+   */
   @Override
   public void post(ExtendedEventHandler.Postable obj) {
     if (eventBus != null) {
       eventBus.post(obj);
+    }
+
+    for (EventHandler eventHandler : eventHandlers) {
+      if (eventHandler instanceof ExtendedEventHandler) {
+        ((ExtendedEventHandler) eventHandler).post(obj);
+      }
     }
   }
 

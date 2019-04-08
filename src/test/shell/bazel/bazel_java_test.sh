@@ -178,8 +178,8 @@ def _impl(ctx):
     exports = exports,
     resources = ctx.files.resources,
     strict_deps = "ERROR",
-    java_toolchain = ctx.attr._java_toolchain,
-    host_javabase = ctx.attr._host_javabase
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   return struct(
     files = depset([output_jar]),
@@ -205,6 +205,43 @@ function test_build_hello_world() {
   write_hello_library_files
 
   bazel build //java/main:main &> $TEST_log || fail "build failed"
+}
+
+function test_worker_strategy_is_default() {
+  write_hello_library_files
+
+  bazel build //java/main:main \
+    --incompatible_list_based_execution_strategy_selection &> $TEST_log || fail "build failed"
+  # By default, Java rules use worker strategy
+  expect_log " processes: .*worker"
+}
+function test_strategy_overrides_worker_default() {
+  write_hello_library_files
+
+  bazel build //java/main:main \
+    --incompatible_list_based_execution_strategy_selection \
+    --spawn_strategy=local &> $TEST_log || fail "build failed"
+  # Java rules defaulting to worker do not override the strategy specified on
+  # the cli
+  expect_not_log " processes: .*worker"
+}
+function test_strategy_picks_first_preferred_worker() {
+  write_hello_library_files
+
+  bazel build //java/main:main \
+    --incompatible_list_based_execution_strategy_selection \
+    --spawn_strategy=worker,local &> $TEST_log || fail "build failed"
+  expect_log " processes: .*worker"
+}
+
+function test_strategy_picks_first_preferred_local() {
+  write_hello_library_files
+
+  bazel build //java/main:main \
+    --incompatible_list_based_execution_strategy_selection \
+    --spawn_strategy=local,worker &> $TEST_log || fail "build failed"
+  expect_not_log " processes: .*worker"
+  expect_log " processes: .*local"
 }
 
 # This test builds a simple java deploy jar using remote singlejar and ijar
@@ -334,8 +371,8 @@ def _impl(ctx):
     deps = [],
     sourcepath = ctx.files.sourcepath,
     strict_deps = "ERROR",
-    java_toolchain = ctx.attr._java_toolchain,
-    host_javabase = ctx.attr._host_javabase
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   return struct(
     files = depset([output_jar]),
@@ -411,8 +448,8 @@ def _impl(ctx):
     deps = [],
     sourcepath = ctx.files.sourcepath,
     strict_deps = "ERROR",
-    java_toolchain = ctx.attr._java_toolchain,
-    host_javabase = ctx.attr._host_javabase
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   return struct(
     files = depset([output_jar]),
@@ -534,7 +571,7 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_library(name = "test_runner",
              srcs = ['TestRunner.java'],
-             deps = ['@remote_java_tools//:java_tools/Runner_deploy.jar'],
+             deps = ['@bazel_tools//tools/jdk:TestRunner'],
 )
 
 java_test(name = "Tests",
@@ -1322,8 +1359,8 @@ def _impl(ctx):
     ctx,
     source_files = ctx.files.srcs,
     output = compiled_jar,
-    java_toolchain = ctx.attr._java_toolchain,
-    host_javabase = ctx.attr._host_javabase
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
 
   imported_provider = JavaInfo(output_jar = imported_jar, use_ijar=False);
@@ -1374,7 +1411,7 @@ def _impl(ctx):
   provider = java_common.create_provider(
     ctx.actions,
     compile_time_jars = ctx.files.compile_time_jars,
-    java_toolchain = ctx.attr._java_toolchain
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
   )
   print(provider.compile_jars)
   print(provider.full_compile_jars)
@@ -1449,7 +1486,7 @@ EOF
 def _impl(ctx):
   provider = java_common.create_provider(
     compile_time_jars = ctx.files.compile_time_jars,
-    java_toolchain = ctx.attr._java_toolchain
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
   )
   return DefaultInfo(files = provider.compile_jars)
 
@@ -1486,7 +1523,7 @@ def _impl(ctx):
     output_jar = ctx.file.output_jar,
     source_jars = ctx.files.source_jars,
     use_ijar = True,
-    java_toolchain = ctx.attr._java_toolchain
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
   )
   return [result(property = javaInfo)]
 
@@ -1707,14 +1744,14 @@ def _impl(ctx):
     ctx.actions,
     jar = ctx.file.output_jar,
     target_label = ctx.label,
-    java_toolchain = ctx.attr._java_toolchain,
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
   )
   source_jar = java_common.pack_sources(
     ctx.actions,
     output_jar = ctx.file.output_jar,
     source_jars = ctx.files.source_jars,
-    java_toolchain = ctx.attr._java_toolchain,
-    host_javabase = ctx.attr._host_javabase,
+    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   javaInfo = JavaInfo(
     output_jar = ctx.file.output_jar,

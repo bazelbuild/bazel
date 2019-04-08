@@ -15,16 +15,16 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import java.util.List;
 
-/**
- * Blaze-specific option utilities.
- */
+/** Blaze-specific option utilities. */
 public final class OptionsUtils {
 
   /**
@@ -46,8 +46,8 @@ public final class OptionsUtils {
   }
 
   /**
-   * Returns a string representation of the non-hidden explicitly or implicitly
-   * specified options; option values are shell-escaped.
+   * Returns a string representation of the non-hidden explicitly or implicitly specified options;
+   * option values are shell-escaped.
    */
   public static String asShellEscapedString(OptionsParsingResult options) {
     return asShellEscapedString(options.asCompleteListOfParsedOptions());
@@ -86,32 +86,48 @@ public final class OptionsUtils {
   }
 
   /**
-   * Returns a string representation of the non-hidden explicitly or implicitly
-   * specified options, filtering out any sensitive options; option values are
-   * shell-escaped.
+   * Returns a string representation of the non-hidden explicitly or implicitly specified options,
+   * filtering out any sensitive options; option values are shell-escaped.
    */
   public static String asFilteredShellEscapedString(OptionsParsingResult options) {
     return asFilteredShellEscapedString(options, options.asCompleteListOfParsedOptions());
   }
 
-  /**
-   * Converter from String to PathFragment.
-   */
-  public static class PathFragmentConverter
-      implements Converter<PathFragment> {
+  /** Converter from String to PathFragment. */
+  public static class PathFragmentConverter implements Converter<PathFragment> {
 
     @Override
     public PathFragment convert(String input) {
-      String path = Preconditions.checkNotNull(input);
-      if (!path.isEmpty() && path.startsWith("~/")) {
-        path = path.replace("~", System.getProperty("user.home"));
-      }
-      return PathFragment.create(path);
+      return convertOptionsPathFragment(Preconditions.checkNotNull(input));
     }
 
     @Override
     public String getTypeDescription() {
       return "a path";
+    }
+  }
+
+  /** Converter from String to PathFragment. If the input is empty returns {@code null} instead. */
+  public static class EmptyToNullRelativePathFragmentConverter implements Converter<PathFragment> {
+
+    @Override
+    public PathFragment convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return null;
+      }
+
+      PathFragment pathFragment = convertOptionsPathFragment(input);
+
+      if (pathFragment.isAbsolute()) {
+        throw new OptionsParsingException("Expected relative path but got '" + input + "'.");
+      }
+
+      return pathFragment;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a relative path";
     }
   }
 
@@ -123,10 +139,7 @@ public final class OptionsUtils {
       ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
       for (String piece : input.split(":")) {
         if (!piece.isEmpty()) {
-          if (piece.startsWith("~/")) {
-            piece = piece.replace("~", System.getProperty("user.home"));
-          }
-          result.add(PathFragment.create(piece));
+          result.add(convertOptionsPathFragment(piece));
         }
       }
       return result.build();
@@ -136,5 +149,12 @@ public final class OptionsUtils {
     public String getTypeDescription() {
       return "a colon-separated list of paths";
     }
+  }
+
+  private static PathFragment convertOptionsPathFragment(String path) {
+    if (!path.isEmpty() && path.startsWith("~/")) {
+      path = path.replace("~", StandardSystemProperty.USER_HOME.value());
+    }
+    return PathFragment.create(path);
   }
 }

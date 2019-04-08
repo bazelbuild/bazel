@@ -197,7 +197,8 @@ public class SymbolFamilies {
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     PyBootstrap pyBootstrap =
         new PyBootstrap(new FakePyInfoProvider(), new FakePyRuntimeInfoProvider());
-    RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
+    RepositoryBootstrap repositoryBootstrap =
+        new RepositoryBootstrap(new FakeRepositoryModule(Lists.newArrayList()));
     TestingBootstrap testingBootstrap =
         new TestingBootstrap(
             new FakeTestingModule(),

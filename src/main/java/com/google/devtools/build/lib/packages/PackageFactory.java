@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -239,8 +240,9 @@ public final class PackageFactory {
   }
 
   /**
-   * Declares the package() attribute specifying the default value for
-   * {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} when not explicitly specified.
+   * Declares the package() attribute specifying the default value for {@link
+   * com.google.devtools.build.lib.packages.RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} when not
+   * explicitly specified.
    */
   private static class DefaultCompatibleWith extends PackageArgument<List<Label>> {
     private DefaultCompatibleWith() {
@@ -256,8 +258,9 @@ public final class PackageFactory {
   }
 
   /**
-   * Declares the package() attribute specifying the default value for
-   * {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR} when not explicitly specified.
+   * Declares the package() attribute specifying the default value for {@link
+   * com.google.devtools.build.lib.packages.RuleClass#RESTRICTED_ENVIRONMENT_ATTR} when not
+   * explicitly specified.
    */
   private static class DefaultRestrictedTo extends PackageArgument<List<Label>> {
     private DefaultRestrictedTo() {
@@ -440,7 +443,8 @@ public final class PackageFactory {
   }
 
   /**
-   * Returns the {@link RuleClass} for the specified rule class name.
+   * Returns the {@link com.google.devtools.build.lib.packages.RuleClass} for the specified rule
+   * class name.
    */
   public RuleClass getRuleClass(String ruleClassName) {
     return ruleFactory.getRuleClass(ruleClassName);
@@ -747,9 +751,7 @@ public final class PackageFactory {
             == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
           checkLicenses = false;
         } else {
-          checkLicenses =
-              env.getSemantics().checkThirdPartyTargetsHaveLicenses()
-                  && !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
+          checkLicenses = !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
         }
 
         if (checkLicenses
@@ -1179,13 +1181,20 @@ public final class PackageFactory {
   private static ImmutableMap<String, BuiltinRuleFunction> buildRuleFunctions(
       RuleFactory ruleFactory) {
     ImmutableMap.Builder<String, BuiltinRuleFunction> result = ImmutableMap.builder();
-    for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      result.put(ruleClass, new BuiltinRuleFunction(ruleClass, ruleFactory));
+    for (String ruleClassName : ruleFactory.getRuleClassNames()) {
+      RuleClass cl = ruleFactory.getRuleClass(ruleClassName);
+      if (cl.getRuleClassType() == RuleClassType.NORMAL
+          || cl.getRuleClassType() == RuleClassType.TEST) {
+        result.put(ruleClassName, new BuiltinRuleFunction(ruleClassName, ruleFactory));
+      }
     }
     return result.build();
   }
 
-  /** {@link BuiltinFunction} adapter for creating {@link Rule}s for native {@link RuleClass}es. */
+  /**
+   * {@link BuiltinFunction} adapter for creating {@link Rule}s for native {@link
+   * com.google.devtools.build.lib.packages.RuleClass}es.
+   */
   private static class BuiltinRuleFunction extends BuiltinFunction implements RuleFunction {
     private final String ruleClassName;
     private final RuleFactory ruleFactory;

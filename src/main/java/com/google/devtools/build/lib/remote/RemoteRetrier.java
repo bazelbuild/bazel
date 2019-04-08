@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -84,7 +85,7 @@ public class RemoteRetrier extends Retrier {
   }
 
   @VisibleForTesting
-  RemoteRetrier(
+  public RemoteRetrier(
       Supplier<Backoff> backoff,
       Predicate<? super Exception> shouldRetry,
       ListeningScheduledExecutorService retryScheduler,

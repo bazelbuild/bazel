@@ -250,31 +250,31 @@ public class SkylarkListTest extends EvaluationTestCase {
       list.add(4, null, mutability);
       fail("expected exception");
     } catch (EvalException e) {
-      assertThat(e).hasMessage("trying to mutate a frozen object");
+      assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
     }
     try {
       list.add(0, 4, null, mutability);
       fail("expected exception");
     } catch (EvalException e) {
-      assertThat(e).hasMessage("trying to mutate a frozen object");
+      assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
     }
     try {
       list.addAll(ImmutableList.of(4, 5, 6), null, mutability);
       fail("expected exception");
     } catch (EvalException e) {
-      assertThat(e).hasMessage("trying to mutate a frozen object");
+      assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
     }
     try {
       list.remove(0, null, mutability);
       fail("expected exception");
     } catch (EvalException e) {
-      assertThat(e).hasMessage("trying to mutate a frozen object");
+      assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
     }
     try {
       list.set(0, 10, null, mutability);
       fail("expected exception");
     } catch (EvalException e) {
-      assertThat(e).hasMessage("trying to mutate a frozen object");
+      assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
     }
   }
 
@@ -288,7 +288,7 @@ public class SkylarkListTest extends EvaluationTestCase {
       list.add(4, null, mutability);
       fail("expected exception");
     } catch (EvalException e) {
-      assertThat(e).hasMessage("trying to mutate a frozen object");
+      assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
     }
   }
 

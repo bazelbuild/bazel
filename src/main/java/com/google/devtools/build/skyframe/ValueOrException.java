@@ -77,6 +77,11 @@ public abstract class ValueOrException<E extends Exception> extends ValueOrUntyp
       return null;
     }
 
+    @Override
+    public String toString() {
+      return "ValueOrExceptionValueImpl:" + value;
+    }
+
     @SuppressWarnings("unchecked")
     static <E extends Exception> ValueOrExceptionValueImpl<E> ofNullValue() {
       return (ValueOrExceptionValueImpl<E>) NULL;

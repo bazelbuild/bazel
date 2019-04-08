@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -141,7 +143,12 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
 
   private void doTestSelectOnPythonVersionTarget(Artifact expected, String... flags)
       throws Exception {
-    useConfiguration(flags);
+    ImmutableList<String> modifiedFlags =
+        ImmutableList.<String>builder()
+            .addAll(Arrays.asList(flags))
+            .add("--incompatible_remove_old_python_version_api=false")
+            .build();
+    useConfiguration(modifiedFlags.toArray(new String[] {}));
     NestedSet<Artifact> files =
         getConfiguredTarget("//pkg:foo").getProvider(FileProvider.class).getFilesToBuild();
     assertThat(files).contains(expected);

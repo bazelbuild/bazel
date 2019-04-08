@@ -483,4 +483,18 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + " Bash-style is buggy, the Windows-style is correct. See"
               + " https://github.com/bazelbuild/bazel/issues/7122")
   public boolean windowsStyleArgEscaping;
+
+  @Option(
+      name = "macos_qos_class",
+      defaultValue = "default", // Only for documentation; value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+      },
+      help =
+          "Sets the QoS service class of the %{product} server when running on macOS. This "
+              + "flag has no effect on all other platforms but is supported to ensure rc files "
+              + "can be shared among them without changes. Possible values are: user-interactive, "
+              + "user-initiated, default, utility, and background.")
+  public String macosQosClass;
 }

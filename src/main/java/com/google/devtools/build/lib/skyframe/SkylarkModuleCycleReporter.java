@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,11 +45,14 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
   private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
       SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
 
+  private static final Predicate<SkyKey> IS_REPOSITORY =
+      SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY);
+
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
 
-  private static final Predicate<SkyKey> IS_AST_FILE_LOOKUP =
-      SkyFunctions.isSkyFunction(SkyFunctions.AST_FILE_LOOKUP);
+  private static final Predicate<SkyKey> IS_SKYLARK_IMPORTS_LOOKUP =
+      SkyFunctions.isSkyFunction(SkyFunctions.SKYLARK_IMPORTS_LOOKUP);
 
   private static final Predicate<SkyKey> IS_EXTERNAL_PACKAGE =
       SkyFunctions.isSkyFunction(SkyFunctions.EXTERNAL_PACKAGE);
@@ -71,9 +75,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
     if (alreadyReported) {
       return true;
     } else if (Iterables.all(cycle, IS_SKYLARK_MODULE_SKY_KEY)
-        // The last element before the cycle has to be a PackageFunction or SkylarkModule.
+        // The last element before the cycle has to be a PackageFunction, SkylarkModule, or the
+        // WORKSPACE
         && (IS_PACKAGE_SKY_KEY.apply(lastPathElement)
-            || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement))) {
+            || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement)
+            || IS_WORKSPACE_FILE.apply(lastPathElement))) {
 
       Function printer =
           new Function<SkyKey, String>() {
@@ -84,6 +90,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
                     .importLabel.toString();
               } else if (input.argument() instanceof PackageIdentifier) {
                 return ((PackageIdentifier) input.argument()) + "/BUILD";
+              } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
+                return ((WorkspaceFileValue.WorkspaceFileKey) input.argument())
+                    .getPath()
+                    .getRootRelativePath()
+                    .toString();
               } else {
                 throw new UnsupportedOperationException();
               }
@@ -91,14 +102,42 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
           };
 
       StringBuilder cycleMessage =
-          new StringBuilder()
-              .append("cycle detected in extension files: ")
-              .append("\n    ")
-              .append(printer.apply(lastPathElement));
+          new StringBuilder().append("cycle detected in extension files: ");
 
+      // go back the path that lead to the cycle till we found the BUILD or WORKSPACE
+      // file that lead to the circular load.
+      int startIndex = pathToCycle.size() - 1;
+      while (startIndex > 0
+          && (IS_PACKAGE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
+              || IS_SKYLARK_MODULE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
+              || IS_WORKSPACE_FILE.apply(pathToCycle.get(startIndex - 1)))) {
+        startIndex--;
+      }
+      for (int i = startIndex; i < pathToCycle.size(); i++) {
+        cycleMessage.append("\n    ").append(printer.apply(pathToCycle.get(i)));
+      }
       AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage, printer);
       // TODO(bazel-team): it would be nice to pass the Location of the load Statement in the
       // BUILD file.
+      eventHandler.handle(Event.error(null, cycleMessage.toString()));
+      return true;
+    } else if (Iterables.all(
+        cycle, Predicates.or(IS_PACKAGE_LOOKUP, IS_REPOSITORY, IS_REPOSITORY_DIRECTORY))) {
+      StringBuilder cycleMessage =
+          new StringBuilder().append("Circular definition of repositories:");
+      Iterable<SkyKey> repos = Iterables.filter(cycle, IS_REPOSITORY);
+      Function printer =
+          new Function<SkyKey, String>() {
+            @Override
+            public String apply(SkyKey input) {
+              if (input instanceof RepositoryValue.Key) {
+                return ((RepositoryValue.Key) input).argument().getName();
+              } else {
+                throw new UnsupportedOperationException();
+              }
+            }
+          };
+      AbstractLabelCycleReporter.printCycle(ImmutableList.copyOf(repos), cycleMessage, printer);
       eventHandler.handle(Event.error(null, cycleMessage.toString()));
       return true;
     } else if (Iterables.any(cycle, IS_WORKSPACE_FILE)
@@ -107,9 +146,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
         || IS_EXTERNAL_PACKAGE.apply(lastPathElement)
         || IS_LOCAL_REPOSITORY_LOOKUP.apply(lastPathElement)) {
       // We have a cycle in the workspace file, report as such.
-      if (Iterables.any(cycle, IS_AST_FILE_LOOKUP)) {
+      if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
         Label fileLabel =
-            (Label) Iterables.getLast(Iterables.filter(cycle, IS_AST_FILE_LOOKUP)).argument();
+            ((SkylarkImportLookupValue.SkylarkImportLookupKey)
+                    Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
+                .getImportLabel();
         String repositoryName = fileLabel.getPackageIdentifier().getRepository().strippedName();
         eventHandler.handle(
             Event.error(
@@ -127,14 +168,14 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
                     + "' was defined too late in your WORKSPACE file."));
         return true;
       } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
-        eventHandler.handle(
-            Event.error(null, "cycle detected loading "
-                + String.join(
-                    " ", lastPathElement.functionName().toString().toLowerCase().split("_"))
-                + " '" + lastPathElement.argument().toString() + "'"));
+        PackageIdentifier pkg =
+            (PackageIdentifier)
+                Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
+        eventHandler.handle(Event.error(null, "cannot load package '" + pkg + "'"));
         return true;
       }
     }
+
     return false;
   }
 }

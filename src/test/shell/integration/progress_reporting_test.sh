@@ -322,7 +322,7 @@ EOF
   # there are enough local resources for two genrules to run in parallel.
   # Give enough head room so that the test won't break again if we tweak
   # our assumptions about local resource usage.
-  bazel build -j 2 --local_resources=2048000,32,32 \
+  bazel build -j 2 --local_ram_resources=2048000 --local_cpu_resources=32 \
        -k -s "//${pkg}:"{top,longrun} --progress_report_interval=1 \
        >& "$TEST_log" && fail "build succeeded"
   expect_log "\[3 / 4\] Still waiting for 1 job to complete:"

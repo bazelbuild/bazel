@@ -21,7 +21,7 @@
 """Convenience macro for skydoc tests."""
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@skydoc//stardoc:stardoc.bzl", "stardoc")
+load("@io_bazel_skydoc//stardoc:stardoc.bzl", "stardoc")
 
 def skydoc_test(
         name,

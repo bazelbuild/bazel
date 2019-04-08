@@ -127,11 +127,9 @@ public class PostConfiguredTargetFunction implements SkyFunction {
               configConditions,
               /*toolchainLabels=*/ ImmutableSet.of(),
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
-      if (configuredTargetAndData.getConfiguration() != null) {
-        deps =
-            ConfigurationResolver.resolveConfigurations(
-                env, ctgValue, deps, hostConfiguration, ruleClassProvider, defaultBuildOptions);
-      }
+      deps =
+          ConfigurationResolver.resolveConfigurations(
+              env, ctgValue, deps, hostConfiguration, ruleClassProvider, defaultBuildOptions);
     } catch (EvalException
         | ConfiguredTargetFunction.DependencyEvaluationException
         | InconsistentAspectOrderException e) {

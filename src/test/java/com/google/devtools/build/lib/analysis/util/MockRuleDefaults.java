@@ -63,14 +63,16 @@ public class MockRuleDefaults {
           attr("tags", STRING_LIST).nonconfigurable("test"),
           attr("visibility", NODEP_LABEL_LIST)
               .orderIndependent()
-              .cfg(HostTransition.INSTANCE)
+              .cfg(HostTransition.createFactory())
               .nonconfigurable("test"),
           attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
               .allowedFileTypes(FileTypeSet.NO_FILE)
               .dontCheckConstraints(),
           attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
               .allowedFileTypes(FileTypeSet.NO_FILE)
-              .dontCheckConstraints());
+              .dontCheckConstraints(),
+          attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
+              .nonconfigurable("stores configurability keys"));
 
   /**
    * The default configured target factory for mock rules.

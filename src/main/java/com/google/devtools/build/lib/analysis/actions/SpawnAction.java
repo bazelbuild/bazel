@@ -292,19 +292,22 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   public final ActionContinuationOrResult beginExecution(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    Spawn spawn;
     try {
       beforeExecute(actionExecutionContext);
-      Spawn spawn = getSpawn(actionExecutionContext);
-      SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
-      SpawnContinuation spawnContinuation = context.beginExecution(spawn, actionExecutionContext);
-      return new SpawnActionContinuation(spawnContinuation, actionExecutionContext);
+      spawn = getSpawn(actionExecutionContext);
     } catch (IOException e) {
       throw warnUnexpectedIOException(actionExecutionContext, e);
-    } catch (ExecException e) {
-      throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
     }
+    // This construction ensures that beginExecution and execute are called with identical exception
+    // handling, pre-processing, and post-processing, at the expense of two throwaway objects.
+    SpawnActionContinuation continuation =
+        new SpawnActionContinuation(
+            actionExecutionContext,
+            SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext));
+    return continuation.execute();
   }
 
   @Override
@@ -607,7 +610,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
     private final List<RunfilesSupplier> inputRunfilesSuppliers = new ArrayList<>();
-    private final List<RunfilesSupplier> toolRunfilesSuppliers = new ArrayList<>();
     private ResourceSet resourceSet = AbstractAction.DEFAULT_RESOURCE_SET;
     private ActionEnvironment actionEnvironment = null;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
@@ -637,7 +639,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
       this.inputRunfilesSuppliers.addAll(other.inputRunfilesSuppliers);
-      this.toolRunfilesSuppliers.addAll(other.toolRunfilesSuppliers);
       this.resourceSet = other.resourceSet;
       this.actionEnvironment = other.actionEnvironment;
       this.environment = other.environment;
@@ -752,8 +753,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
               ? executionInfo
               : configuration.modifiedExecutionInfo(executionInfo, mnemonic),
           progressMessage,
-          new CompositeRunfilesSupplier(
-              Iterables.concat(this.inputRunfilesSuppliers, this.toolRunfilesSuppliers)),
+          CompositeRunfilesSupplier.fromSuppliers(this.inputRunfilesSuppliers),
           mnemonic);
     }
 
@@ -1095,7 +1095,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder addTool(FilesToRunProvider tool) {
       addTransitiveTools(tool.getFilesToRun());
-      toolRunfilesSuppliers.add(tool.getRunfilesSupplier());
+      addRunfilesSupplier(tool.getRunfilesSupplier());
       return this;
     }
 
@@ -1344,13 +1344,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   private final class SpawnActionContinuation extends ActionContinuationOrResult {
-    private final SpawnContinuation spawnContinuation;
     private final ActionExecutionContext actionExecutionContext;
+    private final SpawnContinuation spawnContinuation;
 
     public SpawnActionContinuation(
-        SpawnContinuation spawnContinuation, ActionExecutionContext actionExecutionContext) {
-      this.spawnContinuation = spawnContinuation;
+        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
       this.actionExecutionContext = actionExecutionContext;
+      this.spawnContinuation = spawnContinuation;
     }
 
     @Override
@@ -1367,7 +1367,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           afterExecute(actionExecutionContext);
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
-        return new SpawnActionContinuation(nextContinuation, actionExecutionContext);
+        return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
       } catch (IOException e) {
         throw warnUnexpectedIOException(actionExecutionContext, e);
       } catch (ExecException e) {

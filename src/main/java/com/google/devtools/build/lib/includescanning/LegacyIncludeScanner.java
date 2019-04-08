@@ -357,16 +357,16 @@ public class LegacyIncludeScanner implements IncludeScanner {
       return null;
     }
     PathFragment name = inclusion.pathFragment;
+    PathFragment execPath = includer.getExecPath().getParentDirectory().getRelative(name);
+    if (!isFile(execPath, name, includer.isSourceArtifact(), legalOutputFiles.keySet())) {
+      return null;
+    }
     PathFragment parentDirectory = includer.getRootRelativePath().getParentDirectory();
     PathFragment rootRelativePath = parentDirectory.getRelative(name);
     if (rootRelativePath.containsUplevelReferences()) {
       // An include cannot break out of a (package path) root via a relative inclusion. It should
       // also not break out of the root and then come back into it -- who knows what hardcoded
       // directory names there are in it.
-      return null;
-    }
-    PathFragment execPath = includer.getExecPath().getParentDirectory().getRelative(name);
-    if (!isFile(execPath, name, includer.isSourceArtifact(), legalOutputFiles.keySet())) {
       return null;
     }
     if (legalOutputFiles.containsKey(execPath)) {

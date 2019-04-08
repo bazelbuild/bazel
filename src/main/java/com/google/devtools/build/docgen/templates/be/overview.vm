@@ -135,6 +135,18 @@ the <code>native</code> module.
 
 </table>
 
+
+<h4>Embedded non-native rules</h4>
+
+Bazel also embeds additional rules written in Starlark. Those can be loaded
+from the <tt>@bazel_tools</tt> built-in external repository.
+
+<ul>
+  <li><a href="../repo/index.html">repository rules</a>
+  <li><a href="pkg.html">package rules</a>
+</ul>
+
+
 <h4>Additional rules</h4>
 
 <p>Non-native rules extend Bazel's capabilities. Rules for many popular languages

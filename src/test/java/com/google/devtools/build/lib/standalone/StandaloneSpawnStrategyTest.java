@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
@@ -89,7 +88,7 @@ public class StandaloneSpawnStrategyTest {
     fileSystem = FileSystems.getNativeFileSystem();
     Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
     try {
-      FileSystemUtils.deleteTreesBelow(testRoot);
+      testRoot.deleteTreesBelow();
     } catch (IOException e) {
       System.err.println("Failed to remove directory " + testRoot + ": " + e.getMessage());
       throw e;
@@ -120,8 +119,6 @@ public class StandaloneSpawnStrategyTest {
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
 
-    EventBus bus = new EventBus();
-
     ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
@@ -131,7 +128,6 @@ public class StandaloneSpawnStrategyTest {
             fileSystem,
             execRoot,
             reporter,
-            bus,
             BlazeClock.instance(),
             optionsParser,
             SpawnActionContextMaps.createStub(
@@ -191,11 +187,11 @@ public class StandaloneSpawnStrategyTest {
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
-        null,
+        /*metadataHandler=*/ null,
         outErr,
-        executor.getEventHandler(),
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        reporter,
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
         SIMPLE_ARTIFACT_EXPANDER,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null);

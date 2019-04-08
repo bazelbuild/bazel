@@ -32,6 +32,14 @@ public class SkydocOptions extends OptionsBase {
   public String targetFileLabel;
 
   @Option(
+      name = "workspace_name",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help = "The name of the workspace in which the input file resides")
+  public String workspaceName;
+
+  @Option(
       name = "output",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

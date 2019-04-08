@@ -27,13 +27,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
@@ -73,7 +75,7 @@ public class AttributeTest {
       attr("foo", Type.INTEGER).nonEmpty().value(3).build();
       fail();
     } catch (NullPointerException e) {
-      assertThat(e).hasMessage("attribute 'foo' must be a list");
+      assertThat(e).hasMessageThat().isEqualTo("attribute 'foo' must be a list");
     }
   }
 
@@ -91,16 +93,18 @@ public class AttributeTest {
       attr("foo", Type.INTEGER).singleArtifact().value(3).build();
       fail();
     } catch (IllegalStateException e) {
-      assertThat(e).hasMessage("attribute 'foo' must be a label-valued type");
+      assertThat(e).hasMessageThat().isEqualTo("attribute 'foo' must be a label-valued type");
     }
   }
 
   @Test
   public void testDoublePropertySet() {
-    Attribute.Builder<String> builder = attr("x", STRING).mandatory()
-        .cfg(HostTransition.INSTANCE)
-        .undocumented("")
-        .value("y");
+    Attribute.Builder<String> builder =
+        attr("x", STRING)
+            .mandatory()
+            .cfg(HostTransition.createFactory())
+            .undocumented("")
+            .value("y");
     try {
       builder.mandatory();
       fail();
@@ -108,7 +112,7 @@ public class AttributeTest {
       // expected
     }
     try {
-      builder.cfg(HostTransition.INSTANCE);
+      builder.cfg(HostTransition.createFactory());
       fail();
     } catch (IllegalStateException expected) {
       // expected
@@ -277,9 +281,13 @@ public class AttributeTest {
   @Test
   public void testSplitTransition() throws Exception {
     TestSplitTransition splitTransition = new TestSplitTransition();
-    Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
-    assertThat(attr.hasSplitConfigurationTransition()).isTrue();
-    assertThat(attr.getSplitTransition(null)).isEqualTo(splitTransition);
+    Attribute attr =
+        attr("foo", LABEL).cfg(TransitionFactories.of(splitTransition)).allowedFileTypes().build();
+    assertThat(attr.getTransitionFactory().isSplit()).isTrue();
+    ConfigurationTransition transition =
+        attr.getTransitionFactory()
+            .create(AttributeTransitionData.create(FakeAttributeMapper.empty()));
+    assertThat(transition).isEqualTo(splitTransition);
   }
 
   @Test
@@ -287,15 +295,19 @@ public class AttributeTest {
     TestSplitTransitionProvider splitTransitionProvider = new TestSplitTransitionProvider();
     Attribute attr =
         attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
-    assertThat(attr.hasSplitConfigurationTransition()).isTrue();
-    assertThat(attr.getSplitTransition(null) instanceof TestSplitTransition).isTrue();
+    assertThat(attr.getTransitionFactory().isSplit()).isTrue();
+    ConfigurationTransition transition =
+        attr.getTransitionFactory()
+            .create(AttributeTransitionData.create(FakeAttributeMapper.empty()));
+    assertThat(transition).isInstanceOf(TestSplitTransition.class);
   }
 
   @Test
   public void testHostTransition() throws Exception {
-    Attribute attr = attr("foo", LABEL).cfg(HostTransition.INSTANCE).allowedFileTypes().build();
-    assertThat(attr.getConfigurationTransition().isHostTransition()).isTrue();
-    assertThat(attr.hasSplitConfigurationTransition()).isFalse();
+    Attribute attr =
+        attr("foo", LABEL).cfg(HostTransition.createFactory()).allowedFileTypes().build();
+    assertThat(attr.getTransitionFactory().isHost()).isTrue();
+    assertThat(attr.getTransitionFactory().isSplit()).isFalse();
   }
 
   private static class TestSplitTransition implements SplitTransition {
@@ -305,14 +317,17 @@ public class AttributeTest {
     }
   }
 
-  private static class TestSplitTransitionProvider implements SplitTransitionProvider {
+  private static class TestSplitTransitionProvider
+      implements TransitionFactory<AttributeTransitionData> {
     @Override
-    public SplitTransition apply(AttributeMap attrMapper) {
+    public SplitTransition create(AttributeTransitionData data) {
       return new TestSplitTransition();
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public boolean isSplit() {
+      return true;
+    }
   }
 
   @Test

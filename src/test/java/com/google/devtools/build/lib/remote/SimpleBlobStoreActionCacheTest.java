@@ -32,8 +32,8 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -67,7 +67,6 @@ public class SimpleBlobStoreActionCacheTest {
   private FakeActionInputFileCache fakeFileCache;
   private Context withEmptyMetadata;
   private Context prevContext;
-  private Retrier retrier;
 
   private static ListeningScheduledExecutorService retryService;
 
@@ -83,23 +82,6 @@ public class SimpleBlobStoreActionCacheTest {
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
-    retrier =
-        new Retrier(
-            () ->
-                new Backoff() {
-                  @Override
-                  public long nextDelayMillis() {
-                    return -1;
-                  }
-
-                  @Override
-                  public int getRetryAttempts() {
-                    return 0;
-                  }
-                },
-            (e) -> false,
-            retryService,
-            RemoteRetrier.ALLOW_ALL_CALLS);
     Path stdout = fs.getPath("/tmp/stdout");
     Path stderr = fs.getPath("/tmp/stderr");
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
@@ -128,7 +110,6 @@ public class SimpleBlobStoreActionCacheTest {
     return new SimpleBlobStoreActionCache(
         Options.getDefaults(RemoteOptions.class),
         new ConcurrentMapBlobStore(map),
-        retrier,
         DIGEST_UTIL);
   }
 

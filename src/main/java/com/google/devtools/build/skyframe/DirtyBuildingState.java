@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -271,7 +270,8 @@ public abstract class DirtyBuildingState {
    * true, this method is non-mutating. If {@code preservePosition} is false, the caller must
    * process the returned set, and so subsequent calls to this method will return the empty set.
    */
-  Set<SkyKey> getAllRemainingDirtyDirectDeps(boolean preservePosition) throws InterruptedException {
+  ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps(boolean preservePosition)
+      throws InterruptedException {
     if (getLastBuildDirectDeps() == null) {
       return ImmutableSet.of();
     }

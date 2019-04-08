@@ -1,3 +1,7 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
+<a name="#check_sources"></a>
+
 ## check_sources
 
 <pre>
@@ -81,6 +85,8 @@ Use `bazel build` to run the check.
   </tbody>
 </table>
 
+
+<a name="#undocumented_function"></a>
 
 ## undocumented_function
 

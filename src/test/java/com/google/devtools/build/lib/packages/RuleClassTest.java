@@ -38,6 +38,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -403,8 +404,11 @@ public class RuleClassTest extends PackageLoadingTestCase {
       attributes.get("my-labellist-attr", Type.STRING); // wrong type
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessage("Attribute my-labellist-attr is of type list(label) "
-          + "and not of type string in ruleA rule //testpackage:my-rule-A");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(
+              "Attribute my-labellist-attr is of type list(label) "
+                  + "and not of type string in ruleA rule //testpackage:my-rule-A");
     }
   }
 
@@ -547,7 +551,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
           + "declaration errors");
     } catch (IllegalArgumentException e) {
       // Expected outcome.
-      assertThat(e).hasMessage(expectedMessage);
+      assertThat(e).hasMessageThat().isEqualTo(expectedMessage);
     }
   }
 
@@ -801,8 +805,11 @@ public class RuleClassTest extends PackageLoadingTestCase {
       childRuleClassBuilder.override(attr("attr", INTEGER));
       fail();
     } catch (IllegalStateException e) {
-      assertThat(e).hasMessage("The type of the new attribute 'int' is different from "
-          + "the original one 'string'.");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(
+              "The type of the new attribute 'int' is different from "
+                  + "the original one 'string'.");
     }
   }
 
@@ -861,7 +868,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
       boolean outputsDefaultExecutable,
       boolean isAnalysisTest,
       ImplicitOutputsFunction implicitOutputsFunction,
-      RuleTransitionFactory transitionFactory,
+      TransitionFactory<Rule> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
@@ -893,7 +900,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         /* hasFunctionTransitionWhitelist=*/ false,
         /* ignorePackageLicenses=*/ false,
         implicitOutputsFunction,
-        /*isConfigMatcher=*/ false,
         transitionFactory,
         configuredTargetFactory,
         validityPredicate,

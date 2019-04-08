@@ -47,11 +47,7 @@ Things to note:
 * Workspace rules log currently only logs Skylark events. Some native rules
   may cause non-hermetic behavior but not show up in this log. Examples of those
   rules include
-  [maven_jar](/be/workspace.html#maven_jar)
-  and the deprecated
-  [git_repository](/be/workspace.html#git_repository)
-  and
-  [http_file](/be/workspace.html#http_file).
+  [maven_jar](/be/workspace.html#maven_jar).
 
   Note that these particular rules do not cause hermiticity concerns as long
   as a hash is specified.

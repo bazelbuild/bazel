@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -114,6 +115,7 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContext(
       Executor executor,
+      ExtendedEventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
@@ -121,6 +123,7 @@ public final class ActionsTestUtil {
       @Nullable ActionGraph actionGraph) {
     return createContext(
         executor,
+        eventHandler,
         actionKeyContext,
         fileOutErr,
         execRoot,
@@ -131,6 +134,7 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContext(
       Executor executor,
+      ExtendedEventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
@@ -144,7 +148,7 @@ public final class ActionsTestUtil {
         actionKeyContext,
         metadataHandler,
         fileOutErr,
-        executor != null ? executor.getEventHandler() : null,
+        eventHandler,
         ImmutableMap.copyOf(clientEnv),
         ImmutableMap.of(),
         actionGraph == null
@@ -155,7 +159,7 @@ public final class ActionsTestUtil {
   }
 
   public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
-    DummyExecutor dummyExecutor = new DummyExecutor(eventHandler);
+    DummyExecutor dummyExecutor = new DummyExecutor();
     return new ActionExecutionContext(
         dummyExecutor,
         null,
@@ -173,12 +177,12 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContextForInputDiscovery(
       Executor executor,
+      ExtendedEventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
       MetadataHandler metadataHandler,
       BuildDriver buildDriver) {
-    ExtendedEventHandler eventHandler = executor != null ? executor.getEventHandler() : null;
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
@@ -737,6 +741,12 @@ public final class ActionsTestUtil {
 
     @Override
     public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void injectRemoteDirectory(
+        Artifact treeArtifact, Map<PathFragment, RemoteFileArtifactValue> children) {
       throw new UnsupportedOperationException();
     }
 

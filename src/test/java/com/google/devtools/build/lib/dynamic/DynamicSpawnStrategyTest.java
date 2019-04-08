@@ -234,7 +234,7 @@ public class DynamicSpawnStrategyTest {
 
     fileSystem = FileSystems.getNativeFileSystem();
     testRoot = fileSystem.getPath(TestUtils.tmpDir());
-    FileSystemUtils.deleteTreesBelow(testRoot);
+    testRoot.deleteTreesBelow();
     executorService = Executors.newCachedThreadPool();
     inputArtifact =
         new Artifact(
@@ -244,7 +244,14 @@ public class DynamicSpawnStrategyTest {
             PathFragment.create("output.txt"), ArtifactRoot.asSourceRoot(Root.fromPath(testRoot)));
     outErr = new FileOutErr(testRoot.getRelative("stdout"), testRoot.getRelative("stderr"));
     actionExecutionContext =
-        ActionsTestUtil.createContext(null, actionKeyContext, outErr, testRoot, null, null);
+        ActionsTestUtil.createContext(
+            /*executor=*/ null,
+            /*eventHandler=*/ null,
+            actionKeyContext,
+            outErr,
+            testRoot,
+            /*metadataHandler=*/ null,
+            /*actionGraph=*/ null);
   }
 
   void createSpawnStrategy(int localDelay, int remoteDelay) throws ExecutorInitException {

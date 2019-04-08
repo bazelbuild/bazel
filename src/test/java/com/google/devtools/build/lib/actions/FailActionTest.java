@@ -58,7 +58,7 @@ public class FailActionTest {
       failAction.execute(null);
       fail();
     } catch (ActionExecutionException e) {
-      assertThat(e).hasMessage(errorMessage);
+      assertThat(e).hasMessageThat().isEqualTo(errorMessage);
     }
   }
 

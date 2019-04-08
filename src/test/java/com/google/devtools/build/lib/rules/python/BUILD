@@ -32,12 +32,6 @@ test_suite(
 java_library(
     name = "PythonTestUtils",
     srcs = ["PythonTestUtils.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:python-rules",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
 )
 
 java_test(
@@ -155,6 +149,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

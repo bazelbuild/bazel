@@ -67,7 +67,7 @@ static bool HasSubstr(const string &s, const string &what) {
 class CustomOutputJar : public OutputJar {
  public:
   ~CustomOutputJar() override {}
-  void ExtraHandler(const CDH *cdh,
+  void ExtraHandler(const std::string & /*input_jar_path*/, const CDH *cdh,
                     const std::string *input_jar_aux_label) override {
     auto file_name = cdh->file_name();
     auto file_name_length = cdh->file_name_length();
@@ -269,7 +269,7 @@ TEST_F(OutputJarSimpleTest, JavaLauncher) {
   ASSERT_EQ(0, stat(launcher_path.c_str(), &statbuf));
   EXPECT_TRUE(cdh->is());
   EXPECT_TRUE(lh->is());
-  EXPECT_EQ(statbuf.st_size, cdh->local_header_offset());
+  EXPECT_EQ(static_cast<uint64_t>(statbuf.st_size), cdh->local_header_offset());
   input_jar.Close();
 }
 

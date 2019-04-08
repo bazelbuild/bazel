@@ -91,7 +91,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -565,8 +564,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         view.getArtifactFactory(),
         actionKeyContext,
         ArtifactOwner.NullArtifactOwner.INSTANCE,
-        /*isSystemEnv=*/ true, /*extendedSanityChecks*/
-        false,
+        /*isSystemEnv=*/ true,
+        /*extendedSanityChecks=*/ false,
+        /*allowAnalysisFailures=*/ false,
         reporter,
         /* env= */ null);
   }
@@ -855,8 +855,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * configuration. If the label corresponds to a target with a top-level configuration transition,
    * that transition is applied to the given config in the returned ConfiguredTarget.
    */
-  public ConfiguredTarget getConfiguredTarget(String label)
-      throws LabelSyntaxException {
+  public ConfiguredTarget getConfiguredTarget(String label) throws LabelSyntaxException {
     return getConfiguredTarget(label, targetConfig);
   }
 
@@ -888,7 +887,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns a ConfiguredTargetAndData for the specified label, using the given build configuration.
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
-      Label label, BuildConfiguration config) throws TransitionException {
+      Label label, BuildConfiguration config) {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
 
@@ -896,36 +895,30 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns the ConfiguredTargetAndData for the specified label. If the label corresponds to a
    * target with a top-level configuration transition, that transition is applied to the given
    * config in the ConfiguredTargetAndData's ConfiguredTarget.
-   *
-   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
-   *     transitions.
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
-      throws LabelSyntaxException, TransitionException {
+      throws LabelSyntaxException {
     return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified file label, configured for
-   * the "build" (aka "target") configuration.
+   * Returns the ConfiguredTarget for the specified file label, configured for the "build" (aka
+   * "target") configuration.
    */
-  protected FileConfiguredTarget getFileConfiguredTarget(String label)
-      throws LabelSyntaxException {
+  protected FileConfiguredTarget getFileConfiguredTarget(String label) throws LabelSyntaxException {
     return (FileConfiguredTarget) getConfiguredTarget(label, targetConfig);
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified label, configured for
-   * the "host" configuration.
+   * Returns the ConfiguredTarget for the specified label, configured for the "host" configuration.
    */
-  protected ConfiguredTarget getHostConfiguredTarget(String label)
-      throws LabelSyntaxException {
+  protected ConfiguredTarget getHostConfiguredTarget(String label) throws LabelSyntaxException {
     return getConfiguredTarget(label, getHostConfiguration());
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified file label, configured for
-   * the "host" configuration.
+   * Returns the ConfiguredTarget for the specified file label, configured for the "host"
+   * configuration.
    */
   protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
       throws LabelSyntaxException {
@@ -1352,9 +1345,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.o".
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, String owner) {
     BuildConfiguration config = getConfiguration(owner);
@@ -1364,9 +1357,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.o".
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner) {
     BuildConfiguration configuration =
@@ -1377,15 +1370,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner},
-   * where the given artifact belongs to the given ConfiguredTarget together with the given Aspect.
-   * So to specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect,
-   * {@code packageRelativePath} should just be "foo.o", and aspectOfOwner should be
-   * FooAspect.class. This method is necessary when an Apsect of the target, not the target itself,
-   * is creating an Artifact.
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}, where
+   * the given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
+   * specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect, {@code
+   * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
+   * method is necessary when an Apsect of the target, not the target itself, is creating an
+   * Artifact.
    */
-  protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner,
-      NativeAspectClass creatingAspectFactory) {
+  protected Artifact getGenfilesArtifact(
+      String packageRelativePath, ConfiguredTarget owner, NativeAspectClass creatingAspectFactory) {
     return getGenfilesArtifact(
         packageRelativePath, owner, creatingAspectFactory, AspectParameters.EMPTY);
   }
@@ -1402,6 +1395,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         getOwnerForAspect(owner, creatingAspectFactory, params));
   }
 
+  /**
+   * Gets a derived Artifact for testing in the subdirectory of the {@link
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
+   */
+  private Artifact getGenfilesArtifact(
+      String packageRelativePath, ArtifactOwner owner, BuildConfiguration config) {
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
+  }
+
   protected AspectValue.AspectKey getOwnerForAspect(
       ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
     return (AspectValue.AspectKey)
@@ -1415,21 +1420,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}. So to
    * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
-   * "foo.o".
-   */
-  private Artifact getGenfilesArtifact(
-      String packageRelativePath, ArtifactOwner owner, BuildConfiguration config) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
-  }
-
-  /**
-   * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.h".
+   * "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, String owner) {
     return getIncludeArtifact(packageRelativePath, makeConfiguredTargetKey(owner));
@@ -1759,7 +1752,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /** Returns an attribute value retriever for the given rule for the target configuration. */
-  protected AttributeMap attributes(RuleConfiguredTarget ct) throws TransitionException {
+  protected AttributeMap attributes(RuleConfiguredTarget ct) {
     ConfiguredTargetAndData ctad;
     try {
       ctad = getConfiguredTargetAndData(ct.getLabel().toString());
@@ -1769,7 +1762,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getMapperFromConfiguredTargetAndTarget(ctad);
   }
 
-  protected AttributeMap attributes(ConfiguredTarget rule) throws TransitionException {
+  protected AttributeMap attributes(ConfiguredTarget rule) {
     return attributes((RuleConfiguredTarget) rule);
   }
 
@@ -2006,8 +1999,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key,
-        BuildConfiguration config) {
+    public ImmutableList<Artifact> getBuildInfo(
+        boolean stamp, BuildInfoKey key, BuildConfiguration config) {
       throw new UnsupportedOperationException();
     }
 
@@ -2219,7 +2212,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     public ActionExecutionContext build() {
       return new ActionExecutionContext(
-          new DummyExecutor(fileSystem, getExecRoot(), reporter),
+          new DummyExecutor(fileSystem, getExecRoot()),
           actionInputFileCache,
           /*actionInputPrefetcher=*/ null,
           actionKeyContext,

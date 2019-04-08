@@ -119,7 +119,7 @@ public class ShellUtilsTest {
       tokenize(new ArrayList<String>(), copts);
       fail();
     } catch (ShellUtils.TokenizationException e) {
-      assertThat(e).hasMessage(expectedError);
+      assertThat(e).hasMessageThat().isEqualTo(expectedError);
     }
   }
 

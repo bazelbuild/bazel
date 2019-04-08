@@ -25,12 +25,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -43,6 +46,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -141,24 +145,13 @@ public final class CcCommon {
           .addAll(ALL_OTHER_ACTIONS)
           .build();
 
-  /** Features we request to enable unless a rule explicitly doesn't support them. */
-  private static final ImmutableSet<String> DEFAULT_FEATURES =
-      ImmutableSet.of(
-          CppRuleClasses.DEPENDENCY_FILE,
-          CppRuleClasses.RANDOM_SEED,
-          CppRuleClasses.MODULE_MAPS,
-          CppRuleClasses.MODULE_MAP_HOME_CWD,
-          CppRuleClasses.HEADER_MODULE_COMPILE,
-          CppRuleClasses.INCLUDE_PATHS,
-          CppRuleClasses.PIC,
-          CppRuleClasses.PREPROCESSOR_DEFINES);
-
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
   private static final String SYSROOT_FLAG = "--sysroot=";
 
   private final RuleContext ruleContext;
 
   private final CcToolchainProvider ccToolchain;
+  private final CppConfiguration cppConfiguration;
 
   private final FdoContext fdoContext;
 
@@ -167,6 +160,7 @@ public final class CcCommon {
     this.ccToolchain =
         Preconditions.checkNotNull(
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
+    this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.fdoContext = ccToolchain.getFdoContext();
   }
 
@@ -416,6 +410,20 @@ public final class CcCommon {
     return getHeaders(ruleContext);
   }
 
+  public void reportInvalidOptions(RuleContext ruleContext) {
+    reportInvalidOptions(ruleContext, cppConfiguration, ccToolchain);
+  }
+
+  public static void reportInvalidOptions(
+      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider ccToolchain) {
+    if (cppConfiguration.getLibcTopLabel() != null && ccToolchain.getDefaultSysroot() == null) {
+      ruleContext.ruleError(
+          "The selected toolchain "
+              + ccToolchain.getToolchainIdentifier()
+              + " does not support setting --grte_top (it doesn't specify builtin_sysroot).");
+    }
+  }
+
   /**
    * Supply CC_FLAGS Make variable value computed from FeatureConfiguration. Appends them to
    * original CC_FLAGS, so FeatureConfiguration can override legacy values.
@@ -430,17 +438,23 @@ public final class CcCommon {
 
     @Override
     @Nullable
-    public String getMakeVariable(String variableName) {
+    public String getMakeVariable(String variableName) throws ExpansionException {
       if (!variableName.equals(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME)) {
         return null;
       }
 
-      return CcCommon.computeCcFlags(ruleContext, ruleContext.getPrerequisite(
-          CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET));
+      try {
+        return CcCommon.computeCcFlags(
+            ruleContext,
+            ruleContext.getPrerequisite(
+                CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET));
+      } catch (RuleErrorException e) {
+        throw new ExpansionException(e.getMessage());
+      }
     }
 
     @Override
-    public ImmutableMap<String, String> getAllMakeVariables() {
+    public ImmutableMap<String, String> getAllMakeVariables() throws ExpansionException {
       return ImmutableMap.of(
           CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME,
           getMakeVariable(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME));
@@ -676,8 +690,7 @@ public final class CcCommon {
         ccToolchain.getSolibDirectory(),
         library,
         preserveName,
-        true,
-        ruleContext.getConfiguration());
+        /* prefixConsumer= */ true);
   }
 
   /**
@@ -696,7 +709,7 @@ public final class CcCommon {
 
   /** Provides support for instrumentation. */
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
-      Iterable<Artifact> files, boolean withBaselineCoverage) {
+      Iterable<Artifact> files, boolean withBaselineCoverage) throws RuleErrorException {
     return getInstrumentedFilesProvider(
         files,
         withBaselineCoverage,
@@ -707,69 +720,30 @@ public final class CcCommon {
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
       Iterable<Artifact> files,
       boolean withBaselineCoverage,
-      NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
+      NestedSet<Pair<String, String>> virtualToOriginalHeaders)
+      throws RuleErrorException {
     return InstrumentedFilesCollector.collect(
         ruleContext,
         CppRuleClasses.INSTRUMENTATION_SPEC,
         CC_METADATA_COLLECTOR,
         files,
         CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
-        CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
+        CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, cppConfiguration, ccToolchain),
         withBaselineCoverage,
         virtualToOriginalHeaders);
   }
 
-  public static ImmutableList<String> getCoverageFeatures(CcToolchainProvider toolchain) {
+  public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
     ImmutableList.Builder<String> coverageFeatures = ImmutableList.builder();
-    if (toolchain.isCodeCoverageEnabled()) {
+    if (cppConfiguration.collectCodeCoverage()) {
       coverageFeatures.add(CppRuleClasses.COVERAGE);
-      if (toolchain.useLLVMCoverageMapFormat()) {
+      if (cppConfiguration.useLLVMCoverageMapFormat()) {
         coverageFeatures.add(CppRuleClasses.LLVM_COVERAGE_MAP_FORMAT);
       } else {
         coverageFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
       }
     }
     return coverageFeatures.build();
-  }
-
-  /**
-   * Determines whether to statically link the C++ runtimes.
-   *
-   * <p>This is complicated because it depends both on a legacy field in the CROSSTOOL
-   * protobuf--supports_embedded_runtimes--and the newer crosstool
-   * feature--statically_link_cpp_runtimes. Neither, one, or both could be present or set. Or they
-   * could be set in to conflicting values.
-   *
-   * @return true if we should statically link, false otherwise.
-   */
-  private static boolean enableStaticLinkCppRuntimesFeature(
-      ImmutableSet<String> requestedFeatures,
-      ImmutableSet<String> disabledFeatures,
-      CcToolchainProvider toolchain) {
-    // All of these cases are encountered in various unit tests,
-    // integration tests, and obscure CROSSTOOLs.
-
-    // A. If the legacy field "supports_embedded_runtimes" is false (or not present):
-    //      dynamically link the cpp runtimes. Done.
-    if (!toolchain.supportsEmbeddedRuntimes()) {
-      return false;
-    }
-    // From here, the toolchain _can_ statically link the cpp runtime.
-    //
-    // B. If the feature static_link_cpp_runtimes is disabled:
-    //      dynamically link the cpp runtimes. Done.
-    if (disabledFeatures.contains(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
-      return false;
-    }
-    // C. If the feature is not requested:
-    //     the feature is neither disabled nor requested: statically
-    //     link (for compatibility with the legacy field).
-    if (!requestedFeatures.contains(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
-      return true;
-    }
-    // D. The feature is requested:
-    //     statically link the cpp runtimes. Done.
-    return true;
   }
 
   /**
@@ -800,7 +774,10 @@ public final class CcCommon {
       CcToolchainProvider toolchain) {
     try {
       return configureFeaturesOrThrowEvalException(
-          requestedFeatures, unsupportedFeatures, toolchain);
+          requestedFeatures,
+          unsupportedFeatures,
+          toolchain,
+          ruleContext.getFragment(CppConfiguration.class));
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
@@ -810,9 +787,9 @@ public final class CcCommon {
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
-      CcToolchainProvider toolchain)
+      CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration)
       throws EvalException {
-    CppConfiguration cppConfiguration = toolchain.getCppConfiguration();
     ImmutableSet.Builder<String> allRequestedFeaturesBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
@@ -823,20 +800,6 @@ public final class CcCommon {
     }
     if (toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
-    }
-
-    if (toolchain.supportsEmbeddedRuntimes()) {
-      if (!cppConfiguration.disableLegacyCrosstoolFields()) {
-        // If we're not using legacy crosstool fields, we assume 'static_link_cpp_runtimes' feature
-        // is enabled by default for toolchains that support it, and can be disabled by the user
-        // when needed using --feature=-static_link_cpp_runtimes option or
-        // features = [ '-static_link_cpp_runtimes' ] rule attribute.
-        if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {
-          allRequestedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
-        } else {
-          unsupportedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
-        }
-      }
     }
 
     if (cppConfiguration.forcePic()) {
@@ -854,23 +817,19 @@ public final class CcCommon {
     // according to compilation mode.
     if (requestedFeatures.contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
       allRequestedFeaturesBuilder.add(
-          toolchain.getCompilationMode() == CompilationMode.DBG
+          cppConfiguration.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.STATIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.STATIC_LINK_MSVCRT_NO_DEBUG);
     } else {
       allRequestedFeaturesBuilder.add(
-          toolchain.getCompilationMode() == CompilationMode.DBG
+          cppConfiguration.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.DYNAMIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
     }
 
     ImmutableList.Builder<String> allFeatures =
         new ImmutableList.Builder<String>()
-            .addAll(ImmutableSet.of(toolchain.getCompilationMode().toString()))
-            .addAll(
-                cppConfiguration.disableLegacyCrosstoolFields()
-                    ? ImmutableList.of()
-                    : DEFAULT_FEATURES)
+            .addAll(ImmutableSet.of(cppConfiguration.getCompilationMode().toString()))
             .addAll(DEFAULT_ACTION_CONFIGS)
             .addAll(requestedFeatures)
             .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
@@ -883,11 +842,7 @@ public final class CcCommon {
       }
     }
 
-    if (toolchain.useFission() && !cppConfiguration.disableLegacyCrosstoolFields()) {
-      allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-    }
-
-    allFeatures.addAll(getCoverageFeatures(toolchain));
+    allFeatures.addAll(getCoverageFeatures(cppConfiguration));
 
     String fdoInstrument = cppConfiguration.getFdoInstrument();
     if (fdoInstrument != null && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
@@ -895,7 +850,7 @@ public final class CcCommon {
     }
 
     FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
-    if (branchFdoProvider != null && toolchain.getCompilationMode() == CompilationMode.OPT) {
+    if (branchFdoProvider != null && cppConfiguration.getCompilationMode() == CompilationMode.OPT) {
       if (branchFdoProvider.isLlvmFdo()
           && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
         allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
@@ -950,7 +905,7 @@ public final class CcCommon {
                   + "This is most likely a misconfiguration in the C++ toolchain.");
         }
       }
-      if ((cppConfiguration.forcePic() || toolchain.toolchainNeedsPic())
+      if ((cppConfiguration.forcePic())
           && (!featureConfiguration.isEnabled(CppRuleClasses.PIC)
               && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC))) {
         throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
@@ -965,7 +920,8 @@ public final class CcCommon {
    * Computes the appropriate value of the {@code $(CC_FLAGS)} Make variable based on the given
    * toolchain.
    */
-  public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
+  public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain)
+      throws RuleErrorException {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
 
@@ -973,7 +929,13 @@ public final class CcCommon {
     String originalCcFlags = toolchainProvider.getLegacyCcFlagsMakeVariable();
 
     // Ensure that Sysroot is set properly.
-    String sysrootCcFlags = computeCcFlagForSysroot(toolchainProvider);
+    // TODO(b/129045294): We assume --incompatible_disable_genrule_cc_toolchain_dependency will
+    //   be flipped sooner than --incompatible_enable_cc_toolchain_resolution. Then this method
+    //   will be gone.
+    String sysrootCcFlags =
+        computeCcFlagForSysroot(
+            toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas(),
+            toolchainProvider);
 
     // Fetch additional flags from the FeatureConfiguration.
     List<String> featureConfigCcFlags =
@@ -998,8 +960,9 @@ public final class CcCommon {
         .anyMatch(str -> str.contains(SYSROOT_FLAG));
   }
 
-  private static String computeCcFlagForSysroot(CcToolchainProvider toolchainProvider) {
-    PathFragment sysroot = toolchainProvider.getSysrootPathFragment();
+  private static String computeCcFlagForSysroot(
+      CppConfiguration cppConfiguration, CcToolchainProvider toolchainProvider) {
+    PathFragment sysroot = toolchainProvider.getSysrootPathFragment(cppConfiguration);
     String sysrootFlag = "";
     if (sysroot != null) {
       sysrootFlag = SYSROOT_FLAG + sysroot;
@@ -1009,14 +972,72 @@ public final class CcCommon {
   }
 
   private static List<String> computeCcFlagsFromFeatureConfig(
-      RuleContext ruleContext, CcToolchainProvider toolchainProvider) {
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
+      RuleContext ruleContext, CcToolchainProvider toolchainProvider) throws RuleErrorException {
+    FeatureConfiguration featureConfiguration = null;
+    CppConfiguration cppConfiguration;
+    if (toolchainProvider.requireCtxInConfigureFeatures()) {
+      // When this is flipped, this whole method will go away. But I'm keeping it there
+      // so we can experiment with flags before they are flipped.
+      Preconditions.checkArgument(toolchainProvider.disableGenruleCcToolchainDependency());
+      cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    } else {
+      cppConfiguration =
+          toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas();
+    }
+    try {
+      featureConfiguration =
+          configureFeaturesOrThrowEvalException(
+              ruleContext.getFeatures(),
+              ruleContext.getDisabledFeatures(),
+              toolchainProvider,
+              cppConfiguration);
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getMessage());
+    }
     if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
-      CcToolchainVariables buildVariables = toolchainProvider.getBuildVariables();
-      return featureConfiguration.getCommandLine(
-          CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables);
+      CcToolchainVariables buildVariables =
+          toolchainProvider.getBuildVariables(
+              ruleContext.getConfiguration().getOptions(), cppConfiguration);
+      return CppHelper.getCommandLine(
+          ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
     }
     return ImmutableList.of();
+  }
+
+  /** Returns artifacts that help debug the state of C++ features for the given ruleContext. */
+  public static Map<String, NestedSet<Artifact>> createSaveFeatureStateArtifacts(
+      CppConfiguration cppConfiguration,
+      FeatureConfiguration featureConfiguration,
+      RuleContext ruleContext) {
+
+    ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroupsBuilder = ImmutableMap.builder();
+
+    if (cppConfiguration.saveFeatureState()) {
+      Artifact enabledFeaturesFile =
+          ruleContext.getUniqueDirectoryArtifact("feature_debug", "enabled_features.txt");
+      ruleContext.registerAction(
+          FileWriteAction.create(
+              ruleContext,
+              enabledFeaturesFile,
+              featureConfiguration.getEnabledFeatureNames().toString(),
+              /* makeExecutable= */ false));
+
+      Artifact requestedFeaturesFile =
+          ruleContext.getUniqueDirectoryArtifact("feature_debug", "requested_features.txt");
+      ruleContext.registerAction(
+          FileWriteAction.create(
+              ruleContext,
+              requestedFeaturesFile,
+              featureConfiguration.getRequestedFeatures().toString(),
+              /* makeExecutable= */ false));
+
+      outputGroupsBuilder.put(
+          OutputGroupInfo.DEFAULT,
+          NestedSetBuilder.<Artifact>stableOrder()
+              .add(enabledFeaturesFile)
+              .add(requestedFeaturesFile)
+              .build());
+    }
+    return outputGroupsBuilder.build();
   }
 }

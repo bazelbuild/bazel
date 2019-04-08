@@ -99,8 +99,8 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
 
 <p>
   See also this
-  <a href="https://docs.bazel.build/versions/master/crosstool-reference.html">
+  <a href="https://docs.bazel.build/versions/master/cc-toolchain-config-reference.html">
     page
-  </a> for elaborate CROSSTOOL and toolchain selection documentation.
+  </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
 </p>
 <!-- #END_BLAZE_RULE -->*/

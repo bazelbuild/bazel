@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -37,7 +40,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -63,7 +66,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
   protected final BuildConfiguration hostConfiguration;
 
   private final HashMap<Label, Target> partialResultMap;
-  @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
+  @Nullable private final TransitionFactory<Rule> trimmingTransitionFactory;
 
   @Override
   public String getName() {
@@ -81,7 +84,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       BuildConfiguration hostConfiguration,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory) {
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.hostConfiguration = hostConfiguration;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
@@ -138,8 +141,11 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
         throw new InterruptedException(e.getMessage());
       }
       for (Map.Entry<DependencyKind, Dependency> attributeAndDep : deps.entries()) {
-        if (attributeAndDep.getValue().hasExplicitConfiguration()
-            || attributeAndDep.getValue().getTransition() instanceof NoTransition) {
+        // DependencyResolver should only ever return Dependency instances with transitions and not
+        // with explicit configurations
+        Preconditions.checkState(!attributeAndDep.getValue().hasExplicitConfiguration());
+        if (attributeAndDep.getValue().getTransition() == NoTransition.INSTANCE
+            || attributeAndDep.getValue().getTransition() == NullTransition.INSTANCE) {
           continue;
         }
         Dependency dep = attributeAndDep.getValue();
@@ -182,15 +188,11 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
   private String getRuleClassTransition(ConfiguredTarget ct, Target target) {
     String output = "";
     if (ct instanceof RuleConfiguredTarget) {
-      RuleTransitionFactory factory =
+      TransitionFactory<Rule> factory =
           target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
       if (factory != null) {
         output =
-            factory
-                .buildTransitionFor(target.getAssociatedRule())
-                .getClass()
-                .getSimpleName()
-                .concat(" -> ");
+            factory.create(target.getAssociatedRule()).getClass().getSimpleName().concat(" -> ");
       }
     }
     return output;

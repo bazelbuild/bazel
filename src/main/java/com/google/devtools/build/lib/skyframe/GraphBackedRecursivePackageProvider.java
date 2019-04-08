@@ -174,9 +174,6 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       return ImmutableList.of();
     }
 
-    PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
-    PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
-
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
     for (TargetPatternKey patternKey : universeTargetPatternKeys) {
@@ -220,6 +217,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
     List<Root> roots =
         checkValidDirectoryAndGetRoots(
             repository, directory, blacklistedSubdirectories, excludedSubdirectories);
+
     return rootPackageExtractor.getPackagesFromRoots(
         graph,
         roots,

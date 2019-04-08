@@ -22,7 +22,6 @@ filegroup(
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
-        "//third_party/java/java_tools:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
@@ -315,6 +314,14 @@ filegroup(
 )
 
 java_import(
+    name = "byte_buddy",
+    jars = [
+        "bytebuddy/byte-buddy-1.9.7.jar",
+        "bytebuddy/byte-buddy-agent-1.9.7.jar",
+    ],
+)
+
+java_import(
     name = "compile_testing",
     jars = ["compile_testing/compile-testing-0.13.jar"],
 )
@@ -557,8 +564,18 @@ java_import(
 
 java_import(
     name = "mockito",
-    jars = ["mockito/mockito-all-1.10.19.jar"],
+    jars = ["mockito/mockito-core-2.25.1.jar"],
     deps = [
+        ":byte_buddy",
+        ":objenesis",
+    ],
+)
+
+java_import(
+    name = "mockito2",
+    jars = ["mockito/mockito-core-2.25.1.jar"],
+    deps = [
+        ":byte_buddy",
         ":objenesis",
     ],
 )
@@ -603,20 +620,6 @@ filegroup(
         "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.12.jar",
     ],
-)
-
-pkg_tar(
-    name = "java_tools_pkg-gz",
-    srcs = [
-        "//third_party/java/java_tools",
-        "//third_party/java/jdk/langtools:java_compiler_jar",
-        "//third_party/java/jdk/langtools:javac_jar",
-        "//third_party/java/jdk/langtools:jdk_compiler_jar",
-    ],
-    extension = "tar.gz",
-    # Permissions -rwxr-xr-x
-    mode = "755",
-    package_dir = "java_tools",
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")

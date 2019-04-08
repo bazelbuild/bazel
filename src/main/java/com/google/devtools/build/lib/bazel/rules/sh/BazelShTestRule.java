@@ -40,13 +40,13 @@ public final class BazelShTestRule implements RuleDefinition {
                         "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main")))
         .add(
             attr("$launcher", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .value(environment.getToolsLabel("//tools/launcher:launcher")))
         // Add the script as an attribute in order for sh_test to output code coverage results for
         // code covered by CC binaries invocations.
         .add(
             attr("$collect_cc_coverage", LABEL)
-                .cfg(HostTransition.INSTANCE)
+                .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .value(environment.getToolsLabel("//tools/test:collect_cc_coverage")));
     return builder.build();

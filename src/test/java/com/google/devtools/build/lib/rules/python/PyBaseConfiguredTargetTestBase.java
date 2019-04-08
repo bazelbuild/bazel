@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -68,7 +68,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void srcsVersionClashesWithForcePythonFlagUnderOldSemantics() throws Exception {
+  public void srcsVersionClashesWithVersionFlagUnderOldSemantics() throws Exception {
     // Under the old version semantics, we fail on any Python target the moment a conflict between
     // srcs_version and the configuration is detected. Under the new semantics, py_binary and
     // py_test care if there's a conflict but py_library does not. This test case checks the old
@@ -76,7 +76,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     // PyExecutableConfiguredTargetTestBase. Note that under the new semantics py_binary and
     // py_library ignore the version flag, so those tests use the attribute to set the version
     // instead.
-    useConfiguration("--incompatible_allow_python_version_transitions=false", "--force_python=PY3");
+    useConfiguration(
+        "--incompatible_allow_python_version_transitions=false", "--python_version=PY3");
     checkError("pkg", "foo",
         // error:
         "'//pkg:foo' can only be used with Python 2",
@@ -89,7 +90,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void versionIs2IfUnspecified() throws Exception {
-    ensureDefaultIsPY2();
+    assumesDefaultIsPY2();
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
@@ -105,8 +106,9 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     // py_binary, and py_test. Under the new semantics the rule attribute takes precedence, so this
     // would only make sense for py_library; see PyLibraryConfiguredTargetTest for the analogous
     // test.
-    ensureDefaultIsPY2();
-    useConfiguration("--incompatible_allow_python_version_transitions=false", "--force_python=PY3");
+    assumesDefaultIsPY2();
+    useConfiguration(
+        "--incompatible_allow_python_version_transitions=false", "--python_version=PY3");
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",

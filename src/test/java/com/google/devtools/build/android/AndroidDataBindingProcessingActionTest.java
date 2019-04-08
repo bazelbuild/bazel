@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,8 +54,9 @@ public class AndroidDataBindingProcessingActionTest {
   public void testNoResourceRoots() throws Exception {
 
     String[] args = {
-        "--dataBindingInfoOut=" + dataBindingInfoOut,
-        "--appId=foo.bar",
+      "--output_resource_directory=" + tempDir.resolve("res"),
+      "--dataBindingInfoOut=" + dataBindingInfoOut,
+      "--appId=foo.bar",
     };
     AndroidDataBindingProcessingAction.main(args);
 
@@ -73,10 +73,10 @@ public class AndroidDataBindingProcessingActionTest {
         testDataPrefix + "src/test/java/com/google/devtools/build/android/testing/databinding/res";
 
     String[] args = {
-        "--resource_root=" + resourceRoot,
-        "--output_resource_root=" + tempDir.resolve("res"),
-        "--dataBindingInfoOut=" + dataBindingInfoOut,
-        "--appId=foo.bar",
+      "--output_resource_directory=" + tempDir.resolve("res"),
+      "--resource_root=" + resourceRoot,
+      "--dataBindingInfoOut=" + dataBindingInfoOut,
+      "--appId=foo.bar",
     };
     AndroidDataBindingProcessingAction.main(args);
 
@@ -96,12 +96,11 @@ public class AndroidDataBindingProcessingActionTest {
         testDataPrefix + "src/test/java/com/google/devtools/build/android/testing/databinding/res2";
 
     String[] args = {
-        "--resource_root=" + resourceRoot,
-        "--output_resource_root=" + tempDir.resolve("res"),
-        "--resource_root=" + resourceRoot2,
-        "--output_resource_root=" + tempDir.resolve("res2"),
-        "--dataBindingInfoOut=" + dataBindingInfoOut,
-        "--appId=foo.bar",
+      "--output_resource_directory=" + tempDir.resolve("res"),
+      "--resource_root=" + resourceRoot,
+      "--resource_root=" + resourceRoot2,
+      "--dataBindingInfoOut=" + dataBindingInfoOut,
+      "--appId=foo.bar",
     };
     AndroidDataBindingProcessingAction.main(args);
 
@@ -110,57 +109,5 @@ public class AndroidDataBindingProcessingActionTest {
     ZipFile layoutInfo = new ZipFile(dataBindingInfoOut.toFile());
     List<? extends ZipEntry> zipEntries = Collections.list(layoutInfo.entries());
     assertThat(zipEntries).hasSize(2);
-  }
-
-  @Test
-  public void testInputOutputResourceRootsMismatchThrows() throws Exception {
-
-    // resource_root, no output_resource_root
-    String[] args1 = {
-        "--resource_root=foo",
-        "--dataBindingInfoOut=" + dataBindingInfoOut,
-        "--appId=foo.bar",
-    };
-
-    Assert.assertThrows(
-        IllegalArgumentException.class,
-        () -> AndroidDataBindingProcessingAction.main(args1));
-
-    // output_resource_root, no resource_root
-    String[] args2 = {
-        "--output_resource_root=foo",
-        "--dataBindingInfoOut=" + dataBindingInfoOut,
-        "--appId=foo.bar",
-    };
-
-    Assert.assertThrows(
-        IllegalArgumentException.class,
-        () -> AndroidDataBindingProcessingAction.main(args2));
-
-    // 2 resource_roots, but 1 output_resource_root
-    String[] args3 = {
-        "--resource_root=foo",
-        "--output_resource_root=bar",
-        "--resource_root=baz",
-        "--dataBindingInfoOut=" + dataBindingInfoOut,
-        "--appId=foo.bar",
-    };
-
-    Assert.assertThrows(
-        IllegalArgumentException.class,
-        () -> AndroidDataBindingProcessingAction.main(args3));
-
-    // 2 output_resource_root, but 1 resource_root
-    String[] args4 = {
-        "--resource_root=foo",
-        "--output_resource_root=bar",
-        "--output_resource_root=baz",
-        "--dataBindingInfoOut=" + dataBindingInfoOut,
-        "--appId=foo.bar",
-    };
-
-    Assert.assertThrows(
-        IllegalArgumentException.class,
-        () -> AndroidDataBindingProcessingAction.main(args4));
   }
 }

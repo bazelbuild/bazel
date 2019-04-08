@@ -212,6 +212,12 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void evaluateEmptySet() throws InterruptedException {
+    tester.eval(false, new SkyKey[0]);
+    tester.eval(true, new SkyKey[0]);
+  }
+
+  @Test
   public void invalidationWithNothingChanged() throws Exception {
     tester.set("x", new StringValue("y")).setWarning("fizzlepop");
     StringValue value = (StringValue) tester.evalAndGet("x");
@@ -390,7 +396,7 @@ public class MemoizingEvaluatorTest {
     } catch (RuntimeException e) {
       // Then the Evaluator#evaluate call throws a RuntimeException e where e.getCause() is the
       // RuntimeException thrown by that SkyFunction.
-      assertThat(e).hasCauseThat().hasMessage("I don't like being woken up!");
+      assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("I don't like being woken up!");
     }
   }
 
@@ -1362,7 +1368,9 @@ public class MemoizingEvaluatorTest {
       } else {
         assertThatErrorInfo(errorInfo).isNotTransient();
       }
-      assertThat(errorInfo.getException()).hasMessage(NODE_TYPE.getName() + ":errorKey");
+      assertThat(errorInfo.getException())
+          .hasMessageThat()
+          .isEqualTo(NODE_TYPE.getName() + ":errorKey");
       assertThat(errorInfo.getRootCauseOfException()).isEqualTo(errorKey);
     } else {
       // When errors are not stored alongside values, transient errors that are recovered from do

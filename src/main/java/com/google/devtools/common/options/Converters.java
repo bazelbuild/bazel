@@ -355,12 +355,12 @@ public final class Converters {
   }
 
   /** Checks whether a string is a valid regex pattern and compiles it. */
-  public static class RegexPatternConverter implements Converter<Pattern> {
+  public static class RegexPatternConverter implements Converter<RegexPatternOption> {
 
     @Override
-    public Pattern convert(String input) throws OptionsParsingException {
+    public RegexPatternOption convert(String input) throws OptionsParsingException {
       try {
-        return Pattern.compile(input);
+        return RegexPatternOption.create(Pattern.compile(input));
       } catch (PatternSyntaxException e) {
         throw new OptionsParsingException("Not a valid regular expression: " + e.getMessage());
       }

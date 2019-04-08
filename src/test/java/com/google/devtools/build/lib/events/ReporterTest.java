@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.events.Reporter.SHOW_ONCE_TAG;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,6 +72,23 @@ public class ReporterTest extends EventTestTemplate {
   }
 
   @Test
+  public void reporterIgnoresDuplicateEventsWithShowOnce() {
+    ImmutableList<Event> duplicates =
+        ImmutableList.of(
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
+    EventCollector collector = new EventCollector();
+    reporter.addHandler(collector);
+    for (Event e : duplicates) {
+      reporter.handle(e);
+    }
+    ImmutableList<Event> got = ImmutableList.copyOf(collector);
+    assertThat(got).containsExactly(Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
+  }
+
+  @Test
   public void reporterCopyConstructorCopiesHandlersList() {
     reporter.addHandler(outAppender);
     reporter.addHandler(outAppender);
@@ -96,4 +115,30 @@ public class ReporterTest extends EventTestTemplate {
     assertThat(out.toString()).isEmpty();
   }
 
+  @Test
+  public void propagatePostCalls() {
+    FakeExtendedEventHandler extendedEventHandler = new FakeExtendedEventHandler();
+    assertThat(extendedEventHandler.calledPost).isEqualTo(0);
+
+    reporter.addHandler(extendedEventHandler);
+    reporter.post(new FakePostable());
+
+    assertThat(extendedEventHandler.calledPost).isEqualTo(1);
+  }
+
+  private static class FakeExtendedEventHandler implements ExtendedEventHandler {
+    int calledPost = 0;
+
+    @Override
+    public void post(Postable obj) {
+      calledPost++;
+    }
+
+    @Override
+    public void handle(Event event) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private static class FakePostable implements Postable {}
 }

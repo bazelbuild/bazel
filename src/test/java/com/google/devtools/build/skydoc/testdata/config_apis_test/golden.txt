@@ -1,4 +1,7 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
 <a name="#int_setting"></a>
+
 ## int_setting
 
 <pre>
@@ -29,6 +32,7 @@ int_setting(<a href="#int_setting-name">name</a>)
 
 
 <a name="#string_flag"></a>
+
 ## string_flag
 
 <pre>
@@ -58,6 +62,8 @@ string_flag(<a href="#string_flag-name">name</a>)
 </table>
 
 
+<a name="#exercise_the_api"></a>
+
 ## exercise_the_api
 
 <pre>
@@ -67,6 +73,8 @@ exercise_the_api()
 
 
 
+
+<a name="#transition_func"></a>
 
 ## transition_func
 

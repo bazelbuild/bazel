@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -45,6 +46,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
   private final boolean persistentBusyboxToolsEnabled;
+  private final boolean throwOnResourceConflict;
   private final boolean useDataBindingV2;
 
   public static AndroidDataContext forNative(RuleContext ruleContext) {
@@ -62,7 +64,14 @@ public class AndroidDataContext implements AndroidDataContextApi {
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),
         androidConfig.persistentBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext),
+        shouldThrowOnResourceConflictFromWhitelist(ruleContext)
+            || androidConfig.throwOnResourceConflict(),
         androidConfig.useDataBindingV2());
+  }
+
+  private static boolean shouldThrowOnResourceConflictFromWhitelist(RuleContext ruleContext) {
+    return Whitelist.hasWhitelist(ruleContext, "allow_resource_conflicts")
+        && !Whitelist.isAvailable(ruleContext, "allow_resource_conflicts");
   }
 
   protected AndroidDataContext(
@@ -71,12 +80,14 @@ public class AndroidDataContext implements AndroidDataContextApi {
       FilesToRunProvider busybox,
       boolean persistentBusyboxToolsEnabled,
       AndroidSdkProvider sdk,
+      boolean throwOnResourceConflict,
       boolean useDataBindingV2) {
     this.label = label;
     this.persistentBusyboxToolsEnabled = persistentBusyboxToolsEnabled;
     this.actionConstructionContext = actionConstructionContext;
     this.busybox = busybox;
     this.sdk = sdk;
+    this.throwOnResourceConflict = throwOnResourceConflict;
     this.useDataBindingV2 = useDataBindingV2;
   }
 
@@ -147,6 +158,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   public boolean isPersistentBusyboxToolsEnabled() {
     return persistentBusyboxToolsEnabled;
+  }
+
+  public boolean throwOnResourceConflict() {
+    return throwOnResourceConflict;
   }
 
   public boolean useDataBindingV2() {

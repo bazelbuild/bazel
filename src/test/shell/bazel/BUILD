@@ -232,16 +232,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_coverage_experimental_java_test",
-    srcs = ["bazel_coverage_experimental_java_test.sh"],
-    data = [":test-deps"],
-    tags = [
-        "local",
-        "no_windows",
-    ],
-)
-
-sh_test(
     name = "bazel_coverage_sh_test",
     srcs = ["bazel_coverage_sh_test.sh"],
     data = [":test-deps"],
@@ -291,6 +281,15 @@ sh_test(
         "no_windows",
         "requires-network",
     ],
+)
+
+sh_test(
+    name = "whitelist_test",
+    size = "medium",
+    srcs = ["whitelist_test.sh"],
+    data = [":test-deps"],
+    shard_count = 3,
+    tags = ["no_windows"],
 )
 
 genquery(
@@ -521,9 +520,9 @@ sh_test(
 )
 
 filegroup(
-    name = "jdk_WORKSPACE",
+    name = "test_WORKSPACE",
     srcs = [
-        "@jdk_WORKSPACE_files//:archives",
+        "@test_WORKSPACE_files//:archives",
     ],
 )
 
@@ -532,8 +531,8 @@ sh_test(
     size = "large",
     srcs = ["workspace_resolved_test.sh"],
     data = [
-        ":jdk_WORKSPACE",
         ":test-deps",
+        ":test_WORKSPACE",
     ],
     shard_count = 20,
     tags = [
@@ -828,6 +827,13 @@ sh_test(
 sh_test(
     name = "new_local_repo_test",
     srcs = ["new_local_repo_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "archive_contents_test",
+    srcs = ["archive_contents_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

@@ -15,6 +15,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

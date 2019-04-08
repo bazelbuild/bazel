@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -250,7 +251,9 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testStartEndLib() throws Exception {
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
     useConfiguration(
         // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
         "--fat_apk_cpu=k8", "--start_end_lib");
@@ -274,7 +277,9 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testStartEndLibThroughFeature() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
     useConfiguration("--start_end_lib");
     scratch.file(
         "test/BUILD",
@@ -294,7 +299,8 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testTempsWithDifferentExtensions() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     invalidatePackages();
     useConfiguration("--cpu=k8", "--save_temps");
     scratch.file(
@@ -332,7 +338,8 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testTempsForCcWithPic() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     invalidatePackages();
     assertTempsForTarget("//foo:foo").containsExactly("foo.pic.ii", "foo.pic.s");
   }
@@ -346,7 +353,8 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testTempsForCWithPic() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     invalidatePackages();
     useConfiguration();
 
@@ -372,59 +380,14 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(baseNamesOf(getFilesToBuild(alwaysLink))).contains("libalways_link.lo");
   }
 
-  /**
-   * Tests that nocopts= "-fPIC" takes '-fPIC' out of a compile invocation even if the crosstool
-   * requires fPIC compilation (i.e. nocopts overrides crosstool settings on a rule-specific
-   * basis).
-   */
-  @Test
-  public void testNoCoptfPicOverride() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE, MockCcSupport.PIC_FEATURE);
-    // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
-    useConfiguration("--fat_apk_cpu=k8");
-
-    scratch.file(
-        "a/BUILD",
-        "cc_binary(name = 'pic',",
-        "           srcs = [ 'binary.cc' ])",
-        "cc_binary(name = 'libpic.so',",
-        "           srcs = [ 'binary.cc' ])",
-        "cc_library(name = 'piclib',",
-        "           srcs = [ 'library.cc' ])",
-        "cc_binary(name = 'nopic',",
-        "           srcs = [ 'binary.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')",
-        "cc_binary(name = 'libnopic.so',",
-        "           srcs = [ 'binary.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')",
-        "cc_library(name = 'nopiclib',",
-        "           srcs = [ 'library.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')");
-
-    assertThat(getCppCompileAction("//a:pic").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:libpic.so").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:piclib").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:piclib").getOutputFile().getFilename())
-        .contains("library.pic.o");
-    assertThat(getCppCompileAction("//a:nopic").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:libnopic.so").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:nopiclib").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:nopiclib").getOutputFile().getFilename())
-        .contains("library.o");
-  }
-
   @Test
   public void testPicModeAssembly() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig, MockCcSupport.SUPPORTS_PIC_FEATURE, MockCcSupport.PIC_FEATURE);
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
     invalidatePackages();
     useConfiguration("--cpu=k8");
     scratch.file("a/BUILD", "cc_library(name='preprocess', srcs=['preprocess.S'])");
@@ -485,7 +448,7 @@ public class CcCommonTest extends BuildViewTestCase {
   @Test
   public void testUseIsystemForIncludes() throws Exception {
     // Tests the effect of --use_isystem_for_includes.
-
+    useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file(
         "no_includes/BUILD",
         "cc_library(name = 'no_includes',",
@@ -536,7 +499,9 @@ public class CcCommonTest extends BuildViewTestCase {
     // in their runfiles.
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
     useConfiguration("--cpu=k8", "--build_test_dwp", "--dynamic_mode=off", "--fission=yes");
     ConfiguredTarget target =
         scratchConfiguredTarget(
@@ -717,12 +682,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLibraryWithDashStaticOnDarwin() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            /* appendToCurrentToolchain= */ false,
-            MockCcSupport.emptyToolchainForCpu("darwin"));
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin");
     useConfiguration("--cpu=darwin");
     checkError(
         "badlib",
@@ -842,9 +802,14 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
-    assertThat(action.getLinkCommandLine().getLinkopts()).containsExactly(
-        String.format("-Wl,@%s/a/a.lds", getTargetConfiguration().getGenfilesDirectory(
-            RepositoryName.MAIN).getExecPath().getPathString()));
+    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
+        .containsExactly(
+            String.format(
+                "-Wl,@%s/a/a.lds",
+                getTargetConfiguration()
+                    .getGenfilesDirectory(RepositoryName.MAIN)
+                    .getExecPath()
+                    .getPathString()));
   }
 
   @Test
@@ -957,10 +922,9 @@ public class CcCommonTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            "feature { name: 'a1' provides: 'a' }",
-            "feature { name: 'a2' provides: 'a' }");
+            CcToolchainConfig.builder().withFeatures("same_symbol_provided_configuration"));
     useConfiguration("--features=a1", "--features=a2");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -974,13 +938,14 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testSupportsPicFeatureResultsInPICObjectGenerated() throws Exception {
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
-            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.SUPPORTS_PIC_FEATURE);
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.NO_LEGACY_FEATURES, CppRuleClasses.SUPPORTS_PIC)
+                .withActionConfigs(
+                    CppActionNames.CPP_LINK_STATIC_LIBRARY,
+                    CppActionNames.CPP_COMPILE,
+                    CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
     useConfiguration("--cpu=k8");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -1000,12 +965,14 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testWhenSupportsPicDisabledPICObjectAreNotGenerated() throws Exception {
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
-            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG);
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.NO_LEGACY_FEATURES)
+                .withActionConfigs(
+                    CppActionNames.CPP_LINK_STATIC_LIBRARY,
+                    CppActionNames.CPP_COMPILE,
+                    CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
     useConfiguration("--features=-supports_pic");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -1025,13 +992,14 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testWhenSupportsPicDisabledButForcePicSetPICAreGenerated() throws Exception {
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
-            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.SUPPORTS_PIC_FEATURE);
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.NO_LEGACY_FEATURES, CppRuleClasses.SUPPORTS_PIC)
+                .withActionConfigs(
+                    CppActionNames.CPP_LINK_STATIC_LIBRARY,
+                    CppActionNames.CPP_COMPILE,
+                    CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
     useConfiguration("--force_pic", "--cpu=k8");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -1052,12 +1020,14 @@ public class CcCommonTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getAnalysisMock()
         .ccSupport()
-        .setupCrosstool(
+        .setupCcToolchainConfig(
             mockToolsConfig,
-            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
-            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG);
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.NO_LEGACY_FEATURES)
+                .withActionConfigs(
+                    CppActionNames.CPP_LINK_STATIC_LIBRARY,
+                    CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY,
+                    CppActionNames.CPP_COMPILE));
     useConfiguration("--force_pic", "--features=-supports_pic");
 
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
@@ -1067,5 +1037,25 @@ public class CcCommonTest extends BuildViewTestCase {
     assertContainsEvent(
         "PIC compilation is requested but the toolchain does not support it"
             + " (feature named 'supports_pic' is not enabled");
+  }
+
+  @Test
+  public void testCompilationParameterFile() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPIILER_PARAM_FILE));
+    scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+    assertThat(
+            cppCompileAction.getArguments().stream()
+                .map(x -> removeOutDirectory(x))
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
+  }
+
+  private String removeOutDirectory(String s) {
+    return s.replace("blaze-out", "").replace("bazel-out", "");
   }
 }

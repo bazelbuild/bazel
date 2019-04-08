@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -41,8 +42,9 @@ class MetricsCollector {
 
   MetricsCollector(CommandEnvironment env) {
     this.env = env;
+    Options options = env.getOptions().getOptions(Options.class);
     this.bepPublishUsedHeapSizePostBuild =
-        env.getOptions().getOptions(Options.class).bepPublishUsedHeapSizePostBuild;
+        options != null && options.bepPublishUsedHeapSizePostBuild;
     env.getEventBus().register(this);
   }
 
@@ -59,6 +61,7 @@ class MetricsCollector {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void onActionComplete(ActionCompletionEvent event) {
     executedActionCount.incrementAndGet();
   }

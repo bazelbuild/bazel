@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Wrapper for every C++ linking provider. */
 @SkylarkModule(
@@ -26,7 +28,8 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
     doc =
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
-public interface CcLinkingContextApi {
+public interface CcLinkingContextApi<
+    FileT extends FileApi, LibraryToLinkT extends LibraryToLinkApi<FileT>> {
   @SkylarkCallable(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
@@ -37,5 +40,11 @@ public interface CcLinkingContextApi {
       name = "libraries_to_link",
       doc = "Returns the list of <code>LibraryToLink</code>.",
       structField = true)
-  SkylarkList<LibraryToLinkApi> getSkylarkLibrariesToLink();
+  SkylarkList<LibraryToLinkT> getSkylarkLibrariesToLink();
+
+  @SkylarkCallable(
+      name = "additional_inputs",
+      doc = "Returns the list of additional inputs, e.g.: linker scripts.",
+      structField = true)
+  SkylarkNestedSet getSkylarkNonCodeInputs();
 }

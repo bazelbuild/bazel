@@ -43,6 +43,9 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# TODO(bazelbuild/continuous-integration#578): Enable this test for Mac and
+# Windows.
+
 # `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
 # `tr` converts all upper case letters to lower case.
 # `case` matches the result if the `uname | tr` expression to string prefixes
@@ -79,13 +82,7 @@ fi
 # Use a py_runtime that invokes either the system's Python 2 or Python 3
 # interpreter based on the Python mode. On Unix this is a workaround for #4815.
 #
-# TODO(brandjon): Get this running on windows by creating .bat wrappers that
-# invoke "py -2" and "py -3". Make sure our windows workers have both Python
-# versions installed.
-#
-# TODO(brandjon): Get this running on mac -- our workers lack a Python 2
-# installation.
-#
+# TODO(brandjon): Replace this with the autodetecting Python toolchain.
 function use_system_python_2_3_runtimes() {
   PYTHON2_BIN=$(which python2 || echo "")
   PYTHON3_BIN=$(which python3 || echo "")
@@ -129,12 +126,12 @@ function test_can_run_py_binaries() {
   cat > test/BUILD << EOF
 py_binary(
     name = "main2",
-    default_python_version = "PY2",
+    python_version = "PY2",
     srcs = ['main2.py'],
 )
 py_binary(
     name = "main3",
-    default_python_version = "PY3",
+    python_version = "PY3",
     srcs = ["main3.py"],
 )
 EOF
@@ -198,26 +195,26 @@ function test_pybin_can_have_different_version_pybin_as_data_dep() {
 py_binary(
   name = "py2bin",
   srcs = ["py2bin.py"],
-  default_python_version = "PY2",
+  python_version = "PY2",
 )
 py_binary(
   name = "py3bin",
   srcs = ["py3bin.py"],
-  default_python_version = "PY3",
+  python_version = "PY3",
 )
 py_binary(
   name = "py2bin_calling_py3bin",
   srcs = ["py2bin_calling_py3bin.py"],
   deps = ["@bazel_tools//tools/python/runfiles"],
   data = [":py3bin"],
-  default_python_version = "PY2",
+  python_version = "PY2",
 )
 py_binary(
   name = "py3bin_calling_py2bin",
   srcs = ["py3bin_calling_py2bin.py"],
   deps = ["@bazel_tools//tools/python/runfiles"],
   data = [":py2bin"],
-  default_python_version = "PY3",
+  python_version = "PY3",
 )
 EOF
 
@@ -243,12 +240,14 @@ EOF
   sed s/py3bin/py2bin/ test/py2bin_calling_py3bin.py > test/py3bin_calling_py2bin.py
   chmod u+x test/py2bin_calling_py3bin.py test/py3bin_calling_py2bin.py
 
-  EXPFLAG="--incompatible_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"
 
   bazel build $EXPFLAG //test:py2bin_calling_py3bin //test:py3bin_calling_py2bin \
       || fail "bazel build failed"
   PY2_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG)/test/py2bin_calling_py3bin
-  PY3_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG --force_python=PY3)/test/py3bin_calling_py2bin
+  PY3_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG --python_version=PY3)/test/py3bin_calling_py2bin
 
   RUNFILES_MANIFEST_FILE= RUNFILES_DIR= $PY2_OUTER_BIN &> $TEST_log
   expect_log "Outer bin uses Python 2"
@@ -266,12 +265,12 @@ function test_shbin_can_have_different_version_pybins_as_data_deps() {
 py_binary(
   name = "py2bin",
   srcs = ["py2bin.py"],
-  default_python_version = "PY2",
+  python_version = "PY2",
 )
 py_binary(
   name = "py3bin",
   srcs = ["py3bin.py"],
-  default_python_version = "PY3",
+  python_version = "PY3",
 )
 sh_binary(
   name = "shbin_calling_py23bins",
@@ -322,7 +321,9 @@ EOF
 
   chmod u+x test/shbin_calling_py23bins.sh
 
-  EXPFLAG="--incompatible_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"
 
   bazel build $EXPFLAG //test:shbin_calling_py23bins \
       || fail "bazel build failed"
@@ -362,8 +363,12 @@ EOF
 
   # Run under both old and new semantics.
   for EXPFLAG in \
-      "--incompatible_allow_python_version_transitions=true" \
-      "--incompatible_allow_python_version_transitions=false"; do
+      "--incompatible_allow_python_version_transitions=true \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false" \
+      "--incompatible_allow_python_version_transitions=false \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"; do
     echo "Using $EXPFLAG" > $TEST_log
     bazel build $EXPFLAG --host_force_python=PY2 //test:genrule_calling_pybin \
         || fail "bazel build failed"
@@ -392,13 +397,13 @@ py_binary(
   name = "py2bin",
   srcs = ["py2bin.py"],
   deps = [":common"],
-  default_python_version = "PY2",
+  python_version = "PY2",
 )
 py_binary(
   name = "py3bin",
   srcs = ["py3bin.py"],
   deps = [":common"],
-  default_python_version = "PY3",
+  python_version = "PY3",
 )
 sh_binary(
   name = "shbin",
@@ -452,7 +457,9 @@ $(rlocation {{WORKSPACE_NAME}}/test/py3bin)
 EOF
   chmod u+x test/shbin.sh
 
-  EXPFLAG="--incompatible_allow_python_version_transitions=true"
+  EXPFLAG="--incompatible_allow_python_version_transitions=true \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"
 
   bazel build $EXPFLAG //test:shbin \
       || fail "bazel build failed"

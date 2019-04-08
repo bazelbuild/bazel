@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.profiler;
 
 import com.google.caliper.BeforeExperiment;
 import com.google.caliper.Benchmark;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 /**
@@ -29,14 +29,15 @@ public class AutoProfilerBenchmark {
   void startProfiler() throws Exception {
     Profiler.instance()
         .start(
-            ProfiledTaskKinds.ALL,
+            ImmutableSet.copyOf(ProfilerTask.values()),
             new InMemoryFileSystem().getPath("/out.dat").getOutputStream(),
             Profiler.Format.BINARY_BAZEL_FORMAT,
             "benchmark",
             false,
             BlazeClock.instance(),
             BlazeClock.instance().nanoTime(),
-            /* enabledCpuUsageProfiling= */ false);
+            /* enabledCpuUsageProfiling= */ false,
+            /* slimProfile= */ false);
   }
 
   @BeforeExperiment

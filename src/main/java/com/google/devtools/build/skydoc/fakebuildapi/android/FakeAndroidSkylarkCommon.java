@@ -18,12 +18,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-/**
- * Fake implementation of {@link AndroidSkylarkCommonApi}.
- */
-public class FakeAndroidSkylarkCommon implements AndroidSkylarkCommonApi<FileApi> {
+/** Fake implementation of {@link AndroidSkylarkCommonApi}. */
+public class FakeAndroidSkylarkCommon
+    implements AndroidSkylarkCommonApi<FileApi, JavaInfoApi<FileApi>> {
 
   @Override
   public AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType) {
@@ -37,6 +37,12 @@ public class FakeAndroidSkylarkCommon implements AndroidSkylarkCommonApi<FileApi
 
   @Override
   public AndroidSplitTransititionApi getAndroidSplitTransition() {
+    return null;
+  }
+
+  @Override
+  public JavaInfoApi<FileApi> enableImplicitSourcelessDepsExportsCompatibility(
+      JavaInfoApi<FileApi> javaInfo) {
     return null;
   }
 }

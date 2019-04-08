@@ -55,8 +55,9 @@ public class NonconfigurableAttributeMapperTest extends AbstractAttributeMapperT
       fail("Expected NonconfigurableAttributeMapper to fail on a configurable attribute type");
     } catch (IllegalStateException e) {
       // Expected outcome.
-      assertThat(e).hasMessage(
-          "Attribute 'linkstatic' is potentially configurable - not allowed here");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Attribute 'linkstatic' is potentially configurable - not allowed here");
     }
   }
 }

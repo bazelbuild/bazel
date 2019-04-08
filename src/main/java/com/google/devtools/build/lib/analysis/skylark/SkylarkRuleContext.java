@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -156,7 +157,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       RuleContext ruleContext,
       @Nullable AspectDescriptor aspectDescriptor,
       StarlarkSemantics starlarkSemantics)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, RuleErrorException {
     this.actionFactory = new SkylarkActionFactory(this, starlarkSemantics, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
@@ -261,7 +262,11 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       this.ruleAttributesCollection = ruleBuilder.build();
     }
 
-    makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+    try {
+      makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+    } catch (ExpansionException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
+    }
   }
 
   /**
@@ -423,7 +428,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     ImmutableMap.Builder<String, Object> splitAttrInfos = ImmutableMap.builder();
     for (Attribute attr : attributes) {
 
-      if (attr.hasSplitConfigurationTransition()) {
+      if (attr.getTransitionFactory().isSplit()) {
 
         Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> splitPrereqs =
             ruleContext.getSplitPrerequisites(attr.getName());

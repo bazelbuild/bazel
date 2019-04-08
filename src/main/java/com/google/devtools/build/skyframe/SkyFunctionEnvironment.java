@@ -431,6 +431,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     int expectedMissingKeys = newlyRegisteredDeps.size();
     ArrayList<SkyKey> missingKeys =
         expectedMissingKeys > 0 ? new ArrayList<>(expectedMissingKeys) : null;
+    ArrayList<SkyKey> unexpectedlyMissingKeys = null;
 
     for (SkyKey key : depKeys) {
       SkyValue value = maybeGetValueFromErrorOrDeps(key);
@@ -438,17 +439,31 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         if (key == ErrorTransienceValue.KEY) {
           continue;
         }
-        Preconditions.checkState(
-            newlyRegisteredDeps.contains(key),
-            "Dep was not previously or newly requested, nor registered, nor error transient: %s",
-            key,
-            this);
+        if (!newlyRegisteredDeps.contains(key)) {
+          if (unexpectedlyMissingKeys == null) {
+            unexpectedlyMissingKeys = new ArrayList<>();
+          }
+          unexpectedlyMissingKeys.add(key);
+          if (missingKeys == null) {
+            missingKeys = new ArrayList<>();
+          }
+        }
         missingKeys.add(key);
       } else if (value == NULL_MARKER) {
         Preconditions.checkState(!assertDone, "%s had not done %s", skyKey, key);
       } else {
         result.add(value);
       }
+    }
+    if (unexpectedlyMissingKeys != null && !unexpectedlyMissingKeys.isEmpty()) {
+      // This may still crash below, if the dep is not done in the graph, but at least it gives the
+      // dep until now to complete its computation, as opposed to the start of this node's
+      // evaluation, which is when most of the structures used by #maybeGetValueFromErrorOrDeps were
+      // created.
+      evaluatorContext
+          .getGraphInconsistencyReceiver()
+          .noteInconsistencyAndMaybeThrow(
+              skyKey, unexpectedlyMissingKeys, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
     }
     if (missingKeys == null || missingKeys.isEmpty()) {
       return result;
@@ -769,6 +784,12 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     // the data being written now is the same as the data already present in the entry.
     Set<SkyKey> reverseDeps =
         primaryEntry.setValue(valueWithMetadata, evaluationVersion, depFingerprintList);
+    if (AbstractParallelEvaluator.matchesMissingSkyKey(skyKey)) {
+      logger.atInfo().log(
+          "Set value for %s with %s (%s)",
+          skyKey, primaryEntry, System.identityHashCode(primaryEntry));
+    }
+
     // Note that if this update didn't actually change the entry, this version may not be
     // evaluationVersion.
     Version currentVersion = primaryEntry.getVersion();

@@ -75,6 +75,15 @@ function ensure_contains_atleast() {
   fi
 }
 
+function ensure_output_contains_exactly_once() {
+  file_path=$(bazel info output_base)/$1
+  num=`grep "$2" $file_path | wc -l`
+  if [ "$num" -ne 1 ]
+  then
+    fail "Expected to read \"$2\" in $1, but got $num occurrences: " `cat $file_path`
+  fi
+}
+
 function test_execute() {
   set_workspace_command 'repository_ctx.execute(["echo", "testing!"])'
   build_and_process_log
@@ -221,9 +230,9 @@ function test_download_then_extract() {
   local file_prefix="${server_dir}/download_then_extract"
 
   pushd ${TEST_TMPDIR}
-  echo "This is one file" > server_dir/download_then_extract.txt
-  zip -r server_dir/download_then_extract.zip server_dir
-  file_sha256="$(sha256sum server_dir/download_then_extract.zip | head -c 64)"
+  echo "This is one file" > ${server_dir}/download_then_extract.txt
+  zip -r ${server_dir}/download_then_extract.zip server_dir
+  file_sha256="$(sha256sum $server_dir/download_then_extract.zip | head -c 64)"
   popd
 
   # Start HTTP server with Python
@@ -246,6 +255,45 @@ function test_download_then_extract() {
   ensure_contains_exactly 'archive: "downloaded_file.zip"' 1
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/download_then_extract.txt" "This is one file"
+}
+
+function test_download_then_extract_tar() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  local data_dir="${TEST_TMPDIR}/data_dir"
+  mkdir -p "${server_dir}"
+  mkdir -p "${data_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "Experiment with tar" > ${data_dir}/download_then_extract_tar.txt
+  tar -zcvf ${server_dir}/download_then_extract.tar.gz data_dir
+  file_sha256="$(sha256sum $server_dir/download_then_extract.tar.gz | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  set_workspace_command "
+  repository_ctx.download(\"http://localhost:${fileserver_port}/download_then_extract.tar.gz\", \"downloaded_file.tar.gz\", \"${file_sha256}\")
+  repository_ctx.extract(\"downloaded_file.tar.gz\", \"out_dir\", \"data_dir/\")"
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 2
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.tar.gz\"" 1
+  ensure_contains_exactly 'output: "downloaded_file.tar.gz"' 1
+  ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
+  ensure_contains_exactly 'extract_event' 1
+  ensure_contains_exactly 'archive: "downloaded_file.tar.gz"' 1
+  ensure_contains_exactly 'output: "out_dir"' 1
+  ensure_contains_exactly 'strip_prefix: "data_dir/"' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/download_then_extract_tar.txt" "Experiment with tar"
 }
 
 function test_download_and_extract() {
@@ -255,8 +303,8 @@ function test_download_and_extract() {
   local file_prefix="${server_dir}/download_and_extract"
 
   pushd ${TEST_TMPDIR}
-  echo "This is one file" > server_dir/download_and_extract.txt
-  zip -r server_dir/download_and_extract.zip server_dir
+  echo "This is one file" > ${server_dir}/download_and_extract.txt
+  zip -r ${server_dir}/download_and_extract.zip server_dir
   file_sha256="$(sha256sum server_dir/download_and_extract.zip | head -c 64)"
   popd
 
@@ -275,6 +323,8 @@ function test_download_and_extract() {
   ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
   ensure_contains_exactly 'type: "zip"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/download_and_extract.txt" "This is one file"
 }
 
 function test_file() {
@@ -290,6 +340,75 @@ function test_file() {
   ensure_contains_exactly 'path: ".*filefile.sh"' 1
   ensure_contains_exactly 'content: "echo filefile"' 1
   ensure_contains_exactly 'executable: true' 1
+}
+
+function test_file_nonascii() {
+  set_workspace_command 'repository_ctx.file("filefile.sh", "echo fïlëfïlë", True)'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+
+  # There are 3 file_event in external:repo as it is currently set up
+  ensure_contains_exactly 'file_event' 3
+  ensure_contains_exactly 'path: ".*filefile.sh"' 1
+  ensure_contains_exactly 'executable: true' 1
+
+  # This test file is in UTF-8, so the string passed to file() is UTF-8.
+  # Protobuf strings are Unicode encoded in UTF-8, so the logged text
+  # is double-encoded relative to the workspace command.
+  #
+  # >>> content = "echo f\u00EFl\u00EBf\u00EFl\u00EB".encode("utf8")
+  # >>> proto_content = content.decode("iso-8859-1").encode("utf8")
+  # >>> print("".join(chr(c) if c <= 0x7F else ("\\" + oct(c)[2:]) for c in proto_content))
+  # echo f\303\203\302\257l\303\203\302\253f\303\203\302\257l\303\203\302\253
+  # >>>
+
+  ensure_contains_exactly 'content: "echo f\\303\\203\\302\\257l\\303\\203\\302\\253f\\303\\203\\302\\257l\\303\\203\\302\\253"' 1
+}
+
+function test_read() {
+  set_workspace_command '
+  content = "echo filefile"
+  repository_ctx.file("filefile.sh", content, True)
+  read_result = repository_ctx.read("filefile.sh")
+  if read_result != content:
+    fail("read(): expected %r, got %r" % (content, read_result))'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:5:17' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 2
+
+  ensure_contains_exactly 'read_event' 1
+  ensure_contains_exactly 'path: ".*filefile.sh"' 2
+}
+
+function test_read_roundtrip_legacy_utf8() {
+  # See discussion on https://github.com/bazelbuild/bazel/pull/7309
+  set_workspace_command '
+  content = "echo fïlëfïlë"
+  repository_ctx.file("filefile.sh", content, True, legacy_utf8=True)
+  read_result = repository_ctx.read("filefile.sh")
+
+  corrupted_content = "echo fÃ¯lÃ«fÃ¯lÃ«"
+  if read_result != corrupted_content:
+    fail("read(): expected %r, got %r" % (corrupted_content, read_result))'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+}
+
+function test_read_roundtrip_nolegacy_utf8() {
+  set_workspace_command '
+  content = "echo fïlëfïlë"
+  repository_ctx.file("filefile.sh", content, True, legacy_utf8=False)
+  read_result = repository_ctx.read("filefile.sh")
+  if read_result != content:
+    fail("read(): expected %r, got %r" % (content, read_result))'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
 }
 
 function test_os() {
