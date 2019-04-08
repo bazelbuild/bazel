@@ -236,10 +236,12 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
+      # C++ coverage is not supported on macOS yet.
+    - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # The below tests have been disabled because they are too slow on macOS.
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
+      # The below tests have been disabled because they are too slow on macOS.
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
     - "-//src/test/shell/bazel:bazel_determinism_test"
     - "-//src/test/shell/bazel:bazel_java_test"
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"

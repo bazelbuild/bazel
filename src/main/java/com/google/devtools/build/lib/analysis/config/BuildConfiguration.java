@@ -585,25 +585,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean collectCodeCoverage;
 
     @Option(
-        name = "incompatible_cc_coverage",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS
-        },
-        oldName = "experimental_cc_coverage",
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If specified, Bazel will use gcov to collect code coverage for C++ test targets. "
-                + "This option only works for gcc compilation.")
-    public boolean useGcovCoverage;
-
-    @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -1718,10 +1699,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   @Override
   public boolean isCodeCoverageEnabled() {
     return options.collectCodeCoverage;
-  }
-
-  public boolean useGcovCoverage() {
-    return options.useGcovCoverage;
   }
 
   public RunUnder getRunUnder() {

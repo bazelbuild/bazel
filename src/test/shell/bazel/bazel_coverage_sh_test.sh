@@ -267,7 +267,7 @@ void HelloLib::greet(const string& thing) {
 EOF
 
   ########### Run bazel coverage ###########
-  bazel coverage --experimental_cc_coverage --test_output=all \
+  bazel coverage  --test_output=all \
       //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
 
   ########### Assert coverage results. ###########
@@ -454,7 +454,7 @@ public class orangeBin {
 EOF
 
   ########### Run bazel coverage ###########
-  bazel coverage --experimental_cc_coverage --test_output=all \
+  bazel coverage  --test_output=all \
       //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
 
   ########### Assert coverage results. ###########

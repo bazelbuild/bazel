@@ -121,7 +121,7 @@ function test_cc_test_coverage_gcov() {
   fi
   setup_a_cc_lib_and_t_cc_test
 
-  bazel coverage --experimental_cc_coverage --test_output=all \
+  bazel coverage  --test_output=all \
      --build_event_text_file=bep.txt //:t &>"$TEST_log" \
      || fail "Coverage for //:t failed"
 
@@ -146,7 +146,7 @@ end_of_record"
   assert_not_contains "SF:t\.cc" "$coverage_file_path"
 
   # Verify that this is also true for cached coverage actions.
-  bazel coverage --experimental_cc_coverage --test_output=all \
+  bazel coverage  --test_output=all \
       --build_event_text_file=bep.txt //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
   expect_log '//:t.*cached'
@@ -262,7 +262,7 @@ int main(int argc, char** argv) {
 EOF
 
   ########### Run bazel coverage ###########
-  bazel coverage --experimental_cc_coverage --test_output=all //examples/cpp:hello-world_test &>"$TEST_log" \
+  bazel coverage  --test_output=all //examples/cpp:hello-world_test &>"$TEST_log" \
      || fail "Coverage for //examples/cpp:hello-world_test failed"
 
   ########### Assert coverage results. ###########
@@ -376,7 +376,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-  bazel coverage --experimental_cc_coverage --test_output=all //:t \
+  bazel coverage  --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
   ##### Putting together the expected coverage results #####
@@ -494,7 +494,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-  bazel coverage --experimental_cc_coverage --instrument_test_targets \
+  bazel coverage  --instrument_test_targets \
       --test_output=all //:t &>"$TEST_log" || fail "Coverage for //:t failed"
 
   ##### Putting together the expected coverage results #####
@@ -642,7 +642,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-  bazel coverage --experimental_cc_coverage --test_output=all //:t \
+  bazel coverage  --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
   ##### Putting together the expected coverage results #####
@@ -807,7 +807,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-  bazel coverage --experimental_cc_coverage --test_output=all //:t \
+  bazel coverage  --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
   ##### Putting together the expected coverage results #####
@@ -942,7 +942,7 @@ cc_test(
     srcs = ["t.cc"]
 )
 EOF
-     bazel coverage --experimental_cc_coverage --test_output=all \
+     bazel coverage  --test_output=all \
         //empty_cov:empty-cov-test  &>"$TEST_log" \
      || fail "Coverage for //empty_cov:empty-cov-test failed"
      expect_log "WARNING: There was no coverage found."
