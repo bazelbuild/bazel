@@ -534,7 +534,7 @@ sh_test(
         ":test-deps",
         ":test_WORKSPACE",
     ],
-    shard_count = 20,
+    shard_count = 21,
     tags = [
         "block-network",
         "no_windows",
