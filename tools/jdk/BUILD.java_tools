@@ -92,6 +92,12 @@ config_setting(
     values = {"cpu": "x64_windows"},
 )
 
+config_setting(
+    name = "freebsd",
+    values = {"cpu": "freebsd"},
+    visibility = ["//visibility:public"],
+)
+
 alias(
   name = "ijar",
   actual = select({
@@ -177,6 +183,46 @@ cc_library(
     ],
     strip_include_prefix = "java_tools",
     include_prefix = "third_party",
+)
+
+cc_library(
+    name = "cpp_util",
+    hdrs = [
+        "java_tools/src/main/cpp/util/errors.h",
+        "java_tools/src/main/cpp/util/file.h",
+        "java_tools/src/main/cpp/util/file_platform.h",
+        "java_tools/src/main/cpp/util/md5.h",
+        "java_tools/src/main/cpp/util/numbers.h",
+        "java_tools/src/main/cpp/util/path.h",
+        "java_tools/src/main/cpp/util/path_platform.h",
+        "java_tools/src/main/cpp/util/port.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":blaze_exit_code",
+        ":errors",
+        ":filesystem",
+        ":md5",
+        ":numbers",
+        ":port",
+        ":strings",
+    ],
+    strip_include_prefix = "java_tools",
+)
+
+cc_library(
+    name = "md5",
+    srcs = ["java_tools/src/main/cpp/util/md5.cc"],
+    hdrs = ["java_tools/src/main/cpp/util/md5.h"],
+    strip_include_prefix = "java_tools",
+)
+
+cc_library(
+    name = "numbers",
+    srcs = ["java_tools/src/main/cpp/util/numbers.cc"],
+    hdrs = ["java_tools/src/main/cpp/util/numbers.h"],
+    deps = [":strings"],
+    strip_include_prefix = "java_tools",
 )
 
 cc_library(
@@ -289,4 +335,182 @@ cc_library(
     deps = ["//java_tools/zlib"],
     strip_include_prefix = "java_tools",
     include_prefix = "third_party",
+)
+
+##################### singlejar
+
+cc_binary(
+    name = "singlejar",
+    srcs = [
+        "java_tools/src/tools/singlejar/singlejar_main.cc",
+    ],
+    linkopts = select({
+        ":freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":options",
+        ":output_jar",
+        "//java_tools/zlib",
+    ],
+)
+
+cc_binary(
+    name = "singlejar_local",
+    srcs = [
+        "java_tools/src/tools/singlejar/singlejar_local_main.cc",
+    ],
+    linkopts = select({
+        ":freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":combiners",
+        ":desugar_checking",
+        ":options",
+        ":output_jar",
+        "//java_tools/zlib",
+    ],
+)
+
+cc_library(
+    name = "combiners",
+    srcs = [
+        "java_tools/src/tools/singlejar/combiners.cc",
+        ":transient_bytes",
+        ":zip_headers",
+    ],
+    hdrs = ["java_tools/src/tools/singlejar/combiners.h"],
+    strip_include_prefix = "java_tools",
+    deps = [
+        "//java_tools/zlib",
+    ],
+)
+
+proto_library(
+  name = "desugar_deps_proto",
+  srcs = ["java_tools/src/main/protobuf/desugar_deps.proto"]
+)
+
+cc_proto_library(
+    name = "desugar_deps_cc_proto",
+    deps = [":desugar_deps_proto"],
+)
+
+cc_library(
+    name = "desugar_checking",
+    srcs = ["java_tools/src/tools/singlejar/desugar_checking.cc"],
+    hdrs = ["java_tools/src/tools/singlejar/desugar_checking.h"],
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":combiners",
+        ":desugar_deps_cc_proto",
+    ],
+)
+
+cc_library(
+    name = "diag",
+    hdrs = ["java_tools/src/tools/singlejar/diag.h"],
+    strip_include_prefix = "java_tools",
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "singlejar_port",
+    hdrs = ["java_tools/src/tools/singlejar/port.h"],
+    strip_include_prefix = "java_tools",
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "mapped_file",
+    srcs = ["java_tools/src/tools/singlejar/mapped_file.cc"] + select({
+        ":windows": ["java_tools/src/tools/singlejar/mapped_file_windows.inc"],
+        "//conditions:default": ["java_tools/src/tools/singlejar/mapped_file_posix.inc"],
+    }),
+    hdrs = ["java_tools/src/tools/singlejar/mapped_file.h"],
+    visibility = ["//visibility:private"],
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":diag",
+        ":singlejar_port",
+        "//src/main/cpp/util",
+    ],
+)
+
+cc_library(
+    name = "input_jar",
+    srcs = [
+        "java_tools/src/tools/singlejar/input_jar.cc",
+    ],
+    hdrs = [
+        "java_tools/src/tools/singlejar/input_jar.h",
+        "java_tools/src/tools/singlejar/zip_headers.h",
+    ],
+    deps = [
+        ":diag",
+        ":mapped_file",
+    ],
+    strip_include_prefix = "java_tools",
+)
+
+cc_library(
+    name = "options",
+    srcs = [
+        "java_tools/src/tools/singlejar/options.cc",
+        "java_tools/src/tools/singlejar/options.h",
+    ],
+    hdrs = ["java_tools/src/tools/singlejar/options.h"],
+    deps = [
+        ":diag",
+        ":token_stream",
+    ],
+    strip_include_prefix = "java_tools",
+)
+
+cc_library(
+    name = "output_jar",
+    srcs = [
+        "java_tools/src/tools/singlejar/output_jar.cc",
+        "java_tools/src/tools/singlejar/output_jar.h",
+        ":zip_headers",
+    ],
+    hdrs = ["java_tools/src/tools/singlejar/output_jar.h"],
+    deps = [
+        ":combiners",
+        ":diag",
+        ":input_jar",
+        ":mapped_file",
+        ":options",
+        ":singlejar_port",
+        "//src/main/cpp/util",
+        "//java_tools/zlib",
+    ],
+    strip_include_prefix = "java_tools",
+)
+
+cc_library(
+    name = "token_stream",
+    hdrs = ["java_tools/src/tools/singlejar/token_stream.h"],
+    deps = [":diag"],
+    strip_include_prefix = "java_tools",
+)
+
+filegroup(
+    name = "transient_bytes",
+    srcs = [
+        "java_tools/src/tools/singlejar/diag.h",
+        "java_tools/src/tools/singlejar/transient_bytes.h",
+        "java_tools/src/tools/singlejar/zlib_interface.h",
+        ":zip_headers",
+    ],
+)
+
+filegroup(
+    name = "zip_headers",
+    srcs = ["java_tools/src/tools/singlejar/zip_headers.h"],
 )

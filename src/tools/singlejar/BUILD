@@ -8,31 +8,65 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+SOURCES = [
+    "combiners.cc",
+    "combiners.h",
+    "diag.h",
+    "input_jar.cc",
+    "input_jar.h",
+    "mapped_file.cc",
+    "mapped_file.h",
+    "mapped_file_posix.inc",
+    "mapped_file_windows.inc",
+    "options.cc",
+    "options.h",
+    "output_jar.cc",
+    "output_jar.h",
+    "port.h",
+    "singlejar_main.cc",
+    "token_stream.h",
+    "transient_bytes.h",
+    "zip_headers.h",
+    "zlib_interface.h",
+]
+
 filegroup(
     name = "embedded_tools",
-    srcs = [
-        "BUILD",
-        "combiners.cc",
-        "combiners.h",
-        "diag.h",
-        "input_jar.cc",
-        "input_jar.h",
-        "mapped_file.cc",
-        "mapped_file.h",
-        "mapped_file_posix.inc",
-        "mapped_file_windows.inc",
-        "options.cc",
-        "options.h",
-        "output_jar.cc",
-        "output_jar.h",
-        "port.h",
-        "singlejar_main.cc",
-        "token_stream.h",
-        "transient_bytes.h",
-        "zip_headers.h",
-        "zlib_interface.h",
-    ],
+    srcs = SOURCES + ["BUILD"],
     visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "embedded_java_tools",
+    srcs = SOURCES + [
+        "//src/main/cpp/util:embedded_java_tools",
+        "//third_party/zlib:embedded_tools",
+        "//src/main/protobuf:desugar_deps_filegroup",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
+genrule(
+    name = "singlejar_transitive_zip",
+    srcs = [
+        ":singlejar_zip",
+        "//src:zlib_zip",
+        "//src/main/cpp/util:cpp_util_with_deps_zip",
+        "//src/main/protobuf:desugar_deps_zip",
+    ],
+    outs = ["singlejar_transitive.zip"],
+    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
+    tools = ["//src:merge_zip_files"],
+    visibility = ["//src:__pkg__"],
+)
+
+genrule(
+    name = "singlejar_zip",
+    srcs = SOURCES + [":singlejar_local"],
+    outs = ["singlejar.zip"],
+    cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
+    tools = ["//src:zip_files"],
+    visibility = ["//visibility:private"],
 )
 
 cc_binary(
