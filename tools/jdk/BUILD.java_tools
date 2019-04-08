@@ -101,7 +101,7 @@ config_setting(
 alias(
     name = "singlejar",
     actual = select({
-         "//src/conditions:remote": "//src/tools/singlejar:singlejar",
+         "//src/conditions:remote": ":singlejar_cc_bin",
          "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
      }),
 )
@@ -109,11 +109,11 @@ alias(
 alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
-          ":linux_x86_64": "//src/tools/singlejar/singlejar_local",
-          ":darwin": "//src/tools/singlejar/singlejar_local",
-          ":darwin_x86_64": "//src/tools/singlejar/singlejar_local",
-          ":windows": "//src/tools/singlejar/singlejar_local.exe",
-          "//conditions:default": "//src/tools/singlejar:singlejar",
+          ":linux_x86_64": "//java_tools/src/tools/singlejar/singlejar_local",
+          ":darwin": "//java_tools/src/tools/singlejar/singlejar_local",
+          ":darwin_x86_64": "//java_tools/src/tools/singlejar/singlejar_local",
+          ":windows": "//java_tools/src/tools/singlejar/singlejar_local.exe",
+          "//conditions:default": "singlejar_cc_bin",
       })
 )
 
@@ -359,7 +359,7 @@ cc_library(
 ##################### singlejar
 
 cc_binary(
-    name = "singlejar",
+    name = "singlejar_cc_bin",
     srcs = [
         "java_tools/src/tools/singlejar/singlejar_main.cc",
     ],
