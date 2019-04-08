@@ -36,7 +36,9 @@ import sys
 class Handler(BaseHTTPRequestHandler):
   """Handlers for testing HTTP server."""
   auth = False
+  not_found = False
   filename = None
+  redirect = None
   valid_header = b'Basic ' + base64.b64encode('foo:bar'.encode('ascii'))
 
   def do_HEAD(self):  # pylint: disable=invalid-name
@@ -51,6 +53,17 @@ class Handler(BaseHTTPRequestHandler):
     self.end_headers()
 
   def do_GET(self):  # pylint: disable=invalid-name
+    if self.not_found:
+      self.send_response(404)
+      self.end_headers()
+      return
+
+    if self.redirect is not None:
+      self.send_response(301)
+      self.send_header('Location', self.redirect)
+      self.end_headers()
+      return
+
     if not self.auth:
       self.do_HEAD()
       self.serve_file()
@@ -79,6 +92,10 @@ def main(argv=None):
 
   if len(argv) > 1 and argv[0] == 'always':
     Handler.filename = argv[1]
+  elif len(argv) > 1 and argv[0] == 'redirect':
+    Handler.redirect = argv[1]
+  elif argv and argv[0] == '404':
+    Handler.not_found = True
   elif argv:
     Handler.auth = True
 
