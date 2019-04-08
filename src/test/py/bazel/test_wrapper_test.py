@@ -374,6 +374,10 @@ class TestWrapperTest(test_base.TestBase):
     bazel_bin = bazel_bin[0]
 
     exit_code, stdout, stderr = self.RunBazel([
+        # --[no]incompatible_windows_style_arg_escaping affects what arguments
+        # the test receives. Run with --incompatible_windows_style_arg_escaping
+        # to test for future (as of 2019-04-05) behavior.
+        '--incompatible_windows_style_arg_escaping',
         'test',
         '//foo:testargs_test.exe',
         '-t-',
@@ -559,19 +563,19 @@ class TestWrapperTest(test_base.TestBase):
         flag,
         [
             '(foo)',
+            # If https://github.com/bazelbuild/bazel/issues/6277 is ever fixed,
+            # then assert that (a b) is one argument.
             '(a)',
             '(b)',
+            # If https://github.com/bazelbuild/bazel/issues/6276 is ever fixed,
+            # then assert that there's an empty argument before (c d).
             '(c d)',
             '()',
             '(bar)',
             '(baz)',
             '("x y")',
-            # I (laszlocsomor@) don't know the exact reason (as of 2019-04-05)
-            # why () and (qux) are mangled as they are, but since I'm planning
-            # to phase out test-setup.sh on Windows in favor of the native test
-            # wrapper, I don't intend to debug this further.  The test is here
-            # merely to guard against unwanted future change of behavior.
-            '(\\" qux)'
+            '("")',
+            '(qux)',
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
