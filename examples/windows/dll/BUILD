@@ -1,4 +1,4 @@
-load("//examples/windows/dll:cc_shared_library.bzl", "cc_shared_library")
+load("//examples/windows/dll:windows_dll_library.bzl", "windows_dll_library")
 
 filegroup(
     name = "srcs",
@@ -7,7 +7,7 @@ filegroup(
 )
 
 # Define the shared library
-cc_shared_library(
+windows_dll_library(
     name = "hellolib",
     srcs = ["hello-library.cpp"],
     hdrs = ["hello-library.h"],
