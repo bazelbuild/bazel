@@ -143,6 +143,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java_tools_test",
+    size = "small",
+    srcs = ["bazel_java_tools_test.sh"],
+    data = [
+        ":test-deps",
+        "//src:java_tools.zip",
+    ],
+)
+
+sh_test(
     name = "bazel_proto_library_test",
     size = "large",  # Downloads and compiles protobuf for *every* *test* *case*
     srcs = ["bazel_proto_library_test.sh"],
