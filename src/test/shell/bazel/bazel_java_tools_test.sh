@@ -23,7 +23,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 function expect_path_in_java_tools() {
   path="$1"; shift
 
-  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools.zip) | grep -c "path")
+  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools.zip) | grep -c "$path")
   [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools"
 }
 
@@ -56,11 +56,7 @@ function test_java_tools_has_singlejar() {
 }
 
 function test_java_tools_has_singlejar_local() {
-  expect_path_in_java_tools "java_tools/src/tools/singlejar_local"
-}
-
-function test_java_tools_has_singlejar_local() {
-  expect_path_in_java_tools "java_tools/src/tools/singlejar_local"
+  expect_path_in_java_tools "java_tools/src/tools/singlejar/singlejar_local"
 }
 
 function test_java_tools_has_VanillaJavaBuilder() {
