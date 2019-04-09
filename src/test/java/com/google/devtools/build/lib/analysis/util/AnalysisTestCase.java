@@ -106,10 +106,18 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   /** All the flags that can be passed to {@link BuildView#update}. */
   public enum Flag {
+    // The --keep_going flag.
     KEEP_GOING,
     // Configurations that only include the fragments a target needs to properly analyze.
     TRIMMED_CONFIGURATIONS,
-    SKYFRAME_PREPARE_ANALYSIS
+    // The --skyframe_prepare_analysis flag.
+    SKYFRAME_PREPARE_ANALYSIS,
+    // Flags for visibility to default to public.
+    PUBLIC_VISIBILITY,
+    // Flags for CPU to work (be set to k8) in test mode.
+    CPU_K8,
+    // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
+    PRODUCT_SPECIFIC_FLAGS
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -280,8 +288,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     LoadingPhaseThreadsOption.class,
                     LoadingOptions.class),
                 ruleClassProvider.getConfigurationOptions()));
-    optionsParser.parse("--default_visibility=public", "--cpu=k8", "--host_cpu=k8");
-    optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    if (defaultFlags().contains(Flag.PUBLIC_VISIBILITY)) {
+      optionsParser.parse("--default_visibility=public");
+    }
+    if (defaultFlags().contains(Flag.CPU_K8)) {
+      optionsParser.parse("--cpu=k8", "--host_cpu=k8");
+    }
+    if (defaultFlags().contains(Flag.PRODUCT_SPECIFIC_FLAGS)) {
+      optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    }
     optionsParser.parse(args);
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       optionsParser.parse("--experimental_dynamic_configs=on");
@@ -291,7 +306,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected FlagBuilder defaultFlags() {
-    return new FlagBuilder();
+    return new FlagBuilder()
+        .with(Flag.PUBLIC_VISIBILITY)
+        .with(Flag.CPU_K8)
+        .with(Flag.PRODUCT_SPECIFIC_FLAGS);
   }
 
   protected Action getGeneratingAction(Artifact artifact) {
