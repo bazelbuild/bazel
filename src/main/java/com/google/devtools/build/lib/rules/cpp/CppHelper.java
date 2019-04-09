@@ -599,6 +599,9 @@ public class CppHelper {
         return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
       }
     }
+    if (cppConfiguration.isCSFdo()) {
+      return "CSFDO";
+    }
     if (cppConfiguration.isFdo()) {
       return "FDO";
     }

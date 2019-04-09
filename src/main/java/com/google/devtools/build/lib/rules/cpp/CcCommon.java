@@ -844,14 +844,19 @@ public final class CcCommon {
 
     allFeatures.addAll(getCoverageFeatures(cppConfiguration));
 
-    String fdoInstrument = cppConfiguration.getFdoInstrument();
-    if (fdoInstrument != null && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
-      allFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
+    if (!allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
+      if (cppConfiguration.getFdoInstrument() != null) {
+        allFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
+      } else {
+        if (cppConfiguration.getCSFdoInstrument() != null) {
+          allFeatures.add(CppRuleClasses.CS_FDO_INSTRUMENT);
+        }
+      }
     }
 
     FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
     if (branchFdoProvider != null && cppConfiguration.getCompilationMode() == CompilationMode.OPT) {
-      if (branchFdoProvider.isLlvmFdo()
+      if ((branchFdoProvider.isLlvmFdo() || branchFdoProvider.isLlvmCSFdo())
           && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
         allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
         // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
@@ -860,6 +865,9 @@ public final class CcCommon {
             && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
         }
+      }
+      if (branchFdoProvider.isLlvmCSFdo()) {
+        allFeatures.add(CppRuleClasses.CS_FDO_OPTIMIZE);
       }
       if (branchFdoProvider.isAutoFdo()) {
         allFeatures.add(CppRuleClasses.AUTOFDO);

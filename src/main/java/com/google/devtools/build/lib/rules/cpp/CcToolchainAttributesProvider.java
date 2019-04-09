@@ -78,7 +78,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final String cpu;
   private final Artifact ifsoBuilder;
   private final Artifact linkDynamicLibraryTool;
-  private final FdoProfileProvider fdoOptimizeProvider;
   private final TransitiveInfoCollection fdoOptimize;
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
@@ -92,7 +91,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
+  private final FdoProfileProvider fdoOptimizeProvider;
   private final FdoProfileProvider fdoProfileProvider;
+  private final FdoProfileProvider csFdoProfileProvider;
   private final FdoProfileProvider xfdoProfileProvider;
   private final Label ccToolchainLabel;
   private final TransitiveInfoCollection staticRuntimeLib;
@@ -167,6 +168,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.fdoProfileProvider =
         ruleContext.getPrerequisite(
             CcToolchainRule.FDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
+    this.csFdoProfileProvider =
+        ruleContext.getPrerequisite(
+            CcToolchainRule.CSFDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
     this.xfdoProfileProvider =
         ruleContext.getPrerequisite(
             CcToolchainRule.XFDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
@@ -346,6 +350,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public FdoProfileProvider getFdoProfileProvider() {
     return fdoProfileProvider;
+  }
+
+  public FdoProfileProvider getCSFdoProfileProvider() {
+    return csFdoProfileProvider;
   }
 
   public FdoProfileProvider getXFdoProfileProvider() {

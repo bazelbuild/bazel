@@ -253,6 +253,12 @@ public final class LtoBackendArtifacts {
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
     addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
+    // Add the context sensitive instrument path to the backend.
+    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
+      buildVariablesBuilder.addStringVariable(
+          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(),
+          ccToolchain.getCSFdoInstrument());
+    }
 
     if (generateDwo) {
       dwoFile =
@@ -303,6 +309,7 @@ public final class LtoBackendArtifacts {
       builder.addInput(fdoContext.getPrefetchHintsArtifact());
     }
     if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+        && !featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_OPTIMIZE)
         && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
       return;
     }

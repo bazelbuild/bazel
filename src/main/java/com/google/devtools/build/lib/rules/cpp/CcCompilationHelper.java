@@ -94,10 +94,15 @@ public final class CcCompilationHelper {
       FeatureConfiguration featureConfiguration,
       FdoContext fdoContext,
       String fdoInstrument,
+      String csFdoInstrument,
       CppConfiguration cppConfiguration) {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
           CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
+    }
+    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
+      variablesBuilder.put(
+          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
     }
 
     // FDO is disabled -> do nothing.
@@ -126,7 +131,7 @@ public final class CcCompilationHelper {
               branchFdoProfile.getProfileArtifact().getExecPathString());
         }
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
-          if (branchFdoProfile.isLlvmFdo()) {
+          if (branchFdoProfile.isLlvmFdo() || branchFdoProfile.isLlvmCSFdo()) {
             variablesBuilder.put(
                 CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
                 branchFdoProfile.getProfileArtifact().getExecPathString());
@@ -1440,6 +1445,7 @@ public final class CcCompilationHelper {
           featureConfiguration,
           fdoContext,
           cppConfiguration.getFdoInstrument(),
+          cppConfiguration.getCSFdoInstrument(),
           cppConfiguration);
     }
     return CompileBuildVariables.setupVariablesOrReportRuleError(

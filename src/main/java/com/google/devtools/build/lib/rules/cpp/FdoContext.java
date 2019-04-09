@@ -40,6 +40,9 @@ public class FdoContext implements TransitiveInfoProvider {
 
     /** Instrumentation-based FDO implemented on LLVM. */
     LLVM_FDO,
+
+    /** Instrumentation-based Context Sensitive FDO implemented on LLVM. */
+    LLVM_CS_FDO,
   }
 
   /** A POJO encapsulating the branch profiling configuration. */
@@ -66,6 +69,10 @@ public class FdoContext implements TransitiveInfoProvider {
 
     public boolean isLlvmFdo() {
       return branchFdoMode == BranchFdoMode.LLVM_FDO;
+    }
+
+    public boolean isLlvmCSFdo() {
+      return branchFdoMode == BranchFdoMode.LLVM_CS_FDO;
     }
 
     public Artifact getProfileArtifact() {

@@ -613,6 +613,11 @@ public final class CcToolchainProvider extends ToolchainInfo
     return cppConfiguration;
   }
 
+  /** Return context-sensitive fdo instrumentation path. */
+  public String getCSFdoInstrument() {
+    return cppConfiguration.getCSFdoInstrument();
+  }
+
   /** Returns build variables to be templated into the crosstool. */
   public CcToolchainVariables getBuildVariables(
       BuildOptions buildOptions, CppConfiguration cppConfiguration) {
