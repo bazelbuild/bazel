@@ -208,7 +208,7 @@ import javax.annotation.Nullable;
  * additional artifacts (workspace status and build info artifacts) into SkyFunctions for use during
  * the build.
  */
-public abstract class SkyframeExecutor implements WalkableGraphFactory {
+public abstract class SkyframeExecutor<T extends BuildDriver> implements WalkableGraphFactory {
   private static final Logger logger = Logger.getLogger(SkyframeExecutor.class.getName());
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
@@ -256,7 +256,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
-  protected BuildDriver buildDriver;
+  protected T buildDriver;
 
   private final Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit;
 
@@ -806,7 +806,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected abstract Differencer evaluatorDiffer();
 
-  protected abstract BuildDriver getBuildDriver();
+  protected abstract T getBuildDriver();
 
   /** Clear any configured target data stored outside Skyframe. */
   public void handleAnalysisInvalidatingChange() {
@@ -1074,8 +1074,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     showLoadingProgress.set(showLoadingProgressValue);
   }
 
-  @VisibleForTesting
-  public void setCommandId(UUID commandId) {
+  protected void setCommandId(UUID commandId) {
     PrecomputedValue.BUILD_ID.set(injectable(), commandId);
   }
 
