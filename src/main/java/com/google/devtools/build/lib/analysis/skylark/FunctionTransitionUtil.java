@@ -160,6 +160,7 @@ public class FunctionTransitionUtil {
     try (Mutability mutability = Mutability.create("build_settings")) {
       SkylarkDict<String, Object> dict = SkylarkDict.withMutability(mutability);
 
+      // Add native options
       for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
         String optionName = entry.getKey();
         String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
@@ -182,7 +183,14 @@ public class FunctionTransitionUtil {
         }
       }
 
-      // TODO(juliexxia): Allowing reading of starlark-defined build settings.
+      // Add Starlark options
+      for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
+        if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
+          continue;
+        }
+        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), null, mutability);
+      }
+
       if (!remainingInputs.isEmpty()) {
         throw new EvalException(
             starlarkTransition.getLocationForErrorReporting(),

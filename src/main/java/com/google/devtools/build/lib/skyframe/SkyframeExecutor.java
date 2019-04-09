@@ -1905,23 +1905,36 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         if (key.getTransition() == NullTransition.INSTANCE) {
           continue;
         }
+        ImmutableMap<Label, Object> defaultInputValues;
+        try {
+          defaultInputValues =
+              StarlarkTransition.getDefaultInputValues(
+                  collectBuildSettingValues(key.getTransition(), eventHandler, "inputs"),
+                  key.getTransition());
+        } catch (TransitionException e) {
+          eventHandler.handle(Event.error(e.getMessage()));
+          continue;
+        }
+
         List<BuildOptions> toOptions =
             ConfigurationResolver.applyTransition(
-                fromOptions, key.getTransition(), depFragments, ruleClassProvider, true);
+                fromOptions,
+                key.getTransition(),
+                depFragments,
+                ruleClassProvider,
+                true,
+                defaultInputValues);
         for (BuildOptions toOption : toOptions) {
           configSkyKeys.add(
               BuildConfigurationValue.key(
                   depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, toOption)));
         }
-        ImmutableSet<SkyKey> buildSettingPackageKeys =
-            StarlarkTransition.getBuildSettingPackageKeys(key.getTransition());
-        EvaluationResult<SkyValue> buildSettingsResult =
-            evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
-        ImmutableMap.Builder<SkyKey, SkyValue> buildSettingValues = new ImmutableMap.Builder<>();
-        buildSettingPackageKeys.forEach(k -> buildSettingValues.put(k, buildSettingsResult.get(k)));
         try {
           StarlarkTransition.validate(
-              key.getTransition(), buildSettingValues.build(), toOptions, eventHandler);
+              key.getTransition(),
+              collectBuildSettingValues(key.getTransition(), eventHandler, "outputs"),
+              toOptions,
+              eventHandler);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
         }
@@ -1940,13 +1953,28 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
           builder.put(key, null);
           continue;
         }
-
-        for (BuildOptions toOptions :
+        ImmutableMap<Label, Object> defaultInputValues;
+        try {
+          defaultInputValues =
+              StarlarkTransition.getDefaultInputValues(
+                  collectBuildSettingValues(key.getTransition(), eventHandler, "inputs"),
+                  key.getTransition());
+        } catch (TransitionException e) {
+          eventHandler.handle(Event.error(e.getMessage()));
+          continue;
+        }
+        List<BuildOptions> toOptions =
             ConfigurationResolver.applyTransition(
-                fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
+                fromOptions,
+                key.getTransition(),
+                depFragments,
+                ruleClassProvider,
+                true,
+                defaultInputValues);
+        for (BuildOptions toOption : toOptions) {
           SkyKey configKey =
               BuildConfigurationValue.key(
-                  depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, toOptions));
+                  depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, toOption));
           BuildConfigurationValue configValue =
               ((BuildConfigurationValue) configsResult.get(configKey));
           // configValue will be null here if there was an exception thrown during configuration
@@ -1958,6 +1986,20 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       }
     }
     return builder;
+  }
+
+  private Map<SkyKey, SkyValue> collectBuildSettingValues(
+      ConfigurationTransition transition,
+      ExtendedEventHandler eventHandler,
+      String inputsOrOutputs) {
+    ImmutableSet<SkyKey> buildSettingInputPackageKeys =
+        StarlarkTransition.getBuildSettingPackageKeys(transition, inputsOrOutputs);
+    EvaluationResult<SkyValue> buildSettingsResult =
+        evaluateSkyKeys(eventHandler, buildSettingInputPackageKeys, true);
+    ImmutableMap.Builder<SkyKey, SkyValue> buildSettingInputValues = new ImmutableMap.Builder<>();
+    buildSettingInputPackageKeys.forEach(
+        k -> buildSettingInputValues.put(k, buildSettingsResult.get(k)));
+    return buildSettingInputValues.build();
   }
 
   /**

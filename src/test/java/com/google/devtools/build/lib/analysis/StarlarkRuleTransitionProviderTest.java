@@ -35,9 +35,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for StarlarkRuleTransitionProvider.
- */
+/** Tests for StarlarkRuleTransitionProvider. */
 @RunWith(JUnit4.class)
 public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
@@ -541,26 +539,122 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "attempting to transition on '//test:cute-animal-fact' which is not a build setting");
   }
 
-  // TODO(juliexxia): flip this test when we can read build settings.
   @Test
-  public void testCantReadNonNativeBuildSetting() throws Exception {
+  public void testTransitionReadsBuildSetting_fromDefault() throws Exception {
     setSkylarkSemanticsOptions(
         "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
-        "  return {'//test:cute-animal-fact': settings['//test:cute-animal-fact']+' ADDED'}",
+        "  return {'//test:cute-animal-fact': settings['//test:cute-animal-fact']+' <- TRUE'}",
         "my_transition = transition(",
         "  implementation = _transition_impl,",
         "  inputs = ['//test:cute-animal-fact'],",
-        "  outputs = ['//test:i-am-not-real']",
+        "  outputs = ['//test:cute-animal-fact']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(
+            configuration
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+        .isEqualTo("cows produce more milk when they listen to soothing music <- TRUE");
+  }
+
+  @Test
+  public void testTransitionReadsBuildSetting_fromCommandLine() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:cute-animal-fact': settings['//test:cute-animal-fact']+' <- TRUE'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = ['//test:cute-animal-fact'],",
+        "  outputs = ['//test:cute-animal-fact']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(
+            configuration
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+        .isEqualTo("rats are ticklish <- TRUE");
+  }
+
+  @Test
+  public void testTransitionReadsBuildSetting_notABuildSetting() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:cute-animal-fact': 'puffins mate for life'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = ['//test:cute-animal-fact'],",
+        "  outputs = ['//test:cute-animal-fact']",
+        ")");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _rule_impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "non_build_setting = rule(implementation = _impl)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'non_build_setting')",
+        "my_rule(name = 'test')",
+        "non_build_setting(name = 'cute-animal-fact')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "attempting to transition on '//test:cute-animal-fact' which is not a build setting");
+  }
+
+  @Test
+  public void testTransitionReadsBuildSetting_noSuchTarget() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:cute-animal-fact': settings['//test:cute-animal-fact']+' <- TRUE'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = ['//test:i-am-not-real'],",
+        "  outputs = ['//test:cute-animal-fact']",
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
     assertContainsEvent(
-        "transition inputs [//test:cute-animal-fact] do not correspond to valid settings");
+        "no such target '//test:i-am-not-real': target "
+            + "'i-am-not-real' not declared in package 'test'");
   }
 
   @Test

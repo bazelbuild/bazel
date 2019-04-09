@@ -1090,13 +1090,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final Supplier<BuildConfigurationEvent> buildEventSupplier;
 
   /**
-   * Returns true if this configuration is semantically equal to the other, with
-   * the possible exception that the other has fewer fragments.
+   * Returns true if this configuration is semantically equal to the other, with the possible
+   * exception that the other has fewer fragments.
    *
    * <p>This is useful for trimming: as the same configuration gets "trimmed" while going down a
    * dependency chain, it's still the same configuration but loses some of its fragments. So we need
    * a more nuanced concept of "equality" than simple reference equality.
    */
+  // TODO(b/121048710): make this reflect starlark options
   public boolean equalsOrIsSupersetOf(BuildConfiguration other) {
     return this.equals(other)
         || (other != null
