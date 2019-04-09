@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -76,6 +80,37 @@ public class Utils {
       builder.setInMemoryOutput(inMemoryOutput.getOutput(), inMemoryOutput.getContents());
     }
     return builder.build();
+  }
+
+  /**
+   * Returns {@code true} if all spawn outputs should be downloaded to disk.
+   */
+  public static boolean shouldDownloadAllSpawnOutputs(RemoteOutputsMode remoteOutputsMode,
+      int exitCode, boolean hasTopLevelOutputs) {
+    return remoteOutputsMode.downloadAllOutputs() ||
+        // In case the action failed, download all outputs. It might be helpful for debugging
+        // and there is no point in injecting output metadata of a failed action.
+        exitCode != 0 ||
+        // If one output of a spawn is a top level output then download all outputs. Spawns
+        // are typically structured in a way that either all or no outputs are top level and
+        // it's much simpler to implement under this assumption.
+        remoteOutputsMode.downloadToplevelOutputsOnly() && hasTopLevelOutputs;
+  }
+
+  /**
+   * Returns {@code true} if outputs contains one or more top level outputs.
+   */
+  public static boolean hasTopLevelOutputs(Collection<? extends ActionInput> outputs,
+      ImmutableSet<Artifact> topLevelOutputs) {
+    if (topLevelOutputs.isEmpty()) {
+      return false;
+    }
+    for (ActionInput output : outputs) {
+      if (topLevelOutputs.contains(output)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** An in-memory output file. */

@@ -39,6 +39,7 @@ import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -194,7 +196,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(
         ActionResult.newBuilder().setExitCode(0).build()).build();
@@ -257,7 +260,8 @@ public class RemoteSpawnRunnerTest {
             null,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);
@@ -304,7 +308,8 @@ public class RemoteSpawnRunnerTest {
                 null,
                 retrier,
                 digestUtil,
-                logDir));
+                logDir,
+                /* topLevelOutputs= */ ImmutableSet.of()));
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -362,7 +367,8 @@ public class RemoteSpawnRunnerTest {
                 null,
                 retrier,
                 digestUtil,
-                logDir));
+                logDir,
+                /* topLevelOutputs= */ ImmutableSet.of()));
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
@@ -420,7 +426,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     ExecuteResponse succeeded =
         ExecuteResponse.newBuilder()
@@ -463,7 +470,8 @@ public class RemoteSpawnRunnerTest {
             null,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -522,7 +530,8 @@ public class RemoteSpawnRunnerTest {
             null,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -563,7 +572,8 @@ public class RemoteSpawnRunnerTest {
             null,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -601,7 +611,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
@@ -638,7 +649,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
@@ -680,7 +692,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
@@ -724,7 +737,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     ActionResult result = ActionResult.newBuilder().setExitCode(31).build();
@@ -764,7 +778,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     ActionResult result = ActionResult.newBuilder().setExitCode(0).build();
@@ -806,7 +821,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
@@ -849,7 +865,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
@@ -903,7 +920,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -950,7 +968,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -995,7 +1014,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -1037,7 +1057,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException("reasons"));
@@ -1076,7 +1097,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException("reasons"));
 
@@ -1112,7 +1134,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     ExecuteResponse succeeded =
         ExecuteResponse.newBuilder()
@@ -1190,7 +1213,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -1229,7 +1253,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -1271,7 +1296,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -1289,14 +1315,57 @@ public class RemoteSpawnRunnerTest {
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
   }
 
-  private static Spawn newSimpleSpawn() {
+  @Test
+  public void testDownloadTopLevel() throws Exception {
+    // arrange
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
+
+    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("outs"));
+    Artifact topLevelOutput = new Artifact(outputRoot.getRoot().getRelative("foo.bin"), outputRoot);
+
+    ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(succeededAction);
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            Options.getDefaults(ExecutionOptions.class),
+            new AtomicReference<>(localRunner),
+            false,
+            /* cmdlineReporter= */ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor,
+            retrier,
+            digestUtil,
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of(topLevelOutput));
+
+    Spawn spawn = newSimpleSpawn(topLevelOutput);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+
+    // act
+    SpawnResult result = runner.exec(spawn, policy);
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+
+    // assert
+    verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr));
+    verify(cache, never()).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(),
+        any(), any());
+  }
+
+  private static Spawn newSimpleSpawn(Artifact... outputs) {
     return new SimpleSpawn(
         new FakeOwner("foo", "bar"),
             /*arguments=*/ ImmutableList.of(),
             /*environment=*/ ImmutableMap.of(),
             /*executionInfo=*/ ImmutableMap.of(),
             /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
+            /*outputs=*/ ImmutableList.copyOf(outputs),
         ResourceSet.ZERO);
   }
 
