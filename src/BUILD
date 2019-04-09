@@ -614,6 +614,7 @@ genrule(
     cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
     output_to_bindir = 1,
     tools = ["//src:merge_zip_files"],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Part of the Java tools remote archive. Not embedded or used in Bazel.
