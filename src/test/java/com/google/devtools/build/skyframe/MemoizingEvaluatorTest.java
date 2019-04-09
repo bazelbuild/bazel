@@ -67,7 +67,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -102,6 +101,11 @@ public class MemoizingEvaluatorTest {
       tester.setProgressReceiver(customProgressReceiver);
     }
     tester.initialize(true);
+  }
+
+  protected TrackingProgressReceiver createTrackingProgressReceiver(
+      boolean checkEvaluationResults) {
+    return new TrackingProgressReceiver(checkEvaluationResults);
   }
 
   @After
@@ -3079,19 +3083,6 @@ public class MemoizingEvaluatorTest {
    */
   @Test
   public void deletingDirtyNodes() throws Exception {
-    final Thread thread = Thread.currentThread();
-    final AtomicBoolean interruptInvalidation = new AtomicBoolean(false);
-    initializeTester(new TrackingProgressReceiver() {
-      private final AtomicBoolean firstInvalidation = new AtomicBoolean(true);
-
-      @Override
-      public void invalidated(SkyKey skyKey, InvalidationState state) {
-        if (interruptInvalidation.get() && !firstInvalidation.getAndSet(false)) {
-          thread.interrupt();
-        }
-        super.invalidated(skyKey, state);
-      }
-    });
     SkyKey node0 = GraphTester.nonHermeticKey("node0");
     SkyKey key = null;
     // Create a long chain of nodes. Most of them will not actually be dirtied, but the last one to
@@ -3112,17 +3103,23 @@ public class MemoizingEvaluatorTest {
     // Start the dirtying process.
     tester.set(node0, new StringValue("new"));
     tester.invalidate();
-    interruptInvalidation.set(true);
+
+    // Interrupt current thread on a next invalidate call
+    final Thread thread = Thread.currentThread();
+    tester.progressReceiver.setNextInvalidationCallback(thread::interrupt);
+
     try {
       tester.eval(/*keepGoing=*/false, key);
       fail();
     } catch (InterruptedException e) {
       // Expected.
     }
-    interruptInvalidation.set(false);
+
+    // Cleanup + paranoid check
+    tester.progressReceiver.setNextInvalidationCallback(null);
     // Now delete all the nodes. The node that was going to be dirtied is also deleted, which we
     // should handle.
-    tester.evaluator.delete(Predicates.<SkyKey>alwaysTrue());
+    tester.evaluator.delete(Predicates.alwaysTrue());
     assertThat(((StringValue) tester.evalAndGet(/*keepGoing=*/ false, key)).getValue())
         .isEqualTo("new");
   }
@@ -4569,17 +4566,7 @@ public class MemoizingEvaluatorTest {
   @Test
   public void shutDownBuildOnCachedError_Verified() throws Exception {
     // TrackingProgressReceiver does unnecessary examination of node values.
-    initializeTester(
-        new TrackingProgressReceiver() {
-          @Override
-          public void evaluated(
-              SkyKey skyKey,
-              @Nullable SkyValue value,
-              Supplier<EvaluationSuccessState> evaluationSuccessState,
-              EvaluationState state) {
-            evaluated.add(skyKey);
-          }
-        });
+    initializeTester(createTrackingProgressReceiver(/* checkEvaluationResults= */ false));
     // errorKey will be invalidated due to its dependence on invalidatedKey, but later revalidated
     // since invalidatedKey re-evaluates to the same value on a subsequent build.
     SkyKey errorKey = GraphTester.toSkyKey("error");
@@ -4708,17 +4695,7 @@ public class MemoizingEvaluatorTest {
   @Test
   public void cachedErrorCausesRestart() throws Exception {
     // TrackingProgressReceiver does unnecessary examination of node values.
-    initializeTester(
-        new TrackingProgressReceiver() {
-          @Override
-          public void evaluated(
-              SkyKey skyKey,
-              @Nullable SkyValue value,
-              Supplier<EvaluationSuccessState> evaluationSuccessState,
-              EvaluationState state) {
-            evaluated.add(skyKey);
-          }
-        });
+    initializeTester(createTrackingProgressReceiver(/* checkEvaluationResults= */ false));
     final SkyKey errorKey = GraphTester.toSkyKey("error");
     SkyKey invalidatedKey = GraphTester.nonHermeticKey("invalidated");
     final SkyKey topKey = GraphTester.toSkyKey("top");
@@ -5242,7 +5219,8 @@ public class MemoizingEvaluatorTest {
     private RecordingDifferencer differencer;
     private MemoizingEvaluator evaluator;
     private BuildDriver driver;
-    private TrackingProgressReceiver progressReceiver = new TrackingProgressReceiver();
+    private TrackingProgressReceiver progressReceiver =
+        createTrackingProgressReceiver(/* checkEvaluationResults= */ true);
     private GraphInconsistencyReceiver graphInconsistencyReceiver =
         GraphInconsistencyReceiver.THROWING;
     private EventFilter eventFilter = InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER;
