@@ -99,7 +99,7 @@ EOF
     --noimplicit_deps --experimental_starlark_config_transitions \
     >& $TEST_log || fail "failed to query //vinegar"
   expect_log "@secret_ingredient//hotsauce"
-  expect_log "test_arg:\[hotlanta\] -> \[\[\"tapatio\"\]\]"
+  expect_log "test_arg:\[hotlanta\] -> \[\[tapatio\]\]"
 
 }
 
