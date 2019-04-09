@@ -74,6 +74,20 @@ java_import(
     ],
 )
 
+# This target only contains the jars that are used for building / running Bazel.
+# The target below is for the Android tools that are not shipped with Bazel.
+java_import(
+    name = "android_common_25_0_0_lite",
+    jars = [
+        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools_repository_25.0.0.jar",
+    ],
+    deps = [
+        "//third_party/jaxb",
+    ],
+)
+
 java_import(
     name = "android_common_25_0_0",
     jars = [
