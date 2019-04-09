@@ -28,14 +28,15 @@ import com.google.devtools.common.options.OptionsBase;
 public final class RemoteOptions extends OptionsBase {
 
   @Option(
-      name = "remote_cache_proxy",
+      name = "remote_proxy",
+      oldName = "remote_cache_proxy",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Connect to the remote cache through a proxy. Currently this flag can only be used to "
               + "configure a Unix domain socket (unix:/path/to/socket) for the HTTP cache.")
-  public String remoteCacheProxy;
+  public String remoteProxy;
 
   @Option(
       name = "remote_max_connections",

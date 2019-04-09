@@ -91,7 +91,7 @@ public class SimpleBlobStoreFactoryTest {
   @Test
   public void createHttpCacheWithProxy() throws IOException {
     remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.remoteCacheProxy = "unix://some-proxy";
+    remoteOptions.remoteProxy = "unix://some-proxy";
 
     SimpleBlobStore blobStore =
         SimpleBlobStoreFactory.create(remoteOptions, /* creds= */ null, workingDirectory);
@@ -102,7 +102,7 @@ public class SimpleBlobStoreFactoryTest {
   @Test
   public void createHttpCacheFailsWithUnsupportedProxyProtocol() {
     remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.remoteCacheProxy = "bad-proxy";
+    remoteOptions.remoteProxy = "bad-proxy";
 
     assertThat(
             assertThrows(
@@ -224,7 +224,7 @@ public class SimpleBlobStoreFactoryTest {
   @Test
   public void create_httpCacheWithProxy() {
     remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.remoteCacheProxy = "unix://some-proxy";
+    remoteOptions.remoteProxy = "unix://some-proxy";
 
     SimpleBlobStore blobStore = SimpleBlobStoreFactory.create(remoteOptions, /* casPath= */ null);
 
@@ -234,7 +234,7 @@ public class SimpleBlobStoreFactoryTest {
   @Test
   public void create_httpCacheFailsWithUnsupportedProxyProtocol() {
     remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.remoteCacheProxy = "bad-proxy";
+    remoteOptions.remoteProxy = "bad-proxy";
 
     assertThat(
             assertThrows(
