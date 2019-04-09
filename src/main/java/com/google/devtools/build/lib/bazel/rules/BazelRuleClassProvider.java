@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -443,9 +444,10 @@ public class BazelRuleClassProvider {
       return "/bin:/usr/bin";
     }
 
+    String newPath = "";
     // Attempt to compute the MSYS root (the real Windows path of "/") from `sh`.
     if (sh != null && sh.getParentDirectory() != null) {
-      String newPath = sh.getParentDirectory().getPathString();
+      newPath = sh.getParentDirectory().getPathString();
       if (sh.getParentDirectory().endsWith(PathFragment.create("usr/bin"))) {
         newPath +=
             ";" + sh.getParentDirectory().getParentDirectory().replaceName("bin").getPathString();
@@ -454,13 +456,22 @@ public class BazelRuleClassProvider {
             ";" + sh.getParentDirectory().replaceName("usr").getRelative("bin").getPathString();
       }
       newPath = newPath.replace('/', '\\');
-
-      if (path != null) {
-        newPath += ";" + path;
-      }
-      return newPath;
-    } else {
-      return null;
     }
+    // On Windows, the following dirs should always be available in PATH:
+    //   C:\Windows
+    //   C:\Windows\System32
+    //   C:\Windows\System32\WindowsPowerShell\v1.0
+    // They are similar to /bin:/usr/bin, which makes the basic tools on the platform available.
+    String systemRoot = System.getenv("SYSTEMROOT");
+    if (Strings.isNullOrEmpty(systemRoot)) {
+      systemRoot = "C:\\Windows";
+    }
+    newPath += ";" + systemRoot;
+    newPath += ";" + systemRoot + "\\System32";
+    newPath += ";" + systemRoot + "\\System32\\WindowsPowerShell\\v1.0";
+    if (path != null) {
+      newPath += ";" + path;
+    }
+    return newPath;
   }
 }
