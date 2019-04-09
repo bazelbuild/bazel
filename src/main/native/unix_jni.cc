@@ -805,40 +805,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_rename(JNIEnv *env,
   ReleaseStringLatin1Chars(newpath_chars);
 }
 
-static bool delete_common(JNIEnv *env,
-                          jstring path,
-                          int (*delete_function)(const char *),
-                          bool (*error_function)(int)) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
-  if (path_chars == NULL) {
-      return false;
-  }
-  bool ok = delete_function(path_chars) != -1;
-  if (!ok) {
-    if (!error_function(errno)) {
-      ::PostFileException(env, errno, path_chars);
-    }
-  }
-  ReleaseStringLatin1Chars(path_chars);
-  return ok;
-}
-
-static bool unlink_err(int err) { return err == ENOENT; }
-static bool remove_err(int err) { return err == ENOENT || err == ENOTDIR; }
-
-/*
- * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    unlink
- * Signature: (Ljava/lang/String;)V
- * Throws:    java.io.IOException
- */
-extern "C" JNIEXPORT bool JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_unlink(JNIEnv *env,
-                                                   jclass clazz,
-                                                   jstring path) {
-  return ::delete_common(env, path, ::unlink, ::unlink_err);
-}
-
 /*
  * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    remove
@@ -849,7 +815,18 @@ extern "C" JNIEXPORT bool JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_remove(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring path) {
-  return ::delete_common(env, path, ::remove, ::remove_err);
+  const char *path_chars = GetStringLatin1Chars(env, path);
+  if (path_chars == NULL) {
+    return false;
+  }
+  bool ok = remove(path_chars) != -1;
+  if (!ok) {
+    if (errno != ENOENT && errno != ENOTDIR) {
+      ::PostFileException(env, errno, path_chars);
+    }
+  }
+  ReleaseStringLatin1Chars(path_chars);
+  return ok;
 }
 
 /*

@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.UnixJniLoader;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.logging.LogManager;
@@ -31,90 +30,6 @@ import java.util.logging.LogManager;
 public final class NativePosixFiles {
 
   private NativePosixFiles() {}
-
-  /**
-   * Returns true iff the file identified by 'path' is a symbolic link. Has
-   * similar semantics to POSIX stat(2) syscall, with all errors being mapped to
-   * a false return.
-   *
-   * @param path the file of interest
-   * @return true iff path exists, is accessible and is a symlink
-   */
-  public static boolean isSymbolicLink(File path) {
-    try {
-      return lstat(path.toString()).isSymbolicLink();
-    } catch (IOException e) {
-      return false;
-    }
-  }
-
-
-  /**
-   * Returns true iff the file identified by 'path' is a directory. Has
-   * similar semantics to POSIX stat(2) syscall, with all errors being mapped to
-   * a false return.
-   *
-   * @param path the file of interest
-   * @return true iff path exists, is accessible and is a symlink
-   */
-  public static boolean isDirectory(String path) {
-    try {
-      return lstat(path).isDirectory();
-    } catch (IOException e) {
-      return false;
-    }
-  }
-
-
-  /**
-   * Marks the file or directory {@code path} as executable. (Non-atomic)
-   *
-   * @see File#setReadOnly
-   *
-   * @param path the file of interest
-   * @throws FileAccessException if path can't be accessed
-   * @throws FileNotFoundException if path doesn't exist
-   * @throws IOException for other filesystem or path errors
-   */
-  public static void setExecutable(File path) throws IOException {
-    String p = path.toString();
-    chmod(p, stat(p).getPermissions() | FileStatus.S_IEXEC);
-  }
-
-  /**
-   * Marks the file or directory {@code path} as owner writable. (Non-atomic)
-   *
-   * @see File#setReadOnly
-   *
-   * @param path the file of interest
-   * @throws FileAccessException if path can't be accessed
-   * @throws FileNotFoundException if path doesn't exist
-   * @throws IOException for other filesystem or path errors
-   */
-  public static void setWritable(File path) throws IOException {
-    String p = path.toString();
-    chmod(p, stat(p).getPermissions() | FileStatus.S_IWUSR);
-  }
-
-  /**
-   * Changes permissions of a file.
-   *
-   * @param path the file whose mode to change.
-   * @param mode the mode bits within 07777, interpreted according to
-   *   long-standing UNIX tradition.
-   * @throws IOException if the chmod() syscall failed.
-   */
-  public static void chmod(File path, int mode) throws IOException {
-    int mask = FileStatus.S_ISUID
-               | FileStatus.S_ISGID
-               | FileStatus.S_ISVTX
-               | FileStatus.S_IRWXA;
-    chmod(path.toString(), mode & mask);
-  }
-
-  /*
-   * Native-based implementation
-   */
 
   static {
     if (!java.nio.charset.Charset.defaultCharset().name().equals("ISO-8859-1")) {

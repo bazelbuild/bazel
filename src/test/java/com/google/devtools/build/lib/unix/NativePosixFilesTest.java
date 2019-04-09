@@ -106,7 +106,9 @@ public class NativePosixFilesTest {
   public void throwsFilePermissionException() throws Exception {
     File foo = new File("/bin");
     try {
-      NativePosixFiles.setWritable(foo);
+      NativePosixFiles.chmod(
+          foo.getPath(),
+          NativePosixFiles.lstat(foo.getPath()).getPermissions() | FileStatus.S_IWUSR);
       fail("Expected FilePermissionException or IOException, but wasn't thrown.");
     } catch (FilePermissionException e) {
       assertThat(e).hasMessageThat().isEqualTo(foo + " (Operation not permitted)");
