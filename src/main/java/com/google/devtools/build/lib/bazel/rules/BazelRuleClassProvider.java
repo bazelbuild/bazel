@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.api.client.util.Strings;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -462,6 +463,9 @@ public class BazelRuleClassProvider {
     //   C:\Windows\System32\WindowsPowerShell\v1.0
     // They are similar to /bin:/usr/bin, which makes the basic tools on the platform available.
     String systemRoot = System.getenv("SYSTEMROOT");
+    if (Strings.isNullOrEmpty(systemRoot)) {
+      systemRoot = "C:\\Windows";
+    }
     newPath += ";" + systemRoot;
     newPath += ";" + systemRoot + "\\System32";
     newPath += ";" + systemRoot + "\\System32\\WindowsPowerShell\\v1.0";

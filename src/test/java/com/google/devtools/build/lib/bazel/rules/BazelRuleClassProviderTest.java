@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.pathOrDefault;
 
+import com.google.api.client.util.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -190,13 +191,16 @@ public class BazelRuleClassProviderTest {
   public void pathOrDefaultOnWindows() {
     String defaultWindowsPath = "";
     String systemRoot = System.getenv("SYSTEMROOT");
+    if (Strings.isNullOrEmpty(systemRoot)) {
+      systemRoot = "C:\\Windows";
+    }
     defaultWindowsPath += ";" + systemRoot;
     defaultWindowsPath += ";" + systemRoot + "\\System32";
     defaultWindowsPath += ";" + systemRoot + "\\System32\\WindowsPowerShell\\v1.0";
     assertThat(pathOrDefault(OS.WINDOWS, null, null)).isEqualTo(defaultWindowsPath);
-    assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", null)).isEqualTo("C:/mypath;" + defaultWindowsPath);
+    assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", null)).isEqualTo(defaultWindowsPath + ";C:/mypath");
     assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", PathFragment.create("D:/foo/shell")))
-        .isEqualTo("D:\\foo;C:/mypath;" + defaultWindowsPath);
+        .isEqualTo("D:\\foo" + defaultWindowsPath + ";C:/mypath");
   }
 
   @Test
