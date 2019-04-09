@@ -176,7 +176,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean internalSkylarkFlagTestCanary();
 
-  public abstract boolean incompatibleUseToolchainProvidersInJavaCommon();
 
   public abstract boolean incompatibleDoNotSplitLinkingCmdline();
 
@@ -202,7 +201,6 @@ public abstract class StarlarkSemantics {
           .experimentalPlatformsApi(false)
           .experimentalRestrictNamedParams(false)
           .experimentalStarlarkConfigTransitions(false)
-          .incompatibleUseToolchainProvidersInJavaCommon(true)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
@@ -298,7 +296,6 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
-    public abstract Builder incompatibleUseToolchainProvidersInJavaCommon(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 
