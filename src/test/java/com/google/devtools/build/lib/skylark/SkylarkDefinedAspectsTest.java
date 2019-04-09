@@ -2752,7 +2752,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   public static final class WithKeepGoing extends SkylarkDefinedAspectsTest {
     @Override
     protected FlagBuilder defaultFlags() {
-      return new FlagBuilder().with(Flag.KEEP_GOING);
+      return super.defaultFlags().with(Flag.KEEP_GOING);
     }
 
     @Override
