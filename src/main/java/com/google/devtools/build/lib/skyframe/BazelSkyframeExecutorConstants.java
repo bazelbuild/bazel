@@ -51,4 +51,13 @@ public class BazelSkyframeExecutorConstants {
   public static final ActionOnIOExceptionReadingBuildFile
       ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE =
           ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE;
+
+  public static SequencedSkyframeExecutor.Builder newBazelSkyframeExecutorBuilder() {
+    return SequencedSkyframeExecutor.builder()
+        .setHardcodedBlacklistedPackagePrefixes(HARDCODED_BLACKLISTED_PACKAGE_PREFIXES)
+        .setAdditionalBlacklistedPackagePrefixesFile(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE)
+        .setActionOnIOExceptionReadingBuildFile(ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
+        .setCrossRepositoryLabelViolationStrategy(CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
+        .setBuildFilesByPriority(BUILD_FILES_BY_PRIORITY);
+  }
 }
