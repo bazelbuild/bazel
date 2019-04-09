@@ -478,20 +478,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       effectTags = {OptionEffectTag.UNKNOWN})
   public boolean internalSkylarkFlagTestCanary;
 
-  @Option(
-      name = "incompatible_use_toolchain_providers_in_java_common",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, java_common APIs that take a java_toolchain or host_javabase parameter "
-              + " require a JavaTootoolchainInfo or JavaRuntimeInfo instead of a configured"
-              + " target.")
-  public boolean incompatibleUseToolchainProvidersInJavaCommon;
+
 
   @Option(
       name = "incompatible_do_not_split_linking_cmdline",
@@ -545,8 +532,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
         .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
-        .incompatibleUseToolchainProvidersInJavaCommon(
-            incompatibleUseToolchainProvidersInJavaCommon)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
         .build();
