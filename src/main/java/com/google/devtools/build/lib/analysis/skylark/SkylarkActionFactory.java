@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
@@ -225,7 +226,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       Location location)
       throws EvalException {
     context.checkMutable("actions.run");
-    SpawnAction.Builder builder = new SpawnAction.Builder();
+    StarlarkAction.Builder builder = new StarlarkAction.Builder();
 
     SkylarkList argumentsList = ((SkylarkList) arguments);
     buildCommandLine(builder, argumentsList);
@@ -245,7 +246,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       // Should have been verified by Starlark before this function is called
       throw new IllegalStateException();
     }
-    registerSpawnAction(
+    registerStarlarkAction(
         outputs,
         inputs,
         toolsUnchecked,
@@ -307,7 +308,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     context.checkMutable("actions.run_shell");
 
     SkylarkList argumentList = (SkylarkList) arguments;
-    SpawnAction.Builder builder = new SpawnAction.Builder();
+    StarlarkAction.Builder builder = new StarlarkAction.Builder();
     buildCommandLine(builder, argumentList);
 
     if (commandUnchecked instanceof String) {
@@ -351,7 +352,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       // arg1 and arg2 will be $1 and $2, as a user expects.
       builder.addExecutableArguments("");
     }
-    registerSpawnAction(
+    registerStarlarkAction(
         outputs,
         inputs,
         toolsUnchecked,
@@ -404,7 +405,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
    *
    * <p>{@code builder} should have either executable or a command set.
    */
-  private void registerSpawnAction(
+  private void registerStarlarkAction(
       SkylarkList outputs,
       Object inputs,
       Object toolsUnchecked,
@@ -415,7 +416,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
       Location location,
-      SpawnAction.Builder builder)
+      StarlarkAction.Builder builder)
       throws EvalException {
     Iterable<Artifact> inputArtifacts;
     if (inputs instanceof SkylarkList) {
