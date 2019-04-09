@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.api.client.util.Strings;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
