@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -179,33 +178,7 @@ public class FunctionTransitionUtil {
           Field field = optionInfo.getDefinition().getField();
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
-          if (optionInfo.getDefinition().allowsMultiple()) {
-            List<?> optionValueList = (List<?>) optionValue;
-            if (optionValueList.isEmpty()) {
-              optionValue = MutableList.empty();
-            } else {
-              if (optionValueList.get(0) instanceof Map.Entry) {
-                SkylarkDict<String, String> valueDict = SkylarkDict.withMutability(mutability);
-                for (Map.Entry singleValue : (List<Map.Entry>) optionValueList) {
-                  valueDict.put(
-                      singleValue.getKey().toString(),
-                      singleValue.getValue().toString(),
-                      starlarkTransition.getLocationForErrorReporting(),
-                      mutability);
-                }
-                optionValue = valueDict;
-              }
-            }
-          } else {
-            if (optionValue instanceof Map.Entry) {
-              SkylarkDict<String, String> valueDict = SkylarkDict.withMutability(mutability);
-              valueDict.put(
-                  ((Map.Entry) optionValue).getKey().toString(),
-                  ((Map.Entry) optionValue).getValue().toString(),
-                  starlarkTransition.getLocationForErrorReporting(),
-                  mutability);
-            }
-          }
+
           dict.put(optionKey, optionValue == null ? Runtime.NONE : optionValue, null, mutability);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
