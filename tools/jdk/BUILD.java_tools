@@ -99,6 +99,25 @@ config_setting(
 )
 
 alias(
+    name = "singlejar",
+    actual = select({
+         "//:remote": ":singlejar_cc_bin",
+         "//conditions:default": ":singlejar_prebuilt_or_cc_binary",
+     }),
+)
+
+alias(
+    name = "singlejar_prebuilt_or_cc_binary",
+    actual = select({
+          ":linux_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
+          ":darwin": "java_tools/src/tools/singlejar/singlejar_local",
+          ":darwin_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
+          ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
+          "//conditions:default": "singlejar_cc_bin",
+      })
+)
+
+alias(
   name = "ijar",
   actual = select({
       ":remote": ":ijar_cc_binary",
@@ -340,7 +359,7 @@ cc_library(
 ##################### singlejar
 
 cc_binary(
-    name = "singlejar",
+    name = "singlejar_cc_bin",
     srcs = [
         "java_tools/src/tools/singlejar/singlejar_main.cc",
     ],
@@ -381,10 +400,12 @@ cc_library(
     name = "combiners",
     srcs = [
         "java_tools/src/tools/singlejar/combiners.cc",
+    ],
+    hdrs = [
+        "java_tools/src/tools/singlejar/combiners.h",
         ":transient_bytes",
         ":zip_headers",
     ],
-    hdrs = ["java_tools/src/tools/singlejar/combiners.h"],
     strip_include_prefix = "java_tools",
     deps = [
         "//java_tools/zlib",
@@ -428,17 +449,18 @@ cc_library(
 
 cc_library(
     name = "mapped_file",
-    srcs = ["java_tools/src/tools/singlejar/mapped_file.cc"] + select({
-        ":windows": ["java_tools/src/tools/singlejar/mapped_file_windows.inc"],
-        "//conditions:default": ["java_tools/src/tools/singlejar/mapped_file_posix.inc"],
-    }),
-    hdrs = ["java_tools/src/tools/singlejar/mapped_file.h"],
+    srcs = ["java_tools/src/tools/singlejar/mapped_file.cc"],
+    hdrs = ["java_tools/src/tools/singlejar/mapped_file.h"] +
+        select({
+            ":windows": ["java_tools/src/tools/singlejar/mapped_file_windows.inc"],
+            "//conditions:default": ["java_tools/src/tools/singlejar/mapped_file_posix.inc"],
+        }),
     visibility = ["//visibility:private"],
     strip_include_prefix = "java_tools",
     deps = [
         ":diag",
         ":singlejar_port",
-        "//src/main/cpp/util",
+        ":cpp_util",
     ],
 )
 
@@ -487,7 +509,7 @@ cc_library(
         ":mapped_file",
         ":options",
         ":singlejar_port",
-        "//src/main/cpp/util",
+        ":cpp_util",
         "//java_tools/zlib",
     ],
     strip_include_prefix = "java_tools",

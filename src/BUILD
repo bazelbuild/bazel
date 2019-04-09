@@ -121,16 +121,10 @@ py_binary(
 JAVA_TOOLS = [
     "//third_party/java/proguard:embedded_tools",
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-    "//src/tools/singlejar:embedded_tools",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
     "//third_party/java/jacoco:srcs",
     "//third_party/jarjar:embedded_build_and_license",
-] + select({
-    "//src/conditions:arm": [],
-    "//conditions:default": [
-        "//src/tools/singlejar:singlejar_local",
-    ],
-})
+]
 
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
 # in Skylark rules on Windows has been released.
@@ -188,7 +182,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 503,
+    expect = 470,
     margin = 5,  # percentage
 )
 
