@@ -828,12 +828,23 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     /** Values for --experimental_dynamic_configs. */
     public enum ConfigsMode {
-      /** Only include the configuration fragments each rule needs. */
+      /**
+       * Deprecated mode: Each configured target is evaluated with only the configuration fragments
+       * it needs by loading the target graph and examining the transitive requirements for each
+       * target before analysis begins.
+       *
+       * <p>To become a no-op soon: b/129289764
+       */
       ON,
-      /** Always including all fragments known to Blaze. */
+      /** Default mode: Each configured target is evaluated with all fragments known to Blaze. */
       NOTRIM,
+      /**
+       * Experimental mode: Each configured target is evaluated with only the configuration
+       * fragments it needs by visiting them with a full configuration to begin with and collapsing
+       * the configuration down to the fragments which were actually used.
+       */
+      RETROACTIVE;
     }
-
 
     /**
      * Converter for --experimental_dynamic_configs.
@@ -1755,6 +1766,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   public boolean trimConfigurations() {
     return options.configsMode == Options.ConfigsMode.ON;
+  }
+
+  /**
+   * Returns whether we should trim configurations to only include the fragments needed to correctly
+   * analyze a rule.
+   */
+  public boolean trimConfigurationsRetroactively() {
+    return options.configsMode == Options.ConfigsMode.RETROACTIVE;
   }
 
   /**
