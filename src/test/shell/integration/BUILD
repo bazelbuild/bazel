@@ -600,6 +600,13 @@ sh_test(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
+sh_test(
+    name = "py_args_escaping_test",
+    srcs = ["py_args_escaping_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
 ########################################################################
 # Test suites.
 
