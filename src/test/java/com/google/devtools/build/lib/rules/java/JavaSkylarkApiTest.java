@@ -2041,8 +2041,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testIncompatibleDisallowLegacyJavaInfoWithFlag() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_javainfo");
     setSkylarkSemanticsOptions(
+        "--incompatible_disallow_legacy_javainfo",
         "--experimental_java_common_create_provider_enabled_packages=java/test");
     scratch.file(
         "java/test/custom_rule.bzl",
@@ -2068,6 +2068,78 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "  jar = 'lib.jar'",
         ")");
     assertThat(getConfiguredTarget("//java/test:custom")).isNotNull();
+  }
+
+  @Test
+  public void testIncompatibleDisallowLegacyJavaInfoOtherPackageWithFlag() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--incompatible_disallow_legacy_javainfo",
+        "--experimental_java_common_create_provider_enabled_packages=java/package");
+    scratch.file(
+        "java/package/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  jar = ctx.file.jar",
+        "  java_common.create_provider(",
+        "      compile_time_jars = [jar],",
+        "      transitive_compile_time_jars = [jar],",
+        "      runtime_jars = [jar],",
+        "      use_ijar = False,",
+        "  )",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "  }",
+        ")");
+    scratch.file(
+        "java/package/BUILD",
+        "load('//third_party/bazel_skylib:bzl_library.bzl', 'bzl_library')",
+        "bzl_library(name = 'custom_rule', srcs = ['custom_rule.bzl'])");
+    scratch.file(
+        "java/otherpackage/BUILD",
+        "load('//java/package:custom_rule.bzl', 'custom_rule')",
+        "custom_rule(",
+        "  name = 'custom',",
+        "  jar = 'lib.jar'",
+        ")");
+    assertThat(getConfiguredTarget("//java/otherpackage:custom")).isNotNull();
+  }
+
+  @Test
+  public void testIncompatibleDisallowLegacyJavaInfoOtherPackageFailsWithFlag() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--incompatible_disallow_legacy_javainfo",
+        "--experimental_java_common_create_provider_enabled_packages=java/otherpackage");
+    scratch.file(
+        "java/package/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  jar = ctx.file.jar",
+        "  java_common.create_provider(",
+        "      compile_time_jars = [jar],",
+        "      transitive_compile_time_jars = [jar],",
+        "      runtime_jars = [jar],",
+        "      use_ijar = False,",
+        "  )",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "  }",
+        ")");
+    scratch.file(
+        "java/package/BUILD",
+        "load('//third_party/bazel_skylib:bzl_library.bzl', 'bzl_library')",
+        "bzl_library(name = 'custom_rule', srcs = ['custom_rule.bzl'])");
+    checkError(
+        "java/otherpackage",
+        "custom",
+        "java_common.create_provider is deprecated and cannot be used when "
+            + "--incompatible_disallow_legacy_javainfo is set.",
+        "load('//java/package:custom_rule.bzl', 'custom_rule')",
+        "custom_rule(",
+        "  name = 'custom',",
+        "  jar = 'lib.jar'",
+        ")");
   }
 
   private static boolean javaCompilationArgsHaveTheSameParent(
