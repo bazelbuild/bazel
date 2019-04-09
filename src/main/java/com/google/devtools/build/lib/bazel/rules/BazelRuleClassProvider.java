@@ -343,6 +343,8 @@ public class BazelRuleClassProvider {
             builder.addWorkspaceFileSuffix(
                 ResourceFileLoader.loadResource(
                     BazelAndroidSemantics.class, "android_remote_tools.WORKSPACE"));
+            builder.addWorkspaceFileSuffix(
+                ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }

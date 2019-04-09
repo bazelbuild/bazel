@@ -99,6 +99,8 @@ public class JavaRules implements RuleSet {
     try {
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
