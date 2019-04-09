@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -579,9 +580,14 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private List<String> getTestFilterOptionValue(ConfigurationTransition transition)
       throws Exception {
     ImmutableList.Builder<String> outValues = ImmutableList.builder();
-    for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
-        getTargetConfiguration().getOptions(), transition,
-        ruleClassProvider.getAllFragments(), ruleClassProvider, false)) {
+    for (BuildOptions toOptions :
+        ConfigurationResolver.applyTransition(
+            getTargetConfiguration().getOptions(),
+            transition,
+            ruleClassProvider.getAllFragments(),
+            ruleClassProvider,
+            false,
+            ImmutableMap.of())) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);
     }
     return outValues.build();

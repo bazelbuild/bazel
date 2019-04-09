@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
@@ -218,13 +219,21 @@ public final class ConfigurationResolver {
       FragmentsAndTransition transitionKey = new FragmentsAndTransition(depFragments, transition);
       List<BuildOptions> toOptions = transitionsMap.get(transitionKey);
       if (toOptions == null) {
+        // Default values for all build settings read in {@code transition}
+        ImmutableMap<Label, Object> defaultBuildSettingValues;
+        try {
+          defaultBuildSettingValues = StarlarkTransition.getDefaultInputValues(env, transition);
+        } catch (TransitionException e) {
+          throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
+        }
         toOptions =
             applyTransition(
                 currentConfiguration.getOptions(),
                 transition,
                 depFragments,
                 ruleClassProvider,
-                !sameFragments);
+                !sameFragments,
+                defaultBuildSettingValues);
         transitionsMap.put(transitionKey, toOptions);
       }
 
@@ -233,7 +242,7 @@ public final class ConfigurationResolver {
       // configured target.
       try {
         ImmutableSet<SkyKey> buildSettingPackageKeys =
-            StarlarkTransition.getBuildSettingPackageKeys(transition);
+            StarlarkTransition.getBuildSettingPackageKeys(transition, "outputs");
         Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
         if (env.valuesMissing()) {
           return null;
@@ -458,18 +467,22 @@ public final class ConfigurationResolver {
   /**
    * Applies a configuration transition over a set of build options.
    *
-   * @return the build options for the transitioned configuration. If trimResults is true,
-   *     only options needed by the required fragments are included. Else the same options as the
+   * @return the build options for the transitioned configuration. If trimResults is true, only
+   *     options needed by the required fragments are included. Else the same options as the
    *     original input are included (with different possible values, of course).
    */
   @VisibleForTesting
-  public static List<BuildOptions> applyTransition(BuildOptions fromOptions,
+  public static List<BuildOptions> applyTransition(
+      BuildOptions fromOptions,
       ConfigurationTransition transition,
       Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
-      RuleClassProvider ruleClassProvider, boolean trimResults) {
+      RuleClassProvider ruleClassProvider,
+      boolean trimResults,
+      ImmutableMap<Label, Object> buildSettingDefaults) {
+    BuildOptions fromOptionsWithDefaults =
+        addDefaultStarlarkOptions(fromOptions, buildSettingDefaults);
     // TODO(bazel-team): safety-check that this never mutates fromOptions.
-    List<BuildOptions> result = transition.apply(fromOptions);
-
+    List<BuildOptions> result = transition.apply(fromOptionsWithDefaults);
     if (!trimResults) {
       return result;
     } else {
@@ -480,6 +493,18 @@ public final class ConfigurationResolver {
       }
       return trimmedOptions.build();
     }
+  }
+
+  private static BuildOptions addDefaultStarlarkOptions(
+      BuildOptions fromOptions, ImmutableMap<Label, Object> buildSettingDefaults) {
+    BuildOptions.Builder optionsWithDefaults = fromOptions.toBuilder();
+    for (Map.Entry<Label, Object> buildSettingDefault : buildSettingDefaults.entrySet()) {
+      Label buildSetting = buildSettingDefault.getKey();
+      if (!optionsWithDefaults.contains(buildSetting)) {
+        optionsWithDefaults.addStarlarkOption(buildSetting, buildSettingDefault.getValue());
+      }
+    }
+    return optionsWithDefaults.build();
   }
 
   /**

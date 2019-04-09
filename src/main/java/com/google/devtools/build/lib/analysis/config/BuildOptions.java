@@ -496,6 +496,11 @@ public final class BuildOptions implements Cloneable, Serializable {
       return this;
     }
 
+    /** Returns whether the builder contains a particular Starlark option. */
+    boolean contains(Label key) {
+      return starlarkOptions.containsKey(key);
+    }
+
     /** Removes the value for the Starlark option with the given key. */
     public Builder removeStarlarkOption(Label key) {
       starlarkOptions.remove(key);
