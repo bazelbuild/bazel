@@ -16,10 +16,21 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,6 +40,50 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
+
+  /**
+   * A fragment containing flags that exhibit different flag behaviors for easy testing purposes.
+   */
+  private static class DummyTestFragment extends Fragment {}
+
+  /** Flags that exhibit an variety of flag behaviors. */
+  public static class DummyTestOptions extends FragmentOptions {
+    @Option(
+        name = "nullable_option",
+        converter = EmptyToNullLabelConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "An option that is sometimes set to null.")
+    public Label nullable;
+  }
+
+  /** Loads a new {link @DummyTestFragment} instance. */
+  private static class DummyTestLoader implements ConfigurationFragmentFactory {
+
+    @Override
+    public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {
+      return new DummyTestFragment();
+    }
+
+    @Override
+    public Class<? extends Fragment> creates() {
+      return DummyTestFragment.class;
+    }
+
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+      return ImmutableSet.of(DummyTestOptions.class);
+    }
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addConfigurationFragment(new DummyTestLoader());
+    return builder.build();
+  }
 
   private void writeWhitelistFile() throws Exception {
     scratch.file(
@@ -607,14 +662,14 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
-        "  if settings['//command_line_option:android_crosstool_top'] == None:",
+        "  if settings['//command_line_option:nullable_option'] == None:",
         "    return {'//command_line_option:test_arg': ['post-transition']}",
         "  else:",
         "    return {'//command_line_option:test_arg': settings['//command_line_option:test_arg']}",
         "my_transition = transition(implementation = _impl,",
         "  inputs = [",
         "    '//command_line_option:test_arg',",
-        "    '//command_line_option:android_crosstool_top'",
+        "    '//command_line_option:nullable_option'",
         "  ],",
         "  outputs = ['//command_line_option:test_arg'])");
     scratch.file(
@@ -632,7 +687,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
-    useConfiguration("--android_crosstool_top=");
+    useConfiguration("--nullable_option=", "--test_arg=pre-transition");
 
     BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
