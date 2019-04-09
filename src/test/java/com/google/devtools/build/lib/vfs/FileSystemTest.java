@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.FileStatus;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.File;
@@ -111,16 +112,8 @@ public abstract class FileSystemTest {
   protected abstract FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction)
       throws IOException;
 
-  protected boolean isSymbolicLink(File file) {
-    return NativePosixFiles.isSymbolicLink(file);
-  }
-
-  protected void setWritable(File file) throws IOException {
-    NativePosixFiles.setWritable(file);
-  }
-
-  protected void setExecutable(File file) throws IOException {
-    NativePosixFiles.setExecutable(file);
+  protected boolean isSymbolicLink(File file) throws IOException {
+    return NativePosixFiles.lstat(file.getPath()).isSymbolicLink();
   }
 
   private static final Pattern STAT_SUBDIR_ERROR = Pattern.compile("(.*) \\(Not a directory\\)");
@@ -174,8 +167,11 @@ public abstract class FileSystemTest {
     }
     // Some tests set the directories read-only and/or non-executable, so
     // override that:
-    setWritable(directoryToRemove);
-    setExecutable(directoryToRemove);
+    NativePosixFiles.chmod(
+        directoryToRemove.getPath(),
+        NativePosixFiles.lstat(directoryToRemove.getPath()).getPermissions()
+            | FileStatus.S_IWUSR
+            | FileStatus.S_IXUSR);
 
     File[] files = directoryToRemove.listFiles();
     if (files != null) {
@@ -185,7 +181,10 @@ public abstract class FileSystemTest {
           removeEntireDirectory(currentFile);
         } else {
           if (!isSymbolicLink) {
-            setWritable(currentFile);
+            NativePosixFiles.chmod(
+                currentFile.getPath(),
+                NativePosixFiles.lstat(currentFile.getPath()).getPermissions()
+                    | FileStatus.S_IWUSR);
           }
           if (!currentFile.delete()) {
             throw new IOException("Failed to delete '" + currentFile + "'");
