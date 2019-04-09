@@ -70,6 +70,12 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       Map<String, String> markerData,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
+    if (rule.getDefinitionInformation() != null) {
+      env.getListener()
+          .post(
+              new SkylarkRepositoryDefinitionLocationEvent(
+                  rule.getName(), rule.getDefinitionInformation()));
+    }
     BaseFunction function = rule.getRuleClassObject().getConfiguredTargetFunction();
     if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
       return null;

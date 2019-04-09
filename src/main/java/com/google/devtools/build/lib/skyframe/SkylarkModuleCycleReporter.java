@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.repository.RequestRepositoryInformationEvent;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -139,6 +140,15 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
           };
       AbstractLabelCycleReporter.printCycle(ImmutableList.copyOf(repos), cycleMessage, printer);
       eventHandler.handle(Event.error(null, cycleMessage.toString()));
+      // To help debugging, request that the information be printed about where the respective
+      // repositories were defined.
+      for (SkyKey repo : repos) {
+        if (repo instanceof RepositoryValue.Key) {
+          eventHandler.post(
+              new RequestRepositoryInformationEvent(
+                  ((RepositoryValue.Key) repo).argument().strippedName()));
+        }
+      }
       return true;
     } else if (Iterables.any(cycle, IS_WORKSPACE_FILE)
         || IS_REPOSITORY_DIRECTORY.apply(lastPathElement)

@@ -2073,7 +2073,8 @@ EOF
 
 function test_circular_definition_reported() {
   # Verify that bazel reports a useful error message upon
-  # detecting a circular definition of a repository
+  # detecting a circular definition of a repository.
+  # Also verify that the call stack of the definition is shown.
 
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
@@ -2102,20 +2103,32 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat > foo.bzl <<'EOF'
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-http_archive(
-  name = "a",
-  url = "file://${WRKDIR}/ext.tar",
-  build_file = "@b//:a.BUILD",
-)
+def foo():
+  http_archive(
+    name = "a",
+    url = "file://${WRKDIR}/ext.tar",
+    build_file = "@b//:a.BUILD",
+  )
+EOF
+  cat > bar.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-http_archive(
-  name = "b",
-  url = "file://${WRKDIR}/ext.tar",
-  build_file = "@a//:b.BUILD",
-)
+def bar():
+  http_archive(
+    name = "b",
+    url = "file://${WRKDIR}/ext.tar",
+    build_file = "@a//:b.BUILD",
+  )
+EOF
+  cat > WORKSPACE <<EOF
+load("//:foo.bzl", "foo")
+load("//:bar.bzl", "bar")
+
+foo()
+bar()
 
 load("@a//:notabuildfile.bzl", "x")
 EOF
@@ -2128,6 +2141,14 @@ EOF
   expect_log '[Cc]ircular definition.*repositor'
   expect_log '@a'
   expect_log '@b'
+
+  # We expect to find the call stack for the definition of the repositories
+  # a and b
+  expect_log "WORKSPACE:4:1"
+  expect_log "foo.bzl:4:3"
+
+  expect_log "WORKSPACE:5:1"
+  expect_log "bar.bzl:4:3"
 }
 
 run_suite "external tests"
