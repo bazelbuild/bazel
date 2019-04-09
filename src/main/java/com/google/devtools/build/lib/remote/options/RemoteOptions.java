@@ -119,50 +119,62 @@ public final class RemoteOptions extends OptionsBase {
       help = "Value to pass as instance_name in the remote execution API.")
   public String remoteInstanceName;
 
+  @Deprecated
   @Option(
       name = "experimental_remote_retry",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
+      deprecationWarning = "Deprecated. Use --remote_retries instead.",
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to retry transient remote execution/cache errors.")
   public boolean experimentalRemoteRetry;
 
+  @Deprecated
   @Option(
       name = "experimental_remote_retry_start_delay_millis",
       defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.REMOTE,
+      deprecationWarning = "Deprecated. See --remote_retries instead.",
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The initial delay before retrying a transient error.")
   public long experimentalRemoteRetryStartDelayMillis;
 
+  @Deprecated
   @Option(
       name = "experimental_remote_retry_max_delay_millis",
       defaultValue = "5000",
       documentationCategory = OptionDocumentationCategory.REMOTE,
+      deprecationWarning = "Deprecated. See --remote_retries instead.",
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The maximum delay before retrying a transient error.")
   public long experimentalRemoteRetryMaxDelayMillis;
 
   @Option(
-      name = "experimental_remote_retry_max_attempts",
+      name = "remote_retries",
+      oldName = "experimental_remote_retry_max_attempts",
       defaultValue = "5",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The maximum number of attempts to retry a transient error.")
-  public int experimentalRemoteRetryMaxAttempts;
+      help = "The maximum number of attempts to retry a transient error."
+          + "If set to 0, retries are disabled.")
+  public int remoteRetryMaxAttempts;
 
+  @Deprecated
   @Option(
       name = "experimental_remote_retry_multiplier",
       defaultValue = "2",
       documentationCategory = OptionDocumentationCategory.REMOTE,
+      deprecationWarning = "Deprecated. See --remote_retries instead.",
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The multiplier by which to increase the retry delay on transient errors.")
   public double experimentalRemoteRetryMultiplier;
 
+  @Deprecated
   @Option(
       name = "experimental_remote_retry_jitter",
       defaultValue = "0.1",
       documentationCategory = OptionDocumentationCategory.REMOTE,
+      deprecationWarning = "Deprecated. See --remote_retries instead.",
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The random factor to apply to retry delays on transient errors.")
   public double experimentalRemoteRetryJitter;

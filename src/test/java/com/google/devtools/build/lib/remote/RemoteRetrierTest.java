@@ -97,7 +97,7 @@ public class RemoteRetrierTest {
   @Test
   public void testNoRetries() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.experimentalRemoteRetry = false;
+    options.remoteRetryMaxAttempts = 0;
 
     RemoteRetrier retrier =
         Mockito.spy(new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS));
@@ -148,7 +148,7 @@ public class RemoteRetrierTest {
     InterruptedException thrown = new InterruptedException();
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.experimentalRemoteRetry = false;
+    options.remoteRetryMaxAttempts = 0;
     RemoteRetrier retrier =
         new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
     try {
