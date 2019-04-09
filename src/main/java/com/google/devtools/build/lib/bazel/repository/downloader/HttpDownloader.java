@@ -90,7 +90,8 @@ public class HttpDownloader {
    * @param clientEnv environment variables in shell issuing this command
    * @param repo the name of the external repository for which the file was fetched; used only for
    *     reporting
-   * @param authorization TBD
+   * @param authorization a map of Authorization headers to be used for an http download.
+   *                      key - domain / host, value - Authorization header value
    * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion

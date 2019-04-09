@@ -51,7 +51,6 @@ def _http_archive_impl(ctx):
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
-        ctx.attr.is_netrc_auth_enabled,
         ctx.attr.netrc_file_path,
         ctx.attr.netrc_domain_auth_types
     )
@@ -226,11 +225,6 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "The content for the WORKSPACE file for this repository. " +
             "Either `workspace_file` or `workspace_file_content` can be " +
             "specified, or neither, but not both.",
-    ),
-    "is_netrc_auth_enabled": attr.bool(
-        mandatory = False,
-        default = False,
-        doc = "Defines whether to use .netrc file for authentication"
     ),
     "netrc_file_path": attr.string(
         doc = "The file path for the location of .netrc file path. Default will be a user home directory"

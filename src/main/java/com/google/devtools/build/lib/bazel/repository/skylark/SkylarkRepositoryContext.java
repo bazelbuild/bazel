@@ -514,7 +514,6 @@ public class SkylarkRepositoryContext
       String sha256,
       String type,
       String stripPrefix,
-	  Boolean isNetrcAuthEnabled,
       String netrcFilePath,
       Map<String, String> netrcDomainAuthTypes,
       Boolean allowFail,
@@ -544,6 +543,7 @@ public class SkylarkRepositoryContext
 
     Path downloadedPath;
     try {
+      boolean isNetrcAuthEnabled = !netrcDomainAuthTypes.isEmpty();
       Map<String, String> hostToAuth = isNetrcAuthEnabled ? createAuthHeaders(netrcFilePath, netrcDomainAuthTypes) : null;
       downloadedPath =
           httpDownloader.download(

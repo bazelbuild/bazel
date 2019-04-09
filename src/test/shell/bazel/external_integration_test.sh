@@ -246,7 +246,6 @@ http_archive(
     url = 'http://127.0.0.1:$nc_port/$repo_with_auth_name',
     sha256 = '$repo_with_auth_sha256',
     type = 'zip',
-    is_netrc_auth_enabled = True,
     netrc_file_path = '$netrc_path',
     netrc_domain_auth_types = {
       "127.0.0.1": "github"

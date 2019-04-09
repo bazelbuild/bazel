@@ -461,12 +461,6 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
                     + " files."),
         @Param(
-            name = "is_netrc_auth_enabled",
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true,
-            doc = "a flag for enable using netrc files"),
-        @Param(
             name = "netrc_file_path",
             type = String.class,
             defaultValue = "'/'",
@@ -477,7 +471,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             type = SkylarkDict.class,
             defaultValue = "{}",
             named = true,
-            doc = "the authorization type which is the host in netrc file for now support \"github\""),
+            doc = "the authorization type for each 'machine' in netrc file. For now supports 'github'"),
 		@Param(
             name = "allow_fail",
             type = Boolean.class,
@@ -493,7 +487,6 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String sha256,
       String type,
       String stripPrefix,
-	  Boolean isNetrcAuthEnabled,
       String netrcFilePath,
       Map<String, String> netrcDomainAuthTypes,
       Boolean allowFail,
