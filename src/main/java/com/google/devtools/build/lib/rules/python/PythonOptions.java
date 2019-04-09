@@ -254,6 +254,26 @@ public class PythonOptions extends FragmentOptions {
               + "data runfiles of another binary.")
   public boolean buildTransitiveRunfilesTrees;
 
+  @Option(
+      name = "incompatible_windows_escape_python_args",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "On Linux/macOS/non-Windows: no-op. On Windows: this flag affects how py_binary and"
+              + " py_test targets are built: how their launcher escapes command line flags. When"
+              + " this flag is true, the launcher escapes command line flags using Windows-style"
+              + " escaping (correct behavior). When the flag is false, the launcher uses Bash-style"
+              + " escaping (buggy behavior). See https://github.com/bazelbuild/bazel/issues/7958")
+  public boolean windowsEscapePythonArgs;
+
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
     // TODO(brandjon): Instead of referencing the python_version target, whose path depends on the

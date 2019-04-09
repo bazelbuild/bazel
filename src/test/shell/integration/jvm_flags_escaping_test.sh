@@ -275,9 +275,7 @@ function test_untokenizable_jvm_flag_when_escaping_is_enabled() {
   create_build_file_for_untokenizable_flag "$pkg"
 
   if "$is_windows"; then
-    # On Windows, Bazel will check the flag. It will just propagate the flag
-    # to the launcher, which also just passes the flag to the JVM. This is bad,
-    # the flag should have been rejected because it cannot be Bash-tokenized.
+    # On Windows, Bazel will check the flag.
     bazel build --verbose_failures "${pkg}:cannot_tokenize" \
       2>"$TEST_log" && fail "expected failure" || true
     expect_log "ERROR:.*in jvm_flags attribute of java_binary rule"
