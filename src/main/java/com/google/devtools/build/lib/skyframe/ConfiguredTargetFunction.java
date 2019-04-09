@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -105,6 +106,8 @@ import javax.annotation.Nullable;
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
 public final class ConfiguredTargetFunction implements SkyFunction {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   // This construction is a bit funky, but guarantees that the Object reference here is globally
   // unique.
   static final ImmutableMap<Label, ConfigMatchingProvider> NO_CONFIG_CONDITIONS =
@@ -204,6 +207,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     }
     PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
+    if (label.equals(labelWithUndonePackageToDiagnoseBug)) {
+      logger.atInfo().log("Retrieved values %s for %s", packageAndMaybeConfigurationValues, key);
+    }
     if (configurationKeyMaybe != null) {
       configuration =
           ((BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe))
@@ -703,6 +709,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               } else {
                 pkgValue = (PackageValue) packageResult.get();
                 if (pkgValue == null) {
+                  logger.atInfo().log("Missing package: %s for (%s %s)", packageKey, dep, key);
                   // In a race, the getValuesOrThrow call above may have retrieved the package
                   // before it was done but the configured target after it was done. However, the
                   // configured target being done implies that the package is now done, so we can
@@ -941,4 +948,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       super(e, Transience.PERSISTENT);
     }
   }
+
+  // TODO(b/128541100): remove when bug is fixed.
+  public static Label labelWithUndonePackageToDiagnoseBug = null;
 }
