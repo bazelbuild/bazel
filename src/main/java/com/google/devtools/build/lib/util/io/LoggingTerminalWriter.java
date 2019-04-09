@@ -16,8 +16,7 @@ package com.google.devtools.build.lib.util.io;
 import java.io.IOException;
 
 /**
- * An {@link AnsiTerminalWriter} that keeps just generates a transcript
- * of the events it was exposed of.
+ * An {@link AnsiTerminalWriter} that just generates a transcript of the events it was exposed of.
  */
 public class LoggingTerminalWriter implements AnsiTerminalWriter {
   // Strings for recording the non-append calls
@@ -36,6 +35,11 @@ public class LoggingTerminalWriter implements AnsiTerminalWriter {
 
   public LoggingTerminalWriter() {
     this(false);
+  }
+
+  /** Clears the stored transcript; mostly useful for testing purposes. */
+  public void reset() {
+    transcript = "";
   }
 
   @Override
