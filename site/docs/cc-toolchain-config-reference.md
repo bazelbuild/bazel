@@ -976,6 +976,35 @@ The following is a reference of `CcToolchainConfigInfo` build variables.
        of <code>.o</code> files and the compiler and linker need to know this.
    </td>
   </tr>
+  <tr>
+   <td><strong><code>fdo_instrument_path</code></strong>
+   </td>
+   <td>compile, link</td>
+   <td> Path to the directory that stores FDO instrumentation profile.
+   </td>
+  </tr>
+  <tr>
+   <td><strong><code>fdo_profile_path</code></strong>
+   </td>
+   <td>compile</td>
+   <td> Path to FDO profile.
+   </td>
+  </tr>
+  <tr>
+   <td><strong><code>fdo_prefetch_hints_path</code></strong>
+   </td>
+   <td>compile</td>
+   <td> Path to the cache prefetch profile.
+   </td>
+  </tr>
+  <tr>
+   <td><strong><code>csfdo_instrument_path</code></strong>
+   </td>
+   <td>compile, link</td>
+   <td> Path to the directory that stores context sensitive FDO
+        instrumentation profile.
+   </td>
+  </tr>
 </table>
 
 
@@ -1094,6 +1123,8 @@ conditions.
     <li>Adds <code>include_paths</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>fdo_instrument</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>fdo_optimize</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>cs_fdo_instrument</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>cs_fdo_optimize</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>fdo_prefetch_hints</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>autofdo</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>build_interface_libraries</code> (if not present) feature to the top of the toolchain</li>

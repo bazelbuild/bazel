@@ -348,8 +348,14 @@ public class CppRuleClasses {
    */
   public static final String FDO_INSTRUMENT = "fdo_instrument";
 
+  /** A string constant for the cs_fdo_instrument feature. */
+  public static final String CS_FDO_INSTRUMENT = "cs_fdo_instrument";
+
   /** A string constant for the fdo_optimize feature. */
   public static final String FDO_OPTIMIZE = "fdo_optimize";
+
+  /** A string constant for the cs_fdo_optimize feature. */
+  public static final String CS_FDO_OPTIMIZE = "cs_fdo_optimize";
 
   /** A string constant for the cache prefetch hints feature. */
   public static final String FDO_PREFETCH_HINTS = "fdo_prefetch_hints";

@@ -91,6 +91,8 @@ public enum CompileBuildVariables {
   FDO_INSTRUMENT_PATH("fdo_instrument_path"),
   /** Path to the fdo profile artifact */
   FDO_PROFILE_PATH("fdo_profile_path"),
+  /** Path to the context sensitive fdo instrument artifact */
+  CS_FDO_INSTRUMENT_PATH("cs_fdo_instrument_path"),
   /** Path to the cache prefetch profile artifact */
   FDO_PREFETCH_HINTS_PATH("fdo_prefetch_hints_path"),
   /** Variable for includes that compiler needs to include into sources. */

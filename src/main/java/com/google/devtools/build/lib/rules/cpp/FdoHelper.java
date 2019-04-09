@@ -44,6 +44,7 @@ public class FdoHelper {
       CppToolchainInfo toolchainInfo)
       throws InterruptedException, RuleErrorException {
     FdoInputFile fdoInputFile = null;
+    FdoInputFile csFdoInputFile = null;
     FdoInputFile prefetchHints = null;
     Artifact protoProfileArtifact = null;
     Pair<FdoInputFile, Artifact> fdoInputs = null;
@@ -87,6 +88,23 @@ public class FdoHelper {
           != null) {
         fdoInputs = getFdoInputs(ruleContext, attributes.getXFdoProfileProvider());
       }
+
+      Pair<FdoInputFile, Artifact> csFdoInputs = null;
+      if (cppConfiguration.getCSFdoProfileLabel() != null) {
+        csFdoInputs = getFdoInputs(ruleContext, attributes.getCSFdoProfileProvider());
+      }
+      if (csFdoInputs != null) {
+        csFdoInputFile = csFdoInputs.getFirst();
+      }
+    }
+
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
+    if (fdoInputs != null) {
+      fdoInputFile = fdoInputs.getFirst();
+      protoProfileArtifact = fdoInputs.getSecond();
     }
 
     if (ruleContext.hasErrors()) {
@@ -115,6 +133,12 @@ public class FdoHelper {
         ruleContext.ruleError("invalid extension for FDO profile file.");
         return null;
       }
+      // Check if this is LLVM_CS_FDO
+      if (branchFdoMode == BranchFdoMode.LLVM_FDO) {
+        if (csFdoInputFile != null) {
+          branchFdoMode = BranchFdoMode.LLVM_CS_FDO;
+        }
+      }
       if (branchFdoMode != BranchFdoMode.XBINARY_FDO
           && cppConfiguration.getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
               != null) {
@@ -130,7 +154,7 @@ public class FdoHelper {
       if (branchFdoMode == BranchFdoMode.LLVM_FDO) {
         profileArtifact =
             convertLLVMRawProfileToIndexed(
-                attributes, fdoInputFile, toolchainInfo, ruleContext, cppConfiguration);
+                attributes, fdoInputFile, toolchainInfo, ruleContext, cppConfiguration, "fdo");
         if (ruleContext.hasErrors()) {
           return null;
         }
@@ -144,6 +168,33 @@ public class FdoHelper {
             profileArtifact,
             fdoInputFile,
             "Symlinking FDO profile " + fdoInputFile.getBasename());
+      } else if (branchFdoMode == BranchFdoMode.LLVM_CS_FDO) {
+        Artifact nonCSProfileArtifact =
+            convertLLVMRawProfileToIndexed(
+                attributes, fdoInputFile, toolchainInfo, ruleContext, cppConfiguration, "fdo");
+        if (ruleContext.hasErrors()) {
+          return null;
+        }
+        Artifact csProfileArtifact =
+            convertLLVMRawProfileToIndexed(
+                attributes, csFdoInputFile, toolchainInfo, ruleContext, cppConfiguration, "csfdo");
+        if (ruleContext.hasErrors()) {
+          return null;
+        }
+        if (nonCSProfileArtifact != null && csProfileArtifact != null) {
+          profileArtifact =
+              mergeLLVMProfiles(
+                  attributes,
+                  toolchainInfo,
+                  ruleContext,
+                  nonCSProfileArtifact,
+                  csProfileArtifact,
+                  "mergedfdo",
+                  "MergedCS.profdata");
+          if (ruleContext.hasErrors()) {
+            return null;
+          }
+        }
       }
       branchFdoProfile =
           new FdoContext.BranchFdoProfile(branchFdoMode, profileArtifact, protoProfileArtifact);
@@ -209,6 +260,43 @@ public class FdoHelper {
     }
   }
 
+  /** This function merges profile1 and profile2 and generates mergedOutput. */
+  private static Artifact mergeLLVMProfiles(
+      CcToolchainAttributesProvider attributes,
+      CppToolchainInfo toolchainInfo,
+      RuleContext ruleContext,
+      Artifact profile1,
+      Artifact profile2,
+      String fdoUniqueArtifactName,
+      String mergedOutput) {
+    Artifact profileArtifact =
+        ruleContext.getUniqueDirectoryArtifact(
+            fdoUniqueArtifactName, mergedOutput, ruleContext.getBinOrGenfilesDirectory());
+
+    // Merge LLVM profiles.
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(profile1)
+            .addInput(profile2)
+            .addTransitiveInputs(attributes.getAllFilesMiddleman())
+            .addOutput(profileArtifact)
+            .useDefaultShellEnvironment()
+            .setExecutable(toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA))
+            .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
+            .setMnemonic("LLVMProfDataMergeAction")
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .add("merge")
+                    .add("-o")
+                    .addExecPath(profileArtifact)
+                    .addExecPath(profile1)
+                    .addExecPath(profile2)
+                    .build())
+            .build(ruleContext));
+
+    return profileArtifact;
+  }
+
   /*
    * This function checks the format of the input profile data and converts it to
    * the indexed format (.profdata) if necessary.
@@ -218,14 +306,15 @@ public class FdoHelper {
       FdoInputFile fdoProfile,
       CppToolchainInfo toolchainInfo,
       RuleContext ruleContext,
-      CppConfiguration cppConfiguration) {
+      CppConfiguration cppConfiguration,
+      String fdoUniqueArtifactName) {
     if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
       return null;
     }
 
     Artifact profileArtifact =
         ruleContext.getUniqueDirectoryArtifact(
-            "fdo",
+            fdoUniqueArtifactName,
             getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE),
             ruleContext.getBinOrGenfilesDirectory());
 
@@ -263,12 +352,14 @@ public class FdoHelper {
       }
       rawProfileArtifact =
           ruleContext.getUniqueDirectoryArtifact(
-              "fdo", rawProfileFileName, ruleContext.getBinOrGenfilesDirectory());
+              fdoUniqueArtifactName, rawProfileFileName, ruleContext.getBinOrGenfilesDirectory());
 
       // Symlink to the zipped profile file to extract the contents.
       Artifact zipProfileArtifact =
           ruleContext.getUniqueDirectoryArtifact(
-              "fdo", fdoProfile.getBasename(), ruleContext.getBinOrGenfilesDirectory());
+              fdoUniqueArtifactName,
+              fdoProfile.getBasename(),
+              ruleContext.getBinOrGenfilesDirectory());
       symlinkTo(
           ruleContext,
           zipProfileArtifact,
@@ -297,7 +388,7 @@ public class FdoHelper {
     } else {
       rawProfileArtifact =
           ruleContext.getUniqueDirectoryArtifact(
-              "fdo",
+              fdoUniqueArtifactName,
               getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE_RAW),
               ruleContext.getBinOrGenfilesDirectory());
       symlinkTo(
