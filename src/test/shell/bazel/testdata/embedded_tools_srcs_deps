@@ -11,16 +11,6 @@
 //third_party/ijar:platform_utils
 //third_party/def_parser:def_parser
 //third_party/def_parser:def_parser_lib
-//src/tools/singlejar:singlejar_local
-//src/tools/singlejar:output_jar
-//src/tools/singlejar:options
-//src/tools/singlejar:port
-//src/tools/singlejar:token_stream
-//src/tools/singlejar:input_jar
-//src/tools/singlejar:combiners
-//src/tools/singlejar:diag
-//src/tools/singlejar:mapped_file
-//src/tools/singlejar:desugar_checking
 //third_party/zlib:zlib
 //src/tools/launcher:launcher
 //src/tools/launcher:python_launcher
@@ -29,9 +19,6 @@
 //src/tools/launcher:launcher_base
 //src/tools/launcher/util:data_parser
 //src/tools/launcher/util:util
-//src/main/cpp/util:util
-//src/main/cpp/util:numbers
-//src/main/cpp/util:md5
 //src/main/cpp/util:filesystem
 //src/main/native/windows:lib-file
 //src/main/native/windows:lib-util

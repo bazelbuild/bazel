@@ -142,12 +142,9 @@ remote_java_tools_filegroup(
 # the native singlejar is used on windows), this file group can be reused since
 # on Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent.
-filegroup(
+remote_java_tools_filegroup(
     name = "singlejar",
-    srcs = select({
-        "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
-        "//conditions:default": glob(["singlejar/*"]),
-    }),
+    target = ":singlejar",
 )
 
 exports_files(["BUILD.java_tools"])

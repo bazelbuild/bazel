@@ -31,12 +31,6 @@ SOURCES = [
 ]
 
 filegroup(
-    name = "embedded_tools",
-    srcs = SOURCES + ["BUILD"],
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
     name = "embedded_java_tools",
     srcs = SOURCES + [
         "//src/main/cpp/util:embedded_java_tools",
