@@ -14,7 +14,7 @@ java_binary(
 
 genrule(
     name = "rename_build_tools",
-    srcs = ["BUILD.tools"],
+    srcs = ["BUILD.remote"],
     outs = ["coverage/BUILD"],
     cmd = "cp $< $@",
 )
@@ -173,7 +173,6 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        ":all_lcov_merger_tools_deploy.jar",
     ],
     visibility = ["//visibility:public"],
 )

@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.bazel.rules.sh.BazelShLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShTestRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.util.ResourceFileLoader;
+import java.io.IOException;
 
 /**
  * Rules for shell support in Bazel.
@@ -38,6 +40,12 @@ public class ShRules implements RuleSet {
     builder.addRuleDefinition(new BazelShLibraryRule());
     builder.addRuleDefinition(new BazelShBinaryRule());
     builder.addRuleDefinition(new BazelShTestRule());
+    try {
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   @Override
