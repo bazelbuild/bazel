@@ -39,10 +39,7 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -102,22 +99,15 @@ public class PackageCacheTest extends FoundationTestCase {
       throw new RuntimeException(e);
     }
     skyframeExecutor =
-        SequencedSkyframeExecutor.create(
-            packageFactoryBuilder.build(ruleClassProvider, fileSystem),
-            fileSystem,
-            directories,
-            actionKeyContext,
-            /* workspaceStatusActionFactory= */ null,
-            ruleClassProvider.getBuildInfoFactories(),
-            ImmutableList.<DiffAwareness.Factory>of(),
-            analysisMock.getSkyFunctions(directories),
-            ImmutableList.<SkyValueDirtinessChecker>of(),
-            BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
-            BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
-            BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
-            defaultBuildOptions);
+        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+            .setPkgFactory(packageFactoryBuilder.build(ruleClassProvider, fileSystem))
+            .setFileSystem(fileSystem)
+            .setDirectories(directories)
+            .setActionKeyContext(actionKeyContext)
+            .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
+            .setDefaultBuildOptions(defaultBuildOptions)
+            .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .build();
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     setUpSkyframe(parsePackageCacheOptions(), parseSkylarkSemanticsOptions());
   }
