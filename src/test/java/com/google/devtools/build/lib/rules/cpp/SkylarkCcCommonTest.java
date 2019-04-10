@@ -27,10 +27,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
+import com.google.devtools.build.lib.rules.cpp.CcInfo.Provider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -100,6 +103,71 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         CppHelper.getToolchain(
             ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
     assertThat(allFiles.getSet(Artifact.class)).isEqualTo(toolchain.getAllFiles());
+  }
+
+  @Test
+  public void testRuntimeLib() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "CruleInfo = provider(fields=['static', 'dynamic'])",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = toolchain,",
+        "  )",
+        "  return [CruleInfo(",
+        "    static = toolchain.static_runtime_lib(feature_configuration = feature_configuration),",
+        "    dynamic = toolchain.dynamic_runtime_lib(",
+        "      feature_configuration = feature_configuration),",
+        "  )]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    // 1. Build without static_link_cpp_runtimes
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
+    SkylarkInfo cruleInfo = (SkylarkInfo) r.get(key);
+    @SuppressWarnings("unchecked")
+    SkylarkNestedSet staticRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("static");
+    SkylarkNestedSet dynamicRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("dynamic");
+
+    assertThat(staticRuntimeLib.getSet(Artifact.class).toList()).isEmpty();
+    assertThat(dynamicRuntimeLib.getSet(Artifact.class).toList()).isEmpty();
+
+    // 2. Build with static_link_cpp_runtimes
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
+    invalidatePackages();
+    r = getConfiguredTarget("//a:r");
+    cruleInfo = (SkylarkInfo) r.get(key);
+    staticRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("static");
+    dynamicRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("dynamic");
+
+    RuleContext ruleContext = getRuleContext(r);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchain(
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+    assertThat(staticRuntimeLib.getSet(Artifact.class))
+        .isEqualTo(toolchain.getStaticRuntimeLibForTesting());
+    assertThat(dynamicRuntimeLib.getSet(Artifact.class))
+        .isEqualTo(toolchain.getDynamicRuntimeLibForTesting());
   }
 
   @Test

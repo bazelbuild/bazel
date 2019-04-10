@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -693,15 +694,23 @@ public final class CcLinkingHelper {
     }
 
     if (linkingMode == LinkingMode.DYNAMIC) {
-      dynamicLinkActionBuilder.setRuntimeInputs(
-          ArtifactCategory.DYNAMIC_LIBRARY,
-          ccToolchain.getDynamicRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
-          ccToolchain.getDynamicRuntimeLinkInputs(ruleErrorConsumer, featureConfiguration));
+      try {
+        dynamicLinkActionBuilder.setRuntimeInputs(
+            ArtifactCategory.DYNAMIC_LIBRARY,
+            ccToolchain.getDynamicRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
+            ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+      } catch (EvalException e) {
+        throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      }
     } else {
-      dynamicLinkActionBuilder.setRuntimeInputs(
-          ArtifactCategory.STATIC_LIBRARY,
-          ccToolchain.getStaticRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
-          ccToolchain.getStaticRuntimeLinkInputs(ruleErrorConsumer, featureConfiguration));
+      try {
+        dynamicLinkActionBuilder.setRuntimeInputs(
+            ArtifactCategory.STATIC_LIBRARY,
+            ccToolchain.getStaticRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
+            ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration));
+      } catch (EvalException e) {
+        throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      }
     }
 
     // On Windows, we cannot build a shared library with symbols unresolved, so here we
