@@ -222,36 +222,30 @@ public final class ConfigurationResolver {
         // Default values for all build settings read in {@code transition}
         ImmutableMap<Label, Object> defaultBuildSettingValues;
         try {
+          // TODO(juliexxia): combine these skyframe calls with other skyframe calls for this
+          // configured target.
           defaultBuildSettingValues = StarlarkTransition.getDefaultInputValues(env, transition);
+          ImmutableSet<SkyKey> buildSettingPackageKeys =
+              StarlarkTransition.getBuildSettingPackageKeys(transition, "outputs");
+          Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
+          if (env.valuesMissing()) {
+            return null;
+          }
+          toOptions =
+              applyTransition(
+                  currentConfiguration.getOptions(),
+                  transition,
+                  depFragments,
+                  ruleClassProvider,
+                  !sameFragments,
+                  defaultBuildSettingValues,
+                  buildSettingPackages);
+          StarlarkTransition.replayEvents(env.getListener(), transition);
         } catch (TransitionException e) {
           throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
         }
-        toOptions =
-            applyTransition(
-                currentConfiguration.getOptions(),
-                transition,
-                depFragments,
-                ruleClassProvider,
-                !sameFragments,
-                defaultBuildSettingValues);
         transitionsMap.put(transitionKey, toOptions);
       }
-
-      // Post-process transitions on starlark build settings
-      // TODO(juliexxia): combine these skyframe calls with other skyframe calls for this
-      // configured target.
-      try {
-        ImmutableSet<SkyKey> buildSettingPackageKeys =
-            StarlarkTransition.getBuildSettingPackageKeys(transition, "outputs");
-        Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        StarlarkTransition.validate(transition, buildSettingPackages, toOptions, env.getListener());
-      } catch (TransitionException e) {
-        throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
-      }
-
       // If the transition doesn't change the configuration, trivially re-use the original
       // configuration.
       if (sameFragments
@@ -478,21 +472,24 @@ public final class ConfigurationResolver {
       Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
       RuleClassProvider ruleClassProvider,
       boolean trimResults,
-      ImmutableMap<Label, Object> buildSettingDefaults) {
+      ImmutableMap<Label, Object> buildSettingDefaults,
+      Map<SkyKey, SkyValue> buildSettingPackages)
+      throws TransitionException {
     BuildOptions fromOptionsWithDefaults =
         addDefaultStarlarkOptions(fromOptions, buildSettingDefaults);
     // TODO(bazel-team): safety-check that this never mutates fromOptions.
     List<BuildOptions> result = transition.apply(fromOptionsWithDefaults);
-    if (!trimResults) {
-      return result;
-    } else {
+    if (trimResults) {
       ImmutableList.Builder<BuildOptions> trimmedOptions = ImmutableList.builder();
       for (BuildOptions toOptions : result) {
         trimmedOptions.add(toOptions.trim(
             BuildConfiguration.getOptionsClasses(requiredFragments, ruleClassProvider)));
       }
-      return trimmedOptions.build();
+      result = trimmedOptions.build();
     }
+    // Post-process transitions on starlark build settings
+    StarlarkTransition.validate(transition, buildSettingPackages, result);
+    return result;
   }
 
   private static BuildOptions addDefaultStarlarkOptions(
