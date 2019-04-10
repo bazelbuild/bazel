@@ -258,6 +258,10 @@ java_runtime(
     name='runtime',
     java_home='$javabase',
 )
+EOF
+
+  if [ ! -f buildenv/platforms/BUILD ]; then
+  cat >> "$pkg/jvm/BUILD" <<EOF
 constraint_setting(
     name = 'constraint_setting',
 )
@@ -276,6 +280,29 @@ platform(
     constraint_values = [":constraint"],
 )
 EOF
+  else
+  cat >> "$pkg/jvm/BUILD" <<EOF
+constraint_value(
+    name = 'constraint',
+    constraint_setting = '//buildenv/platforms/java/constraints:runtime',
+)
+toolchain(
+    name = 'java_runtime_toolchain',
+    toolchain = ':runtime',
+    toolchain_type = '//tools/jdk:runtime_toolchain_type',
+    target_compatible_with = [':constraint'],
+)
+platform(
+    name = 'platform',
+    constraint_values = [
+        ":constraint",
+        "//buildenv/platforms/java/constraints:java8",
+        "//buildenv/platforms:linux",
+        "//buildenv/platforms:x86_64",
+    ],
+)
+EOF
+  fi
 
 
   # Set javabase to an absolute path.
