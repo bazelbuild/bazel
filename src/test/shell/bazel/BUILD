@@ -38,6 +38,7 @@ filegroup(
     name = "test-deps-wo-bazel",
     testonly = 1,
     srcs = [
+        "cc_api_rules.bzl",
         "remote_helpers.sh",
         "testing_server.py",
         ":langtools-copy",
