@@ -124,6 +124,7 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 @AutoCodec
 public class RuleClass {
+
   @AutoCodec
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
       Functions.<Map<String, Label>>constant(ImmutableMap.<String, Label>of());
@@ -133,6 +134,7 @@ public class RuleClass {
       Functions.<Set<String>>constant(ImmutableSet.<String>of());
 
   public static final PathFragment THIRD_PARTY_PREFIX = PathFragment.create("third_party");
+  public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -818,9 +820,9 @@ public class RuleClass {
         Preconditions.checkNotNull(ruleDefinitionEnvironmentHashCode, this.name);
       }
       if (executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.PER_TARGET
-          && !this.contains("exec_compatible_with")) {
+          && !this.contains(EXEC_COMPATIBLE_WITH_ATTR)) {
         this.add(
-            attr("exec_compatible_with", BuildType.LABEL_LIST)
+            attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes()
                 .nonconfigurable("Used in toolchain resolution")
                 .value(ImmutableList.of()));

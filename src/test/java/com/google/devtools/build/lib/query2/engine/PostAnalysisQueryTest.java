@@ -14,14 +14,11 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -222,13 +219,8 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
             MockRule.define(
                 "implicit_toolchain_deps_rule",
                 (builder, env) ->
-                    builder
-                        .addRequiredToolchains(
-                            Label.parseAbsoluteUnchecked("//test:toolchain_type"))
-                        .add(
-                            attr(RESOLVED_TOOLCHAINS_ATTR, LABEL_LIST)
-                                .nonconfigurable("Used in toolchain resolution")
-                                .value(ImmutableList.of())));
+                    builder.addRequiredToolchains(
+                        Label.parseAbsoluteUnchecked("//test:toolchain_type")));
     helper.useRuleClassProvider(setRuleClassProviders(ruleWithImplicitDeps).build());
 
     writeFile(

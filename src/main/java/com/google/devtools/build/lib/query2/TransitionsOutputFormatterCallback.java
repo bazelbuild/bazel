@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -38,8 +37,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -121,9 +118,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
       try {
-        // Note: Being able to pull the $resolved_toolchain_internal attr unconditionally from the
-        // mapper relies on the fact that {@link PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR} exists
-        // in every rule. Also, we don't actually use fromOptions in our implementation of
+        // We don't actually use fromOptions in our implementation of
         // DependencyResolver but passing to avoid passing a null and since we have the information
         // anyway.
         deps =
@@ -133,9 +128,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
                     hostConfiguration,
                     /*aspect=*/ null,
                     configConditions,
-                    ImmutableSet.copyOf(
-                        ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions)
-                            .get(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR, BuildType.LABEL_LIST)),
+                    /*toolchainLabels=*/ ImmutableSet.of(),
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
         throw new InterruptedException(e.getMessage());
@@ -152,10 +145,12 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
         BuildOptions fromOptions = config.getOptions();
         List<BuildOptions> toOptions = dep.getTransition().apply(fromOptions);
         String hostConfigurationChecksum = hostConfiguration.checksum();
-        String dependencyName =
-            attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY
-                ? PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR
-                : attributeAndDep.getKey().getAttribute().getName();
+        String dependencyName;
+        if (attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
+          continue;
+        } else {
+          dependencyName = attributeAndDep.getKey().getAttribute().getName();
+        }
         addResult(
             "  "
                 .concat(dependencyName)
