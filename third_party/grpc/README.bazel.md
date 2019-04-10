@@ -19,4 +19,4 @@
 
 # How to update the Java code:
 
-Download the necessary jars at version `1.10.0` from maven central.
+Download the necessary jars at version `1.20.0` from maven central.

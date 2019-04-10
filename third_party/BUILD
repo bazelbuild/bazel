@@ -450,8 +450,8 @@ java_import(
 java_import(
     name = "opencensus-api",
     jars = [
-        "opencensus/opencensus-api-0.11.0.jar",
-        "opencensus/opencensus-contrib-grpc-metrics-0.11.0.jar",
+        "opencensus/opencensus-api-0.19.2.jar",
+        "opencensus/opencensus-contrib-grpc-metrics-0.19.2.jar",
     ],
 )
 
@@ -513,12 +513,12 @@ java_import(
 
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.17.Final.jar"],
+    jars = ["netty/netty-all-4.1.34.Final.jar"],
 )
 
 java_import(
     name = "netty_tcnative",
-    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.7.Final.jar"],
+    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
 )
 
 java_import(
