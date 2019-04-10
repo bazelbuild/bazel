@@ -533,7 +533,7 @@ sh_binary(
 
 This automatically expands the `select` to the original syntax above.
 
-### <a name="config-setting-aliasing"></a>`config_setting`Aliasing
+### <a name="config-setting-aliasing"></a>`config_setting` Aliasing
 
 If you'd like to `OR` conditions under a proper `config_setting` that any rule
 can reference, you can use a `select`able [alias](be/general.html#alias) that
