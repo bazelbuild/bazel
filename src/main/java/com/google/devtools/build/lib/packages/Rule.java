@@ -666,7 +666,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     if (isAttrDefined("licenses", BuildType.LICENSE)
         && isAttributeValueExplicitlySpecified("licenses")) {
       return NonconfigurableAttributeMapper.of(this).get("licenses", BuildType.LICENSE);
-    } else if (getRuleClassObject().ignorePackageLicenses()) {
+    } else if (getRuleClassObject().ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
       return getPackage().getDefaultLicense();

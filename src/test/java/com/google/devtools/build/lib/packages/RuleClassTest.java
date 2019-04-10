@@ -898,7 +898,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         isAnalysisTest,
         /* hasAnalysisTestTransition=*/ false,
         /* hasFunctionTransitionWhitelist=*/ false,
-        /* ignorePackageLicenses=*/ false,
+        /* ignoreLicenses=*/ false,
         implicitOutputsFunction,
         transitionFactory,
         configuredTargetFactory,

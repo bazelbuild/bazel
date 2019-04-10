@@ -661,7 +661,7 @@ public class RuleClass {
     private boolean hasAnalysisTestTransition = false;
     private boolean hasFunctionTransitionWhitelist = false;
     private boolean hasStarlarkRuleTransition = false;
-    private boolean ignorePackageLicenses = false;
+    private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private TransitionFactory<Rule> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
@@ -852,7 +852,7 @@ public class RuleClass {
           isAnalysisTest,
           hasAnalysisTestTransition,
           hasFunctionTransitionWhitelist,
-          ignorePackageLicenses,
+          ignoreLicenses,
           implicitOutputsFunction,
           transitionFactory,
           configuredTargetFactory,
@@ -1260,10 +1260,6 @@ public class RuleClass {
       return this;
     }
 
-    public boolean hasAnalysisTestTransition() {
-      return this.hasAnalysisTestTransition;
-    }
-
     /**
      * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
      * rules.
@@ -1273,14 +1269,14 @@ public class RuleClass {
       return this;
     }
 
-    /** This rule class ignores package-level licenses. */
-    public Builder setIgnorePackageLicenses() {
-      this.ignorePackageLicenses = true;
+    /**
+     * This rule class never declares a license regardless of what the rule's or package's <code>
+     * licenses</code> attribute says.
+     */
+    // TODO(b/130286108): remove the licenses attribute completely from such rules.
+    public Builder setIgnoreLicenses() {
+      this.ignoreLicenses = true;
       return this;
-    }
-
-    public boolean ignorePackageLicenses() {
-      return this.ignorePackageLicenses;
     }
 
     public RuleClassType getType() {
@@ -1451,7 +1447,7 @@ public class RuleClass {
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
   private final boolean hasFunctionTransitionWhitelist;
-  private final boolean ignorePackageLicenses;
+  private final boolean ignoreLicenses;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -1582,7 +1578,7 @@ public class RuleClass {
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
       boolean hasFunctionTransitionWhitelist,
-      boolean ignorePackageLicenses,
+      boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
       TransitionFactory<Rule> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
@@ -1632,7 +1628,7 @@ public class RuleClass {
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
     this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
-    this.ignorePackageLicenses = ignorePackageLicenses;
+    this.ignoreLicenses = ignoreLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
@@ -1977,6 +1973,12 @@ public class RuleClass {
       }
       Attribute attr = getAttribute(attrIndex);
 
+      if (attributeName.equals("licenses") && ignoreLicenses) {
+        setRuleAttributeValue(rule, eventHandler, attr, License.NO_LICENSE, /*explicit=*/ false);
+        definedAttrIndices.set(attrIndex);
+        continue;
+      }
+
       // Convert the build-lang value to a native value, if necessary.
       Object nativeAttributeValue;
       if (attributeValues.valuesAreBuildLanguageTyped()) {
@@ -2041,7 +2043,9 @@ public class RuleClass {
             eventHandler);
       }
 
-      if (attr.hasComputedDefault()) {
+      if (attr.getName().equals("licenses") && ignoreLicenses) {
+        rule.setAttributeValue(attr, License.NO_LICENSE, /*explicit=*/ false);
+      } else if (attr.hasComputedDefault()) {
         // Note that it is necessary to set all non-computed default values before calling
         // Attribute#getDefaultValue for computed default attributes. Computed default attributes
         // may have a condition predicate (i.e. the predicate returned by Attribute#getCondition)
@@ -2154,7 +2158,7 @@ public class RuleClass {
    */
   private static void checkThirdPartyRuleHasLicense(Rule rule,
       Package.Builder pkgBuilder, EventHandler eventHandler) {
-    if (rule.getRuleClassObject().ignorePackageLicenses()) {
+    if (rule.getRuleClassObject().ignoreLicenses()) {
       // A package license is sufficient; ignore rules that don't include it.
       return;
     }
@@ -2516,9 +2520,14 @@ public class RuleClass {
     return hasFunctionTransitionWhitelist;
   }
 
-  /** Returns true if this rule class should ignore package-level licenses. */
-  public boolean ignorePackageLicenses() {
-    return ignorePackageLicenses;
+  /**
+   * If true, no rule of this class ever declares a license regardless of what the rule's or
+   * package's <code>licenses</code> attribute says.
+   *
+   * <p>This is useful for rule types that don't make sense for license checking.
+   */
+  public boolean ignoreLicenses() {
+    return ignoreLicenses;
   }
 
   public ImmutableSet<Label> getRequiredToolchains() {
