@@ -76,7 +76,6 @@ public class JavaHeaderCompileActionBuilder {
   private JavaPluginInfo plugins = JavaPluginInfo.empty();
 
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private Artifact javacJar;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
 
   public JavaHeaderCompileActionBuilder(RuleContext ruleContext) {
@@ -198,13 +197,6 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
-  /** Sets the javac jar. */
-  public JavaHeaderCompileActionBuilder setJavacJar(Artifact javacJar) {
-    checkNotNull(javacJar, "javacJar must not be null");
-    this.javacJar = javacJar;
-    return this;
-  }
-
   /** Sets the tools jars. */
   public JavaHeaderCompileActionBuilder setToolsJars(NestedSet<Artifact> toolsJars) {
     checkNotNull(toolsJars, "toolsJars must not be null");
@@ -245,7 +237,6 @@ public class JavaHeaderCompileActionBuilder {
         new ProgressMessage(
             this.outputJar, sourceFiles.size() + sourceJars.size(), plugins.processorClasses()));
 
-    builder.addTool(javacJar);
     builder.addTransitiveTools(toolsJars);
 
     builder.addOutput(outputJar);

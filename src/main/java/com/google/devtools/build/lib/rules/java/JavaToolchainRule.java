@@ -106,7 +106,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("javac", LABEL_LIST)
-                .mandatory()
                 .cfg(HostTransition.createFactory())
                 .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
