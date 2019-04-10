@@ -22,35 +22,6 @@
 
 set -o errexit
 
-# Check that the bintools can be found, otherwise we would see very confusing
-# error messages.
-# For example on Windows we would find "FIND.EXE" instead of "/usr/bin/find"
-# when running "find".
-hash tr >&/dev/null || {
-  echo >&2 "ERROR: cannot locate GNU coreutils; check your PATH."
-  echo >&2 "       You may need to run the following command:"
-  echo >&2 "         export PATH=\"/bin:/usr/bin:\$PATH\""
-  exit 1
-}
-
-# Ensure Python is on the PATH on Windows,otherwise we would see
-# "LAUNCHER ERROR" messages from py_binary exe launchers.
-case "$(uname -s | tr "[:upper:]" "[:lower:]")" in
-msys*|mingw*|cygwin*)
-  # Ensure Python is on the PATH, otherwise the bootstrapping fails later.
-  which python.exe >&/dev/null || {
-    echo >&2 "ERROR: cannot locate python.exe; check your PATH."
-    echo >&2 "       You may need to run the following command, or something"
-    echo >&2 "       similar, depending on where you installed Python:"
-    echo >&2 "         export PATH=\"/c/Python27:\$PATH\""
-    exit 1
-  }
-  # Ensure TMPDIR uses the user-specified TMPDIR or TMP or TEMP.
-  # This is necessary to avoid overly longs paths during bootstrapping, see for
-  # example https://github.com/bazelbuild/bazel/issues/4536
-  export TMPDIR="${TMPDIR:-${TMP:-${TEMP:-}}}"
-esac
-
 cd "$(dirname "$0")"
 
 # Set the default verbose mode in buildenv.sh so that we do not display command
