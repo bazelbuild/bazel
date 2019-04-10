@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License.LicenseType;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -1447,7 +1449,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   private Set<LicenseType> getLicenses(String label) throws Exception {
-    return getTarget(label).getLicense().getLicenseTypes();
+    Rule rule = (Rule) getTarget(label);
+    // There are two interfaces for retrieving a rule's license: from the Rule object and by
+    // directly reading the "licenses" attribute. For config_setting both of these should always
+    // be NONE. This method checks consistency between them.
+    Set<LicenseType> fromRule = rule.getLicense().getLicenseTypes();
+    Set<LicenseType> fromAttribute =
+        RawAttributeMapper.of(rule).get("licenses", BuildType.LICENSE).getLicenseTypes();
+    assertThat(fromRule).containsExactlyElementsIn(fromAttribute);
+    return fromRule;
   }
 
   /** Tests that default license behavior is unaffected. */
@@ -1496,7 +1506,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
   }
 
-  /** Tests that rule-specific licenses are still used by config_setting. */
+  /** Tests that rule-specific licenses are ignored by config_setting. */
   @Test
   public void ruleLicensesUsed() throws Exception {
     scratch.file(
@@ -1509,6 +1519,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    })");
 
     useConfiguration("--copt", "-Dfoo");
-    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.RESTRICTED);
+    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
   }
 }
