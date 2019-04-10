@@ -747,6 +747,7 @@ java_library(
         ":packages-internal",
         ":proto-rules",
         ":python-rules",
+        ":skylarkinterface_internal",
         ":testing-support-rules",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",

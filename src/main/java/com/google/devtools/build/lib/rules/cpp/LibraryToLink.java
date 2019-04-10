@@ -61,7 +61,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   }
 
   /** Structure of CcLinkingContext. */
-  public static class CcLinkingContext implements CcLinkingContextApi {
+  public static class CcLinkingContext implements CcLinkingContextApi<Artifact, LibraryToLink> {
     public static final CcLinkingContext EMPTY = builder().build();
 
     /** A list of link options contributed by a single configured target/aspect. */
@@ -289,7 +289,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     }
 
     @Override
-    public SkylarkList<LibraryToLinkApi> getSkylarkLibrariesToLink() {
+    public SkylarkList<LibraryToLink> getSkylarkLibrariesToLink() {
       return SkylarkList.createImmutable(libraries.toList());
     }
 
@@ -443,6 +443,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   public abstract Artifact getDynamicLibrary();
 
   @Nullable
+  @Override
   public abstract Artifact getResolvedSymlinkDynamicLibrary();
 
   @Nullable
@@ -450,6 +451,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   public abstract Artifact getInterfaceLibrary();
 
   @Nullable
+  @Override
   public abstract Artifact getResolvedSymlinkInterfaceLibrary();
 
   @Override
