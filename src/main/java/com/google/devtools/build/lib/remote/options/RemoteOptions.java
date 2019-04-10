@@ -125,8 +125,8 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to retry transient remote execution/cache errors.")
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
   public boolean experimentalRemoteRetry;
 
   @Deprecated
@@ -134,9 +134,9 @@ public final class RemoteOptions extends OptionsBase {
       name = "experimental_remote_retry_start_delay_millis",
       defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. See --remote_retries instead.",
+      deprecationWarning = "Deprecated. Use --remote_retries instead.",
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The initial delay before retrying a transient error.")
+      help = "The initial delay before retrying a transient error. Use --remote_retries instead.")
   public long experimentalRemoteRetryStartDelayMillis;
 
   @Deprecated
@@ -144,9 +144,9 @@ public final class RemoteOptions extends OptionsBase {
       name = "experimental_remote_retry_max_delay_millis",
       defaultValue = "5000",
       documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. See --remote_retries instead.",
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The maximum delay before retrying a transient error.")
+      deprecationWarning = "Deprecated. Use --remote_retries instead.",
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
   public long experimentalRemoteRetryMaxDelayMillis;
 
   @Option(
@@ -155,18 +155,18 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "5",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The maximum number of attempts to retry a transient error."
+      help = "The maximum number of attempts to retry a transient error. "
           + "If set to 0, retries are disabled.")
-  public int remoteRetryMaxAttempts;
+  public int remoteMaxRetryAttempts;
 
   @Deprecated
   @Option(
       name = "experimental_remote_retry_multiplier",
       defaultValue = "2",
       documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. See --remote_retries instead.",
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The multiplier by which to increase the retry delay on transient errors.")
+      deprecationWarning = "Deprecated. Use --remote_retries instead.",
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
   public double experimentalRemoteRetryMultiplier;
 
   @Deprecated
@@ -174,9 +174,9 @@ public final class RemoteOptions extends OptionsBase {
       name = "experimental_remote_retry_jitter",
       defaultValue = "0.1",
       documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. See --remote_retries instead.",
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The random factor to apply to retry delays on transient errors.")
+      deprecationWarning = "Deprecated. Use --remote_retries instead.",
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
   public double experimentalRemoteRetryJitter;
 
   @Option(
