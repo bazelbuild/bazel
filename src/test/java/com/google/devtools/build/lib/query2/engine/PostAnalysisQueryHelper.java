@@ -160,6 +160,11 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   @Override
+  public void appendFile(String fileName, String... lines) throws IOException {
+    analysisHelper.getScratch().appendFile(fileName, lines);
+  }
+
+  @Override
   public void ensureSymbolicLink(String link, String target) throws IOException {
     Path rootDirectory = getRootDirectory();
     Path linkPath = rootDirectory.getRelative(link);

@@ -1795,6 +1795,9 @@ public abstract class AbstractQueryTest<T> {
     /** Like {@code writeFile}, but the file is written unconditionally. */
     void overwriteFile(String fileName, String... lines) throws IOException;
 
+    /** Like {@code writeFile}, but the content is appended to an existing file. */
+    void appendFile(String fileName, String... lines) throws IOException;
+
     /**
      * Create a symbolic link in the given filesystem from {@code link} that points to {@code
      * target}.

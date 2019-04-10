@@ -207,7 +207,56 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsExactlyElementsIn(evalToListOfStrings(explicits));
+        .containsAllIn(evalToListOfStrings(explicits));
+    assertThat(evalToListOfStrings("deps(//test:my_rule)"))
+        .doesNotContain(evalToListOfStrings(implicits));
+  }
+
+  @Test
+  public void testNoImplicitDeps_toolchains() throws Exception {
+    MockRule ruleWithImplicitDeps =
+        () ->
+            MockRule.define(
+                "implicit_toolchain_deps_rule",
+                (builder, env) ->
+                    builder.addRequiredToolchains(Label.parseAbsoluteUnchecked("//test:toolchain_type")));
+    helper.useRuleClassProvider(setRuleClassProviders(ruleWithImplicitDeps).build());
+
+    writeFile("test/toolchain.bzl",
+        "def _impl(ctx):",
+            "  toolchain = platform_common.ToolchainInfo()",
+            "  return [toolchain]",
+            "test_toolchain = rule(",
+            "    implementation = _impl,",
+            ")");
+    writeFile(
+        "test/BUILD",
+        "load(':toolchain.bzl', 'test_toolchain')",
+        "implicit_toolchain_deps_rule(",
+        "    name = 'my_rule',",
+        ")",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain(",
+        "    name = 'toolchain',",
+        "    toolchain_type = ':toolchain_type',",
+        "    toolchain = ':toolchain_impl',",
+        ")",
+        "test_toolchain(name = 'toolchain_impl')");
+    helper.appendFile("WORKSPACE",
+      "register_toolchains('//test:toolchain')");
+
+    String implicits = "//test:toolchain_impl";
+    String explicits = "//test:my_rule";
+
+    // Check for implicit toolchain dependencies
+    assertThat(evalToListOfStrings("deps(//test:my_rule)"))
+        .containsAllIn(evalToListOfStrings(explicits + " + " + implicits + " + " + PLATFORM_LABEL));
+
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    assertThat(evalToListOfStrings("deps(//test:my_rule)"))
+        .containsAllIn(evalToListOfStrings(explicits));
+    assertThat(evalToListOfStrings("deps(//test:my_rule)"))
+        .doesNotContain(evalToListOfStrings(implicits));
   }
 
   @Override
