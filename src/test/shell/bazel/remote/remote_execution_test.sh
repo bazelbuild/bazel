@@ -638,7 +638,7 @@ EOF
   bazel test \
       --spawn_strategy=remote \
       --remote_executor=bazel.does.not.exist:1234 \
-      --noexperimental_remote_retry \
+      --remote_retries=0 \
       --test_output=all \
       --test_env=USER=boo \
       //a:test >& $TEST_log \

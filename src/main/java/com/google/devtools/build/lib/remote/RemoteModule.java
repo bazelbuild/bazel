@@ -453,8 +453,8 @@ public final class RemoteModule extends BlazeModule {
   static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
     return new RemoteRetrier(
-        options.experimentalRemoteRetry
-            ? () -> new Retrier.ZeroBackoff(options.experimentalRemoteRetryMaxAttempts)
+        options.remoteMaxRetryAttempts > 0
+            ? () -> new Retrier.ZeroBackoff(options.remoteMaxRetryAttempts)
             : () -> Retrier.RETRIES_DISABLED,
         RemoteModule.RETRIABLE_EXEC_ERRORS,
         retryService,
