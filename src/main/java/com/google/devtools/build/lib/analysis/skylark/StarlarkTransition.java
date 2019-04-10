@@ -149,11 +149,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   public static void validate(
       ConfigurationTransition root,
       Map<SkyKey, SkyValue> buildSettingPackages,
-      List<BuildOptions> toOptions,
-      ExtendedEventHandler eventHandler)
+      List<BuildOptions> toOptions)
       throws TransitionException {
-    replayEvents(eventHandler, root);
-
     // collect settings changed during this transition and their types
     Map<Label, Type<?>> changedSettingToType = Maps.newHashMap();
     root.visit(
@@ -267,7 +264,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * For a given transition, for any Starlark-defined transitions that compose it, replay events. If
    * any events were errors, throw an error.
    */
-  private static void replayEvents(ExtendedEventHandler eventHandler, ConfigurationTransition root)
+  public static void replayEvents(ExtendedEventHandler eventHandler, ConfigurationTransition root)
       throws TransitionException {
     root.visit(
         (StarlarkTransitionVisitor)
