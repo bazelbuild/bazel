@@ -22,7 +22,7 @@ set -o errexit
 # List: https://github.com/bazelbuild/bazel/issues/7641#issuecomment-472344261
 for tool in basename cat chmod comm cp dirname find grep ln ls mkdir mktemp \
             readlink rm sed sort tail touch tr uname unzip which; do
-  if ! which "$tool" >/dev/null; then
+  if ! hash "$tool" >/dev/null; then
     echo >&2 "ERROR: cannot find \"$tool\"; check your PATH."
     echo >&2 "       You may need to run the following command or similar:"
     echo >&2 "         export PATH=\"/bin:/usr/bin:\$PATH\""
@@ -35,7 +35,7 @@ done
 case "$(uname -s | tr "[:upper:]" "[:lower:]")" in
 msys*|mingw*|cygwin*)
   # Ensure Python is on the PATH, otherwise the bootstrapping fails later.
-  if ! which python.exe >/dev/null; then
+  if ! hash python.exe >/dev/null; then
     echo >&2 "ERROR: cannot locate python.exe; check your PATH."
     echo >&2 "       You may need to run the following command, or something"
     echo >&2 "       similar, depending on where you installed Python:"
