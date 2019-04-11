@@ -18,6 +18,7 @@ import com.google.caliper.Benchmark;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.util.UUID;
 
 /**
  * Microbenchmarks for the overhead of {@link AutoProfiler} over using {@link Profiler} manually.
@@ -33,11 +34,14 @@ public class AutoProfilerBenchmark {
             new InMemoryFileSystem().getPath("/out.dat").getOutputStream(),
             Profiler.Format.BINARY_BAZEL_FORMAT,
             "benchmark",
+            "dummy_output_base",
+            UUID.randomUUID(),
             false,
             BlazeClock.instance(),
             BlazeClock.instance().nanoTime(),
             /* enabledCpuUsageProfiling= */ false,
-            /* slimProfile= */ false);
+            /* slimProfile= */ false,
+            /* enableJsonMetadata= */ false);
   }
 
   @BeforeExperiment
