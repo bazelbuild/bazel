@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
+import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.lib.skylarkbuildapi.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
