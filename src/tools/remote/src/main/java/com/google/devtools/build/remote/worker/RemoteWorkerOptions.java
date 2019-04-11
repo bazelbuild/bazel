@@ -152,6 +152,33 @@ public class RemoteWorkerOptions extends OptionsBase {
               + "testing only.")
   public int httpListenPort;
 
+  @Option(
+      name = "tls_certificate",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specify the TLS server certificate to use."
+  )
+  public String tlsCertificate;
+
+  @Option(
+      name = "tls_private_key",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specify the TLS private key to be used."
+  )
+  public String tlsPrivateKey;
+
+  @Option(
+      name = "tls_trust_cert_collection",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specify the TLS trust cert collection Path to be used."
+  )
+  public String trustCertCollectionFilePath;
+
   private static final int MAX_JOBS = 16384;
 
   /**

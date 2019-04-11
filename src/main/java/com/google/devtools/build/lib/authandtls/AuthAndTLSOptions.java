@@ -61,16 +61,31 @@ public class AuthAndTLSOptions extends OptionsBase {
   )
   public String googleCredentials;
 
+  @Deprecated
   @Option(
     name = "tls_enabled",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    deprecationWarning = "Deprecated. Please specify a valid protocol in the URL (https or grpcs).",
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "Specifies whether to use TLS for remote execution/caching and the build event service"
-            + " (BES)."
+        "DEPRECATED. Specifies whether to use TLS for remote execution/caching and "
+            + "the build event service (BES)."
   )
   public boolean tlsEnabled;
+
+  @Option(
+    name = "incompatible_tls_enabled_removed",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
+    help = "If set to true, bazel will handle --tls_enabled as a not existing flag."
+  )
+  public boolean incompatibleTlsEnabledRemoved;
 
   @Option(
     name = "tls_certificate",

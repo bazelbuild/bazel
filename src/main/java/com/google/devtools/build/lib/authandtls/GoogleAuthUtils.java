@@ -50,14 +50,14 @@ public final class GoogleAuthUtils {
     Preconditions.checkNotNull(interceptors);
 
     final SslContext sslContext =
-        options.tlsEnabled ? createSSlContext(options.tlsCertificate) : null;
+        isTlsEnabled(target, options) ? createSSlContext(options.tlsCertificate) : null;
 
     String targetUrl = convertTargetScheme(target);
 
     try {
       NettyChannelBuilder builder =
           NettyChannelBuilder.forTarget(targetUrl)
-              .negotiationType(options.tlsEnabled ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
+              .negotiationType(isTlsEnabled(target, options) ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
               .defaultLoadBalancingPolicy("round_robin")
               .intercept(interceptors);
       if (sslContext != null) {
@@ -82,7 +82,15 @@ public final class GoogleAuthUtils {
    * @return target URL with converted scheme
    */
   private static String convertTargetScheme(String target) {
-    return target.replace("grpc://", "").replace("grpcs://", "");
+    return target.replace("grpcs://", "").replace("grpc://", "");
+  }
+
+  // TODO(ishikhman) remove options.tlsEnabled flag usage when an incompatible flag is flipped
+  private static boolean isTlsEnabled(String target, AuthAndTLSOptions options) {
+    if (options.incompatibleTlsEnabledRemoved && options.tlsEnabled) {
+      throw new IllegalArgumentException("flag --tls_enabled was not found");
+    }
+    return target.startsWith("grpcs") || options.tlsEnabled;
   }
 
   private static SslContext createSSlContext(@Nullable String rootCert) throws IOException {
