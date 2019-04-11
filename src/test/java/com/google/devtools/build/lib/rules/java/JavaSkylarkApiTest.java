@@ -1969,7 +1969,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
             .getToolchainLabel();
     assertThat(
             javaToolchainLabel.toString().endsWith("jdk:remote_toolchain")
-                || javaToolchainLabel.toString().endsWith("jdk:toolchain"))
+                || javaToolchainLabel.toString().endsWith("jdk:toolchain")
+                || javaToolchainLabel.toString().endsWith("jdk:toolchain_host"))
         .named(javaToolchainLabel.toString())
         .isTrue();
   }

@@ -591,6 +591,97 @@ public final class PackageFactory {
   }
 
   /**
+   * Returns a dictionary representing the attributes of a previously defined target, or `None` if
+   * the target does not exist.
+   *
+   * @param name name of the rule.
+   */
+  @SkylarkSignature(
+      name = "existing_rule",
+      doc =
+          "Returns a dictionary representing the attributes of a previously defined target, or "
+              + "<code>None</code> if the target does not exist."
+              + ""
+              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
+              + "and order-dependent.</i>",
+      parameters = {
+        @Param(name = "name", type = String.class, doc = "The name of the target."),
+      },
+      documented = false,
+      useAst = true,
+      useEnvironment = true)
+  private static final BuiltinFunction.Factory newExistingRuleFunction =
+      new BuiltinFunction.Factory("existing_rule") {
+        public BuiltinFunction create(final PackageContext originalContext) {
+          return new BuiltinFunction("existing_rule", this) {
+            public Object invoke(String name, FuncallExpression ast, Environment env)
+                throws EvalException {
+              return callExistingRule(name, ast, env);
+            }
+          };
+        }
+      };
+
+  static Object callExistingRule(String name, FuncallExpression ast, Environment env)
+      throws EvalException {
+
+    PackageContext context = getContext(env, ast.getLocation());
+    Target target = context.pkgBuilder.getTarget(name);
+    SkylarkDict<String, Object> rule = targetDict(target, ast.getLocation(), env);
+
+    if (rule != null) {
+      return rule;
+    }
+
+    return Runtime.NONE;
+  }
+
+  /**
+   * Returns a dictionary containing all the targets instantiated so far. The map key is the name of
+   * the target. The map value is equivalent to the `existing_rule` output for that target.
+   */
+  @SkylarkSignature(
+      name = "existing_rules",
+      doc =
+          "Returns a dictionary containing all the targets instantiated so far. The map key is the "
+              + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
+              + "output for that target."
+              + ""
+              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
+              + "and order-dependent.</i>",
+      useAst = true,
+      useEnvironment = true)
+  private static final BuiltinFunction.Factory newExistingRulesFunction =
+      new BuiltinFunction.Factory("existing_rules") {
+        public BuiltinFunction create(final PackageContext originalContext) {
+          return new BuiltinFunction("existing_rules", this) {
+            public SkylarkDict<String, SkylarkDict<String, Object>> invoke(
+                FuncallExpression ast, Environment env) throws EvalException {
+              return callExistingRules(ast, env);
+            }
+          };
+        }
+      };
+
+  static SkylarkDict<String, SkylarkDict<String, Object>> callExistingRules(
+      FuncallExpression ast, Environment env) throws EvalException {
+    PackageContext context = getContext(env, ast.getLocation());
+    Collection<Target> targets = context.pkgBuilder.getTargets();
+    Location loc = ast.getLocation();
+
+    SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.of(env);
+    for (Target t : targets) {
+      if (t instanceof Rule) {
+        SkylarkDict<String, Object> rule = targetDict(t, loc, env);
+        Preconditions.checkNotNull(rule);
+        rules.put(t.getName(), rule, loc, env);
+      }
+    }
+
+    return rules;
+  }
+
+  /**
    * Returns a function value implementing "environment_group" in the specified package context.
    * Syntax is as follows:
    *
@@ -888,16 +979,6 @@ public final class PackageFactory {
       };
 
   @Nullable
-  static SkylarkDict<String, Object> callGetRuleFunction(
-      String name, FuncallExpression ast, Environment env)
-      throws EvalException, ConversionException {
-    PackageContext context = getContext(env, ast.getLocation());
-    Target target = context.pkgBuilder.getTarget(name);
-
-    return targetDict(target, ast.getLocation(), env);
-  }
-
-  @Nullable
   private static SkylarkDict<String, Object> targetDict(
       Target target, Location loc, Environment env)
       throws NotRepresentableException, EvalException {
@@ -1051,26 +1132,6 @@ public final class PackageFactory {
     // if we add more types that we can represent.
     throw new NotRepresentableException(
         String.format("cannot represent %s (%s) in Starlark", val, val.getClass()));
-  }
-
-
-  static SkylarkDict<String, SkylarkDict<String, Object>> callGetRulesFunction(
-      FuncallExpression ast, Environment env)
-      throws EvalException {
-    PackageContext context = getContext(env, ast.getLocation());
-    Collection<Target> targets = context.pkgBuilder.getTargets();
-    Location loc = ast.getLocation();
-
-    SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.of(env);
-    for (Target t : targets) {
-      if (t instanceof Rule) {
-        SkylarkDict<String, Object> m = targetDict(t, loc, env);
-        Preconditions.checkNotNull(m);
-        rules.put(t.getName(), m, loc, env);
-      }
-    }
-
-    return rules;
   }
 
   static Runtime.NoneType callPackageFunction(String name, Object packagesO, Object includesO,
@@ -1592,7 +1653,9 @@ public final class PackageFactory {
         .setup("package", newPackageFunction(packageArguments))
         .setup("package_name", packageNameFunction)
         .setup("repository_name", repositoryNameFunction)
-        .setup("environment_group", newEnvironmentGroupFunction.apply(context));
+        .setup("environment_group", newEnvironmentGroupFunction.apply(context))
+        .setup("existing_rule", newExistingRuleFunction.apply(context))
+        .setup("existing_rules", newExistingRulesFunction.apply(context));
 
     for (Map.Entry<String, BuiltinRuleFunction> entry : ruleFunctions.entrySet()) {
       pkgEnv.setup(entry.getKey(), entry.getValue());

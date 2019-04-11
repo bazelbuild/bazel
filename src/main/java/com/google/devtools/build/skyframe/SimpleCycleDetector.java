@@ -137,13 +137,18 @@ public class SimpleCycleDetector implements CycleDetector {
         GroupedList<SkyKey> directDeps = entry.getTemporaryDirectDeps();
         // Find out which children have errors. Similar logic to that in Evaluate#run().
         List<ErrorInfo> errorDeps =
-            getChildrenErrorsForCycle(key, Iterables.concat(directDeps), evaluatorContext);
+            getChildrenErrorsForCycle(
+                key,
+                Iterables.concat(directDeps),
+                directDeps.numElements(),
+                entry,
+                evaluatorContext);
         Preconditions.checkState(
             !errorDeps.isEmpty(),
             "Node %s was not successfully evaluated, but had no child errors. NodeEntry: %s",
             key,
             entry);
-        SkyFunctionEnvironment env = null;
+        SkyFunctionEnvironment env;
         try {
           env =
               new SkyFunctionEnvironment(
@@ -314,19 +319,39 @@ public class SimpleCycleDetector implements CycleDetector {
    * @return List of ErrorInfos from all children that had errors.
    */
   private static List<ErrorInfo> getChildrenErrorsForCycle(
-      SkyKey parent, Iterable<SkyKey> children, ParallelEvaluatorContext evaluatorContext)
+      SkyKey parent,
+      Iterable<SkyKey> children,
+      int childrenSize,
+      NodeEntry entryForDebugging,
+      ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
     List<ErrorInfo> allErrors = new ArrayList<>();
     boolean foundCycle = false;
-    for (NodeEntry childNode :
-        getAndCheckDoneBatchForCycle(parent, children, evaluatorContext).values()) {
+    Map<SkyKey, ? extends NodeEntry> childMap =
+        getAndCheckDoneBatchForCycle(parent, children, evaluatorContext);
+    if (childMap.size() < childrenSize) {
+      Set<SkyKey> missingChildren =
+          Sets.difference(ImmutableSet.copyOf(children), childMap.keySet());
+      evaluatorContext
+          .getGraphInconsistencyReceiver()
+          .noteInconsistencyAndMaybeThrow(
+              parent,
+              missingChildren,
+              GraphInconsistencyReceiver.Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+    }
+    for (NodeEntry childNode : childMap.values()) {
       ErrorInfo errorInfo = childNode.getErrorInfo();
       if (errorInfo != null) {
         foundCycle |= !Iterables.isEmpty(errorInfo.getCycleInfo());
         allErrors.add(errorInfo);
       }
     }
-    Preconditions.checkState(foundCycle, "", children, allErrors);
+    Preconditions.checkState(
+        foundCycle,
+        "Key %s with entry %s had no cycle beneath it: %s",
+        parent,
+        entryForDebugging,
+        allErrors);
     return allErrors;
   }
 

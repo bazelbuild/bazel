@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
@@ -56,6 +57,44 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
               + "toolchain as inputs).",
       structField = true)
   public SkylarkNestedSet getAllFilesForStarlark();
+
+  @SkylarkCallable(
+      name = "static_runtime_lib",
+      doc =
+          "Returns the files from `static_runtime_lib` attribute (so they can be passed to actions "
+              + "using this toolchain as inputs). The caller should check whether the "
+              + "feature_configuration enables `static_link_cpp_runtimes` feature (if not, "
+              + "neither `static_runtime_lib` nor `dynamic_runtime_lib` should be used), and "
+              + "use `dynamic_runtime_lib` if dynamic linking mode is active.",
+      parameters = {
+        @Param(
+            name = "feature_configuration",
+            doc = "Feature configuration to be queried.",
+            positional = false,
+            named = true,
+            type = FeatureConfigurationApi.class)
+      })
+  public SkylarkNestedSet getStaticRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
+      throws EvalException;
+
+  @SkylarkCallable(
+      name = "dynamic_runtime_lib",
+      doc =
+          "Returns the files from `dynamic_runtime_lib` attribute (so they can be passed to"
+              + " actions using this toolchain as inputs). The caller can check whether the "
+              + "feature_configuration enables `static_link_cpp_runtimes` feature (if not, neither"
+              + " `static_runtime_lib` nor `dynamic_runtime_lib` have to be used), and use"
+              + " `static_runtime_lib` if static linking mode is active.",
+      parameters = {
+        @Param(
+            name = "feature_configuration",
+            doc = "Feature configuration to be queried.",
+            positional = false,
+            named = true,
+            type = FeatureConfigurationApi.class)
+      })
+  public SkylarkNestedSet getDynamicRuntimeLibForStarlark(
+      FeatureConfigurationT featureConfiguration) throws EvalException;
 
   @SkylarkCallable(
       name = "sysroot",

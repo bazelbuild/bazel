@@ -101,7 +101,7 @@ public final class SkydocTest extends SkylarkTestCase {
     scratch.file(
         "/test/test.bzl",
         "def rule_impl(ctx):",
-        "  return struct()",
+        "  return []",
         "",
         "my_rule = rule(",
         "    doc = 'This is my rule. It does stuff.',",
@@ -153,7 +153,7 @@ public final class SkydocTest extends SkylarkTestCase {
     scratch.file(
         "/test/test.bzl",
         "def rule_impl(ctx):",
-        "  return struct()",
+        "  return []",
         "",
         "rule_one = rule(",
         "    doc = 'Rule one',",
@@ -189,10 +189,7 @@ public final class SkydocTest extends SkylarkTestCase {
 
   @Test
   public void testRulesAcrossMultipleFiles() throws Exception {
-    scratch.file(
-        "/lib/rule_impl.bzl",
-        "def rule_impl(ctx):",
-        "  return struct()");
+    scratch.file("/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
 
     scratch.file("/other_root/deps/foo/other_root.bzl", "doc_string = 'Dep rule'");
 
@@ -238,10 +235,7 @@ public final class SkydocTest extends SkylarkTestCase {
 
   @Test
   public void testRulesAcrossRepository() throws Exception {
-    scratch.file(
-        "/external/dep_repo/lib/rule_impl.bzl",
-        "def rule_impl(ctx):",
-        "  return struct()");
+    scratch.file("/external/dep_repo/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
 
     scratch.file(
         "/deps/foo/docstring.bzl",
@@ -321,7 +315,7 @@ public final class SkydocTest extends SkylarkTestCase {
         "/dep/dep.bzl",
         "load('//test:main.bzl', 'some_var')",
         "def rule_impl(ctx):",
-        "  return struct()");
+        "  return []");
 
     scratch.file(
         "/test/main.bzl",

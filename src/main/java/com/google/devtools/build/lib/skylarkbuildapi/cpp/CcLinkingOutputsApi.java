@@ -28,4 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 public interface CcLinkingOutputsApi<FileT extends FileApi> {
   @SkylarkCallable(name = "library_to_link", structField = true, documented = false)
   LibraryToLinkApi<FileT> getLibraryToLink();
+
+  @SkylarkCallable(name = "executable", structField = true, documented = false)
+  FileT getExecutable();
 }
