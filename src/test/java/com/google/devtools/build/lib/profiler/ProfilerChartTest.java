@@ -39,6 +39,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -256,11 +257,14 @@ public class ProfilerChartTest extends FoundationTestCase {
           out,
           Profiler.Format.BINARY_BAZEL_FORMAT,
           "basic test",
+          "dummy_output_base",
+          UUID.randomUUID(),
           false,
           BlazeClock.instance(),
           BlazeClock.instance().nanoTime(),
           /* enabledCpuUsageProfiling= */ false,
-          /* slimProfile= */ false);
+          /* slimProfile= */ false,
+          /* enableJsonMetadata= */ false);
 
       // Write from multiple threads to generate multiple rows in the chart.
       for (int i = 0; i < noOfRows; i++) {
