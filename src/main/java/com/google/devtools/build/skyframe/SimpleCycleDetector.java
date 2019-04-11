@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDep;
+import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -156,12 +156,12 @@ public class SimpleCycleDetector implements CycleDetector {
                   directDeps,
                   Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
                   evaluatorContext);
-        } catch (UndonePreviouslyRequestedDep undoneDep) {
+        } catch (UndonePreviouslyRequestedDeps undoneDep) {
           // All children were finished according to the CHILDREN_FINISHED sentinel, and cycle
           // detection does not do normal SkyFunction evaluation, so no restarting nor child
           // dirtying was possible.
           throw new IllegalStateException(
-              "Previously requested dep not done: " + undoneDep.getDepKey(), undoneDep);
+              "Previously requested dep not done: " + undoneDep.getDepKeys(), undoneDep);
         }
         env.setError(entry, ErrorInfo.fromChildErrors(key, errorDeps));
         env.commit(entry, EnqueueParentBehavior.SIGNAL);
