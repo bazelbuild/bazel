@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import javax.annotation.Nullable;
+
 /** Base class for exceptions that happen during toolchain resolution. */
 public class ToolchainException extends Exception {
 
@@ -26,5 +29,17 @@ public class ToolchainException extends Exception {
 
   public ToolchainException(String message, Throwable cause) {
     super(message, cause);
+  }
+
+  @Nullable
+  public ConfiguredValueCreationException asConfiguredValueCreationException() {
+    for (Throwable cause = getCause();
+        cause != null && cause != cause.getCause();
+        cause = cause.getCause()) {
+      if (cause instanceof ConfiguredValueCreationException) {
+        return (ConfiguredValueCreationException) cause;
+      }
+    }
+    return null;
   }
 }

@@ -138,6 +138,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("REGISTERED_TOOLCHAINS");
   static final SkyFunctionName SINGLE_TOOLCHAIN_RESOLUTION =
       SkyFunctionName.createHermetic("SINGLE_TOOLCHAIN_RESOLUTION");
+  static final SkyFunctionName TOOLCHAIN_RESOLUTION =
+      SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");
   public static final SkyFunctionName REPOSITORY_MAPPING =
       SkyFunctionName.createHermetic("REPOSITORY_MAPPING");
   public static final SkyFunctionName RESOLVED_FILE =
