@@ -61,6 +61,23 @@ function tear_down() {
   rm -rf "${cas_path}"
 }
 
+function test_remote_grpc_cache_with_protocol() {
+  # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with remote cache"
+}
+
 function test_cc_binary() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
