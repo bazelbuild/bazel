@@ -17,7 +17,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
@@ -47,6 +49,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
+  private ImmutableSet<Artifact> topLevelOutputs = ImmutableSet.of();
 
   private RemoteActionContextProvider(
       CommandEnvironment env,
@@ -99,7 +102,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               buildRequestId,
               commandId,
               env.getReporter(),
-              digestUtil);
+              digestUtil,
+              topLevelOutputs);
       return ImmutableList.of(spawnCache);
     } else {
       RemoteSpawnRunner spawnRunner =
@@ -116,7 +120,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               executor,
               retrier,
               digestUtil,
-              logDir);
+              logDir,
+              topLevelOutputs);
       return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
     }
   }
@@ -164,6 +169,10 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   @Nullable
   AbstractRemoteActionCache getRemoteCache() {
     return cache;
+  }
+
+  void setTopLevelOutputs(ImmutableSet<Artifact> topLevelOutputs) {
+    this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
   }
 
   @Override

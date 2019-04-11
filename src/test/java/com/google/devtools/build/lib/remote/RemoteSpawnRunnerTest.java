@@ -37,6 +37,7 @@ import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -794,7 +796,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            /* topLevelOutputs= */ ImmutableSet.of());
 
     ExecuteResponse succeeded =
         ExecuteResponse.newBuilder()
@@ -926,23 +929,63 @@ public class RemoteSpawnRunnerTest {
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr));
   }
 
-  private static Spawn newSimpleSpawn() {
+  @Test
+  public void testDownloadTopLevel() throws Exception {
+    // arrange
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
+
+    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("outs"));
+    Artifact topLevelOutput = new Artifact(outputRoot.getRoot().getRelative("foo.bin"), outputRoot);
+
+    ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(succeededAction);
+
+    RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
+
+    Spawn spawn = newSimpleSpawn(topLevelOutput);
+    SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
+
+    // act
+    SpawnResult result = runner.exec(spawn, policy);
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+
+    // assert
+    verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr));
+    verify(cache, never())
+        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());
+  }
+
+  private static Spawn newSimpleSpawn(Artifact... outputs) {
     return new SimpleSpawn(
         new FakeOwner("foo", "bar"),
         /*arguments=*/ ImmutableList.of(),
         /*environment=*/ ImmutableMap.of(),
         /*executionInfo=*/ ImmutableMap.of(),
         /*inputs=*/ ImmutableList.of(),
-        /*outputs=*/ ImmutableList.<ActionInput>of(),
+        /*outputs=*/ ImmutableList.copyOf(outputs),
         ResourceSet.ZERO);
   }
 
   private RemoteSpawnRunner newSpawnRunner() {
-    return newSpawnRunner(/* verboseFailures= */ false, executor, /* reporter= */ null);
+    return newSpawnRunner(
+        /* verboseFailures= */ false,
+        executor,
+        /* reporter= */ null,
+        /* topLevelOutputs= */ ImmutableSet.of());
+  }
+
+  private RemoteSpawnRunner newSpawnRunner(ImmutableSet<Artifact> topLevelOutputs) {
+    return newSpawnRunner(
+        /* verboseFailures= */ false, executor, /* reporter= */ null, topLevelOutputs);
   }
 
   private RemoteSpawnRunner newSpawnRunner(
-      boolean verboseFailures, @Nullable GrpcRemoteExecutor executor, @Nullable Reporter reporter) {
+      boolean verboseFailures,
+      @Nullable GrpcRemoteExecutor executor,
+      @Nullable Reporter reporter,
+      ImmutableSet<Artifact> topLevelOutputs) {
     return new RemoteSpawnRunner(
         execRoot,
         remoteOptions,
@@ -956,15 +999,24 @@ public class RemoteSpawnRunnerTest {
         executor,
         retrier,
         digestUtil,
-        logDir);
+        logDir,
+        topLevelOutputs);
   }
 
   private RemoteSpawnRunner newSpawnRunnerWithoutExecutor() {
-    return newSpawnRunner(/* verboseFailures= */ false, /* executor= */ null, /* reporter= */ null);
+    return newSpawnRunner(
+        /* verboseFailures= */ false,
+        /* executor= */ null,
+        /* reporter= */ null,
+        /* topLevelOutputs= */ ImmutableSet.of());
   }
 
   private RemoteSpawnRunner newSpawnRunnerWithoutExecutor(Reporter reporter) {
-    return newSpawnRunner(/* verboseFailures= */ false, /* executor= */ null, reporter);
+    return newSpawnRunner(
+        /* verboseFailures= */ false,
+        /* executor= */ null,
+        reporter,
+        /* topLevelOutputs= */ ImmutableSet.of());
   }
 
   // TODO(buchgr): Extract a common class to be used for testing.

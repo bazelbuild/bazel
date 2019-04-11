@@ -19,8 +19,13 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -39,6 +44,7 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
@@ -310,6 +316,38 @@ public final class RemoteModule extends BlazeModule {
           .exit(
               new AbruptExitException(
                   "Error initializing RemoteModule", ExitCode.COMMAND_LINE_ERROR));
+    }
+  }
+
+  @Override
+  public void afterAnalysis(
+      CommandEnvironment env,
+      BuildRequest request,
+      BuildOptions buildOptions,
+      Iterable<ConfiguredTarget> configuredTargets,
+      ImmutableSet<AspectValue> aspects) {
+    if (remoteOutputsMode != null && remoteOutputsMode.downloadToplevelOutputsOnly()) {
+      Preconditions.checkState(actionContextProvider != null, "actionContextProvider was null");
+      // TODO(buchgr): Consider only storing the action owners instead of the artifacts
+      // Collect all top level output artifacts of regular targets as well as aspects. This
+      // information is used by remote spawn runners to decide whether to download an artifact
+      // if --experimental_remote_download_outputs=toplevel is set
+      ImmutableSet.Builder<Artifact> topLevelOutputsBuilder = ImmutableSet.builder();
+      for (ConfiguredTarget configuredTarget : configuredTargets) {
+        topLevelOutputsBuilder.addAll(
+            TopLevelArtifactHelper.getAllArtifactsToBuild(
+                    configuredTarget, request.getTopLevelArtifactContext())
+                .getImportantArtifacts());
+      }
+
+      for (AspectValue aspect : aspects) {
+        topLevelOutputsBuilder.addAll(
+            TopLevelArtifactHelper.getAllArtifactsToBuild(
+                    aspect, request.getTopLevelArtifactContext())
+                .getImportantArtifacts());
+      }
+
+      actionContextProvider.setTopLevelOutputs(topLevelOutputsBuilder.build());
     }
   }
 
