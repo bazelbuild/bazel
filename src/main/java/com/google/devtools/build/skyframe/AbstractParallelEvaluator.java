@@ -40,7 +40,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
-import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDep;
+import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import java.math.BigInteger;
@@ -425,7 +425,7 @@ public abstract class AbstractParallelEvaluator {
           env =
               new SkyFunctionEnvironment(
                   skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
-        } catch (UndonePreviouslyRequestedDep undonePreviouslyRequestedDep) {
+        } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           // If a previously requested dep is no longer done, restart this node from scratch.
           restart(skyKey, state);
           // Top priority since this node has already been evaluating, so get it off our plate.

@@ -162,7 +162,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       GroupedList<SkyKey> directDeps,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
-      throws InterruptedException, UndonePreviouslyRequestedDep {
+      throws InterruptedException, UndonePreviouslyRequestedDeps {
     super(directDeps);
     this.skyKey = skyKey;
     this.oldDeps = oldDeps;
@@ -193,10 +193,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     try {
       this.previouslyRequestedDepsValues =
           batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ false);
-    } catch (UndonePreviouslyRequestedDep undonePreviouslyRequestedDep) {
+    } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
       throw new IllegalStateException(
-          "batchPrefetch can't throw UndonePreviouslyRequestedDep unless assertDone is true",
-          undonePreviouslyRequestedDep);
+          "batchPrefetch can't throw UndonePreviouslyRequestedDeps unless assertDone is true",
+          undonePreviouslyRequestedDeps);
     }
     Preconditions.checkState(
         !this.previouslyRequestedDepsValues.containsKey(ErrorTransienceValue.KEY),
@@ -206,7 +206,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   private Map<SkyKey, SkyValue> batchPrefetch(
       SkyKey requestor, GroupedList<SkyKey> depKeys, Set<SkyKey> oldDeps, boolean assertDone)
-      throws InterruptedException, UndonePreviouslyRequestedDep {
+      throws InterruptedException, UndonePreviouslyRequestedDeps {
     QueryableGraph.PrefetchDepsRequest request = null;
     if (PREFETCH_OLD_DEPS) {
       request = new QueryableGraph.PrefetchDepsRequest(requestor, oldDeps, depKeys);
@@ -235,6 +235,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(
               requestor, difference, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+      throw new UndonePreviouslyRequestedDeps(ImmutableList.copyOf(difference));
     }
     ImmutableMap.Builder<SkyKey, SkyValue> depValuesBuilder =
         ImmutableMap.builderWithExpectedSize(batchMap.size());
@@ -251,7 +252,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
                 skyKey,
                 ImmutableList.of(entry.getKey()),
                 Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
-        throw new UndonePreviouslyRequestedDep(entry.getKey());
+        throw new UndonePreviouslyRequestedDeps(ImmutableList.of(entry.getKey()));
       }
       depValuesBuilder.put(entry.getKey(), !depDone ? NULL_MARKER : valueMaybeWithMetadata);
       if (depDone) {
@@ -902,16 +903,16 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         .toString();
   }
 
-  /** Thrown during environment construction if a previously requested dep is no longer done. */
-  static class UndonePreviouslyRequestedDep extends Exception {
-    private final SkyKey depKey;
+  /** Thrown during environment construction if previously requested deps are no longer done. */
+  static class UndonePreviouslyRequestedDeps extends Exception {
+    private final ImmutableList<SkyKey> depKeys;
 
-    UndonePreviouslyRequestedDep(SkyKey depKey) {
-      this.depKey = depKey;
+    UndonePreviouslyRequestedDeps(ImmutableList<SkyKey> depKeys) {
+      this.depKeys = depKeys;
     }
 
-    SkyKey getDepKey() {
-      return depKey;
+    ImmutableList<SkyKey> getDepKeys() {
+      return depKeys;
     }
   }
 }
