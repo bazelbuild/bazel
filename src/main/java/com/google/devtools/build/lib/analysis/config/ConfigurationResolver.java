@@ -494,14 +494,17 @@ public final class ConfigurationResolver {
 
   private static BuildOptions addDefaultStarlarkOptions(
       BuildOptions fromOptions, ImmutableMap<Label, Object> buildSettingDefaults) {
-    BuildOptions.Builder optionsWithDefaults = fromOptions.toBuilder();
+    BuildOptions.Builder optionsWithDefaults = null;
     for (Map.Entry<Label, Object> buildSettingDefault : buildSettingDefaults.entrySet()) {
       Label buildSetting = buildSettingDefault.getKey();
-      if (!optionsWithDefaults.contains(buildSetting)) {
+      if (!fromOptions.getStarlarkOptions().containsKey(buildSetting)) {
+        if (optionsWithDefaults == null) {
+          optionsWithDefaults = fromOptions.toBuilder();
+        }
         optionsWithDefaults.addStarlarkOption(buildSetting, buildSettingDefault.getValue());
       }
     }
-    return optionsWithDefaults.build();
+    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
   /**
