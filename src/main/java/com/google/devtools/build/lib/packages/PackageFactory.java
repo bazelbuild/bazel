@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1767,6 +1768,10 @@ public final class PackageFactory {
         } catch (BadGlobException | InterruptedException e) {
           // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
         }
+      }
+
+      if (!ValidationEnvironment.checkBuildSyntax(buildFileAST.getStatements(), eventHandler)) {
+        pkgBuilder.setContainsErrors();
       }
 
       // TODO(bazel-team): (2009) the invariant "if errors are reported, mark the package

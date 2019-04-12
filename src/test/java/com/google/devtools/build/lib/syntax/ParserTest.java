@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 public class ParserTest extends EvaluationTestCase {
 
   private BuildFileAST parseFileWithComments(String... input) {
-    return BuildFileAST.parseBuildString(getEventHandler(), input);
+    return BuildFileAST.parseString(getEventHandler(), input);
   }
 
   /** Parses build code (not Skylark) */
@@ -1449,41 +1449,6 @@ public class ParserTest extends EvaluationTestCase {
     setFailFast(false);
     parseFileForSkylark("class test(object): pass");
     assertContainsError("keyword 'class' not supported");
-  }
-
-  @Test
-  public void testDefInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("def func(): pass");
-    assertContainsError("function definitions are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testForStatementForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("for _ in []: pass");
-    assertContainsError("for statements are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testIfStatementForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("if False: pass");
-    assertContainsError("if statements are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testKwargsForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("func(**dict)");
-    assertContainsError("**kwargs arguments are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testArgsForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("func(*array)");
-    assertContainsError("*args arguments are not allowed in BUILD files");
   }
 
   @Test
