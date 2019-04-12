@@ -232,7 +232,7 @@ public class BaseRuleClasses {
    * Share common attributes across both base and Skylark base rules.
    */
   public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
-    return PlatformSemantics.platformAttributes(builder)
+    return builder
         // The visibility attribute is special: it is a nodep label, and loading the
         // necessary package groups is handled by {@link LabelVisitor#visitTargetVisibility}.
         // Package groups always have the null configuration so that they are not duplicated

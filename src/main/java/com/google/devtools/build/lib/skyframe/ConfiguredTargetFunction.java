@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
-import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainResolver;
@@ -451,7 +450,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (rule.getRuleClassObject().executionPlatformConstraintsAllowed()
         == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
       execConstraintLabels.addAll(
-          mapper.get(PlatformSemantics.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
+          mapper.get(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
     }
 
     return execConstraintLabels.build();
