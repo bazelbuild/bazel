@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -62,7 +63,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -92,6 +92,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -107,10 +108,8 @@ import javax.annotation.Nullable;
 public final class ConfiguredTargetFunction implements SkyFunction {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  // This construction is a bit funky, but guarantees that the Object reference here is globally
-  // unique.
-  static final ImmutableMap<Label, ConfigMatchingProvider> NO_CONFIG_CONDITIONS =
-      ImmutableMap.<Label, ConfigMatchingProvider>of();
+  private static final ImmutableMap<Label, ConfigMatchingProvider> NO_CONFIG_CONDITIONS =
+      ImmutableMap.of();
 
   /**
    * Exception class that signals an error during the evaluation of a dependency.
@@ -174,6 +173,16 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.nonceVersion = nonceVersion;
   }
 
+  private void acquireWithLogging(SkyKey key) throws InterruptedException {
+    Stopwatch stopwatch = Stopwatch.createStarted();
+    cpuBoundSemaphore.acquire();
+    long elapsedTime = stopwatch.elapsed().toMillis();
+    if (elapsedTime > 5) {
+      logger.atInfo().atMostEvery(10, TimeUnit.SECONDS).log(
+          "Spent %s milliseconds waiting for lock acquisition for %s", elapsedTime, key);
+    }
+  }
+
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws ConfiguredTargetFunctionException,
       InterruptedException {
@@ -182,7 +191,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           new StateInformingSkyFunctionEnvironment(
               env,
               /*preFetch=*/ cpuBoundSemaphore::release,
-              /*postFetch=*/ cpuBoundSemaphore::acquire);
+              /*postFetch=*/ () -> acquireWithLogging(key));
     }
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
@@ -264,11 +273,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     UnloadedToolchainContext unloadedToolchainContext = null;
 
-    // TODO(janakr): this acquire() call may tie up this thread indefinitely, reducing the
-    // parallelism of Skyframe. This is a strict improvement over the prior state of the code, in
-    // which we ran with #processors threads, but ideally we would call #tryAcquire here, and if we
-    // failed, would exit this SkyFunction and restart it when permits were available.
-    cpuBoundSemaphore.acquire();
+    // TODO(janakr): this call may tie up this thread indefinitely, reducing the parallelism of
+    //  Skyframe. This is a strict improvement over the prior state of the code, in which we ran
+    //  with #processors threads, but ideally we would call #tryAcquire here, and if we failed,
+    //  would exit this SkyFunction and restart it when permits were available.
+    acquireWithLogging(key);
     try {
       // Get the configuration targets that trigger this rule's configurable attributes.
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
@@ -931,14 +940,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link ConfiguredTargetFunction#compute}.
+   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
+   * ConfiguredTargetFunction#compute}.
    */
-  public static final class ConfiguredTargetFunctionException extends SkyFunctionException {
-    public ConfiguredTargetFunctionException(NoSuchThingException e) {
-      super(e, Transience.PERSISTENT);
-    }
-
+  static final class ConfiguredTargetFunctionException extends SkyFunctionException {
     private ConfiguredTargetFunctionException(ConfiguredValueCreationException e) {
       super(e, Transience.PERSISTENT);
     }
