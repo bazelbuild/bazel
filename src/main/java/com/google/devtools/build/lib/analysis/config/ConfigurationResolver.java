@@ -488,8 +488,7 @@ public final class ConfigurationResolver {
       result = trimmedOptions.build();
     }
     // Post-process transitions on starlark build settings
-    StarlarkTransition.validate(transition, buildSettingPackages, result);
-    return result;
+    return StarlarkTransition.validate(transition, buildSettingPackages, result);
   }
 
   private static BuildOptions addDefaultStarlarkOptions(
