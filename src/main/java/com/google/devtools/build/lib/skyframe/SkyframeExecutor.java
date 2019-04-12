@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Settings;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1914,7 +1915,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
           // configured target.
           defaultInputValues =
               StarlarkTransition.getDefaultInputValues(
-                  collectBuildSettingValues(transition, eventHandler, "inputs"), transition);
+                  collectBuildSettingValues(transition, eventHandler, Settings.INPUTS), transition);
           toOptions =
               ConfigurationResolver.applyTransition(
                   fromOptions,
@@ -1923,7 +1924,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
                   ruleClassProvider,
                   true,
                   defaultInputValues,
-                  collectBuildSettingValues(transition, eventHandler, "outputs"));
+                  collectBuildSettingValues(transition, eventHandler, Settings.OUTPUTS));
           StarlarkTransition.replayEvents(eventHandler, transition);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
@@ -1953,7 +1954,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         try {
           defaultInputValues =
               StarlarkTransition.getDefaultInputValues(
-                  collectBuildSettingValues(key.getTransition(), eventHandler, "inputs"),
+                  collectBuildSettingValues(key.getTransition(), eventHandler, Settings.INPUTS),
                   key.getTransition());
           toOptions =
               ConfigurationResolver.applyTransition(
@@ -1963,7 +1964,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
                   ruleClassProvider,
                   true,
                   defaultInputValues,
-                  collectBuildSettingValues(key.getTransition(), eventHandler, "outputs"));
+                  collectBuildSettingValues(key.getTransition(), eventHandler, Settings.OUTPUTS));
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
         }
@@ -1987,7 +1988,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   private Map<SkyKey, SkyValue> collectBuildSettingValues(
       ConfigurationTransition transition,
       ExtendedEventHandler eventHandler,
-      String inputsOrOutputs) {
+      Settings inputsOrOutputs) {
     ImmutableSet<SkyKey> buildSettingPackageKeys =
         StarlarkTransition.getBuildSettingPackageKeys(transition, inputsOrOutputs);
     EvaluationResult<SkyValue> buildSettingsResult =

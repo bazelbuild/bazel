@@ -46,6 +46,14 @@ import java.util.stream.Collectors;
 /** A marker class for configuration transitions that are defined in Starlark. */
 public abstract class StarlarkTransition implements ConfigurationTransition {
 
+  /** The two groups of build settings that are relevant for a {@link StarlarkTransition} */
+  public enum Settings {
+    /** Build settings that are read by a {@link StarlarkTransition} */
+    INPUTS,
+    /** Build settings that are written by a {@link StarlarkTransition} */
+    OUTPUTS,
+  }
+
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
   public StarlarkTransition(StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
@@ -101,7 +109,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    */
   // TODO(juliexxia): handle the possibility of aliased build settings.
   public static ImmutableSet<SkyKey> getBuildSettingPackageKeys(
-      ConfigurationTransition root, String inputsOrOutputs) {
+      ConfigurationTransition root, Settings inputsOrOutputs) {
     ImmutableSet.Builder<SkyKey> keyBuilder = new ImmutableSet.Builder<>();
     try {
       root.visit(
@@ -146,7 +154,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * @param buildSettingPackages SkyKeys/Values of packages that contain all Starlark-defined build
    *     settings that were set by {@code root}
    * @param toOptions result of applying {@code root}
-   * @param eventHandler eventHandler on which to replay events
    * @return validated toOptions with default values filtered out
    * @throws TransitionException if an error occurred during Starlark transition application.
    */
@@ -165,7 +172,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         (StarlarkTransitionVisitor)
             transition -> {
               ImmutableSet<Label> changedSettings =
-                  getRelevantStarlarkSettingsFromTransition(transition, "outputs");
+                  getRelevantStarlarkSettingsFromTransition(transition, Settings.OUTPUTS);
               for (Label setting : changedSettings) {
                 Target buildSettingTarget =
                     getAndCheckBuildSettingTarget(buildSettingPackages, setting);
@@ -209,7 +216,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   public static ImmutableMap<Label, Object> getDefaultInputValues(
       Environment env, ConfigurationTransition root)
       throws TransitionException, InterruptedException {
-    ImmutableSet<SkyKey> buildSettingInputPackageKeys = getBuildSettingPackageKeys(root, "inputs");
+    ImmutableSet<SkyKey> buildSettingInputPackageKeys =
+        getBuildSettingPackageKeys(root, Settings.INPUTS);
     Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingInputPackageKeys);
     if (env.valuesMissing()) {
       return null;
@@ -229,7 +237,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         (StarlarkTransitionVisitor)
             transition -> {
               ImmutableSet<Label> settings =
-                  getRelevantStarlarkSettingsFromTransition(transition, "inputs");
+                  getRelevantStarlarkSettingsFromTransition(transition, Settings.INPUTS);
               for (Label setting : settings) {
                 Target buildSettingTarget =
                     getAndCheckBuildSettingTarget(buildSettingPackages, setting);
@@ -267,9 +275,9 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   // TODO(juliexxia): use an enum for "inputs"/"outputs" here and elsewhere in starlark transitions.
   private static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
-      StarlarkTransition transition, String inputOrOutput) {
+      StarlarkTransition transition, Settings inputOrOutput) {
     List<String> toGet =
-        inputOrOutput.equals("inputs") ? transition.getInputs() : transition.getOutputs();
+        inputOrOutput.equals(Settings.INPUTS) ? transition.getInputs() : transition.getOutputs();
     return ImmutableSet.copyOf(
         toGet.stream()
             .filter(setting -> !setting.startsWith(COMMAND_LINE_OPTION_PREFIX))

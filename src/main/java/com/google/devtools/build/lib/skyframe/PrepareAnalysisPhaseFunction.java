@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Settings;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -314,7 +315,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
           return null;
         }
         ImmutableSet<SkyKey> buildSettingOutputPackageKeys =
-            StarlarkTransition.getBuildSettingPackageKeys(transition, "outputs");
+            StarlarkTransition.getBuildSettingPackageKeys(transition, Settings.OUTPUTS);
         Map<SkyKey, SkyValue> buildSettingOutputPackages =
             env.getValues(buildSettingOutputPackageKeys);
         if (env.valuesMissing()) {
@@ -358,7 +359,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
           return null;
         }
         ImmutableSet<SkyKey> buildSettingOutputPackageKeys =
-            StarlarkTransition.getBuildSettingPackageKeys(transition, "outputs");
+            StarlarkTransition.getBuildSettingPackageKeys(transition, Settings.OUTPUTS);
         Map<SkyKey, SkyValue> buildSettingOutputPackages =
             env.getValues(buildSettingOutputPackageKeys);
         if (env.valuesMissing()) {
