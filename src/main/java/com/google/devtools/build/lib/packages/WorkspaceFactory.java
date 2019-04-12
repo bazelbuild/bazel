@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -204,7 +205,9 @@ public class WorkspaceFactory {
         throw new IllegalStateException(e);
       }
     }
-    if (!ast.exec(workspaceEnv, localReporter)) {
+
+    if (!ValidationEnvironment.checkBuildSyntax(ast.getStatements(), localReporter)
+        || !ast.exec(workspaceEnv, localReporter)) {
       localReporter.handle(Event.error("Error evaluating WORKSPACE file"));
     }
 

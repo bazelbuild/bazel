@@ -678,4 +678,34 @@ public class EvaluationTest extends EvaluationTestCase {
                 + "replace(old, new, maxsplit = None) of 'string'",
             "'banana'.replace('a', 'o', 3, old='a')");
   }
+
+  @Test
+  public void testDefInBuild() throws Exception {
+    new BuildTest()
+        .testIfErrorContains(
+            "function definitions are not allowed in BUILD files", "def func(): pass");
+  }
+
+  @Test
+  public void testForStatementForbiddenInBuild() throws Exception {
+    new BuildTest().testIfErrorContains("for loops are not allowed", "for _ in []: pass");
+  }
+
+  @Test
+  public void testIfStatementForbiddenInBuild() throws Exception {
+    new BuildTest()
+        .testIfErrorContains("if statements are not allowed in BUILD files", "if False: pass");
+  }
+
+  @Test
+  public void testKwargsForbiddenInBuild() throws Exception {
+    new BuildTest()
+        .testIfErrorContains("**kwargs arguments are not allowed in BUILD files", "func(**dict)");
+  }
+
+  @Test
+  public void testArgsForbiddenInBuild() throws Exception {
+    new BuildTest()
+        .testIfErrorContains("*args arguments are not allowed in BUILD files", "func(*array)");
+  }
 }

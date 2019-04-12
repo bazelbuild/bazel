@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.LinkedList;
@@ -199,7 +200,9 @@ public class EvaluationTestCase {
     if (testMode == TestMode.SKYLARK) {
       return BuildFileAST.eval(env, input);
     }
-    return BuildFileAST.parseBuildString(env.getEventHandler(), input).eval(env);
+    BuildFileAST ast = BuildFileAST.parseString(env.getEventHandler(), input);
+    ValidationEnvironment.checkBuildSyntax(ast.getStatements(), env.getEventHandler());
+    return ast.eval(env);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
