@@ -226,8 +226,8 @@ java_import(
 java_import(
     name = "auth",
     jars = [
-        "auth/google-auth-library-oauth2-http-0.6.0.jar",
-        "auth/google-auth-library-credentials-0.6.0.jar",
+        "auth/google-auth-library-oauth2-http-0.15.0.jar",
+        "auth/google-auth-library-credentials-0.15.0.jar",
     ],
     runtime_deps = [
         ":api_client",
