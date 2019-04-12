@@ -331,6 +331,7 @@ public final class ProfileCommand implements BlazeCommand {
             env
                 .getReporter()
                 .handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
+            return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
           }
         }
       }
