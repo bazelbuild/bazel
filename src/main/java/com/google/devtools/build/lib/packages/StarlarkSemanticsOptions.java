@@ -484,6 +484,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "will be available")
   public boolean incompatibleRemoveNativeMavenJar;
 
+  @Option(
+      name = "incompatible_static_name_resolution_in_build_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, BUILD files use static name resolution (which can find errors in code "
+              + "that is not executed). See https://github.com/bazelbuild/bazel/issues/8022")
+  public boolean incompatibleStaticNameResolutionInBuildFiles;
+
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
       name = "internal_skylark_flag_test_canary",
@@ -546,6 +560,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
         .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
+        .incompatibleStaticNameResolutionInBuildFiles(incompatibleStaticNameResolutionInBuildFiles)
         .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)

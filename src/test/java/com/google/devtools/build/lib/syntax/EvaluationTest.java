@@ -680,6 +680,16 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testStaticNameResolution() throws Exception {
+    newTest("--incompatible_static_name_resolution_in_build_files=true")
+        .testIfErrorContains("name 'foo' is not defined", "[foo for x in []]");
+
+    // legacy
+    new BuildTest("--incompatible_static_name_resolution_in_build_files=false")
+        .testStatement("str([foo for x in []])", "[]");
+  }
+
+  @Test
   public void testDefInBuild() throws Exception {
     new BuildTest()
         .testIfErrorContains(
