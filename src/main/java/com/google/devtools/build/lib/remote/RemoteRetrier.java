@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -67,7 +68,7 @@ public class RemoteRetrier extends Retrier {
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
     this(
-        options.experimentalRemoteRetry
+        options.remoteMaxRetryAttempts > 0
             ? () -> new ExponentialBackoff(options)
             : () -> RETRIES_DISABLED,
         shouldRetry,
@@ -141,11 +142,12 @@ public class RemoteRetrier extends Retrier {
     }
 
     ExponentialBackoff(RemoteOptions options) {
-      this(Duration.ofMillis(options.experimentalRemoteRetryStartDelayMillis),
-          Duration.ofMillis(options.experimentalRemoteRetryMaxDelayMillis),
-          options.experimentalRemoteRetryMultiplier,
-          options.experimentalRemoteRetryJitter,
-          options.experimentalRemoteRetryMaxAttempts);
+      this(
+          /* initial = */ Duration.ofMillis(100),
+          /* max = */ Duration.ofSeconds(5),
+          /* multiplier= */ 2,
+          /* jitter= */ 0.1,
+          options.remoteMaxRetryAttempts);
     }
 
     @Override

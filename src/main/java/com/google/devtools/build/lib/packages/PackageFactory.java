@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -71,6 +72,7 @@ import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -239,8 +241,9 @@ public final class PackageFactory {
   }
 
   /**
-   * Declares the package() attribute specifying the default value for
-   * {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} when not explicitly specified.
+   * Declares the package() attribute specifying the default value for {@link
+   * com.google.devtools.build.lib.packages.RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} when not
+   * explicitly specified.
    */
   private static class DefaultCompatibleWith extends PackageArgument<List<Label>> {
     private DefaultCompatibleWith() {
@@ -256,8 +259,9 @@ public final class PackageFactory {
   }
 
   /**
-   * Declares the package() attribute specifying the default value for
-   * {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR} when not explicitly specified.
+   * Declares the package() attribute specifying the default value for {@link
+   * com.google.devtools.build.lib.packages.RuleClass#RESTRICTED_ENVIRONMENT_ATTR} when not
+   * explicitly specified.
    */
   private static class DefaultRestrictedTo extends PackageArgument<List<Label>> {
     private DefaultRestrictedTo() {
@@ -440,7 +444,8 @@ public final class PackageFactory {
   }
 
   /**
-   * Returns the {@link RuleClass} for the specified rule class name.
+   * Returns the {@link com.google.devtools.build.lib.packages.RuleClass} for the specified rule
+   * class name.
    */
   public RuleClass getRuleClass(String ruleClassName) {
     return ruleFactory.getRuleClass(ruleClassName);
@@ -584,6 +589,97 @@ public final class PackageFactory {
     }
 
     return MutableList.copyOf(env, matches);
+  }
+
+  /**
+   * Returns a dictionary representing the attributes of a previously defined target, or `None` if
+   * the target does not exist.
+   *
+   * @param name name of the rule.
+   */
+  @SkylarkSignature(
+      name = "existing_rule",
+      doc =
+          "Returns a dictionary representing the attributes of a previously defined target, or "
+              + "<code>None</code> if the target does not exist."
+              + ""
+              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
+              + "and order-dependent.</i>",
+      parameters = {
+        @Param(name = "name", type = String.class, doc = "The name of the target."),
+      },
+      documented = false,
+      useAst = true,
+      useEnvironment = true)
+  private static final BuiltinFunction.Factory newExistingRuleFunction =
+      new BuiltinFunction.Factory("existing_rule") {
+        public BuiltinFunction create(final PackageContext originalContext) {
+          return new BuiltinFunction("existing_rule", this) {
+            public Object invoke(String name, FuncallExpression ast, Environment env)
+                throws EvalException {
+              return callExistingRule(name, ast, env);
+            }
+          };
+        }
+      };
+
+  static Object callExistingRule(String name, FuncallExpression ast, Environment env)
+      throws EvalException {
+
+    PackageContext context = getContext(env, ast.getLocation());
+    Target target = context.pkgBuilder.getTarget(name);
+    SkylarkDict<String, Object> rule = targetDict(target, ast.getLocation(), env);
+
+    if (rule != null) {
+      return rule;
+    }
+
+    return Runtime.NONE;
+  }
+
+  /**
+   * Returns a dictionary containing all the targets instantiated so far. The map key is the name of
+   * the target. The map value is equivalent to the `existing_rule` output for that target.
+   */
+  @SkylarkSignature(
+      name = "existing_rules",
+      doc =
+          "Returns a dictionary containing all the targets instantiated so far. The map key is the "
+              + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
+              + "output for that target."
+              + ""
+              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
+              + "and order-dependent.</i>",
+      useAst = true,
+      useEnvironment = true)
+  private static final BuiltinFunction.Factory newExistingRulesFunction =
+      new BuiltinFunction.Factory("existing_rules") {
+        public BuiltinFunction create(final PackageContext originalContext) {
+          return new BuiltinFunction("existing_rules", this) {
+            public SkylarkDict<String, SkylarkDict<String, Object>> invoke(
+                FuncallExpression ast, Environment env) throws EvalException {
+              return callExistingRules(ast, env);
+            }
+          };
+        }
+      };
+
+  static SkylarkDict<String, SkylarkDict<String, Object>> callExistingRules(
+      FuncallExpression ast, Environment env) throws EvalException {
+    PackageContext context = getContext(env, ast.getLocation());
+    Collection<Target> targets = context.pkgBuilder.getTargets();
+    Location loc = ast.getLocation();
+
+    SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.of(env);
+    for (Target t : targets) {
+      if (t instanceof Rule) {
+        SkylarkDict<String, Object> rule = targetDict(t, loc, env);
+        Preconditions.checkNotNull(rule);
+        rules.put(t.getName(), rule, loc, env);
+      }
+    }
+
+    return rules;
   }
 
   /**
@@ -747,9 +843,7 @@ public final class PackageFactory {
             == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
           checkLicenses = false;
         } else {
-          checkLicenses =
-              env.getSemantics().checkThirdPartyTargetsHaveLicenses()
-                  && !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
+          checkLicenses = !env.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
         }
 
         if (checkLicenses
@@ -884,16 +978,6 @@ public final class PackageFactory {
           };
         }
       };
-
-  @Nullable
-  static SkylarkDict<String, Object> callGetRuleFunction(
-      String name, FuncallExpression ast, Environment env)
-      throws EvalException, ConversionException {
-    PackageContext context = getContext(env, ast.getLocation());
-    Target target = context.pkgBuilder.getTarget(name);
-
-    return targetDict(target, ast.getLocation(), env);
-  }
 
   @Nullable
   private static SkylarkDict<String, Object> targetDict(
@@ -1051,26 +1135,6 @@ public final class PackageFactory {
         String.format("cannot represent %s (%s) in Starlark", val, val.getClass()));
   }
 
-
-  static SkylarkDict<String, SkylarkDict<String, Object>> callGetRulesFunction(
-      FuncallExpression ast, Environment env)
-      throws EvalException {
-    PackageContext context = getContext(env, ast.getLocation());
-    Collection<Target> targets = context.pkgBuilder.getTargets();
-    Location loc = ast.getLocation();
-
-    SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.of(env);
-    for (Target t : targets) {
-      if (t instanceof Rule) {
-        SkylarkDict<String, Object> m = targetDict(t, loc, env);
-        Preconditions.checkNotNull(m);
-        rules.put(t.getName(), m, loc, env);
-      }
-    }
-
-    return rules;
-  }
-
   static Runtime.NoneType callPackageFunction(String name, Object packagesO, Object includesO,
       FuncallExpression ast, Environment env) throws EvalException, ConversionException {
     PackageContext context = getContext(env, ast.getLocation());
@@ -1179,13 +1243,20 @@ public final class PackageFactory {
   private static ImmutableMap<String, BuiltinRuleFunction> buildRuleFunctions(
       RuleFactory ruleFactory) {
     ImmutableMap.Builder<String, BuiltinRuleFunction> result = ImmutableMap.builder();
-    for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      result.put(ruleClass, new BuiltinRuleFunction(ruleClass, ruleFactory));
+    for (String ruleClassName : ruleFactory.getRuleClassNames()) {
+      RuleClass cl = ruleFactory.getRuleClass(ruleClassName);
+      if (cl.getRuleClassType() == RuleClassType.NORMAL
+          || cl.getRuleClassType() == RuleClassType.TEST) {
+        result.put(ruleClassName, new BuiltinRuleFunction(ruleClassName, ruleFactory));
+      }
     }
     return result.build();
   }
 
-  /** {@link BuiltinFunction} adapter for creating {@link Rule}s for native {@link RuleClass}es. */
+  /**
+   * {@link BuiltinFunction} adapter for creating {@link Rule}s for native {@link
+   * com.google.devtools.build.lib.packages.RuleClass}es.
+   */
   private static class BuiltinRuleFunction extends BuiltinFunction implements RuleFunction {
     private final String ruleClassName;
     private final RuleFactory ruleFactory;
@@ -1583,7 +1654,9 @@ public final class PackageFactory {
         .setup("package", newPackageFunction(packageArguments))
         .setup("package_name", packageNameFunction)
         .setup("repository_name", repositoryNameFunction)
-        .setup("environment_group", newEnvironmentGroupFunction.apply(context));
+        .setup("environment_group", newEnvironmentGroupFunction.apply(context))
+        .setup("existing_rule", newExistingRuleFunction.apply(context))
+        .setup("existing_rules", newExistingRulesFunction.apply(context));
 
     for (Map.Entry<String, BuiltinRuleFunction> entry : ruleFunctions.entrySet()) {
       pkgEnv.setup(entry.getKey(), entry.getValue());
@@ -1695,6 +1768,10 @@ public final class PackageFactory {
         } catch (BadGlobException | InterruptedException e) {
           // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
         }
+      }
+
+      if (!ValidationEnvironment.checkBuildSyntax(buildFileAST.getStatements(), eventHandler)) {
+        pkgBuilder.setContainsErrors();
       }
 
       // TODO(bazel-team): (2009) the invariant "if errors are reported, mark the package

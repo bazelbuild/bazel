@@ -92,7 +92,7 @@ def _windows_msvc_impl(ctx):
     builtin_sysroot = None
 
     cxx_builtin_include_directories = [
-%{cxx_builtin_include_directories}
+%{msvc_cxx_builtin_include_directories}
     ]
 
     cpp_link_nodeps_dynamic_library_action = action_config(

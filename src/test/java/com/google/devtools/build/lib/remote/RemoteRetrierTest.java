@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.Retrier.Sleeper;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.common.options.Options;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -96,7 +97,7 @@ public class RemoteRetrierTest {
   @Test
   public void testNoRetries() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.experimentalRemoteRetry = false;
+    options.remoteMaxRetryAttempts = 0;
 
     RemoteRetrier retrier =
         Mockito.spy(new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS));
@@ -147,7 +148,7 @@ public class RemoteRetrierTest {
     InterruptedException thrown = new InterruptedException();
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.experimentalRemoteRetry = false;
+    options.remoteMaxRetryAttempts = 0;
     RemoteRetrier retrier =
         new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
     try {

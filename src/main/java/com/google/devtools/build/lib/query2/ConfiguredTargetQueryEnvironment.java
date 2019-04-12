@@ -20,12 +20,13 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -159,7 +160,7 @@ public class ConfiguredTargetQueryEnvironment
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
-          @Nullable RuleTransitionFactory trimmingTransitionFactory,
+          @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
           PackageManager packageManager) {
     AspectResolver aspectResolver =
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
@@ -225,27 +226,33 @@ public class ConfiguredTargetQueryEnvironment
           reportBuildFileError(owner, exn.getMessage());
           return Futures.immediateFuture(null);
         };
-    return QueryTaskFutureImpl.ofDelegate(
-        Futures.catchingAsync(
-            patternToEval.evalAdaptedForAsync(
-                resolver,
-                ImmutableSet.of(),
-                ImmutableSet.of(),
-                (Callback<Target>)
-                    partialResult -> {
-                      List<ConfiguredTarget> transformedResult = new ArrayList<>();
-                      for (Target target : partialResult) {
-                        ConfiguredTarget configuredTarget = getConfiguredTarget(target.getLabel());
-                        if (configuredTarget != null) {
-                          transformedResult.add(configuredTarget);
+
+    try {
+      return QueryTaskFutureImpl.ofDelegate(
+          Futures.catchingAsync(
+              patternToEval.evalAdaptedForAsync(
+                  resolver,
+                  getBlacklistedPackagePrefixesPathFragments(),
+                  /* excludedSubdirectories= */ ImmutableSet.of(),
+                  (Callback<Target>)
+                      partialResult -> {
+                        List<ConfiguredTarget> transformedResult = new ArrayList<>();
+                        for (Target target : partialResult) {
+                          ConfiguredTarget configuredTarget =
+                              getConfiguredTarget(target.getLabel());
+                          if (configuredTarget != null) {
+                            transformedResult.add(configuredTarget);
+                          }
                         }
-                      }
-                      callback.process(transformedResult);
-                    },
-                QueryException.class),
-            TargetParsingException.class,
-            reportBuildFileErrorAsyncFunction,
-            MoreExecutors.directExecutor()));
+                        callback.process(transformedResult);
+                      },
+                  QueryException.class),
+              TargetParsingException.class,
+              reportBuildFileErrorAsyncFunction,
+              MoreExecutors.directExecutor()));
+    } catch (InterruptedException e) {
+      return immediateCancelledFuture();
+    }
   }
 
   private ConfiguredTarget getConfiguredTarget(Label label) throws InterruptedException {

@@ -100,7 +100,7 @@ public class TestResultAnalyzer {
     int passCount = 0;
 
     for (ConfiguredTarget testTarget : testTargets) {
-      TestSummary summary = aggregateAndReportSummary(testTarget, listener).build();
+      TestSummary summary = aggregateAndReportSummary(testTarget, listener);
       summaries.add(summary);
 
       // Finished aggregating; build the final console output.
@@ -135,12 +135,11 @@ public class TestResultAnalyzer {
   }
 
   /**
-   * Helper for differential analysis which aggregates the TestSummary
-   * for an individual target, reporting runs on the EventBus if necessary.
+   * Helper for differential analysis which aggregates the TestSummary for an individual target,
+   * reporting runs on the EventBus if necessary.
    */
-  private TestSummary.Builder aggregateAndReportSummary(
-      ConfiguredTarget testTarget,
-      AggregatingTestListener listener) {
+  private TestSummary aggregateAndReportSummary(
+      ConfiguredTarget testTarget, AggregatingTestListener listener) {
 
     // If already reported by the listener, no work remains for this target.
     TestSummary.Builder summary = listener.getCurrentSummary(testTarget);
@@ -148,7 +147,7 @@ public class TestResultAnalyzer {
     Preconditions.checkNotNull(summary,
         "%s did not complete test filtering, but has a test result", testLabel);
     if (listener.targetReported(testTarget)) {
-      return summary;
+      return summary.build();
     }
 
     Collection<Artifact> incompleteRuns = listener.getIncompleteRuns(testTarget);
@@ -182,8 +181,9 @@ public class TestResultAnalyzer {
     }
 
     // The target was not posted by the listener and must be posted now.
-    eventBus.post(summary.build());
-    return summary;
+    TestSummary result = summary.build();
+    eventBus.post(result);
+    return result;
   }
 
   /**
@@ -250,19 +250,16 @@ public class TestResultAnalyzer {
       }
     }
 
-    List<Path> passed = new ArrayList<>();
     if (result.getData().hasPassedLog()) {
-      passed.add(result.getTestLogPath().getRelative(result.getData().getPassedLog()));
+      summaryBuilder.addPassedLog(
+          result.getTestLogPath().getRelative(result.getData().getPassedLog()));
     }
-    List<Path> failed = new ArrayList<>();
     for (String path : result.getData().getFailedLogsList()) {
-      failed.add(result.getTestLogPath().getRelative(path));
+      summaryBuilder.addFailedLog(result.getTestLogPath().getRelative(path));
     }
 
     summaryBuilder
         .addTestTimes(result.getData().getTestTimesList())
-        .addPassedLogs(passed)
-        .addFailedLogs(failed)
         .addWarnings(result.getData().getWarningList())
         .collectFailedTests(result.getData().getTestCase())
         .countTotalTestCases(result.getData().getTestCase())

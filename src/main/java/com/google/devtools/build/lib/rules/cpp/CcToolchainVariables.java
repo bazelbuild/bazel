@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,10 +23,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -37,6 +34,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.Pair;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -66,7 +64,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variables binding of variable names to their values for a single flag expansion.
      */
-    String expand(CcToolchainVariables variables);
+    String expand(CcToolchainVariables variables) throws ExpansionException;
 
     String getString();
   }
@@ -123,7 +121,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String expand(CcToolchainVariables variables) {
+    public String expand(CcToolchainVariables variables) throws ExpansionException {
       // We check all variables in FlagGroup.expandCommandLine.
       // If we arrive here with the variable not being available, the variable was provided, but
       // the nesting level of the NestedSequence was deeper than the nesting level of the flag
@@ -294,13 +292,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     void expand(
         CcToolchainVariables variables,
         @Nullable ArtifactExpander expander,
-        List<String> commandLine);
+        List<String> commandLine)
+        throws ExpansionException;
   }
 
   /** An empty variables instance. */
-  public static final CcToolchainVariables EMPTY = new CcToolchainVariables.Builder().build();
+  public static final CcToolchainVariables EMPTY = builder().build();
 
-  private Map<String, VariableValue> cache;
+  private Map<String, Pair<VariableValue, String>> cache;
 
   /**
    * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
@@ -309,10 +308,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * <p>Throws {@link ExpansionException} when the variable is not a {@link StringSequence}.
    */
   public static final ImmutableList<String> toStringList(
-      CcToolchainVariables variables, String variableName) {
-    return Streams.stream(variables.getSequenceVariable(variableName))
-        .map(variable -> variable.getStringValue(variableName))
-        .collect(ImmutableList.toImmutableList());
+      CcToolchainVariables variables, String variableName) throws ExpansionException {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    for (VariableValue value : variables.getSequenceVariable(variableName)) {
+      result.add(value.getStringValue(variableName));
+    }
+    return result.build();
   }
 
   /**
@@ -322,11 +323,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * @throws ExpansionException when no such variable or no such field are present, or when
    *     accessing a field of non-structured variable
    */
-  VariableValue getVariable(String name) {
+  VariableValue getVariable(String name) throws ExpansionException {
     return lookupVariable(name, /* throwOnMissingVariable= */ true, /* expander= */ null);
   }
 
-  VariableValue getVariable(String name, @Nullable ArtifactExpander expander) {
+  VariableValue getVariable(String name, @Nullable ArtifactExpander expander)
+      throws ExpansionException {
     return lookupVariable(name, /* throwOnMissingVariable= */ true, expander);
   }
 
@@ -338,31 +340,46 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    *     reason why variable was not found)
    */
   private VariableValue lookupVariable(
-      String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
+      String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander)
+      throws ExpansionException {
     if (cache == null) {
       cache = Maps.newConcurrentMap();
     }
-    VariableValue variable =
+    Pair<VariableValue, String> variableOrError =
         cache.computeIfAbsent(
             name,
             n -> {
               VariableValue nonStructuredVariable = getNonStructuredVariable(n);
               if (nonStructuredVariable != null) {
-                return nonStructuredVariable;
+                return Pair.of(nonStructuredVariable, null);
               }
-              VariableValue structuredVariable =
-                  getStructureVariable(n, throwOnMissingVariable, expander);
-              return structuredVariable;
+              try {
+                VariableValue structuredVariable =
+                    getStructureVariable(n, throwOnMissingVariable, expander);
+                return Pair.of(structuredVariable, null);
+              } catch (ExpansionException e) {
+                if (throwOnMissingVariable) {
+                  return Pair.of(null, e.getMessage());
+                } else {
+                  throw new IllegalStateException(
+                      "Should not happen - call to getStructuredVariable threw when asked not to.",
+                      e);
+                }
+              }
             });
-    if (variable == null && throwOnMissingVariable) {
+    if (variableOrError.first == null && throwOnMissingVariable) {
       throw new ExpansionException(
-          String.format("Invalid toolchain configuration: Cannot find variable named '%s'.", name));
+          variableOrError.second != null
+              ? variableOrError.second
+              : String.format(
+                  "Invalid toolchain configuration: Cannot find variable named '%s'.", name));
     }
-    return variable;
+    return variableOrError.first;
   }
 
   private VariableValue getStructureVariable(
-      String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
+      String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander)
+      throws ExpansionException {
     if (!name.contains(".")) {
       return null;
     }
@@ -383,7 +400,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     while (!fieldsToAccess.empty()) {
       String field = fieldsToAccess.pop();
-      variable = variable.getFieldValue(structPath, field, expander);
+      variable = variable.getFieldValue(structPath, field, expander, throwOnMissingVariable);
       if (variable == null) {
         if (throwOnMissingVariable) {
           throw new ExpansionException(
@@ -399,26 +416,32 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     return variable;
   }
 
-  public String getStringVariable(String variableName) {
+  public String getStringVariable(String variableName) throws ExpansionException {
     return getVariable(variableName, /* expander= */ null).getStringValue(variableName);
   }
 
-  public Iterable<? extends VariableValue> getSequenceVariable(String variableName) {
+  public Iterable<? extends VariableValue> getSequenceVariable(String variableName)
+      throws ExpansionException {
     return getVariable(variableName, /* expander= */ null).getSequenceValue(variableName);
   }
 
   public Iterable<? extends VariableValue> getSequenceVariable(
-      String variableName, @Nullable ArtifactExpander expander) {
+      String variableName, @Nullable ArtifactExpander expander) throws ExpansionException {
     return getVariable(variableName, expander).getSequenceValue(variableName);
   }
 
   /** Returns whether {@code variable} is set. */
-  boolean isAvailable(String variable) {
+  public boolean isAvailable(String variable) {
     return isAvailable(variable, /* expander= */ null);
   }
 
   boolean isAvailable(String variable, @Nullable ArtifactExpander expander) {
-    return lookupVariable(variable, /* throwOnMissingVariable= */ false, expander) != null;
+    try {
+      return lookupVariable(variable, /* throwOnMissingVariable= */ false, expander) != null;
+    } catch (ExpansionException e) {
+      throw new IllegalStateException(
+          "Should not happen - call to lookupVariable threw when asked not to.");
+    }
   }
 
   abstract Map<String, VariableValue> getVariablesMap();
@@ -445,7 +468,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variableName name of the variable value at hand, for better exception message.
      */
-    String getStringValue(String variableName);
+    String getStringValue(String variableName) throws ExpansionException;
 
     /**
      * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
@@ -453,7 +476,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variableName name of the variable value at hand, for better exception message.
      */
-    Iterable<? extends VariableValue> getSequenceValue(String variableName);
+    Iterable<? extends VariableValue> getSequenceValue(String variableName)
+        throws ExpansionException;
 
     /**
      * Returns value of the field, if the variable is of struct type or throw exception if it is not
@@ -461,10 +485,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variableName name of the variable value at hand, for better exception message.
      */
-    VariableValue getFieldValue(String variableName, String field);
+    VariableValue getFieldValue(String variableName, String field) throws ExpansionException;
 
     VariableValue getFieldValue(
-        String variableName, String field, @Nullable ArtifactExpander expander);
+        String variableName,
+        String field,
+        @Nullable ArtifactExpander expander,
+        boolean throwOnMissingVariable)
+        throws ExpansionException;
 
     /** Returns true if the variable is truthy */
     boolean isTruthy();
@@ -485,22 +513,32 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public abstract boolean isTruthy();
 
     @Override
-    public VariableValue getFieldValue(String variableName, String field) {
-      return getFieldValue(variableName, field, /* expander= */ null);
+    public VariableValue getFieldValue(String variableName, String field)
+        throws ExpansionException {
+      return getFieldValue(
+          variableName, field, /* expander= */ null, /* throwOnMissingVariable= */ true);
     }
 
     @Override
     public VariableValue getFieldValue(
-        String variableName, String field, @Nullable ArtifactExpander expander) {
-      throw new ExpansionException(
-          String.format(
-              "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
-                  + "%s, expected structure",
-              variableName, field, variableName, getVariableTypeName()));
+        String variableName,
+        String field,
+        @Nullable ArtifactExpander expander,
+        boolean throwOnMissingVariable)
+        throws ExpansionException {
+      if (throwOnMissingVariable) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
+                    + "%s, expected structure",
+                variableName, field, variableName, getVariableTypeName()));
+      } else {
+        return null;
+      }
     }
 
     @Override
-    public String getStringValue(String variableName) {
+    public String getStringValue(String variableName) throws ExpansionException {
       throw new ExpansionException(
           String.format(
               "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
@@ -509,7 +547,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+    public Iterable<? extends VariableValue> getSequenceValue(String variableName)
+        throws ExpansionException {
       throw new ExpansionException(
           String.format(
               "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
@@ -603,61 +642,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public StructureValue build() {
       return new StructureValue(fields.build());
-    }
-  }
-
-  /**
-   * Lazily computed string sequence. Exists as a memory optimization. Make sure the {@param
-   * supplier} doesn't capture anything that shouldn't outlive analysis phase (e.g. {@link
-   * RuleContext}).
-   */
-  @AutoCodec
-  @VisibleForSerialization
-  static final class LazyStringSequence extends VariableValueAdapter {
-    private final Supplier<ImmutableList<String>> supplier;
-
-    @VisibleForSerialization
-    LazyStringSequence(Supplier<ImmutableList<String>> supplier) {
-      this.supplier = Preconditions.checkNotNull(supplier);
-    }
-
-    @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-      return supplier
-          .get()
-          .stream()
-          .map(flag -> new StringValue(flag))
-          .collect(ImmutableList.toImmutableList());
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !supplier.get().isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof LazyStringSequence)) {
-        return false;
-      }
-      if (this == other) {
-        return true;
-      }
-      LazyStringSequence that = (LazyStringSequence) other;
-      if (this.supplier == that.supplier) {
-        return true;
-      }
-      return Objects.equals(supplier.get(), ((LazyStringSequence) other).supplier.get());
-    }
-
-    @Override
-    public int hashCode() {
-      return supplier.get().hashCode();
     }
   }
 
@@ -756,7 +740,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public VariableValue getFieldValue(
-        String variableName, String field, @Nullable ArtifactExpander expander) {
+        String variableName,
+        String field,
+        @Nullable ArtifactExpander expander,
+        boolean throwOnMissingVariable) {
       Preconditions.checkNotNull(field);
       if (NAME_FIELD_NAME.equals(field) && !type.equals(Type.OBJECT_FILE_GROUP)) {
         return new StringValue(name);
@@ -989,7 +976,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public VariableValue getFieldValue(
-        String variableName, String field, @Nullable ArtifactExpander expander) {
+        String variableName,
+        String field,
+        @Nullable ArtifactExpander expander,
+        boolean throwOnMissingVariable) {
       if (value.containsKey(field)) {
         return value.get(field);
       } else {
@@ -1116,6 +1106,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
+  public static Builder builder() {
+    return new Builder(null);
+  }
+
+  public static Builder builder(@Nullable CcToolchainVariables parent) {
+    return new Builder(parent);
+  }
+
   /** Builder for {@code Variables}. */
   // TODO(b/65472725): Forbid sequences with empty string in them.
   public static class Builder {
@@ -1123,11 +1121,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
     private final CcToolchainVariables parent;
 
-    public Builder() {
-      parent = null;
-    }
-
-    public Builder(@Nullable CcToolchainVariables parent) {
+    private Builder(@Nullable CcToolchainVariables parent) {
+      // private to avoid class initialization deadlock between this class and its outer class
       this.parent = parent;
     }
 
@@ -1149,14 +1144,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder overrideStringVariable(String name, String value) {
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
       stringVariablesMap.put(name, value);
-      return this;
-    }
-
-    /** Overrides a variable to expand {@code name} to {@code value} instead. */
-    public Builder overrideLazyStringSequenceVariable(
-        String name, Supplier<ImmutableList<String>> supplier) {
-      Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new LazyStringSequence(supplier));
       return this;
     }
 
@@ -1199,14 +1186,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, new StringSequence(values));
-      return this;
-    }
-
-    public Builder addLazyStringSequenceVariable(
-        String name, Supplier<ImmutableList<String>> supplier) {
-      checkVariableNotPresentAlready(name);
-      Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new LazyStringSequence(supplier));
       return this;
     }
 

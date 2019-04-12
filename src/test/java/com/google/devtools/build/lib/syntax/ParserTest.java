@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 public class ParserTest extends EvaluationTestCase {
 
   private BuildFileAST parseFileWithComments(String... input) {
-    return BuildFileAST.parseBuildString(getEventHandler(), input);
+    return BuildFileAST.parseString(getEventHandler(), input);
   }
 
   /** Parses build code (not Skylark) */
@@ -1452,41 +1452,6 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDefInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("def func(): pass");
-    assertContainsError("function definitions are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testForStatementForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("for _ in []: pass");
-    assertContainsError("for statements are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testIfStatementForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("if False: pass");
-    assertContainsError("if statements are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testKwargsForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("func(**dict)");
-    assertContainsError("**kwargs arguments are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testArgsForbiddenInBuild() throws Exception {
-    setFailFast(false);
-    parseFile("func(*array)");
-    assertContainsError("*args arguments are not allowed in BUILD files");
-  }
-
-  @Test
   public void testArgumentAfterKwargs() throws Exception {
     setFailFast(false);
     parseFileForSkylark(
@@ -1495,7 +1460,7 @@ public class ParserTest extends EvaluationTestCase {
         "    *[2],",
         "    *[3],", // error on this line
         ")\n");
-    assertContainsError(":4:5: more than one *stararg");
+    assertContainsError(":4:5: *arg argument is misplaced");
   }
 
   @Test
@@ -1507,7 +1472,7 @@ public class ParserTest extends EvaluationTestCase {
         "    a = 4,",
         "    3,", // error on this line
         ")\n");
-    assertContainsError(":4:5: non-keyword arg after keyword arg");
+    assertContainsError(":4:5: positional argument is misplaced (positional arguments come first)");
   }
 
   @Test

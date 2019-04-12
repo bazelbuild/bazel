@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
-import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteE
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.runtime.ExperimentalStateTracker.StrategyIds;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -59,6 +59,8 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,6 +72,80 @@ import org.mockito.Mockito;
  */
 @RunWith(JUnit4.class)
 public class ExperimentalStateTrackerTest extends FoundationTestCase {
+
+  @Test
+  public void testStrategyIds_getId_idsAreBitmasks() {
+    StrategyIds strategyIds = new StrategyIds();
+    Integer id1 = strategyIds.getId("foo");
+    Integer id2 = strategyIds.getId("bar");
+    Integer id3 = strategyIds.getId("baz");
+
+    assertThat(id1).isGreaterThan(0);
+    assertThat(id2).isGreaterThan(0);
+    assertThat(id3).isGreaterThan(0);
+
+    assertThat(id1 & id2).isEqualTo(0);
+    assertThat(id1 & id3).isEqualTo(0);
+    assertThat(id2 & id3).isEqualTo(0);
+  }
+
+  @Test
+  public void testStrategyIds_getId_idsAreReusedIfAlreadyExist() {
+    StrategyIds strategyIds = new StrategyIds();
+    Integer id1 = strategyIds.getId("foo");
+    Integer id2 = strategyIds.getId("bar");
+    Integer id3 = strategyIds.getId("foo");
+
+    assertThat(id1).isNotEqualTo(id2);
+    assertThat(id1).isEqualTo(id3);
+  }
+
+  @Test
+  public void testStrategyIds_getId_exhaustIds() {
+    StrategyIds strategyIds = new StrategyIds();
+    Set<Integer> ids = new HashSet<>();
+    StringBuilder name = new StringBuilder();
+    for (; ; ) {
+      name.append('a');
+      Integer id = strategyIds.getId(name.toString());
+      if (id.equals(strategyIds.fallbackId)) {
+        break;
+      }
+      ids.add(id);
+    }
+    assertThat(ids).hasSize(Integer.SIZE - 1); // Minus 1 for FALLBACK_NAME.
+
+    assertThat(strategyIds.getId("some")).isEqualTo(strategyIds.fallbackId);
+    assertThat(strategyIds.getId("more")).isEqualTo(strategyIds.fallbackId);
+  }
+
+  @Test
+  public void testStrategyIds_formatNames_fallbackExistsByDefault() {
+    StrategyIds strategyIds = new StrategyIds();
+    assertThat(strategyIds.formatNames(strategyIds.fallbackId))
+        .isEqualTo(StrategyIds.FALLBACK_NAME);
+  }
+
+  @Test
+  public void testStrategyIds_formatNames_oneHasNoComma() {
+    StrategyIds strategyIds = new StrategyIds();
+    Integer id1 = strategyIds.getId("abc");
+    assertThat(strategyIds.formatNames(id1)).isEqualTo("abc");
+  }
+
+  @Test
+  public void testStrategyIds_formatNames() {
+    StrategyIds strategyIds = new StrategyIds();
+    Integer id1 = strategyIds.getId("abc");
+    Integer id2 = strategyIds.getId("xyz");
+    Integer id3 = strategyIds.getId("def");
+
+    // Names are not sorted alphabetically but their order is stable based on prior getId calls.
+    assertThat(strategyIds.formatNames(id1 | id2)).isEqualTo("abc, xyz");
+    assertThat(strategyIds.formatNames(id1 | id3)).isEqualTo("abc, def");
+    assertThat(strategyIds.formatNames(id2 | id3)).isEqualTo("xyz, def");
+    assertThat(strategyIds.formatNames(id1 | id2 | id3)).isEqualTo("abc, xyz, def");
+  }
 
   private Action mockAction(String progressMessage, String primaryOutput) {
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
@@ -480,14 +556,13 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
     Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
-    ActionExecutionMetadata actionMetadata = Mockito.mock(ActionExecutionMetadata.class);
-    when(actionMetadata.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
-    when(actionMetadata.getPrimaryOutput()).thenReturn(artifact);
+    Action action = mockAction("Some random action", primaryOutput);
+    when(action.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
+    when(action.getPrimaryOutput()).thenReturn(artifact);
 
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
-    stateTracker.actionStarted(
-        new ActionStartedEvent(mockAction("Some random action", primaryOutput), clock.nanoTime()));
-    stateTracker.runningAction(new RunningActionEvent(actionMetadata, strategy));
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.runningAction(new RunningActionEvent(action, strategy));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
@@ -496,6 +571,84 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Output should mention strategy '" + strategy + "', but was: " + output)
         .that(output.contains(strategy))
         .isTrue();
+  }
+
+  @Test
+  public void testMultipleActionStrategiesVisibleForDynamicScheduling() throws Exception {
+    String strategy1 = "strategy1";
+    String strategy2 = "stratagy2";
+    String primaryOutput = "some/path/to/a/file";
+
+    ManualClock clock = new ManualClock();
+    Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
+    Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    Action action = mockAction("Some random action", primaryOutput);
+    when(action.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
+    when(action.getPrimaryOutput()).thenReturn(artifact);
+
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.runningAction(new RunningActionEvent(action, strategy1));
+    stateTracker.runningAction(new RunningActionEvent(action, strategy2));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertWithMessage(
+            "Output should mention strategies '"
+                + strategy1
+                + "' and '"
+                + strategy2
+                + "', but was: "
+                + output)
+        .that(output.contains(strategy1 + ", " + strategy2))
+        .isTrue();
+  }
+
+  @Test
+  public void testActionCountsWithDynamicScheduling() throws Exception {
+    String primaryOutput1 = "some/path/to/a/file";
+    String primaryOutput2 = "some/path/to/b/file";
+
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    Path path1 = outputBase.getRelative(PathFragment.create(primaryOutput1));
+    Artifact artifact1 = new Artifact(path1, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    Action action1 = mockAction("First random action", primaryOutput1);
+    when(action1.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
+    when(action1.getPrimaryOutput()).thenReturn(artifact1);
+    stateTracker.actionStarted(new ActionStartedEvent(action1, clock.nanoTime()));
+
+    Path path2 = outputBase.getRelative(PathFragment.create(primaryOutput2));
+    Artifact artifact2 = new Artifact(path2, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
+    Action action2 = mockAction("First random action", primaryOutput1);
+    when(action2.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
+    when(action2.getPrimaryOutput()).thenReturn(artifact2);
+    stateTracker.actionStarted(new ActionStartedEvent(action2, clock.nanoTime()));
+
+    stateTracker.runningAction(new RunningActionEvent(action1, "strategy1"));
+    stateTracker.schedulingAction(new SchedulingActionEvent(action2, "strategy1"));
+    terminalWriter.reset();
+    stateTracker.writeProgressBar(terminalWriter);
+    assertThat(terminalWriter.getTranscript()).contains("2 actions, 1 running");
+
+    stateTracker.runningAction(new RunningActionEvent(action1, "strategy2"));
+    terminalWriter.reset();
+    stateTracker.writeProgressBar(terminalWriter);
+    assertThat(terminalWriter.getTranscript()).contains("3 actions, 2 running");
+
+    stateTracker.runningAction(new RunningActionEvent(action2, "strategy1"));
+    terminalWriter.reset();
+    stateTracker.writeProgressBar(terminalWriter);
+    assertThat(terminalWriter.getTranscript()).contains("3 actions running");
+
+    stateTracker.runningAction(new RunningActionEvent(action2, "strategy2"));
+    terminalWriter.reset();
+    stateTracker.writeProgressBar(terminalWriter);
+    assertThat(terminalWriter.getTranscript()).contains("4 actions running");
   }
 
   private void doTestOutputLength(boolean withTest, int actions) throws Exception {

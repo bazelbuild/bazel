@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** Dynamic transition to the host configuration. */
@@ -49,5 +51,33 @@ public final class HostTransition implements PatchTransition {
     } else {
       return options.createHostOptions();
     }
+  }
+
+  /** Returns a {@link TransitionFactory} instance that generates the host transition. */
+  public static <T> TransitionFactory<T> createFactory() {
+    return new AutoValue_HostTransition_Factory<>();
+  }
+
+  /**
+   * Returns {@code true} if the given {@link TransitionFactory} is an instance of the host
+   * transition.
+   */
+  public static <T> boolean isInstance(TransitionFactory<T> instance) {
+    return instance instanceof Factory;
+  }
+
+  /** A {@link TransitionFactory} implementation that generates the host transition. */
+  @AutoValue
+  abstract static class Factory<T> implements TransitionFactory<T> {
+    @Override
+    public PatchTransition create(T unused) {
+      return INSTANCE;
+    }
+
+    @Override
+    public boolean isHost() {
+      return true;
+    }
+
   }
 }

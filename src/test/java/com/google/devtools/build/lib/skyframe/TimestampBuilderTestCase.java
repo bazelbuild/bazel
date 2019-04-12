@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -88,6 +89,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -216,7 +218,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     final InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(FileStateValue.FILE_STATE, new FileStateFunction(tsgmRef, externalFilesHelper))
+                .put(
+                    FileStateValue.FILE_STATE,
+                    new FileStateFunction(
+                        tsgmRef,
+                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(Artifact.ARTIFACT, new ArtifactFunction(() -> true))
                 .put(
@@ -254,6 +261,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.<String, String>of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+    PrecomputedValue.REMOTE_OUTPUTS_MODE.set(differencer, RemoteOutputsMode.ALL);
 
     return new Builder() {
       private void setGeneratingActions() throws ActionConflictException {
@@ -423,7 +431,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected void buildArtifacts(Builder builder, Artifact... artifacts)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException,
           OptionsParsingException {
-    buildArtifacts(builder, new DummyExecutor(fileSystem, rootDirectory, reporter), artifacts);
+    buildArtifacts(builder, new DummyExecutor(fileSystem, rootDirectory), artifacts);
   }
 
   protected void buildArtifacts(Builder builder, Executor executor, Artifact... artifacts)

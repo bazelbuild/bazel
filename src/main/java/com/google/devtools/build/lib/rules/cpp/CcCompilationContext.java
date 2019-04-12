@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -56,8 +57,7 @@ import javax.annotation.Nullable;
 public final class CcCompilationContext implements CcCompilationContextApi {
   /** An empty {@code CcCompilationContext}. */
   public static final CcCompilationContext EMPTY =
-      new Builder(
-              /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
+      builder(/* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
           .build();
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
@@ -256,10 +256,14 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
     Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
-    Set<Artifact> modularHeaders = new HashSet<>();
-    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
+    Collection<HeaderInfo> infos = transitiveHeaderInfos.toCollection();
+    Set<Artifact> modularHeaders = CompactHashSet.createWithExpectedSize(infos.size());
+    for (HeaderInfo transitiveHeaderInfo : infos) {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
-      for (Artifact a : transitiveHeaderInfo.modularHeaders) {
+      // Not using range-based for loops here as often there is exactly one element in this list
+      // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
+      for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
+        Artifact a = transitiveHeaderInfo.modularHeaders.get(i);
         if (!a.isSourceArtifact()) {
           pathToLegalOutputArtifact.put(a.getExecPath(), a);
         }
@@ -267,7 +271,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           modularHeaders.add(a);
         }
       }
-      for (Artifact a : transitiveHeaderInfo.textualHeaders) {
+      for (int i = 0; i < transitiveHeaderInfo.textualHeaders.size(); i++) {
+        Artifact a = transitiveHeaderInfo.textualHeaders.get(i);
         if (!a.isSourceArtifact()) {
           pathToLegalOutputArtifact.put(a.getExecPath(), a);
         }
@@ -300,7 +305,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     HeadersAndModules result = new HeadersAndModules(includes.size());
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       Artifact module = transitiveHeaderInfo.getModule(usePic);
-      for (Artifact header : transitiveHeaderInfo.modularHeaders) {
+      // Not using range-based for loops here as often there is exactly one element in this list
+      // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
+      for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.modularHeaders.get(i);
         if (includes.contains(header)) {
           if (module != null) {
             result.modules.add(module);
@@ -308,7 +316,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           result.headers.add(header);
         }
       }
-      for (Artifact header : transitiveHeaderInfo.textualHeaders) {
+      for (int i = 0; i < transitiveHeaderInfo.textualHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.textualHeaders.get(i);
         if (includes.contains(header)) {
           result.headers.add(header);
         }
@@ -422,7 +431,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   public static CcCompilationContext merge(Collection<CcCompilationContext> ccCompilationContexts) {
     CcCompilationContext.Builder builder =
-        new CcCompilationContext.Builder(
+        CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
     builder.mergeDependentCcCompilationContexts(ccCompilationContexts);
     return builder.build();
@@ -455,6 +464,14 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       this.systemIncludeDirs = systemIncludeDirs;
       this.defines = defines;
     }
+  }
+
+  /** Creates a new builder for a {@link CcCompilationContext} instance. */
+  public static Builder builder(
+      ActionConstructionContext actionConstructionContext,
+      BuildConfiguration configuration,
+      Label label) {
+    return new Builder(actionConstructionContext, configuration, label);
   }
 
   /** Builder class for {@link CcCompilationContext}. */
@@ -491,10 +508,11 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Label label;
 
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
-    public Builder(
+    private Builder(
         ActionConstructionContext actionConstructionContext,
         BuildConfiguration configuration,
         Label label) {
+      // private to avoid class initialization deadlock between this class and its outer class
       this.actionConstructionContext = actionConstructionContext;
       this.configuration = configuration;
       this.label = label;

@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -24,10 +26,15 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Abstract Action to write to a file.
@@ -57,6 +64,80 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   }
 
   @Override
+  public final ActionContinuationOrResult beginExecution(
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    try {
+      DeterministicWriter deterministicWriter;
+      try {
+        deterministicWriter = newDeterministicWriter(actionExecutionContext);
+      } catch (IOException e) {
+        // Message is a bit misleading but is good enough for the end user.
+        throw new EnvironmentalExecException(
+            "failed to create file '"
+                + getPrimaryOutput().prettyPrint()
+                + "' due to I/O error: "
+                + e.getMessage(),
+            e);
+      }
+
+      FileWriteActionContext context = getStrategy(actionExecutionContext);
+      SpawnContinuation first =
+          new SpawnContinuation() {
+            @Override
+            public ListenableFuture<?> getFuture() {
+              return null;
+            }
+
+            @Override
+            public SpawnContinuation execute() throws ExecException, InterruptedException {
+              return context.beginWriteOutputToFile(
+                  AbstractFileWriteAction.this,
+                  actionExecutionContext,
+                  deterministicWriter,
+                  makeExecutable,
+                  isRemotable());
+            }
+          };
+
+      return new ActionContinuationOrResult() {
+        private SpawnContinuation spawnContinuation = first;
+
+        @Nullable
+        @Override
+        public ListenableFuture<?> getFuture() {
+          return spawnContinuation.getFuture();
+        }
+
+        @Override
+        public ActionContinuationOrResult execute()
+            throws ActionExecutionException, InterruptedException {
+          SpawnContinuation next;
+          try {
+            next = spawnContinuation.execute();
+            if (!next.isDone()) {
+              spawnContinuation = next;
+              return this;
+            }
+          } catch (ExecException e) {
+            throw e.toActionExecutionException(
+                "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
+                actionExecutionContext.getVerboseFailures(),
+                AbstractFileWriteAction.this);
+          }
+          afterWrite(actionExecutionContext);
+          return ActionContinuationOrResult.of(ActionResult.create(next.get()));
+        }
+      }.execute();
+    } catch (ExecException e) {
+      throw e.toActionExecutionException(
+          "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
+          actionExecutionContext.getVerboseFailures(),
+          this);
+    }
+  }
+
+  @Override
   public final ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     ActionResult actionResult;
@@ -69,15 +150,20 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
         throw new EnvironmentalExecException("failed to create file '"
             + getPrimaryOutput().prettyPrint() + "' due to I/O error: " + e.getMessage(), e);
       }
-      actionResult =
-          ActionResult.create(
-              getStrategy(actionExecutionContext)
-                  .writeOutputToFile(
-                      this,
-                      actionExecutionContext,
-                      deterministicWriter,
-                      makeExecutable,
-                      isRemotable()));
+      FileWriteActionContext context = getStrategy(actionExecutionContext);
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(ProfilerTask.INFO, "FileWriteActionContext.writeOutputToFile")) {
+        actionResult =
+            ActionResult.create(
+                SpawnContinuation.completeBlocking(
+                    context.beginWriteOutputToFile(
+                        this,
+                        actionExecutionContext,
+                        deterministicWriter,
+                        makeExecutable,
+                        isRemotable())));
+      }
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",

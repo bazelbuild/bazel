@@ -40,6 +40,8 @@ import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
 import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
+import com.google.devtools.build.lib.util.ResourceFileLoader;
+import java.io.IOException;
 
 /**
  * Rules for C++ support in Bazel.
@@ -79,6 +81,12 @@ public class CcRules implements RuleSet {
     builder.addSkylarkBootstrap(new CcBootstrap(new BazelCcModule()));
     builder.addSkylarkAccessibleTopLevels("CcInfo", CcInfo.PROVIDER);
     builder.addSkylarkAccessibleTopLevels("CcToolchainConfigInfo", CcToolchainConfigInfo.PROVIDER);
+    try {
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   @Override

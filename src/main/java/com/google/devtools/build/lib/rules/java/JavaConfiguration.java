@@ -178,7 +178,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> pluginList;
   private final boolean requireJavaToolchainHeaderCompilerDirect;
   private final boolean disallowResourceJars;
-  private final boolean windowsEscapeJvmFlags;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -200,7 +199,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
-    this.toolchainLabel = javaOptions.getJavaToolchain();
+    this.toolchainLabel = javaOptions.javaToolchain;
     this.runtimeLabel = javaOptions.javaBase;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
@@ -216,7 +215,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
-    this.windowsEscapeJvmFlags = javaOptions.windowsEscapeJvmFlags;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -246,6 +244,34 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.requireJavaToolchainHeaderCompilerDirect =
         javaOptions.requireJavaToolchainHeaderCompilerDirect;
+
+    if (javaOptions.disallowLegacyJavaToolchainFlags) {
+      if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--javabase=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.javaBase));
+      }
+      if (!javaOptions.getHostJavaBase().equals(javaOptions.defaultHostJavaBase())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--host_javabase=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.getHostJavaBase()));
+      }
+      if (!javaOptions.javaToolchain.equals(javaOptions.defaultJavaToolchain())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--java_toolchain=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.javaToolchain));
+      }
+      if (!javaOptions.hostJavaToolchain.equals(javaOptions.defaultJavaToolchain())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--host_java_toolchain=%s is no longer supported, use --platforms instead (see"
+                    + " #7849)",
+                javaOptions.hostJavaToolchain));
+      }
+    }
   }
 
   @Override
@@ -462,9 +488,5 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean disallowResourceJars() {
     return disallowResourceJars;
-  }
-
-  public boolean windowsEscapeJvmFlags() {
-    return windowsEscapeJvmFlags;
   }
 }

@@ -98,8 +98,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
                 ccToolchain.getSolibDirectory(),
                 sharedLibrary,
                 /* preserveName= */ true,
-                /* prefixConsumer= */ true,
-                /* configuration= */ null);
+                /* prefixConsumer= */ true);
       }
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
@@ -110,8 +109,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
                 ccToolchain.getSolibDirectory(),
                 interfaceLibrary,
                 /* preserveName= */ true,
-                /* prefixConsumer= */ true,
-                /* configuration= */ null);
+                /* prefixConsumer= */ true);
       }
     }
 
@@ -154,6 +152,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     }
 
     final CcCommon common = new CcCommon(ruleContext);
+    common.reportInvalidOptions(ruleContext);
     CompilationInfo compilationInfo =
         new CcCompilationHelper(
                 ruleContext,

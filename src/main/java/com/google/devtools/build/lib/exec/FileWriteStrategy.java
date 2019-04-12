@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -22,7 +21,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
-import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -46,13 +44,14 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   }
 
   @Override
-  public List<SpawnResult> writeOutputToFile(
+  public SpawnContinuation beginWriteOutputToFile(
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       DeterministicWriter deterministicWriter,
-      boolean makeExecutable, boolean isRemotable)
+      boolean makeExecutable,
+      boolean isRemotable)
       throws ExecException {
-    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, null));
+    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
         AutoProfiler.logged(
@@ -72,6 +71,6 @@ public final class FileWriteStrategy implements FileWriteActionContext {
         throw new EnvironmentalExecException("IOException during file write", e);
       }
     }
-    return ImmutableList.of();
+    return SpawnContinuation.immediate();
   }
 }

@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -134,7 +134,7 @@ public final class SkyframeBuildView {
   private BuildConfiguration topLevelHostConfiguration;
   // Fragment-limited versions of the host configuration. It's faster to create/cache these here
   // than to store them in Skyframe.
-  private Map<FragmentClassSet, BuildConfiguration> hostConfigurationCache =
+  private Map<BuildConfiguration, BuildConfiguration> hostConfigurationCache =
       Maps.newConcurrentMap();
 
   private BuildConfigurationCollection configurations;
@@ -328,6 +328,7 @@ public final class SkyframeBuildView {
     }
     hostConfigurationCache.clear();
     this.topLevelHostConfiguration = topLevelHostConfiguration;
+    skyframeExecutor.updateTopLevelHostConfiguration(topLevelHostConfiguration);
   }
 
   /**
@@ -757,7 +758,7 @@ public final class SkyframeBuildView {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext)
+      @Nullable ResolvedToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
     Preconditions.checkState(
         enableAnalysis, "Already in execution phase %s %s", target, configuration);
@@ -787,6 +788,16 @@ public final class SkyframeBuildView {
     if (config == null) {
       return topLevelHostConfiguration;
     }
+    // Currently, a single build doesn't use many different BuildConfiguration instances. Thus,
+    // having a cache per BuildConfiguration is efficient. It might lead to instances of otherwise
+    // identical configurations if multiple of these configs use the same fragment classes. However,
+    // these are cheap especially if there is only a small number of configs. Revisit and turn into
+    // a cache per FragmentClassSet if configuration trimming results in a much higher number of
+    // configuration instances.
+    BuildConfiguration hostConfig = hostConfigurationCache.get(config);
+    if (hostConfig != null) {
+      return hostConfig;
+    }
     // TODO(bazel-team): have the fragment classes be those required by the consuming target's
     // transitive closure. This isn't the same as the input configuration's fragment classes -
     // the latter may be a proper subset of the former.
@@ -805,10 +816,6 @@ public final class SkyframeBuildView {
         config.trimConfigurations()
             ? config.fragmentClasses()
             : FragmentClassSet.of(ruleClassProvider.getAllFragments());
-    BuildConfiguration hostConfig = hostConfigurationCache.get(fragmentClasses);
-    if (hostConfig != null) {
-      return hostConfig;
-    }
     // TODO(bazel-team): investigate getting the trimmed config from Skyframe instead of cloning.
     // This is the only place we instantiate BuildConfigurations outside of Skyframe, This can
     // produce surprising effects, such as requesting a configuration that's in the Skyframe cache
@@ -822,7 +829,7 @@ public final class SkyframeBuildView {
     BuildConfiguration trimmedConfig =
         topLevelHostConfiguration.clone(
             fragmentClasses, ruleClassProvider, skyframeExecutor.getDefaultBuildOptions());
-    hostConfigurationCache.put(fragmentClasses, trimmedConfig);
+    hostConfigurationCache.put(config, trimmedConfig);
     return trimmedConfig;
   }
 

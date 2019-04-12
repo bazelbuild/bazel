@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -30,10 +31,10 @@ public interface MakeVariableSupplier {
 
   /** Returns Make variable value or null if value is not supplied. */
   @Nullable
-  String getMakeVariable(String variableName);
+  String getMakeVariable(String variableName) throws ExpansionException;
 
   /** Returns all Make variables that it supplies */
-  ImmutableMap<String, String> getAllMakeVariables();
+  ImmutableMap<String, String> getAllMakeVariables() throws ExpansionException;
 
   /**
    * {@link MakeVariableSupplier} that reads variables from a list of {@link TemplateVariableInfo}

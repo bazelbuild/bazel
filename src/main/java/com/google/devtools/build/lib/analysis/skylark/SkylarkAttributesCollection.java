@@ -71,7 +71,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
         StructProvider.STRUCT.create(
             singleFiles,
             "No attribute '%s' in file. Make sure there is a label type attribute marked "
-                + "as 'single_file' with this name");
+                + "as 'allow_single_file' with this name");
     filesObject =
         StructProvider.STRUCT.create(
             files,
@@ -202,14 +202,14 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
           skyname,
           context.getRuleContext().getPrerequisiteArtifacts(a.getName(), Mode.DONT_CHECK).list());
 
-      if (type == BuildType.LABEL && !a.hasSplitConfigurationTransition()) {
+      if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
         Object prereq = context.getRuleContext().getPrerequisite(a.getName(), Mode.DONT_CHECK);
         if (prereq == null) {
           prereq = Runtime.NONE;
         }
         attrBuilder.put(skyname, prereq);
       } else if (type == BuildType.LABEL_LIST
-          || (type == BuildType.LABEL && a.hasSplitConfigurationTransition())) {
+          || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
         List<?> allPrereq = context.getRuleContext().getPrerequisites(a.getName(), Mode.DONT_CHECK);
         attrBuilder.put(skyname, SkylarkList.createImmutable(allPrereq));
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {

@@ -24,11 +24,8 @@ import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -94,8 +91,8 @@ final class JavaInfoBuildHelper {
       SkylarkList<JavaInfo> runtimeDeps,
       SkylarkList<JavaInfo> exports,
       Object actions,
-      Object javaToolchain,
-      Object hostJavabase,
+      JavaToolchainProvider javaToolchain,
+      JavaRuntimeInfo hostJavabase,
       @Nullable Artifact jdeps,
       StarlarkSemantics semantics,
       Location location)
@@ -109,10 +106,10 @@ final class JavaInfoBuildHelper {
       if (!(actions instanceof SkylarkActionFactory)) {
         throw new EvalException(location, "Must pass ctx.actions when packing sources.");
       }
-      if (!isValidJavaToolchain(semantics, javaToolchain)) {
+      if (javaToolchain == null) {
         throw new EvalException(location, "Must pass java_toolchain when packing sources.");
       }
-      if (!isValidJavaRuntime(semantics, hostJavabase)) {
+      if (hostJavabase == null) {
         throw new EvalException(location, "Must pass host_javabase when packing sources.");
       }
       sourceJar =
@@ -124,7 +121,6 @@ final class JavaInfoBuildHelper {
               sourceJars,
               javaToolchain,
               hostJavabase,
-              semantics,
               location);
     }
     final Artifact iJar;
@@ -134,19 +130,12 @@ final class JavaInfoBuildHelper {
             location,
             "The value of use_ijar is True. Make sure the ctx.actions argument is valid.");
       }
-      if (!isValidJavaToolchain(semantics, javaToolchain)) {
+      if (javaToolchain == null) {
         throw new EvalException(
             location,
             "The value of use_ijar is True. Make sure the java_toolchain argument is valid.");
       }
-      iJar =
-          buildIjar(
-              (SkylarkActionFactory) actions,
-              outputJar,
-              null,
-              getJavaToolchainProvider(semantics, location, javaToolchain),
-              semantics,
-              location);
+      iJar = buildIjar((SkylarkActionFactory) actions, outputJar, null, javaToolchain, location);
     } else {
       iJar = outputJar;
     }
@@ -255,9 +244,8 @@ final class JavaInfoBuildHelper {
       Artifact outputSourceJar,
       SkylarkList<Artifact> sourceFiles,
       SkylarkList<Artifact> sourceJars,
-      Object javaToolchain,
-      Object hostJavabase,
-      StarlarkSemantics semantics,
+      JavaToolchainProvider javaToolchain,
+      JavaRuntimeInfo hostJavabase,
       Location location)
       throws EvalException {
     // No sources to pack, return None
@@ -272,20 +260,15 @@ final class JavaInfoBuildHelper {
     if (outputSourceJar == null) {
       outputSourceJar = getDerivedSourceJar(actions.getActionConstructionContext(), outputJar);
     }
-    JavaRuntimeInfo javaRuntimeInfo =
-        getJavaRuntimeProvider(semantics, location, hostJavabase, null);
-    JavaToolchainProvider javaToolchainProvider =
-        getJavaToolchainProvider(semantics, location, javaToolchain);
-    JavaSemantics javaSemantics = javaToolchainProvider.getJavaSemantics();
     SingleJarActionBuilder.createSourceJarAction(
         actionRegistry,
         actions.getActionConstructionContext(),
-        javaSemantics,
+        javaToolchain.getJavaSemantics(),
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceFiles),
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceJars),
         outputSourceJar,
-        javaToolchainProvider,
-        javaRuntimeInfo);
+        javaToolchain,
+        hostJavabase);
     return outputSourceJar;
   }
 
@@ -331,7 +314,7 @@ final class JavaInfoBuildHelper {
       NestedSet<Artifact> compileTimeJars,
       NestedSet<Artifact> runtimeJars,
       Boolean useIjar,
-      @Nullable Object javaToolchain,
+      @Nullable JavaToolchainProvider javaToolchain,
       NestedSet<Artifact> transitiveCompileTimeJars,
       NestedSet<Artifact> transitiveRuntimeJars,
       NestedSet<Artifact> sourceJars,
@@ -347,7 +330,7 @@ final class JavaInfoBuildHelper {
             location,
             "The value of use_ijar is True. Make sure the ctx.actions argument is valid.");
       }
-      if (!isValidJavaToolchain(semantics, javaToolchain)) {
+      if (javaToolchain == null) {
         throw new EvalException(
             location,
             "The value of use_ijar is True. Make sure the java_toolchain argument is valid.");
@@ -355,13 +338,7 @@ final class JavaInfoBuildHelper {
       NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
       for (Artifact compileJar : compileTimeJars) {
         builder.add(
-            buildIjar(
-                (SkylarkActionFactory) actions,
-                compileJar,
-                null,
-                getJavaToolchainProvider(semantics, location, javaToolchain),
-                semantics,
-                location));
+            buildIjar((SkylarkActionFactory) actions, compileJar, null, javaToolchain, location));
       }
       javaCompilationArgsBuilder.addDirectCompileTimeJars(
           /* interfaceJars = */ builder.build(), /* fullJars= */ compileTimeJars);
@@ -398,8 +375,8 @@ final class JavaInfoBuildHelper {
       SkylarkList<JavaInfo> plugins,
       SkylarkList<JavaInfo> exportedPlugins,
       String strictDepsMode,
-      Object javaToolchain,
-      Object hostJavabase,
+      JavaToolchainProvider javaToolchain,
+      JavaRuntimeInfo hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
       SkylarkList<Artifact> resources,
       Boolean neverlink,
@@ -416,18 +393,7 @@ final class JavaInfoBuildHelper {
           "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
     }
 
-    JavaRuntimeInfo javaRuntimeInfo =
-        getJavaRuntimeProvider(
-            skylarkRuleContext.getSkylarkSemantics(),
-            location,
-            hostJavabase,
-            skylarkRuleContext.getRuleContext());
-    if (javaRuntimeInfo == null) {
-      throw new EvalException(location, "'host_javabase' must point to a Java runtime");
-    }
-
-    JavaToolchainProvider toolchainProvider =
-        getJavaToolchainProvider(environment.getSemantics(), location, javaToolchain);
+    JavaToolchainProvider toolchainProvider = javaToolchain;
 
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
@@ -438,7 +404,7 @@ final class JavaInfoBuildHelper {
             .setSourcePathEntries(sourcepathEntries)
             .setJavacOpts(
                 ImmutableList.<String>builder()
-                    .addAll(toolchainProvider.getJavacOptions())
+                    .addAll(toolchainProvider.getJavacOptions(skylarkRuleContext.getRuleContext()))
                     .addAll(
                         javaSemantics.getCompatibleJavacOptions(
                             skylarkRuleContext.getRuleContext(), toolchainProvider))
@@ -465,7 +431,7 @@ final class JavaInfoBuildHelper {
         helper.build(
             javaSemantics,
             toolchainProvider,
-            javaRuntimeInfo,
+            hostJavabase,
             outputJarsBuilder,
             /*createOutputSourceJar=*/ true,
             outputSourceJar,
@@ -522,14 +488,12 @@ final class JavaInfoBuildHelper {
       SkylarkActionFactory actions,
       Artifact inputJar,
       @Nullable Label targetLabel,
-      Object javaToolchain,
-      StarlarkSemantics semantics,
+      JavaToolchainProvider javaToolchain,
       Location location)
       throws EvalException {
     String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
     Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar);
-    FilesToRunProvider ijarTarget =
-        getJavaToolchainProvider(semantics, location, javaToolchain).getIjar();
+    FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder().addExecPath(inputJar).addExecPath(interfaceJar);
     if (targetLabel != null) {
@@ -552,15 +516,13 @@ final class JavaInfoBuildHelper {
       SkylarkActionFactory actions,
       Artifact inputJar,
       Label targetLabel,
-      Object javaToolchain,
-      StarlarkSemantics semantics,
+      JavaToolchainProvider javaToolchain,
       Location location)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
     Artifact outputJar = actions.declareFile(basename, inputJar);
     // ijar doubles as a stamping tool
-    FilesToRunProvider ijarTarget =
-        getJavaToolchainProvider(semantics, location, javaToolchain).getIjar();
+    FilesToRunProvider ijarTarget = (javaToolchain).getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addExecPath(inputJar)
@@ -578,68 +540,6 @@ final class JavaInfoBuildHelper {
             .setMnemonic("JavaIjar");
     actions.registerAction(location, actionBuilder.build(actions.getActionConstructionContext()));
     return outputJar;
-  }
-
-  private static boolean isValidJavaToolchain(
-      StarlarkSemantics starlarkSemantics, Object javaToolchain) {
-    return (!starlarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()
-            && javaToolchain instanceof ConfiguredTarget)
-        || javaToolchain instanceof JavaToolchainProvider;
-  }
-
-  JavaToolchainProvider getJavaToolchainProvider(
-      StarlarkSemantics semantics, Location location, Object javaToolchain) throws EvalException {
-    if (javaToolchain instanceof ConfiguredTarget) {
-      if (semantics.incompatibleUseToolchainProvidersInJavaCommon()) {
-        // TODO(b/122738702): remove support for passing toolchains as configured targets
-        throw new EvalException(
-            location,
-            javaToolchain
-                + " pass a java_common.JavaToolchainInfo instead of a configured target;"
-                + " see https://github.com/bazelbuild/bazel/issues/7186.");
-      }
-      ConfiguredTarget target = (ConfiguredTarget) javaToolchain;
-      JavaToolchainProvider javaToolchainProvider = JavaToolchainProvider.from(target);
-      if (javaToolchainProvider == null) {
-        throw new EvalException(
-            location, target.getLabel() + " does not provide JavaToolchainProvider.");
-      }
-      return javaToolchainProvider;
-    }
-    if (javaToolchain instanceof JavaToolchainProvider) {
-      return (JavaToolchainProvider) javaToolchain;
-    }
-    throw new EvalException(null, javaToolchain + " is not a JavaToolchainProvider.");
-  }
-
-  private static boolean isValidJavaRuntime(
-      StarlarkSemantics starlarkSemantics, Object javaRuntime) {
-    return (!starlarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()
-            && javaRuntime instanceof ConfiguredTarget)
-        || javaRuntime instanceof JavaRuntimeInfo;
-  }
-
-  private JavaRuntimeInfo getJavaRuntimeProvider(
-      StarlarkSemantics starlarkSemantics,
-      Location location,
-      Object javabase,
-      RuleContext ruleContext)
-      throws EvalException {
-    if (javabase instanceof TransitiveInfoCollection) {
-      if (starlarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()) {
-        // TODO(b/122738702): remove support for passing toolchains as configured targets
-        throw new EvalException(
-            location,
-            javabase
-                + " pass a java_common.JavaRuntimeInfo instead of a configured target;"
-                + " see https://github.com/bazelbuild/bazel/issues/7186.");
-      }
-      return JavaRuntimeInfo.from((TransitiveInfoCollection) javabase, ruleContext);
-    }
-    if (javabase instanceof JavaRuntimeInfo) {
-      return (JavaRuntimeInfo) javabase;
-    }
-    throw new EvalException(location, javabase + " is not a JavaRuntimeInfo.");
   }
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {

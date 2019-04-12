@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
@@ -52,6 +54,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceBrokerInfo;
@@ -143,54 +146,61 @@ public class BazelRuleClassProvider {
           options.get(ShellConfiguration.Options.class),
           FALLBACK_SHELL);
 
-  public static final ActionEnvironmentProvider SHELL_ACTION_ENV = (BuildOptions options) -> {
-    boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
-    OS os = OS.getCurrent();
-    PathFragment shellExecutable = SHELL_EXECUTABLE.getShellExecutable(options);
-    TreeMap<String, String> env = new TreeMap<>();
+  public static final ActionEnvironmentProvider SHELL_ACTION_ENV =
+      (BuildOptions options) -> {
+        boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
+        OS os = OS.getCurrent();
+        PathFragment shellExecutable = SHELL_EXECUTABLE.getShellExecutable(options);
+        TreeMap<String, String> env = new TreeMap<>();
 
-    // All entries in the builder that have a value of null inherit the value from the client
-    // environment, which is only known at execution time - we don't want to bake the client env
-    // into the configuration since any change to the configuration requires rerunning the full
-    // analysis phase.
-    if (!strictActionEnv) {
-      env.put("LD_LIBRARY_PATH", null);
-    }
+        // All entries in the builder that have a value of null inherit the value from the client
+        // environment, which is only known at execution time - we don't want to bake the client env
+        // into the configuration since any change to the configuration requires rerunning the full
+        // analysis phase.
+        if (!strictActionEnv) {
+          env.put("LD_LIBRARY_PATH", null);
+        }
 
-    if (strictActionEnv) {
-      env.put("PATH", pathOrDefault(os, null, shellExecutable));
-    } else if (os == OS.WINDOWS) {
-      // TODO(ulfjack): We want to add the MSYS root to the PATH, but that prevents us from
-      // inheriting PATH from the client environment. For now we use System.getenv even though
-      // that is incorrect. We should enable strict_action_env by default and then remove this
-      // code, but that change may break Windows users who are relying on the MSYS root being in
-      // the PATH.
-      env.put("PATH", pathOrDefault(
-          os, System.getenv("PATH"), shellExecutable));
-    } else {
-      // The previous implementation used System.getenv (which uses the server's environment), and
-      // fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
-      env.put("PATH", null);
-    }
+        if (strictActionEnv) {
+          env.put("PATH", pathOrDefault(os, null, shellExecutable));
+        } else if (os == OS.WINDOWS) {
+          // TODO(ulfjack): We want to add the MSYS root to the PATH, but that prevents us from
+          // inheriting PATH from the client environment. For now we use System.getenv even though
+          // that is incorrect. We should enable strict_action_env by default and then remove this
+          // code, but that change may break Windows users who are relying on the MSYS root being in
+          // the PATH.
+          env.put("PATH", pathOrDefault(os, System.getenv("PATH"), shellExecutable));
+        } else {
+          // The previous implementation used System.getenv (which uses the server's environment),
+          // and fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
+          env.put("PATH", null);
+        }
 
-    // Shell environment variables specified via options take precedence over the
-    // ones inherited from the fragments. In the long run, these fragments will
-    // be replaced by appropriate default rc files anyway.
-    for (Map.Entry<String, String> entry :
-        options.get(BuildConfiguration.Options.class).actionEnvironment) {
-      env.put(entry.getKey(), entry.getValue());
-    }
+        // Shell environment variables specified via options take precedence over the
+        // ones inherited from the fragments. In the long run, these fragments will
+        // be replaced by appropriate default rc files anyway.
+        for (Map.Entry<String, String> entry :
+            options.get(BuildConfiguration.Options.class).actionEnvironment) {
+          env.put(entry.getKey(), entry.getValue());
+        }
 
-    return ActionEnvironment.split(env);
-  };
+        if (!BuildConfiguration.runfilesEnabled(options.get(Options.class))) {
+          // Setting this environment variable is for telling the binary running
+          // in a Bazel action when to use runfiles library or runfiles tree.
+          // The downside is that it will discard cache for all actions once
+          // --enable_runfiles changes, but this also prevents wrong caching result if a binary
+          // behaves differently with and without runfiles tree.
+          env.put("RUNFILES_MANIFEST_ONLY", "1");
+        }
+
+        return ActionEnvironment.split(env);
+      };
 
   /** Used by the build encyclopedia generator. */
   public static ConfiguredRuleClassProvider create() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(TOOLS_REPOSITORY);
-    // TODO(gregce): uncomment the below line in the same change that retires
-    // --incompatible_disable_third_party_license_checking. See the flag's comments for details.
-    // builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
+    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
     setup(builder);
     return builder.build();
   }
@@ -199,6 +209,7 @@ public class BazelRuleClassProvider {
     for (RuleSet ruleSet : RULE_SETS) {
       ruleSet.init(builder);
     }
+    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
   }
 
   public static final RuleSet BAZEL_SETUP =
@@ -329,6 +340,11 @@ public class BazelRuleClassProvider {
           try {
             builder.addWorkspaceFilePrefix(
                 ResourceFileLoader.loadResource(BazelAndroidSemantics.class, "android.WORKSPACE"));
+            builder.addWorkspaceFileSuffix(
+                ResourceFileLoader.loadResource(
+                    BazelAndroidSemantics.class, "android_remote_tools.WORKSPACE"));
+            builder.addWorkspaceFileSuffix(
+                ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
@@ -430,9 +446,10 @@ public class BazelRuleClassProvider {
       return "/bin:/usr/bin";
     }
 
+    String newPath = "";
     // Attempt to compute the MSYS root (the real Windows path of "/") from `sh`.
     if (sh != null && sh.getParentDirectory() != null) {
-      String newPath = sh.getParentDirectory().getPathString();
+      newPath = sh.getParentDirectory().getPathString();
       if (sh.getParentDirectory().endsWith(PathFragment.create("usr/bin"))) {
         newPath +=
             ";" + sh.getParentDirectory().getParentDirectory().replaceName("bin").getPathString();
@@ -441,13 +458,22 @@ public class BazelRuleClassProvider {
             ";" + sh.getParentDirectory().replaceName("usr").getRelative("bin").getPathString();
       }
       newPath = newPath.replace('/', '\\');
-
-      if (path != null) {
-        newPath += ";" + path;
-      }
-      return newPath;
-    } else {
-      return null;
     }
+    // On Windows, the following dirs should always be available in PATH:
+    //   C:\Windows
+    //   C:\Windows\System32
+    //   C:\Windows\System32\WindowsPowerShell\v1.0
+    // They are similar to /bin:/usr/bin, which makes the basic tools on the platform available.
+    String systemRoot = System.getenv("SYSTEMROOT");
+    if (Strings.isNullOrEmpty(systemRoot)) {
+      systemRoot = "C:\\Windows";
+    }
+    newPath += ";" + systemRoot;
+    newPath += ";" + systemRoot + "\\System32";
+    newPath += ";" + systemRoot + "\\System32\\WindowsPowerShell\\v1.0";
+    if (path != null) {
+      newPath += ";" + path;
+    }
+    return newPath;
   }
 }

@@ -526,6 +526,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{msvc_ml_path}": "",
             "%{msvc_link_path}": "",
             "%{msvc_lib_path}": "",
+            "%{msvc_cxx_builtin_include_directories}": "",
             "%{msys_x64_mingw_cxx_content}": "",
             "%{msys_x64_mingw_link_content}": "",
             "%{dbg_mode_debug}": "",

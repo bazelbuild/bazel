@@ -625,8 +625,7 @@ public class AndroidCommon {
     nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
 
     JavaCompileAction javaCompileAction =
-        helper.createCompileActionWithInstrumentation(
-            classJar, manifestProtoOutput, genSourceJar, javaArtifactsBuilder, nativeHeaderOutput);
+        helper.createCompileAction(classJar, manifestProtoOutput, genSourceJar, nativeHeaderOutput);
     outputDepsProto = javaCompileAction.getOutputDepsProto();
 
     if (generateExtensionRegistry) {

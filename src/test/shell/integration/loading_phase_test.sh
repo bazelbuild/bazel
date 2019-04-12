@@ -365,7 +365,9 @@ function test_incompatible_disallow_load_labels_to_cross_package_boundaries() {
   touch "$pkg"/foo/a/b/BUILD
   echo "b = 42" > "$pkg"/foo/a/b/b.bzl
 
-  bazel query "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
+  bazel query \
+    --incompatible_disallow_load_labels_to_cross_package_boundaries=false \
+    "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
   expect_log "//$pkg/foo:BUILD"
 
   bazel query \
@@ -373,7 +375,9 @@ function test_incompatible_disallow_load_labels_to_cross_package_boundaries() {
     "$pkg/foo:BUILD" >& "$TEST_log" && fail "Expected failure"
   expect_log "Label '//$pkg/foo/a:b/b.bzl' crosses boundary of subpackage '$pkg/foo/a/b'"
 
-  bazel query "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
+  bazel query \
+    --incompatible_disallow_load_labels_to_cross_package_boundaries=false \
+    "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
   expect_log "//$pkg/foo:BUILD"
 }
 

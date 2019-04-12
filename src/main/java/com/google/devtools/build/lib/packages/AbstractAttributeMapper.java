@@ -75,8 +75,11 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     } catch (ClassCastException e) {
       // getIndexWithTypeCheck checks the type is right, but unexpected configurable attributes
       // can still trigger cast exceptions.
-      throw new IllegalArgumentException("wrong type for attribute \"" + attributeName + "\" in "
-          + ruleClass + " rule " + ruleLabel, e);
+      throw new IllegalArgumentException(
+          String.format(
+              "wrong type for attribute \"%s\" in %s rule %s: expected %s, is %s",
+              attributeName, ruleClass, ruleLabel, type, value.getClass().getSimpleName()),
+          e);
     }
   }
 

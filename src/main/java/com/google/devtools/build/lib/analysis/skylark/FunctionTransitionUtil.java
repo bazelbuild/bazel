@@ -30,14 +30,18 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -159,6 +163,7 @@ public class FunctionTransitionUtil {
     try (Mutability mutability = Mutability.create("build_settings")) {
       SkylarkDict<String, Object> dict = SkylarkDict.withMutability(mutability);
 
+      // Add native options
       for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
         String optionName = entry.getKey();
         String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
@@ -174,14 +179,21 @@ public class FunctionTransitionUtil {
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
 
-          dict.put(optionKey, optionValue, null, mutability);
+          dict.put(optionKey, optionValue == null ? Runtime.NONE : optionValue, null, mutability);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);
         }
       }
 
-      // TODO(juliexxia): Allowing reading of starlark-defined build settings.
+      // Add Starlark options
+      for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
+        if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
+          continue;
+        }
+        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), null, mutability);
+      }
+
       if (!remainingInputs.isEmpty()) {
         throw new EvalException(
             starlarkTransition.getLocationForErrorReporting(),
@@ -245,17 +257,35 @@ public class FunctionTransitionUtil {
           OptionDefinition def = optionInfo.getDefinition();
           Field field = def.getField();
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-          if (optionValue == null || def.getType().isInstance(optionValue)) {
-            field.set(options, optionValue);
-          } else if (optionValue instanceof String) {
-            field.set(options, def.getConverter().convert((String) optionValue));
+
+          if (!def.allowsMultiple()) {
+            if (optionValue == null || def.getType().isInstance(optionValue)) {
+              field.set(options, optionValue);
+            } else if (optionValue instanceof String) {
+              field.set(options, def.getConverter().convert((String) optionValue));
+            } else {
+              throw new EvalException(
+                  starlarkTransition.getLocationForErrorReporting(),
+                  "Invalid value type for option '" + optionName + "'");
+            }
           } else {
-            throw new EvalException(
-                starlarkTransition.getLocationForErrorReporting(),
-                "Invalid value type for option '" + optionName + "'");
+            SkylarkList rawValues =
+                optionValue instanceof SkylarkList
+                    ? (SkylarkList) optionValue
+                    : SkylarkList.createImmutable(Collections.singletonList(optionValue));
+            List<Object> allValues = new ArrayList<>(rawValues.size());
+            for (Object singleValue : rawValues) {
+              if (singleValue instanceof String) {
+                allValues.add(def.getConverter().convert((String) singleValue));
+              } else {
+                allValues.add(singleValue);
+              }
+            }
+            field.set(options, ImmutableList.copyOf(allValues));
           }
         } catch (IllegalAccessException e) {
-          throw new RuntimeException(
+          throw new EvalException(
+              starlarkTransition.getLocationForErrorReporting(),
               "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
           throw new EvalException(

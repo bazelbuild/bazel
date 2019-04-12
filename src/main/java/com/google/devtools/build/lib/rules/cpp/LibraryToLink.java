@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,8 +61,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   }
 
   /** Structure of CcLinkingContext. */
-  public static class CcLinkingContext implements CcLinkingContextApi {
-    public static final CcLinkingContext EMPTY = CcLinkingContext.builder().build();
+  public static class CcLinkingContext implements CcLinkingContextApi<Artifact, LibraryToLink> {
+    public static final CcLinkingContext EMPTY = builder().build();
 
     /** A list of link options contributed by a single configured target/aspect. */
     @Immutable
@@ -288,8 +289,13 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     }
 
     @Override
-    public SkylarkList<LibraryToLinkApi> getSkylarkLibrariesToLink() {
+    public SkylarkList<LibraryToLink> getSkylarkLibrariesToLink() {
       return SkylarkList.createImmutable(libraries.toList());
+    }
+
+    @Override
+    public SkylarkNestedSet getSkylarkNonCodeInputs() {
+      return SkylarkNestedSet.of(Artifact.class, nonCodeInputs);
     }
 
     public NestedSet<LinkOptions> getUserLinkFlags() {
@@ -316,6 +322,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     }
 
     public static Builder builder() {
+      // private to avoid class initialization deadlock between this class and its outer class
       return new Builder();
     }
 
@@ -436,6 +443,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   public abstract Artifact getDynamicLibrary();
 
   @Nullable
+  @Override
   public abstract Artifact getResolvedSymlinkDynamicLibrary();
 
   @Nullable
@@ -443,6 +451,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   public abstract Artifact getInterfaceLibrary();
 
   @Nullable
+  @Override
   public abstract Artifact getResolvedSymlinkInterfaceLibrary();
 
   @Override

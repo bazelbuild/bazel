@@ -332,9 +332,22 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             defaultValue = "False",
             named = true,
             doc = "set the executable flag on the created file, false by default."),
+        @Param(
+            name = "allow_fail",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc =
+                "If set, indicate the error in the return value"
+                    + " instead of raising an error for failed downloads"),
       })
   public StructApi download(
-      Object url, Object output, String sha256, Boolean executable, Location location)
+      Object url,
+      Object output,
+      String sha256,
+      Boolean executable,
+      Boolean allowFail,
+      Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -445,8 +458,22 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + " archive. Instead of needing to specify this prefix over and over in the"
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
                     + " files."),
+        @Param(
+            name = "allow_fail",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc =
+                "If set, indicate the error in the return value"
+                    + " instead of raising an error for failed downloads"),
       })
   public StructApi downloadAndExtract(
-      Object url, Object output, String sha256, String type, String stripPrefix, Location location)
+      Object url,
+      Object output,
+      String sha256,
+      String type,
+      String stripPrefix,
+      Boolean allowFail,
+      Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 }

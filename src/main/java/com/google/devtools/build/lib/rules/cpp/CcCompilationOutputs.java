@@ -20,14 +20,17 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
-public class CcCompilationOutputs implements CcCompilationOutputsApi {
-  public static final CcCompilationOutputs EMPTY = new CcCompilationOutputs.Builder().build();
+public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
+  public static final CcCompilationOutputs EMPTY = builder().build();
 
   /**
    * All .o files built by the target.
@@ -99,8 +102,33 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
   }
 
   @Override
-  public SkylarkList<Artifact> getSkylarkObjectFiles(boolean usePic) {
+  public SkylarkList<Artifact> getSkylarkObjectFiles(
+      boolean usePic, Location location, Environment environment) throws EvalException {
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
     return SkylarkList.createImmutable(getObjectFiles(usePic));
+  }
+
+  @Override
+  public SkylarkList<Artifact> getSkylarkObjects(Location location, Environment environment)
+      throws EvalException {
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    return SkylarkList.createImmutable(getObjectFiles(/* usePic= */ false));
+  }
+
+  @Override
+  public SkylarkList<Artifact> getSkylarkPicObjects(Location location, Environment environment)
+      throws EvalException {
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    return SkylarkList.createImmutable(getObjectFiles(/* usePic= */ true));
   }
 
   /** Returns information about bitcode object files resulting from compilation. */
@@ -146,6 +174,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
     return files.build();
   }
 
+  /** Creates a new builder. */
+  public static Builder builder() {
+    return new Builder();
+  }
+
   /** Builder for CcCompilationOutputs. */
   public static final class Builder {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();
@@ -156,6 +189,10 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
     private final Set<Artifact> picDwoFiles = new LinkedHashSet<>();
     private final NestedSetBuilder<Artifact> temps = NestedSetBuilder.stableOrder();
     private final Set<Artifact> headerTokenFiles = new LinkedHashSet<>();
+
+    private Builder() {
+      // private to avoid class initialization deadlock between this class and its outer class
+    }
 
     public CcCompilationOutputs build() {
       return new CcCompilationOutputs(

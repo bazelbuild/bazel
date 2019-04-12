@@ -19,8 +19,13 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -30,6 +35,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -37,10 +44,12 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -58,15 +67,23 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
+
+  private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
 
   private AsynchronousFileOutputStream rpcLogFile;
 
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
   private RemoteActionContextProvider actionContextProvider;
+  private RemoteActionInputFetcher actionInputFetcher;
+  private RemoteOutputsMode remoteOutputsMode;
+  private RemoteOutputService remoteOutputService;
 
   private final BuildEventArtifactUploaderFactoryDelegate
       buildEventArtifactUploaderFactoryDelegate = new BuildEventArtifactUploaderFactoryDelegate();
@@ -116,18 +133,23 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
+    Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
+    Preconditions.checkState(remoteOutputsMode == null, "remoteOutputsMode must be null");
+
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
       // Quit if no supported command is being used. See getCommandOptions for details.
       return;
     }
+
+    remoteOutputsMode = remoteOptions.remoteOutputsMode;
+
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
 
-    boolean enableRestCache = SimpleBlobStoreFactory.isRestUrlOptions(remoteOptions);
-    boolean enableDiskCache = SimpleBlobStoreFactory.isDiskCache(remoteOptions);
-    boolean enableBlobStoreCache = enableRestCache || enableDiskCache;
+    boolean enableBlobStoreCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
     boolean enableGrpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     if (enableBlobStoreCache && enableRemoteExecution) {
@@ -231,14 +253,24 @@ public final class RemoteModule extends BlazeModule {
                 digestUtil,
                 uploader.retain());
         uploader.release();
-        Context requestContext =
-            TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
-        buildEventArtifactUploaderFactoryDelegate.init(
-            new ByteStreamBuildEventArtifactUploaderFactory(
-                uploader,
-                cacheChannel.authority(),
-                requestContext,
-                remoteOptions.remoteInstanceName));
+        if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+          Context requestContext =
+              TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
+          buildEventArtifactUploaderFactoryDelegate.init(
+              new ByteStreamBuildEventArtifactUploaderFactory(
+                  uploader,
+                  cacheChannel.authority(),
+                  requestContext,
+                  remoteOptions.remoteInstanceName));
+        } else {
+          // TODO(buchgr): Fix BES local file upload to work with
+          // --experimental_remote_download_outputs
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      "BES artifact upload is disabled when using "
+                          + "--experimental_remote_download_outputs=minimal"));
+        }
       }
 
       if (enableBlobStoreCache) {
@@ -249,7 +281,7 @@ public final class RemoteModule extends BlazeModule {
                 SimpleBlobStoreFactory.create(
                     remoteOptions,
                     GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                    env.getWorkingDirectory()),
+                    Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory")),
                 digestUtil);
       }
 
@@ -284,6 +316,38 @@ public final class RemoteModule extends BlazeModule {
           .exit(
               new AbruptExitException(
                   "Error initializing RemoteModule", ExitCode.COMMAND_LINE_ERROR));
+    }
+  }
+
+  @Override
+  public void afterAnalysis(
+      CommandEnvironment env,
+      BuildRequest request,
+      BuildOptions buildOptions,
+      Iterable<ConfiguredTarget> configuredTargets,
+      ImmutableSet<AspectValue> aspects) {
+    if (remoteOutputsMode != null && remoteOutputsMode.downloadToplevelOutputsOnly()) {
+      Preconditions.checkState(actionContextProvider != null, "actionContextProvider was null");
+      // TODO(buchgr): Consider only storing the action owners instead of the artifacts
+      // Collect all top level output artifacts of regular targets as well as aspects. This
+      // information is used by remote spawn runners to decide whether to download an artifact
+      // if --experimental_remote_download_outputs=toplevel is set
+      ImmutableSet.Builder<Artifact> topLevelOutputsBuilder = ImmutableSet.builder();
+      for (ConfiguredTarget configuredTarget : configuredTargets) {
+        topLevelOutputsBuilder.addAll(
+            TopLevelArtifactHelper.getAllArtifactsToBuild(
+                    configuredTarget, request.getTopLevelArtifactContext())
+                .getImportantArtifacts());
+      }
+
+      for (AspectValue aspect : aspects) {
+        topLevelOutputsBuilder.addAll(
+            TopLevelArtifactHelper.getAllArtifactsToBuild(
+                    aspect, request.getTopLevelArtifactContext())
+                .getImportantArtifacts());
+      }
+
+      actionContextProvider.setTopLevelOutputs(topLevelOutputsBuilder.build());
     }
   }
 
@@ -322,25 +386,99 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void afterCommand() {
+  public void afterCommand() throws AbruptExitException {
+    IOException failure = null;
+
+    try {
+      closeRpcLogFile();
+    } catch (IOException e) {
+      logger.log(Level.WARNING, "Partially wrote rpc log file", e);
+      failure = e;
+    }
+
+    try {
+      deleteDownloadedInputs();
+    } catch (IOException e) {
+      failure = e;
+    }
+
     buildEventArtifactUploaderFactoryDelegate.reset();
     actionContextProvider = null;
-    if (rpcLogFile != null) {
+    actionInputFetcher = null;
+    remoteOutputsMode = null;
+    remoteOutputService = null;
+
+    if (failure != null) {
+      throw new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, failure);
+    }
+  }
+
+  /**
+   * Delete any input files that have been fetched from the remote cache during the build. This is
+   * so that Bazel's view of the output base is identical with the output base after a build i.e.
+   * files that Bazel thinks exist only remotely actually do.
+   */
+  private void deleteDownloadedInputs() throws IOException {
+    if (actionInputFetcher == null) {
+      return;
+    }
+    IOException deletionFailure = null;
+    for (Path file : actionInputFetcher.downloadedFiles()) {
       try {
-        rpcLogFile.close();
+        file.delete();
       } catch (IOException e) {
-        throw new RuntimeException(e);
-      } finally {
-        rpcLogFile = null;
+        logger.log(
+            Level.SEVERE,
+            String.format("Failed to delete remote output '%s' from the " + "output base.", file),
+            e);
+        deletionFailure = e;
       }
+    }
+    if (deletionFailure != null) {
+      throw deletionFailure;
+    }
+  }
+
+  private void closeRpcLogFile() throws IOException {
+    if (rpcLogFile != null) {
+      AsynchronousFileOutputStream oldLogFile = rpcLogFile;
+      rpcLogFile = null;
+      oldLogFile.close();
     }
   }
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    if (actionContextProvider != null) {
-      builder.addActionContextProvider(actionContextProvider);
+    Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
+    Preconditions.checkNotNull(remoteOutputsMode, "remoteOutputsMode must not be null");
+
+    if (actionContextProvider == null) {
+      return;
     }
+    builder.addActionContextProvider(actionContextProvider);
+    RemoteOptions remoteOptions =
+        Preconditions.checkNotNull(
+            env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
+    RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
+    if (!remoteOutputsMode.downloadAllOutputs()) {
+      Context ctx =
+          TracingMetadataUtils.contextWithMetadata(
+              env.getBuildRequestId(), env.getCommandId().toString(), "fetch-remote-inputs");
+      actionInputFetcher =
+          new RemoteActionInputFetcher(
+              actionContextProvider.getRemoteCache(), env.getExecRoot(), ctx);
+      builder.setActionInputPrefetcher(actionInputFetcher);
+      remoteOutputService.setActionInputFetcher(actionInputFetcher);
+    }
+  }
+
+  @Override
+  public OutputService getOutputService() {
+    Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
+    if (remoteOutputsMode != null && !remoteOutputsMode.downloadAllOutputs()) {
+      remoteOutputService = new RemoteOutputService();
+    }
+    return remoteOutputService;
   }
 
   @Override
@@ -353,8 +491,8 @@ public final class RemoteModule extends BlazeModule {
   static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
     return new RemoteRetrier(
-        options.experimentalRemoteRetry
-            ? () -> new Retrier.ZeroBackoff(options.experimentalRemoteRetryMaxAttempts)
+        options.remoteMaxRetryAttempts > 0
+            ? () -> new Retrier.ZeroBackoff(options.remoteMaxRetryAttempts)
             : () -> Retrier.RETRIES_DISABLED,
         RemoteModule.RETRIABLE_EXEC_ERRORS,
         retryService,

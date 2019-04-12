@@ -33,6 +33,7 @@ public class BazelMockPythonSupport extends MockPythonSupport {
     addTool(config, "tools/python/python_version.bzl");
     addTool(config, "tools/python/srcs_version.bzl");
     addTool(config, "tools/python/toolchain.bzl");
+    addTool(config, "tools/python/utils.bzl");
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",

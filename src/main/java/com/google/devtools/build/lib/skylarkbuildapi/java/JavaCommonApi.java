@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -39,6 +37,8 @@ import javax.annotation.Nullable;
 public interface JavaCommonApi<
     FileT extends FileApi,
     JavaInfoT extends JavaInfoApi<FileT>,
+    JavaToolchainT extends JavaToolchainSkylarkApiProviderApi,
+    JavaRuntimeT extends JavaRuntimeInfoApi,
     SkylarkRuleContextT extends SkylarkRuleContextApi,
     SkylarkActionFactoryT extends SkylarkActionFactoryApi> {
 
@@ -114,10 +114,7 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {
-              @ParamType(type = TransitiveInfoCollectionApi.class),
-              @ParamType(type = ToolchainInfoApi.class)
-            },
+            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             noneable = true,
             defaultValue = "None",
             doc =
@@ -283,20 +280,14 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {
-              @ParamType(type = TransitiveInfoCollectionApi.class),
-              @ParamType(type = ToolchainInfoApi.class)
-            },
+            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to be used for this compilation. Mandatory."),
         @Param(
             name = "host_javabase",
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {
-              @ParamType(type = TransitiveInfoCollectionApi.class),
-              @ParamType(type = JavaRuntimeInfoApi.class)
-            },
+            allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
             doc = "A JavaRuntimeInfo to be used for this compilation. Mandatory."),
         @Param(
             name = "sourcepath",
@@ -333,8 +324,8 @@ public interface JavaCommonApi<
       SkylarkList<JavaInfoT> plugins,
       SkylarkList<JavaInfoT> exportedPlugins,
       String strictDepsMode,
-      Object javaToolchain,
-      Object hostJavabase,
+      JavaToolchainT javaToolchain,
+      JavaRuntimeT hostJavabase,
       SkylarkList<FileT> sourcepathEntries,
       SkylarkList<FileT> resources,
       Boolean neverlink,
@@ -378,10 +369,7 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {
-              @ParamType(type = TransitiveInfoCollectionApi.class),
-              @ParamType(type = ToolchainInfoApi.class)
-            },
+            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       },
       useSkylarkSemantics = true,
@@ -390,7 +378,7 @@ public interface JavaCommonApi<
       SkylarkActionFactoryT actions,
       FileT jar,
       Object targetLabel,
-      Object javaToolchain,
+      JavaToolchainT javaToolchain,
       Location location,
       StarlarkSemantics semantics)
       throws EvalException;
@@ -431,10 +419,7 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {
-              @ParamType(type = TransitiveInfoCollectionApi.class),
-              @ParamType(type = ToolchainInfoApi.class)
-            },
+            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       },
       useSkylarkSemantics = true,
@@ -443,7 +428,7 @@ public interface JavaCommonApi<
       SkylarkActionFactoryT actions,
       FileT jar,
       Label targetLabel,
-      Object javaToolchain,
+      JavaToolchainT javaToolchain,
       Location location,
       StarlarkSemantics semantics)
       throws EvalException;
@@ -488,20 +473,14 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {
-              @ParamType(type = TransitiveInfoCollectionApi.class),
-              @ParamType(type = ToolchainInfoApi.class)
-            },
+            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
         @Param(
             name = "host_javabase",
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {
-              @ParamType(type = TransitiveInfoCollectionApi.class),
-              @ParamType(type = JavaRuntimeInfoApi.class)
-            },
+            allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
             doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
       allowReturnNones = true,
@@ -512,8 +491,8 @@ public interface JavaCommonApi<
       FileT outputJar,
       SkylarkList<FileT> sourceFiles,
       SkylarkList<FileT> sourceJars,
-      Object javaToolchain,
-      Object hostJavabase,
+      JavaToolchainT javaToolchain,
+      JavaRuntimeT hostJavabase,
       Location location,
       StarlarkSemantics semantics)
       throws EvalException;
@@ -524,44 +503,19 @@ public interface JavaCommonApi<
       documented = false,
       parameters = {
         @Param(
-            name = "ctx",
-            positional = true,
-            named = false,
-            type = Object.class,
-            allowedTypes = {@ParamType(type = SkylarkRuleContextApi.class)},
-            noneable = true,
-            defaultValue = "None",
-            doc = "The rule context."),
-        @Param(
-            name = "java_toolchain_attr",
-            positional = false,
-            named = true,
-            type = Object.class,
-            allowedTypes = {@ParamType(type = String.class)},
-            noneable = true,
-            defaultValue = "None"),
-        @Param(
             name = "java_toolchain",
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {@ParamType(type = ToolchainInfoApi.class)},
-            noneable = true,
-            defaultValue = "None",
+            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc =
                 "A JavaToolchainInfo to be used for retrieving the ijar "
                     + "tool. Only set when use_ijar is True."),
       },
-      useSkylarkSemantics = true,
       useLocation = true)
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
-  public ImmutableList<String> getDefaultJavacOpts(
-      Object skylarkRuleContext,
-      Object javaToolchainAttr,
-      Object javaToolchain,
-      Location loc,
-      StarlarkSemantics semantics)
+  public ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain, Location loc)
       throws EvalException;
 
   @SkylarkCallable(
@@ -620,6 +574,6 @@ public interface JavaCommonApi<
             type = SkylarkRuleContextApi.class,
             doc = "The rule context."),
       },
-      doc = "Returns true if --experimental_use_toolchain_resolution_for_java_rules is enabled.")
+      doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
   boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextT ruleContext) throws EvalException;
 }

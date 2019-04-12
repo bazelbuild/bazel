@@ -38,8 +38,6 @@ output_paths = [
     ('*jarjar_command_deploy.jar',
      lambda x: 'tools/jdk/jarjar_command_deploy.jar'),
     ('*BUILD.java_langtools', lambda x: 'third_party/java/jdk/langtools/BUILD'),
-    ('*singlejar_local.exe', lambda x: 'tools/jdk/singlejar/singlejar.exe'),
-    ('*singlejar_local', lambda x: 'tools/jdk/singlejar/singlejar'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),

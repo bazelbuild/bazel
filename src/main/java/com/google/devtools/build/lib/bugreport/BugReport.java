@@ -122,7 +122,7 @@ public abstract class BugReport {
   }
 
   private static void logCrash(Throwable throwable, boolean sendBugReport, String... args) {
-    logger.severe("Crash: " + Throwables.getStackTraceAsString(throwable));
+    logger.severe("Crash: " + throwable + " " + Throwables.getStackTraceAsString(throwable));
     if (sendBugReport) {
       BugReport.sendBugReport(throwable, Arrays.asList(args));
     }

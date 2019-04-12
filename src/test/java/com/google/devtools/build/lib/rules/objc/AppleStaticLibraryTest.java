@@ -100,6 +100,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAvoidDepsProviders() throws Exception {
+    useConfiguration("--incompatible_disable_objc_library_resources=false");
     scratch.file(
         "package/BUILD",
         "apple_static_library(",

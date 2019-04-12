@@ -74,6 +74,20 @@ java_import(
     ],
 )
 
+# This target only contains the jars that are used for building / running Bazel.
+# The target below is for the Android tools that are not shipped with Bazel.
+java_import(
+    name = "android_common_25_0_0_lite",
+    jars = [
+        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools_repository_25.0.0.jar",
+    ],
+    deps = [
+        "//third_party/jaxb",
+    ],
+)
+
 java_import(
     name = "android_common_25_0_0",
     jars = [
@@ -93,7 +107,6 @@ java_import(
         "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
         "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
         "android_common/com.android.tools_common_25.0.0.jar",
-        "android_common/com.android.tools_ddmlib_25.0.0.jar",
         "android_common/com.android.tools_dvlib_25.0.0.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
         "android_common/com.android.tools_sdk-common_25.0.0.jar",
@@ -213,8 +226,8 @@ java_import(
 java_import(
     name = "auth",
     jars = [
-        "auth/google-auth-library-oauth2-http-0.6.0.jar",
-        "auth/google-auth-library-credentials-0.6.0.jar",
+        "auth/google-auth-library-oauth2-http-0.15.0.jar",
+        "auth/google-auth-library-credentials-0.15.0.jar",
     ],
     runtime_deps = [
         ":api_client",
@@ -437,8 +450,8 @@ java_import(
 java_import(
     name = "opencensus-api",
     jars = [
-        "opencensus/opencensus-api-0.11.0.jar",
-        "opencensus/opencensus-contrib-grpc-metrics-0.11.0.jar",
+        "opencensus/opencensus-api-0.19.2.jar",
+        "opencensus/opencensus-contrib-grpc-metrics-0.19.2.jar",
     ],
 )
 
@@ -500,12 +513,12 @@ java_import(
 
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.17.Final.jar"],
+    jars = ["netty/netty-all-4.1.34.Final.jar"],
 )
 
 java_import(
     name = "netty_tcnative",
-    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.7.Final.jar"],
+    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
 )
 
 java_import(

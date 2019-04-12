@@ -42,13 +42,13 @@ config_setting(
 filegroup(
     name = "bootstrap-grpc-jars",
     srcs = [
-        "grpc-auth-1.10.0.jar",
-        "grpc-context-1.10.0.jar",
-        "grpc-core-1.10.0.jar",
-        "grpc-netty-1.10.0.jar",
-        "grpc-protobuf-1.10.0.jar",
-        "grpc-protobuf-lite-1.10.0.jar",
-        "grpc-stub-1.10.0.jar",
+        "grpc-auth-1.20.0.jar",
+        "grpc-context-1.20.0.jar",
+        "grpc-core-1.20.0.jar",
+        "grpc-netty-1.20.0.jar",
+        "grpc-protobuf-1.20.0.jar",
+        "grpc-protobuf-lite-1.20.0.jar",
+        "grpc-stub-1.20.0.jar",
     ],
 )
 

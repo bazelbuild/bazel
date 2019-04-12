@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /** Interface for a structured representation of the compilation outputs of a C++ rule. */
@@ -28,11 +31,35 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
     documented = false,
     doc = "Helper class containing CC compilation outputs.")
 public interface CcCompilationOutputsApi<FileT extends FileApi> {
+
+  /** @deprecated use {@link #getSkylarkObjects} or {@link #getSkylarkPicObjects}. */
   @SkylarkCallable(
       name = "object_files",
       documented = false,
+      useEnvironment = true,
+      useLocation = true,
       parameters = {
         @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
       })
-  SkylarkList<FileT> getSkylarkObjectFiles(boolean usePic);
+  @Deprecated
+  SkylarkList<FileT> getSkylarkObjectFiles(
+      boolean usePic, Location location, Environment environment) throws EvalException;
+
+  @SkylarkCallable(
+      name = "objects",
+      documented = false,
+      useEnvironment = true,
+      useLocation = true,
+      structField = true)
+  SkylarkList<FileT> getSkylarkObjects(Location location, Environment environment)
+      throws EvalException;
+
+  @SkylarkCallable(
+      name = "pic_objects",
+      documented = false,
+      useEnvironment = true,
+      useLocation = true,
+      structField = true)
+  SkylarkList<FileT> getSkylarkPicObjects(Location location, Environment environment)
+      throws EvalException;
 }

@@ -166,13 +166,12 @@ EOF
 
 # This test intentionally show some errors on the standard output.
 function test_compiles_hello_world() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_world_files "$pkg"
 
   bazel clean
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello || fail "build failed"
+  bazel build //$pkg/java/hello:hello || fail "build failed"
   ${PRODUCT_NAME}-bin/$pkg/java/hello/hello | grep -q 'Hello, World!' \
       || fail "comparison failed"
   function check_deploy_jar_should_not_exist() {
@@ -189,32 +188,25 @@ function test_compiles_hello_world() {
   check_arglists ${PRODUCT_NAME}-bin/$pkg/java/hello/hello
 }
 
-function test_compiles_hello_world_remote_java_tools() {
-  test_compiles_hello_world \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_compiles_hello_world_from_deploy_jar() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_world_files "$pkg"
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/hello:hello_deploy.jar || fail "build failed"
 
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello -- --singlejar | grep -q 'Hello, World!' \
+  bazel run //$pkg/java/hello:hello -- --singlejar | grep -q 'Hello, World!' \
     || fail "comparison failed"
   ${PRODUCT_NAME}-bin/$pkg/java/hello/hello -- --singlejar | \
     grep -q 'Hello, World!' || fail "comparison failed"
 
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello -- --wrapper_script_flag=--singlejar \
+  bazel run //$pkg/java/hello:hello -- --wrapper_script_flag=--singlejar \
     | grep -q 'Hello, World!' || fail "comparison failed"
   ${PRODUCT_NAME}-bin/$pkg/java/hello/hello -- \
     --wrapper_script_flag=--singlejar | grep -q 'Hello, World!' \
     || fail "comparison failed"
 
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello -- REGULAR_ARG \
+  bazel run //$pkg/java/hello:hello -- REGULAR_ARG \
     --wrapper_script_flag=--singlejar | grep -q 'Hello, World!' \
     || fail "comparison failed"
   ${PRODUCT_NAME}-bin/$pkg/java/hello/hello -- REGULAR_ARG \
@@ -222,19 +214,12 @@ function test_compiles_hello_world_from_deploy_jar() {
     || fail "comparison failed"
 }
 
-function test_compiles_hello_world_from_deploy_jar_remote_java_tools() {
-  test_compiles_hello_world_from_deploy_jar \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_explicit_bogus_wrapper_args_are_rejected() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_world_files "$pkg"
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/hello:hello_deploy.jar || fail "build failed"
   function check_arg_rejected() {
     "$@" && fail "bogus arg should be rejected"
     true  # reset the last exit code so the test won't be considered failed
@@ -247,11 +232,6 @@ function test_explicit_bogus_wrapper_args_are_rejected() {
   check_arglists ${PRODUCT_NAME}-bin/$pkg/java/hello/hello
 }
 
-function test_explicit_bogus_wrapper_args_are_rejected_remote_java_tools() {
-  test_explicit_bogus_wrapper_args_are_rejected \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
 function assert_singlejar_works() {
   local -r pkg="$1"
   local -r copy_jdk="$2"
@@ -274,13 +254,63 @@ function assert_singlejar_works() {
   mkdir -p "$pkg/jvm"
   cat > "$pkg/jvm/BUILD" <<EOF
 package(default_visibility=["//visibility:public"])
-java_runtime(name='runtime', java_home='$javabase')
+java_runtime(
+    name='runtime',
+    java_home='$javabase',
+)
 EOF
+
+  if [ ! -f buildenv/platforms/BUILD ]; then
+  cat >> "$pkg/jvm/BUILD" <<EOF
+constraint_setting(
+    name = 'constraint_setting',
+)
+constraint_value(
+    name = 'constraint',
+    constraint_setting = ':constraint_setting',
+)
+toolchain(
+    name = 'java_runtime_toolchain',
+    toolchain = ':runtime',
+    toolchain_type = '//tools/jdk:runtime_toolchain_type',
+    target_compatible_with = [':constraint'],
+)
+platform(
+    name = 'platform',
+    constraint_values = [":constraint"],
+)
+EOF
+  else
+  cat >> "$pkg/jvm/BUILD" <<EOF
+constraint_value(
+    name = 'constraint',
+    constraint_setting = '//buildenv/platforms/java/constraints:runtime',
+)
+toolchain(
+    name = 'java_runtime_toolchain',
+    toolchain = ':runtime',
+    toolchain_type = '//tools/jdk:runtime_toolchain_type',
+    target_compatible_with = [':constraint'],
+)
+platform(
+    name = 'platform',
+    constraint_values = [
+        ":constraint",
+        "//buildenv/platforms/java/constraints:java8",
+        "//buildenv/platforms:linux",
+        "//buildenv/platforms:x86_64",
+    ],
+)
+EOF
+  fi
 
 
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
-      "$stamp_arg" --javabase="//$pkg/jvm:runtime" "$embed_label" >&"$TEST_log" \
+      "$stamp_arg" --javabase="//$pkg/jvm:runtime" \
+      --extra_toolchains="//$pkg/jvm:all,//tools/jdk:all" \
+      --platforms="//$pkg/jvm:platform" \
+      "$embed_label" >&"$TEST_log" \
       || fail "Build failed"
 
   mkdir $pkg/ugly/ || fail "mkdir failed"
@@ -324,13 +354,12 @@ function test_singlejar_with_custom_jdk_without_stamp() {
 # Regression test for b/18191163: ensure that the build is deterministic when
 # used with --nostamp.
 function test_deterministic_nostamp_build() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_world_files "$pkg"
 
   bazel clean || fail "Clean failed"
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} --nostamp //$pkg/java/hello:hello_deploy.jar \
+  bazel build --nostamp //$pkg/java/hello:hello_deploy.jar \
       || fail "Build failed"
   # TODO(bazel-team) .a files (C/C++ static library file generated by
   # archive tool) on darwin OS only are not deterministic.
@@ -355,58 +384,37 @@ function test_deterministic_nostamp_build() {
   assert_equals "$first_run" "$second_run"
 }
 
-function test_deterministic_nostamp_build_remote_java_tools() {
-  test_deterministic_nostamp_build \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_compiles_hello_library() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
 
   bazel clean
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/main:main || fail "build failed"
+  bazel build //$pkg/java/main:main || fail "build failed"
   ${PRODUCT_NAME}-bin/$pkg/java/main/main \
       | grep -q "Hello, Library!;Hello, World!" || fail "comparison failed"
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/main:main -- --singlejar && fail "deploy jar should not exist"
+  bazel run //$pkg/java/main:main -- --singlejar && fail "deploy jar should not exist"
 
   true  # reset the last exit code so the test won't be considered failed
 }
 
-function test_compiles_hello_library_remote_java_tools() {
-  test_compiles_hello_library \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_compiles_hello_library_using_ijars() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
 
   bazel clean
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} --use_ijars //$pkg/java/main:main || fail "build failed"
+  bazel build --use_ijars //$pkg/java/main:main || fail "build failed"
   ${PRODUCT_NAME}-bin/$pkg/java/main/main \
       | grep -q "Hello, Library!;Hello, World!" || fail "comparison failed"
 }
 
-function test_compiles_hello_library_using_ijars_remote_java_tools() {
-  test_compiles_hello_library_using_ijars \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_compiles_hello_library_from_deploy_jar() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/main:main_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/main:main_deploy.jar || fail "build failed"
   ${PRODUCT_NAME}-bin/$pkg/java/main/main --singlejar \
       | grep -q "Hello, Library!;Hello, World!" || fail "comparison failed"
 
@@ -416,40 +424,26 @@ function test_compiles_hello_library_from_deploy_jar() {
       | grep -q "k2: v2" || fail "missing manifest lines"
 }
 
-function test_compiles_hello_library_from_deploy_jar_remote_java_tools() {
-  test_compiles_hello_library_from_deploy_jar \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_building_deploy_jar_twice_does_not_rebuild() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/main:main_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/main:main_deploy.jar || fail "build failed"
   touch -r ${PRODUCT_NAME}-bin/$pkg/java/main/main_deploy.jar old
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/main:main_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/main:main_deploy.jar || fail "build failed"
   find ${PRODUCT_NAME}-bin/$pkg/java/main/main_deploy.jar -newer old \
     | grep -q . && fail "file was rebuilt"
 
   true  # reset the last exit code so the test won't be considered failed
 }
 
-function test_building_deploy_jar_twice_does_not_rebuild_remote_java_tools() {
-  test_building_deploy_jar_twice_does_not_rebuild \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_does_not_create_executable_when_not_asked_for() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_sailor_files "$pkg"
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hellosailor:hellosailor_deploy.jar \
+  bazel build //$pkg/java/hellosailor:hellosailor_deploy.jar \
       || fail "build failed"
 
   if [[ ! -e ${PRODUCT_NAME}-bin/$pkg/java/hellosailor/hellosailor.jar ]]; then
@@ -463,17 +457,11 @@ function test_does_not_create_executable_when_not_asked_for() {
   if [[ ! -e ${PRODUCT_NAME}-bin/$pkg/java/hellosailor/hellosailor_deploy.jar ]]; then
     fail "output deploy jar does not exist";
   fi
-}
 
-function test_does_not_create_executable_when_not_asked_for_remote_java_tools() {
-  test_does_not_create_executable_when_not_asked_for \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
 }
 
 # Assert that the a deploy jar can be a dependency of another java_binary.
 function test_building_deploy_jar_dependent_on_deploy_jar() {
- declare -a bazel_opts=("${@:+$@}")
  local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/deploy || fail "mkdir"
   cat > $pkg/java/deploy/BUILD <<EOF
@@ -499,19 +487,12 @@ EOF
   echo "exports_files(['Test.txt'])" >$pkg/hello/BUILD
   echo "Some other File" >$pkg/hello/Test.txt
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/deploy:Hello_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/deploy:Hello_deploy.jar || fail "build failed"
   unzip -p ${PRODUCT_NAME}-bin/$pkg/java/deploy/Hello_deploy.jar \
       $pkg/hello/Test.txt | grep -q "Some other File" || fail "missing resource"
 }
 
-function test_building_deploy_jar_dependent_on_deploy_jar_remote_java_tools() {
-  test_building_deploy_jar_dependent_on_deploy_jar \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_wrapper_script_arg_handling() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/hello/ || fail "Expected success"
   cat > $pkg/java/hello/Test.java <<EOF
@@ -531,19 +512,12 @@ EOF
 java_binary(name='hello', srcs=['Test.java'], main_class='hello.Test')
 EOF
 
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello -- '' foo '' '' 'bar quux' '' \
+  bazel run //$pkg/java/hello:hello -- '' foo '' '' 'bar quux' '' \
       >&$TEST_log || fail "Build failed"
   expect_log "Args: '' 'foo' '' '' 'bar quux' ''"
 }
 
-function test_wrapper_script_arg_handling_remote_java_tools() {
-  test_wrapper_script_arg_handling \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_srcjar_compilation() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/hello/ || fail "Expected success"
   cat > $pkg/java/hello/Test.java <<EOF
@@ -561,16 +535,10 @@ EOF
   cat > $pkg/java/hello/BUILD <<EOF
 java_binary(name='hello', srcs=['test.srcjar'], main_class='hello.Test')
 EOF
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
+  bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
       >&$TEST_log || fail "Expected success"
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello -- --singlejar >&$TEST_log
+  bazel run //$pkg/java/hello:hello -- --singlejar >&$TEST_log
   expect_log "Hello World!"
-}
-
-function test_srcjar_compilation_remote_java_tools() {
-  test_srcjar_compilation \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
 }
 
 function test_private_initializers() {
@@ -619,7 +587,6 @@ EOF
 }
 
 function test_java_plugin() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/test/processor || fail "mkdir"
 
@@ -704,24 +671,17 @@ import test.processor.TestAnnotation;
 class ProcessorClient { }
 EOF
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/test/client:client --use_ijars || fail "build failed"
+  bazel build //$pkg/java/test/client:client --use_ijars || fail "build failed"
   unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient.jar > $TEST_log
   expect_log " test/Generated.class" "missing class file from annotation processing"
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/test/client:libclient-src.jar --use_ijars \
+  bazel build //$pkg/java/test/client:libclient-src.jar --use_ijars \
     || fail "build failed"
   unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient-src.jar > $TEST_log
   expect_log " test/Generated.java" "missing source file from annotation processing"
 }
 
-function test_java_plugin_remote_java_tools() {
-  test_java_plugin \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_jvm_flags_are_passed_verbatim() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/com/google/jvmflags || fail "mkdir"
   cat >$pkg/java/com/google/jvmflags/BUILD <<EOF
@@ -748,7 +708,7 @@ package com.google.jvmflags;
 public class Foo { public static void main(String[] args) {} }
 EOF
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/com/google/jvmflags:foo || fail "build failed"
+  bazel build //$pkg/java/com/google/jvmflags:foo || fail "build failed"
 
   STUBSCRIPT=${PRODUCT_NAME}-bin/$pkg/java/com/google/jvmflags/foo
   [ -e $STUBSCRIPT ] || fail "$STUBSCRIPT not found"
@@ -766,14 +726,7 @@ EOF
   done
 }
 
-function test_jvm_flags_are_passed_verbatim_remote_java_tools() {
-  test_jvm_flags_are_passed_verbatim \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_classpath_fiddling() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
@@ -812,8 +765,8 @@ public class Classpath {
 EOF
 
   bazel clean
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/classpath || fail "build failed"
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/classpath -- \
+  bazel build //$pkg/java/classpath || fail "build failed"
+  bazel run //$pkg/java/classpath -- \
     "^$pkg/java/(classpath|hello_library)/.*\.jar\$" || fail "bazel run"
 
   local PROG="${PRODUCT_NAME}-bin/$pkg/java/classpath/classpath"
@@ -832,7 +785,7 @@ EOF
   check_classpath_invocations
 
   # Test --singlejar and --wrapper_script_flag
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/classpath:classpath_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/classpath:classpath_deploy.jar || fail "build failed"
   for prog in "$PROG" "./$PROG" "$PWD/$PROG"; do
     "$prog" --singlejar '.*_deploy.jar$' "SINGLEJAR" \
       || fail "$prog --singlejar"
@@ -841,14 +794,7 @@ EOF
   done
 }
 
-function test_classpath_fiddling_remote_java_tools() {
-  test_classpath_fiddling \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_java7() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/foo/ || fail "Expected success"
   cat > $pkg/java/foo/Foo.java <<EOF
@@ -869,22 +815,15 @@ java_binary(name = 'foo',
     main_class = 'foo.Foo')
 EOF
 
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/foo:foo | grep -q "Success!" || fail "Expected success"
-}
-
-function test_java7_remote_java_tools() {
-  test_java7 \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
+  bazel run //$pkg/java/foo:foo | grep -q "Success!" || fail "Expected success"
 }
 
 function test_header_compilation() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
 
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} -s --java_header_compilation=true \
+  bazel build -s --java_header_compilation=true \
       //$pkg/java/main:main || fail "build failed"
   unzip -l ${PRODUCT_NAME}-bin/$pkg/java/hello_library/libhello_library-hjar.jar \
     > $TEST_log
@@ -892,14 +831,7 @@ function test_header_compilation() {
     "missing class file from header compilation"
 }
 
-function test_header_compilation_remote_java_tools() {
-  test_header_compilation \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_header_compilation_errors() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/test/ || fail "Expected success"
   cat > $pkg/java/test/A.java <<EOF
@@ -923,19 +855,12 @@ java_library(
     srcs=['B.java'],
 )
 EOF
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} --java_header_compilation=true \
+  bazel build --java_header_compilation=true \
     //$pkg/java/test:liba.jar >& "$TEST_log" && fail "Unexpected success"
   expect_log "symbol not found missing.NoSuch"
 }
 
-function test_header_compilation_errors_remote_java_tools() {
-  test_header_compilation_errors \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 function test_java_import_with_empty_jars_attribute() {
-  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/hello/ || fail "Expected success"
   cat > $pkg/java/hello/Hello.java <<EOF
@@ -958,18 +883,10 @@ java_binary(
     main_class = 'hello.Hello'
 )
 EOF
-
-  bazel build ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar >& "$TEST_log" \
+  bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar >& "$TEST_log" \
       || fail "Expected success"
-  bazel run ${bazel_opts[@]+"${bazel_opts[@]}"} //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
+  bazel run //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
   expect_log "Hello World!"
 }
-
-function test_java_import_with_empty_jars_attribute_remote_java_tools() {
-  test_java_import_with_empty_jars_attribute \
-  --incompatible_use_remote_host_java_toolchain \
-  --incompatible_use_remote_java_toolchain
-}
-
 
 run_suite "Java integration tests"

@@ -58,18 +58,12 @@ public final class TestActionBuilder {
   private static final String LCOV_MERGER = "LCOV_MERGER";
   // The coverage tool Bazel uses to generate a code coverage report for C++.
   private static final String BAZEL_CC_COVERAGE_TOOL = "BAZEL_CC_COVERAGE_TOOL";
+  private static final String GCOV_TOOL = "GCOV";
   // A file that contains a mapping between the reported source file path and the actual source
   // file path, relative to the workspace directory, if the two values are different. If the
   // reported source file is the same as the actual source path it will not be included in the file.
   private static final String COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE =
       "COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE";
-
-  enum CcCoverageTool {
-    GCOV,
-    LCOV,
-  }
-
-  private static final CcCoverageTool DEFAULT_BAZEL_CC_COVERAGE_TOOL = CcCoverageTool.LCOV;
 
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
@@ -272,11 +266,7 @@ public final class TestActionBuilder {
       }
 
       // lcov is the default CC coverage tool unless otherwise specified on the command line.
-      extraTestEnv.put(
-          BAZEL_CC_COVERAGE_TOOL,
-          ruleContext.getConfiguration().useGcovCoverage()
-              ? CcCoverageTool.GCOV.toString()
-              : DEFAULT_BAZEL_CC_COVERAGE_TOOL.toString());
+      extraTestEnv.put(BAZEL_CC_COVERAGE_TOOL, GCOV_TOOL);
 
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {

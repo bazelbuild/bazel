@@ -90,7 +90,7 @@ EOF
 
 test_git_return_value() {
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   export GIT_CONFIG_NOSYSTEM=YES
 
@@ -119,7 +119,7 @@ new_git_repository(
 EOF
 
 
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
 
   cd ..
@@ -168,7 +168,7 @@ EOF
 
 test_git_follow_branch() {
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   export GIT_CONFIG_NOSYSTEM=YES
 
@@ -201,7 +201,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel build :out
   grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
        && fail "Unexpected content in out.txt" || :
@@ -217,7 +217,7 @@ EOF
 
   # First verify that `bazel sync` sees the new commit (we don't record it).
   cd branchcheckout
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir
   bazel build :out
   grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
        || fail "sync did not update the external repository"
@@ -260,7 +260,7 @@ EOF
 
 test_sync_follows_git_branch() {
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   export GIT_CONFIG_NOSYSTEM=YES
 
@@ -310,7 +310,7 @@ EOF
    git commit --author="A U Thor <author@example.com>" -m 'stable commit')
 
   # Verify that sync followed by build gets the correct version
-  (cd followbranch && bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir && bazel build :out \
+  (cd followbranch && bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir && bazel build :out \
        && cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}")
   expect_log 'CHANGED'
   expect_not_log 'Hello Stable World'
@@ -318,7 +318,7 @@ EOF
 
 test_http_return_value() {
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   mkdir -p a
   touch a/WORKSPACE
@@ -343,7 +343,7 @@ EOF
   touch main/BUILD
 
   cd main
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
       --experimental_repository_resolved_file=../repo.bzl
 
   grep ${expected_sha256} ../repo.bzl || fail "didn't return commit"
@@ -351,7 +351,7 @@ EOF
 
 test_sync_calls_all() {
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   mkdir sync_calls_all && cd sync_calls_all
   rm -rf fetchrepo
@@ -384,7 +384,7 @@ trivial_rule(name = "d", comment = other)
 EOF
 
   bazel clean --expunge
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
 
   cd ..
@@ -408,7 +408,7 @@ EOF
 
 test_sync_call_invalidates() {
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   mkdir sync_call_invalidates && cd sync_call_invalidates
   rm -rf fetchrepo
@@ -440,7 +440,7 @@ EOF
 
   bazel build @a//... @b//...
   echo; echo sync run; echo
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
 
   cd ..
@@ -464,7 +464,7 @@ EOF
 
 test_sync_load_errors_reported() {
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   rm -rf fetchrepo
   mkdir fetchrepo
@@ -474,7 +474,7 @@ load("//does/not:exist.bzl", "randomfunction")
 
 radomfunction(name="foo")
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log '//does/not:exist.bzl'
 }
 
@@ -482,7 +482,7 @@ test_sync_reporting() {
   # Verify that debug and error messages in starlark functions are reported.
   # Also verify that the fact that the repository is fetched is reported as well.
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   rm -rf fetchrepo
   mkdir fetchrepo
@@ -503,7 +503,7 @@ load("//:rule.bzl", "broken_rule")
 
 broken_rule(name = "broken")
 EOF
-  bazel sync --curses=yes --experimental_ui_actions_shown=100 --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  bazel sync --curses=yes --experimental_ui_actions_shown=100 --distdir=${EXTREPODIR}/test_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "expected failure" || :
   expect_log 'Fetching @broken'
   expect_log "DEBUG-message"
   expect_log "Failure-message"
@@ -511,7 +511,7 @@ EOF
 
 test_indirect_call() {
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   rm -rf fetchrepo
   mkdir fetchrepo
@@ -536,7 +536,7 @@ load("//:indirect.bzl", "call")
 
 call(trivial_rule, name="foo")
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
 
   cd ..
@@ -564,7 +564,7 @@ test_resolved_file_reading() {
   # file works as expected.
   EXTREPODIR=`pwd`
   export GIT_CONFIG_NOSYSTEM=YES
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   mkdir extgit
   (cd extgit && git init \
@@ -595,7 +595,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
   echo; cat resolved.bzl; echo
 
   bazel clean --expunge
@@ -612,7 +612,7 @@ test_label_resolved_value() {
   # Verify that label arguments in a repository rule end up in the resolved
   # file in a parsable form.
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
   mkdir ext
   echo Hello World > ext/file.txt
   zip ext.zip ext/*
@@ -638,7 +638,7 @@ genrule(
 )
 EOF
 
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
   rm WORKSPACE; touch WORKSPACE
   echo; cat resolved.bzl; echo
 
@@ -652,7 +652,7 @@ test_resolved_file_not_remembered() {
   # Verify that the --experimental_resolved_file_instead_of_workspace option
   # does not leak into a subsequent sync
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   export GIT_CONFIG_NOSYSTEM=YES
 
@@ -687,7 +687,7 @@ genrule(
 )
 EOF
   (cd followbranch \
-    && bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl)
+    && bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl)
   # New upstream commits on the branch followed
   echo CHANGED > gitdir/hello.txt
   (cd gitdir
@@ -700,7 +700,7 @@ EOF
   cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}"
   expect_log 'Hello Stable World'
   expect_not_log 'CHANGED'
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
   bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl :out
   cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}"
   expect_log 'CHANGED'
@@ -741,13 +741,13 @@ test_hash_included_and_reproducible() {
   # - change of the working directory, and
   # - and current time.
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   rm -rf fetchrepoA
   mkdir fetchrepoA
   cd fetchrepoA
   create_sample_repository
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
 
   cd ..
@@ -777,7 +777,7 @@ EOF
   mkdir fetchrepoB
   cd fetchrepoB
   create_sample_repository
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
   bazel shutdown
 
   cd ..
@@ -790,7 +790,7 @@ EOF
 
 test_non_reproducibility_detected() {
     EXTREPODIR=`pwd`
-    tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+    tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
     # Verify that a non-reproducible rule is detected by hash verification
     mkdir repo
     cd repo
@@ -810,8 +810,8 @@ load("//:rule.bzl", "time_rule")
 time_rule(name="timestamprepo")
 EOF
 
-    bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
-    bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_hash_file=`pwd`/resolved.bzl \
+    bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
+    bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_hash_file=`pwd`/resolved.bzl \
           --experimental_verify_repository_rules='//:rule.bzl%time_rule' \
           > "${TEST_log}" 2>&1 && fail "expected failure" || :
     expect_log "timestamprepo.*hash"
@@ -821,7 +821,7 @@ test_chain_resolved() {
   # Verify that a cahin of dependencies in external repositories is reflected
   # in the resolved file in such a way, that the resolved file can be used.
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   mkdir rulerepo
   cat > rulerepo/rule.bzl <<'EOF'
@@ -856,7 +856,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=resolved.bzl
   bazel clean --expunge
   echo; cat resolved.bzl; echo
@@ -870,7 +870,7 @@ test_usage_order_respected() {
    # statement between), then still the resolved file is such that it can
    # be used as a workspace replacement.
    EXTREPODIR=`pwd`
-   tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+   tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
    mkdir datarepo
    echo 'Pure data' > datarepo/data.txt
@@ -907,7 +907,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
      --experimental_repository_resolved_file=resolved.bzl
   bazel clean --expunge
   echo; cat resolved.bzl; echo
@@ -921,7 +921,7 @@ test_order_reproducible() {
   # Verify that the order of repositories in the resolved file is reproducible
   # and does not depend on the parameters or timing of the actual rules.
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   mkdir main
   cd main
@@ -954,7 +954,7 @@ sleep_rule(name="a", sleep=1)
 sleep_rule(name="c", sleep=3)
 sleep_rule(name="b", sleep=5)
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=repo.bzl
   bazel build //:order
   cp `bazel info bazel-genfiles`/order.txt order-first.txt
@@ -967,7 +967,7 @@ sleep_rule(name="a", sleep=5)
 sleep_rule(name="c", sleep=3)
 sleep_rule(name="b", sleep=1)
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=repo.bzl
   bazel build //:order
   cp `bazel info bazel-genfiles`/order.txt order-second.txt
@@ -982,7 +982,7 @@ test_non_starlarkrepo() {
   # Verify that entries in the WORKSPACE that are not starlark repositoires
   # are correctly reported in the resolved file.
   EXTREPODIR=`pwd`
-  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
 
   mkdir local
   touch local/WORKSPACE
@@ -1015,7 +1015,7 @@ EOF
 
   bazel build //:it || fail "Expected success"
 
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
         --experimental_repository_resolved_file=resolved.bzl
   echo > WORKSPACE # remove workspace, only work from the resolved file
   bazel clean --expunge
@@ -1067,6 +1067,76 @@ EOF
 
   bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
         //:it || fail "Expected success"
+}
+
+test_definition_location_recorded() {
+  # Verify that for Starlark repositories the location of the definition
+  # is recorded in the resolved file.
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  mkdir ext
+  touch ext/BUILD
+
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir main
+  cd main
+  touch BUILD
+  mkdir -p first/path
+  cat > first/path/foo.bzl <<'EOF'
+load("//:another/directory/bar.bzl", "bar")
+
+def foo():
+  bar()
+EOF
+  mkdir -p another/directory
+  cat > another/directory/bar.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def bar():
+  http_archive(
+    name = "ext",
+    url = "file://${EXTREPODIR}/ext.tar",
+  )
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:first/path/foo.bzl", "foo")
+
+foo()
+EOF
+
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=resolved.bzl
+
+  echo; cat resolved.bzl; echo
+
+  cat > BUILD <<'EOF'
+load("//:finddef.bzl", "finddef")
+
+genrule(
+  name = "ext_def",
+  outs = ["ext_def.txt"],
+  cmd = "echo '%s' > $@" % (finddef("ext"),),
+)
+EOF
+  cat > finddef.bzl <<'EOF'
+load("//:resolved.bzl", "resolved")
+
+def finddef(name):
+  for repo in resolved:
+    if repo["original_attributes"]["name"] == name:
+      return repo["definition_information"]
+EOF
+
+  bazel build //:ext_def
+
+  cat `bazel info bazel-genfiles`/ext_def.txt > "${TEST_log}"
+
+  expect_log "WORKSPACE:3"
+  expect_log "first/path/foo.bzl:4"
+  expect_log "another/directory/bar.bzl:4"
 }
 
 run_suite "workspace_resolved_test tests"

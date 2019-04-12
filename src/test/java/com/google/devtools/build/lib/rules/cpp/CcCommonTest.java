@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -379,55 +380,6 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(baseNamesOf(getFilesToBuild(alwaysLink))).contains("libalways_link.lo");
   }
 
-  /**
-   * Tests that nocopts= "-fPIC" takes '-fPIC' out of a compile invocation even if the crosstool
-   * requires fPIC compilation (i.e. nocopts overrides crosstool settings on a rule-specific
-   * basis).
-   */
-  @Test
-  public void testNoCoptfPicOverride() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
-    // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
-    useConfiguration("--fat_apk_cpu=k8");
-
-    scratch.file(
-        "a/BUILD",
-        "cc_binary(name = 'pic',",
-        "           srcs = [ 'binary.cc' ])",
-        "cc_binary(name = 'libpic.so',",
-        "           srcs = [ 'binary.cc' ])",
-        "cc_library(name = 'piclib',",
-        "           srcs = [ 'library.cc' ])",
-        "cc_binary(name = 'nopic',",
-        "           srcs = [ 'binary.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')",
-        "cc_binary(name = 'libnopic.so',",
-        "           srcs = [ 'binary.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')",
-        "cc_library(name = 'nopiclib',",
-        "           srcs = [ 'library.cc' ],",
-        "           features = ['coptnopic'],",
-        "           nocopts = '-fPIC')");
-
-    assertThat(getCppCompileAction("//a:pic").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:libpic.so").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:piclib").getArguments()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:piclib").getOutputFile().getFilename())
-        .contains("library.pic.o");
-    assertThat(getCppCompileAction("//a:nopic").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:libnopic.so").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:nopiclib").getArguments()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:nopiclib").getOutputFile().getFilename())
-        .contains("library.o");
-  }
-
   @Test
   public void testPicModeAssembly() throws Exception {
     AnalysisMock.get()
@@ -496,7 +448,7 @@ public class CcCommonTest extends BuildViewTestCase {
   @Test
   public void testUseIsystemForIncludes() throws Exception {
     // Tests the effect of --use_isystem_for_includes.
-
+    useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file(
         "no_includes/BUILD",
         "cc_library(name = 'no_includes',",
@@ -850,9 +802,14 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
-    assertThat(action.getLinkCommandLine().getLinkopts()).containsExactly(
-        String.format("-Wl,@%s/a/a.lds", getTargetConfiguration().getGenfilesDirectory(
-            RepositoryName.MAIN).getExecPath().getPathString()));
+    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
+        .containsExactly(
+            String.format(
+                "-Wl,@%s/a/a.lds",
+                getTargetConfiguration()
+                    .getGenfilesDirectory(RepositoryName.MAIN)
+                    .getExecPath()
+                    .getPathString()));
   }
 
   @Test

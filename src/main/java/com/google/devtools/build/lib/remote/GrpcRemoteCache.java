@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 
 import build.bazel.remote.execution.v2.Action;
@@ -34,6 +35,7 @@ import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +54,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -153,14 +156,24 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     channel.release();
   }
 
+  /** Returns true if 'options.remoteCache' uses 'grpc' or an empty scheme */
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return options.remoteCache != null;
+    if (isNullOrEmpty(options.remoteCache)) {
+      return false;
+    }
+    // TODO(ishikhman): add proper URI validation/parsing for remote options
+    return !(Ascii.toLowerCase(options.remoteCache).startsWith("http://")
+        || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
   }
 
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
       FindMissingBlobsRequest request) throws IOException, InterruptedException {
     Context ctx = Context.current();
-    return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
+    try {
+      return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
+    } catch (StatusRuntimeException e) {
+      throw new IOException(e);
+    }
   }
 
   private ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
@@ -274,6 +287,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
           @Override
           public void onFailure(Throwable t) {
+            if (t instanceof StatusRuntimeException) {
+              t = new IOException(t);
+            }
             outerF.setException(t);
           }
         },
@@ -289,10 +305,17 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     Context ctx = Context.current();
     AtomicLong offset = new AtomicLong(0);
     ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
-    return retrier.executeAsync(
-        () -> ctx.call(
-            () -> requestRead(resourceName, offset, progressiveBackoff, digest, out, hashSupplier)),
-        progressiveBackoff);
+    return Futures.catchingAsync(
+        retrier.executeAsync(
+            () ->
+                ctx.call(
+                    () ->
+                        requestRead(
+                            resourceName, offset, progressiveBackoff, digest, out, hashSupplier)),
+            progressiveBackoff),
+        StatusRuntimeException.class,
+        (e) -> Futures.immediateFailedFuture(new IOException(e)),
+        MoreExecutors.directExecutor());
   }
 
   private ListenableFuture<Void> requestRead(

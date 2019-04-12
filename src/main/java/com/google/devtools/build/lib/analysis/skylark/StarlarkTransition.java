@@ -14,7 +14,10 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.skylark.FunctionTransitionUtil.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -29,6 +32,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
@@ -52,6 +56,10 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   public boolean hasErrors() {
     return starlarkDefinedConfigTransition.getEventHandler().hasErrors();
+  }
+
+  private List<String> getInputs() {
+    return starlarkDefinedConfigTransition.getInputs();
   }
 
   private List<String> getOutputs() {
@@ -78,22 +86,39 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * For a given transition, find all Starlark-defined build settings that were set by that
-   * transition. Then return all package keys for those flags.
+   * For a given transition, find all relevant Starlark-defined build settings. Then return all
+   * package keys for those flags.
    *
    * <p>Currently this method does not handle the possibility of aliased build settings. We may not
    * actually load the package that actually contains the build setting but we won't know until we
    * fetch the actual target.
+   *
+   * @param root transition to inspect
+   * @param inputsOrOutputs whether to return inputs or outputs
    */
   // TODO(juliexxia): handle the possibility of aliased build settings.
-  public static ImmutableSet<SkyKey> getBuildSettingPackageKeys(ConfigurationTransition root) {
+  public static ImmutableSet<SkyKey> getBuildSettingPackageKeys(
+      ConfigurationTransition root, String inputsOrOutputs) {
     ImmutableSet.Builder<SkyKey> keyBuilder = new ImmutableSet.Builder<>();
-    for (ConfigurationTransition transition : ComposingTransition.decomposeTransition(root)) {
-      if (transition instanceof StarlarkTransition) {
-        for (Label setting : getChangedStarlarkSettings((StarlarkTransition) transition)) {
-          keyBuilder.add(PackageValue.key(setting.getPackageIdentifier()));
-        }
-      }
+    try {
+      root.visit(
+          (StarlarkTransitionVisitor)
+              transition -> {
+                keyBuilder.addAll(
+                    getBuildSettingPackageKeys(
+                        getRelevantStarlarkSettingsFromTransition(transition, inputsOrOutputs)));
+              });
+    } catch (TransitionException e) {
+      // Not actually thrown in the visitor, but declared.
+    }
+    return keyBuilder.build();
+  }
+
+  private static ImmutableSet<SkyKey> getBuildSettingPackageKeys(
+      ImmutableSet<Label> buildSettings) {
+    ImmutableSet.Builder<SkyKey> keyBuilder = new ImmutableSet.Builder<>();
+    for (Label setting : buildSettings) {
+      keyBuilder.add(PackageValue.key(setting.getPackageIdentifier()));
     }
     return keyBuilder.build();
   }
@@ -124,47 +149,27 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   public static void validate(
       ConfigurationTransition root,
       Map<SkyKey, SkyValue> buildSettingPackages,
-      List<BuildOptions> toOptions,
-      ExtendedEventHandler eventHandler)
+      List<BuildOptions> toOptions)
       throws TransitionException {
-    replayEvents(eventHandler, root);
-
-    List<ConfigurationTransition> transitions = ComposingTransition.decomposeTransition(root);
     // collect settings changed during this transition and their types
     Map<Label, Type<?>> changedSettingToType = Maps.newHashMap();
-    for (ConfigurationTransition transition : transitions) {
-      if (!(transition instanceof StarlarkTransition)) {
-        continue;
-      }
-      StarlarkTransition starlarkTransition = (StarlarkTransition) transition;
-      List<Label> changedSettings = getChangedStarlarkSettings(starlarkTransition);
-      for (Label setting : changedSettings) {
-        Package buildSettingPackage =
-            ((PackageValue)
-                    buildSettingPackages.get(PackageValue.key(setting.getPackageIdentifier())))
-                .getPackage();
-        Target buildSettingTarget;
-        try {
-          buildSettingTarget = buildSettingPackage.getTarget(setting.getName());
-        } catch (NoSuchTargetException e) {
-          throw new TransitionException(e);
-        }
-        if (buildSettingTarget.getAssociatedRule() == null
-            || buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting()
-                == null) {
-          throw new TransitionException(
-              String.format(
-                  "attempting to transition on '%s' which is not a build setting", setting));
-        }
-        changedSettingToType.put(
-            setting,
-            buildSettingTarget
-                .getAssociatedRule()
-                .getRuleClassObject()
-                .getBuildSetting()
-                .getType());
-      }
-    }
+    root.visit(
+        (StarlarkTransitionVisitor)
+            transition -> {
+              ImmutableSet<Label> changedSettings =
+                  getRelevantStarlarkSettingsFromTransition(transition, "outputs");
+              for (Label setting : changedSettings) {
+                Target buildSettingTarget =
+                    getAndCheckBuildSettingTarget(buildSettingPackages, setting);
+                changedSettingToType.put(
+                    setting,
+                    buildSettingTarget
+                        .getAssociatedRule()
+                        .getRuleClassObject()
+                        .getBuildSetting()
+                        .getType());
+              }
+            });
 
     // verify changed settings were changed to something reasonable for their type
     for (BuildOptions options : toOptions) {
@@ -180,31 +185,98 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     }
   }
 
-  private static List<Label> getChangedStarlarkSettings(StarlarkTransition transition) {
-    return transition.getOutputs().stream()
-        .filter(setting -> !setting.startsWith(COMMAND_LINE_OPTION_PREFIX))
-        .map(Label::parseAbsoluteUnchecked)
-        .collect(Collectors.toList());
+  /**
+   * For a given transition, find all Starlark build settings that are read while applying it, then
+   * return a map of their label to their default values.
+   */
+  public static ImmutableMap<Label, Object> getDefaultInputValues(
+      Environment env, ConfigurationTransition root)
+      throws TransitionException, InterruptedException {
+    ImmutableSet<SkyKey> buildSettingInputPackageKeys = getBuildSettingPackageKeys(root, "inputs");
+    Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingInputPackageKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    return getDefaultInputValues(buildSettingPackages, root);
+  }
+
+  /**
+   * For a given transition, find all Starlark build settings that are read while applying it, then
+   * return a map of their label to their default values.
+   */
+  public static ImmutableMap<Label, Object> getDefaultInputValues(
+      Map<SkyKey, SkyValue> buildSettingPackages, ConfigurationTransition root)
+      throws TransitionException {
+    ImmutableMap.Builder<Label, Object> defaultValues = new ImmutableMap.Builder<>();
+    root.visit(
+        (StarlarkTransitionVisitor)
+            transition -> {
+              ImmutableSet<Label> settings =
+                  getRelevantStarlarkSettingsFromTransition(transition, "inputs");
+              for (Label setting : settings) {
+                Target buildSettingTarget =
+                    getAndCheckBuildSettingTarget(buildSettingPackages, setting);
+                defaultValues.put(
+                    setting,
+                    buildSettingTarget
+                        .getAssociatedRule()
+                        .getAttributeContainer()
+                        .getAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
+              }
+            });
+    return defaultValues.build();
+  }
+
+  private static Target getAndCheckBuildSettingTarget(
+      Map<SkyKey, SkyValue> buildSettingPackages, Label setting) throws TransitionException {
+    Package buildSettingPackage =
+        ((PackageValue) buildSettingPackages.get(PackageValue.key(setting.getPackageIdentifier())))
+            .getPackage();
+    Preconditions.checkNotNull(
+        buildSettingPackage, "Reading build setting for which we don't have a package");
+    Target buildSettingTarget;
+    try {
+      buildSettingTarget = buildSettingPackage.getTarget(setting.getName());
+    } catch (NoSuchTargetException e) {
+      throw new TransitionException(e);
+    }
+    if (buildSettingTarget.getAssociatedRule() == null
+        || buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting() == null) {
+      throw new TransitionException(
+          String.format("attempting to transition on '%s' which is not a build setting", setting));
+    }
+    return buildSettingTarget;
+  }
+
+  // TODO(juliexxia): use an enum for "inputs"/"outputs" here and elsewhere in starlark transitions.
+  private static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
+      StarlarkTransition transition, String inputOrOutput) {
+    List<String> toGet =
+        inputOrOutput.equals("inputs") ? transition.getInputs() : transition.getOutputs();
+    return ImmutableSet.copyOf(
+        toGet.stream()
+            .filter(setting -> !setting.startsWith(COMMAND_LINE_OPTION_PREFIX))
+            .map(Label::parseAbsoluteUnchecked)
+            .collect(Collectors.toSet()));
   }
 
   /**
    * For a given transition, for any Starlark-defined transitions that compose it, replay events. If
    * any events were errors, throw an error.
    */
-  private static void replayEvents(ExtendedEventHandler eventHandler, ConfigurationTransition root)
+  public static void replayEvents(ExtendedEventHandler eventHandler, ConfigurationTransition root)
       throws TransitionException {
-    List<ConfigurationTransition> transitions = ComposingTransition.decomposeTransition(root);
-    for (ConfigurationTransition transition : transitions) {
-      if (transition instanceof StarlarkTransition) {
-        StarlarkTransition starlarkTransition = (StarlarkTransition) transition;
-        // Replay events and errors and throw if there were errors
-        boolean hasErrors = starlarkTransition.hasErrors();
-        starlarkTransition.replayOn(eventHandler);
-        if (hasErrors) {
-          throw new TransitionException("Errors encountered while applying Starlark transition");
-        }
-      }
-    }
+    root.visit(
+        (StarlarkTransitionVisitor)
+            transition -> {
+              // Replay events and errors and throw if there were errors
+              boolean hasErrors = transition.hasErrors();
+              transition.replayOn(eventHandler);
+              if (hasErrors) {
+                throw new TransitionException(
+                    "Errors encountered while applying Starlark transition");
+              }
+            });
   }
 
   @Override
@@ -223,5 +295,20 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   @Override
   public int hashCode() {
     return Objects.hashCode(starlarkDefinedConfigTransition);
+  }
+
+  @FunctionalInterface
+  // This is only used in this class to handle the cast and the exception
+  @SuppressWarnings("FunctionalInterfaceMethodChanged")
+  private interface StarlarkTransitionVisitor
+      extends ConfigurationTransition.Visitor<TransitionException> {
+    @Override
+    default void accept(ConfigurationTransition transition) throws TransitionException {
+      if (transition instanceof StarlarkTransition) {
+        this.accept((StarlarkTransition) transition);
+      }
+    }
+
+    void accept(StarlarkTransition transition) throws TransitionException;
   }
 }

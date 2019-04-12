@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -43,6 +44,9 @@ public interface ActionConstructionContext {
 
   /** Returns the action owner that should be used for actions. */
   ActionOwner getActionOwner();
+
+  /** Returns the action key context. */
+  ActionKeyContext getActionKeyContext();
 
   /** Returns the {@link BuildConfiguration} for which the given rule is analyzed. */
   BuildConfiguration getConfiguration();

@@ -19,10 +19,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -71,19 +75,23 @@ public final class LtoBackendArtifacts {
   private Artifact dwoFile;
 
   LtoBackendArtifacts(
+      RuleErrorConsumer ruleErrorConsumer,
+      BuildOptions buildOptions,
+      CppConfiguration cppConfiguration,
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
       Map<PathFragment, Artifact> allBitCodeFiles,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
       BuildConfiguration configuration,
-      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       boolean usePic,
       boolean generateDwo,
-      List<String> userCompileFlags) {
+      List<String> userCompileFlags)
+      throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
 
@@ -103,6 +111,9 @@ public final class LtoBackendArtifacts {
             FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
 
     scheduleLtoBackendAction(
+        ruleErrorConsumer,
+        buildOptions,
+        cppConfiguration,
         actionConstructionContext,
         repositoryName,
         featureConfiguration,
@@ -118,18 +129,22 @@ public final class LtoBackendArtifacts {
 
   // Interface to create an LTO backend that does not perform any cross-module optimization.
   public LtoBackendArtifacts(
+      RuleErrorConsumer ruleErrorConsumer,
+      BuildOptions buildOptions,
+      CppConfiguration cppConfiguration,
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
       BuildConfiguration configuration,
-      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       boolean usePic,
       boolean generateDwo,
-      List<String> userCompileFlags) {
+      List<String> userCompileFlags)
+      throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
 
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
@@ -139,6 +154,9 @@ public final class LtoBackendArtifacts {
     index = null;
 
     scheduleLtoBackendAction(
+        ruleErrorConsumer,
+        buildOptions,
+        cppConfiguration,
         actionConstructionContext,
         repositoryName,
         featureConfiguration,
@@ -176,6 +194,9 @@ public final class LtoBackendArtifacts {
   }
 
   private void scheduleLtoBackendAction(
+      RuleErrorConsumer ruleErrorConsumer,
+      BuildOptions buildOptions,
+      CppConfiguration cppConfiguration,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
       FeatureConfiguration featureConfiguration,
@@ -184,9 +205,10 @@ public final class LtoBackendArtifacts {
       boolean usePic,
       boolean generateDwo,
       BuildConfiguration configuration,
-      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      LinkArtifactFactory linkArtifactFactory,
       List<String> userCompileFlags,
-      Map<PathFragment, Artifact> bitcodeFiles) {
+      Map<PathFragment, Artifact> bitcodeFiles)
+      throws RuleErrorException {
     LtoBackendAction.Builder builder = new LtoBackendAction.Builder();
 
     builder.addInput(bitcodeFile);
@@ -213,11 +235,11 @@ public final class LtoBackendArtifacts {
 
     // The command-line doesn't specify the full path to clang++, so we set it in the
     // environment.
-    PathFragment compiler = ccToolchain.getToolPathFragment(Tool.GCC);
+    PathFragment compiler = ccToolchain.getToolPathFragment(Tool.GCC, ruleErrorConsumer);
 
     builder.setExecutable(compiler);
     CcToolchainVariables.Builder buildVariablesBuilder =
-        new CcToolchainVariables.Builder(ccToolchain.getBuildVariables());
+        CcToolchainVariables.builder(ccToolchain.getBuildVariables(buildOptions, cppConfiguration));
     if (index != null) {
       buildVariablesBuilder.addStringVariable("thinlto_index", index.getExecPath().toString());
     } else {
@@ -231,6 +253,12 @@ public final class LtoBackendArtifacts {
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
     addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
+    // Add the context sensitive instrument path to the backend.
+    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
+      buildVariablesBuilder.addStringVariable(
+          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(),
+          ccToolchain.getCSFdoInstrument());
+    }
 
     if (generateDwo) {
       dwoFile =
@@ -247,15 +275,13 @@ public final class LtoBackendArtifacts {
           CompileBuildVariables.IS_USING_FISSION.getVariableName(), "");
     }
     buildVariablesBuilder.addStringSequenceVariable(
-        CompileBuildVariables.LEGACY_COMPILE_FLAGS.getVariableName(),
-        ccToolchain.getLegacyCompileOptions());
-    buildVariablesBuilder.addStringSequenceVariable(
         CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
     List<String> execArgs = new ArrayList<>();
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
     execArgs.addAll(
-        featureConfiguration.getCommandLine(CppActionNames.LTO_BACKEND, buildVariables));
+        CppHelper.getCommandLine(
+            ruleErrorConsumer, featureConfiguration, buildVariables, CppActionNames.LTO_BACKEND));
     // If this is a PIC compile (set based on the CppConfiguration), the PIC
     // option should be added after the rest of the command line so that it
     // cannot be overridden. This is consistent with the ordering in the
@@ -283,6 +309,7 @@ public final class LtoBackendArtifacts {
       builder.addInput(fdoContext.getPrefetchHintsArtifact());
     }
     if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+        && !featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_OPTIMIZE)
         && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
       return;
     }

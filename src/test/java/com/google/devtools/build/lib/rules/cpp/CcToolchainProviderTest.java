@@ -18,8 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -174,127 +172,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testDisablingCompilationModeFlags() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "compilation_mode_flags { mode: OPT compiler_flag: '-foo_from_compilation_mode' }",
-            "compilation_mode_flags { mode: OPT cxx_flag: '-bar_from_compilation_mode' }",
-            "compilation_mode_flags { mode: OPT linker_flag: '-baz_from_compilation_mode' }");
-    scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
-
-    useConfiguration(
-        "-c",
-        "opt",
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    CcToolchainProvider ccToolchainProvider = getCcToolchainProvider();
-    assertThat(ccToolchainProvider.getLegacyCompileOptionsWithCopts())
-        .contains("-foo_from_compilation_mode");
-    assertThat(ccToolchainProvider.getLegacyCxxOptions()).contains("-bar_from_compilation_mode");
-    assertThat(ccToolchainProvider.getLegacyMostlyStaticLinkFlags(CompilationMode.OPT))
-        .contains("-baz_from_compilation_mode");
-
-    useConfiguration(
-        "-c",
-        "opt",
-        "--incompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    getConfiguredTarget("//a");
-    assertContainsEvent(
-        "compilation_mode_flags is disabled by "
-            + "--incompatible_disable_legacy_crosstool_fields, please migrate your CROSSTOOL");
-  }
-
-  private CcToolchainProvider getCcToolchainProvider() throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//a");
-    RuleContext ruleContext = getRuleContext(target);
-    return CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-  }
-
-  @Test
-  public void testDisablingLinkingModeFlags() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "linking_mode_flags { mode: MOSTLY_STATIC linker_flag: '-foo_from_linking_mode' }");
-    scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
-
-    useConfiguration(
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    CcToolchainProvider ccToolchainProvider = getCcToolchainProvider();
-    assertThat(ccToolchainProvider.getLegacyMostlyStaticLinkFlags(CompilationMode.OPT))
-        .contains("-foo_from_linking_mode");
-
-    useConfiguration(
-        "--incompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    getConfiguredTarget("//a");
-    assertContainsEvent(
-        "linking_mode_flags is disabled by "
-            + "--incompatible_disable_legacy_crosstool_fields, please migrate your CROSSTOOL");
-  }
-
-  @Test
-  public void testDisablingLegacyCrosstoolFields() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "compiler_flag: '-foo_compiler_flag'");
-    scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
-
-    useConfiguration(
-        "--noincompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    CcToolchainProvider ccToolchainProvider = getCcToolchainProvider();
-    assertThat(ccToolchainProvider.getLegacyCompileOptions()).contains("-foo_compiler_flag");
-
-    useConfiguration(
-        "--incompatible_disable_legacy_crosstool_fields",
-        "--noincompatible_disable_crosstool_file");
-    getConfiguredTarget("//a");
-
-    assertContainsEvent(
-        "compiler_flag is disabled by --incompatible_disable_legacy_crosstool_fields, please "
-            + "migrate your CROSSTOOL");
-  }
-
-  @Test
-  public void testDisablingExpandIfAllAvailable() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "feature { ",
-            "  name: 'foo'",
-            "  flag_set { expand_if_all_available: 'bar' }",
-            "}");
-
-    scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
-
-    useConfiguration(
-        "--noincompatible_disable_expand_if_all_available_in_flag_set",
-        "--noincompatible_disable_crosstool_file");
-    getConfiguredTarget("//a");
-    assertNoEvents();
-
-    useConfiguration(
-        "--incompatible_disable_expand_if_all_available_in_flag_set",
-        "--noincompatible_disable_crosstool_file");
-    getConfiguredTarget("//a");
-
-    assertContainsEvent(
-        "defines a flag_set with expand_if_all_available set. This is disabled by "
-            + "--incompatible_disable_expand_if_all_available_in_flag_set");
-  }
-
   /*
    * Crosstools should load fine with or without 'gcov-tool'. Those that define 'gcov-tool'
    * should also add a make variable.
@@ -313,7 +190,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")",
         "cc_toolchain(",
         "    name = 'b',",
-        "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -364,7 +240,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")",
         "cc_toolchain(",
         "    name = 'b',",
-        "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -415,7 +290,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")",
         "cc_toolchain(",
         "    name = 'b',",
-        "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -453,7 +327,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")",
         "cc_toolchain(",
         "    name = 'b',",
-        "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -489,53 +362,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     assertContainsEvent("Tool path for 'strip' is missing");
   }
 
-  /** For a fission-supporting crosstool: check the dwp tool path. */
-  @Test
-  public void testFissionConfigWithMissingDwp() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "filegroup(name='empty') ",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    proto = \"\"\"",
-        "      toolchain_identifier: \"a\"",
-        "      host_system_name: \"a\"",
-        "      target_system_name: \"a\"",
-        "      target_cpu: \"a\"",
-        "      target_libc: \"a\"",
-        "      compiler: \"a\"",
-        "      abi_version: \"a\"",
-        "      abi_libc_version: \"a\"",
-        "      supports_fission: 1",
-        "      tool_path { name: 'gcc' path: 'path-to-gcc-tool' }",
-        "      tool_path { name: 'ar' path: 'ar' }",
-        "      tool_path { name: 'cpp' path: 'cpp' }",
-        "      tool_path { name: 'gcov' path: 'gcov' }",
-        "      tool_path { name: 'ld' path: 'ld' }",
-        "      tool_path { name: 'nm' path: 'nm' }",
-        "      tool_path { name: 'objdump' path: 'objdump' }",
-        "      tool_path { name: 'strip' path: 'strip' }",
-        "\"\"\")");
-    reporter.removeHandler(failFastHandler);
-    analysisMock.ccSupport().setupCrosstool(mockToolsConfig);
-    useConfiguration("--cpu=k8", "--host_cpu=k8", "--noincompatible_disable_crosstool_file");
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("Tool path for 'dwp' is missing");
-  }
-
   @Test
   public void testRuntimeLibsAttributesAreNotObligatory() throws Exception {
     scratch.file(
@@ -548,7 +374,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")",
         "cc_toolchain(",
         "    name = 'b',",
-        "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -584,7 +409,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")",
         "cc_toolchain(",
         "    name = 'b',",
-        "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -606,11 +430,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        "--crosstool_top=//a:a",
-        "--cpu=k8",
-        "--host_cpu=k8",
-        "--experimental_disable_legacy_crosstool_fields");
+    useConfiguration("--crosstool_top=//a:a", "--cpu=k8", "--host_cpu=k8");
     assertThat(getConfiguredTarget("//a:main")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.");
@@ -631,7 +451,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ")",
         "cc_toolchain(",
         "    name = 'b',",
-        "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -655,12 +474,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        "--crosstool_top=//a:a",
-        "--cpu=k8",
-        "--host_cpu=k8",
-        "--dynamic_mode=fully",
-        "--experimental_disable_legacy_crosstool_fields");
+    useConfiguration("--crosstool_top=//a:a", "--cpu=k8", "--host_cpu=k8", "--dynamic_mode=fully");
     assertThat(getConfiguredTarget("//a:test")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.");

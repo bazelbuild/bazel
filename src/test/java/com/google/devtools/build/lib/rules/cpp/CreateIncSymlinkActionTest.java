@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -117,17 +118,17 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     DummyExecutor executor = new DummyExecutor(fileSystem, rootDirectory);
     return new ActionExecutionContext(
         executor,
-        null,
-        null,
-        null,
-        null,
-        null,
-        executor.getEventHandler(),
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        null,
-        null,
-        null);
+        /*actionInputFileCache=*/ null,
+        /*actionInputPrefetcher=*/ null,
+        /*actionKeyContext=*/ null,
+        /*metadataHandler=*/ null,
+        /*fileOutErr=*/ null,
+        new StoredEventHandler(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
+        /*artifactExpander=*/ null,
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   @Test
@@ -143,7 +144,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Path extra = rootDirectory.getRelative("out/extra");
     FileSystemUtils.createEmptyFile(extra);
     assertThat(extra.exists()).isTrue();
-    action.prepare(fileSystem, rootDirectory);
+    action.prepare(rootDirectory);
     assertThat(extra.exists()).isFalse();
   }
 

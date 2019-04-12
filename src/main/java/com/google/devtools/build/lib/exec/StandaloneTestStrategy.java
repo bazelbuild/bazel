@@ -105,7 +105,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             binTools,
             action.getLocalShellEnvironment(),
             action.isEnableRunfiles());
-    Path tmpDir = tmpDirRoot.getChild(TestStrategy.getTmpDirName(action));
+    Path tmpDir =
+        actionExecutionContext
+            .getPathResolver()
+            .convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
     Map<String, String> env = setupEnvironment(
         action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
     if (executionOptions.splitXmlGeneration) {
@@ -255,20 +258,8 @@ public class StandaloneTestStrategy extends TestStrategy {
             testOutErr,
             streamed,
             startTimeMillis,
-            new SpawnContinuation() {
-              @Override
-              public ListenableFuture<?> getFuture() {
-                return null;
-              }
-
-              @Override
-              public SpawnContinuation execute() throws ExecException, InterruptedException {
-                SpawnActionContext spawnActionContext =
-                    actionExecutionContext.getContext(SpawnActionContext.class);
-                return spawnActionContext.beginExecution(
-                    spawn, actionExecutionContext.withFileOutErr(testOutErr));
-              }
-            })
+            SpawnContinuation.ofBeginExecution(
+                spawn, actionExecutionContext.withFileOutErr(testOutErr)))
         .execute();
   }
 

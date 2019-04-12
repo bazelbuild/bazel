@@ -120,6 +120,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     final CcCommon common = new CcCommon(ruleContext);
+    common.reportInvalidOptions(ruleContext);
 
     CcToolchainProvider ccToolchain = common.getToolchain();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
@@ -173,12 +174,19 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingHelper linkingHelper =
         new CcLinkingHelper(
                 ruleContext,
+                ruleContext.getLabel(),
+                ruleContext,
+                ruleContext,
                 semantics,
                 featureConfiguration,
                 ccToolchain,
                 fdoContext,
-                ruleContext.getConfiguration())
-            .fromCommon(common)
+                ruleContext.getConfiguration(),
+                ruleContext.getFragment(CppConfiguration.class),
+                ruleContext.getSymbolGenerator())
+            .fromCommon(ruleContext, common)
+            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
+            .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())
             .addLinkopts(common.getLinkopts())
             .emitInterfaceSharedLibraries(true)
             .setAlwayslink(alwaysLink)
@@ -281,12 +289,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     CompilationInfo compilationInfo = compilationHelper.compile();
     CcCompilationOutputs precompiledFilesObjects =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
     CcCompilationOutputs ccCompilationOutputs =
-        new CcCompilationOutputs.Builder()
+        CcCompilationOutputs.builder()
             .merge(precompiledFilesObjects)
             .merge(compilationInfo.getCcCompilationOutputs())
             .build();
@@ -417,8 +425,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     builder.addDataDeps(ruleContext);
     builder.add(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     if (addDynamicRuntimeInputArtifactsToRunfiles) {
-      builder.addTransitiveArtifacts(
-          ccToolchain.getDynamicRuntimeLinkInputs(ruleContext, featureConfiguration));
+      try {
+        builder.addTransitiveArtifacts(
+            ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+      } catch (EvalException e) {
+        e.printStackTrace();
+      }
     }
     Runfiles runfiles = builder.build();
     Runfiles.Builder defaultRunfiles =
@@ -481,7 +493,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = toolchain.usePicForDynamicLibraries(featureConfiguration);
+    boolean usePic = toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
     for (OutputGroupInfo dep :

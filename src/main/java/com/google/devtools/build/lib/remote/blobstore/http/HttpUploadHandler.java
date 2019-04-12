@@ -29,11 +29,17 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.stream.ChunkedStream;
+import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.internal.StringUtil;
 import java.io.IOException;
 
 /** ChannelHandler for uploads. */
 final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
+
+  /** the path header in the http request */
+  private String path;
+  /** the size of the data being uploaded in bytes */
+  private long contentLength;
 
   public HttpUploadHandler(Credentials credentials) {
     super(credentials);
@@ -81,10 +87,13 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
               "Unsupported message type: " + StringUtil.simpleClassName(msg)));
       return;
     }
-    HttpRequest request = buildRequest((UploadCommand) msg);
-    addCredentialHeaders(request, ((UploadCommand) msg).uri());
+    UploadCommand cmd = (UploadCommand) msg;
+    path = constructPath(cmd.uri(), cmd.hash(), cmd.casUpload());
+    contentLength = cmd.contentLength();
+    HttpRequest request = buildRequest(path, constructHost(cmd.uri()), contentLength);
+    addCredentialHeaders(request, cmd.uri());
     addUserAgentHeader(request);
-    HttpChunkedInput body = buildBody((UploadCommand) msg);
+    HttpChunkedInput body = buildBody(cmd);
     ctx.writeAndFlush(request)
         .addListener(
             (f) -> {
@@ -103,15 +112,21 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
             });
   }
 
-  private HttpRequest buildRequest(UploadCommand msg) {
-    HttpRequest request =
-        new DefaultHttpRequest(
-            HttpVersion.HTTP_1_1,
-            HttpMethod.PUT,
-            constructPath(msg.uri(), msg.hash(), msg.casUpload()));
-    request.headers().set(HttpHeaderNames.HOST, constructHost(msg.uri()));
+  @Override
+  @SuppressWarnings("deprecation")
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable t) {
+    if (t instanceof WriteTimeoutException) {
+      super.exceptionCaught(ctx, new UploadTimeoutException(path, contentLength));
+    } else {
+      super.exceptionCaught(ctx, t);
+    }
+  }
+
+  private HttpRequest buildRequest(String path, String host, long contentLength) {
+    HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.PUT, path);
+    request.headers().set(HttpHeaderNames.HOST, host);
     request.headers().set(HttpHeaderNames.ACCEPT, "*/*");
-    request.headers().set(HttpHeaderNames.CONTENT_LENGTH, msg.contentLength());
+    request.headers().set(HttpHeaderNames.CONTENT_LENGTH, contentLength);
     request.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     return request;
   }
@@ -119,7 +134,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
   private HttpChunkedInput buildBody(UploadCommand msg) {
     return new HttpChunkedInput(new ChunkedStream(msg.data()));
   }
-
 
   @SuppressWarnings("FutureReturnValueIgnored")
   private void failAndClose(Throwable t, ChannelHandlerContext ctx) {

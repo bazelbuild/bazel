@@ -28,13 +28,13 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -85,7 +86,6 @@ public final class CcLinkingHelper {
     }
   }
 
-  private final RuleContext ruleContext;
   private final CppSemantics semantics;
   private final BuildConfiguration configuration;
   private final CppConfiguration cppConfiguration;
@@ -125,11 +125,19 @@ public final class CcLinkingHelper {
   private final Label label;
   private final ActionRegistry actionRegistry;
   private final RuleErrorConsumer ruleErrorConsumer;
+  private final SymbolGenerator<?> symbolGenerator;
+
+  private Artifact grepIncludes;
+  private boolean isStampingEnabled;
+  private boolean isTestOrTestOnlyTarget;
 
   /**
    * Creates a CcLinkingHelper that outputs artifacts in a given configuration.
    *
-   * @param ruleContext the RuleContext for the rule being built
+   * @param ruleErrorConsumer the RuleErrorConsumer
+   * @param label the Label of the rule being built
+   * @param actionRegistry the ActionRegistry of the rule being built
+   * @param actionConstructionContext the ActionConstructionContext of the rule being built
    * @param semantics CppSemantics for the build
    * @param featureConfiguration activated features and action configs for the build
    * @param ccToolchain the C++ toolchain provider for the build
@@ -137,28 +145,32 @@ public final class CcLinkingHelper {
    * @param configuration the configuration that gives the directory of output artifacts
    */
   public CcLinkingHelper(
-      RuleContext ruleContext,
+      RuleErrorConsumer ruleErrorConsumer,
+      Label label,
+      ActionRegistry actionRegistry,
+      ActionConstructionContext actionConstructionContext,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      BuildConfiguration configuration) {
-    this.ruleContext = Preconditions.checkNotNull(ruleContext);
+      BuildConfiguration configuration,
+      CppConfiguration cppConfiguration,
+      SymbolGenerator<?> symbolGenerator) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.configuration = Preconditions.checkNotNull(configuration);
-    this.cppConfiguration =
-        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
-    this.ruleErrorConsumer = ruleContext;
-    this.label = ruleContext.getLabel();
-    this.actionRegistry = ruleContext;
-    this.actionConstructionContext = ruleContext;
+    this.cppConfiguration = cppConfiguration;
+    this.ruleErrorConsumer = ruleErrorConsumer;
+    this.label = label;
+    this.actionRegistry = actionRegistry;
+    this.actionConstructionContext = actionConstructionContext;
+    this.symbolGenerator = symbolGenerator;
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcLinkingHelper fromCommon(CcCommon common) {
+  public CcLinkingHelper fromCommon(RuleContext ruleContext, CcCommon common) {
     addCcLinkingContexts(
         CppHelper.getLinkingContextsFromDeps(
             ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET))));
@@ -251,7 +263,15 @@ public final class CcLinkingHelper {
    * <p>This only sets the link type (see {@link #setStaticLinkType}), either to a static library or
    * to an alwayslink static library (blaze uses a different file extension to signal alwayslink to
    * downstream code).
+   *
+   * @deprecated This is only set here for naming always to link static libraries with the *.lo
+   *     extension. This is no longer needed because {@link
+   *     com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink}s already carry
+   *     information about whether a library should always be linked or not. This method will be
+   *     removed when we no longer use *.lo for always to link static libraries in native
+   *     cc_library.
    */
+  @Deprecated
   public CcLinkingHelper setAlwayslink(boolean alwayslink) {
     staticLinkType =
         alwayslink ? LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY : LinkTargetType.STATIC_LIBRARY;
@@ -263,7 +283,6 @@ public final class CcLinkingHelper {
    * anything other than a static link causes this class to skip the link action creation. This
    * exists only for Objective-C.
    */
-  @Deprecated
   public CcLinkingHelper setStaticLinkType(LinkTargetType linkType) {
     Preconditions.checkNotNull(linkType);
     Preconditions.checkState(linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER);
@@ -353,7 +372,7 @@ public final class CcLinkingHelper {
           new Linkstamp(
               linkstamp,
               ccCompilationContext.getDeclaredIncludeSrcs(),
-              ruleContext.getActionKeyContext()));
+              actionConstructionContext.getActionKeyContext()));
     }
     CcLinkingContext ccLinkingContext = CcLinkingContext.EMPTY;
     if (!neverlink) {
@@ -366,8 +385,7 @@ public final class CcLinkingHelper {
                       ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
                       : NestedSetBuilder.create(
                           Order.LINK_ORDER,
-                          CcLinkingContext.LinkOptions.of(
-                              linkopts, ruleContext.getSymbolGenerator())))
+                          CcLinkingContext.LinkOptions.of(linkopts, symbolGenerator)))
               .addLibraries(
                   NestedSetBuilder.<LibraryToLink>linkOrder().addAll(libraryToLinks).build())
               .addNonCodeInputs(
@@ -404,8 +422,10 @@ public final class CcLinkingHelper {
         "can only handle static links");
 
     LibraryToLink.Builder libraryToLinkBuilder = LibraryToLink.builder();
-    boolean usePicForBinaries = CppHelper.usePicForBinaries(ccToolchain, featureConfiguration);
-    boolean usePicForDynamicLibs = ccToolchain.usePicForDynamicLibraries(featureConfiguration);
+    boolean usePicForBinaries =
+        CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration);
+    boolean usePicForDynamicLibs =
+        ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
 
     PathFragment labelName = PathFragment.create(label.getName());
     String libraryIdentifier =
@@ -430,12 +450,8 @@ public final class CcLinkingHelper {
           (!dynamicLinkType.isExecutable() && usePicForDynamicLibs)
               || (dynamicLinkType.isExecutable() && usePicForBinaries);
       hasBuiltDynamicLibrary =
-          createDynamicLibrary(
-              ccLinkingOutputsBuilder,
-              libraryToLinkBuilder,
-              usePic,
-              libraryIdentifier,
-              ccOutputs);
+          createDynamicLinkAction(
+              ccLinkingOutputsBuilder, libraryToLinkBuilder, usePic, libraryIdentifier, ccOutputs);
     }
 
     if (hasBuiltDynamicLibrary || shouldCreateStaticLibraries) {
@@ -453,6 +469,26 @@ public final class CcLinkingHelper {
 
   public CcLinkingHelper setUseTestOnlyFlags(boolean useTestOnlyFlags) {
     this.useTestOnlyFlags = useTestOnlyFlags;
+    return this;
+  }
+
+  /** Used to set the runfiles path for test rules' dynamic libraries. */
+  public CcLinkingHelper setTestOrTestOnlyTarget(boolean isTestOrTestOnlyTarget) {
+    this.isTestOrTestOnlyTarget = isTestOrTestOnlyTarget;
+    return this;
+  }
+
+  /**
+   * Used to test the grep-includes tool. This is needing during linking because of linkstamping.
+   */
+  public CcLinkingHelper setGrepIncludes(Artifact grepIncludes) {
+    this.grepIncludes = grepIncludes;
+    return this;
+  }
+
+  /** Whether linkstamping is enabled. */
+  public CcLinkingHelper setIsStampingEnabled(boolean isStampingEnabled) {
+    this.isStampingEnabled = isStampingEnabled;
     return this;
   }
 
@@ -589,7 +625,7 @@ public final class CcLinkingHelper {
     return action;
   }
 
-  private boolean createDynamicLibrary(
+  private boolean createDynamicLinkAction(
       CcLinkingOutputs.Builder ccLinkingOutputs,
       LibraryToLink.Builder libraryToLinkBuilder,
       boolean usePic,
@@ -598,21 +634,21 @@ public final class CcLinkingHelper {
       throws RuleErrorException, InterruptedException {
     boolean hasBuiltDynamicLibrary = false;
     // Create dynamic library.
-    Artifact soImpl;
+    Artifact linkerOutput;
     String mainLibraryIdentifier;
     if (linkerOutputArtifact == null) {
       // If the crosstool is configured to select an output artifact, we use that selection.
       // Otherwise, we use linux defaults.
-      soImpl = getLinkedArtifact(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+      linkerOutput = getLinkedArtifact(dynamicLinkType);
       mainLibraryIdentifier = libraryIdentifier;
     } else {
       // This branch is only used for vestigial Google-internal rules where the name of the output
       // file is explicitly specified in the BUILD file and as such, is platform-dependent. Thus,
       // we just hardcode some reasonable logic to compute the library identifier and hope that this
       // will eventually go away.
-      soImpl = linkerOutputArtifact;
+      linkerOutput = linkerOutputArtifact;
       mainLibraryIdentifier =
-          FileSystemUtils.removeExtension(soImpl.getRootRelativePath().getPathString());
+          FileSystemUtils.removeExtension(linkerOutput.getRootRelativePath().getPathString());
     }
 
     List<String> sonameLinkopts = ImmutableList.of();
@@ -626,12 +662,12 @@ public final class CcLinkingHelper {
             ImmutableList.of(
                 "-Wl,-soname="
                     + SolibSymlinkAction.getDynamicLibrarySoname(
-                        soImpl.getRootRelativePath(), /* preserveName= */ false));
+                        linkerOutput.getRootRelativePath(), /* preserveName= */ false));
       }
     }
 
     CppLinkActionBuilder dynamicLinkActionBuilder =
-        newLinkActionBuilder(soImpl)
+        newLinkActionBuilder(linkerOutput)
             .setWholeArchive(wholeArchive)
             .setNativeDeps(nativeDeps)
             .setAdditionalLinkstampDefines(additionalLinkstampDefines.build())
@@ -658,15 +694,23 @@ public final class CcLinkingHelper {
     }
 
     if (linkingMode == LinkingMode.DYNAMIC) {
-      dynamicLinkActionBuilder.setRuntimeInputs(
-          ArtifactCategory.DYNAMIC_LIBRARY,
-          ccToolchain.getDynamicRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
-          ccToolchain.getDynamicRuntimeLinkInputs(ruleErrorConsumer, featureConfiguration));
+      try {
+        dynamicLinkActionBuilder.setRuntimeInputs(
+            ArtifactCategory.DYNAMIC_LIBRARY,
+            ccToolchain.getDynamicRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
+            ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+      } catch (EvalException e) {
+        throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      }
     } else {
-      dynamicLinkActionBuilder.setRuntimeInputs(
-          ArtifactCategory.STATIC_LIBRARY,
-          ccToolchain.getStaticRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
-          ccToolchain.getStaticRuntimeLinkInputs(ruleErrorConsumer, featureConfiguration));
+      try {
+        dynamicLinkActionBuilder.setRuntimeInputs(
+            ArtifactCategory.STATIC_LIBRARY,
+            ccToolchain.getStaticRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
+            ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration));
+      } catch (EvalException e) {
+        throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      }
     }
 
     // On Windows, we cannot build a shared library with symbols unresolved, so here we
@@ -714,6 +758,9 @@ public final class CcLinkingHelper {
       ccLinkingOutputs.addAllLtoArtifacts(dynamicLinkActionBuilder.getAllLtoBackendArtifacts());
     }
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
+    if (dynamicLinkType.isExecutable()) {
+      ccLinkingOutputs.setExecutable(linkerOutput);
+    }
     ccLinkingOutputs.addLinkActionInputs(dynamicLinkAction.getInputs());
     actionConstructionContext.registerAction(dynamicLinkAction);
 
@@ -743,8 +790,7 @@ public final class CcLinkingHelper {
                 ccToolchain.getSolibDirectory(),
                 dynamicLibrary.getArtifact(),
                 /* preserveName= */ false,
-                /* prefixConsumer= */ false,
-                configuration);
+                /* prefixConsumer= */ false);
         libraryToLinkBuilder.setDynamicLibrary(implLibraryLinkArtifact);
         libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(dynamicLibrary.getArtifact());
 
@@ -756,8 +802,7 @@ public final class CcLinkingHelper {
                   ccToolchain.getSolibDirectory(),
                   interfaceLibrary.getArtifact(),
                   /* preserveName= */ false,
-                  /* prefixConsumer= */ false,
-                  configuration);
+                  /* prefixConsumer= */ false);
           libraryToLinkBuilder.setInterfaceLibrary(libraryLinkArtifact);
           libraryToLinkBuilder.setResolvedSymlinkInterfaceLibrary(interfaceLibrary.getArtifact());
         }
@@ -768,13 +813,18 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkActionBuilder(
-            ruleContext,
+            ruleErrorConsumer,
+            actionConstructionContext,
+            label,
             outputArtifact,
             configuration,
             ccToolchain,
             fdoContext,
             featureConfiguration,
             semantics)
+        .setGrepIncludes(grepIncludes)
+        .setIsStampingEnabled(isStampingEnabled)
+        .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
         .setLinkerFiles(ccToolchain.getLinkerFiles())
         .setLinkArtifactFactory(linkArtifactFactory)
         .setUseTestOnlyFlags(useTestOnlyFlags);
@@ -793,8 +843,6 @@ public final class CcLinkingHelper {
    * @throws RuleErrorException
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
-    Artifact result = null;
-    try {
       String maybePicName = label.getName() + linkedArtifactNameSuffix;
       if (linkTargetType.picness() == Picness.PIC) {
         maybePicName =
@@ -807,13 +855,10 @@ public final class CcLinkingHelper {
       PathFragment artifactFragment =
           PathFragment.create(label.getName()).getParentDirectory().getRelative(linkedName);
 
-      result =
-          actionConstructionContext.getPackageRelativeArtifact(
-              artifactFragment,
-              configuration.getBinDirectory(label.getPackageIdentifier().getRepository()));
-    } catch (ExpansionException e) {
-      ruleErrorConsumer.throwWithRuleError(e.getMessage());
-    }
+    Artifact result =
+        actionConstructionContext.getPackageRelativeArtifact(
+            artifactFragment,
+            configuration.getBinDirectory(label.getPackageIdentifier().getRepository()));
 
     // If the linked artifact is not the linux default, then a FailAction is generated for the
     // linux default to satisfy the requirement of the implicit output.

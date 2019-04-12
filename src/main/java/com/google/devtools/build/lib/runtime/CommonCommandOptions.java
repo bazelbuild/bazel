@@ -243,6 +243,16 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableJsonProfileDiet;
 
   @Option(
+      name = "experimental_json_profile_metadata",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Adds some metadata (e.g. build ID) to the JSON profile."
+              + " Changes output from JSON array to JSON object format.")
+  public boolean enableJsonMetadata;
+
+  @Option(
       name = "profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

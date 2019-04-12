@@ -118,7 +118,6 @@ public class SkylarkSemanticsConsistencyTest {
   private static StarlarkSemanticsOptions buildRandomOptions(Random rand) throws Exception {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
-        "--check_third_party_targets_have_licenses=" + rand.nextBoolean(),
         "--experimental_build_setting_api=" + rand.nextBoolean(),
         "--experimental_cc_skylark_api_enabled_packages="
             + rand.nextDouble()
@@ -138,7 +137,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disable_deprecated_attr_params=" + rand.nextBoolean(),
         "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
         "--incompatible_disable_third_party_license_checking=" + rand.nextBoolean(),
-        "--incompatible_disallow_data_transition=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_filetype=" + rand.nextBoolean(),
         "--incompatible_disallow_legacy_javainfo=" + rand.nextBoolean(),
@@ -156,8 +154,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_no_transitive_loads=" + rand.nextBoolean(),
         "--incompatible_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
-        "--incompatible_strict_argument_ordering=" + rand.nextBoolean(),
-        "--incompatible_use_toolchain_providers_in_java_common=" + rand.nextBoolean(),
+        "--incompatible_string_join_requires_strings=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean());
   }
@@ -169,7 +166,6 @@ public class SkylarkSemanticsConsistencyTest {
   private static StarlarkSemantics buildRandomSemantics(Random rand) {
     return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
-        .checkThirdPartyTargetsHaveLicenses(rand.nextBoolean())
         .experimentalBuildSettingApi(rand.nextBoolean())
         .experimentalCcSkylarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
@@ -185,7 +181,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisableDeprecatedAttrParams(rand.nextBoolean())
         .incompatibleDisableObjcProviderResources(rand.nextBoolean())
         .incompatibleDisableThirdPartyLicenseChecking(rand.nextBoolean())
-        .incompatibleDisallowDataTransition(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowFileType(rand.nextBoolean())
         .incompatibleDisallowLegacyJavaInfo(rand.nextBoolean())
@@ -203,8 +198,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNoTransitiveLoads(rand.nextBoolean())
         .incompatibleRemapMainRepo(rand.nextBoolean())
         .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
-        .incompatibleStricArgumentOrdering(rand.nextBoolean())
-        .incompatibleUseToolchainProvidersInJavaCommon(rand.nextBoolean())
+        .incompatibleStringJoinRequiresStrings(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
         .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())
         .build();

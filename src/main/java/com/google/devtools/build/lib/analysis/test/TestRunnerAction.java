@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -449,8 +448,8 @@ public class TestRunnerAction extends AbstractAction
    * the test log base name with arbitrary prefix and extension.
    */
   @Override
-  protected void deleteOutputs(FileSystem fileSystem, Path execRoot) throws IOException {
-    super.deleteOutputs(fileSystem, execRoot);
+  protected void deleteOutputs(Path execRoot) throws IOException {
+    super.deleteOutputs(execRoot);
 
     // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
     // shard count.
@@ -558,19 +557,9 @@ public class TestRunnerAction extends AbstractAction
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
-      // TODO(elenairina): Remove this after it reaches a blaze release.
-      if (configuration.isExperimentalJavaCoverage()) {
-        // This value ("released") tells lcov_merger whether it should use the old or the new
-        // java  coverage implementation. The meaning of "released" is that lcov_merger will receive
-        // this value only after blaze containing this change will be released.
-        env.put("NEW_JAVA_COVERAGE_IMPL", "released");
-      } else {
-        // This value ("True") should have told lcov_merger whether it should use the old or the new
-        // java  coverage implementation. Due to several failed attempts at submitting the new
-        // implementation, this value will be treated still as the old implementation. This
-        // environment variable must be set to a value recognized by lcov_merger.
-        env.put("NEW_JAVA_COVERAGE_IMPL", "True");
-      }
+      // TODO(elenairina): Remove this and its usage in lcov_merger. Note it requires syncing
+      // between the blaze release and the lcov_merger release.
+      env.put("NEW_JAVA_COVERAGE_IMPL", "released");
     }
   }
 

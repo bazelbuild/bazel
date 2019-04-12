@@ -276,43 +276,6 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testConvolutedLoadRootCauseAnalysis() throws Exception {
-    // You need license declarations in third_party. We use this constraint to
-    // create targets that are loadable, but are in error.
-    scratch.file("third_party/first/BUILD",
-        "sh_library(name='first', deps=['//third_party/second'], licenses=['notice'])");
-    scratch.file("third_party/second/BUILD",
-        "sh_library(name='second', deps=['//third_party/third'], licenses=['notice'])");
-    scratch.file("third_party/third/BUILD",
-        "sh_library(name='third', deps=['//third_party/fourth'], licenses=['notice'])");
-    scratch.file("third_party/fourth/BUILD",
-        "sh_library(name='fourth', deps=['//third_party/fifth'])");
-    scratch.file("third_party/fifth/BUILD",
-        "sh_library(name='fifth', licenses=['notice'])");
-    reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
-    LoadingFailureRecorder recorder = new LoadingFailureRecorder();
-    eventBus.register(recorder);
-    // Note: no need to run analysis for a loading failure.
-    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING),
-        "//third_party/first", "//third_party/third");
-    assertThat(result.hasError()).isTrue();
-    assertThat(recorder.events).hasSize(2);
-    assertWithMessage(recorder.events.toString())
-        .that(
-            recorder.events.contains(
-                new LoadingFailureEvent(
-                    Label.parseAbsolute("//third_party/first", ImmutableMap.of()),
-                    Label.parseAbsolute("//third_party/fourth", ImmutableMap.of()))))
-        .isTrue();
-    assertThat(recorder.events)
-        .contains(
-            new LoadingFailureEvent(
-                Label.parseAbsolute("//third_party/third", ImmutableMap.of()),
-                Label.parseAbsolute("//third_party/fourth", ImmutableMap.of())));
-  }
-
-  @Test
   public void testMultipleRootCauseReporting() throws Exception {
     scratch.file("gp/BUILD",
         "sh_library(name = 'gp', deps = ['//p:p'])");
@@ -455,6 +418,10 @@ public class BuildViewTest extends BuildViewTestBase {
   // Regression test: "output_filter broken (but in a different way)"
   @Test
   public void testOutputFilterSeeWarning() throws Exception {
+    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
+      // TODO(b/129599328): fix or justify disabling
+      return;
+    }
     runAnalysisWithOutputFilter(Pattern.compile(".*"));
     assertContainsEvent("please do not import '//java/a:A.java'");
   }
@@ -466,12 +433,20 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
+    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
+      // TODO(b/129599328): fix or justify disabling
+      return;
+    }
     runAnalysisWithOutputFilter(Pattern.compile("^//java/c"));
     assertNoEvents();
   }
 
   @Test
   public void testOutputFilterWithDebug() throws Exception {
+    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
+      // TODO(b/129599328): fix or justify disabling
+      return;
+    }
     scratch.file(
         "java/a/BUILD",
         "java_library(name = 'a',",
@@ -659,6 +634,10 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testMultiBuildInvalidationRevalidation() throws Exception {
+    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
+      // TODO(b/129599328): fix or justify disabling
+      return;
+    }
     scratch.file("java/a/A.java", "bla1");
     scratch.file("java/a/C.java", "bla2");
     scratch.file("java/a/BUILD",
@@ -1359,6 +1338,36 @@ public class BuildViewTest extends BuildViewTestBase {
     update("//foo");
     assertContainsEvent("WARNING /workspace/foo/BUILD:8:12: in deps attribute of custom_rule rule "
         + "//foo:foo: genrule rule '//foo:genlib' is unexpected here; continuing anyway");
+  }
+
+  @Test
+  public void testExistingRule() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "genrule(name='foo', ",
+        "        cmd = '',",
+        "        srcs=['a.src'],",
+        "        outs=['a.out'])",
+        "print(existing_rule('foo')['kind'])",
+        "print(existing_rule('bar'))");
+    reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//pkg")));
+    update("//pkg:foo");
+    assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:1: genrule");
+    assertContainsEvent("DEBUG /workspace/pkg/BUILD:6:1: None");
+  }
+
+  @Test
+  public void testExistingRules() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "genrule(name='foo', ",
+        "        cmd = '',",
+        "        srcs=['a.src'],",
+        "        outs=['a.out'])",
+        "print(existing_rules().keys())");
+    reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//pkg")));
+    update("//pkg:foo");
+    assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:1: [\"foo\"]");
   }
 
   /** Runs the same test with trimmed configurations. */

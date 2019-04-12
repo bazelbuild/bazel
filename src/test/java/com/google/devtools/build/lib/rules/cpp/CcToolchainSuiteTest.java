@@ -30,55 +30,6 @@ import org.junit.runners.JUnit4;
 public class CcToolchainSuiteTest extends BuildViewTestCase {
 
   @Test
-  public void testCcToolchainLabelFromCpuCompilerAttributes() throws Exception {
-    scratch.file(
-        "cc/BUILD",
-        "filegroup(name='empty')",
-        "filegroup(name='everything')",
-        "cc_toolchain(",
-        "    name = 'cc-compiler-fruitie',",
-        "    cpu = 'banana',",
-        "    compiler = 'avocado',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        ")",
-        "cc_toolchain_suite(",
-        "    name = 'suite',",
-        "    toolchains = {",
-        "       'k8': ':cc-compiler-fruitie',",
-        "    },",
-        "    proto = \"\"\"",
-        "major_version: 'v1'",
-        "minor_version: '0'",
-        "toolchain {",
-        "  compiler: 'avocado'",
-        "  target_cpu: 'banana'",
-        "  toolchain_identifier: 'not-used-identifier'",
-        "  host_system_name: 'linux'",
-        "  target_system_name: 'linux'",
-        "  abi_version: 'cpu-abi'",
-        "  abi_libc_version: ''",
-        "  target_libc: 'local'",
-        "  builtin_sysroot: 'sysroot'",
-        "}",
-        "\"\"\"",
-        ")");
-
-    useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8", "--host_cpu=k8");
-    ConfiguredTarget c =
-        getConfiguredTarget(
-            ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");
-    CppConfiguration config = getConfiguration(c).getFragment(CppConfiguration.class);
-    assertThat(config.getRuleProvidingCcToolchainProvider().toString()).isEqualTo("//cc:suite");
-  }
-
-  @Test
   public void testCcToolchainFromToolchainIdentifierOverridesCpuCompiler() throws Exception {
     scratch.file(
         "cc/BUILD",
@@ -87,8 +38,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "cc_toolchain(",
         "    name = 'cc-compiler-fruitie',",
         "    toolchain_identifier = 'toolchain-identifier-fruitie',",
-        "    cpu = 'banana',",
-        "    compiler = 'avocado',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
         "    as_files = ':empty',",
@@ -131,7 +80,11 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "\"\"\"",
         ")");
 
-    useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8", "--host_cpu=k8");
+    useConfiguration(
+        "--crosstool_top=//cc:suite",
+        "--cpu=k8",
+        "--host_cpu=k8",
+        "--noincompatible_disable_crosstool_file");
     ConfiguredTarget c =
         getConfiguredTarget(
             ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");

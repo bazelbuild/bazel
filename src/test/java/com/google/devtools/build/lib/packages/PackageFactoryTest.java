@@ -371,33 +371,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testThirdPartyLicenseError() throws Exception {
-    events.setFailFast(false);
-    Path buildFile =
-        scratch.file("/third_party/foo/BUILD", "# line 1", "cc_library(name='bar')", "# line 3");
-    Package pkg =
-        packages.createPackage("third_party/foo", RootedPath.toRootedPath(root, buildFile));
-    events.assertContainsError(
-        "third-party rule '//third_party/foo:bar' lacks a license "
-            + "declaration with one of the following types: "
-            + "notice, reciprocal, permissive, restricted, unencumbered, by_exception_only");
-    assertThat(pkg.containsErrors()).isTrue();
-  }
-
-  @Test
-  public void testThirdPartyLicenseExportsFileError() throws Exception {
-    events.setFailFast(false);
-    Path buildFile = scratch.file("/third_party/foo/BUILD", "exports_files(['bar'])");
-    Package pkg =
-        packages.createPackage("third_party/foo", RootedPath.toRootedPath(root, buildFile));
-    events.assertContainsError(
-        "third-party file 'bar' lacks a license "
-            + "declaration with one of the following types: "
-            + "notice, reciprocal, permissive, restricted, unencumbered, by_exception_only");
-    assertThat(pkg.containsErrors()).isTrue();
-  }
-
-  @Test
   public void testDuplicateRuleIsNotAddedToPackage() throws Exception {
     events.setFailFast(false);
     Path path =

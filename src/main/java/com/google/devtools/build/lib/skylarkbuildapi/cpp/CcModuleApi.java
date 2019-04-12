@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     name = "cc_common",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
+    FileT extends FileApi,
     CcToolchainProviderT extends CcToolchainProviderApi,
     FeatureConfigurationT extends FeatureConfigurationApi,
     CompilationContextT extends CcCompilationContextApi,
@@ -190,7 +191,8 @@ public interface CcModuleApi<
   SkylarkList<String> getCommandLine(
       FeatureConfigurationT featureConfiguration,
       String actionName,
-      CcToolchainVariablesT variables);
+      CcToolchainVariablesT variables)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "get_environment_variables",
@@ -219,7 +221,8 @@ public interface CcModuleApi<
   SkylarkDict<String, String> getEnvironmentVariable(
       FeatureConfigurationT featureConfiguration,
       String actionName,
-      CcToolchainVariablesT variables);
+      CcToolchainVariablesT variables)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "create_compile_variables",
@@ -323,9 +326,7 @@ public interface CcModuleApi<
         // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "add_legacy_cxx_options",
-            doc =
-                "When true the flags will contain options coming from legacy cxx_flag crosstool "
-                    + "fields.",
+            doc = "Unused.",
             named = true,
             positional = false,
             defaultValue = "False")
@@ -436,7 +437,6 @@ public interface CcModuleApi<
             named = true,
             positional = false,
             defaultValue = "False"),
-        // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "must_keep_debug",
             doc =
@@ -445,26 +445,16 @@ public interface CcModuleApi<
             named = true,
             positional = false,
             defaultValue = "True"),
-        // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "use_test_only_flags",
-            doc =
-                "When set to True flags coming from test_only_linker_flag crosstool fields will"
-                    + " be included."
-                    + ""
-                    + "This field will be removed once b/65151735 is fixed.",
+            doc = "When set to true, 'is_cc_test' variable will be set.",
             named = true,
             positional = false,
             defaultValue = "False"),
         // TODO(b/65151735): Remove once we migrate crosstools to features
         @Param(
             name = "is_static_linking_mode",
-            doc =
-                "True when using static_linking_mode, False when using dynamic_linking_mode. "
-                    + "Caller is responsible for keeping this in sync with 'static_linking_mode' "
-                    + "and 'dynamic_linking_mode' features enabled on the feature configuration. "
-                    + ""
-                    + "This field will be removed once b/65151735 is fixed.",
+            doc = "Unused.",
             named = true,
             positional = false,
             defaultValue = "True"),
@@ -587,11 +577,19 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = SkylarkList.class)
+            type = SkylarkList.class),
+        @Param(
+            name = "additional_inputs",
+            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
       })
   LinkingContextT createCcLinkingInfo(
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
+      SkylarkList<FileT> nonCodeInputs,
       Location location,
       StarlarkContext context)
       throws EvalException, InterruptedException;

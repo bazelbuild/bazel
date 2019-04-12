@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -424,7 +422,7 @@ public class JavaCommon {
   /** Computes javacopts for the current rule. */
   private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
     return ImmutableList.<String>builder()
-        .addAll(javaToolchain.getJavacOptions())
+        .addAll(javaToolchain.getJavacOptions(ruleContext))
         .addAll(extraRuleJavacOpts)
         .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
@@ -434,26 +432,27 @@ public class JavaCommon {
   /** Returns the per-package configured javacopts. */
   public static ImmutableList<String> computePerPackageJavacOpts(
       RuleContext ruleContext, JavaToolchainProvider toolchain) {
-    return computePerPackageConfiguration(ruleContext, toolchain).stream()
-        .flatMap(p -> p.javacopts().stream())
-        .collect(toImmutableList());
+    // Do not use streams here as they create excessive garbage.
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    for (JavaPackageConfigurationProvider provider : toolchain.packageConfiguration()) {
+      if (provider.matches(ruleContext.getLabel())) {
+        result.addAll(provider.javacopts());
+      }
+    }
+    return result.build();
   }
 
   /** Returns the per-package configured runfiles. */
   public static NestedSet<Artifact> computePerPackageData(
       RuleContext ruleContext, JavaToolchainProvider toolchain) {
+    // Do not use streams here as they create excessive garbage.
     NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
-    computePerPackageConfiguration(ruleContext, toolchain).stream()
-        .map(JavaPackageConfigurationProvider::data)
-        .forEach(data::addTransitive);
+    for (JavaPackageConfigurationProvider provider : toolchain.packageConfiguration()) {
+      if (provider.matches(ruleContext.getLabel())) {
+        data.addTransitive(provider.data());
+      }
+    }
     return data.build();
-  }
-
-  private static ImmutableList<JavaPackageConfigurationProvider> computePerPackageConfiguration(
-      RuleContext ruleContext, JavaToolchainProvider toolchain) {
-    return toolchain.packageConfiguration().stream()
-        .filter(p -> p.matches(ruleContext.getLabel()))
-        .collect(toImmutableList());
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {

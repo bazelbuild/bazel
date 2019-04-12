@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.apple.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
+import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -39,60 +42,73 @@ public class AppleCcToolchain extends CcToolchain {
   public static final String SDK_FRAMEWORK_DIR_KEY = "sdk_framework_dir";
   public static final String PLATFORM_DEVELOPER_FRAMEWORK_DIR = "platform_developer_framework_dir";
   public static final String VERSION_MIN_KEY = "version_min";
-  
+
   @VisibleForTesting
-  public static final String XCODE_VERISON_OVERRIDE_VALUE_KEY = "xcode_version_override_value";
-  
+  public static final String XCODE_VERSION_OVERRIDE_VALUE_KEY = "xcode_version_override_value";
+
   @VisibleForTesting
   public static final String APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY =
       "apple_sdk_version_override_value";
-  
+
   @VisibleForTesting
   public static final String APPLE_SDK_PLATFORM_VALUE_KEY = "apple_sdk_platform_value";
 
   @Override
-  protected CcToolchainVariables getAdditionalBuildVariables(RuleContext ruleContext)
-      throws RuleErrorException {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+  protected AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
+      RuleContext ruleContextPossiblyInHostConfiguration) {
+    // xcode config is shared between target and host configuration therefore we can use it.
+    XcodeConfigProvider xcodeConfig =
+        XcodeConfig.getXcodeConfigProvider(ruleContextPossiblyInHostConfiguration);
+    return getAdditionalBuildVariablesComputer(xcodeConfig);
+  }
 
-    if (XcodeConfig.getXcodeVersion(ruleContext) == null) {
-      ruleContext.throwWithRuleError(
-          "Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has "
-              + "changed recently, try: \"bazel clean --expunge\" to re-run Xcode configuration");
-    }
+  /** Returns {@link AdditionalBuildVariablesComputer} lambda without capturing instance state. */
+  private static AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
+      XcodeConfigProvider xcodeConfig) {
+    return (AdditionalBuildVariablesComputer & Serializable)
+        (BuildOptions buildOptions) -> computeCcToolchainVariables(xcodeConfig, buildOptions);
+  }
 
+  private static CcToolchainVariables computeCcToolchainVariables(
+      XcodeConfigProvider xcodeConfig, BuildOptions buildOptions) {
+    AppleConfiguration.Loader appleConfigurationLoader = new AppleConfiguration.Loader();
+    AppleConfiguration appleConfiguration = appleConfigurationLoader.create(buildOptions);
     ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
+    String cpu = buildOptions.get(Options.class).cpu;
 
-    Map<String, String> appleEnv = getEnvironmentBuildVariables(ruleContext);
-    CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
+    Map<String, String> appleEnv = getEnvironmentBuildVariables(xcodeConfig, cpu);
+    CcToolchainVariables.Builder variables = CcToolchainVariables.builder();
     variables
         .addStringVariable(
-            XCODE_VERSION_KEY,
-            XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2))
+            XCODE_VERSION_KEY, xcodeConfig.getXcodeVersion().toStringWithMinimumComponents(2))
         .addStringVariable(
             IOS_SDK_VERSION_KEY,
-            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.IOS_SIMULATOR)
+            xcodeConfig
+                .getSdkVersionForPlatform(ApplePlatform.IOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
         .addStringVariable(
             MACOS_SDK_VERSION_KEY,
-            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.MACOS)
+            xcodeConfig
+                .getSdkVersionForPlatform(ApplePlatform.MACOS)
                 .toStringWithMinimumComponents(2))
         .addStringVariable(
             TVOS_SDK_VERSION_KEY,
-            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.TVOS_SIMULATOR)
+            xcodeConfig
+                .getSdkVersionForPlatform(ApplePlatform.TVOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
         .addStringVariable(
             WATCHOS_SDK_VERSION_KEY,
-            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.WATCHOS_SIMULATOR)
+            xcodeConfig
+                .getSdkVersionForPlatform(ApplePlatform.WATCHOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
         .addStringVariable(SDK_DIR_KEY, AppleToolchain.sdkDir())
         .addStringVariable(
-            SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, ruleContext))
+            SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, xcodeConfig))
         .addStringVariable(
             PLATFORM_DEVELOPER_FRAMEWORK_DIR,
-            AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
+            AppleToolchain.platformDeveloperFrameworkDir(platform))
         .addStringVariable(
-            XCODE_VERISON_OVERRIDE_VALUE_KEY,
+            XCODE_VERSION_OVERRIDE_VALUE_KEY,
             appleEnv.getOrDefault(AppleConfiguration.XCODE_VERSION_ENV_NAME, ""))
         .addStringVariable(
             APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY,
@@ -102,8 +118,21 @@ public class AppleCcToolchain extends CcToolchain {
             appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, ""))
         .addStringVariable(
             VERSION_MIN_KEY,
-            XcodeConfig.getMinimumOsForPlatformType(ruleContext, platform.getType()).toString());
+            xcodeConfig.getMinimumOsForPlatformType(platform.getType()).toString());
     return variables.build();
+  }
+
+  private static ImmutableMap<String, String> getEnvironmentBuildVariables(
+      XcodeConfigProvider xcodeConfig, String cpu) {
+    Map<String, String> builder = new LinkedHashMap<>();
+    builder.putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion()));
+    if (ApplePlatform.isApplePlatform(cpu)) {
+      ApplePlatform platform = ApplePlatform.forTargetCpu(cpu);
+      builder.putAll(
+          AppleConfiguration.appleTargetPlatformEnv(
+              platform, xcodeConfig.getSdkVersionForPlatform(platform)));
+    }
+    return ImmutableMap.copyOf(builder);
   }
 
   @Override
@@ -111,15 +140,12 @@ public class AppleCcToolchain extends CcToolchain {
     return true;
   }
 
-  private ImmutableMap<String, String> getEnvironmentBuildVariables(RuleContext ruleContext) {
-    Map<String, String> builder = new LinkedHashMap<>();
-    XcodeConfigProvider xcodeConfig = XcodeConfigProvider.fromRuleContext(ruleContext);
-    builder.putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion()));
-    if (ApplePlatform.isApplePlatform(ruleContext.getConfiguration().getCpu())) {
-      ApplePlatform platform = ApplePlatform.forTargetCpu(ruleContext.getConfiguration().getCpu());
-      builder.putAll(AppleConfiguration.appleTargetPlatformEnv(
-          platform, xcodeConfig.getSdkVersionForPlatform(platform)));
+  @Override
+  protected void validateToolchain(RuleContext ruleContext) throws RuleErrorException {
+    if (XcodeConfig.getXcodeConfigProvider(ruleContext).getXcodeVersion() == null) {
+      ruleContext.throwWithRuleError(
+          "Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has "
+              + "changed recently, try: \"bazel clean --expunge\" to re-run Xcode configuration");
     }
-    return ImmutableMap.copyOf(builder);
   }
 }

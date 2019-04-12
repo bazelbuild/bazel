@@ -100,14 +100,18 @@ public abstract class BuildEncyclopediaProcessor {
     Map<String, ListMultimap<RuleType, RuleDocumentation>> ruleMapping = new HashMap<>();
     createRuleMapping(docEntries, ruleMapping);
 
+    // Create a mapping with the summary string for the individual rule families
+    Map<String, StringBuilder> familySummary = new HashMap<>();
+    createFamilySummary(docEntries, familySummary);
+
     // Create lists of RuleFamily objects that will be used to generate the documentation.
     // The separate language-specific and general rule families will be used to generate
     // the Overview page while the list containing all rule families will be used to
     // generate all other documentation.
     List<RuleFamily> langSpecificRuleFamilies =
-        filterRuleFamilies(ruleMapping, langSpecificRuleFamilyNames);
+        filterRuleFamilies(ruleMapping, langSpecificRuleFamilyNames, familySummary);
     List<RuleFamily> genericRuleFamilies =
-        filterRuleFamilies(ruleMapping, genericRuleFamilyNames);
+        filterRuleFamilies(ruleMapping, genericRuleFamilyNames, familySummary);
     List<RuleFamily> allRuleFamilies = new ArrayList<>(langSpecificRuleFamilies);
     allRuleFamilies.addAll(genericRuleFamilies);
     return new RuleFamilies(langSpecificRuleFamilies, genericRuleFamilies, allRuleFamilies);
@@ -115,11 +119,12 @@ public abstract class BuildEncyclopediaProcessor {
 
   private List<RuleFamily> filterRuleFamilies(
       Map<String, ListMultimap<RuleType, RuleDocumentation>> ruleMapping,
-      Set<String> ruleFamilyNames) {
+      Set<String> ruleFamilyNames,
+      Map<String, StringBuilder> familySummary) {
     List<RuleFamily> ruleFamilies = new ArrayList<>(ruleFamilyNames.size());
     for (String name : ruleFamilyNames) {
       ListMultimap<RuleType, RuleDocumentation> ruleTypeMap = ruleMapping.get(name);
-      ruleFamilies.add(new RuleFamily(ruleTypeMap, name));
+      ruleFamilies.add(new RuleFamily(ruleTypeMap, name, familySummary.get(name).toString()));
     }
     return ruleFamilies;
   }
@@ -142,6 +147,22 @@ public abstract class BuildEncyclopediaProcessor {
         }
       } else {
         throw ruleDoc.createException("Can't find RuleClass for " + ruleDoc.getRuleName());
+      }
+    }
+  }
+
+  /**
+   * Obtain the summary string for a rule family from whatever member of the family providing it (if
+   * any; otherwise use the empty string).
+   */
+  private void createFamilySummary(
+      Iterable<RuleDocumentation> docEntries, Map<String, StringBuilder> familySummary) {
+    for (RuleDocumentation ruleDoc : docEntries) {
+      RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(ruleDoc.getRuleName());
+      if (ruleClass != null) {
+        String ruleFamily = ruleDoc.getRuleFamily();
+        familySummary.computeIfAbsent(ruleFamily, (String k) -> new StringBuilder());
+        familySummary.get(ruleFamily).append(ruleDoc.getFamilySummary());
       }
     }
   }

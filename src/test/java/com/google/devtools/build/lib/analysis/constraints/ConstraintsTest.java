@@ -966,6 +966,27 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   }
 
   @Test
+  public void selectableAliasDepsTreatedLikeOtherDeps() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file(
+        "hello/BUILD",
+        "alias(",
+        "    name = 'deps_a_alias',",
+        "    actual = '//deps:dep_a')",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': [':deps_a_alias'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
+    useConfiguration("--define", "mode=a");
+    assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
+  }
+
+  @Test
   public void staticCheckingOnSelectsTemporarilyDisabled() throws Exception {
     // TODO(bazel-team): update this test once static checking on selects is implemented. When
     // that happens, the union of all deps in the select must support the environments in the

@@ -93,7 +93,9 @@ EOF
   expect_log "I am Python 3"
 
   # These assertions try to override the version, which is legacy semantics.
-  FLAG=--incompatible_allow_python_version_transitions=false
+  FLAG="--incompatible_allow_python_version_transitions=false \
+--incompatible_py3_is_default=false \
+--incompatible_py2_outputs_are_suffixed=false"
 
   # Force to Python 2.
   bazel run //test:main2 $FLAG --python_version=PY2 \
@@ -134,6 +136,74 @@ EOF
       &> $TEST_log || fail "bazel build failed"
   bazel build --python_version=PY3 $EXPFLAG //test:* \
       &> $TEST_log || fail "bazel build failed"
+}
+
+# Regression test for #7808. We want to ensure that changing the Python version
+# to a value different from the top-level configuration, and then changing it
+# back again, is able to reuse the top-level configuration.
+function test_no_action_conflicts_from_version_transition() {
+  mkdir -p test
+
+  # To repro, we need to build a C++ target in two different ways in the same
+  # build:
+  #
+  #   1) At the top-level, and without any explicit flags passed to control the
+  #      Python version, because the behavior under test involves the internal
+  #      null default value of said flags.
+  #
+  #   2) As a dependency of a target that transitions the Python version to the
+  #      same value as in the top-level configuration.
+  #
+  # We need to use two different Python targets, to transition the version
+  # *away* from the top-level default and then *back* again. Furthermore,
+  # because (as of the writing of this test) the default Python version is in
+  # the process of being migrated from PY2 to PY3, we'll future-proof this test
+  # by using two separate paths that have the versions inverted.
+  #
+  # We use C++ for the repro because it has unshareable actions, so we'll know
+  # if the top-level config isn't being reused.
+
+  cat > test/BUILD << EOF
+cc_binary(
+    name = "cc",
+    srcs = ["cc.cc"],
+)
+
+py_binary(
+    name = "path_A_inner",
+    srcs = ["path_A_inner.py"],
+    data = [":cc"],
+    python_version = "PY2",
+)
+
+py_binary(
+    name = "path_A_outer",
+    srcs = [":path_A_outer.py"],
+    data = [":path_A_inner"],
+    python_version = "PY3",
+)
+
+py_binary(
+    name = "path_B_inner",
+    srcs = [":path_B_inner.py"],
+    data = [":cc"],
+    python_version = "PY3",
+)
+
+py_binary(
+    name = "path_B_outer",
+    srcs = [":path_B_outer.py"],
+    data = [":path_B_inner"],
+    python_version = "PY2",
+)
+EOF
+
+  # Build cc at the top level, along with the outer halves of both paths to cc.
+  # Make sure to use the new version transition semantics.
+  bazel build --nobuild //test:cc //test:path_A_outer //test:path_B_outer \
+      --incompatible_remove_old_python_version_api=true \
+      --incompatible_allow_python_version_transitions=true \
+      &> $TEST_log || fail "bazel run failed"
 }
 
 run_suite "Tests for the Python rules without Python execution"

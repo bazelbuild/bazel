@@ -17,13 +17,17 @@ package com.google.devtools.build.lib.skyframe.trimming;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.BaseRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -35,27 +39,40 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.rules.ToolchainType.ToolchainTypeRule;
+import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
+import java.util.List;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /** Set of trimmable fragments for testing automatic trimming. */
 public final class TrimmableTestConfigurationFragments {
@@ -64,44 +81,82 @@ public final class TrimmableTestConfigurationFragments {
     // Utility class, non-instantiable
   }
 
-  public static void installSkylarkRules(Scratch scratch, String path) throws IOException {
+  public static void installStarlarkRules(Scratch scratch, String path)
+      throws LabelSyntaxException, IOException {
+    installStarlarkRules(
+        scratch, path, Label.parseAbsolute("//:undefined_toolchain_type", ImmutableMap.of()));
+  }
+
+  public static void installStarlarkRules(Scratch scratch, String path, Label toolchainTypeLabel)
+      throws LabelSyntaxException, IOException {
     scratch.file(
         path,
+        "toolchainTypeLabel = " + Printer.getPrinter().repr(toolchainTypeLabel),
         "def _impl(ctx):",
         "  ctx.actions.write(ctx.outputs.main, '')",
         "  files = depset(",
         "      direct = [ctx.outputs.main],",
         "      transitive = [dep.files for dep in ctx.attr.deps])",
         "  return [DefaultInfo(files=files)]",
-        "alpha_skylark = rule(",
+        "alpha_starlark = rule(",
         "    implementation = _impl,",
         "    attrs = {'deps': attr.label_list(allow_files=True)},",
         "    fragments = ['alpha'],",
         "    outputs = {'main': '%{name}.sa'},",
         ")",
-        "bravo_skylark = rule(",
+        "bravo_starlark = rule(",
         "    implementation = _impl,",
         "    attrs = {'deps': attr.label_list(allow_files=True)},",
         "    fragments = ['bravo'],",
         "    outputs = {'main': '%{name}.sb'},",
         ")",
-        "charlie_skylark = rule(",
+        "charlie_starlark = rule(",
         "    implementation = _impl,",
         "    attrs = {'deps': attr.label_list(allow_files=True)},",
         "    fragments = ['charlie'],",
         "    outputs = {'main': '%{name}.sc'},",
         ")",
-        "delta_skylark = rule(",
+        "delta_starlark = rule(",
         "    implementation = _impl,",
         "    attrs = {'deps': attr.label_list(allow_files=True)},",
         "    fragments = ['delta'],",
         "    outputs = {'main': '%{name}.sd'},",
         ")",
-        "echo_skylark = rule(",
+        "echo_starlark = rule(",
         "    implementation = _impl,",
         "    attrs = {'deps': attr.label_list(allow_files=True)},",
         "    fragments = ['echo'],",
         "    outputs = {'main': '%{name}.se'},",
+        ")",
+        "platformer_starlark = rule(",
+        "    implementation = _impl,",
+        "    attrs = {'deps': attr.label_list(allow_files=True)},",
+        "    outputs = {'main': '%{name}.sp'},",
+        ")",
+        "def _uses_toolchains_impl(ctx):",
+        "  ctx.actions.write(ctx.outputs.main, '')",
+        "  transitive_depsets = [dep.files for dep in ctx.attr.deps]",
+        "  toolchain_deps = ctx.toolchains[toolchainTypeLabel].files",
+        "  files = depset(",
+        "      direct = [ctx.outputs.main],",
+        "      transitive = transitive_depsets + [toolchain_deps])",
+        "  return [DefaultInfo(files=files)]",
+        "uses_toolchains_starlark = rule(",
+        "    implementation = _uses_toolchains_impl,",
+        "    attrs = {'deps': attr.label_list(allow_files=True)},",
+        "    outputs = {'main': '%{name}.su'},",
+        "    toolchains = [str(toolchainTypeLabel)],",
+        ")",
+        "def _toolchain_impl(ctx):",
+        "  ctx.actions.write(ctx.outputs.main, '')",
+        "  files = depset(",
+        "      direct = [ctx.outputs.main],",
+        "      transitive = [dep.files for dep in ctx.attr.deps])",
+        "  return [DefaultInfo(files=files), platform_common.ToolchainInfo(files=files)]",
+        "toolchain_starlark = rule(",
+        "    implementation = _toolchain_impl,",
+        "    attrs = {'deps': attr.label_list(allow_files=True)},",
+        "    outputs = {'main': '%{name}.st'},",
         ")",
         "def _group_impl(ctx):",
         "  files = depset(transitive = [dep.files for dep in ctx.attr.deps])",
@@ -113,6 +168,11 @@ public final class TrimmableTestConfigurationFragments {
   }
 
   public static void installFragmentsAndNativeRules(ConfiguredRuleClassProvider.Builder builder) {
+    installFragmentsAndNativeRules(builder, null);
+  }
+
+  public static void installFragmentsAndNativeRules(
+      ConfiguredRuleClassProvider.Builder builder, @Nullable Label toolchainTypeLabel) {
     // boilerplate:
     builder
         // must be set, but it doesn't matter here what it's set to
@@ -126,17 +186,22 @@ public final class TrimmableTestConfigurationFragments {
         // must be part of BuildOptions for various reasons e.g. dynamic configs
         .addConfigurationOptions(BuildConfiguration.Options.class)
         .addConfigurationFragment(new TestConfiguration.Loader())
-        // needed for the other rules to build on and the default workspace
-        .addRuleDefinition(new BaseRuleClasses.RootRule())
-        .addRuleDefinition(new BaseRuleClasses.BaseRule())
+        // needed for the default workspace
         .addRuleDefinition(new WorkspaceBaseRule())
         .addRuleDefinition(new BindRule())
+        // needed for our native rules
+        .addRuleDefinition(new BaseRule())
+        // needed to define toolchains
+        .addRuleDefinition(new ToolchainTypeRule())
         // needs to be set to something
         .addUniversalConfigurationFragment(TestConfiguration.class);
 
+    CoreRules.INSTANCE.init(builder);
+
     MockRule transitionRule =
         () ->
-            MockRule.factory(DepsCollectingFactory.class)
+            MockRule.ancestor(BaseRule.class)
+                .factory(DepsCollectingFactory.class)
                 .define(
                     "with_configuration",
                     (ruleBuilder, env) -> {
@@ -146,7 +211,8 @@ public final class TrimmableTestConfigurationFragments {
                               BConfig.class,
                               CConfig.class,
                               DConfig.class,
-                              EConfig.class)
+                              EConfig.class,
+                              PlatformConfiguration.class)
                           .cfg(new TestFragmentTransitionFactory())
                           .add(
                               attr("deps", BuildType.LABEL_LIST)
@@ -170,12 +236,25 @@ public final class TrimmableTestConfigurationFragments {
                           .add(
                               attr("echo", Type.STRING)
                                   .value((String) null)
+                                  .nonconfigurable("used in transition"))
+                          .add(
+                              attr("platforms", BuildType.NODEP_LABEL_LIST)
+                                  .value((List<Label>) null)
+                                  .nonconfigurable("used in transition"))
+                          .add(
+                              attr("extra_execution_platforms", Type.STRING_LIST)
+                                  .value((List<String>) null)
+                                  .nonconfigurable("used in transition"))
+                          .add(
+                              attr("extra_toolchains", Type.STRING_LIST)
+                                  .value((List<String>) null)
                                   .nonconfigurable("used in transition"));
                     });
 
     MockRule alphaRule =
         () ->
-            MockRule.factory(DepsCollectingFactory.class)
+            MockRule.ancestor(BaseRule.class)
+                .factory(DepsCollectingFactory.class)
                 .define(
                     "alpha_native",
                     (ruleBuilder, env) -> {
@@ -190,7 +269,8 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule bravoRule =
         () ->
-            MockRule.factory(DepsCollectingFactory.class)
+            MockRule.ancestor(BaseRule.class)
+                .factory(DepsCollectingFactory.class)
                 .define(
                     "bravo_native",
                     (ruleBuilder, env) -> {
@@ -205,7 +285,8 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule charlieRule =
         () ->
-            MockRule.factory(DepsCollectingFactory.class)
+            MockRule.ancestor(BaseRule.class)
+                .factory(DepsCollectingFactory.class)
                 .define(
                     "charlie_native",
                     (ruleBuilder, env) -> {
@@ -220,7 +301,8 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule deltaRule =
         () ->
-            MockRule.factory(DepsCollectingFactory.class)
+            MockRule.ancestor(BaseRule.class)
+                .factory(DepsCollectingFactory.class)
                 .define(
                     "delta_native",
                     (ruleBuilder, env) -> {
@@ -235,7 +317,8 @@ public final class TrimmableTestConfigurationFragments {
 
     MockRule echoRule =
         () ->
-            MockRule.factory(DepsCollectingFactory.class)
+            MockRule.ancestor(BaseRule.class)
+                .factory(DepsCollectingFactory.class)
                 .define(
                     "echo_native",
                     (ruleBuilder, env) -> {
@@ -246,6 +329,38 @@ public final class TrimmableTestConfigurationFragments {
                           .requiresConfigurationFragments(EConfig.class)
                           .setImplicitOutputsFunction(
                               ImplicitOutputsFunction.fromTemplates("%{name}.e"));
+                    });
+
+    MockRule platformlessRule =
+        () ->
+            MockRule.ancestor(BaseRule.class)
+                .factory(DepsCollectingFactory.class)
+                .define(
+                    "platformless_native",
+                    (ruleBuilder, env) -> {
+                      ruleBuilder
+                          .add(
+                              attr("deps", BuildType.LABEL_LIST)
+                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
+                          .supportsPlatforms(false)
+                          .setImplicitOutputsFunction(
+                              ImplicitOutputsFunction.fromTemplates("%{name}.np"));
+                    });
+
+    MockRule platformerRule =
+        () ->
+            MockRule.ancestor(BaseRule.class)
+                .factory(DepsCollectingFactory.class)
+                .define(
+                    "platformer_native",
+                    (ruleBuilder, env) -> {
+                      ruleBuilder
+                          .add(
+                              attr("deps", BuildType.LABEL_LIST)
+                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
+                          .supportsPlatforms(true)
+                          .setImplicitOutputsFunction(
+                              ImplicitOutputsFunction.fromTemplates("%{name}.p"));
                     });
 
     builder
@@ -259,7 +374,29 @@ public final class TrimmableTestConfigurationFragments {
         .addRuleDefinition(bravoRule)
         .addRuleDefinition(charlieRule)
         .addRuleDefinition(deltaRule)
-        .addRuleDefinition(echoRule);
+        .addRuleDefinition(echoRule)
+        .addRuleDefinition(platformlessRule)
+        .addRuleDefinition(platformerRule);
+
+    if (toolchainTypeLabel != null) {
+      MockRule usesToolchainsRule =
+          () ->
+              MockRule.ancestor(BaseRule.class)
+                  .factory(DepsCollectingFactory.class)
+                  .define(
+                      "uses_toolchains_native",
+                      (ruleBuilder, env) -> {
+                        ruleBuilder
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .supportsPlatforms(true)
+                            .addRequiredToolchains(toolchainTypeLabel)
+                            .setImplicitOutputsFunction(
+                                ImplicitOutputsFunction.fromTemplates("%{name}.u"));
+                      });
+      builder.addRuleDefinition(usesToolchainsRule);
+    }
   }
 
   /** General purpose fragment loader for the test fragments in this file. */
@@ -413,6 +550,9 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Set of test options. */
   public static final class EOptions extends FragmentOptions {
+    public static final OptionDefinition ECHO =
+        OptionsParser.getOptionDefinitionByName(EOptions.class, "echo");
+
     @Option(
         name = "echo",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -439,21 +579,34 @@ public final class TrimmableTestConfigurationFragments {
     }
   }
 
-  private static final class TestFragmentTransitionFactory implements RuleTransitionFactory {
+  private static final class TestFragmentTransitionFactory implements TransitionFactory<Rule> {
     private static final class SetValuesTransition implements PatchTransition {
       private final String alpha;
       private final String bravo;
       private final String charlie;
       private final String delta;
       private final String echo;
+      private final List<Label> platforms;
+      private final List<String> extraExecutionPlatforms;
+      private final List<String> extraToolchains;
 
       public SetValuesTransition(
-          String alpha, String bravo, String charlie, String delta, String echo) {
+          String alpha,
+          String bravo,
+          String charlie,
+          String delta,
+          String echo,
+          List<Label> platforms,
+          List<String> extraExecutionPlatforms,
+          List<String> extraToolchains) {
         this.alpha = alpha;
         this.bravo = bravo;
         this.charlie = charlie;
         this.delta = delta;
         this.echo = echo;
+        this.platforms = platforms;
+        this.extraExecutionPlatforms = extraExecutionPlatforms;
+        this.extraToolchains = extraToolchains;
       }
 
       @Override
@@ -474,19 +627,31 @@ public final class TrimmableTestConfigurationFragments {
         if (echo != null) {
           output.get(EOptions.class).echo = echo;
         }
+        if (platforms != null) {
+          output.get(PlatformOptions.class).platforms = platforms;
+        }
+        if (extraExecutionPlatforms != null) {
+          output.get(PlatformOptions.class).extraExecutionPlatforms = extraExecutionPlatforms;
+        }
+        if (extraToolchains != null) {
+          output.get(PlatformOptions.class).extraToolchains = extraToolchains;
+        }
         return output;
       }
     }
 
     @Override
-    public PatchTransition buildTransitionFor(Rule rule) {
-      NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
+    public PatchTransition create(Rule rule) {
+      AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
       return new SetValuesTransition(
           attributes.get("alpha", Type.STRING),
           attributes.get("bravo", Type.STRING),
           attributes.get("charlie", Type.STRING),
           attributes.get("delta", Type.STRING),
-          attributes.get("echo", Type.STRING));
+          attributes.get("echo", Type.STRING),
+          attributes.get("platforms", BuildType.NODEP_LABEL_LIST),
+          attributes.get("extra_execution_platforms", Type.STRING_LIST),
+          attributes.get("extra_toolchains", Type.STRING_LIST));
     }
   }
 
@@ -505,6 +670,18 @@ public final class TrimmableTestConfigurationFragments {
         ruleContext.registerAction(
             FileWriteAction.createEmptyWithInputs(
                 ruleContext.getActionOwner(), ImmutableList.of(), artifact));
+      }
+      if (ruleContext.getToolchainContext() != null) {
+        ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
+        for (ToolchainTypeInfo toolchainType : toolchainContext.requiredToolchainTypes()) {
+          ToolchainInfo toolchainInfo = toolchainContext.forToolchainType(toolchainType);
+          try {
+            filesToBuild.addTransitive(
+                ((SkylarkNestedSet) toolchainInfo.getValue("files")).getSet(Artifact.class));
+          } catch (EvalException ex) {
+            throw new AssertionError(ex);
+          }
+        }
       }
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(filesToBuild.build())

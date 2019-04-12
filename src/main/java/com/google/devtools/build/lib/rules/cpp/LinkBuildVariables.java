@@ -17,12 +17,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
 public enum LinkBuildVariables {
@@ -62,8 +61,6 @@ public enum LinkBuildVariables {
   INTERFACE_LIBRARY_INPUT("interface_library_input_path"),
   /** Path where to generate interface library using the ifso builder tool. */
   INTERFACE_LIBRARY_OUTPUT("interface_library_output_path"),
-  /** Linker flags coming from the legacy crosstool fields. */
-  LEGACY_LINK_FLAGS("legacy_link_flags"),
   /** Linker flags coming from the --linkopt or linkopts attribute. */
   USER_LINK_FLAGS("user_link_flags"),
   /** A build variable giving linkstamp paths. */
@@ -78,7 +75,11 @@ public enum LinkBuildVariables {
    * Presence of this variable indicates that files were compiled with fission (debug info is in
    * .dwo files instead of .o files and linker needs to know).
    */
-  IS_USING_FISSION("is_using_fission");
+  IS_USING_FISSION("is_using_fission"),
+  /** Path to the fdo instrument. */
+  FDO_INSTRUMENT_PATH("fdo_instrument_path"),
+  /** Path to the context sensitive fdo instrument. */
+  CS_FDO_INSTRUMENT_PATH("cs_fdo_instrument_path");
 
   private final String variableName;
 
@@ -101,6 +102,7 @@ public enum LinkBuildVariables {
       boolean mustKeepDebug,
       CcToolchainProvider ccToolchainProvider,
       CppConfiguration cppConfiguration,
+      BuildOptions buildOptions,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
       boolean isLtoIndexing,
@@ -113,24 +115,24 @@ public enum LinkBuildVariables {
       Iterable<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
       Iterable<String> librarySearchDirectories,
-      boolean isLegacyFullyStaticLinkingMode,
-      boolean isStaticLinkingMode,
       boolean addIfsoRelatedVariables)
       throws EvalException {
     CcToolchainVariables.Builder buildVariables =
-        new CcToolchainVariables.Builder(ccToolchainProvider.getBuildVariables());
+        CcToolchainVariables.builder(
+            ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration));
 
     // pic
-    if (ccToolchainProvider.getForcePic()) {
+    if (cppConfiguration.forcePic()) {
       buildVariables.addStringVariable(FORCE_PIC.getVariableName(), "");
     }
 
-    if (!mustKeepDebug && ccToolchainProvider.getShouldStripBinaries()) {
+    if (!mustKeepDebug && cppConfiguration.shouldStripBinaries()) {
       buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS.getVariableName(), "");
     }
 
     if (isUsingLinkerNotArchiver
-        && ccToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration)) {
+        && ccToolchainProvider.shouldCreatePerObjectDebugInfo(
+            featureConfiguration, cppConfiguration)) {
       buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
     }
 
@@ -226,7 +228,11 @@ public enum LinkBuildVariables {
       Preconditions.checkArgument(fdoContext.getBranchFdoProfile() == null);
       String fdoInstrument = cppConfiguration.getFdoInstrument();
       Preconditions.checkNotNull(fdoInstrument);
-      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument);
+      buildVariables.addStringVariable(FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
+    } else if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
+      String csFdoInstrument = ccToolchainProvider.getCSFdoInstrument();
+      Preconditions.checkNotNull(csFdoInstrument);
+      buildVariables.addStringVariable(CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
     }
 
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
@@ -250,78 +256,7 @@ public enum LinkBuildVariables {
         LinkBuildVariables.USER_LINK_FLAGS.getVariableName(),
         removePieIfCreatingSharedLibrary(
             isCreatingSharedLibrary, userLinkFlagsWithLtoIndexingIfNeeded));
-    buildVariables.addStringSequenceVariable(
-        LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName(),
-        getToolchainFlags(
-            isLegacyFullyStaticLinkingMode,
-            isStaticLinkingMode,
-            isUsingLinkerNotArchiver,
-            featureConfiguration,
-            ccToolchainProvider,
-            cppConfiguration,
-            useTestOnlyFlags,
-            isCreatingSharedLibrary,
-            userLinkFlags));
-
     return buildVariables.build();
-  }
-
-  private static ImmutableList<String> getToolchainFlags(
-      boolean isLegacyFullyStaticLinkingMode,
-      boolean isStaticLinkingMode,
-      boolean isUsingLinkerNotArchiver,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccToolchainProvider,
-      CppConfiguration cppConfiguration,
-      boolean useTestOnlyFlags,
-      boolean isCreatingSharedLibrary,
-      Iterable<String> userLinkFlags) {
-    if (!isUsingLinkerNotArchiver) {
-      return ImmutableList.of();
-    }
-    boolean sharedLinkopts =
-        isCreatingSharedLibrary
-            || Iterables.contains(userLinkFlags, "-shared")
-            || cppConfiguration.hasSharedLinkOption();
-
-    List<String> result = new ArrayList<>();
-
-    // Extra toolchain link options based on the output's link staticness.
-    if (isLegacyFullyStaticLinkingMode) {
-      result.addAll(
-          CppHelper.getFullyStaticLinkOptions(
-              cppConfiguration, ccToolchainProvider, sharedLinkopts));
-    } else if (isStaticLinkingMode) {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINKING_MODE)) {
-        result.addAll(
-            CppHelper.getMostlyStaticLinkOptions(
-                cppConfiguration,
-                ccToolchainProvider,
-                sharedLinkopts,
-                featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)));
-      } else {
-        result.addAll(ccToolchainProvider.getLegacyLinkOptions());
-      }
-    } else {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.DYNAMIC_LINKING_MODE)) {
-        result.addAll(
-            CppHelper.getDynamicLinkOptions(cppConfiguration, ccToolchainProvider, sharedLinkopts));
-      } else {
-        result.addAll(ccToolchainProvider.getLegacyLinkOptions());
-      }
-    }
-
-    // Extra test-specific link options.
-    if (useTestOnlyFlags) {
-      result.addAll(ccToolchainProvider.getTestOnlyLinkOptions());
-    }
-
-    // -pie is not compatible with shared and should be
-    // removed when the latter is part of the link command. Should we need to further
-    // distinguish between shared libraries and executables, we could add additional
-    // command line / CROSSTOOL flags that distinguish them. But as long as this is
-    // the only relevant use case we're just special-casing it here.
-    return ImmutableList.copyOf(removePieIfCreatingSharedLibrary(isCreatingSharedLibrary, result));
   }
 
   private static Iterable<String> removePieIfCreatingSharedLibrary(

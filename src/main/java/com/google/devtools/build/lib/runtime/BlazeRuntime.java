@@ -100,7 +100,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -336,14 +335,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profiledTasks,
             out,
             format,
-            String.format(
-                "%s profile for %s at %s, build ID: %s",
-                getProductName(), workspace.getOutputBase(), new Date(), buildID),
+            getProductName(),
+            workspace.getOutputBase().toString(),
+            buildID,
             recordFullProfilerData,
             clock,
             execStartTimeNanos,
             options.enableCpuUsageProfiling,
-            options.enableJsonProfileDiet);
+            options.enableJsonProfileDiet,
+            options.enableJsonMetadata);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
@@ -671,8 +671,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /** Invokes {@link BlazeModule#blazeShutdown()} on all registered modules. */
   public void shutdown() {
-    for (BlazeModule module : blazeModules) {
-      module.blazeShutdown();
+    try {
+      for (BlazeModule module : blazeModules) {
+        module.blazeShutdown();
+      }
+    } finally {
+      flushServerLog();
     }
   }
 
@@ -684,8 +688,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /** Invokes {@link BlazeModule#blazeShutdownOnCrash()} on all registered modules. */
   public void shutdownOnCrash() {
-    for (BlazeModule module : blazeModules) {
-      module.blazeShutdownOnCrash();
+    try {
+      for (BlazeModule module : blazeModules) {
+        module.blazeShutdownOnCrash();
+      }
+    } finally {
+      flushServerLog();
     }
   }
 

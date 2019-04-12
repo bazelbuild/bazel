@@ -34,6 +34,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
@@ -52,8 +53,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
@@ -184,7 +186,7 @@ public final class RuleContext extends TargetContext
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
   private final RuleErrorConsumer reporter;
-  @Nullable private final ToolchainContext toolchainContext;
+  @Nullable private final ResolvedToolchainContext toolchainContext;
   private final ConstraintSemantics constraintSemantics;
 
   private ActionOwner actionOwner;
@@ -203,7 +205,7 @@ public final class RuleContext extends TargetContext
       String ruleClassNameForLogging,
       ActionLookupValue.ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
-      @Nullable ToolchainContext toolchainContext,
+      @Nullable ResolvedToolchainContext toolchainContext,
       ConstraintSemantics constraintSemantics) {
     super(
         builder.env,
@@ -414,6 +416,16 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * We have to re-implement this method here because it is declared in the interface {@link
+   * ActionConstructionContext}. This class inherits from {@link TargetContext} which doesn't
+   * implement the {@link ActionConstructionContext} interface.
+   */
+  @Override
+  public ActionKeyContext getActionKeyContext() {
+    return super.getActionKeyContext();
+  }
+
+  /**
    * An opaque symbol generator to be used when identifying objects by their action owner/index of
    * creation. Only needed if an object needs to know whether it was created by the same action
    * owner in the same order as another object. Each symbol must call {@link
@@ -491,7 +503,9 @@ public final class RuleContext extends TargetContext
   }
 
   public ImmutableList<Artifact> getBuildInfo(BuildInfoKey key) throws InterruptedException {
-    return getAnalysisEnvironment().getBuildInfo(this, key, getConfiguration());
+    return getAnalysisEnvironment()
+        .getBuildInfo(
+            AnalysisUtils.isStampingEnabled(this, getConfiguration()), key, getConfiguration());
   }
 
   @VisibleForTesting
@@ -799,7 +813,7 @@ public final class RuleContext extends TargetContext
   public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargetAndTargets(
       String attributeName, Mode mode) {
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
-    if ((mode == Mode.TARGET) && (attributeDefinition.hasSplitConfigurationTransition())) {
+    if ((mode == Mode.TARGET) && (attributeDefinition.getTransitionFactory().isSplit())) {
       // TODO(bazel-team): If you request a split-configured attribute in the target configuration,
       // we return only the list of configured targets for the first architecture; this is for
       // backwards compatibility with existing code in cases where the call to getPrerequisites is
@@ -823,9 +837,14 @@ public final class RuleContext extends TargetContext
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
     checkAttribute(attributeName, Mode.SPLIT);
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
+    Preconditions.checkState(attributeDefinition.getTransitionFactory().isSplit());
     SplitTransition transition =
-        attributeDefinition.getSplitTransition(
-            ConfiguredAttributeMapper.of(rule, configConditions));
+        (SplitTransition)
+            attributeDefinition
+                .getTransitionFactory()
+                .create(
+                    AttributeTransitionData.create(
+                        ConfiguredAttributeMapper.of(rule, configConditions)));
     BuildOptions fromOptions = getConfiguration().getOptions();
     List<BuildOptions> splitOptions = transition.split(fromOptions);
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
@@ -1127,7 +1146,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public ToolchainContext getToolchainContext() {
+  public ResolvedToolchainContext getToolchainContext() {
     return toolchainContext;
   }
 
@@ -1154,15 +1173,16 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
-    ConfigurationTransition transition = attributeDefinition.getConfigurationTransition();
+    TransitionFactory<AttributeTransitionData> transitionFactory =
+        attributeDefinition.getTransitionFactory();
     if (mode == Mode.HOST) {
-      if (!(transition instanceof PatchTransition)) {
+      if (transitionFactory.isSplit()) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the host configuration");
       }
     } else if (mode == Mode.TARGET) {
-      if (!(transition instanceof PatchTransition) && transition != NoTransition.INSTANCE) {
+      if (transitionFactory.isSplit() && !NoTransition.isInstance(transitionFactory)) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the target configuration");
@@ -1172,7 +1192,7 @@ public final class RuleContext extends TargetContext
           + getRuleClassNameForLogging() + " attribute " + attributeName
           + ": DATA transition no longer supported"); // See b/80157700.
     } else if (mode == Mode.SPLIT) {
-      if (!(attributeDefinition.hasSplitConfigurationTransition())) {
+      if (!(attributeDefinition.getTransitionFactory().isSplit())) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for a split transition");
@@ -1470,7 +1490,7 @@ public final class RuleContext extends TargetContext
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
-    private ToolchainContext toolchainContext;
+    private ResolvedToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
 
     @VisibleForTesting
@@ -1577,8 +1597,8 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /** Sets the {@link ToolchainContext} used to access toolchains used by this rule. */
-    public Builder setToolchainContext(ToolchainContext toolchainContext) {
+    /** Sets the {@link ResolvedToolchainContext} used to access toolchains used by this rule. */
+    public Builder setToolchainContext(ResolvedToolchainContext toolchainContext) {
       this.toolchainContext = toolchainContext;
       return this;
     }

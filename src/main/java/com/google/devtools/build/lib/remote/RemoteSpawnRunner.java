@@ -14,7 +14,14 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
+import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
+import static com.google.devtools.build.lib.remote.util.Utils.hasTopLevelOutputs;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -30,6 +37,7 @@ import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -50,11 +58,15 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -82,8 +94,8 @@ import javax.annotation.Nullable;
 
 /** A client for the remote execution service. */
 @ThreadSafe
-class RemoteSpawnRunner implements SpawnRunner {
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
+public class RemoteSpawnRunner implements SpawnRunner {
+  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
 
   private final Path execRoot;
   private final RemoteOptions remoteOptions;
@@ -99,6 +111,14 @@ class RemoteSpawnRunner implements SpawnRunner {
   private final String commandId;
   private final DigestUtil digestUtil;
   private final Path logDir;
+
+  /**
+   * Set of artifacts that are top level outputs
+   *
+   * <p>This set is empty unless {@link RemoteOutputsMode#TOPLEVEL} is specified. If so, this set is
+   * used to decide whether to download an output.
+   */
+  private final ImmutableSet<Artifact> topLevelOutputs;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -116,7 +136,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       @Nullable GrpcRemoteExecutor remoteExecutor,
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
-      Path logDir) {
+      Path logDir,
+      ImmutableSet<Artifact> topLevelOutputs) {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
@@ -130,6 +151,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     this.retrier = retrier;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
+    this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
   }
 
   @Override
@@ -146,7 +168,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     boolean spawnCachable = Spawns.mayBeCached(spawn);
 
     context.report(ProgressStatus.EXECUTING, getName());
-
+    RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     final MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
@@ -172,6 +194,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
     Context previous = withMetadata.attach();
+    Profiler prof = Profiler.instance();
     try {
       boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCachable;
       boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCachable;
@@ -179,7 +202,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       try {
         // Try to lookup the action in the action cache.
         ActionResult cachedResult;
-        try (SilentCloseable c = Profiler.instance().profile("Remote.getCachedActionResult")) {
+        try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
           cachedResult = acceptCachedResult ? remoteCache.getCachedActionResult(actionKey) : null;
         }
         if (cachedResult != null) {
@@ -189,9 +212,9 @@ class RemoteSpawnRunner implements SpawnRunner {
             // Set acceptCachedResult to false in order to force the action re-execution
             acceptCachedResult = false;
           } else {
-            try (SilentCloseable c = Profiler.instance().profile("Remote.downloadRemoteResults")) {
-              remoteCache.download(cachedResult, execRoot, context.getFileOutErr());
-              return createSpawnResult(cachedResult.getExitCode(), /* cacheHit= */ true);
+            try {
+              return downloadAndFinalizeSpawnResult(
+                  cachedResult, /* cacheHit= */ true, spawn, context, remoteOutputsMode);
             } catch (CacheNotFoundException e) {
               // No cache hit, so we fall through to local or remote execution.
               // We set acceptCachedResult to false in order to force the action re-execution.
@@ -225,19 +248,20 @@ class RemoteSpawnRunner implements SpawnRunner {
             .getExecutionPolicyBuilder()
             .setPriority(remoteOptions.remoteExecutionPriority);
       }
-      ExecuteRequest request = requestBuilder.build();
       try {
         return retrier.execute(
             () -> {
+              ExecuteRequest request = requestBuilder.build();
+
               // Upload the command and all the inputs into the remote cache.
-              try (SilentCloseable c = Profiler.instance().profile("Remote.uploadInputs")) {
+              try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
                 Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
                 additionalInputs.put(actionKey.getDigest(), action);
                 additionalInputs.put(commandHash, command);
                 remoteCache.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
               }
               ExecuteResponse reply;
-              try (SilentCloseable c = Profiler.instance().profile("Remote.executeRemotely")) {
+              try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
                 reply = remoteExecutor.executeRemotely(request);
               }
 
@@ -250,25 +274,61 @@ class RemoteSpawnRunner implements SpawnRunner {
                 outErr.printErr(message + "\n");
               }
 
-              try (SilentCloseable c =
-                  Profiler.instance().profile("Remote.maybeDownloadServerLogs")) {
+              try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
                 maybeDownloadServerLogs(reply, actionKey);
               }
 
-              try (SilentCloseable c =
-                  Profiler.instance().profile("Remote.downloadRemoteResults")) {
-                remoteCache.download(actionResult, execRoot, outErr);
+              try {
+                return downloadAndFinalizeSpawnResult(
+                    actionResult, reply.getCachedResult(), spawn, context, remoteOutputsMode);
+              } catch (CacheNotFoundException e) {
+                // No cache hit, so if we retry this execution, we must no longer accept
+                // cached results, it must be reexecuted
+                requestBuilder.setSkipCacheLookup(true);
+                throw e;
               }
-              return createSpawnResult(actionResult.getExitCode(), reply.getCachedResult());
             });
       } catch (IOException e) {
         return execLocallyAndUploadOrFail(
             spawn, context, inputMap, actionKey, action, command, uploadLocalResults, e);
       }
-
     } finally {
       withMetadata.detach(previous);
     }
+  }
+
+  private SpawnResult downloadAndFinalizeSpawnResult(
+      ActionResult actionResult,
+      boolean cacheHit,
+      Spawn spawn,
+      SpawnExecutionContext context,
+      RemoteOutputsMode remoteOutputsMode)
+      throws ExecException, IOException, InterruptedException {
+    boolean downloadOutputs =
+        shouldDownloadAllSpawnOutputs(
+            remoteOutputsMode,
+            /* exitCode = */ actionResult.getExitCode(),
+            hasTopLevelOutputs(spawn.getOutputFiles(), topLevelOutputs));
+    InMemoryOutput inMemoryOutput = null;
+    if (downloadOutputs) {
+      try (SilentCloseable c = Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs")) {
+        remoteCache.download(actionResult, execRoot, context.getFileOutErr());
+      }
+    } else {
+      PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
+      try (SilentCloseable c =
+          Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs minimal")) {
+        inMemoryOutput =
+            remoteCache.downloadMinimal(
+                actionResult,
+                spawn.getOutputFiles(),
+                inMemoryOutputPath,
+                context.getFileOutErr(),
+                execRoot,
+                context.getMetadataInjector());
+      }
+    }
+    return createSpawnResult(actionResult.getExitCode(), cacheHit, getName(), inMemoryOutput);
   }
 
   @Override
@@ -319,15 +379,6 @@ class RemoteSpawnRunner implements SpawnRunner {
             Event.info("Server logs of failing action:\n   " + (logCount > 1 ? parent : logPath)));
       }
     }
-  }
-
-  private SpawnResult createSpawnResult(int exitCode, boolean cacheHit) {
-    return new SpawnResult.Builder()
-        .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
-        .setExitCode(exitCode)
-        .setRunnerName(cacheHit ? getName() + " cache hit" : getName())
-        .setCacheHit(cacheHit)
-        .build();
   }
 
   private SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
@@ -396,11 +447,7 @@ class RemoteSpawnRunner implements SpawnRunner {
         /* forciblyRunRemotely= */ false);
   }
 
-  static Action buildAction(
-      Digest command,
-      Digest inputRoot,
-      Duration timeout,
-      boolean cacheable) {
+  static Action buildAction(Digest command, Digest inputRoot, Duration timeout, boolean cacheable) {
 
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
@@ -492,7 +539,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private Map<Path, Long> getInputCtimes(SortedMap<PathFragment, ActionInput> inputMap) {
-    HashMap<Path, Long>  ctimes = new HashMap<>();
+    HashMap<Path, Long> ctimes = new HashMap<>();
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       ActionInput input = e.getValue();
       if (input instanceof VirtualActionInput) {
@@ -539,7 +586,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
 
     Collection<Path> outputFiles = resolveActionInputs(execRoot, spawn.getOutputFiles());
-    try (SilentCloseable c = Profiler.instance().profile("Remote.upload")) {
+    try (SilentCloseable c = Profiler.instance().profile(UPLOAD_TIME, "upload outputs")) {
       remoteCache.upload(
           actionKey, action, command, execRoot, outputFiles, context.getFileOutErr());
     } catch (IOException e) {
@@ -570,8 +617,7 @@ class RemoteSpawnRunner implements SpawnRunner {
    */
   static Collection<Path> resolveActionInputs(
       Path execRoot, Collection<? extends ActionInput> actionInputs) {
-    return actionInputs
-        .stream()
+    return actionInputs.stream()
         .map((inp) -> execRoot.getRelative(inp.getExecPath()))
         .collect(ImmutableList.toImmutableList());
   }

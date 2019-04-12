@@ -39,7 +39,7 @@ zip -j -q "$tmp_zip" "$@"
 
 mkdir -p "$tmp_dir/$directory_prefix"
 cd "$tmp_dir/$directory_prefix"
-unzip -q "$tmp_zip"
+unzip -q -o "$tmp_zip"
 rm -f "$tmp_zip"
 cd "$tmp_dir"
 zip -r -q "$tmp_zip" "$directory_prefix"

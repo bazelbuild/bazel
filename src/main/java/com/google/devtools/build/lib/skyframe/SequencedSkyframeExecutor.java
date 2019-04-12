@@ -113,7 +113,7 @@ import javax.annotation.Nullable;
  * A SkyframeExecutor that implicitly assumes that builds can be done incrementally from the most
  * recent build. In other words, builds are "sequenced".
  */
-public final class SequencedSkyframeExecutor extends SkyframeExecutor {
+public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDriver> {
 
   private static final Logger logger = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
 
@@ -185,84 +185,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         /*nonexistentFileReceiver=*/ null);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
-  }
-
-  public static SequencedSkyframeExecutor create(
-      PackageFactory pkgFactory,
-      FileSystem fileSystem,
-      BlazeDirectories directories,
-      ActionKeyContext actionKeyContext,
-      Factory workspaceStatusActionFactory,
-      ImmutableList<BuildInfoFactory> buildInfoFactories,
-      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
-      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
-      PathFragment additionalBlacklistedPackagePrefixesFile,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      List<BuildFileName> buildFilesByPriority,
-      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      BuildOptions defaultBuildOptions) {
-    return create(
-        pkgFactory,
-        fileSystem,
-        directories,
-        actionKeyContext,
-        workspaceStatusActionFactory,
-        buildInfoFactories,
-        diffAwarenessFactories,
-        extraSkyFunctions,
-        customDirtinessCheckers,
-        hardcodedBlacklistedPackagePrefixes,
-        additionalBlacklistedPackagePrefixesFile,
-        crossRepositoryLabelViolationStrategy,
-        buildFilesByPriority,
-        actionOnIOExceptionReadingBuildFile,
-        defaultBuildOptions,
-        new MutableArtifactFactorySupplier(),
-        skyframeExecutor -> {});
-  }
-
-  public static SequencedSkyframeExecutor create(
-      PackageFactory pkgFactory,
-      FileSystem fileSystem,
-      BlazeDirectories directories,
-      ActionKeyContext actionKeyContext,
-      Factory workspaceStatusActionFactory,
-      ImmutableList<BuildInfoFactory> buildInfoFactories,
-      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
-      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
-      PathFragment additionalBlacklistedPackagePrefixesFile,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      List<BuildFileName> buildFilesByPriority,
-      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
-      Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit) {
-    SequencedSkyframeExecutor skyframeExecutor =
-        new SequencedSkyframeExecutor(
-            skyframeExecutorConsumerOnInit,
-            InMemoryMemoizingEvaluator.SUPPLIER,
-            pkgFactory,
-            fileSystem,
-            directories,
-            actionKeyContext,
-            workspaceStatusActionFactory,
-            buildInfoFactories,
-            diffAwarenessFactories,
-            extraSkyFunctions,
-            customDirtinessCheckers,
-            hardcodedBlacklistedPackagePrefixes,
-            additionalBlacklistedPackagePrefixesFile,
-            crossRepositoryLabelViolationStrategy,
-            buildFilesByPriority,
-            actionOnIOExceptionReadingBuildFile,
-            defaultBuildOptions,
-            mutableArtifactFactorySupplier);
-    skyframeExecutor.init();
-    return skyframeExecutor;
   }
 
   @Override
@@ -874,6 +796,180 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     for (SkyKey packageSkyKey : packageSkyKeys) {
       Package pkg = ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey)).getPackage();
       pkg.dump(out);
+    }
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /**
+   * Builder class for {@link SequencedSkyframeExecutor}.
+   *
+   * <p>Allows addition of the new arguments to {@link SequencedSkyframeExecutor} constructor
+   * without the need to modify all the places, where {@link SequencedSkyframeExecutor} is
+   * constructed (if the default value can be provided for the new argument in Builder).
+   */
+  public static final class Builder {
+    protected PackageFactory pkgFactory;
+    protected FileSystem fileSystem;
+    protected BlazeDirectories directories;
+    protected ActionKeyContext actionKeyContext;
+    protected ImmutableList<BuildInfoFactory> buildInfoFactories;
+    protected BuildOptions defaultBuildOptions;
+
+    private ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes;
+    private PathFragment additionalBlacklistedPackagePrefixesFile;
+    private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
+    private List<BuildFileName> buildFilesByPriority;
+    private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
+
+    // Fields with default values.
+    private ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
+    private Factory workspaceStatusActionFactory;
+    private Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories = ImmutableList.of();
+    private Iterable<SkyValueDirtinessChecker> customDirtinessCheckers = ImmutableList.of();
+    private MutableArtifactFactorySupplier mutableArtifactFactorySupplier =
+        new MutableArtifactFactorySupplier();
+    private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
+
+    private Builder() {}
+
+    public SequencedSkyframeExecutor build() {
+      // Check that the values were explicitly set.
+      Preconditions.checkNotNull(pkgFactory);
+      Preconditions.checkNotNull(fileSystem);
+      Preconditions.checkNotNull(directories);
+      Preconditions.checkNotNull(actionKeyContext);
+      Preconditions.checkNotNull(buildInfoFactories);
+      Preconditions.checkNotNull(defaultBuildOptions);
+      Preconditions.checkNotNull(hardcodedBlacklistedPackagePrefixes);
+      Preconditions.checkNotNull(additionalBlacklistedPackagePrefixesFile);
+      Preconditions.checkNotNull(crossRepositoryLabelViolationStrategy);
+      Preconditions.checkNotNull(buildFilesByPriority);
+      Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
+
+      SequencedSkyframeExecutor skyframeExecutor =
+          new SequencedSkyframeExecutor(
+              skyframeExecutorConsumerOnInit,
+              InMemoryMemoizingEvaluator.SUPPLIER,
+              pkgFactory,
+              fileSystem,
+              directories,
+              actionKeyContext,
+              workspaceStatusActionFactory,
+              buildInfoFactories,
+              diffAwarenessFactories,
+              extraSkyFunctions,
+              customDirtinessCheckers,
+              hardcodedBlacklistedPackagePrefixes,
+              additionalBlacklistedPackagePrefixesFile,
+              crossRepositoryLabelViolationStrategy,
+              buildFilesByPriority,
+              actionOnIOExceptionReadingBuildFile,
+              defaultBuildOptions,
+              mutableArtifactFactorySupplier);
+      skyframeExecutor.init();
+      return skyframeExecutor;
+    }
+
+    public Builder modify(Consumer<Builder> consumer) {
+      consumer.accept(this);
+      return this;
+    }
+
+    public Builder setPkgFactory(PackageFactory pkgFactory) {
+      this.pkgFactory = pkgFactory;
+      return this;
+    }
+
+    public Builder setFileSystem(FileSystem fileSystem) {
+      this.fileSystem = fileSystem;
+      return this;
+    }
+
+    public Builder setDirectories(BlazeDirectories directories) {
+      this.directories = directories;
+      return this;
+    }
+
+    public Builder setActionKeyContext(ActionKeyContext actionKeyContext) {
+      this.actionKeyContext = actionKeyContext;
+      return this;
+    }
+
+    public Builder setBuildInfoFactories(ImmutableList<BuildInfoFactory> buildInfoFactories) {
+      this.buildInfoFactories = buildInfoFactories;
+      return this;
+    }
+
+    public Builder setDefaultBuildOptions(BuildOptions defaultBuildOptions) {
+      this.defaultBuildOptions = defaultBuildOptions;
+      return this;
+    }
+
+    public Builder setExtraSkyFunctions(
+        ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions) {
+      this.extraSkyFunctions = extraSkyFunctions;
+      return this;
+    }
+
+    public Builder setWorkspaceStatusActionFactory(@Nullable Factory workspaceStatusActionFactory) {
+      this.workspaceStatusActionFactory = workspaceStatusActionFactory;
+      return this;
+    }
+
+    public Builder setDiffAwarenessFactories(
+        Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
+      this.diffAwarenessFactories = diffAwarenessFactories;
+      return this;
+    }
+
+    public Builder setCustomDirtinessCheckers(
+        Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
+      this.customDirtinessCheckers = customDirtinessCheckers;
+      return this;
+    }
+
+    public Builder setHardcodedBlacklistedPackagePrefixes(
+        ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes) {
+      this.hardcodedBlacklistedPackagePrefixes = hardcodedBlacklistedPackagePrefixes;
+      return this;
+    }
+
+    public Builder setAdditionalBlacklistedPackagePrefixesFile(
+        PathFragment additionalBlacklistedPackagePrefixesFile) {
+      this.additionalBlacklistedPackagePrefixesFile = additionalBlacklistedPackagePrefixesFile;
+      return this;
+    }
+
+    public Builder setCrossRepositoryLabelViolationStrategy(
+        CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
+      this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
+      return this;
+    }
+
+    public Builder setBuildFilesByPriority(List<BuildFileName> buildFilesByPriority) {
+      this.buildFilesByPriority = buildFilesByPriority;
+      return this;
+    }
+
+    public Builder setActionOnIOExceptionReadingBuildFile(
+        ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
+      this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
+      return this;
+    }
+
+    public Builder setMutableArtifactFactorySupplier(
+        MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
+      this.mutableArtifactFactorySupplier = mutableArtifactFactorySupplier;
+      return this;
+    }
+
+    public Builder setSkyframeExecutorConsumerOnInit(
+        Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit) {
+      this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
+      return this;
     }
   }
 }

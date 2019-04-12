@@ -87,7 +87,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_allow_python_version_transitions",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -105,7 +105,7 @@ public class PythonOptions extends FragmentOptions {
    */
   @Option(
       name = "incompatible_py3_is_default",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -125,7 +125,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_py2_outputs_are_suffixed",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {
@@ -230,11 +230,14 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatibleDisallowLegacyPyProvider;
 
   @Option(
-      // TODO(brandjon): Rename to --incompatible_use_python_toolchains when ready to make available
-      name = "experimental_use_python_toolchains",
+      name = "incompatible_use_python_toolchains",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
       help =
           "If set to true, executable native Python rules will use the Python runtime specified by "
               + "the Python toolchain, rather than the runtime given by legacy flags like "
@@ -250,6 +253,26 @@ public class PythonOptions extends FragmentOptions {
           "Build the runfiles trees of py_binary targets that appear in the transitive "
               + "data runfiles of another binary.")
   public boolean buildTransitiveRunfilesTrees;
+
+  @Option(
+      name = "incompatible_windows_escape_python_args",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "On Linux/macOS/non-Windows: no-op. On Windows: this flag affects how py_binary and"
+              + " py_test targets are built: how their launcher escapes command line flags. When"
+              + " this flag is true, the launcher escapes command line flags using Windows-style"
+              + " escaping (correct behavior). When the flag is false, the launcher uses Bash-style"
+              + " escaping (buggy behavior). See https://github.com/bazelbuild/bazel/issues/7958")
+  public boolean windowsEscapePythonArgs;
 
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
@@ -313,17 +336,6 @@ public class PythonOptions extends FragmentOptions {
    * transition the version to the hard-coded default value. Under these constraints, there is only
    * one transition possible, from null to the non-default value, and it is never a no-op.
    *
-   * <p>Previously this method also allowed transitioning under the new semantics in cases where the
-   * transition would have no impact on {@link #getPythonVersion} but would bring {@link
-   * #forcePython} into agreement with the actual version. The benefit of doing this was supposed to
-   * be that {@code select()}ing on {@code "force_python"} would give the correct result more often,
-   * even though it's still incorrect in general. However, this ended up causing more harm than
-   * good, because this type of transition does not change the output root and therefore caused
-   * action conflicts for unshareable actions (mainly C++ actions); see #7655. The resolution is
-   * that users should just migrate their {@code select()}s to the {@code
-   * //tools/python:python_version} target in the tools repository, as is required when {@code
-   * --incompatible_remove_old_python_version_api} is enabled.
-   *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public boolean canTransitionPythonVersion(PythonVersion version) {
@@ -357,9 +369,13 @@ public class PythonOptions extends FragmentOptions {
   public void setPythonVersion(PythonVersion version) {
     Preconditions.checkArgument(version.isTargetValue());
     this.pythonVersion = version;
-    // Update forcePython, but if the flag to remove the old API is enabled, no one will be able
-    // to tell anyway.
-    this.forcePython = version;
+    // If the old version API is enabled, update forcePython for consistency. If the old API is
+    // disabled, don't update it because 1) no one can read it anyway, and 2) updating it during
+    // normalization would cause analysis-time validation of the flag to spuriously fail (it'd think
+    // the user set the flag).
+    if (!incompatibleRemoveOldPythonVersionApi) {
+      this.forcePython = version;
+    }
   }
 
   @Override
@@ -377,5 +393,17 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
     return hostPythonOptions;
+  }
+
+  @Override
+  public FragmentOptions getNormalized() {
+    // Under the new version semantics, we want to ensure that options with "null" physical default
+    // values are normalized, to avoid #7808. We don't want to normalize with the old version
+    // semantics because that breaks backwards compatibility (--force_python would always be on).
+    PythonOptions newOptions = (PythonOptions) clone();
+    if (incompatibleAllowPythonVersionTransitions) {
+      newOptions.setPythonVersion(newOptions.getPythonVersion());
+    }
+    return newOptions;
   }
 }

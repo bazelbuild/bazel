@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
@@ -141,7 +143,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           OutputStream outputStream,
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
-          @Nullable RuleTransitionFactory trimmingTransitionFactory,
+          @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
           PackageManager packageManager);
 
   public abstract String getOutputFormat();
@@ -224,6 +226,13 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   @Nullable
   ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
     return (ConfiguredTargetValue) walkableGraphSupplier.get().getValue(key);
+  }
+
+  ImmutableSet<PathFragment> getBlacklistedPackagePrefixesPathFragments()
+      throws InterruptedException {
+    return ((BlacklistedPackagePrefixesValue)
+            walkableGraphSupplier.get().getValue(BlacklistedPackagePrefixesValue.key()))
+        .getPatterns();
   }
 
   @Nullable

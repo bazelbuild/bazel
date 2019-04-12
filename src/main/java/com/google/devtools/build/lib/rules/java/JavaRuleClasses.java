@@ -102,7 +102,7 @@ public class JavaRuleClasses {
       return builder
           .add(
               attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
-                  .cfg(HostTransition.INSTANCE)
+                  .cfg(HostTransition.createFactory())
                   .value(JavaSemantics.hostJdkAttribute(env))
                   .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
           .build();

@@ -20,8 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
@@ -118,16 +120,6 @@ public final class LinkCommandLine extends CommandLine {
     return linkingMode;
   }
 
-  /** Returns the additional linker options for this link. */
-  public ImmutableList<String> getLinkopts() {
-    if (variables.isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
-      return CcToolchainVariables.toStringList(
-          variables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
-    } else {
-      return ImmutableList.of();
-    }
-  }
-
   /** Returns the path to the linker. */
   public String getLinkerPathString() {
     return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
@@ -169,13 +161,14 @@ public final class LinkCommandLine extends CommandLine {
    * if getParamFile() is not null.
    */
   @VisibleForTesting
-  final Pair<List<String>, List<String>> splitCommandline() {
+  final Pair<List<String>, List<String>> splitCommandline() throws CommandLineExpansionException {
     return splitCommandline(
         paramFile, getRawLinkArgv(null), linkTargetType, doNotSplitLinkingCmdLine);
   }
 
   @VisibleForTesting
-  final Pair<List<String>, List<String>> splitCommandline(@Nullable ArtifactExpander expander) {
+  final Pair<List<String>, List<String>> splitCommandline(@Nullable ArtifactExpander expander)
+      throws CommandLineExpansionException {
     return splitCommandline(
         paramFile, getRawLinkArgv(expander), linkTargetType, doNotSplitLinkingCmdLine);
   }
@@ -237,7 +230,7 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments() {
+    public Iterable<String> arguments() throws CommandLineExpansionException {
       List<String> argv =
           getRawLinkArgv(
               null, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
@@ -246,7 +239,8 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments(ArtifactExpander expander) {
+    public Iterable<String> arguments(ArtifactExpander expander)
+        throws CommandLineExpansionException {
       List<String> argv =
           getRawLinkArgv(
               expander,
@@ -360,7 +354,7 @@ public final class LinkCommandLine extends CommandLine {
    *
    * @return raw link command line.
    */
-  public List<String> getRawLinkArgv() {
+  public List<String> getRawLinkArgv() throws CommandLineExpansionException {
     return getRawLinkArgv(null);
   }
 
@@ -371,7 +365,8 @@ public final class LinkCommandLine extends CommandLine {
    * @param expander ArtifactExpander for expanding TreeArtifacts.
    * @return raw link command line.
    */
-  public List<String> getRawLinkArgv(@Nullable ArtifactExpander expander) {
+  public List<String> getRawLinkArgv(@Nullable ArtifactExpander expander)
+      throws CommandLineExpansionException {
     return getRawLinkArgv(
         expander, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
   }
@@ -382,7 +377,8 @@ public final class LinkCommandLine extends CommandLine {
       FeatureConfiguration featureConfiguration,
       String actionName,
       LinkTargetType linkTargetType,
-      CcToolchainVariables variables) {
+      CcToolchainVariables variables)
+      throws CommandLineExpansionException {
     List<String> argv = new ArrayList<>();
     if (forcedToolPath != null) {
       argv.add(forcedToolPath);
@@ -392,11 +388,16 @@ public final class LinkCommandLine extends CommandLine {
           String.format("Expected action_config for '%s' to be configured", actionName));
       argv.add(featureConfiguration.getToolPathForAction(linkTargetType.getActionName()));
     }
-    argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+    try {
+      argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+    } catch (ExpansionException e) {
+      throw new CommandLineExpansionException(e.getMessage());
+    }
     return argv;
   }
 
-  List<String> getCommandLine(@Nullable ArtifactExpander expander) {
+  List<String> getCommandLine(@Nullable ArtifactExpander expander)
+      throws CommandLineExpansionException {
     // Try to shorten the command line by use of a parameter file.
     // This makes the output with --subcommands (et al) more readable.
     if (paramFile != null) {
@@ -408,12 +409,13 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   @Override
-  public List<String> arguments() {
+  public List<String> arguments() throws CommandLineExpansionException {
     return getRawLinkArgv(null);
   }
 
   @Override
-  public Iterable<String> arguments(ArtifactExpander artifactExpander) {
+  public Iterable<String> arguments(ArtifactExpander artifactExpander)
+      throws CommandLineExpansionException {
     return getRawLinkArgv(artifactExpander);
   }
 

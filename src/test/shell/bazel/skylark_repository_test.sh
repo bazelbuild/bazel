@@ -294,7 +294,6 @@ EOF
 
   expect_not_log "PACKAGE"
   expect_log "Failed to load Starlark extension '@foo//:ext.bzl'"
-  expect_log "repository 'foo' was defined too late in your WORKSPACE file"
 }
 
 function test_load_nonexistent_with_subworkspace() {
@@ -313,7 +312,6 @@ EOF
 
   expect_not_log "PACKAGE"
   expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
-  expect_log "repository 'does_not_exist' was defined too late in your WORKSPACE file"
 
   # Retest with query //...
   bazel clean --expunge
@@ -322,7 +320,6 @@ EOF
 
   expect_not_log "PACKAGE"
   expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
-  expect_log "repository 'does_not_exist' was defined too late in your WORKSPACE file"
 }
 
 function test_skylark_local_repository() {
@@ -1188,6 +1185,75 @@ EOF
   bazel build @maytimeout//... \
       || fail "expected success after successful sync"
 }
+
+function test_circular_load_error_message() {
+  cat > WORKSPACE <<'EOF'
+load("//:a.bzl", "total")
+EOF
+  touch BUILD
+  cat > a.bzl <<'EOF'
+load("//:b.bzl", "b")
+
+a = 10
+
+total = a + b
+EOF
+  cat > b.bzl <<'EOF'
+load("//:a.bzl", "a")
+
+b = 20
+
+difference = b - a
+EOF
+
+  bazel build //... > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+
+  expect_not_log "[iI]nternal [eE]rror"
+  expect_not_log "IllegalStateException"
+  expect_log "//:a.bzl"
+  expect_log "//:b.bzl"
+}
+
+function test_ciruclar_load_error_with_path_message() {
+  cat > WORKSPACE <<'EOF'
+load("//:x.bzl", "x")
+EOF
+  touch BUILD
+  cat > x.bzl <<'EOF'
+load("//:y.bzl", "y")
+x = y
+EOF
+  cat > y.bzl <<'EOF'
+load("//:a.bzl", "total")
+
+y = total
+EOF
+  cat > a.bzl <<'EOF'
+load("//:b.bzl", "b")
+
+a = 10
+
+total = a + b
+EOF
+  cat > b.bzl <<'EOF'
+load("//:a.bzl", "a")
+
+b = 20
+
+difference = b - a
+EOF
+
+  bazel build //... > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+
+  expect_not_log "[iI]nternal [eE]rror"
+  expect_not_log "IllegalStateException"
+  expect_log "WORKSPACE"
+  expect_log "//:x.bzl"
+  expect_log "//:y.bzl"
+  expect_log "//:a.bzl"
+  expect_log "//:b.bzl"
+}
+
 
 function tear_down() {
   shutdown_server

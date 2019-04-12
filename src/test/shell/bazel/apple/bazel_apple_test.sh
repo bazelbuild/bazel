@@ -79,6 +79,49 @@ EOF
     || fail "expected output binary to contain 2 architectures"
 }
 
+function test_additive_cpus_flag() {
+  mkdir -p package
+  cat > package/BUILD <<EOF
+objc_library(
+    name = "lib_a",
+    srcs = ["a.m"],
+)
+objc_library(
+    name = "lib_b",
+    srcs = ["b.m"],
+)
+apple_binary(
+    name = "main_binary",
+    deps = [":lib_a", ":lib_b"],
+    platform_type = "ios",
+    minimum_os_version = "10.0",
+)
+genrule(
+  name = "lipo_run",
+  srcs = [":main_binary_lipobin"],
+  outs = ["lipo_out"],
+  cmd =
+      "set -e && " +
+      "lipo -info \$(location :main_binary_lipobin) > \$(@)",
+  tags = ["requires-darwin"],
+)
+EOF
+  touch package/a.m
+  cat > package/b.m <<EOF
+int main() {
+  return 0;
+}
+EOF
+
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      //package:lipo_out \
+      --ios_multi_cpus=i386 --ios_multi_cpus=x86_64 \
+      || fail "should build apple_binary and obtain info via lipo"
+
+  cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
+    || fail "expected output binary to contain 2 architectures"
+}
+
 function test_host_xcodes() {
   XCODE_VERSION=$(env -i xcodebuild -version | grep "Xcode" \
       | sed -E "s/Xcode (([0-9]|.)+).*/\1/")

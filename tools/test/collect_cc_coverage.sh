@@ -68,40 +68,6 @@ function llvm_coverage() {
       "${COVERAGE_DIR}"/*.profraw
 }
 
-# Computes code coverage data using gcda files found under $COVERAGE_DIR.
-# Writes the collected coverage into the given output file in lcov format.
-function lcov_coverage() {
-  local output_file="${1}"; shift
-
-  cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno; do
-    mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno})"
-    cp "${ROOT}/${gcno}" "${COVERAGE_DIR}/${gcno}"
-  done
-
-  local lcov_tool="$(which lcov)"
-  if [[ ! -x "$lcov_tool" ]]; then
-    lcov_tool=/usr/bin/lcov
-  fi
-
-  # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
-  # -c                    - Collect coverage data
-  # --no-external         - Do not collect coverage data for system files
-  # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments
-  #                         some files
-  # -q                    - Quiet mode
-  # --gcov-tool "${GCOV}" - Pass the local symlink to be uses as gcov by lcov
-  # -b /proc/self/cwd     - Use this as a prefix for all source files instead of
-  #                         the current directory
-  # -d "${COVERAGE_DIR}"  - Directory to search for .gcda files
-  # -o "${COVERAGE_OUTPUT_FILE}" - Output file
-  $lcov_tool -c --no-external --ignore-errors graph \
-      --gcov-tool "${GCOV}" -b /proc/self/cwd \
-      -d "${COVERAGE_DIR}" -o "${output_file}"
-
-  # Fix up the paths to be relative by removing the prefix we specified above.
-  sed -i -e "s*/proc/self/cwd/**g" "${output_file}"
-}
-
 # Generates a code coverage report in gcov intermediate text format by invoking
 # gcov and using the profile data (.gcda) and notes (.gcno) files.
 #
@@ -191,7 +157,6 @@ function main() {
   # format, generating the final code coverage report.
   case "$BAZEL_CC_COVERAGE_TOOL" in
         ("GCOV") gcov_coverage "$COVERAGE_DIR/_cc_coverage.gcov" ;;
-        ("LCOV") lcov_coverage "$COVERAGE_DIR/_cc_coverage.dat" ;;
         ("PROFDATA") llvm_coverage "$COVERAGE_DIR/_cc_coverage.profdata" ;;
         (*) echo "Coverage tool $BAZEL_CC_COVERAGE_TOOL not supported" \
             && exit 1

@@ -18,6 +18,8 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -36,6 +38,8 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -54,6 +58,8 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   ubuntu1804_nojava:
     build_flags:
     - "--javabase=@openjdk_linux_archive//:runtime"
@@ -82,7 +88,6 @@ platforms:
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
     - "-//src/test/shell/bazel:bazel_coverage_cc_test_llvm"
-    - "-//src/test/shell/bazel:bazel_coverage_experimental_java_test"
     - "-//src/test/shell/bazel:bazel_coverage_java_test"
     - "-//src/test/shell/bazel:bazel_coverage_sh_test"
     - "-//src/test/shell/bazel:bazel_determinism_test"
@@ -112,6 +117,8 @@ platforms:
     - "-//src/test/shell/integration:stub_finds_runfiles_test"
     - "-//src/test/shell/integration:test_test"
     - "-//src/tools/singlejar:zip64_test"
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   ubuntu1804_java9:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -130,6 +137,8 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   ubuntu1804_java10:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -148,6 +157,8 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   ubuntu1804_java11:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -171,6 +182,8 @@ platforms:
     - "-//src/test/shell/bazel:maven_test"
     # Re-enable once bootstrap works with Java 11
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -196,6 +209,10 @@ platforms:
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
     - "-//src/test/shell/integration:minimal_jdk_test"
+      # C++ coverage is not supported on macOS yet.
+    - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
@@ -217,6 +234,8 @@ platforms:
     test_targets:
     - "--"
     - "//src:all_windows_tests"
+    # TODO(iirina): Re-enable after #7952 was released.
+    - "-//src/test/shell/bazel:embedded_tools_deps_test"
   rbe_ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'

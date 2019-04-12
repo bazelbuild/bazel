@@ -46,6 +46,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/logging:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/options:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/util:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
@@ -452,6 +453,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -689,6 +691,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
         "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:cpp_interface",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -709,6 +712,7 @@ java_library(
         "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
@@ -743,6 +747,7 @@ java_library(
         ":packages-internal",
         ":proto-rules",
         ":python-rules",
+        ":skylarkinterface_internal",
         ":testing-support-rules",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -752,6 +757,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
@@ -778,7 +784,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
-        "//third_party:android_common_25_0_0",
+        "//third_party:android_common_25_0_0_lite",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -808,22 +814,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "bazel/LicenseCheckingModule",
-    srcs = ["bazel/LicenseCheckingModule.java"],
-    deps = [
-        ":build-base",
-        ":events",
-        ":packages-internal",
-        ":runtime",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//third_party:guava",
     ],
 )
 
@@ -865,10 +855,8 @@ java_library(
         exclude = [
             "bazel/Bazel.java",
             "bazel/BazelRepositoryModule.java",
-            "bazel/LicenseCheckingModule.java",
         ],
     ),
-    exports = [":bazel/LicenseCheckingModule"],
     deps = [
         ":build-base",
         ":build-info",
@@ -1135,7 +1123,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:android_deploy_info_java_proto",
-        "//third_party:android_common_25_0_0",
+        "//third_party:android_common_25_0_0_lite",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1195,6 +1183,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

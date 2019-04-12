@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -218,24 +219,35 @@ public class FakeCppCompileAction extends CppCompileAction {
     // runfiles directory (where writing is forbidden), we patch the command
     // line to write to $TEST_TMPDIR instead.
     final String outputPrefix = "$TEST_TMPDIR/";
-    String argv =
-        getArguments().stream()
-            .map(
-                input -> {
-                  String result = ShellEscaper.escapeString(input);
-                  // Replace -c <tempOutputFile> so it's -c <outputFile>.
-                  if (input.equals(tempOutputFile.getPathString())) {
-                    result =
-                        outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
-                  }
-                  if (input.equals(outputFile.getExecPathString())
-                      || (getDotdFile() != null
-                          && input.equals(getDotdFile().getExecPathString()))) {
-                    result = outputPrefix + ShellEscaper.escapeString(input);
-                  }
-                  return result;
-                })
-            .collect(joining(" "));
+    String argv;
+    try {
+      argv =
+          getArguments().stream()
+              .map(
+                  input -> {
+                    String result = ShellEscaper.escapeString(input);
+                    // Replace -c <tempOutputFile> so it's -c <outputFile>.
+                    if (input.equals(tempOutputFile.getPathString())) {
+                      result =
+                          outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
+                    }
+                    if (input.equals(outputFile.getExecPathString())
+                        || (getDotdFile() != null
+                            && input.equals(getDotdFile().getExecPathString()))) {
+                      result = outputPrefix + ShellEscaper.escapeString(input);
+                    }
+                    return result;
+                  })
+              .collect(joining(" "));
+    } catch (CommandLineExpansionException e) {
+      throw new ActionExecutionException(
+          "failed to generate compile command for rule '"
+              + getOwner().getLabel()
+              + ": "
+              + e.getMessage(),
+          this,
+          /* catastrophe= */ false);
+    }
 
     // Write the command needed to build the real .o file to the fake .o file.
     // Generate a command to ensure that the output directory exists; otherwise

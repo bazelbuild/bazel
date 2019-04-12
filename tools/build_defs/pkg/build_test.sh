@@ -1,4 +1,5 @@
 #!/bin/bash
+# -*- coding: utf-8 -*-
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -163,6 +164,10 @@ function test_tar() {
 drwxrwxrwx 0/0               0 2000-01-01 00:00 ./tmp/
 drwxrwxrwx 0/0               0 2000-01-01 00:00 ./pmt/" \
       "$(get_tar_verbose_listing test-tar-empty_dirs.tar)"
+  check_eq \
+    "drwxr-xr-x 0/0               0 1999-12-31 23:59 ./
+-r-xr-xr-x 0/0               2 1999-12-31 23:59 ./nsswitch.conf" \
+    "$(get_tar_verbose_listing test-tar-mtime.tar)"
 }
 
 function test_deb() {
@@ -181,9 +186,11 @@ function test_deb() {
   check_eq "-rwxr-xr-x" "$(get_deb_permission test-deb.deb ./usr/titi)"
   check_eq "-rw-r--r--" "$(get_deb_permission test-deb.deb ./etc/nsswitch.conf)"
   get_deb_description test-deb.deb >$TEST_log
-  expect_log "Description: toto"
+  expect_log "Description: toto ®, Й, ק ,م, ๗, あ, 叶, 葉, 말, ü and é"
   expect_log "Package: titi"
+  expect_log "soméone@somewhere.com"
   expect_log "Depends: dep1, dep2"
+  expect_log "Built-Using: some_test_data"
 
   get_changes titi_test_all.changes >$TEST_log
   expect_log "Urgency: low"

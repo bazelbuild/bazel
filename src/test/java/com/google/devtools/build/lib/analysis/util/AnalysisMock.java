@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportFunction;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeCrosstoolSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -132,8 +134,10 @@ public abstract class AnalysisMock extends LoadingMock {
             directories),
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction(),
-        CcSkyframeSupportValue.SKYFUNCTION,
-        new CcSkyframeSupportFunction(directories));
+        CcSkyframeFdoSupportValue.SKYFUNCTION,
+        new CcSkyframeFdoSupportFunction(directories),
+        CcSkyframeCrosstoolSupportValue.SKYFUNCTION,
+        new CcSkyframeCrosstoolSupportFunction());
   }
 
   // Allow subclasses to add extra repository functions.

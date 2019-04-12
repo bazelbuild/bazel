@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ToolchainResolver;
-import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
+import com.google.devtools.build.lib.analysis.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -398,7 +398,6 @@ public final class AspectFunction implements SkyFunction {
           ConfiguredTargetFunction.getConfigConditions(
               associatedConfiguredTargetAndData.getTarget(),
               env,
-              resolver,
               originalTargetAndAspectConfiguration,
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses);
@@ -462,7 +461,7 @@ public final class AspectFunction implements SkyFunction {
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      ToolchainContext toolchainContext = null;
+      ResolvedToolchainContext toolchainContext = null;
       if (unloadedToolchainContext != null) {
         toolchainContext =
             unloadedToolchainContext.load(depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
@@ -498,6 +497,10 @@ public final class AspectFunction implements SkyFunction {
       }
     } catch (AspectCreationException e) {
       throw new AspectFunctionException(e);
+    } catch (ToolchainException e) {
+      throw new AspectFunctionException(
+          new AspectCreationException(
+              e.getMessage(), new LabelCause(key.getLabel(), e.getMessage())));
     }
   }
 
@@ -602,7 +605,7 @@ public final class AspectFunction implements SkyFunction {
       ConfiguredTargetAndData associatedTarget,
       BuildConfiguration aspectConfiguration,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ToolchainContext toolchainContext,
+      ResolvedToolchainContext toolchainContext,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws AspectFunctionException, InterruptedException {

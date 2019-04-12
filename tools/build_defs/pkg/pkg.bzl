@@ -50,7 +50,7 @@ def _pkg_tar_impl(ctx):
     if ctx.attr.mtime != -1:  # Note: Must match default in rule def.
         if ctx.attr.portable_mtime:
             fail("You may not set both mtime and portable_mtime")
-        args.append("--mtime=" + ctx.attr.mtime)
+        args.append("--mtime=%d" % ctx.attr.mtime)
     if ctx.attr.portable_mtime:
         args.append("--mtime=portable")
 

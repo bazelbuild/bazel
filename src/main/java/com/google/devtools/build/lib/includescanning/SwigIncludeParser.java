@@ -24,7 +24,7 @@ class SwigIncludeParser extends IncludeParser {
     super(/* hints= */ null);
   }
 
-  private static int skipParentheses(char[] chars, int pos, int end) {
+  private static int skipParentheses(byte[] chars, int pos, int end) {
     // TODO(bazel-team): In theory this could be multiline, but the include scanner currently works
     // on a single line.
     int openedParentheses = 1;
@@ -50,7 +50,7 @@ class SwigIncludeParser extends IncludeParser {
   }
 
   @Override
-  protected IncludesKeywordData expectIncludeKeyword(char[] chars, int pos, int end) {
+  protected IncludesKeywordData expectIncludeKeyword(byte[] chars, int pos, int end) {
     int start = skipWhitespace(chars, pos, end);
     if ((pos = expect(chars, start, end, "%include")) == -1
         && (pos = expect(chars, start, end, "%extern")) == -1
