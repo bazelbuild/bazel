@@ -23,19 +23,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
-import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionsParserImpl.ResidueAndPriority;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -795,133 +790,6 @@ public class OptionsParser implements OptionsParsingResult {
   public static boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
     OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
     return data.getUsesOnlyCoreTypes(optionsClass);
-  }
-
-  /**
-   * Returns a mapping from each option {@link Field} in {@code optionsClass} (including inherited
-   * ones) to its value in {@code options}.
-   *
-   * <p>To save space, the map directly stores {@code Fields} instead of the {@code
-   * OptionDefinitions}.
-   *
-   * <p>The map is a mutable copy; changing the map won't affect {@code options} and vice versa. The
-   * map entries appear sorted alphabetically by option name.
-   *
-   * <p>If {@code options} is an instance of a subclass of {@link OptionsBase}, any options defined
-   * by the subclass are not included in the map, only the options declared in the provided class
-   * are included.
-   *
-   * @throws IllegalArgumentException if {@code options} is not an instance of {@link OptionsBase}
-   */
-  public static <O extends OptionsBase> Map<Field, Object> toMap(Class<O> optionsClass, O options) {
-    // Alphabetized due to getAllOptionDefinitionsForClass()'s order.
-    Map<Field, Object> map = new LinkedHashMap<>();
-    for (OptionDefinition optionDefinition :
-        OptionsData.getAllOptionDefinitionsForClass(optionsClass)) {
-      try {
-        // Get the object value of the optionDefinition and place in map.
-        map.put(optionDefinition.getField(), optionDefinition.getField().get(options));
-      } catch (IllegalAccessException e) {
-        // All options fields of options classes should be public.
-        throw new IllegalStateException(e);
-      } catch (IllegalArgumentException e) {
-        // This would indicate an inconsistency in the cached OptionsData.
-        throw new IllegalStateException(e);
-      }
-    }
-    return map;
-  }
-
-  /**
-   * Given a mapping as returned by {@link #toMap}, and the options class it that its entries
-   * correspond to, this constructs the corresponding instance of the options class.
-   *
-   * @param map Field to Object, expecting an entry for each field in the optionsClass. This
-   *     directly refers to the Field, without wrapping it in an OptionDefinition, see {@link
-   *     #toMap}.
-   * @throws IllegalArgumentException if {@code map} does not contain exactly the fields of {@code
-   *     optionsClass}, with values of the appropriate type
-   */
-  public static <O extends OptionsBase> O fromMap(Class<O> optionsClass, Map<Field, Object> map) {
-    // Instantiate the options class.
-    OptionsData data = getOptionsDataInternal(optionsClass);
-    O optionsInstance;
-    try {
-      Constructor<O> constructor = data.getConstructor(optionsClass);
-      Preconditions.checkNotNull(constructor, "No options class constructor available");
-      optionsInstance = constructor.newInstance();
-    } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException("Error while instantiating options class", e);
-    }
-
-    List<OptionDefinition> optionDefinitions =
-        OptionsData.getAllOptionDefinitionsForClass(optionsClass);
-    // Ensure all fields are covered, no extraneous fields.
-    validateFieldsSets(optionsClass, new LinkedHashSet<Field>(map.keySet()));
-    // Populate the instance.
-    for (OptionDefinition optionDefinition : optionDefinitions) {
-      // Non-null as per above check.
-      Object value = map.get(optionDefinition.getField());
-      try {
-        optionDefinition.getField().set(optionsInstance, value);
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException(e);
-      }
-      // May also throw IllegalArgumentException if map value is ill typed.
-    }
-    return optionsInstance;
-  }
-
-  /**
-   * Raises a pretty {@link IllegalArgumentException} if the provided set of fields is a complete
-   * set for the optionsClass.
-   *
-   * <p>The entries in {@code fieldsFromMap} may be ill formed by being null or lacking an {@link
-   * Option} annotation.
-   */
-  private static void validateFieldsSets(
-      Class<? extends OptionsBase> optionsClass, LinkedHashSet<Field> fieldsFromMap) {
-    ImmutableList<OptionDefinition> optionDefsFromClasses =
-        OptionsData.getAllOptionDefinitionsForClass(optionsClass);
-    Set<Field> fieldsFromClass =
-        optionDefsFromClasses.stream().map(OptionDefinition::getField).collect(Collectors.toSet());
-
-    if (fieldsFromClass.equals(fieldsFromMap)) {
-      // They are already equal, avoid additional checks.
-      return;
-    }
-
-    List<String> extraNamesFromClass = new ArrayList<>();
-    List<String> extraNamesFromMap = new ArrayList<>();
-    for (OptionDefinition optionDefinition : optionDefsFromClasses) {
-      if (!fieldsFromMap.contains(optionDefinition.getField())) {
-        extraNamesFromClass.add("'" + optionDefinition.getOptionName() + "'");
-      }
-    }
-    for (Field field : fieldsFromMap) {
-      // Extra validation on the map keys since they don't come from OptionsData.
-      if (!fieldsFromClass.contains(field)) {
-        if (field == null) {
-          extraNamesFromMap.add("<null field>");
-        } else {
-          OptionDefinition optionDefinition = null;
-          try {
-            // TODO(ccalvarin) This shouldn't be necessary, no option definitions should be found in
-            // this optionsClass that weren't in the cache.
-            optionDefinition = OptionDefinition.extractOptionDefinition(field);
-            extraNamesFromMap.add("'" + optionDefinition.getOptionName() + "'");
-          } catch (NotAnOptionException e) {
-            extraNamesFromMap.add("<non-Option field>");
-          }
-        }
-      }
-    }
-    throw new IllegalArgumentException(
-        "Map keys do not match fields of options class; extra map keys: {"
-            + Joiner.on(", ").join(extraNamesFromMap)
-            + "}; extra options class options: {"
-            + Joiner.on(", ").join(extraNamesFromClass)
-            + "}");
   }
 }
 
