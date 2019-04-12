@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.StarlarkAssignmentConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -29,10 +30,11 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -61,13 +63,46 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     @Option(
         name = "allow_multiple",
-        converter = Converters.AssignmentConverter.class,
+        converter = StarlarkAssignmentConverter.class,
         defaultValue = "",
         allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help = "Each --define option specifies an assignment for a build variable.")
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "An option that mimics the behavior of --define (allowMultiple=true + converter).")
     public List<Map.Entry<String, String>> allowMultiple;
+
+    @Option(
+        name = "foo",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "A simple option for basic testing.")
+    public String foo;
+
+    /** TestObject to expose to Starlark. */
+    static class FooObject {}
+
+    /** A converter from String -> FooObject for foo_object option */
+    public static class FooConverter implements Converter<FooObject> {
+      @Override
+      public FooObject convert(String input) throws OptionsParsingException {
+        return new FooObject();
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "";
+      }
+    }
+
+    @Option(
+        name = "foo_object",
+        converter = FooConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "An option with a non-Starlark friendly java form.")
+    public FooObject fooObject;
   }
 
   /** Loads a new {link @DummyTestFragment} instance. */
@@ -94,6 +129,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationFragment(new DummyTestLoader());
+    builder.addConfigurationOptions(BuildConfiguration.Options.class);
     return builder.build();
   }
 
@@ -926,5 +962,124 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertThat(configuration.getOptions().get(DummyTestOptions.class).allowMultiple)
         .containsExactly(
             Maps.immutableEntry("APRIL", "SHOWERS"), Maps.immutableEntry("MAY", "FLOWERS"));
+  }
+
+  @Test
+  public void testReadNativeOption_allowMultipleOptions() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  if settings['//command_line_option:allow_multiple']['APRIL'] == 'FOOLS':",
+        "    return {",
+        "      '//command_line_option:foo': 'post-transition'",
+        "    }",
+        "  else:",
+        "    return {",
+        "      '//command_line_option:foo': ''",
+        "    }",
+        "my_transition = transition(",
+        "  implementation = _impl,",
+        "  inputs = ['//command_line_option:allow_multiple'],",
+        "  outputs = ['//command_line_option:foo'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    useConfiguration("--allow_multiple=APRIL=FOOLS");
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+        .isEqualTo("post-transition");
+  }
+
+  @Test
+  public void testReadNativeOption_testDefine() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  if settings['//command_line_option:define']['APRIL'] == 'SHOWERS' and "
+            + "settings['//command_line_option:define']['MAY'] == 'FLOWERS':",
+        "    return {'//command_line_option:foo': 'post-transition'}",
+        "  else:",
+        "    return {",
+        "      '//command_line_option:foo': ''",
+        "    }",
+        "my_transition = transition(",
+        "  implementation = _impl,",
+        "  inputs = ['//command_line_option:define'],",
+        "  outputs = ['//command_line_option:foo'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    useConfiguration("--define=APRIL=SHOWERS", "--define=MAY=MORE_SHOWERS");
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo).isEmpty();
+
+    useConfiguration("--define=APRIL=SHOWERS", "--define=MAY=FLOWERS");
+
+    configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+        .isEqualTo("post-transition");
+  }
+
+  @Test
+  public void testReadNativeOption_noStarlarkConverter() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {",
+        "    '//command_line_option:foo_object': settings['//command_line_option:foo_object'] ",
+        "  }",
+        "my_transition = transition(",
+        "  implementation = _impl,",
+        "  inputs = ['//command_line_option:foo_object'],",
+        "  outputs = ['//command_line_option:foo_object'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "Unable to read option '//command_line_option:foo_object' -  option"
+            + " '//command_line_option:foo_object' is Starlark incompatible");
   }
 }

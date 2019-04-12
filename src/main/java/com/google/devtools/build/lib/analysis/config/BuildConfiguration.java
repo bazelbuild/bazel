@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkConverter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -321,15 +323,28 @@ public class BuildConfiguration implements BuildConfigurationApi {
         help = "If true, the genfiles directory is folded into the bin directory.")
     public boolean mergeGenfilesDirectory;
 
+    /**
+     * AssignmentConverter that also supports Starlarkization. For use with options that use {@link
+     * com.google.devtools.common.options.Converters.AssignmentConverter} and
+     * {@link @Option#allowMultiple}.
+     */
+    public static class StarlarkAssignmentConverter extends Converters.AssignmentConverter
+        implements StarlarkConverter<List<Map.Entry<String, String>>, Map.Entry<String, String>> {
+      @Override
+      public SkylarkDict<String, String> convertToStarlark(
+          List<Map.Entry<String, String>> entries) {
+        return SkylarkDict.copyOf(null, ImmutableMap.copyOf(entries));
+      }
+    }
+
     @Option(
-      name = "define",
-      converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Each --define option specifies an assignment for a build variable."
-    )
+        name = "define",
+        converter = StarlarkAssignmentConverter.class,
+        defaultValue = "",
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Each --define option specifies an assignment for a build variable.")
     public List<Map.Entry<String, String>> commandLineBuildVariables;
 
     @Option(
