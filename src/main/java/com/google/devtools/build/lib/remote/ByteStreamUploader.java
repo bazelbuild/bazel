@@ -395,11 +395,11 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
       ListenableFuture<Void> suppressedQueryFuture = Futures.catchingAsync(
           query(committedOffset, progressiveBackoff),
-          Throwable.class,
-          (t) -> {
+          Exception.class,
+          (queryException) -> {
             // if the query threw an exception, add it to the suppressions
             // for the destined exception
-            e.addSuppressed(t);
+            e.addSuppressed(queryException);
             return exceptionFuture;
           },
           MoreExecutors.directExecutor());
