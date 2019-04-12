@@ -216,21 +216,25 @@ public final class BuildOptions implements Cloneable, Serializable {
     return new BuildOptions(nativeOptionsBuilder.build(), ImmutableMap.copyOf(skylarkOptionsMap));
   }
 
+  private boolean fingerprintAndHashCodeInitialized() {
+    return fingerprint != null;
+  }
+
   /**
    * Lazily initialize {@link #fingerprint} and {@link #hashCode}. Keeps computation off critical
    * path of build, while still avoiding expensive computation for equality and hash code each time.
    *
-   * <p>We check for nullity of {@link #fingerprint} to see if this method has already been called.
-   * Using {@link #hashCode} after this method is called is safe because it is set here before
-   * {@link #fingerprint} is set, so if {@link #fingerprint} is non-null then {@link #hashCode} is
-   * definitely set.
+   * <p>We check {@link #fingerprintAndHashCodeInitialized} to see if this method has already been
+   * called. Using {@link #hashCode} after this method is called is safe because it is set here
+   * before {@link #fingerprint} is set, so if {@link #fingerprint} is non-null then {@link
+   * #hashCode} is definitely set.
    */
   private void maybeInitializeFingerprintAndHashCode() {
-    if (fingerprint != null) {
+    if (fingerprintAndHashCodeInitialized()) {
       return;
     }
     synchronized (this) {
-      if (fingerprint != null) {
+      if (fingerprintAndHashCodeInitialized()) {
         return;
       }
       Fingerprint fingerprint = new Fingerprint();
@@ -523,7 +527,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /** Returns the difference between two BuildOptions in a new {@link BuildOptions.OptionsDiff}. */
-  public static OptionsDiff diff(@Nullable BuildOptions first, @Nullable BuildOptions second) {
+  public static OptionsDiff diff(BuildOptions first, BuildOptions second) {
     return diff(new OptionsDiff(), first, second);
   }
 
@@ -538,8 +542,8 @@ public final class BuildOptions implements Cloneable, Serializable {
    * aggregating the difference between a single BuildOptions and the results of applying a {@link
    * com.google.devtools.build.lib.analysis.config.transitions.SplitTransition}) to it.
    */
-  public static OptionsDiff diff(
-      OptionsDiff diff, @Nullable BuildOptions first, @Nullable BuildOptions second) {
+  @SuppressWarnings("ReferenceEquality") // See comments above == comparisons.
+  public static OptionsDiff diff(OptionsDiff diff, BuildOptions first, BuildOptions second) {
     if (diff.hasStarlarkOptions) {
       throw new IllegalStateException(
           "OptionsDiff cannot handle multiple 'second' BuildOptions with skylark options "
@@ -548,7 +552,13 @@ public final class BuildOptions implements Cloneable, Serializable {
     if (first == null || second == null) {
       throw new IllegalArgumentException("Cannot diff null BuildOptions");
     }
-    if (first.equals(second)) {
+    // For performance reasons, we avoid calling #equals unless both instances have had their
+    // fingerprint and hash code initialized. We don't typically encounter value-equal instances
+    // here anyway.
+    if (first == second
+        || (first.fingerprintAndHashCodeInitialized()
+            && second.fingerprintAndHashCodeInitialized()
+            && first.equals(second))) {
       return diff;
     }
     // Check and report if either class has been trimmed of an options class that exists in the
@@ -565,28 +575,29 @@ public final class BuildOptions implements Cloneable, Serializable {
     Sets.difference(secondOptionClasses, firstOptionClasses).stream()
         .map(second::get)
         .forEach(diff::addExtraSecondFragment);
+
     // For fragments in common, report differences.
     for (Class<? extends FragmentOptions> clazz :
         Sets.intersection(firstOptionClasses, secondOptionClasses)) {
-      if (!first.get(clazz).equals(second.get(clazz))) {
-        ImmutableList<OptionDefinition> definitions = OptionsParser.getOptionDefinitions(clazz);
-        Map<String, Object> firstClazzOptions = first.get(clazz).asMap();
-        Map<String, Object> secondClazzOptions = second.get(clazz).asMap();
-        for (OptionDefinition definition : definitions) {
-          String name = definition.getOptionName();
-          Object firstValue = firstClazzOptions.get(name);
-          Object secondValue = secondClazzOptions.get(name);
-          if (!Objects.equals(firstValue, secondValue)) {
-            diff.addDiff(clazz, definition, firstValue, secondValue);
-          }
+      FragmentOptions firstOptions = first.get(clazz);
+      FragmentOptions secondOptions = second.get(clazz);
+      // Similar to above, we avoid calling #equals because we are going to do a field-by-field
+      // comparison anyway.
+      if (firstOptions == secondOptions) {
+        continue;
+      }
+      for (OptionDefinition definition : OptionsParser.getOptionDefinitions(clazz)) {
+        Object firstValue = firstOptions.getValueFromDefinition(definition);
+        Object secondValue = secondOptions.getValueFromDefinition(definition);
+        if (!Objects.equals(firstValue, secondValue)) {
+          diff.addDiff(clazz, definition, firstValue, secondValue);
         }
       }
     }
 
-    // Compare skylark options for the two classes
+    // Compare skylark options for the two classes.
     Map<Label, Object> skylarkFirst = first.getStarlarkOptions();
     Map<Label, Object> skylarkSecond = second.getStarlarkOptions();
-    diff.setHasStarlarkOptions(!skylarkFirst.isEmpty() || !skylarkSecond.isEmpty());
     for (Label buildSetting : Sets.union(skylarkFirst.keySet(), skylarkSecond.keySet())) {
       if (skylarkFirst.get(buildSetting) == null) {
         diff.addExtraSecondStarlarkOption(buildSetting, skylarkSecond.get(buildSetting));
@@ -608,6 +619,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       BuildOptions first, BuildOptions second) {
     OptionsDiff diff = diff(first, second);
     if (diff.areSame()) {
+      first.maybeInitializeFingerprintAndHashCode();
       return OptionsDiffForReconstruction.getEmpty(first.fingerprint, second.computeChecksum());
     }
     LinkedHashMap<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
@@ -720,18 +732,17 @@ public final class BuildOptions implements Cloneable, Serializable {
     private void putStarlarkDiff(Label buildSetting, Object firstValue, Object secondValue) {
       skylarkFirst.put(buildSetting, firstValue);
       skylarkSecond.put(buildSetting, secondValue);
+      hasStarlarkOptions = true;
     }
 
     private void addExtraFirstStarlarkOption(Label buildSetting) {
       extraStarlarkOptionsFirst.add(buildSetting);
+      hasStarlarkOptions = true;
     }
 
     private void addExtraSecondStarlarkOption(Label buildSetting, Object value) {
       extraStarlarkOptionsSecond.put(buildSetting, value);
-    }
-
-    private void setHasStarlarkOptions(boolean hasStarlarkOptions) {
-      this.hasStarlarkOptions = hasStarlarkOptions;
+      hasStarlarkOptions = true;
     }
 
     @VisibleForTesting
@@ -1037,6 +1048,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       return 31 * Arrays.hashCode(baseFingerprint) + checksum.hashCode();
     }
 
+    @SuppressWarnings("unused") // Used reflectively.
     private static class Codec implements ObjectCodec<OptionsDiffForReconstruction> {
 
       @Override
