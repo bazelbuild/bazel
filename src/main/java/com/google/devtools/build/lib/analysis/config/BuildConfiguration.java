@@ -51,7 +51,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,6 +81,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -331,9 +333,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public static class StarlarkAssignmentConverter extends Converters.AssignmentConverter
         implements StarlarkConverter<List<Map.Entry<String, String>>, Map.Entry<String, String>> {
       @Override
-      public SkylarkDict<String, String> convertToStarlark(
-          List<Map.Entry<String, String>> entries) {
-        return SkylarkDict.copyOf(null, ImmutableMap.copyOf(entries));
+      public SkylarkList<Tuple<String>> convertToStarlark(List<Map.Entry<String, String>> entries) {
+        return SkylarkList.createImmutable(
+            entries.stream()
+                .map(e -> Tuple.of(e.getKey(), e.getValue()))
+                .collect(Collectors.toList()));
       }
     }
 
