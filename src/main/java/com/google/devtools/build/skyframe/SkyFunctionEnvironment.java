@@ -99,7 +99,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * NodeEntry#getValueMaybeWithMetadata}. In the latter case, they should be processed using the
    * static methods of {@link ValueWithMetadata}.
    */
-  private final Map<SkyKey, SkyValue> previouslyRequestedDepsValues;
+  private final ImmutableMap<SkyKey, SkyValue> previouslyRequestedDepsValues;
 
   /**
    * The values newly requested from the graph.
@@ -204,7 +204,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         skyKey);
   }
 
-  private Map<SkyKey, SkyValue> batchPrefetch(
+  private ImmutableMap<SkyKey, SkyValue> batchPrefetch(
       SkyKey requestor, GroupedList<SkyKey> depKeys, Set<SkyKey> oldDeps, boolean assertDone)
       throws InterruptedException, UndonePreviouslyRequestedDeps {
     QueryableGraph.PrefetchDepsRequest request = null;
