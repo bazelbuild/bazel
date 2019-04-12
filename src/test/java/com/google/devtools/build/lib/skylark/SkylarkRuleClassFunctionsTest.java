@@ -860,8 +860,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private void checkTextMessage(String from, String... lines) throws Exception {
+    String[] strings = lines.clone();
     Object result = evalRuleClassCode(from);
-    assertThat(result).isEqualTo(Joiner.on("\n").join(lines) + "\n");
+    String expect = "";
+    if (strings.length > 0) {
+      expect = Joiner.on("\n").join(lines) + "\n";
+    }
+    assertThat(result).isEqualTo(expect);
   }
 
   @Test
@@ -884,6 +889,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testSimpleTextMessages() throws Exception {
     checkTextMessage("struct(name='value').to_proto()", "name: \"value\"");
+    checkTextMessage("struct(name=[]).to_proto()"); // empty lines
     checkTextMessage("struct(name=['a', 'b']).to_proto()", "name: \"a\"", "name: \"b\"");
     checkTextMessage("struct(name=123).to_proto()", "name: 123");
     checkTextMessage("struct(name=[1, 2, 3]).to_proto()", "name: 1", "name: 2", "name: 3");
@@ -898,6 +904,53 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "}");
     checkTextMessage(
         "struct(a=struct(b=struct(c='c'))).to_proto()", "a {", "  b {", "    c: \"c\"", "  }", "}");
+    // dict to_proto tests
+    checkTextMessage("struct(name={}).to_proto()"); // empty lines
+    checkTextMessage(
+        "struct(name={'a': 'b'}).to_proto()", "name {", "  key: \"a\"", "  value: \"b\"", "}");
+    checkTextMessage(
+        "struct(name={'c': 'd', 'a': 'b'}).to_proto()",
+        "name {",
+        "  key: \"c\"",
+        "  value: \"d\"",
+        "}",
+        "name {",
+        "  key: \"a\"",
+        "  value: \"b\"",
+        "}");
+    checkTextMessage(
+        "struct(x=struct(y={'a': 1})).to_proto()",
+        "x {",
+        "  y {",
+        "    key: \"a\"",
+        "    value: 1",
+        "  }",
+        "}");
+    checkTextMessage(
+        "struct(name={'a': struct(b=1, c=2)}).to_proto()",
+        "name {",
+        "  key: \"a\"",
+        "  value {",
+        "    b: 1",
+        "    c: 2",
+        "  }",
+        "}");
+    checkTextMessage(
+        "struct(name={'a': struct(b={4: 'z', 3: 'y'}, c=2)}).to_proto()",
+        "name {",
+        "  key: \"a\"",
+        "  value {",
+        "    b {",
+        "      key: 4",
+        "      value: \"z\"",
+        "    }",
+        "    b {",
+        "      key: 3",
+        "      value: \"y\"",
+        "    }",
+        "    c: 2",
+        "  }",
+        "}");
   }
 
   @Test
@@ -918,7 +971,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testTextMessageInvalidElementInListStructure() throws Exception {
     checkErrorContains(
-        "Invalid text format, expected a struct, a string, a bool, or "
+        "Invalid text format, expected a struct, a dict, a string, a bool, or "
             + "an int but got a list for list element in struct field 'a'",
         "struct(a=[['b']]).to_proto()");
   }
@@ -926,7 +979,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testTextMessageInvalidStructure() throws Exception {
     checkErrorContains(
-        "Invalid text format, expected a struct, a string, a bool, or an int "
+        "Invalid text format, expected a struct, a dict, a string, a bool, or an int "
             + "but got a function for struct field 'a'",
         "struct(a=rule).to_proto()");
   }

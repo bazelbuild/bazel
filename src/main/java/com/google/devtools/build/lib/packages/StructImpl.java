@@ -210,7 +210,13 @@ public abstract class StructImpl extends Info
   private void printProtoTextMessage(
       String key, Object value, StringBuilder sb, int indent, Location loc, String container)
       throws EvalException {
-    if (value instanceof ClassObject) {
+    if (value instanceof Map.Entry) {
+      Map.Entry<?, ?> entry = (Map.Entry<?, ?>) value;
+      print(sb, key + " {", indent);
+      printProtoTextMessage("key", entry.getKey(), sb, indent + 1, loc);
+      printProtoTextMessage("value", entry.getValue(), sb, indent + 1, loc);
+      print(sb, "}", indent);
+    } else if (value instanceof ClassObject) {
       print(sb, key + " {", indent);
       printProtoTextMessage((ClassObject) value, sb, indent + 1, loc);
       print(sb, "}", indent);
@@ -228,7 +234,7 @@ public abstract class StructImpl extends Info
     } else {
       throw new EvalException(
           loc,
-          "Invalid text format, expected a struct, a string, a bool, or an int but got a "
+          "Invalid text format, expected a struct, a dict, a string, a bool, or an int but got a "
               + EvalUtils.getDataTypeName(value)
               + " for "
               + container
@@ -245,6 +251,10 @@ public abstract class StructImpl extends Info
         // TODO(bazel-team): There should be some constraint on the fields of the structs
         // in the same list but we ignore that for now.
         printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");
+      }
+    } else if (value instanceof SkylarkDict) {
+      for (Map.Entry<?, ?> entry : ((SkylarkDict<?, ?>) value).entrySet()) {
+        printProtoTextMessage(key, entry, sb, indent, loc, "entry of dictionary");
       }
     } else {
       printProtoTextMessage(key, value, sb, indent, loc, "struct field");
