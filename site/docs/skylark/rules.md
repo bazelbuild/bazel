@@ -353,11 +353,11 @@ its outputs are needed for the build.
 
 ## Configurations
 
-Imagine that you want to build a C++ binary and target a different architecture.
-The build can be complex and involve multiple steps. Some of the intermediate
-binaries, like the compilers and code generators, have to run on your machine
-(the host); some of the binaries such the final output must be built for the
-target architecture.
+Imagine that you want to build a C++ binary for a different architecture. The
+build can be complex and involve multiple steps. Some of the intermediate
+binaries, like compilers and code generators, have to run on your machine (the
+host). Some binaries like the final output must be built for the target
+architecture.
 
 For this reason, Bazel has a concept of "configurations" and transitions. The
 topmost targets (the ones requested on the command line) are built in the
@@ -368,17 +368,17 @@ the compiler. In some cases, the same library may be needed for different
 configurations. If this happens, it will be analyzed and potentially built
 multiple times.
 
-By default, Bazel builds the dependencies of a target in the same configuration
-as the target itself, i.e. without transitioning. When a target depends on a
-tool, the label attribute will specify a transition to the host configuration.
-This causes the tool and all of its dependencies to be built for the host
-machine, assuming those dependencies do not themselves have transitions.
+By default, Bazel builds a target's dependencies in the same configuration as
+the target itself, i.e. without transitioning. When a dependency is a tool
+that's needed to help build the target, the corresponding attribute should
+specify a transition to the host configuration. This causes the tool and all its
+dependencies to build for the host machine.
 
-For each dependency attribute, you can decide whether the dependency target
-should be built in the same configuration, or transition to the host
-configuration (using `cfg`). If a dependency attribute has the flag
-`executable=True`, the configuration must be set explicitly.
-[See example](https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl)
+For each dependency attribute, you can use `cfg` to decide if dependencies
+should build in the same configuration or transition to the host configuration.
+If a dependency attribute has the flag `executable=True`, `cfg` must be set
+explicitly. This is to guard against accidentally building a host tool for the
+wrong configuration. [See example](https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl)
 
 In general, sources, dependent libraries, and executables that will be needed at
 runtime can use the same configuration.
@@ -390,6 +390,10 @@ in the attribute.
 Otherwise, executables that are used at runtime (e.g. as part of a test) should
 be built for the target configuration. In this case, specify `cfg="target"` in
 the attribute.
+
+`cfg="target"` doesn't actually do anything: it's purely a convenience value to
+help rule designers be explicit about their intentions. When `executable=False`,
+which means `cfg` is optional, only set this when it truly helps readability.
 
 <a name="fragments"></a>
 
