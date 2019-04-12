@@ -305,10 +305,6 @@ public abstract class AbstractParallelEvaluator {
           // No child has a changed value. This node can be marked done and its parents signaled
           // without any re-evaluation.
           Set<SkyKey> reverseDeps = state.markClean();
-          if (matchesMissingSkyKey(skyKey)) {
-            logger.info(
-                "Marked " + skyKey + " clean: " + state + ", " + System.identityHashCode(state));
-          }
           // Tell the receiver that the value was not actually changed this run.
           evaluatorContext
               .getProgressReceiver()
@@ -399,15 +395,6 @@ public abstract class AbstractParallelEvaluator {
         NodeEntry state =
             Preconditions.checkNotNull(graph.get(null, Reason.EVALUATION, skyKey), skyKey);
         Preconditions.checkState(state.isReady(), "%s %s", skyKey, state);
-        if (matchesMissingSkyKey(skyKey)) {
-          logger.info(
-              "Starting to evaluate "
-                  + skyKey
-                  + " with "
-                  + state
-                  + ", "
-                  + System.identityHashCode(state));
-        }
         try {
           evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.CHECK_DIRTY);
           if (maybeHandleDirtyNode(state) == DirtyOutcome.ALREADY_PROCESSED) {
@@ -1034,12 +1021,5 @@ public abstract class AbstractParallelEvaluator {
    */
   static boolean isDoneForBuild(@Nullable NodeEntry entry) {
     return entry != null && entry.isDone();
-  }
-
-  // TODO(b/128541100): Clean this up when bug is fixed.
-  public static SkyKey missingSkyKeyToDiagnoseBug = null;
-
-  static boolean matchesMissingSkyKey(SkyKey key) {
-    return (missingSkyKeyToDiagnoseBug != null && missingSkyKeyToDiagnoseBug.equals(key));
   }
 }
