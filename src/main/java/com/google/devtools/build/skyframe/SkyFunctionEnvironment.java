@@ -785,11 +785,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     // the data being written now is the same as the data already present in the entry.
     Set<SkyKey> reverseDeps =
         primaryEntry.setValue(valueWithMetadata, evaluationVersion, depFingerprintList);
-    if (AbstractParallelEvaluator.matchesMissingSkyKey(skyKey)) {
-      logger.atInfo().log(
-          "Set value for %s with %s (%s)",
-          skyKey, primaryEntry, System.identityHashCode(primaryEntry));
-    }
 
     // Note that if this update didn't actually change the entry, this version may not be
     // evaluationVersion.
