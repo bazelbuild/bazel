@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.skylark;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,6 +35,8 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -153,7 +156,7 @@ public class FunctionTransitionUtil {
    * @throws EvalException if any of the specified transition inputs do not correspond to a valid
    *     build setting
    */
-  static SkylarkDict<String, Object> buildSettings(
+  static <S, T> SkylarkDict<String, Object> buildSettings(
       BuildOptions buildOptions,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
@@ -178,10 +181,29 @@ public class FunctionTransitionUtil {
           Field field = optionInfo.getDefinition().getField();
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
-
-          dict.put(optionKey, optionValue == null ? Runtime.NONE : optionValue, null, mutability);
+          Converter<?> converter = optionInfo.getDefinition().getConverter();
+          if (converter instanceof StarlarkConverter) {
+            @SuppressWarnings("unchecked") // Type erasure
+            Object convertedValue =
+                ((StarlarkConverter<S, T>) converter).convertToStarlark((S) optionValue);
+            Preconditions.checkNotNull(convertedValue);
+            optionValue = convertedValue;
+          } else if (optionValue == null) {
+            optionValue = Runtime.NONE;
+          } else {
+            optionValue = SkylarkType.convertToSkylark(optionValue, mutability);
+            if (optionValue != null && !SkylarkType.isSkylarkAcceptable(optionValue.getClass())) {
+              throw new EvalException(
+                  starlarkTransition.getLocationForErrorReporting(),
+                  String.format(
+                      "Unable to read option '%s' -  option '%s' is Starlark incompatible.",
+                      optionKey, optionKey));
+            }
+          }
+          dict.put(optionKey, optionValue, null, mutability);
         } catch (IllegalAccessException e) {
-          // These exceptions should not happen, but if they do, throw a RuntimeException.
+          // These exceptions should not happen since all options should be public, but if they
+          // do, throw a RuntimeException.
           throw new RuntimeException(e);
         }
       }

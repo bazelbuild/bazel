@@ -26,9 +26,11 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -661,6 +663,19 @@ public abstract class SkylarkType implements Serializable {
       return false;
     }
     return true;
+  }
+
+  /** Returns true if the type is acceptable to be returned to the Skylark language. */
+  public static boolean isSkylarkAcceptable(Class<?> c) {
+    return SkylarkValue.class.isAssignableFrom(c) // implements SkylarkValue
+        || c.equals(String.class) // basic values
+        || c.equals(Integer.class)
+        || c.equals(Boolean.class)
+        // there is a registered Skylark ancestor class (useful e.g. when using AutoValue)
+        || SkylarkInterfaceUtils.getSkylarkModule(c) != null
+        || ImmutableMap.class.isAssignableFrom(c) // will be converted to SkylarkDict
+        || NestedSet.class.isAssignableFrom(c) // will be converted to SkylarkNestedSet
+        || PathFragment.class.isAssignableFrom(c); // other known class
   }
 
   /**

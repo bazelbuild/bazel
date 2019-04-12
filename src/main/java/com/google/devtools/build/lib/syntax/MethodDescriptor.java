@@ -148,7 +148,7 @@ public final class MethodDescriptor {
       }
       // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
       result = SkylarkType.convertToSkylark(result, method, env);
-      if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
+      if (result != null && !SkylarkType.isSkylarkAcceptable(result.getClass())) {
         throw new EvalException(
             loc,
             Printer.format(
