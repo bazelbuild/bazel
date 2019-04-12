@@ -149,7 +149,8 @@ sh_test(
     srcs = ["bazel_java_tools_test.sh"],
     data = [
         ":test-deps",
-        "//src:java_tools.zip",
+        "//src:java_tools_java10.zip",
+        "//src:java_tools_java9.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
