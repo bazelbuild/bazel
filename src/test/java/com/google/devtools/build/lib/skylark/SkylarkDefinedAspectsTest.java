@@ -2747,6 +2747,29 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(result).isEqualTo("//test:zzz");
   }
 
+  @Test
+  public void testAllCcLibraryAttrsAreValidTypes() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "  for entry in dir(ctx.rule.attr):",
+        "    val = getattr(ctx.rule.attr, entry, None)",
+        "    # Only legitimate Starlark values can be passed to dir(), so this effectively",
+        "    # verifies val is an appropriate Starlark type.",
+        "    _test_dir = dir(val)",
+        "  return []",
+        "",
+        "MyAspect = aspect(",
+        "  implementation=_impl,",
+        ")");
+    scratch.file("test/BUILD", "cc_library(", "     name = 'xxx',", ")");
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
+    ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
+    assertThat(configuredAspect).isNotNull();
+  }
+
   /** SkylarkAspectTest with "keep going" flag */
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkDefinedAspectsTest {
