@@ -193,11 +193,7 @@ public class ParsedAndroidData {
         } else if (value.source().hasOveridden(other.source())) {
           target.put(key, value);
         } else {
-          target.put(
-              key,
-              value.compareMergePriorityTo(other) >= 0
-                  ? overwrite(key, value, other)
-                  : overwrite(key, other, value));
+          target.put(key, overwrite(key, value, other));
         }
       } else {
         target.put(key, value);

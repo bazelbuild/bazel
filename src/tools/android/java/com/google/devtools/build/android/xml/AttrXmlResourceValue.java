@@ -90,11 +90,9 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   private static final QName TAG_ENUM = QName.valueOf(ENUM);
   private static final QName TAG_FLAG = QName.valueOf("flag");
   private final ImmutableMap<String, ResourceXmlAttrValue> formats;
-  private final boolean weak;
 
-  private AttrXmlResourceValue(ImmutableMap<String, ResourceXmlAttrValue> formats, boolean weak) {
+  private AttrXmlResourceValue(ImmutableMap<String, ResourceXmlAttrValue> formats) {
     this.formats = formats;
-    this.weak = weak;
   }
 
   private static Map<String, String> readSubValues(XMLEventReader reader, QName subTagType)
@@ -121,6 +119,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
   }
 
+  @VisibleForTesting
   private static final class BuilderEntry implements Map.Entry<String, ResourceXmlAttrValue> {
     private final String name;
     private final ResourceXmlAttrValue value;
@@ -151,13 +150,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue fromFormatEntries(
       Map.Entry<String, ResourceXmlAttrValue>... entries) {
     return of(ImmutableMap.copyOf(Arrays.asList(entries)));
-  }
-
-  @SafeVarargs
-  @VisibleForTesting
-  public static XmlResourceValue weakFromFormatEntries(
-      Map.Entry<String, ResourceXmlAttrValue>... entries) {
-    return of(ImmutableMap.copyOf(Arrays.asList(entries)), true);
   }
 
   @SuppressWarnings("deprecation")
@@ -262,7 +254,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
         throw new InvalidProtocolBufferException("Unexpected format flags: " + formatFlags);
       }
     }
-    return of(formats.build(), proto.getWeak());
+    return of(formats.build());
   }
 
   /** Creates a new {@link AttrXmlResourceValue}. Returns null if there are no formats. */
@@ -330,12 +322,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   }
 
   public static XmlResourceValue of(ImmutableMap<String, ResourceXmlAttrValue> formats) {
-    return new AttrXmlResourceValue(formats, /* weak= */ false);
-  }
-
-  public static XmlResourceValue of(
-      ImmutableMap<String, ResourceXmlAttrValue> formats, boolean weak) {
-    return new AttrXmlResourceValue(formats, weak);
+    return new AttrXmlResourceValue(formats);
   }
 
   @Override
@@ -347,17 +334,17 @@ public class AttrXmlResourceValue implements XmlResourceValue {
       return false;
     }
     AttrXmlResourceValue other = (AttrXmlResourceValue) o;
-    return Objects.equals(formats, other.formats) && weak == other.weak;
+    return Objects.equals(formats, other.formats);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(formats, weak);
+    return formats.hashCode();
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("formats", formats).add("weak", weak).toString();
+    return MoreObjects.toStringHelper(this).add("formats", formats).toString();
   }
 
   @Override
@@ -435,23 +422,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   @Override
   public XmlResourceValue combineWith(XmlResourceValue value) {
     throw new IllegalArgumentException(this + " is not a combinable resource.");
-  }
-
-  @Override
-  public int compareMergePriorityTo(XmlResourceValue value) {
-    if (!(value instanceof AttrXmlResourceValue)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Can only compare priority with another %s, but was given a %s",
-              AttrXmlResourceValue.class.getSimpleName(), value.getClass().getSimpleName()));
-    }
-    AttrXmlResourceValue that = (AttrXmlResourceValue) value;
-    if (!weak && that.weak && (that.formats.isEmpty() || formats.equals(that.formats))) {
-      return 1;
-    } else if (!that.weak && weak && (formats.isEmpty() || formats.equals(that.formats))) {
-      return -1;
-    }
-    return 0;
   }
 
   /** Represents the xml value for an attr definition. */
@@ -842,7 +812,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   @Override
   public String asConflictStringWith(DataSource source) {
     return String.format(
-        "%s [format(s): %s], [weak: %s]",
-        source.asConflictString(), String.join("|", this.formats.keySet()), weak);
+        "%s [format(s): %s]", source.asConflictString(), String.join("|", this.formats.keySet()));
   }
 }

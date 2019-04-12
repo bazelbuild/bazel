@@ -134,9 +134,4 @@ public class DataValueFile implements DataResource, DataAsset {
   public boolean valueEquals(DataValue value) {
     return equals(value);
   }
-
-  @Override
-  public int compareMergePriorityTo(DataValue value) {
-    return 0;
-  }
 }
