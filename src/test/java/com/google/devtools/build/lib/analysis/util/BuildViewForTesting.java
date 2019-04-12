@@ -385,6 +385,10 @@ public class BuildViewForTesting {
     try {
       target = skyframeExecutor.getPackageManager().getTarget(handler, label);
     } catch (NoSuchPackageException | NoSuchTargetException e) {
+      // TODO(bazel-team): refactor this method so we actually throw an exception here (likely
+      // {@link TransitionException}. Every version of getConfiguredTarget runs through this
+      // method and many test cases rely on not erroring out here so be able to reach an error
+      // later on.
       return NoTransition.INSTANCE;
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
