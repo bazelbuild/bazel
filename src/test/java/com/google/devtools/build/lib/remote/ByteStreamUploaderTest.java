@@ -325,6 +325,78 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
+  public void unimplementedQueryShouldRestartUpload() throws Exception {
+    Context prevContext = withEmptyMetadata.attach();
+    Mockito.when(mockBackoff.getRetryAttempts()).thenReturn(0);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME,
+        new ReferenceCountedChannel(channel), null, 3, retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          boolean expireCall = true;
+          boolean sawReset = false;
+
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {
+                if (expireCall) {
+                  streamObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+                  expireCall = false;
+                } else if (!sawReset && writeRequest.getWriteOffset() != 0) {
+                  streamObserver.onError(Status.INVALID_ARGUMENT.asException());
+                } else {
+                  sawReset = true;
+                  if (writeRequest.getFinishWrite()) {
+                    long committedSize = writeRequest.getWriteOffset() + writeRequest.getData().size();
+                    streamObserver.onNext(WriteResponse.newBuilder()
+                        .setCommittedSize(committedSize)
+                        .build());
+                    streamObserver.onCompleted();
+                  }
+                }
+              }
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+              }
+            };
+          }
+
+          @Override
+          public void queryWriteStatus(
+              QueryWriteStatusRequest request,
+              StreamObserver<QueryWriteStatusResponse> response) {
+            response.onError(Status.UNIMPLEMENTED.asException());
+          }
+        });
+
+    uploader.uploadBlob(hash, chunker, true);
+
+    // This test should have triggered a single retry, because it made
+    // no progress.
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis();
+
+    blockUntilInternalStateConsistent(uploader);
+
+    withEmptyMetadata.detach(prevContext);
+  }
+
+  @Test
   public void earlyWriteResponseShouldCompleteUpload() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     RemoteRetrier retrier =

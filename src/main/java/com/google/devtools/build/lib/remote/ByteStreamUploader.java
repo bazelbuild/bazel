@@ -43,6 +43,7 @@ import io.grpc.ClientCall;
 import io.grpc.Context;
 import io.grpc.Metadata;
 import io.grpc.Status;
+import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.MetadataUtils;
 import io.netty.util.AbstractReferenceCounted;
@@ -419,8 +420,21 @@ class ByteStreamUploader extends AbstractReferenceCounted {
                   .build()),
           (response) -> response.getCommittedSize(),
           MoreExecutors.directExecutor());
-      return Futures.transformAsync(
+      ListenableFuture<Long> guardedCommittedSizeFuture = Futures.catchingAsync(
           committedSizeFuture,
+          Exception.class,
+          (e) -> {
+            Status status = Status.fromThrowable(e);
+            if (status.getCode() == Code.UNIMPLEMENTED) {
+              // if the bytestream server does not implement the query, insist
+              // that we should reset the upload
+              return Futures.immediateFuture(0l);
+            }
+            return Futures.immediateFailedFuture(e);
+          },
+          MoreExecutors.directExecutor());
+      return Futures.transformAsync(
+          guardedCommittedSizeFuture,
           (committedSize) -> {
             if (committedSize > committedOffset.get()) {
               // we have made progress on this upload int the last request,
