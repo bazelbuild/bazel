@@ -206,7 +206,7 @@ public class WorkspaceFactory {
       }
     }
 
-    if (!ValidationEnvironment.checkBuildSyntax(ast.getStatements(), localReporter)
+    if (!ValidationEnvironment.checkBuildSyntax(ast.getStatements(), localReporter, workspaceEnv)
         || !ast.exec(workspaceEnv, localReporter)) {
       localReporter.handle(Event.error("Error evaluating WORKSPACE file"));
     }

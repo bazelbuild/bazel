@@ -201,7 +201,7 @@ public class EvaluationTestCase {
       return BuildFileAST.eval(env, input);
     }
     BuildFileAST ast = BuildFileAST.parseString(env.getEventHandler(), input);
-    ValidationEnvironment.checkBuildSyntax(ast.getStatements(), env.getEventHandler());
+    ValidationEnvironment.checkBuildSyntax(ast.getStatements(), env.getEventHandler(), env);
     return ast.eval(env);
   }
 
