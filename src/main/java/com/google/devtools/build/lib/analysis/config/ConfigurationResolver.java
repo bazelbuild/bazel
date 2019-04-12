@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Settings;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -226,7 +227,7 @@ public final class ConfigurationResolver {
           // configured target.
           defaultBuildSettingValues = StarlarkTransition.getDefaultInputValues(env, transition);
           ImmutableSet<SkyKey> buildSettingPackageKeys =
-              StarlarkTransition.getBuildSettingPackageKeys(transition, "outputs");
+              StarlarkTransition.getBuildSettingPackageKeys(transition, Settings.OUTPUTS);
           Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
           if (env.valuesMissing()) {
             return null;
