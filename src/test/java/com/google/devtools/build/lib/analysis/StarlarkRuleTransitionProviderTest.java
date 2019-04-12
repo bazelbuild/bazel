@@ -358,6 +358,9 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         .containsExactly("post-transition");
   }
 
+  private static final String CUTE_ANIMAL_DEFAULT =
+      "cows produce more milk when they listen to soothing music";
+
   private void writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests() throws Exception {
     writeWhitelistFile();
     scratch.file(
@@ -388,7 +391,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test')",
         "string_flag(",
         "  name = 'cute-animal-fact',",
-        "  build_setting_default = 'cows produce more milk when they listen to soothing music',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
         ")");
   }
 
@@ -551,6 +554,28 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     getConfiguredTarget("//test");
     assertContainsEvent(
         "attempting to transition on '//test:cute-animal-fact' which is not a build setting");
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting_dontStoreDefault() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:cute-animal-fact': '" + CUTE_ANIMAL_DEFAULT + "'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:cute-animal-fact']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(configuration.getOptions().getStarlarkOptions())
+        .doesNotContainKey(Label.parseAbsoluteUnchecked("//test:cute-animal-fact"));
   }
 
   @Test
