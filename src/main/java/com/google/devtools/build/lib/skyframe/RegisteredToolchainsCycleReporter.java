@@ -39,7 +39,7 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
       SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET);
 
   private static final Predicate<SkyKey> IS_TOOLCHAIN_RESOLUTION_SKY_KEY =
-      SkyFunctions.isSkyFunction(SkyFunctions.TOOLCHAIN_RESOLUTION);
+      SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_TOOLCHAIN_RESOLUTION);
 
   @Override
   public boolean maybeReportCycle(
@@ -73,9 +73,9 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
             if (input.argument() instanceof RegisteredToolchainsValue.Key) {
               return "RegisteredToolchains";
             }
-            if (input.argument() instanceof ToolchainResolutionValue.Key) {
+            if (input.argument() instanceof SingleToolchainResolutionValue.Key) {
               Label toolchainType =
-                  ((ToolchainResolutionValue.Key) input.argument()).toolchainTypeLabel();
+                  ((SingleToolchainResolutionValue.Key) input.argument()).toolchainTypeLabel();
               return String.format("toolchain type %s", toolchainType.toString());
             } else {
               throw new UnsupportedOperationException();
