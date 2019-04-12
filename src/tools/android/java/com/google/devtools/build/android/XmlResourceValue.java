@@ -41,12 +41,6 @@ public interface XmlResourceValue {
   XmlResourceValue combineWith(XmlResourceValue value);
 
   /**
-   * Returns 1 if the xml value is higher priority than the given value, -1 if lower priority, and 0
-   * if equal priority.
-   */
-  int compareMergePriorityTo(XmlResourceValue value);
-
-  /**
    * Queue up writing the resource to the given {@link AndroidResourceClassWriter}. Each resource
    * can generate one or more (in the case of styleable) fields and inner classes in the R class.
    *

@@ -235,11 +235,6 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int compareMergePriorityTo(XmlResourceValue value) {
-    return 0;
-  }
-
-  @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
   }
