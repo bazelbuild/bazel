@@ -264,7 +264,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     }
   }
 
-  private static String newResourceName(String instanceName, UUID uuid, HashCode hash, long size) {
+  private static String uploadResourceName(String instanceName, UUID uuid, HashCode hash, long size) {
     String resourceName = format("uploads/%s/blobs/%s/%d", uuid, hash, size);
     if (!Strings.isNullOrEmpty(instanceName)) {
       resourceName = instanceName + "/" + resourceName;
@@ -281,7 +281,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     }
 
     UUID uploadId = UUID.randomUUID();
-    String resourceName = newResourceName(instanceName, uploadId, hash, chunker.getSize());
+    String resourceName = uploadResourceName(instanceName, uploadId, hash, chunker.getSize());
     AsyncUpload newUpload =
         new AsyncUpload(channel, callCredentials, callTimeoutSecs, retrier, resourceName, chunker);
     ListenableFuture<Void> currUpload = newUpload.start();
