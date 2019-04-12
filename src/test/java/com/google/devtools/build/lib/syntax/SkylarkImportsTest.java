@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -36,8 +35,8 @@ public class SkylarkImportsTest {
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
-  private void validAbsoluteLabelTest(String labelString, String expectedLabelString,
-      String expectedPathString) throws Exception {
+  private void validAbsoluteLabelTest(String labelString, String expectedLabelString)
+      throws Exception {
     SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
@@ -45,30 +44,23 @@ public class SkylarkImportsTest {
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
     assertThat(importForLabel.getLabel(irrelevantContainingFile)).named("getLabel()")
         .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));
-
-    assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
-        .isEqualTo(PathFragment.create(expectedPathString));
   }
 
   @Test
   public void testValidAbsoluteLabel() throws Exception {
-    validAbsoluteLabelTest("//some/skylark:file.bzl",
-        /*expected label*/ "//some/skylark:file.bzl",
-        /*expected path*/ "/some/skylark/file.bzl");
+    validAbsoluteLabelTest("//some/skylark:file.bzl", /*expected label*/ "//some/skylark:file.bzl");
   }
 
   @Test
   public void testValidAbsoluteLabelWithRepo() throws Exception {
-    validAbsoluteLabelTest("@my_repo//some/skylark:file.bzl",
-        /*expected label*/ "@my_repo//some/skylark:file.bzl",
-        /*expected path*/ "/some/skylark/file.bzl");
+    validAbsoluteLabelTest(
+        "@my_repo//some/skylark:file.bzl", /*expected label*/ "@my_repo//some/skylark:file.bzl");
   }
 
   @Test
   public void testValidAbsoluteLabelWithRepoRemapped() throws Exception {
     String labelString = "@orig_repo//some/skylark:file.bzl";
     String remappedLabelString = "@new_repo//some/skylark:file.bzl";
-    String expectedPath = "/some/skylark/file.bzl";
     ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
         ImmutableMap.of(RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"));
     SkylarkImport importForLabel = SkylarkImports.create(labelString, repositoryMapping);
@@ -79,15 +71,11 @@ public class SkylarkImportsTest {
     assertThat(importForLabel.getLabel(irrelevantContainingFile))
         .named("getLabel()")
         .isEqualTo(Label.parseAbsoluteUnchecked(remappedLabelString));
-
-    assertThat(importForLabel.asPathFragment())
-        .named("asPathFragment()")
-        .isEqualTo(PathFragment.create(expectedPath));
   }
 
-  private void validRelativeLabelTest(String labelString,
-      String containingLabelString, String expectedLabelString, String expectedPathString)
-          throws Exception {
+  private void validRelativeLabelTest(
+      String labelString, String containingLabelString, String expectedLabelString)
+      throws Exception {
     SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
@@ -97,41 +85,38 @@ public class SkylarkImportsTest {
     assertThat(importForLabel.getLabel(containingLabel))
         .named("getLabel()")
         .isEqualTo(Label.parseAbsolute(expectedLabelString, ImmutableMap.of()));
-
-    assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
-        .isEqualTo(PathFragment.create(expectedPathString));
   }
 
   @Test
   public void testValidRelativeSimpleLabelInPackageDir() throws Exception {
-    validRelativeLabelTest(":file.bzl",
+    validRelativeLabelTest(
+        ":file.bzl",
         /*containing*/ "//some/skylark:BUILD",
-        /*expected label*/ "//some/skylark:file.bzl",
-        /*expected path*/ "file.bzl");
+        /*expected label*/ "//some/skylark:file.bzl");
   }
 
   @Test
   public void testValidRelativeSimpleLabelInPackageSubdir() throws Exception {
-    validRelativeLabelTest(":file.bzl",
+    validRelativeLabelTest(
+        ":file.bzl",
         /*containing*/ "//some/path/to:skylark/parent.bzl",
-        /*expected label*/ "//some/path/to:file.bzl",
-        /*expected path*/ "file.bzl");
+        /*expected label*/ "//some/path/to:file.bzl");
   }
 
   @Test
   public void testValidRelativeComplexLabelInPackageDir() throws Exception {
-    validRelativeLabelTest(":subdir/containing/file.bzl",
+    validRelativeLabelTest(
+        ":subdir/containing/file.bzl",
         /*containing*/ "//some/skylark:BUILD",
-        /*expected label*/ "//some/skylark:subdir/containing/file.bzl",
-        /*expected path*/ "subdir/containing/file.bzl");
+        /*expected label*/ "//some/skylark:subdir/containing/file.bzl");
   }
 
   @Test
   public void testValidRelativeComplexLabelInPackageSubdir() throws Exception {
-    validRelativeLabelTest(":subdir/containing/file.bzl",
+    validRelativeLabelTest(
+        ":subdir/containing/file.bzl",
         /*containing*/ "//some/path/to:skylark/parent.bzl",
-        /*expected label*/ "//some/path/to:subdir/containing/file.bzl",
-        /*expected path*/ "subdir/containing/file.bzl");
+        /*expected label*/ "//some/path/to:subdir/containing/file.bzl");
   }
 
   private void invalidImportTest(String importString, String expectedMsgPrefix) throws Exception {

@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Objects;
 
 /**
  * Factory class for creating appropriate instances of {@link SkylarkImports}.
+ *
+ * <p>TODO(laurentlb): Merge class with SkylarkImport.
  */
 public class SkylarkImports {
 
@@ -35,60 +35,15 @@ public class SkylarkImports {
     throw new IllegalStateException("This class should not be instantiated");
   }
 
-  // Default implementation class for SkylarkImport.
-  @VisibleForSerialization
-  abstract static class SkylarkImportImpl implements SkylarkImport {
-    private final String importString;
-
-    protected SkylarkImportImpl(String importString) {
-      this.importString = importString;
-    }
-
-    @Override
-    public String getImportString() {
-      return importString;
-    }
-
-    @Override
-    public abstract PathFragment asPathFragment();
-
-    @Override
-    public abstract Label getLabel(Label containingFileLabel);
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(getClass(), importString);
-    }
-
-    @Override
-    public boolean equals(Object that) {
-      if (this == that) {
-        return true;
-      }
-
-      if (!(that instanceof SkylarkImportImpl)) {
-        return false;
-      }
-
-      return Objects.equals(getClass(), that.getClass())
-          && Objects.equals(importString, ((SkylarkImportImpl) that).importString);
-    }
-  }
-
   @VisibleForSerialization
   @AutoCodec
-  static final class AbsoluteLabelImport extends SkylarkImportImpl {
+  static final class AbsoluteLabelImport extends SkylarkImport {
     private final Label importLabel;
 
     @VisibleForSerialization
     AbsoluteLabelImport(String importString, Label importLabel) {
       super(importString);
       this.importLabel = importLabel;
-    }
-
-    @Override
-    public PathFragment asPathFragment() {
-      return PathFragment.create("/").getRelative(importLabel.toPathFragment());
     }
 
     @Override
@@ -102,18 +57,13 @@ public class SkylarkImports {
 
   @VisibleForSerialization
   @AutoCodec
-  static final class RelativeLabelImport extends SkylarkImportImpl {
+  static final class RelativeLabelImport extends SkylarkImport {
     private final String importTarget;
 
     @VisibleForSerialization
     RelativeLabelImport(String importString, String importTarget) {
       super(importString);
       this.importTarget = importTarget;
-    }
-
-    @Override
-    public PathFragment asPathFragment() {
-      return PathFragment.create(importTarget);
     }
 
     @Override
