@@ -306,7 +306,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
           unloadedToolchainContext =
               new ToolchainResolver(env, configuredTargetKey.getConfigurationKey())
-                  .setTargetDescription(rule.toString())
                   .setRequiredToolchainTypes(requiredToolchains)
                   .setExecConstraintLabels(execConstraintLabels)
                   .resolve();
@@ -345,8 +344,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
       ResolvedToolchainContext toolchainContext = null;
       if (unloadedToolchainContext != null) {
+        String targetDescription = target.toString();
         toolchainContext =
-            unloadedToolchainContext.load(depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+            ResolvedToolchainContext.load(
+                unloadedToolchainContext,
+                targetDescription,
+                depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
       }
 
       ConfiguredTargetValue ans =

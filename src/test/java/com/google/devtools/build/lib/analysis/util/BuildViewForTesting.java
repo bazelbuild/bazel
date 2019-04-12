@@ -493,8 +493,12 @@ public class BuildViewForTesting {
             configuredTarget,
             configurations,
             unloadedToolchainContext.resolvedToolchainLabels());
+    String targetDescription = target.toString();
     ResolvedToolchainContext toolchainContext =
-        unloadedToolchainContext.load(prerequisiteMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+        ResolvedToolchainContext.load(
+            unloadedToolchainContext,
+            targetDescription,
+            prerequisiteMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
 
     return new RuleContext.Builder(
             env,
