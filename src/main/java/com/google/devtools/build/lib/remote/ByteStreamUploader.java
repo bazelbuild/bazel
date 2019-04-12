@@ -423,6 +423,8 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           committedSizeFuture,
           (committedSize) -> {
             if (committedSize > committedOffset.get()) {
+              // we have made progress on this upload int the last request,
+              // reset the backoff so that this request has a full deck of retries
               progressiveBackoff.reset();
             }
             committedOffset.set(committedSize);
