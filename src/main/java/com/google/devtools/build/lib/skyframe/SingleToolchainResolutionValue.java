@@ -26,14 +26,12 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
 
 /**
- * A value which represents the map of potential execution platforms and resolved toolchains. This
- * value only considers a single toolchain type, which allows for a Skyframe cache per toolchain
- * type. Callers will need to consider all toolchain types that are required and merge the results
- * together appropriately.
+ * A value which represents the map of potential execution platforms and resolved toolchains for a
+ * single toolchain type.This allows for a Skyframe cache per toolchain type.
  */
 @AutoCodec
 @AutoValue
-public abstract class ToolchainResolutionValue implements SkyValue {
+public abstract class SingleToolchainResolutionValue implements SkyValue {
 
   // A key representing the input data.
   public static Key key(
@@ -45,7 +43,7 @@ public abstract class ToolchainResolutionValue implements SkyValue {
         configurationKey, toolchainTypeLabel, targetPlatformKey, availableExecutionPlatformKeys);
   }
 
-  /** {@link SkyKey} implementation used for {@link ToolchainResolutionFunction}. */
+  /** {@link SkyKey} implementation used for {@link SingleToolchainResolutionFunction}. */
   @AutoCodec
   @AutoCodec.VisibleForSerialization
   @AutoValue
@@ -53,7 +51,7 @@ public abstract class ToolchainResolutionValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.TOOLCHAIN_RESOLUTION;
+      return SkyFunctions.SINGLE_TOOLCHAIN_RESOLUTION;
     }
 
     abstract BuildConfigurationValue.Key configurationKey();
@@ -70,7 +68,7 @@ public abstract class ToolchainResolutionValue implements SkyValue {
         Label toolchainTypeLabel,
         ConfiguredTargetKey targetPlatformKey,
         List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
-      return new AutoValue_ToolchainResolutionValue_Key(
+      return new AutoValue_SingleToolchainResolutionValue_Key(
           configurationKey,
           toolchainTypeLabel,
           targetPlatformKey,
@@ -79,10 +77,10 @@ public abstract class ToolchainResolutionValue implements SkyValue {
   }
 
   @AutoCodec.Instantiator
-  public static ToolchainResolutionValue create(
+  public static SingleToolchainResolutionValue create(
       ToolchainTypeInfo toolchainType,
       ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels) {
-    return new AutoValue_ToolchainResolutionValue(toolchainType, availableToolchainLabels);
+    return new AutoValue_SingleToolchainResolutionValue(toolchainType, availableToolchainLabels);
   }
 
   /** Returns the resolved details about the requested toolchain type. */
