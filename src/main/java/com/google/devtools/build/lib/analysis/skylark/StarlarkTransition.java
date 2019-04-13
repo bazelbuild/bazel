@@ -180,12 +180,12 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
               }
             });
 
-    // verify changed settings were changed to something reasonable for their type and filter out
+    // Verify changed settings were changed to something reasonable for their type and filter out
     // default values.
     Set<BuildOptions> cleanedOptionList = new LinkedHashSet<>(toOptions.size());
     for (BuildOptions options : toOptions) {
-      BuildOptions.Builder cleanedOptions = options.toBuilder();
-      boolean cleaned = false;
+      // Lazily initialized to optimize for the common case where we don't modify anything.
+      BuildOptions.Builder cleanedOptions = null;
       for (Map.Entry<Label, Rule> changedSettingWithRule : changedSettingToRule.entrySet()) {
         Label setting = changedSettingWithRule.getKey();
         Rule rule = changedSettingWithRule.getValue();
@@ -199,12 +199,14 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         }
         if (convertedValue.equals(
             rule.getAttributeContainer().getAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+          if (cleanedOptions == null) {
+            cleanedOptions = options.toBuilder();
+          }
           cleanedOptions.removeStarlarkOption(setting);
-          cleaned = true;
         }
       }
       // Keep the same instance if we didn't do anything to maintain reference equality later on.
-      cleanedOptionList.add(cleaned ? cleanedOptions.build() : options);
+      cleanedOptionList.add(cleanedOptions != null ? cleanedOptions.build() : options);
     }
     return ImmutableList.copyOf(cleanedOptionList);
   }
