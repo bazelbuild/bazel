@@ -180,7 +180,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean internalSkylarkFlagTestCanary();
 
-
   public abstract boolean incompatibleDoNotSplitLinkingCmdline();
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
@@ -223,7 +222,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNewActionsApi(false)
           .incompatibleNoAttrLicense(true)
           .incompatibleNoKwargsInBuildFiles(false)
-          .incompatibleNoOutputAttrDefault(false)
+          .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(true)
