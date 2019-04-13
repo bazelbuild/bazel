@@ -523,6 +523,22 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "See https://github.com/bazelbuild/bazel/issues/7670 for details.")
   public boolean incompatibleDoNotSplitLinkingCmdline;
 
+  @Option(
+      name = "incompatible_objc_framework_cleanup",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, use the post-cleanup mode for prebuilt frameworks.  The cleanup changes "
+              + "the objc provider API pertaining to frameworks.  This change is expected to be "
+              + "transparent to most users unless they write their own Starlark rules to handle "
+              + "frameworks.  See https://github.com/bazelbuild/bazel/issues/7944 for details.")
+  public boolean incompatibleObjcFrameworkCleanup;
+
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
   public StarlarkSemantics toSkylarkSemantics() {
     return StarlarkSemantics.builder()
@@ -558,6 +574,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
         .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
+        .incompatibleObjcFrameworkCleanup(incompatibleObjcFrameworkCleanup)
         .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
         .incompatibleStaticNameResolutionInBuildFiles(incompatibleStaticNameResolutionInBuildFiles)
