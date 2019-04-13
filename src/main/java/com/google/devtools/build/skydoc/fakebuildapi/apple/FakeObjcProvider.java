@@ -216,5 +216,25 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
+  public NestedSet<String> dynamicFrameworkNames() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<String> dynamicFrameworkPaths() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<String> staticFrameworkNames() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<String> staticFrameworkPaths() {
+    return null;
+  }
+
+  @Override
   public void repr(SkylarkPrinter printer) {}
 }

@@ -58,6 +58,9 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   /** Skylark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
 
+  /** Expected suffix for a framework-containing directory. */
+  public static final String FRAMEWORK_SUFFIX = ".framework";
+
   /**
    * Represents one of the things this provider can provide transitively. Things are provided as
    * {@link NestedSet}s of type E.
@@ -232,11 +235,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public static final Key<PathFragment> FRAMEWORK_SEARCH_PATH_ONLY =
       new Key<>(LINK_ORDER, "framework_search_paths", PathFragment.class);
 
-
-  /**
-   * Files in {@code .framework} directories that should be included as inputs when compiling and
-   * linking.
-   */
+  /** The static library files of user-specified static frameworks. */
   public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
 
@@ -249,11 +248,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public static final Key<PathFragment> DYNAMIC_FRAMEWORK_DIR =
       new Key<>(LINK_ORDER, "dynamic_framework_dir", PathFragment.class);
 
-  /**
-   * Files in {@code .framework} directories belonging to a dynamically linked framework. They
-   * should be included as inputs when compiling and linking as well as copied into the final
-   * application bundle.
-   */
+  /** The dynamic library files of user-specified dynamic frameworks. */
   public static final Key<Artifact> DYNAMIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "dynamic_framework_file", Artifact.class);
 
@@ -923,6 +918,74 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   @Override
   public SkylarkNestedSet getStaticFrameworkDirsForSkylark() {
     return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(getStaticFrameworkDirs());
+  }
+
+  /**
+   * Check whether that a path fragment is a framework directory (i.e. ends in FRAMEWORK_SUFFIX).
+   */
+  private static void checkIsFrameworkDirectory(PathFragment dir) {
+    Preconditions.checkState(dir.getBaseName().endsWith(FRAMEWORK_SUFFIX));
+  }
+
+  /** The input path must be of the form <path>/<name>.FRAMEWORK_SUFFIX. Return the names. */
+  private static String getFrameworkName(PathFragment frameworkPath) {
+    String segment = frameworkPath.getBaseName();
+    return segment.substring(0, segment.length() - FRAMEWORK_SUFFIX.length());
+  }
+
+  /** The input path must be of the form <path>/<name>.FRAMEWORK_SUFFIX. Return the paths. */
+  private static String getFrameworkPath(PathFragment frameworkPath) {
+    return frameworkPath.getParentDirectory().getSafePathString();
+  }
+
+  /**
+   * @param key either DYNAMIC_FRAMEWORK_FILE or STATIC_FRAMEWORK_FILE. Return the corresponding
+   *     framework names, i.e. for a given a file <path>/<name>.FRAMEWORK_SUFFIX/<name>, return
+   *     <name>.
+   */
+  private NestedSet<String> getFrameworkNames(Key<Artifact> key) {
+    NestedSetBuilder<String> names = new NestedSetBuilder<>(key.order);
+    for (Artifact file : get(key)) {
+      PathFragment frameworkDir = file.getExecPath().getParentDirectory();
+      checkIsFrameworkDirectory(frameworkDir);
+      names.add(getFrameworkName(frameworkDir));
+    }
+    return names.build();
+  }
+
+  /**
+   * @param key either DYNAMIC_FRAMEWORK_FILE or STATIC_FRAMEWORK_FILE. Return the corresponding
+   *     framework paths, i.e. for a given a file <path>/<name>.FRAMEWORK_SUFFIX/<name>, return
+   *     <path>.
+   */
+  private NestedSet<String> getFrameworkPaths(Key<Artifact> key) {
+    NestedSetBuilder<String> paths = new NestedSetBuilder<>(key.order);
+    for (Artifact file : get(key)) {
+      PathFragment frameworkDir = file.getExecPath().getParentDirectory();
+      checkIsFrameworkDirectory(frameworkDir);
+      paths.add(getFrameworkPath(frameworkDir));
+    }
+    return paths.build();
+  }
+
+  @Override
+  public NestedSet<String> dynamicFrameworkNames() {
+    return getFrameworkNames(DYNAMIC_FRAMEWORK_FILE);
+  }
+
+  @Override
+  public NestedSet<String> dynamicFrameworkPaths() {
+    return getFrameworkPaths(DYNAMIC_FRAMEWORK_FILE);
+  }
+
+  @Override
+  public NestedSet<String> staticFrameworkNames() {
+    return getFrameworkNames(STATIC_FRAMEWORK_FILE);
+  }
+
+  @Override
+  public NestedSet<String> staticFrameworkPaths() {
+    return getFrameworkPaths(STATIC_FRAMEWORK_FILE);
   }
 
   /**

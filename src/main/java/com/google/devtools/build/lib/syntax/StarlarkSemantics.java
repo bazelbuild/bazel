@@ -50,6 +50,7 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
+    INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -170,6 +171,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoTransitiveLoads();
 
+  public abstract boolean incompatibleObjcFrameworkCleanup();
+
   public abstract boolean incompatibleRemapMainRepo();
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
@@ -226,6 +229,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(true)
+          .incompatibleObjcFrameworkCleanup(false)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleStaticNameResolutionInBuildFiles(false)
@@ -296,6 +300,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
 
     public abstract Builder incompatibleNoTransitiveLoads(boolean value);
+
+    public abstract Builder incompatibleObjcFrameworkCleanup(boolean value);
 
     public abstract Builder incompatibleRemapMainRepo(boolean value);
 

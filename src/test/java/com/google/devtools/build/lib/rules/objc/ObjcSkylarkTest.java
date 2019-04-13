@@ -1590,4 +1590,168 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     boolean runMemleaks = (boolean) skylarkTarget.get("run_memleaks");
     assertThat(runMemleaks).isEqualTo(expectedValue);
   }
+
+  private void addDummyObjcProviderRule(String name) throws Exception {
+    scratch.file(
+        "fx/defs.bzl",
+        "def _my_rule_impl(ctx):",
+        "  objc = apple_common.new_objc_provider()",
+        String.format("  return struct(names=objc.%s)", name),
+        "my_rule = rule(implementation = _my_rule_impl,",
+        "   attrs = {})");
+    scratch.file("fx/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'lib')");
+  }
+
+  private void testObjcProviderHas(String name) throws Exception {
+    addDummyObjcProviderRule(name);
+    assertThat(view.hasErrors(getConfiguredTarget("//fx:lib"))).isFalse();
+  }
+
+  private void testObjcProviderDoesNotHave(String name) throws Exception {
+    addDummyObjcProviderRule(name);
+    try {
+      getConfiguredTarget("//fx:lib");
+      fail("Should throw AssertionError");
+    } catch (AssertionError e) {
+      if (name.endsWith("()")) {
+        assertThat(e).hasMessageThat().contains("'ObjcProvider' has no method " + name);
+      } else {
+        assertThat(e).hasMessageThat().contains("'ObjcProvider' has no field '" + name + "'");
+      }
+    }
+  }
+
+  @Test
+  public void testObjcProviderDynamicFrameworkDirPreCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
+    testObjcProviderHas("dynamic_framework_dir");
+  }
+
+  @Test
+  public void testObjcProviderFrameworkDirPreCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
+    testObjcProviderHas("framework_dir");
+  }
+
+  @Test
+  public void testObjcProviderDynamicFrameworkNamesPreCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
+    testObjcProviderDoesNotHave("dynamic_framework_names");
+  }
+
+  @Test
+  public void testObjcProviderDynamicFrameworkPathsPreCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
+    testObjcProviderDoesNotHave("dynamic_framework_paths");
+  }
+
+  @Test
+  public void testObjcProviderStaticFrameworkNamesPreCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
+    testObjcProviderDoesNotHave("static_framework_names");
+  }
+
+  @Test
+  public void testObjcProviderStaticFrameworkPathsPreCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
+    testObjcProviderDoesNotHave("static_framework_paths");
+  }
+
+  @Test
+  public void testObjcProviderDynamicFrameworkDirPostCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+    testObjcProviderDoesNotHave("dynamic_framework_dir");
+  }
+
+  @Test
+  public void testObjcProviderFrameworkDirPostCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+    testObjcProviderDoesNotHave("framework_dir");
+  }
+
+  @Test
+  public void testObjcProviderDynamicFrameworkNamesPostCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+    testObjcProviderHas("dynamic_framework_names");
+  }
+
+  @Test
+  public void testObjcProviderDynamicFrameworkPathsPostCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+    testObjcProviderHas("dynamic_framework_paths");
+  }
+
+  @Test
+  public void testObjcProviderStaticFrameworkNamesPostCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+    testObjcProviderHas("static_framework_names");
+  }
+
+  @Test
+  public void testObjcProviderStaticFrameworkPathsPostCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+    testObjcProviderHas("static_framework_paths");
+  }
+
+  @Test
+  public void testStaticFrameworkApiPostCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+
+    scratch.file(
+        "fx/defs.bzl",
+        "def _custom_static_framework_import_impl(ctx):",
+        "  return [apple_common.new_objc_provider(",
+        "      static_framework_file=depset(ctx.files.link_inputs))]",
+        "custom_static_framework_import = rule(",
+        "    _custom_static_framework_import_impl,",
+        "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
+        ")");
+    scratch.file("fx/fx1.framework/fx1");
+    scratch.file("fx/fx2.framework/fx2");
+    scratch.file(
+        "fx/BUILD",
+        "load(':defs.bzl', 'custom_static_framework_import')",
+        "custom_static_framework_import(",
+        "    name = 'framework',",
+        "    link_inputs = ['fx1.framework/fx1', 'fx2.framework/fx2'],",
+        ")");
+
+    ConfiguredTarget framework = getConfiguredTarget("//fx:framework");
+    ObjcProvider objc = framework.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(Artifact.toRootRelativePaths(objc.staticFrameworkFile()))
+        .containsExactly("fx/fx1.framework/fx1", "fx/fx2.framework/fx2");
+    assertThat(objc.staticFrameworkNames()).containsExactly("fx1", "fx2");
+    assertThat(objc.staticFrameworkPaths()).containsExactly("fx");
+  }
+
+  @Test
+  public void testDynamicFrameworkApiPostCleanup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+
+    scratch.file(
+        "fx/defs.bzl",
+        "def _custom_dynamic_framework_import_impl(ctx):",
+        "  return [apple_common.new_objc_provider(",
+        "      dynamic_framework_file=depset(ctx.files.link_inputs))]",
+        "custom_dynamic_framework_import = rule(",
+        "    _custom_dynamic_framework_import_impl,",
+        "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
+        ")");
+    scratch.file("fx/fx1.framework/fx1");
+    scratch.file("fx/fx2.framework/fx2");
+    scratch.file(
+        "fx/BUILD",
+        "load(':defs.bzl', 'custom_dynamic_framework_import')",
+        "custom_dynamic_framework_import(",
+        "    name = 'framework',",
+        "    link_inputs = ['fx1.framework/fx1', 'fx2.framework/fx2'],",
+        ")");
+
+    ConfiguredTarget framework = getConfiguredTarget("//fx:framework");
+    ObjcProvider objc = framework.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(Artifact.toRootRelativePaths(objc.dynamicFrameworkFile()))
+        .containsExactly("fx/fx1.framework/fx1", "fx/fx2.framework/fx2");
+    assertThat(objc.dynamicFrameworkNames()).containsExactly("fx1", "fx2");
+    assertThat(objc.dynamicFrameworkPaths()).containsExactly("fx");
+  }
 }

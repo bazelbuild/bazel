@@ -225,8 +225,8 @@ public final class ObjcCommon {
     }
 
     /**
-     * Adds all given artifacts as members of static frameworks. They must be contained in
-     * {@code .frameworks} directories and the binary in that framework should be statically linked.
+     * Add the library files corresponding to static frameworks. They must be contained in {@code
+     * .frameworks} directories and the binaries should be statically linked.
      */
     Builder addStaticFrameworkImports(Iterable<Artifact> frameworkImports) {
       this.staticFrameworkImports = Iterables.concat(this.staticFrameworkImports, frameworkImports);
@@ -234,9 +234,8 @@ public final class ObjcCommon {
     }
 
     /**
-     * Adds all given artifacts as members of dynamic frameworks. They must be contained in
-     * {@code .frameworks} directories and the binary in that framework should be dynamically
-     * linked.
+     * Add the library files corresponding to dynamic frameworks. They must be contained in {@code
+     * .frameworks} directories and the binaries should be dynamically linked.
      */
     Builder addDynamicFrameworkImports(Iterable<Artifact> frameworkImports) {
       this.dynamicFrameworkImports =
@@ -410,18 +409,26 @@ public final class ObjcCommon {
               .addAll(SDK_DYLIB, extraSdkDylibs)
               .addAll(STATIC_FRAMEWORK_FILE, staticFrameworkImports)
               .addAll(DYNAMIC_FRAMEWORK_FILE, dynamicFrameworkImports)
-              .addAll(
-                  DYNAMIC_FRAMEWORK_DIR,
-                  uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
               .addAll(INCLUDE, includes)
               .add(IQUOTE, buildConfiguration.getGenfilesFragment())
               .addAllForDirectDependents(INCLUDE, directDependencyIncludes)
               .addAll(DEFINE, defines)
               .addTransitiveAndPropagate(depObjcProviders);
 
+      if (!semantics.incompatibleObjcFrameworkCleanup()) {
+        objcProvider.addAll(
+            DYNAMIC_FRAMEWORK_DIR,
+            uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE));
+      }
+
       for (ObjcProvider provider : runtimeDepObjcProviders) {
-        objcProvider.addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, provider);
-        objcProvider.addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, provider);
+        if (!semantics.incompatibleObjcFrameworkCleanup()) {
+          objcProvider.addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, provider);
+          objcProvider.addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, provider);
+        } else {
+          objcProvider.addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY, provider);
+          objcProvider.addTransitiveAndPropagate(ObjcProvider.HEADER, provider);
+        }
         objcProvider.addTransitiveAndPropagate(ObjcProvider.MERGE_ZIP, provider);
       }
 

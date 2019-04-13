@@ -161,7 +161,7 @@ final class ProtobufSupport {
    * Registers the proto generation actions. These actions generate the ObjC/CPP code to be compiled
    * by this rule.
    */
-  public ProtobufSupport registerGenerationActions() {
+  public ProtobufSupport registerGenerationActions() throws InterruptedException {
     int actionId = 0;
 
     for (ImmutableSet<Artifact> inputProtos : orderedInputOutputKeySet()) {
@@ -177,7 +177,7 @@ final class ProtobufSupport {
     return this;
   }
 
-  private void registerModuleMapGenerationAction() {
+  private void registerModuleMapGenerationAction() throws InterruptedException {
     CompilationArtifacts.Builder moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(intermediateArtifacts)
