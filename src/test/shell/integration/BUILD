@@ -202,9 +202,14 @@ sh_test(
 sh_test(
     name = "discard_analysis_cache_test",
     size = "medium",
+    args = ["$(JAVABASE)"],
     srcs = ["discard_analysis_cache_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+         "@bazel_tools//tools/bash/runfiles",
+    ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
