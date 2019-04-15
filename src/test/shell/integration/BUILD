@@ -64,7 +64,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = [
-        "local",
+        "no-sandbox",
     ],
 )
 
@@ -296,7 +296,7 @@ sh_test(
     # This test doesn't work with the sandbox on, see the source file
     # for details.
     tags = [
-        "local",
+        "no-sandbox",
         "no_windows",
     ],
 )
