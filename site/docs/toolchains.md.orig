@@ -18,9 +18,19 @@ title: Toolchains
 This page describes the toolchain framework -- a way for rule authors to
 decouple their rule logic from platform-based selection of tools. It is
 recommended to read the
+<!-- begin-block:external
 [rules](skylark/rules.html)
+end-block -->
+<!-- begin-block:internal -->
+[rules](https://g3doc.corp.google.com/devtools/blaze/rules/g3doc/rules.md)
+<!-- begin-block:shared -->
 and
+<!-- begin-block:external
 [platforms](platforms.html)
+end-block -->
+<!-- begin-block:internal -->
+[platforms](https://g3doc.corp.google.com/devtools/blaze/subteams/configurability/g3doc/platforms.md)
+<!-- begin-block:shared -->
 pages before continuing. This page covers why toolchains are needed, how to
 define and use them, and how Bazel selects an appropriate toolchain based on
 platform constraints.
@@ -185,7 +195,12 @@ def _bar_binary_impl(ctx):
 ```
 
 `ctx.toolchains["//bar_tools:toolchain_type"]` returns the
+<!-- begin-block:external
 [`ToolchainInfo` provider](skylark/lib/platform_common.html#ToolchainInfo)
+end-block -->
+<!-- begin-block:internal -->
+[`ToolchainInfo` provider](http://g3doc/devtools/blaze/rules/g3doc/lib/ToolchainInfo.html)
+<!-- begin-block:shared -->
 of whatever target Bazel resolved the toolchain dependency to. The fields of the
 `ToolchainInfo` object are set by the underlying tool's rule; in the next
 section we'll define this rule such that there is a `barcinfo` field that wraps
@@ -207,7 +222,12 @@ To define some toolchains for a given toolchain type, we need three things:
    suite for different platforms.
 
 3. For each such target, an associated target of the generic
+<!-- begin-block:external
 [`toolchain`](be/platform.html#toolchain)
+end-block -->
+<!-- begin-block:internal -->
+[`toolchain`](https://g3doc.corp.google.com/devtools/blaze/g3doc/be/platform.html#toolchain)
+<!-- begin-block:shared -->
 rule, to provide metadata used by the toolchain framework.
 
 For our running example, here's a definition for a `bar_toolchain` rule. Our
@@ -230,7 +250,7 @@ bar_toolchain = rule(
     attrs = {
         "compiler_path": attr.string(),
         "system_lib": attr.string(),
-        "arch_flags": attr.string_list(),
+        "arch_flags": attr.string(),
     },
 )
 ```
@@ -369,23 +389,53 @@ platform for the current target.
 
 The available execution platforms and toolchains are gathered from the
 `WORKSPACE` file via
+<!-- begin-block:external
 [`register_execution_platforms`](skylark/lib/globals.html#register_execution_platforms)
+end-block -->
+<!-- begin-block:internal -->
+[`register_execution_platforms`](http://g3doc/devtools/blaze/rules/g3doc/lib/globals.html#register_execution_platforms)
+<!-- begin-block:shared -->
 and
+<!-- begin-block:external
 [`register_toolchains`](skylark/lib/globals.html#register_toolchains).
+end-block -->
+<!-- begin-block:internal -->
+[`register_toolchains`](http://g3doc/devtools/blaze/rules/g3doc/lib/globals.html#register_toolchains).
+<!-- begin-block:shared -->
 Additional execution platforms and toolchains may also be specified on the
 command line via
+<!-- begin-block:external
 [`--extra_execution_platforms`](command-line-reference.html#flag--extra_execution_platforms)
+end-block -->
+<!-- begin-block:internal -->
+[`--extra_execution_platforms`](http://g3doc/devtools/blaze/g3doc/user-manual.html#flag--extra_execution_platforms)
+<!-- begin-block:shared -->
 and
+<!-- begin-block:external
 [`--extra_toolchains`](command-line-reference.html#flag--extra_toolchains).
+end-block -->
+<!-- begin-block:internal -->
+[`--extra_toolchains`](http://g3doc/devtools/blaze/g3doc/user-manual.html#flag--extra_toolchains).
+<!-- begin-block:shared -->
 The host platform is automatically included as an available execution platform.
 Available platforms and toolchains are tracked as ordered lists for determinism,
 
 The resolution steps are as follows.
 
 1. If the target specifies the
+<!-- begin-block:external
    [`exec_compatible_with` attribute](be/common-definitions.html#common.exec_compatible_with)
+end-block -->
+<!-- begin-block:internal -->
+   [`exec_compatible_with` attribute](https://g3doc.corp.google.com/devtools/blaze/g3doc/be/common-definitions.html#common.exec_compatible_with)
+<!-- begin-block:shared -->
    (or the rule specifies the
+<!-- begin-block:external
    [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with),
+end-block -->
+<!-- begin-block:internal -->
+   [`exec_compatible_with` argument](https://g3doc.corp.google.com/devtools/blaze/rules/g3doc/lib/globals.html#rule.exec_compatible_with),
+<!-- begin-block:shared -->
    the list of available execution platforms is filtered to remove
    any that do not match the execution constraints.
 
