@@ -70,16 +70,11 @@ else
   EXE_EXT=""
 fi
 
- javabase="$1"
-if [[ $javabase = /* || $javabase =~ [A-Za-z]:[/\\] ]]; then
-  jmaptool="$1/bin/jmap${EXE_EXT}"
-else
-  if [[ $javabase = external/* ]]; then
-    javabase=${javabase#external/}
-  fi
-  jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
+javabase="$1"
+if [[ $javabase = external/* ]]; then
+  javabase=${javabase#external/}
 fi
-
+jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
 
 if ! type try_with_timeout >&/dev/null; then
   # Bazel's testenv.sh defines try_with_timeout but the Google-internal version
