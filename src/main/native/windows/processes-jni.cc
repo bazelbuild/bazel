@@ -155,34 +155,14 @@ class NativeOutputStream {
 class NativeProcess {
  public:
   NativeProcess()
-      : stdin_(INVALID_HANDLE_VALUE),
-        stdout_(),
+      : stdout_(),
         stderr_(),
-        process_(INVALID_HANDLE_VALUE),
-        job_(INVALID_HANDLE_VALUE),
-        ioport_(INVALID_HANDLE_VALUE),
         exit_code_(STILL_ACTIVE),
         error_(L"") {}
 
   ~NativeProcess() {
-    if (stdin_ != INVALID_HANDLE_VALUE) {
-      CloseHandle(stdin_);
-    }
-
     stdout_.Close();
     stderr_.Close();
-
-    if (process_ != INVALID_HANDLE_VALUE) {
-      CloseHandle(process_);
-    }
-
-    if (job_ != INVALID_HANDLE_VALUE) {
-      CloseHandle(job_);
-    }
-
-    if (ioport_ != INVALID_HANDLE_VALUE) {
-      CloseHandle(ioport_);
-    }
   }
 
   jboolean Create(JNIEnv* env, jstring java_argv0, jstring java_argv_rest,
@@ -241,8 +221,6 @@ class NativeProcess {
     bazel::windows::AutoHandle stdout_process;
     bazel::windows::AutoHandle stderr_process;
     bazel::windows::AutoHandle thread;
-    PROCESS_INFORMATION process_info = {0};
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
 
     JavaByteArray env_map(env, java_env);
     if (env_map.ptr() != nullptr) {
@@ -368,19 +346,18 @@ class NativeProcess {
 
     // MDSN says that the default for job objects is that breakaway is not
     // allowed. Thus, we don't need to do any more setup here.
-    HANDLE job = CreateJobObject(NULL, NULL);
-    if (job == NULL) {
+    job_ = CreateJobObject(NULL, NULL);
+    if (!job_.IsValid()) {
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return false;
     }
 
-    job_ = job;
-
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
     job_info.BasicLimitInformation.LimitFlags =
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+    if (!SetInformationJobObject(job_, JobObjectExtendedLimitInformation,
                                  &job_info, sizeof(job_info))) {
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
@@ -388,18 +365,17 @@ class NativeProcess {
       return false;
     }
 
-    HANDLE ioport = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
-    if (ioport == nullptr) {
+    ioport_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
+    if (!ioport_.IsValid()) {
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return false;
     }
-    ioport_ = ioport;
     JOBOBJECT_ASSOCIATE_COMPLETION_PORT port;
-    port.CompletionKey = job;
-    port.CompletionPort = ioport;
-    if (!SetInformationJobObject(job,
+    port.CompletionKey = job_;
+    port.CompletionPort = ioport_;
+    if (!SetInformationJobObject(job_,
                                  JobObjectAssociateCompletionPortInformation,
                                  &port, sizeof(port))) {
       DWORD err_code = GetLastError();
@@ -434,6 +410,7 @@ class NativeProcess {
       return false;
     }
 
+    PROCESS_INFORMATION process_info = {0};
     STARTUPINFOEXW info;
     attr_list->InitStartupInfoExW(&info);
     if (!CreateProcessW(
@@ -471,9 +448,7 @@ class NativeProcess {
         // TerminateProcess() and hope for the best. In batch mode, the launcher
         // puts Bazel in a job so that will take care of cleanup once the
         // command finishes.
-        CloseHandle(job_);
         job_ = INVALID_HANDLE_VALUE;
-        CloseHandle(ioport_);
         ioport_ = INVALID_HANDLE_VALUE;
       } else {
         DWORD err_code = GetLastError();
@@ -518,8 +493,7 @@ class NativeProcess {
         return kWaitError;
     }
 
-    if (stdin_ != INVALID_HANDLE_VALUE) {
-      CloseHandle(stdin_);
+    if (stdin_.IsValid()) {
       stdin_ = INVALID_HANDLE_VALUE;
     }
 
@@ -530,7 +504,7 @@ class NativeProcess {
       return kWaitError;
     }
 
-    if (job_ != INVALID_HANDLE_VALUE) {
+    if (job_.IsValid()) {
       // Wait for the job object to complete, signalling that all subprocesses
       // have exited.
       DWORD CompletionCode;
@@ -538,15 +512,12 @@ class NativeProcess {
       LPOVERLAPPED Overlapped;
       while (GetQueuedCompletionStatus(ioport_, &CompletionCode, &CompletionKey,
                                        &Overlapped, INFINITE) &&
-             !((HANDLE)CompletionKey == job_ &&
+             !((HANDLE)CompletionKey == (HANDLE)job_ &&
                CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
         // Still waiting...
       }
 
-      CloseHandle(job_);
       job_ = INVALID_HANDLE_VALUE;
-
-      CloseHandle(ioport_);
       ioport_ = INVALID_HANDLE_VALUE;
     }
 
@@ -554,8 +525,7 @@ class NativeProcess {
     // because we cannot do this anymore after we closed the handle.
     GetExitCode();
 
-    if (process_ != INVALID_HANDLE_VALUE) {
-      CloseHandle(process_);
+    if (process_.IsValid()) {
       process_ = INVALID_HANDLE_VALUE;
     }
 
@@ -613,7 +583,7 @@ class NativeProcess {
   jboolean Terminate() {
     static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
 
-    if (job_ != INVALID_HANDLE_VALUE) {
+    if (job_.IsValid()) {
       if (!TerminateJobObject(job_, exit_code)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -621,7 +591,7 @@ class NativeProcess {
                                                   ToString(pid_), err_code);
         return JNI_FALSE;
       }
-    } else if (process_ != INVALID_HANDLE_VALUE) {
+    } else if (process_.IsValid()) {
       if (!TerminateProcess(process_, exit_code)) {
         DWORD err_code = GetLastError();
         std::wstring our_error = bazel::windows::MakeErrorMessage(
@@ -664,12 +634,12 @@ class NativeProcess {
   }
 
  private:
-  HANDLE stdin_;
+  bazel::windows::AutoHandle stdin_;
   NativeOutputStream stdout_;
   NativeOutputStream stderr_;
-  HANDLE process_;
-  HANDLE job_;
-  HANDLE ioport_;
+  bazel::windows::AutoHandle process_;
+  bazel::windows::AutoHandle job_;
+  bazel::windows::AutoHandle ioport_;
   DWORD pid_;
   DWORD exit_code_;
   std::wstring error_;
