@@ -124,6 +124,8 @@ public class ByteStreamUploaderTest {
     // on different threads than the tearDown.
     withEmptyMetadata.detach(prevContext);
 
+    channel.shutdownNow();
+    channel.awaitTermination(5, TimeUnit.SECONDS);
     server.shutdownNow();
     server.awaitTermination();
   }
