@@ -641,12 +641,14 @@ sh_test(
     name = "bazel_with_jdk_test",
     size = "medium",
     srcs = ["bazel_with_jdk_test.sh"],
+    args = ["$(JAVABASE)"],
     data = [
         ":test-deps",
         "//src:bazel",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
