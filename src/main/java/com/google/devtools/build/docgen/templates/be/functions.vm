@@ -488,9 +488,20 @@ sh_test(
 
 <h3 id="recursive_glob_example">Recursive Glob Examples</h3>
 
+<p>Make the test depend on all txt files in the testdata directory and any
+   of its subdirectories (and their subdirectories, and so on).
+   Subdirectories containing a BUILD file are ignored. (See limitations
+   and caveats above.)</p>
+<pre class="code">
+sh_test(
+    name = "mytest",
+    srcs = ["mytest.sh"],
+    data = glob(["testdata/**/*.txt"]),
+)
+</pre>
+
 <p>Create a library built from all java files in this directory and all
 subdirectories except those whose path includes a directory named testing.
-Subdirectories containing a BUILD file are ignored.
 <b>This pattern should be avoided if possible, as it can reduce build
 incrementality and therefore increase build times.</b>
 </p>
@@ -501,16 +512,6 @@ java_library(
         ["**/*.java"],
         exclude = ["**/testing/**"],
     ),
-)
-</pre>
-
-<p>Make the test depend on all txt files in the testdata directory,
-   its subdirectories</p>
-<pre class="code">
-sh_test(
-    name = "mytest",
-    srcs = ["mytest.sh"],
-    data = glob(["testdata/**/*.txt"]),
 )
 </pre>
 
