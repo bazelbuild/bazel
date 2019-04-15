@@ -248,8 +248,8 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
     TargetNotToolchainException(ToolchainTypeInfo toolchainType, Label resolvedTargetLabel) {
       super(
           String.format(
-              "toolchain type %s resolved to target %s, but that target does not provide"
-                  + " ToolchainInfo",
+              "toolchain type %s resolved to target %s, but that target does not provide "
+                  + ToolchainInfo.SKYLARK_NAME,
               toolchainType.typeLabel(), resolvedTargetLabel));
     }
   }
