@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import javax.annotation.Nullable;
 
 /**
  * Factory class for creating appropriate instances of {@link SkylarkImports}.
@@ -37,38 +38,27 @@ public class SkylarkImports {
 
   @VisibleForSerialization
   @AutoCodec
-  static final class AbsoluteLabelImport extends SkylarkImport {
-    private final Label importLabel;
+  static final class LabelImport extends SkylarkImport {
+    @Nullable private final Label importLabel;
 
     @VisibleForSerialization
-    AbsoluteLabelImport(String importString, Label importLabel) {
+    LabelImport(String importString, @Nullable Label importLabel) {
       super(importString);
       this.importLabel = importLabel;
     }
 
     @Override
     public Label getLabel(Label containingFileLabel) {
-      // When the import label contains no explicit repository identifier, we resolve it relative
-      // to the repo of the containing file.
-      return containingFileLabel.resolveRepositoryRelative(importLabel);
-    }
-  }
+      if (importLabel != null) {
+        // When the import label contains no explicit repository identifier, we resolve it relative
+        // to the repo of the containing file.
+        return containingFileLabel.resolveRepositoryRelative(importLabel);
+      }
 
-  @VisibleForSerialization
-  @AutoCodec
-  static final class RelativeLabelImport extends SkylarkImport {
-    @VisibleForSerialization
-    RelativeLabelImport(String importString) {
-      super(importString);
-    }
-
-    @Override
-    public Label getLabel(Label containingFileLabel) {
-      // Unlike a relative path import, the import target is relative to the containing package,
-      // not the containing directory within the package.
+      // The import target is relative to the containing package, not the containing directory
+      // within the package.
       try {
-        // This is for imports relative to the current repository, so repositoryMapping can be
-        // empty
+        // This is for imports relative to the current repository, so repositoryMapping can be empty
         return containingFileLabel.getRelativeWithRemapping(getImportString(), ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         // shouldn't happen because the parent label is assumed validated and the target string is
@@ -147,7 +137,7 @@ public class SkylarkImports {
       if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
         throw new SkylarkImportSyntaxException(EXTERNAL_PKG_NOT_ALLOWED_MSG);
       }
-      return new AbsoluteLabelImport(importString, importLabel);
+      return new LabelImport(importString, importLabel);
     } else if (importString.startsWith(":")) {
       // Relative label. We require that relative labels use an explicit ':' prefix.
       String importTarget = importString.substring(1);
@@ -156,7 +146,7 @@ public class SkylarkImports {
         // Null indicates successful target validation.
         throw new SkylarkImportSyntaxException(INVALID_TARGET_PREFIX + maybeErrMsg);
       }
-      return new RelativeLabelImport(importString);
+      return new LabelImport(importString, null);
     }
 
     throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
