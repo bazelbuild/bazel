@@ -58,7 +58,7 @@ if [[ $javabase = /* ]]; then
   jartool="$1/bin/jar${EXE_EXT}"
 else
   if [[ $javabase = external/* ]]; then
-    javabase=${javabase#"external/"}
+    javabase=${javabase#external/}
   fi
   jartool="$(rlocation "${javabase}/bin/jar${EXE_EXT}")"
 fi
