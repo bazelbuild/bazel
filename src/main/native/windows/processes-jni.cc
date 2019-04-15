@@ -18,6 +18,7 @@
 
 #include <wchar.h>
 #include <windows.h>
+#include <VersionHelpers.h>
 
 #include <atomic>
 #include <memory>
@@ -464,11 +465,12 @@ class NativeProcess {
     if (!AssignProcessToJobObject(job_, process_)) {
       BOOL is_in_job = false;
       if (IsProcessInJob(process_, NULL, &is_in_job) && is_in_job &&
-          !NestedJobsSupported()) {
-        // We are on a pre-Windows 8 system and the Bazel is already in a job.
-        // We can't create nested jobs, so just revert to TerminateProcess() and
-        // hope for the best. In batch mode, the launcher puts Bazel in a job so
-        // that will take care of cleanup once the command finishes.
+          !IsWindows8OrGreater()) {
+        // Pre-Windows 8 systems don't support nested jobs, and Bazel is already
+        // in a job.  We can't create nested jobs, so just revert to
+        // TerminateProcess() and hope for the best. In batch mode, the launcher
+        // puts Bazel in a job so that will take care of cleanup once the
+        // command finishes.
         CloseHandle(job_);
         job_ = INVALID_HANDLE_VALUE;
         CloseHandle(ioport_);
@@ -525,7 +527,7 @@ class NativeProcess {
     // above timed out, we have to explicitly kill it) and that it doesn't
     // leave behind any subprocesses.
     if (!Terminate()) {
-      return 2;
+      return kWaitError;
     }
 
     if (job_ != INVALID_HANDLE_VALUE) {
@@ -662,18 +664,6 @@ class NativeProcess {
   }
 
  private:
-  bool NestedJobsSupported() {
-    OSVERSIONINFOEX version_info;
-    version_info.dwOSVersionInfoSize = sizeof(version_info);
-    if (!GetVersionEx(reinterpret_cast<OSVERSIONINFO*>(&version_info))) {
-      return false;
-    }
-
-    return version_info.dwMajorVersion > 6 ||
-           (version_info.dwMajorVersion == 6 &&
-            version_info.dwMinorVersion >= 2);
-  }
-
   HANDLE stdin_;
   NativeOutputStream stdout_;
   NativeOutputStream stderr_;
