@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -309,10 +308,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           // Collect local (target, rule) constraints for filtering out execution platforms.
           ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
           unloadedToolchainContext =
-              new ToolchainResolver(env, configuredTargetKey.getConfigurationKey())
-                  .setRequiredToolchainTypes(requiredToolchains)
-                  .setExecConstraintLabels(execConstraintLabels)
-                  .resolve();
+              (UnloadedToolchainContext)
+                  env.getValueOrThrow(
+                      UnloadedToolchainContext.key(
+                          configuredTargetKey.getConfigurationKey(),
+                          requiredToolchains,
+                          execConstraintLabels),
+                      ToolchainException.class);
           if (env.valuesMissing()) {
             return null;
           }
@@ -424,10 +426,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               e.getCauses()));
     } catch (ToolchainException e) {
       // We need to throw a ConfiguredValueCreationException, so either find one or make one.
-      ConfiguredValueCreationException cvce;
-      if (e.getCause() instanceof ConfiguredValueCreationException) {
-        cvce = (ConfiguredValueCreationException) e.getCause();
-      } else {
+      ConfiguredValueCreationException cvce = e.asConfiguredValueCreationException();
+      if (cvce == null) {
         cvce =
             new ConfiguredValueCreationException(e.getMessage(), target.getLabel(), configuration);
       }

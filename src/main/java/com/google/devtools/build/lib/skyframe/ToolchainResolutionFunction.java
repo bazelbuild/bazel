@@ -59,7 +59,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
       PlatformConfiguration platformConfiguration =
           configuration.getFragment(PlatformConfiguration.class);
       if (platformConfiguration == null) {
-        throw new ValueMissingException();
+        // throw new ValueMissingException();
+        throw new ToolchainException("missing platform config fragment");
       }
 
       // Check if debug output should be generated.
@@ -236,7 +237,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .handle(
                 Event.info(
                     String.format(
-                        "ToolchainResolver: Removed execution platform %s from"
+                        "ToolchainResolution: Removed execution platform %s from"
                             + " available execution platforms, it is missing constraint %s",
                         platformInfo.label(), constraint.label())));
       }
@@ -315,13 +316,20 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     // Find and return the first execution platform which has all required toolchains.
     Optional<ConfiguredTargetKey> selectedExecutionPlatformKey;
-    if (requiredToolchainTypeLabels.isEmpty()
-        && platformKeys.executionPlatformKeys().contains(platformKeys.hostPlatformKey())) {
-      // Fall back to the legacy behavior: use the host platform if it's available, otherwise the
-      // first execution platform.
-      selectedExecutionPlatformKey = Optional.of(platformKeys.hostPlatformKey());
+    if (requiredToolchainTypeLabels.isEmpty()) {
+      if (platformKeys.executionPlatformKeys().contains(platformKeys.hostPlatformKey())) {
+        // Fall back to the legacy behavior: use the host platform if it's available, otherwise the
+        // first execution platform.
+        selectedExecutionPlatformKey = Optional.of(platformKeys.hostPlatformKey());
+      } else if (!platformKeys.executionPlatformKeys().isEmpty()) {
+        // The host platform is invalid and no toolchains were requested: use the first execution
+        // platform, if there is one.
+        selectedExecutionPlatformKey = Optional.of(platformKeys.executionPlatformKeys().get(0));
+      } else {
+        // There's nothing left to try.
+        selectedExecutionPlatformKey = Optional.empty();
+      }
     } else {
-      // If there are no toolchains, this will return the first execution platform.
       selectedExecutionPlatformKey =
           findExecutionPlatformForToolchains(
               environment,
@@ -407,7 +415,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .handle(
                 Event.info(
                     String.format(
-                        "ToolchainResolver: Selected execution platform %s, %s",
+                        "ToolchainResolution: Selected execution platform %s, %s",
                         executionPlatformKey.getLabel(), selectedToolchains)));
       }
       return Optional.of(executionPlatformKey);

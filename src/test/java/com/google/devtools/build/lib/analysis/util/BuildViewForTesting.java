@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainResolver;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -487,9 +486,13 @@ public class BuildViewForTesting {
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
     UnloadedToolchainContext unloadedToolchainContext =
-        new ToolchainResolver(skyfunctionEnvironment, BuildConfigurationValue.key(targetConfig))
-            .setRequiredToolchainTypes(requiredToolchains)
-            .resolve();
+        (UnloadedToolchainContext)
+            skyfunctionEnvironment.getValueOrThrow(
+                UnloadedToolchainContext.key(
+                    BuildConfigurationValue.key(targetConfig),
+                    requiredToolchains,
+                    ImmutableSet.of()),
+                ToolchainException.class);
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
