@@ -39,7 +39,7 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source "$(rlocation "io_bazel/src/test/shell/bazel/discard_graph_edges_lib.sh")" \
+source "$(rlocation "io_bazel/src/test/shell/integration/discard_graph_edges_lib.sh")" \
   || { echo "discard_graph_edges_lib.sh not found!" >&2; exit 1; }
 
 IS_WINDOWS=false
