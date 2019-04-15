@@ -16,17 +16,16 @@
 #
 # nonincremental_builds_test.sh: tests for the --keep_state_after_build flag.
 
-# --- begin runfiles.bash initialization ---
-# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
 set -euo pipefail
+# --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  if [[ -f "$0.runfiles_manifest" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
-  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-    export RUNFILES_DIR="$0.runfiles"
-  fi
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
 fi
 if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
   source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
@@ -63,6 +62,18 @@ if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
 fi
+
+if "$is_windows"; then
+  EXE_EXT=".exe"
+else
+  EXE_EXT=""
+fi
+
+javabase="$1"
+if [[ $javabase = external/* ]]; then
+  javabase=${javabase#external/}
+fi
+jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
 
 if ! type try_with_timeout >&/dev/null; then
   # Bazel's testenv.sh defines try_with_timeout but the Google-internal version
@@ -129,7 +140,7 @@ function test_inmemory_state_present_after_build() {
     bazel build $pkg:top &> "$TEST_log"  \
         || fail "Couldn't build $pkg"
     local server_pid="$(bazel info server_pid 2>> "$TEST_log")"
-    "$bazel_javabase"/bin/jmap -histo:live "$server_pid" > histo.txt
+    "$jmaptool" -histo:live "$server_pid" > histo.txt
 
     cat histo.txt >> "$TEST_log"
     assert_contains "GenRuleAction" histo.txt
@@ -143,7 +154,7 @@ function test_inmemory_state_absent_after_build_with_nokeep_state() {
     bazel build --nokeep_state_after_build $pkg:top &> "$TEST_log"  \
         || fail "Couldn't build $pkg"
     local server_pid="$(bazel info server_pid 2>> "$TEST_log")"
-    "$bazel_javabase"/bin/jmap -histo:live "$server_pid" > histo.txt
+    "$jmaptool" -histo:live "$server_pid" > histo.txt
 
     cat histo.txt >> "$TEST_log"
     assert_not_contains "GenRuleAction$" histo.txt
