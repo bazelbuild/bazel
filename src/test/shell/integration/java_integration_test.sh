@@ -15,24 +15,52 @@
 # limitations under the License.
 #
 # These are end to end tests for building Java.
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../shell_utils.sh" \
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source $(rlocation io_bazel/src/test/shell/shell_utils.sh) \
   || { echo "shell_utils.sh not found!" >&2; exit 1; }
 
 # Load the test setup defined in the parent directory
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 set -eu
 
-declare -r runfiles_relative_javabase="$1"
+# Might be runfiles relative or an absolute path depending on the
+# java_runtime
+javabase="$1"
+if [[ $javabase = external/* ]]; then
+  javabase=${javabase#external/}
+fi
+javabase="$(rlocation "${javabase}/bin/java")"
+javabase=${javabase%/bin/java}
+
 add_to_bazelrc "build --package_path=%workspace%"
 
 #### HELPER FUNCTIONS ##################################################
 
 function setup_local_jdk() {
   local -r dest="$1"
-  local -r src="${BAZEL_RUNFILES}/${runfiles_relative_javabase}"
+  local -r src="${java_home}"
 
   mkdir -p "$dest" || fail "mkdir -p $dest"
   cp -LR "${src}"/* "$dest" || fail "cp -LR \"${src}\"/* \"$dest\""
@@ -246,9 +274,9 @@ function assert_singlejar_works() {
     setup_local_jdk "$local_jdk"
 
     ln -s "my_jdk" "$pkg/my_jdk.symlink"
-    local -r javabase="$(get_real_path "$pkg/my_jdk.symlink")"
+    local -r my_java_home="$(get_real_path "$pkg/my_jdk.symlink")"
   else
-    local -r javabase="${BAZEL_RUNFILES}/${runfiles_relative_javabase}"
+    local -r my_java_home="${java_home}"
   fi
 
   mkdir -p "$pkg/jvm"
@@ -256,7 +284,7 @@ function assert_singlejar_works() {
 package(default_visibility=["//visibility:public"])
 java_runtime(
     name='runtime',
-    java_home='$javabase',
+    java_home='$my_java_home',
 )
 EOF
 

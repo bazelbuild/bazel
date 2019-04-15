@@ -164,6 +164,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell:shell_utils",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 5,
     tags = [
