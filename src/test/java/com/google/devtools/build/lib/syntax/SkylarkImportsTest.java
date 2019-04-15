@@ -174,13 +174,13 @@ public class SkylarkImportsTest {
 
   @Test
   public void testInvalidRelativePathNoSubdirs() throws Exception {
-    invalidImportTest("path/to/file", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("path/to/file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathInvalidFilename() throws Exception {
     // tab character is invalid
-    invalidImportTest("\tfile", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("\tfile.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
   }
 
   @Test
