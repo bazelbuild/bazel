@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
-import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
+import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.LinkedList;
 import java.util.List;
@@ -1101,7 +1101,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements =
         parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    SkylarkImport imp = SkylarkImports.create(stmt.getImport().getValue());
+    SkylarkImport imp = SkylarkImport.create(stmt.getImport().getValue());
 
     assertThat(imp.getImportString()).named("getImportString()").isEqualTo(importString);
 
@@ -1124,22 +1124,22 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testRelativeImportPathInIsInvalid() throws Exception {
-    invalidImportTest("file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+    invalidImportTest("file", SkylarkImport.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void testInvalidRelativePathBzlExtImplicit() throws Exception {
-    invalidImportTest("file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("file.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathNoSubdirs() throws Exception {
-    invalidImportTest("path/to/file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("path/to/file.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathInvalidFilename() throws Exception {
-    invalidImportTest("\tfile.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("\tfile.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   private void validAbsoluteImportLabelTest(String importString)
@@ -1160,23 +1160,22 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testInvalidAbsoluteImportLabel() throws Exception {
-    invalidImportTest("//some/skylark/:file.bzl", SkylarkImports.INVALID_LABEL_PREFIX);
+    invalidImportTest("//some/skylark/:file.bzl", SkylarkImport.INVALID_LABEL_PREFIX);
   }
 
   @Test
   public void testInvalidAbsoluteImportLabelWithRepo() throws Exception {
-    invalidImportTest("@my_repo//some/skylark/:file.bzl",
-        SkylarkImports.INVALID_LABEL_PREFIX);
+    invalidImportTest("@my_repo//some/skylark/:file.bzl", SkylarkImport.INVALID_LABEL_PREFIX);
   }
 
   @Test
   public void testInvalidAbsoluteImportLabelMissingBzlExt() throws Exception {
-    invalidImportTest("//some/skylark:file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+    invalidImportTest("//some/skylark:file", SkylarkImport.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void testInvalidAbsoluteImportReferencesExternalPkg() throws Exception {
-    invalidImportTest("//external:file.bzl", SkylarkImports.EXTERNAL_PKG_NOT_ALLOWED_MSG);
+    invalidImportTest("//external:file.bzl", SkylarkImport.EXTERNAL_PKG_NOT_ALLOWED_MSG);
   }
 
   @Test
@@ -1206,12 +1205,12 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testInvalidRelativeImportLabelMissingBzlExt() throws Exception {
-    invalidImportTest(":file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+    invalidImportTest(":file", SkylarkImport.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void testInvalidRelativeImportLabelSyntax() throws Exception {
-    invalidImportTest("::file.bzl", SkylarkImports.INVALID_TARGET_PREFIX);
+    invalidImportTest("::file.bzl", SkylarkImport.INVALID_TARGET_PREFIX);
   }
 
  @Test

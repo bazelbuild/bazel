@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Parser.ParseResult;
-import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
+import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -122,7 +122,7 @@ public class BuildFileAST extends ASTNode {
       if (stmt instanceof LoadStatement) {
         String str = ((LoadStatement) stmt).getImport().getValue();
         try {
-          imports.add(SkylarkImports.create(str, /* repositoryMapping= */ ImmutableMap.of()));
+          imports.add(SkylarkImport.create(str, /* repositoryMapping= */ ImmutableMap.of()));
         } catch (SkylarkImportSyntaxException e) {
           throw new IllegalStateException(
               "Cannot create SkylarkImport for '" + str + "'. This is an internal error.", e);
@@ -152,7 +152,7 @@ public class BuildFileAST extends ASTNode {
       if (stmt instanceof LoadStatement) {
         String importString = ((LoadStatement) stmt).getImport().getValue();
         try {
-          imports.add(SkylarkImports.create(importString, repositoryMapping));
+          imports.add(SkylarkImport.create(importString, repositoryMapping));
         } catch (SkylarkImportSyntaxException e) {
           eventHandler.handle(Event.error(stmt.getLocation(), e.getMessage()));
           error = true;

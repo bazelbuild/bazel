@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
+import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -37,7 +37,7 @@ public class SkylarkImportsTest {
 
   private void validAbsoluteLabelTest(String labelString, String expectedLabelString)
       throws Exception {
-    SkylarkImport importForLabel = SkylarkImports.create(labelString);
+    SkylarkImport importForLabel = SkylarkImport.create(labelString);
 
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
@@ -63,7 +63,7 @@ public class SkylarkImportsTest {
     String remappedLabelString = "@new_repo//some/skylark:file.bzl";
     ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
         ImmutableMap.of(RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"));
-    SkylarkImport importForLabel = SkylarkImports.create(labelString, repositoryMapping);
+    SkylarkImport importForLabel = SkylarkImport.create(labelString, repositoryMapping);
 
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
@@ -76,7 +76,7 @@ public class SkylarkImportsTest {
   private void validRelativeLabelTest(
       String labelString, String containingLabelString, String expectedLabelString)
       throws Exception {
-    SkylarkImport importForLabel = SkylarkImports.create(labelString);
+    SkylarkImport importForLabel = SkylarkImport.create(labelString);
 
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
@@ -122,72 +122,72 @@ public class SkylarkImportsTest {
   private void invalidImportTest(String importString, String expectedMsgPrefix) throws Exception {
     thrown.expect(SkylarkImportSyntaxException.class);
     thrown.expectMessage(startsWith(expectedMsgPrefix));
-    SkylarkImports.create(importString);
+    SkylarkImport.create(importString);
   }
 
   @Test
   public void testInvalidAbsoluteLabelSyntax() throws Exception {
     // final '/' is illegal
-    invalidImportTest("//some/skylark/:file.bzl", SkylarkImports.INVALID_LABEL_PREFIX);
+    invalidImportTest("//some/skylark/:file.bzl", SkylarkImport.INVALID_LABEL_PREFIX);
   }
 
   @Test
   public void testInvalidPathSyntax() throws Exception {
-    invalidImportTest("some/path/foo.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("some/path/foo.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidAbsoluteLabelSyntaxWithRepo() throws Exception {
     // final '/' is illegal
-    invalidImportTest("@my_repo//some/skylark/:file.bzl", SkylarkImports.INVALID_LABEL_PREFIX);
+    invalidImportTest("@my_repo//some/skylark/:file.bzl", SkylarkImport.INVALID_LABEL_PREFIX);
   }
 
   @Test
   public void tesInvalidAbsoluteLabelMissingBzlExt() throws Exception {
-    invalidImportTest("//some/skylark:file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+    invalidImportTest("//some/skylark:file", SkylarkImport.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void tesInvalidAbsoluteLabelReferencesExternalPkg() throws Exception {
-    invalidImportTest("//external:file.bzl", SkylarkImports.EXTERNAL_PKG_NOT_ALLOWED_MSG);
+    invalidImportTest("//external:file.bzl", SkylarkImport.EXTERNAL_PKG_NOT_ALLOWED_MSG);
   }
 
   @Test
   public void tesInvalidAbsolutePathBzlExtImplicit() throws Exception {
-    invalidImportTest("/some/skylark/file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("/some/skylark/file.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativeLabelMissingBzlExt() throws Exception {
-    invalidImportTest(":file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+    invalidImportTest(":file", SkylarkImport.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void testInvalidRelativeLabelSyntax() throws Exception {
-    invalidImportTest("::file.bzl", SkylarkImports.INVALID_TARGET_PREFIX);
+    invalidImportTest("::file.bzl", SkylarkImport.INVALID_TARGET_PREFIX);
   }
 
   @Test
   public void testInvalidRelativePathBzlExtImplicit() throws Exception {
-    invalidImportTest("file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("file.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathNoSubdirs() throws Exception {
-    invalidImportTest("path/to/file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("path/to/file.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathInvalidFilename() throws Exception {
     // tab character is invalid
-    invalidImportTest("\tfile.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("\tfile.bzl", SkylarkImport.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void serialization() throws Exception {
     new SerializationTester(
-            SkylarkImports.create("//some/skylark:file.bzl"),
-            SkylarkImports.create(":subdirectory/containing/file.bzl"))
+            SkylarkImport.create("//some/skylark:file.bzl"),
+            SkylarkImport.create(":subdirectory/containing/file.bzl"))
         .runTests();
   }
 }
