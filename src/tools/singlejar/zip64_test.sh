@@ -53,7 +53,11 @@ else
 fi
 
 singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar${EXE_EXT}")"
-jartool="$(rlocation "local_jdk/bin/jar${EXE_EXT}")"
+javabase="$1"
+if [[ $javabase = external/* ]]; then
+  javabase=${javabase#external/}
+fi
+jartool="$(rlocation "${javabase}/bin/jar${EXE_EXT}")"
 
 # Test that an archive with >64K entries can be created.
 function test_65Kentries() {
