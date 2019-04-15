@@ -1124,7 +1124,7 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testRelativeImportPathInIsInvalid() throws Exception {
-    invalidImportTest("file", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
@@ -1134,12 +1134,12 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testInvalidRelativePathNoSubdirs() throws Exception {
-    invalidImportTest("path/to/file", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("path/to/file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathInvalidFilename() throws Exception {
-    invalidImportTest("\tfile", SkylarkImports.INVALID_PATH_SYNTAX);
+    invalidImportTest("\tfile.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
   }
 
   private void validAbsoluteImportLabelTest(String importString)

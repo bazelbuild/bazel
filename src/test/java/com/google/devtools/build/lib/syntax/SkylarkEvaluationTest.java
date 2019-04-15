@@ -2215,14 +2215,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testLoadStatementWithAbsolutePath() throws Exception {
     checkEvalErrorContains(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load('/tmp/foo', 'arg')");
+        "load('/tmp/foo.bzl', 'arg')");
   }
 
   @Test
   public void testLoadStatementWithRelativePath() throws Exception {
     checkEvalErrorContains(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load('foo', 'arg')");
+        "load('foo.bzl', 'arg')");
   }
 
   @Test
