@@ -321,4 +321,18 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
     }
   }
+
+  @Override
+  public void cleanupSandboxBase(Path sandboxBase) throws IOException {
+    if (inaccessibleHelperDir.exists()) {
+      inaccessibleHelperDir.chmod(0700);
+      inaccessibleHelperDir.deleteTree();
+    }
+    if (inaccessibleHelperFile.exists()) {
+      inaccessibleHelperFile.chmod(0600);
+      inaccessibleHelperFile.delete();
+    }
+
+    super.cleanupSandboxBase(sandboxBase);
+  }
 }
