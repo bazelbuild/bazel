@@ -54,7 +54,7 @@ fi
 
 singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar${EXE_EXT}")"
 javabase="$1"
-if [[ $javabase = /* ]]; then
+if [[ $javabase = /* || $javabase =~ [A-Za-z]:[/\\] ]]; then
   jartool="$1/bin/jar${EXE_EXT}"
 else
   if [[ $javabase = external/* ]]; then
