@@ -408,11 +408,13 @@ sh_test(
     name = "nonincremental_builds_test",
     size = "medium",
     srcs = ["nonincremental_builds_test.sh"],
+    args = ["$(JAVABASE)"],
     data = [
         ":discard_graph_edges_lib.sh",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
