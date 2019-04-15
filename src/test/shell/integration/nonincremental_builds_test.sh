@@ -64,6 +64,23 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+if "$is_windows"; then
+  EXE_EXT=".exe"
+else
+  EXE_EXT=""
+fi
+
+ javabase="$1"
+if [[ $javabase = /* || $javabase =~ [A-Za-z]:[/\\] ]]; then
+  jmaptool="$1/bin/jmap${EXE_EXT}"
+else
+  if [[ $javabase = external/* ]]; then
+    javabase=${javabase#external/}
+  fi
+  jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
+fi
+
+
 if ! type try_with_timeout >&/dev/null; then
   # Bazel's testenv.sh defines try_with_timeout but the Google-internal version
   # uses a different testenv.sh.
@@ -129,7 +146,7 @@ function test_inmemory_state_present_after_build() {
     bazel build $pkg:top &> "$TEST_log"  \
         || fail "Couldn't build $pkg"
     local server_pid="$(bazel info server_pid 2>> "$TEST_log")"
-    "$bazel_javabase"/bin/jmap -histo:live "$server_pid" > histo.txt
+    "$jmaptool" -histo:live "$server_pid" > histo.txt
 
     cat histo.txt >> "$TEST_log"
     assert_contains "GenRuleAction" histo.txt
@@ -143,7 +160,7 @@ function test_inmemory_state_absent_after_build_with_nokeep_state() {
     bazel build --nokeep_state_after_build $pkg:top &> "$TEST_log"  \
         || fail "Couldn't build $pkg"
     local server_pid="$(bazel info server_pid 2>> "$TEST_log")"
-    "$bazel_javabase"/bin/jmap -histo:live "$server_pid" > histo.txt
+    "$jmaptool" -histo:live "$server_pid" > histo.txt
 
     cat histo.txt >> "$TEST_log"
     assert_not_contains "GenRuleAction$" histo.txt
