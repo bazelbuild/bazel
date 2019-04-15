@@ -593,7 +593,36 @@ genrule(
     visibility = ["//visibility:private"],
 )
 
+filegroup(
+    name = "java_tools_merge_utils",
+    srcs = [
+        "//src:merge_zip_files.sh",
+        "//src:zip_files.sh",
+        "BUILD",
+    ]
+)
+
 JAVA_VERSIONS = ("9", "10")
+
+[
+    genrule(
+        name = "java_tools_build_from_source_javac" + java_version,
+        srcs = [
+            "//src:java_tools_merge_utils",
+            "//src/java_tools/buildjar:srcs",
+            "//src/java_tools/junitrunner:srcs",
+            "//src/java_tools/singlejar:srcs",
+            "//src/tools/singlejar:embedded_java_tools",
+            "//third_party/jarjar:srcs",
+            "//third_party/ijar:transitive_sources",
+            "@java_tools_langtools_javac" + java_version + "//:srcs",
+        ],
+        outs = ["java_tools_build_from_source_javac" + java_version + ".zip"],
+        cmd = "zip -Xr -q $@ $$(echo $(SRCS) | sort)",
+        output_to_bindir = 1,
+    )
+    for java_version in JAVA_VERSIONS
+]
 
 [
     genrule(
