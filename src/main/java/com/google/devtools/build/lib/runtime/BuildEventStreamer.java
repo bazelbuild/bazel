@@ -78,7 +78,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class BuildEventStreamer {
   private final Collection<BuildEventTransport> transports;
-  private final BuildEventStreamOptions options;
+  private final BuildEventStreamOptions besOptions;
 
   @GuardedBy("this")
   private Set<BuildEventId> announcedEvents;
@@ -144,7 +144,7 @@ public class BuildEventStreamer {
       BuildEventStreamOptions options,
       CountingArtifactGroupNamer artifactGroupNamer) {
     this.transports = transports;
-    this.options = options;
+    this.besOptions = options;
     this.announcedEvents = null;
     this.progressCount = 0;
     this.artifactGroupNamer = artifactGroupNamer;
@@ -355,11 +355,11 @@ public class BuildEventStreamer {
     }
     // We only split if the max number of entries is at least 2 (it must be at least a binary tree).
     // The method throws for smaller values.
-    if (options.maxNamedSetEntries >= 2) {
+    if (besOptions.maxNamedSetEntries >= 2) {
       // We only split the event after naming it to avoid splitting the same node multiple times.
       // Note that the artifactGroupNames keeps references to the individual pieces, so this can
       // double the memory consumption of large nested sets.
-      view = view.splitIfExceedsMaximumSize(options.maxNamedSetEntries);
+      view = view.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
     }
     for (NestedSetView<Artifact> transitive : view.transitives()) {
       maybeReportArtifactSet(pathResolver, transitive);
@@ -645,7 +645,7 @@ public class BuildEventStreamer {
 
   /** Returns whether an {@link ActionExecutedEvent} should be published. */
   private boolean shouldPublishActionExecutedEvent(ActionExecutedEvent event) {
-    if (options.publishAllActions) {
+    if (besOptions.publishAllActions) {
       return true;
     }
     if (event.getException() != null) {
@@ -713,3 +713,4 @@ public class BuildEventStreamer {
     }
   }
 }
+

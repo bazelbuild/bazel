@@ -116,29 +116,4 @@ public class BuildEventStreamOptions extends OptionsBase {
               + "of the set as well as the file and uri lengths, which may in turn depend on the "
               + "hash function.")
   public int maxNamedSetEntries;
-
-  // TODO(ruperts): Remove these public getter methods for consistency with other options classes?
-  public String getBuildEventTextFile() {
-    return buildEventTextFile;
-  }
-
-  public String getBuildEventBinaryFile() {
-    return buildEventBinaryFile;
-  }
-
-  public String getBuildEventJsonFile() {
-    return buildEventJsonFile;
-  }
-
-  public boolean getBuildEventTextFilePathConversion() {
-    return buildEventTextFilePathConversion;
-  }
-
-  public boolean getBuildEventBinaryFilePathConversion() {
-    return buildEventBinaryFilePathConversion;
-  }
-
-  public boolean getBuildEventJsonFilePathConversion() {
-    return buildEventJsonFilePathConversion;
-  }
 }

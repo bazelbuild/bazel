@@ -187,6 +187,16 @@ abstract class FileTransport implements BuildEventTransport {
       if (closeFuture.isDone()) {
         return closeFuture;
       }
+
+      // Close abruptly if the closing future is cancelled.
+      closeFuture.addListener(
+          () -> {
+            if (closeFuture.isCancelled()) {
+              closeNow();
+            }
+          },
+          MoreExecutors.directExecutor());
+
       try {
         pendingWrites.put(CLOSE);
       } catch (InterruptedException e) {
