@@ -72,7 +72,16 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     // per API contract it is expected to never fail.
     SettableFuture<Void> closeFuture = SettableFuture.create();
     ListenableFuture<Void> uploaderCloseFuture = besUploader.close();
-    uploaderCloseFuture.addListener(() -> closeFuture.set(null), MoreExecutors.directExecutor());
+    uploaderCloseFuture.addListener(
+        () -> {
+          // Make sure to cancel any pending uploads if the closing is cancelled.
+          if (uploaderCloseFuture.isCancelled()) {
+            besUploader.closeOnCancel();
+          }
+          closeFuture.set(null);
+        },
+        MoreExecutors.directExecutor());
+
     return closeFuture;
   }
 

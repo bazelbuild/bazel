@@ -148,6 +148,9 @@ public final class BuildEventServiceUploader implements Runnable {
   @GuardedBy("lock")
   private boolean interruptCausedByTimeout;
 
+  @GuardedBy("lock")
+  private boolean interruptCausedByCancel;
+
   private StreamContext streamContext;
 
   private BuildEventServiceUploader(
@@ -239,22 +242,34 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
-  /** Stops the upload immediately. Enqueued events that have not been sent yet will be lost. */
   private void closeOnTimeout() {
+    synchronized (lock) {
+      interruptCausedByTimeout = true;
+      closeNow();
+    }
+  }
+
+  void closeOnCancel() {
+    synchronized (lock) {
+      interruptCausedByCancel = true;
+      closeNow();
+    }
+  }
+
+  /** Stops the upload immediately. Enqueued events that have not been sent yet will be lost. */
+  private void closeNow() {
     synchronized (lock) {
       if (uploadThread != null) {
         if (uploadThread.isInterrupted()) {
           return;
         }
-
-        interruptCausedByTimeout = true;
         uploadThread.interrupt();
       }
     }
   }
 
   private void logAndExitAbruptly(String message, ExitCode exitCode, Throwable cause) {
-    checkState(exitCode != ExitCode.SUCCESS);
+    checkState(!exitCode.equals(ExitCode.SUCCESS));
     logger.info(message);
     abruptExitCallback.accept(new AbruptExitException(message, exitCode, cause));
   }
@@ -291,11 +306,14 @@ public final class BuildEventServiceUploader implements Runnable {
         logger.info("Aborting the BES upload due to having received an interrupt");
         synchronized (lock) {
           Preconditions.checkState(
-              interruptCausedByTimeout, "Unexpected interrupt on BES uploader thread");
-          logAndExitAbruptly(
-              "The Build Event Protocol upload timed out",
-              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-              e);
+              interruptCausedByTimeout || interruptCausedByCancel,
+              "Unexpected interrupt on BES uploader thread");
+          if (interruptCausedByTimeout) {
+            logAndExitAbruptly(
+                "The Build Event Protocol upload timed out",
+                ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+                e);
+          }
         }
       } finally {
         // TODO(buchgr): Due to b/113035235 exitFunc needs to be called before the close future
