@@ -201,7 +201,7 @@ sh_test(
     data = [":test-deps"],
     shard_count = 3,
     tags = [
-        "local",
+        "no-sandbox",
         "no_windows",
     ],
 )
@@ -267,7 +267,7 @@ sh_test(
     srcs = ["bazel_localtest_test.sh"],
     data = [":test-deps"],
     tags = [
-        "local",
+        "no-sandbox",
         "no_windows",
     ],
 )
@@ -586,7 +586,7 @@ sh_test(
         "//src/test/shell:sandboxing_test_utils.sh",
     ],
     tags = [
-        "local",
+        "no-sandbox",
         "no_windows",
     ],
 )
@@ -599,7 +599,7 @@ sh_test(
         "//src/test/shell:sandboxing_test_utils.sh",
     ],
     tags = [
-        "local",
+        "no-sandbox",
         "no_windows",
     ],
 )
