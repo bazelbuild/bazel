@@ -60,7 +60,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 
 function setup_local_jdk() {
   local -r dest="$1"
-  local -r src="${java_home}"
+  local -r src="${javabase}"
 
   mkdir -p "$dest" || fail "mkdir -p $dest"
   cp -LR "${src}"/* "$dest" || fail "cp -LR \"${src}\"/* \"$dest\""
@@ -274,9 +274,9 @@ function assert_singlejar_works() {
     setup_local_jdk "$local_jdk"
 
     ln -s "my_jdk" "$pkg/my_jdk.symlink"
-    local -r my_java_home="$(get_real_path "$pkg/my_jdk.symlink")"
+    local -r my_javabase="$(get_real_path "$pkg/my_jdk.symlink")"
   else
-    local -r my_java_home="${java_home}"
+    local -r my_javabase="${javabase}"
   fi
 
   mkdir -p "$pkg/jvm"
@@ -284,7 +284,7 @@ function assert_singlejar_works() {
 package(default_visibility=["//visibility:public"])
 java_runtime(
     name='runtime',
-    java_home='$my_java_home',
+    java_home='$my_javabase',
 )
 EOF
 
