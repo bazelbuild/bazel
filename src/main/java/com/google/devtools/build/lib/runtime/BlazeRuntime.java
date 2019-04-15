@@ -282,7 +282,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
     Path profilePath = null;
     try {
-      if (options.enableTracer) {
+      if (options.enableTracer || (options.removeBinaryProfile && options.profilePath != null)) {
         format =
             options.enableTracerCompression
                 ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
