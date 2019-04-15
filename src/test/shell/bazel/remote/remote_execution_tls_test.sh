@@ -22,27 +22,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Create a temporary self-signed certificate
-# Note: 1 cert per test suite is sufficient and more efficient.
-# Note: No need to cleanup as it is created inside a temp test directory.
-cert_path=$(mktemp -d "${TEST_TMPDIR}/sslcert.XXXXXXXX")
-pushd "${cert_path}"
-SERVER_CN=localhost
-CLIENT_CN=localhost
-openssl genrsa -passout pass:1111 -des3 -out ca.key 4096
-openssl req -passin pass:1111 -new -x509 -days 365 -key ca.key -out ca.crt -subj "/CN=${SERVER_CN}"
-openssl genrsa -passout pass:1111 -des3 -out server.key 4096
-openssl req -passin pass:1111 -new -key server.key -out server.csr -subj "/CN=${SERVER_CN}"
-openssl x509 -req -passin pass:1111 -days 365 -in server.csr -CA ca.crt -CAkey ca.key -set_serial 01 -out server.crt
-openssl rsa -passin pass:1111 -in server.key -out server.key
-openssl genrsa -passout pass:1111 -des3 -out client.key 4096
-openssl req -passin pass:1111 -new -key client.key -out client.csr -subj "/CN=${CLIENT_CN}"
-openssl x509 -passin pass:1111 -req -days 365 -in client.csr -CA ca.crt -CAkey ca.key -set_serial 01 -out client.crt
-openssl rsa -passin pass:1111 -in client.key -out client.key
-openssl pkcs8 -topk8 -nocrypt -in client.key -out client.pem
-openssl pkcs8 -topk8 -nocrypt -in server.key -out server.pem
-popd
-
+cert_path="${BAZEL_RUNFILES}/third_party/tls_cert_test"
 
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
