@@ -64,6 +64,19 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+if "$is_windows"; then
+  EXE_EXT=".exe"
+else
+  EXE_EXT=""
+fi
+
+javabase="$1"
+if [[ $javabase = external/* ]]; then
+  javabase=${javabase#external/}
+fi
+javabase="$(rlocation "${javabase}/bin/java${EXE_EXT}")"
+javabase=${javabase%/bin/java${EXE_EXT}}
+
 function bazel() {
   $(rlocation io_bazel/src/bazel) --bazelrc=$TEST_TMPDIR/bazelrc "$@"
   return $?
@@ -82,7 +95,7 @@ function set_up() {
   fgrep -v -- "--host_javabase" "$TEST_TMPDIR/bazelrc" > "$TEST_TMPDIR/bazelrc.new"
   mv "$TEST_TMPDIR/bazelrc.new" "$TEST_TMPDIR/bazelrc"
   # ... but ensure JAVA_HOME is set, so we can find a default --javabase
-  export JAVA_HOME="${bazel_javabase}"
+  export JAVA_HOME="${javabase}"
 }
 
 function test_bazel_uses_bundled_jdk() {
