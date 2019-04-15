@@ -275,7 +275,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .handle(
                 Event.info(
                     String.format(
-                        "ToolchainResolver: Removed execution platform %s from"
+                        "ToolchainResolution: Removed execution platform %s from"
                             + " available execution platforms, it is missing constraint %s",
                         platformInfo.label(), constraint.label())));
       }
