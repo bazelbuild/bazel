@@ -16,13 +16,6 @@
 #
 # discard_graph_edges_test.sh: basic tests for the --discard_graph_edges flag.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source "${CURRENT_DIR}/discard_graph_edges_lib.sh" \
-  || { echo "${CURRENT_DIR}/discard_graph_edges_lib.sh not found!" >&2; exit 1; }
-
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
@@ -44,6 +37,11 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "$(rlocation "io_bazel/src/test/shell/bazel/discard_graph_edges_lib.sh")" \
+  || { echo "discard_graph_edges_lib.sh not found!" >&2; exit 1; }
+
 IS_WINDOWS=false
 case "$(uname | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
@@ -57,14 +55,10 @@ else
 fi
 
 javabase="$1"
-if [[ $javabase = /* || $javabase =~ [A-Za-z]:[/\\] ]]; then
-  jmaptool="$1/bin/jmap${EXE_EXT}"
-else
-  if [[ $javabase = external/* ]]; then
-    javabase=${javabase#external/}
-  fi
-  jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
+if [[ $javabase = external/* ]]; then
+  javabase=${javabase#external/}
 fi
+jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
 
 #### SETUP #############################################################
 
