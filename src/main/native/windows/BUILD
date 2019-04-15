@@ -43,6 +43,14 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "lib-process",
+    srcs = ["process.cc"],
+    hdrs = ["process.h"],
+    deps = [":lib-util"],
+    visibility = ["//tools/test:__pkg__"],
+)
+
 cc_binary(
     name = "windows_jni.dll",
     srcs = [
@@ -61,6 +69,7 @@ cc_binary(
     ],
     deps = [
         ":lib-file",
+        ":lib-process",
         ":lib-util",
     ],
 )
