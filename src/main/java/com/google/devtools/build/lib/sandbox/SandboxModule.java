@@ -52,12 +52,17 @@ import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
  * This module provides the Sandbox spawn strategy.
  */
 public final class SandboxModule extends BlazeModule {
+
+  /** Tracks whether we are issuing the very first build within this Bazel server instance. */
+  private static boolean firstBuild = true;
 
   /** Environment for the running command. */
   private @Nullable CommandEnvironment env;
@@ -67,6 +72,15 @@ public final class SandboxModule extends BlazeModule {
 
   /** Instance of the sandboxfs process in use, if enabled. */
   private @Nullable SandboxfsProcess sandboxfsProcess;
+
+  /**
+   * Collection of spawn runner instantiated during the executor setup.
+   *
+   * <p>We need this information to clean up the heavy subdirectories of the sandbox base on build
+   * completion but to avoid wiping the whole sandbox base itself, which could be problematic across
+   * builds.
+   */
+  private final Set<SpawnRunner> spawnRunners = new HashSet<>();
 
   /**
    * Whether to remove the sandbox worker directories after a build or not. Useful for debugging
@@ -163,9 +177,6 @@ public final class SandboxModule extends BlazeModule {
 
     Path mountPoint = sandboxBase.getRelative("sandboxfs");
 
-    // Ensure that each build starts with a clean sandbox base directory. Otherwise using the `id`
-    // that is provided by SpawnExecutionPolicy#getId to compute a base directory for a sandbox
-    // might result in an already existing directory.
     if (sandboxfsProcess != null) {
       if (options.sandboxDebug) {
         env.getReporter()
@@ -178,9 +189,15 @@ public final class SandboxModule extends BlazeModule {
       sandboxfsProcess.destroy();
       sandboxfsProcess = null;
     }
-    if (sandboxBase.exists()) {
+    // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
+    // the life of a Bazel server instance so we don't need to worry about stale directories from
+    // previous builds. However, on the very first build of an instance of the server, we must
+    // wipe old contents to avoid reusing stale directories.
+    if (firstBuild && sandboxBase.exists()) {
+      cmdEnv.getReporter().handle(Event.info("Deleting stale sandbox base " + sandboxBase));
       sandboxBase.deleteTree();
     }
+    firstBuild = false;
 
     PathFragment sandboxfsPath = PathFragment.create(options.sandboxfsPath);
     boolean useSandboxfs;
@@ -215,6 +232,7 @@ public final class SandboxModule extends BlazeModule {
               cmdEnv,
               new ProcessWrapperSandboxedSpawnRunner(
                   cmdEnv, sandboxBase, cmdEnv.getRuntime().getProductName(), timeoutKillDelay));
+      spawnRunners.add(spawnRunner);
       builder.addActionContext(
           new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
@@ -238,6 +256,7 @@ public final class SandboxModule extends BlazeModule {
                     defaultImage,
                     timeoutKillDelay,
                     useCustomizedImages));
+        spawnRunners.add(spawnRunner);
         builder.addActionContext(
             new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
       }
@@ -258,6 +277,7 @@ public final class SandboxModule extends BlazeModule {
                   timeoutKillDelay,
                   sandboxfsProcess,
                   options.sandboxfsMapSymlinkTargets));
+      spawnRunners.add(spawnRunner);
       builder.addActionContext(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
@@ -272,6 +292,7 @@ public final class SandboxModule extends BlazeModule {
                   timeoutKillDelay,
                   sandboxfsProcess,
                   options.sandboxfsMapSymlinkTargets));
+      spawnRunners.add(spawnRunner);
       builder.addActionContext(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
@@ -362,6 +383,12 @@ public final class SandboxModule extends BlazeModule {
     public boolean canExec(Spawn spawn) {
       return sandboxSpawnRunner.canExec(spawn) || fallbackSpawnRunner.canExec(spawn);
     }
+
+    @Override
+    public void cleanupSandboxBase(Path sandboxBase) throws IOException {
+      sandboxSpawnRunner.cleanupSandboxBase(sandboxBase);
+      fallbackSpawnRunner.cleanupSandboxBase(sandboxBase);
+    }
   }
 
   /**
@@ -405,10 +432,13 @@ public final class SandboxModule extends BlazeModule {
 
     if (shouldCleanupSandboxBase) {
       try {
-        sandboxBase.deleteTree();
+        checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
+        for (SpawnRunner spawnRunner : spawnRunners) {
+          spawnRunner.cleanupSandboxBase(sandboxBase);
+        }
       } catch (IOException e) {
-        env.getReporter().handle(Event.warn("Failed to delete sandbox base " + sandboxBase
-            + ": " + e));
+        env.getReporter()
+            .handle(Event.warn("Failed to delete contents of sandbox " + sandboxBase + ": " + e));
       }
       shouldCleanupSandboxBase = false;
 

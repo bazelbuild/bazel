@@ -67,7 +67,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(ProgressStatus.SCHEDULING, getName());
     try (ResourceHandle ignored =
@@ -287,5 +287,15 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   protected SandboxOptions getSandboxOptions() {
     return sandboxOptions;
+  }
+
+  @Override
+  public void cleanupSandboxBase(Path sandboxBase) throws IOException {
+    Path root = sandboxBase.getChild(getName());
+    if (root.exists()) {
+      for (Path child : root.getDirectoryEntries()) {
+        child.deleteTree();
+      }
+    }
   }
 }

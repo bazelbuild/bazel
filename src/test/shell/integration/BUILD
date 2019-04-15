@@ -549,6 +549,16 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "sandboxing_test",
+    size = "large",
+    srcs = ["sandboxing_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = ["no_windows"],
+)
+
 package_group(
     name = "spend_cpu_time_users",
     packages = [
