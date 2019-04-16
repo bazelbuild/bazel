@@ -36,6 +36,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -186,8 +188,9 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
    * Helper method to print a debugging message, if the given {@link EventHandler} is not {@code
    * null}.
    */
+  @FormatMethod
   private static void debugMessage(
-      @Nullable EventHandler eventHandler, String template, Object... args) {
+      @Nullable EventHandler eventHandler, @FormatString String template, Object... args) {
     if (eventHandler == null) {
       return;
     }
