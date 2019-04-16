@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
@@ -42,10 +43,12 @@ public final class WorkspaceRuleModule extends BlazeModule {
       return;
     }
 
-    String logFile = env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile;
-    if (logFile != null && !logFile.isEmpty()) {
+    PathFragment logFile =
+        env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile;
+    if (logFile != null) {
       try {
-        outFileStream = new AsynchronousFileOutputStream(logFile);
+        outFileStream =
+            new AsynchronousFileOutputStream(env.getWorkingDirectory().getRelative(logFile));
       } catch (IOException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         env.getBlazeModuleEnvironment()

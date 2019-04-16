@@ -205,9 +205,10 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "experimental_remote_grpc_log",
-      defaultValue = "",
+      defaultValue = "null",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
+      converter = OptionsUtils.PathFragmentConverter.class,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If specified, a path to a file to log gRPC call related details. This log consists of a"
@@ -216,7 +217,7 @@ public final class RemoteOptions extends OptionsBase {
               + "protobufs with each message prefixed by a varint denoting the size of the"
               + " following serialized protobuf message, as performed by the method "
               + "LogEntry.writeDelimitedTo(OutputStream).")
-  public String experimentalRemoteGrpcLog;
+  public PathFragment experimentalRemoteGrpcLog;
 
   @Option(
       name = "incompatible_remote_symlinks",
