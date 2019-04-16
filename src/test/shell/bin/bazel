@@ -17,4 +17,10 @@
 # Wrapper script to run bazel in the tests. Any change to this file will
 # affect all our integration tests.
 #
-exec $(rlocation io_bazel/src/bazel) --bazelrc=$TEST_TMPDIR/bazelrc "$@"
+bazel_bin=$(rlocation io_bazel/src/bazel)
+# unset runfiles environment so that the "inner bazel"
+# has to detect its own runfiles
+unset RUNFILES_DIR
+unset RUNFILES_MANIFEST_FILE
+unset RUNFILES_MANIFEST_ONLY
+exec $bazel_bin --bazelrc=$TEST_TMPDIR/bazelrc "$@"
