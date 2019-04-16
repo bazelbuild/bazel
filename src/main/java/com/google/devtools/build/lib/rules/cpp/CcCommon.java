@@ -984,9 +984,8 @@ public final class CcCommon {
     FeatureConfiguration featureConfiguration = null;
     CppConfiguration cppConfiguration;
     if (toolchainProvider.requireCtxInConfigureFeatures()) {
-      // When this is flipped, this whole method will go away. But I'm keeping it there
-      // so we can experiment with flags before they are flipped.
-      Preconditions.checkArgument(toolchainProvider.disableGenruleCcToolchainDependency());
+      // When --incompatible_require_ctx_in_configure_features is flipped, this whole method will go
+      // away. But I'm keeping it there so we can experiment with flags before they are flipped.
       cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     } else {
       cppConfiguration =

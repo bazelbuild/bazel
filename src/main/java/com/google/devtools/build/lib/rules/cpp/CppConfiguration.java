@@ -631,10 +631,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.targetLibcTopLabel;
   }
 
-  public boolean disableGenruleCcToolchainDependency() {
-    return cppOptions.disableGenruleCcToolchainDependency;
-  }
-
   public boolean enableLegacyCcProvider() {
     return !cppOptions.disableLegacyCcProvider;
   }
