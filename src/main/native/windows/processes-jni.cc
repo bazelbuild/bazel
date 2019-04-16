@@ -318,12 +318,23 @@ class NativeProcess {
       stderr_.SetHandle(pipe_read_h);
       stderr_process = pipe_write_h;
     }
+    return Create(wpath, bazel::windows::GetJavaWstring(env, java_argv_rest),
+                  env_map.ptr(), bazel::windows::GetJavaWpath(env, java_cwd),
+                  stdin_process, stdout_process, stderr_process, &job_,
+                  &ioport_, &process_, &pid_, &error_);
+  }
 
+  static bool Create(const std::wstring& wpath, const std::wstring& argv_rest,
+                     void* env, const std::wstring& wcwd, HANDLE stdin_process,
+                     HANDLE stdout_process, HANDLE stderr_process,
+                     bazel::windows::AutoHandle* out_job,
+                     bazel::windows::AutoHandle* out_ioport,
+                     bazel::windows::AutoHandle* out_process, DWORD* out_pid,
+                     std::wstring* error) {
     std::wstring cwd;
-    std::wstring wcwd(bazel::windows::GetJavaWpath(env, java_cwd));
     std::wstring error_msg(bazel::windows::AsShortPath(wcwd, &cwd));
     if (!error_msg.empty()) {
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, error_msg);
       return false;
     }
@@ -331,23 +342,23 @@ class NativeProcess {
     std::wstring argv0;
     error_msg = bazel::windows::AsExecutablePathForCreateProcess(wpath, &argv0);
     if (!error_msg.empty()) {
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, error_msg);
       return false;
     }
 
     std::wstring commandline =
-        argv0 + L" " + bazel::windows::GetJavaWstring(env, java_argv_rest);
+        argv_rest.empty() ? argv0 : (argv0 + L" " + argv_rest);
     std::unique_ptr<WCHAR[]> mutable_commandline(
         new WCHAR[commandline.size() + 1]);
     wcsncpy(mutable_commandline.get(), commandline.c_str(),
             commandline.size() + 1);
     // MDSN says that the default for job objects is that breakaway is not
     // allowed. Thus, we don't need to do any more setup here.
-    job_ = CreateJobObject(NULL, NULL);
-    if (!job_.IsValid()) {
+    *out_job = CreateJobObject(NULL, NULL);
+    if (!out_job->IsValid()) {
       DWORD err_code = GetLastError();
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return false;
     }
@@ -355,29 +366,29 @@ class NativeProcess {
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
     job_info.BasicLimitInformation.LimitFlags =
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    if (!SetInformationJobObject(job_, JobObjectExtendedLimitInformation,
+    if (!SetInformationJobObject(*out_job, JobObjectExtendedLimitInformation,
                                  &job_info, sizeof(job_info))) {
       DWORD err_code = GetLastError();
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return false;
     }
 
-    ioport_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
-    if (!ioport_.IsValid()) {
+    *out_ioport = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
+    if (!out_ioport->IsValid()) {
       DWORD err_code = GetLastError();
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return false;
     }
     JOBOBJECT_ASSOCIATE_COMPLETION_PORT port;
-    port.CompletionKey = job_;
-    port.CompletionPort = ioport_;
-    if (!SetInformationJobObject(job_,
+    port.CompletionKey = *out_job;
+    port.CompletionPort = *out_ioport;
+    if (!SetInformationJobObject(*out_job,
                                  JobObjectAssociateCompletionPortInformation,
                                  &port, sizeof(port))) {
       DWORD err_code = GetLastError();
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return false;
     }
@@ -386,7 +397,7 @@ class NativeProcess {
     if (!bazel::windows::AutoAttributeList::Create(
             stdin_process, stdout_process, stderr_process, &attr_list,
             &error_msg)) {
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", L"", error_msg);
       return false;
     }
@@ -402,7 +413,7 @@ class NativeProcess {
       std::wstringstream error_msg;
       error_msg << L"command is longer than CreateProcessW's limit ("
                 << kMaxCmdline << L" characters)";
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"CreateProcessWithExplicitHandles",
           cmd_sample, error_msg.str().c_str());
       return false;
@@ -423,34 +434,34 @@ class NativeProcess {
                 CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break isn't propagated
                 | CREATE_SUSPENDED  // So that it doesn't start a new job itself
                 | EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-            /* lpEnvironment */ env_map.ptr(),
+            /* lpEnvironment */ env,
             /* lpCurrentDirectory */ cwd.empty() ? NULL : cwd.c_str(),
             /* lpStartupInfo */ &info.StartupInfo,
             /* lpProcessInformation */ &process_info)) {
       DWORD err = GetLastError();
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"CreateProcessW", cmd_sample, err);
       return false;
     }
 
-    pid_ = process_info.dwProcessId;
-    process_ = process_info.hProcess;
+    *out_pid = process_info.dwProcessId;
+    *out_process = process_info.hProcess;
     bazel::windows::AutoHandle thread(process_info.hThread);
 
-    if (!AssignProcessToJobObject(job_, process_)) {
+    if (!AssignProcessToJobObject(*out_job, *out_process)) {
       BOOL is_in_job = false;
-      if (IsProcessInJob(process_, NULL, &is_in_job) && is_in_job &&
+      if (IsProcessInJob(*out_process, NULL, &is_in_job) && is_in_job &&
           !IsWindows8OrGreater()) {
         // Pre-Windows 8 systems don't support nested jobs, and Bazel is already
         // in a job.  We can't create nested jobs, so just revert to
         // TerminateProcess() and hope for the best. In batch mode, the launcher
         // puts Bazel in a job so that will take care of cleanup once the
         // command finishes.
-        job_ = INVALID_HANDLE_VALUE;
-        ioport_ = INVALID_HANDLE_VALUE;
+        *out_job = INVALID_HANDLE_VALUE;
+        *out_ioport = INVALID_HANDLE_VALUE;
       } else {
         DWORD err_code = GetLastError();
-        error_ = bazel::windows::MakeErrorMessage(
+        *error = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
         return false;
       }
@@ -460,12 +471,12 @@ class NativeProcess {
     // it
     if (ResumeThread(thread) == -1) {
       DWORD err_code = GetLastError();
-      error_ = bazel::windows::MakeErrorMessage(
+      *error = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return false;
     }
 
-    error_ = L"";
+    *error = L"";
     return true;
   }
 
