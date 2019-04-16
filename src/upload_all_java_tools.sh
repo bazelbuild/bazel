@@ -36,6 +36,8 @@ commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel version | grep 'Build label' | cut -d' ' -f 3)
 
+# Passing the same commit_hash and timestamp to all targets to mark all the artifacts
+# uploaded on GCS with the same identifier.
 bazel run src:upload_java_tools_java10 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
 bazel run src:upload_java_tools_java9 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
 bazel run src:upload_java_tools_dist_java10 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
