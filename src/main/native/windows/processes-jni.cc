@@ -16,9 +16,11 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <wchar.h>
 #include <windows.h>
 #include <VersionHelpers.h>
+
+#include <stdint.h>
+#include <wchar.h>
 
 #include <atomic>
 #include <memory>
@@ -468,11 +470,26 @@ class NativeProcess {
     return true;
   }
 
+  void CloseStdin() {
+    if (stdin_.IsValid()) {
+      stdin_ = INVALID_HANDLE_VALUE;
+    }
+  }
+
   // Wait for this process to exit (or timeout).
-  jint WaitFor(jlong timeout_msec) {
+  int WaitFor(int64_t timeout_msec) {
+    return WaitFor(timeout_msec, pid_, &job_, &ioport_, &process_, &exit_code_,
+                   &error_);
+  }
+
+  static int WaitFor(int64_t timeout_msec, DWORD pid,
+                     bazel::windows::AutoHandle* in_out_job,
+                     bazel::windows::AutoHandle* in_out_ioport,
+                     bazel::windows::AutoHandle* in_out_process,
+                     DWORD* out_exit_code, std::wstring* error) {
     DWORD win32_timeout = timeout_msec < 0 ? INFINITE : timeout_msec;
-    jint result;
-    switch (WaitForSingleObject(process_, win32_timeout)) {
+    int result;
+    switch (WaitForSingleObject(*in_out_process, win32_timeout)) {
       case WAIT_OBJECT_0:
         result = kWaitSuccess;
         break;
@@ -484,46 +501,42 @@ class NativeProcess {
       // Any other case is an error and should be reported back to Bazel.
       default:
         DWORD err_code = GetLastError();
-        error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+        *error = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                   L"NativeProcess:WaitFor",
-                                                  ToString(pid_), err_code);
+                                                  ToString(pid), err_code);
         return kWaitError;
-    }
-
-    if (stdin_.IsValid()) {
-      stdin_ = INVALID_HANDLE_VALUE;
     }
 
     // Ensure that the process is really terminated (if WaitForSingleObject
     // above timed out, we have to explicitly kill it) and that it doesn't
     // leave behind any subprocesses.
-    if (!Terminate()) {
+    if (!Terminate(*in_out_job, *in_out_process, pid, out_exit_code, error)) {
       return kWaitError;
     }
 
-    if (job_.IsValid()) {
+    if (in_out_job->IsValid()) {
       // Wait for the job object to complete, signalling that all subprocesses
       // have exited.
       DWORD CompletionCode;
       ULONG_PTR CompletionKey;
       LPOVERLAPPED Overlapped;
-      while (GetQueuedCompletionStatus(ioport_, &CompletionCode, &CompletionKey,
-                                       &Overlapped, INFINITE) &&
-             !((HANDLE)CompletionKey == (HANDLE)job_ &&
+      while (GetQueuedCompletionStatus(*in_out_ioport, &CompletionCode,
+                                       &CompletionKey, &Overlapped, INFINITE) &&
+             !((HANDLE)CompletionKey == (HANDLE)*in_out_job &&
                CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
         // Still waiting...
       }
 
-      job_ = INVALID_HANDLE_VALUE;
-      ioport_ = INVALID_HANDLE_VALUE;
+      *in_out_job = INVALID_HANDLE_VALUE;
+      *in_out_ioport = INVALID_HANDLE_VALUE;
     }
 
     // Fetch and store the exit code in case Bazel asks us for it later,
     // because we cannot do this anymore after we closed the handle.
-    GetExitCode();
+    GetExitCode(*in_out_process, pid, out_exit_code, error);
 
-    if (process_.IsValid()) {
-      process_ = INVALID_HANDLE_VALUE;
+    if (in_out_process->IsValid()) {
+      *in_out_process = INVALID_HANDLE_VALUE;
     }
 
     return result;
@@ -531,21 +544,26 @@ class NativeProcess {
 
   // Returns the exit code of the process if it has already exited. If the
   // process is still running, returns STILL_ACTIVE (= 259).
-  jint GetExitCode() {
-    if (exit_code_ == STILL_ACTIVE) {
-      if (!GetExitCodeProcess(process_, &exit_code_)) {
+  int GetExitCode() {
+    return GetExitCode(process_, pid_, &exit_code_, &error_);
+  }
+
+  static int GetExitCode(const bazel::windows::AutoHandle& process, DWORD pid,
+                         DWORD* out_exit_code, std::wstring* error) {
+    if (*out_exit_code == STILL_ACTIVE) {
+      if (!GetExitCodeProcess(process, out_exit_code)) {
         DWORD err_code = GetLastError();
-        error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+        *error = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                   L"NativeProcess::GetExitCode",
-                                                  ToString(pid_), err_code);
+                                                  ToString(pid), err_code);
         return -1;
       }
     }
 
-    return exit_code_;
+    return *out_exit_code;
   }
 
-  jint GetPid() { return pid_; }
+  DWORD GetPid() { return pid_; }
 
   jint WriteStdin(JNIEnv* env, jbyteArray java_bytes, jint offset,
                   jint length) {
@@ -577,23 +595,29 @@ class NativeProcess {
   NativeOutputStream* GetStderrStream() { return &stderr_; }
 
   // Terminates this process (and subprocesses, if job objects are available).
-  jboolean Terminate() {
-    static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
+  bool Terminate() {
+    return Terminate(job_, process_, pid_, &exit_code_, &error_);
+  }
 
-    if (job_.IsValid()) {
-      if (!TerminateJobObject(job_, exit_code)) {
+  static bool Terminate(const bazel::windows::AutoHandle& job,
+                        const bazel::windows::AutoHandle& process, DWORD pid,
+                        DWORD* out_exit_code, std::wstring* error) {
+    static constexpr UINT exit_code = 130;  // 128 + SIGINT, like on Linux
+
+    if (job.IsValid()) {
+      if (!TerminateJobObject(job, exit_code)) {
         DWORD err_code = GetLastError();
-        error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+        *error = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                   L"NativeProcess::Terminate",
-                                                  ToString(pid_), err_code);
-        return JNI_FALSE;
+                                                  ToString(pid), err_code);
+        return false;
       }
-    } else if (process_.IsValid()) {
-      if (!TerminateProcess(process_, exit_code)) {
+    } else if (process.IsValid()) {
+      if (!TerminateProcess(process, exit_code)) {
         DWORD err_code = GetLastError();
         std::wstring our_error = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess::Terminate",
-            ToString(pid_), err_code);
+            ToString(pid), err_code);
 
         // If the process exited, despite TerminateProcess having failed, we're
         // still happy and just ignore the error. It might have been a race
@@ -601,25 +625,25 @@ class NativeProcess {
         // However, if the process is *still* running at this point (evidenced
         // by its exit code still being STILL_ACTIVE) then something went
         // really unexpectedly wrong and we should report that error.
-        if (GetExitCode() == STILL_ACTIVE) {
+        if (GetExitCode(process, pid, out_exit_code, error) == STILL_ACTIVE) {
           // Restore the error message from TerminateProcess - it will be much
           // more helpful for debugging in case something goes wrong here.
-          error_ = our_error;
-          return JNI_FALSE;
+          *error = our_error;
+          return false;
         }
       }
 
-      if (WaitForSingleObject(process_, INFINITE) != WAIT_OBJECT_0) {
+      if (WaitForSingleObject(process, INFINITE) != WAIT_OBJECT_0) {
         DWORD err_code = GetLastError();
-        error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+        *error = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                   L"NativeProcess::Terminate",
-                                                  ToString(pid_), err_code);
-        return JNI_FALSE;
+                                                  ToString(pid), err_code);
+        return false;
       }
     }
 
-    error_ = L"";
-    return JNI_TRUE;
+    *error = L"";
+    return true;
   }
 
   // Return the last error as a human-readable string and clear it.
@@ -703,7 +727,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetExitCode(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return process->GetExitCode();
+  return static_cast<jint>(process->GetExitCode());
 }
 
 // return values:
@@ -714,21 +738,23 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWaitFor(
     JNIEnv* env, jclass clazz, jlong process_long, jlong java_timeout) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return process->WaitFor(java_timeout);
+  int res = process->WaitFor(static_cast<int64_t>(java_timeout));
+  process->CloseStdin();
+  return static_cast<jint>(res);
 }
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetProcessPid(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return process->GetPid();
+  return static_cast<jint>(process->GetPid());
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeTerminate(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return process->Terminate();
+  return process->Terminate() ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT void JNICALL
