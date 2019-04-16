@@ -578,7 +578,7 @@ genrule(
         "@java_tools_langtools_javac9//:javac_jar",
     ],
     outs = ["jars_java_tools_java9.zip"],
-    cmd = "zip -q -j $@ $$(echo $(SRCS) | sort)",
+    cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
     visibility = ["//visibility:private"],
 )
 
@@ -589,7 +589,7 @@ genrule(
         "@java_tools_langtools_javac10//:java_compiler_jar",
     ],
     outs = ["jars_java_tools_java10.zip"],
-    cmd = "zip -q -j $@ $$(echo $(SRCS) | sort)",
+    cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
     visibility = ["//visibility:private"],
 )
 
@@ -607,7 +607,7 @@ JAVA_VERSIONS = ("9", "10")
             "@java_tools_langtools_javac" + java_version + "//:srcs",
         ],
         outs = ["java_tools_dist_javac" + java_version + ".zip"],
-        cmd = "zip -Xr -q $@ $$(echo $(SRCS) | sort)",
+        cmd = "zip -qXr $@ $$(echo $(SRCS) | sort)",
         output_to_bindir = 1,
     )
     for java_version in JAVA_VERSIONS

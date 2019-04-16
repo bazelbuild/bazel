@@ -435,14 +435,14 @@ http_archive(
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(
-    name = "java_tools_langtools_javac10",
-    branch = "langtools_javac10",
+    name = "java_tools_langtools_javac9",
+    branch = "langtools_javac9",
     remote = "https://github.com/bazelbuild/java_tools.git",
 )
 
 git_repository(
-    name = "java_tools_langtools_javac9",
-    branch = "langtools_javac9",
+    name = "java_tools_langtools_javac10",
+    branch = "langtools_javac10",
     remote = "https://github.com/bazelbuild/java_tools.git",
 )
 

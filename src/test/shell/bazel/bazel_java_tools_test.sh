@@ -16,6 +16,9 @@
 
 # Load the test setup defined in the parent directory
 set -euo pipefail
+
+JAVA_TOOLS_JAVA_VERSION="$1"; shift
+
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
@@ -64,113 +67,91 @@ fi
 
 function expect_path_in_java_tools() {
   path="$1"; shift
-  java_version="$1"; shift
 
-  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools_${java_version}.zip) | grep -c "$path")
-  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_${java_version}.zip"
+  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip) | grep -c "$path")
+  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip"
 }
 
 function test_java_tools_has_ijar() {
-  expect_path_in_java_tools "java_tools/ijar" java9
-  expect_path_in_java_tools "java_tools/ijar" java10
+  expect_path_in_java_tools "java_tools/ijar"
 }
 
 function test_java_tools_has_ijar_binary() {
-  expect_path_in_java_tools "java_tools/ijar/ijar" java9
-  expect_path_in_java_tools "java_tools/ijar/ijar" java10
+  expect_path_in_java_tools "java_tools/ijar/ijar"
 }
 
 function test_java_tools_has_zlib() {
-  expect_path_in_java_tools "java_tools/zlib" java9
-  expect_path_in_java_tools "java_tools/zlib" java10
+  expect_path_in_java_tools "java_tools/zlib"
 }
 
 function test_java_tools_has_native_windows() {
-  expect_path_in_java_tools "java_tools/src/main/native/windows" java9
-  expect_path_in_java_tools "java_tools/src/main/native/windows" java10
+  expect_path_in_java_tools "java_tools/src/main/native/windows"
 }
 
 function test_java_tools_has_cpp_util() {
-  expect_path_in_java_tools "java_tools/src/main/cpp/util" java9
-  expect_path_in_java_tools "java_tools/src/main/cpp/util" java10
+  expect_path_in_java_tools "java_tools/src/main/cpp/util"
 }
 
 function test_java_tools_has_desugar_deps() {
-  expect_path_in_java_tools \
-      "java_tools/src/main/protobuf/desugar_deps.proto" java9
-      expect_path_in_java_tools \
-      "java_tools/src/main/protobuf/desugar_deps.proto" java10
+  expect_path_in_java_tools "java_tools/src/main/protobuf/desugar_deps.proto"
 }
 
 function test_java_tools_has_singlejar() {
-  expect_path_in_java_tools "java_tools/src/tools/singlejar" java9
-  expect_path_in_java_tools "java_tools/src/tools/singlejar" java10
+  expect_path_in_java_tools "java_tools/src/tools/singlejar"
 }
 
 function test_java_tools_has_singlejar_local() {
-  expect_path_in_java_tools \
-      "java_tools/src/tools/singlejar/singlejar_local" java9
-      expect_path_in_java_tools \
-      "java_tools/src/tools/singlejar/singlejar_local" java10
+  expect_path_in_java_tools "java_tools/src/tools/singlejar/singlejar_local"
 }
 
 function test_java_tools_has_VanillaJavaBuilder() {
-  expect_path_in_java_tools "java_tools/VanillaJavaBuilder_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/VanillaJavaBuilder_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/VanillaJavaBuilder_deploy.jar"
 }
 
 function test_java_tools_has_JavaBuilder() {
-  expect_path_in_java_tools "java_tools/JavaBuilder_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/JavaBuilder_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/JavaBuilder_deploy.jar"
 }
 
 function test_java_tools_has_turbine_direct() {
-  expect_path_in_java_tools "java_tools/turbine_direct_binary_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/turbine_direct_binary_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/turbine_direct_binary_deploy.jar"
 }
 
 function test_java_tools_has_turbine_deploy() {
-  expect_path_in_java_tools "java_tools/turbine_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/turbine_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/turbine_deploy.jar"
 }
 
 function test_java_tools_has_Runner() {
-  expect_path_in_java_tools "java_tools/Runner_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/Runner_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/Runner_deploy.jar"
 }
 
 function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "java_tools/jdk_compiler.jar" java9
-  expect_path_in_java_tools "java_tools/jdk_compiler.jar" java10
+  expect_path_in_java_tools "java_tools/jdk_compiler.jar"
 }
 
 function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_tools/java_compiler.jar" java9
-  expect_path_in_java_tools "java_tools/java_compiler.jar" java10
+  expect_path_in_java_tools "java_tools/java_compiler.jar"
 }
 
 function test_java_tools_has_javac() {
-  expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar" java9
+ if [[ "${JAVA_TOOLS_JAVA_VERSION}" == "java9" ]]; then
+  expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
+ fi
 }
 
 function test_java_tools_has_jarjar() {
-  expect_path_in_java_tools "java_tools/jarjar_command_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/jarjar_command_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/jarjar_command_deploy.jar"
 }
 
 function test_java_tools_has_Jacoco() {
-  expect_path_in_java_tools "java_tools/JacocoCoverage_jarjar_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/JacocoCoverage_jarjar_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/JacocoCoverage_jarjar_deploy.jar"
 }
 
 function test_java_tools_has_GenClass() {
-  expect_path_in_java_tools "java_tools/GenClass_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/GenClass_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/GenClass_deploy.jar"
 }
 
 function test_java_tools_has_ExperimentalRunner() {
-  expect_path_in_java_tools "java_tools/ExperimentalRunner_deploy.jar" java9
-  expect_path_in_java_tools "java_tools/ExperimentalRunner_deploy.jar" java10
+  expect_path_in_java_tools "java_tools/ExperimentalRunner_deploy.jar"
 }
 
 run_suite "Java tools archive tests"
