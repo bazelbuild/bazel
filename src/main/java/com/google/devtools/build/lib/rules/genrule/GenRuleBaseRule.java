@@ -23,19 +23,13 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -44,50 +38,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * as a setup script target.
  */
 public class GenRuleBaseRule implements RuleDefinition {
-  public static boolean enableCcToolchain(BuildConfiguration configuration) {
-    CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
-    if (cppConfiguration != null) {
-      return enableCcToolchain(cppConfiguration);
-    }
-    return true;
-  }
-
-  public static boolean enableCcToolchain(CppConfiguration cppConfiguration) {
-    return !cppConfiguration.disableGenruleCcToolchainDependency();
-  }
-
-  /**
-   * Late-bound dependency on the C++ toolchain <i>iff</i> the genrule has make variables that need
-   * that toolchain.
-   */
-  public static LabelLateBoundDefault<?> ccToolchainAttribute(RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        CppConfiguration.class,
-        env.getToolsLabel(CppRuleClasses.CROSSTOOL_LABEL),
-        // null guards are needed for LateBoundAttributeTest
-        (rule, attributes, cppConfig) -> {
-          if (!enableCcToolchain(cppConfig)) {
-            return null;
-          }
-          return attributes != null
-                  && attributes.get("cmd", Type.STRING) != null
-                  && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
-              ? CppRuleClasses.ccToolchainAttribute(env).resolve(rule, attributes, cppConfig)
-              : null;
-        });
-  }
-
-  /** Computed dependency on the C++ toolchain type. */
-  public static ComputedDefault ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
-    return new ComputedDefault("cmd") {
-      @Override
-      public Object getDefault(AttributeMap rule) {
-        return GenRuleBase.requiresCrosstool(rule.get("cmd", Type.STRING))
-            ? CppRuleClasses.ccToolchainTypeAttribute(env)
-            : null;
-      }
-    };
-  }
 
   @Override
   public RuleClass build(

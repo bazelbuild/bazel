@@ -110,7 +110,6 @@ public class CcToolchainProviderHelper {
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
             ruleContext,
-            cppConfiguration.disableGenruleCcToolchainDependency(),
             cppConfiguration.getTransformedCpuFromOptions(),
             cppConfiguration.getCompilerFromOptions(),
             attributes,
@@ -375,7 +374,6 @@ public class CcToolchainProviderHelper {
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
   private static CppToolchainInfo getCppToolchainInfo(
       RuleContext ruleContext,
-      boolean disableGenruleCcToolchainDependency,
       String cpuFromOptions,
       String compilerFromOptions,
       CcToolchainAttributesProvider attributes,
@@ -388,10 +386,7 @@ public class CcToolchainProviderHelper {
 
     if (configInfo != null) {
       try {
-        return CppToolchainInfo.create(
-            ruleContext.getLabel(),
-            configInfo,
-            disableGenruleCcToolchainDependency);
+        return CppToolchainInfo.create(ruleContext.getLabel(), configInfo);
       } catch (EvalException e) {
         throw ruleContext.throwWithRuleError(e.getMessage());
       }
@@ -421,10 +416,7 @@ public class CcToolchainProviderHelper {
                   .incompatibleDoNotSplitLinkingCmdline(),
               CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
       CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.fromToolchain(toolchain);
-      return CppToolchainInfo.create(
-          attributes.getCcToolchainLabel(),
-          ccToolchainConfigInfo,
-          disableGenruleCcToolchainDependency);
+      return CppToolchainInfo.create(attributes.getCcToolchainLabel(), ccToolchainConfigInfo);
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
     }

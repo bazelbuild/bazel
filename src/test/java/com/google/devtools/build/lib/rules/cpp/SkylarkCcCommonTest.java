@@ -4499,7 +4499,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withMakeVariables(Pair.of("CC_FLAGS", "-test-cflag1 -testcflag2")));
-    useConfiguration("--incompatible_disable_genrule_cc_toolchain_dependency");
 
     loadCcToolchainConfigLib();
     scratch.file(

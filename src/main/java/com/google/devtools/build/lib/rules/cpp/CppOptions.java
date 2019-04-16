@@ -833,21 +833,6 @@ public class CppOptions extends FragmentOptions {
   public boolean doNotUseCpuTransformer;
 
   @Option(
-      name = "incompatible_disable_genrule_cc_toolchain_dependency",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, genrule will no longer automatically depend on the cc toolchain. Specifically, "
-              + "this means that the CC_FLAGS Make variable will not be available without using "
-              + "the new cc_flags_supplier rule.")
-  public boolean disableGenruleCcToolchainDependency;
-
-  @Option(
       name = "incompatible_disable_legacy_cc_provider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -927,7 +912,6 @@ public class CppOptions extends FragmentOptions {
 
     host.enableFdoProfileAbsolutePath = enableFdoProfileAbsolutePath;
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
-    host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
