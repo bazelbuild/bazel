@@ -57,8 +57,7 @@ public class StrictDepsUtils {
             .addDirectCompileTimeJars(
                 /* interfaceJars= */ args.getDirectCompileTimeJars(),
                 /* fullJars= */ args.getDirectFullCompileTimeJars())
-            .addTransitiveCompileTimeJars(args.getTransitiveCompileTimeJars())
-            .addInstrumentationMetadata(args.getInstrumentationMetadata());
+            .addTransitiveCompileTimeJars(args.getTransitiveCompileTimeJars());
       }
       // Don't collect .jdeps recursively for legacy "feature" compatibility reasons. Collecting
       // .jdeps here is probably a mistake; see JavaCompilationArgsProvider#makeNonStrict.

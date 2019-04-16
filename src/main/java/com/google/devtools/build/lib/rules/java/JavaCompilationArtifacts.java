@@ -48,13 +48,8 @@ public abstract class JavaCompilationArtifacts {
 
   abstract ImmutableList<Artifact> getFullCompileTimeJars();
 
-  public abstract ImmutableList<Artifact> getInstrumentationMetadata();
-
   @Nullable
   public abstract Artifact getCompileTimeDependencyArtifact();
-
-  @Nullable
-  public abstract Artifact getInstrumentedJar();
 
   /** Returns a builder for a {@link JavaCompilationArtifacts}. */
   public static Builder builder() {
@@ -67,16 +62,12 @@ public abstract class JavaCompilationArtifacts {
       ImmutableList<Artifact> runtimeJars,
       ImmutableList<Artifact> compileTimeJars,
       ImmutableList<Artifact> fullCompileTimeJars,
-      ImmutableList<Artifact> instrumentationMetadata,
-      Artifact compileTimeDependencyArtifact,
-      Artifact instrumentedJar) {
+      Artifact compileTimeDependencyArtifact) {
     return new AutoValue_JavaCompilationArtifacts(
         ImmutableList.copyOf(runtimeJars),
         ImmutableList.copyOf(compileTimeJars),
         ImmutableList.copyOf(fullCompileTimeJars),
-        ImmutableList.copyOf(instrumentationMetadata),
-        compileTimeDependencyArtifact,
-        instrumentedJar);
+        compileTimeDependencyArtifact);
   }
 
   /** A builder for {@link JavaCompilationArtifacts}. */
@@ -84,9 +75,7 @@ public abstract class JavaCompilationArtifacts {
     private final Set<Artifact> runtimeJars = new LinkedHashSet<>();
     private final Set<Artifact> compileTimeJars = new LinkedHashSet<>();
     private final Set<Artifact> fullCompileTimeJars = new LinkedHashSet<>();
-    private final Set<Artifact> instrumentationMetadata = new LinkedHashSet<>();
     private Artifact compileTimeDependencies;
-    private Artifact instrumentedJar;
 
     public JavaCompilationArtifacts build() {
       Preconditions.checkState(fullCompileTimeJars.size() == compileTimeJars.size());
@@ -94,9 +83,7 @@ public abstract class JavaCompilationArtifacts {
           ImmutableList.copyOf(runtimeJars),
           ImmutableList.copyOf(compileTimeJars),
           ImmutableList.copyOf(fullCompileTimeJars),
-          ImmutableList.copyOf(instrumentationMetadata),
-          compileTimeDependencies,
-          instrumentedJar);
+          compileTimeDependencies);
     }
 
     public Builder addRuntimeJar(Artifact jar) {
@@ -131,18 +118,8 @@ public abstract class JavaCompilationArtifacts {
       return this;
     }
 
-    public Builder addInstrumentationMetadata(Artifact instrumentationMetadata) {
-      this.instrumentationMetadata.add(instrumentationMetadata);
-      return this;
-    }
-
     public Builder setCompileTimeDependencies(@Nullable Artifact compileTimeDependencies) {
       this.compileTimeDependencies = compileTimeDependencies;
-      return this;
-    }
-
-    public Builder setInstrumentedJar(@Nullable Artifact instrumentedJar) {
-      this.instrumentedJar = instrumentedJar;
       return this;
     }
   }

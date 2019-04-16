@@ -343,14 +343,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
     arguments.add(new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
 
-    JavaCompilationArtifacts javaArtifacts = javaCommon.getJavaCompilationArtifacts();
-    String path =
-        javaArtifacts.getInstrumentedJar() != null
-            ? "${JAVA_RUNFILES}/"
-            + workspacePrefix
-            + javaArtifacts.getInstrumentedJar().getRootRelativePath().getPathString()
-            : "";
-
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       if (createCoverageMetadataJar) {
         Artifact runtimeClassPathArtifact =
@@ -672,13 +664,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
 
     return jvmFlags.build();
-  }
-
-  /**
-   * Returns whether coverage has instrumented artifacts.
-   */
-  public static boolean hasInstrumentationMetadata(JavaTargetAttributes.Builder attributes) {
-    return !attributes.getInstrumentationMetadata().isEmpty();
   }
 
   @Override

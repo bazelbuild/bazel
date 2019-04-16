@@ -797,7 +797,6 @@ public class JavaCommon {
         JavaCompilationArgsProvider.legacyFromTargets(
             runtimeDepInfo, semantics.isJavaProtoLibraryStrictDeps(ruleContext));
     attributes.addRuntimeClassPathEntries(provider.getRuntimeJars());
-    attributes.addInstrumentationMetadataEntries(provider.getInstrumentationMetadata());
   }
 
   /**
