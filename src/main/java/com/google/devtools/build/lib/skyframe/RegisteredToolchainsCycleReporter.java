@@ -27,7 +27,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Optional;
 
 /**
- * {@link CyclesReporter#SingleCycleReporter} implementation that can handle cycles involving
+ * {@link CyclesReporter.SingleCycleReporter} implementation that can handle cycles involving
  * registered toolchains.
  */
 public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleCycleReporter {
@@ -38,8 +38,8 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
   private static final Predicate<SkyKey> IS_CONFIGURED_TARGET_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET);
 
-  private static final Predicate<SkyKey> IS_TOOLCHAIN_RESOLUTION_SKY_KEY =
-      SkyFunctions.isSkyFunction(SkyFunctions.TOOLCHAIN_RESOLUTION);
+  private static final Predicate<SkyKey> IS_SINGLE_TOOLCHAIN_RESOLUTION_SKY_KEY =
+      SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_TOOLCHAIN_RESOLUTION);
 
   @Override
   public boolean maybeReportCycle(
@@ -52,7 +52,7 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
       return true;
     } else if (!Iterables.any(cycle, IS_REGISTERED_TOOLCHAINS_SKY_KEY)
         || !Iterables.any(cycle, IS_CONFIGURED_TARGET_SKY_KEY)
-        || !Iterables.any(cycle, IS_TOOLCHAIN_RESOLUTION_SKY_KEY)) {
+        || !Iterables.any(cycle, IS_SINGLE_TOOLCHAIN_RESOLUTION_SKY_KEY)) {
       return false;
     }
 
@@ -73,9 +73,9 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
             if (input.argument() instanceof RegisteredToolchainsValue.Key) {
               return "RegisteredToolchains";
             }
-            if (input.argument() instanceof ToolchainResolutionValue.Key) {
+            if (input.argument() instanceof SingleToolchainResolutionValue.Key) {
               Label toolchainType =
-                  ((ToolchainResolutionValue.Key) input.argument()).toolchainTypeLabel();
+                  ((SingleToolchainResolutionValue.Key) input.argument()).toolchainTypeLabel();
               return String.format("toolchain type %s", toolchainType.toString());
             } else {
               throw new UnsupportedOperationException();

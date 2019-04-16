@@ -42,14 +42,14 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/** {@link SkyFunction} which performs toolchain resolution for a class of rules. */
-public class ToolchainResolutionFunction implements SkyFunction {
+/** {@link SkyFunction} which performs toolchain resolution for a single toolchain type. */
+public class SingleToolchainResolutionFunction implements SkyFunction {
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ToolchainResolutionFunctionException, InterruptedException {
-    ToolchainResolutionValue.Key key = (ToolchainResolutionValue.Key) skyKey.argument();
+    SingleToolchainResolutionValue.Key key = (SingleToolchainResolutionValue.Key) skyKey.argument();
 
     // This call could be combined with the call below, but this SkyFunction is evaluated so rarely
     // it's not worth optimizing.
@@ -91,7 +91,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
    * platform.
    */
   @Nullable
-  private static ToolchainResolutionValue resolveConstraints(
+  private static SingleToolchainResolutionValue resolveConstraints(
       Label toolchainTypeLabel,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys,
       ConfiguredTargetKey targetPlatformKey,
@@ -179,7 +179,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           new NoToolchainFoundException(toolchainTypeLabel));
     }
 
-    return ToolchainResolutionValue.create(toolchainType, resolvedToolchainLabels);
+    return SingleToolchainResolutionValue.create(toolchainType, resolvedToolchainLabels);
   }
 
   /**
@@ -246,7 +246,9 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
   }
 
-  /** Used to indicate errors during the computation of an {@link ToolchainResolutionValue}. */
+  /**
+   * Used to indicate errors during the computation of an {@link SingleToolchainResolutionValue}.
+   */
   private static final class ToolchainResolutionFunctionException extends SkyFunctionException {
     public ToolchainResolutionFunctionException(NoToolchainFoundException e) {
       super(e, Transience.PERSISTENT);
