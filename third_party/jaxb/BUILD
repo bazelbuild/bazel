@@ -9,6 +9,6 @@ filegroup(
 
 java_import(
     name = "jaxb",
-    jars = ["jaxb-api-2.3.1.jar"],
+    jars = ["jaxb-api-2.3.1-patched.jar"],
     srcjar = "jaxb-api-2.3.1-sources.jar",
 )
