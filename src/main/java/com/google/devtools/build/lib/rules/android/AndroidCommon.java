@@ -802,10 +802,6 @@ public class AndroidCommon {
     return classJar;
   }
 
-  public Artifact getInstrumentedJar() {
-    return javaCommon.getJavaCompilationArtifacts().getInstrumentedJar();
-  }
-
   public NestedSet<Artifact> getTransitiveNeverLinkLibraries() {
     return transitiveNeverlinkLibraries;
   }
