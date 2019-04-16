@@ -2964,4 +2964,28 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
       }
     }
   }
+
+  @Test
+  public void testOldOctalNotationIsForbidden() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_old_octal_notation=true");
+
+    scratch.file("test/extension.bzl", "y = 0246");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("Invalid octal value `0246`, should be: `0o246`");
+  }
+
+  @Test
+  public void testOldOctalNotation() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_old_octal_notation=false");
+
+    scratch.file("test/extension.bzl", "y = 0246");
+
+    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
+
+    getConfiguredTarget("//test:r");
+  }
 }

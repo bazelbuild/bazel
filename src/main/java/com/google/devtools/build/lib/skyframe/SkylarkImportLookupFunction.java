@@ -541,6 +541,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   public static void execAndExport(BuildFileAST ast, Label extensionLabel,
       EventHandler eventHandler,
       com.google.devtools.build.lib.syntax.Environment extensionEnv) throws InterruptedException {
+    ast.replayLexerEvents(extensionEnv, eventHandler);
     ImmutableList<Statement> statements = ast.getStatements();
     for (Statement statement : statements) {
       ast.execTopLevelStatement(statement, extensionEnv, eventHandler);
