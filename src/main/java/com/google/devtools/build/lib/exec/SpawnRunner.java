@@ -253,7 +253,8 @@ public interface SpawnRunner {
    *
    * @param sandboxBase path to the base of the sandbox tree where the spawn runner may have created
    *     entries
+   * @param treeDeleter scheduler for tree deletions
    * @throws IOException if there are problems deleting the entries
    */
-  default void cleanupSandboxBase(Path sandboxBase) throws IOException {}
+  default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {}
 }

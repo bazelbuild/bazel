@@ -73,7 +73,8 @@ public class SandboxfsSandboxedSpawnTest {
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(PathFragment.create("wow/writable")),
-            /* mapSymlinkTargets= */ false);
+            /* mapSymlinkTargets= */ false,
+            new SynchronousTreeDeleter());
 
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -99,7 +100,8 @@ public class SandboxfsSandboxedSpawnTest {
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(PathFragment.create("wow/writable")),
-            /* mapSymlinkTargets= */ false);
+            /* mapSymlinkTargets= */ false,
+            new SynchronousTreeDeleter());
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
 
@@ -128,7 +130,8 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableMap.of(),
             SandboxOutputs.create(ImmutableSet.of(outputFile), ImmutableSet.of()),
             ImmutableSet.of(),
-            /* mapSymlinkTargets= */ false);
+            /* mapSymlinkTargets= */ false,
+            new SynchronousTreeDeleter());
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
 
@@ -188,7 +191,8 @@ public class SandboxfsSandboxedSpawnTest {
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(),
-            mapSymlinkTargets);
+            mapSymlinkTargets,
+            new SynchronousTreeDeleter());
 
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();

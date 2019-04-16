@@ -70,7 +70,8 @@ public class SymlinkedSandboxedSpawnTest {
             ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
-            ImmutableSet.of(execRoot.getRelative("wow/writable")));
+            ImmutableSet.of(execRoot.getRelative("wow/writable")),
+            new SynchronousTreeDeleter());
 
     symlinkedExecRoot.createFileSystem();
 
@@ -95,7 +96,8 @@ public class SymlinkedSandboxedSpawnTest {
             ImmutableMap.of(),
             SandboxOutputs.create(
                 ImmutableSet.of(outputFile.relativeTo(execRoot)), ImmutableSet.of()),
-            ImmutableSet.of());
+            ImmutableSet.of(),
+            new SynchronousTreeDeleter());
     symlinkedExecRoot.createFileSystem();
 
     FileSystemUtils.createEmptyFile(outputFile);

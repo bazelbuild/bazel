@@ -30,7 +30,9 @@ function tear_down() {
   rm -rf pkg
 }
 
-function test_sandbox_base_contents_wiped_only_on_startup() {
+function do_sandbox_base_wiped_only_on_startup_test {
+  local extra_args=( "${@}" )
+
   mkdir pkg
   cat >pkg/BUILD <<EOF
 genrule(name = "pkg", outs = ["pkg.out"], cmd = "echo >\$@")
@@ -39,7 +41,7 @@ EOF
   local output_base="$(bazel info output_base)"
 
   do_build() {
-    bazel build --genrule_strategy=sandboxed //pkg
+    bazel build --genrule_strategy=sandboxed "${extra_args[@]}" //pkg
   }
 
   do_build >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
@@ -61,6 +63,16 @@ EOF
   expect_log "Deleting stale sandbox"
   [[ ! -d "${garbage}" ]] \
     || fail "sandbox base was not cleaned on restart"
+}
+
+function test_sandbox_base_wiped_only_on_startup_with_sync_deletions() {
+  do_sandbox_base_wiped_only_on_startup_test \
+    --experimental_sandbox_async_tree_delete_idle_threads=0
+}
+
+function test_sandbox_base_wiped_only_on_startup_with_async_deletions() {
+  do_sandbox_base_wiped_only_on_startup_test \
+    --experimental_sandbox_async_tree_delete_idle_threads=HOST_CPUS
 }
 
 function test_sandbox_base_can_be_rm_rfed() {
