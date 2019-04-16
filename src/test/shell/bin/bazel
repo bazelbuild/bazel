@@ -22,4 +22,5 @@ bazel_bin=$(rlocation io_bazel/src/bazel)
 # has to detect its own runfiles
 unset RUNFILES_DIR
 unset RUNFILES_MANIFEST_FILE
+unset RUNFILES_MANIFEST_ONLY
 exec $bazel_bin --bazelrc=$TEST_TMPDIR/bazelrc "$@"
