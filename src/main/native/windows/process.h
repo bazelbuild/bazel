@@ -18,8 +18,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <stdint.h>
 #include <windows.h>
+#include <stdint.h>
 
 #include <string>
 
@@ -30,15 +30,14 @@ namespace windows {
 
 class WaitableProcess {
  public:
-  // These are the possible return values from the NativeProcess::WaitFor()
-  // method.
+  // These are the possible return values from the WaitFor() method.
   enum {
     kWaitSuccess = 0,
     kWaitTimeout = 1,
     kWaitError = 2,
   };
 
-  static bool Create(const std::wstring& wpath, const std::wstring& argv_rest,
+  static bool Create(const std::wstring& argv0, const std::wstring& argv_rest,
                      void* env, const std::wstring& wcwd, HANDLE stdin_process,
                      HANDLE stdout_process, HANDLE stderr_process,
                      AutoHandle* out_job, AutoHandle* out_ioport,
