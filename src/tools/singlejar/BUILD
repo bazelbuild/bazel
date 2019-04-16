@@ -115,6 +115,8 @@ cc_test(
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
     ],
+    # Requires at least 5 GiB of memory
+    exec_compatible_with = ["//:highcpu_machine"],
 )
 
 cc_test(

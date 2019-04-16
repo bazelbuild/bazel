@@ -173,6 +173,7 @@ sh_test(
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],  # Doesn't work on Windows for unknown reason
+    exec_compatible_with = ["//:highcpu_machine"],
 )
 
 sh_test(
@@ -403,6 +404,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:git-repos",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    exec_compatible_with = ["//:highcpu_machine"],
 )
 
 sh_test(
@@ -695,6 +697,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["block-network"],
+    exec_compatible_with = ["//:highcpu_machine"],
 )
 
 sh_test(
@@ -710,6 +713,7 @@ sh_test(
         "no_windows",
         "slow",
     ],
+    exec_compatible_with = ["//:highcpu_machine"],
 )
 
 sh_test(
