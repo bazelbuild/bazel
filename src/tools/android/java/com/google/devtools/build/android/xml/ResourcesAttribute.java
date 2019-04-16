@@ -171,6 +171,11 @@ public class ResourcesAttribute implements XmlResourceValue {
   }
 
   @Override
+  public int compareMergePriorityTo(XmlResourceValue value) {
+    return 0;
+  }
+
+  @Override
   public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
     // This is an xml attribute and does not have any java representation.
   }
