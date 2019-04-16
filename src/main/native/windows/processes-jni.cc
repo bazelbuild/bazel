@@ -168,30 +168,12 @@ class NativeProcess {
                   jbyteArray java_env, jstring java_cwd,
                   jstring java_stdout_redirect, jstring java_stderr_redirect,
                   jboolean redirectErrorStream) {
-    std::wstring argv0;
     std::wstring wpath(bazel::windows::GetJavaWpath(env, java_argv0));
-    std::wstring error_msg(
-        bazel::windows::AsExecutablePathForCreateProcess(wpath, &argv0));
-    if (!error_msg.empty()) {
-      error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, error_msg);
-      return false;
-    }
 
-    std::wstring commandline =
-        argv0 + L" " + bazel::windows::GetJavaWstring(env, java_argv_rest);
     std::wstring stdout_redirect = bazel::windows::AddUncPrefixMaybe(
         bazel::windows::GetJavaWpath(env, java_stdout_redirect));
     std::wstring stderr_redirect = bazel::windows::AddUncPrefixMaybe(
         bazel::windows::GetJavaWpath(env, java_stderr_redirect));
-    std::wstring cwd;
-    std::wstring wcwd(bazel::windows::GetJavaWpath(env, java_cwd));
-    error_msg = bazel::windows::AsShortPath(wcwd, &cwd);
-    if (!error_msg.empty()) {
-      error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, error_msg);
-      return false;
-    }
 
     const bool stdout_is_stream = stdout_redirect.empty();
     const bool stderr_is_stream =
@@ -202,11 +184,6 @@ class NativeProcess {
          stderr_redirect.size() == stdout_redirect.size() &&
          _wcsnicmp(stderr_redirect.c_str(), stdout_redirect.c_str(),
                    stderr_redirect.size()) == 0);
-
-    std::unique_ptr<WCHAR[]> mutable_commandline(
-        new WCHAR[commandline.size() + 1]);
-    wcsncpy(mutable_commandline.get(), commandline.c_str(),
-            commandline.size() + 1);
 
     SECURITY_ATTRIBUTES sa = {0};
     sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -219,7 +196,6 @@ class NativeProcess {
     bazel::windows::AutoHandle stdin_process;
     bazel::windows::AutoHandle stdout_process;
     bazel::windows::AutoHandle stderr_process;
-    bazel::windows::AutoHandle thread;
 
     JavaByteArray env_map(env, java_env);
     if (env_map.ptr() != nullptr) {
@@ -343,6 +319,29 @@ class NativeProcess {
       stderr_process = pipe_write_h;
     }
 
+    std::wstring cwd;
+    std::wstring wcwd(bazel::windows::GetJavaWpath(env, java_cwd));
+    std::wstring error_msg(bazel::windows::AsShortPath(wcwd, &cwd));
+    if (!error_msg.empty()) {
+      error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, error_msg);
+      return false;
+    }
+
+    std::wstring argv0;
+    error_msg = bazel::windows::AsExecutablePathForCreateProcess(wpath, &argv0);
+    if (!error_msg.empty()) {
+      error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, error_msg);
+      return false;
+    }
+
+    std::wstring commandline =
+        argv0 + L" " + bazel::windows::GetJavaWstring(env, java_argv_rest);
+    std::unique_ptr<WCHAR[]> mutable_commandline(
+        new WCHAR[commandline.size() + 1]);
+    wcsncpy(mutable_commandline.get(), commandline.c_str(),
+            commandline.size() + 1);
     // MDSN says that the default for job objects is that breakaway is not
     // allowed. Thus, we don't need to do any more setup here.
     job_ = CreateJobObject(NULL, NULL);
@@ -436,7 +435,7 @@ class NativeProcess {
 
     pid_ = process_info.dwProcessId;
     process_ = process_info.hProcess;
-    thread = process_info.hThread;
+    bazel::windows::AutoHandle thread(process_info.hThread);
 
     if (!AssignProcessToJobObject(job_, process_)) {
       BOOL is_in_job = false;
