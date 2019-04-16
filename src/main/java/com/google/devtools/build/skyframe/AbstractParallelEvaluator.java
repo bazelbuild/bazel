@@ -884,7 +884,7 @@ public abstract class AbstractParallelEvaluator {
    * there is no way to enforce that condition.
    *
    * <p>Returns {@code true} if any newly discovered dep is dirty when this node registers itself as
-   * an rdep.
+   * an rdep and if one of those dirty deps will schedule this node for evaluation.
    *
    * <p>This can happen if a newly discovered dep transitions from done to dirty between when this
    * node's evaluation accessed the dep's value and here. Adding this node as an rdep of that dep
@@ -927,6 +927,7 @@ public abstract class AbstractParallelEvaluator {
     // removeUndoneNewlyRequestedDeps() just above this loop. However, with intra-evaluation
     // dirtying, a dep may not be done.
     boolean dirtyDepFound = false;
+    boolean selfSignalled = false;
     Map<SkyKey, ? extends NodeEntry> previouslyRegisteredEntries =
         graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
     if (previouslyRegisteredEntries.size() != previouslyRegisteredNewDeps.size()) {
@@ -941,8 +942,16 @@ public abstract class AbstractParallelEvaluator {
     for (Map.Entry<SkyKey, ? extends NodeEntry> newDep : previouslyRegisteredEntries.entrySet()) {
       NodeEntry depEntry = newDep.getValue();
       DependencyState triState = depEntry.checkIfDoneForDirtyReverseDep(skyKey);
-      if (maybeHandleUndoneDepForDoneEntry(entry, depEntry, triState, skyKey, newDep.getKey())) {
-        dirtyDepFound = true;
+      switch (maybeHandleUndoneDepForDoneEntry(
+          entry, depEntry, triState, skyKey, newDep.getKey())) {
+        case DEP_DONE_SELF_SIGNALLED:
+          selfSignalled = true;
+          break;
+        case DEP_DONE_SELF_NOT_SIGNALLED:
+          break;
+        case DEP_NOT_DONE:
+          dirtyDepFound = true;
+          break;
       }
     }
 
@@ -950,27 +959,57 @@ public abstract class AbstractParallelEvaluator {
       NodeEntry depEntry =
           Preconditions.checkNotNull(newlyAddedNewDepNodes.get().get(newDep), newDep);
       DependencyState triState = depEntry.addReverseDepAndCheckIfDone(skyKey);
-      if (maybeHandleUndoneDepForDoneEntry(entry, depEntry, triState, skyKey, newDep)) {
-        dirtyDepFound = true;
+      switch (maybeHandleUndoneDepForDoneEntry(entry, depEntry, triState, skyKey, newDep)) {
+        case DEP_DONE_SELF_SIGNALLED:
+          selfSignalled = true;
+          break;
+        case DEP_DONE_SELF_NOT_SIGNALLED:
+          break;
+        case DEP_NOT_DONE:
+          dirtyDepFound = true;
+          break;
       }
     }
 
     Preconditions.checkState(
-        dirtyDepFound || entry.isReady(), "%s %s %s", skyKey, entry, env.getNewlyRequestedDeps());
-    return dirtyDepFound;
+        selfSignalled || dirtyDepFound || uniqueNewDeps.isEmpty(),
+        "%s %s %s %s",
+        skyKey,
+        entry,
+        newlyAddedNewDeps,
+        previouslyRegisteredNewDeps);
+
+    return !selfSignalled;
+  }
+
+  private enum MaybeHandleUndoneDepResult {
+    DEP_DONE_SELF_SIGNALLED,
+    DEP_DONE_SELF_NOT_SIGNALLED,
+    DEP_NOT_DONE
   }
 
   /**
-   * Returns {@code true} if the dep was not done. Notifies the {@link GraphInconsistencyReceiver}
-   * if so. Schedules the dep for evaluation if necessary.
+   * Returns {@link MaybeHandleUndoneDepResult#DEP_NOT_DONE} if {@code depEntry} was not done.
+   * Notifies the {@link GraphInconsistencyReceiver} if so. Schedules {@code depEntry} for
+   * evaluation if necessary.
    *
-   * <p>Otherwise, returns {@code false} and signals this node.
+   * <p>If {@code depEntry} was done, then this calls {@code entry.signalDep}.
+   *
+   * <p>If the call to {@code #signalDep} returns false, this returns {@link
+   * MaybeHandleUndoneDepResult#DEP_DONE_SELF_NOT_SIGNALLED}.
+   *
+   * <p>If the call to {@code #signalDep} returns true, this returns {@link
+   * MaybeHandleUndoneDepResult#DEP_DONE_SELF_SIGNALLED}. This will happen for the last new dep if
+   * all of them were done. It can also happen if some new deps weren't done but they all signal
+   * {@code entry} before {@link #maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry} finishes
+   * checking deps.
    */
-  private boolean maybeHandleUndoneDepForDoneEntry(
+  private MaybeHandleUndoneDepResult maybeHandleUndoneDepForDoneEntry(
       NodeEntry entry, NodeEntry depEntry, DependencyState triState, SkyKey skyKey, SkyKey depKey) {
     if (triState == DependencyState.DONE) {
-      entry.signalDep(depEntry.getVersion(), depKey);
-      return false;
+      return entry.signalDep(depEntry.getVersion(), depKey)
+          ? MaybeHandleUndoneDepResult.DEP_DONE_SELF_SIGNALLED
+          : MaybeHandleUndoneDepResult.DEP_DONE_SELF_NOT_SIGNALLED;
     }
     // The dep may have transitioned from done to dirty between when this node read its value and
     // now. Notify the graph inconsistency receiver so that we can crash if that's unexpected. We
@@ -984,7 +1023,7 @@ public abstract class AbstractParallelEvaluator {
       // again, reducing the chance that another node may observe this dep to be undone.
       evaluatorContext.getVisitor().enqueueEvaluation(depKey, Integer.MAX_VALUE);
     }
-    return true;
+    return MaybeHandleUndoneDepResult.DEP_NOT_DONE;
   }
 
   static BigInteger composeDepFingerprints(
