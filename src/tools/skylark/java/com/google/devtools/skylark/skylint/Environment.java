@@ -14,6 +14,7 @@
 
 package com.google.devtools.skylark.skylint;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.ASTNode;
@@ -49,7 +50,12 @@ public class Environment {
     env.addBuiltin("None");
     env.addBuiltin("True");
     env.addBuiltin("False");
-    env.setupFunctions(MethodLibrary.class, BazelLibrary.class);
+    env.setupFunctions(BazelLibrary.class);
+    ImmutableMap.Builder<String, Object> builtinMap = ImmutableMap.builder();
+    MethodLibrary.addBindingsToBuilder(builtinMap);
+    for (String builtinName : builtinMap.build().keySet()) {
+      env.addBuiltin(builtinName);
+    }
     return env;
   }
 

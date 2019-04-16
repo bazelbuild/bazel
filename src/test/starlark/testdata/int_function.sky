@@ -10,10 +10,10 @@ assert_eq(int(True), 1)
 assert_eq(int(False), 0)
 
 ---
-int(None) ### None is not of type string or int or bool
+int(None) ### parameter 'x' cannot be None, for call to function int(x, base = unbound)
 ---
 # This case is allowed in Python but not Skylark
-int() ### insufficient arguments received
+int() ### parameter 'x' has no default value, for call to function int(x, base = unbound)
 ---
 
 # string, no base

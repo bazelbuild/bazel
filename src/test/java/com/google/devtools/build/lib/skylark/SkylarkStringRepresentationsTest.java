@@ -267,12 +267,12 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   @Test
   public void testStringRepresentations_Rules() throws Exception {
     assertStringRepresentation("native.cc_library", "<built-in rule cc_library>");
-    assertStringRepresentation("rule(implementation=str)", "<rule>");
+    assertStringRepresentation("def f(): pass", "rule(implementation=f)", "<rule>");
   }
 
   @Test
   public void testStringRepresentations_Aspects() throws Exception {
-    assertStringRepresentation("aspect(implementation=str)", "<aspect>");
+    assertStringRepresentation("def f(): pass", "aspect(implementation=f)", "<aspect>");
   }
 
   @Test
