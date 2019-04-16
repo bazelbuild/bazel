@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
+import com.google.devtools.build.lib.bazel.execlog.StableSort;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -23,46 +24,136 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
+import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
+import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.MessageOutputStreamCollection;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * Module providing on-demand spawn logging.
  */
 public final class SpawnLogModule extends BlazeModule {
+  /**
+   * SpawnLogContext will log to a temporary file as the execution is being performed. rawOutput is
+   * the path to that temporary file.
+   */
   private SpawnLogContext spawnLogContext;
+
+  private Path rawOutput;
+
+  /**
+   * After the execution is done, the temporary file contents will be sorted and logged as the user
+   * requested, to binary and/or json files. We will open the streams at the beginning of the
+   * command so that any errors (e.g., unwritable location) will be surfaced before the execution
+   * begins.
+   */
+  private MessageOutputStreamCollection outputStreams;
+
+  private CommandEnvironment env;
+
+  private void clear() {
+    spawnLogContext = null;
+    outputStreams = new MessageOutputStreamCollection();
+    rawOutput = null;
+    env = null;
+  }
+
+  private void initOutputs(CommandEnvironment env) throws IOException {
+    clear();
+    this.env = env;
+
+    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+    if (executionOptions == null) {
+      return;
+    }
+    FileSystem fileSystem = env.getRuntime().getFileSystem();
+    Path workingDirectory = env.getWorkingDirectory();
+
+    if (executionOptions.executionLogBinaryFile != null) {
+      outputStreams.addStream(
+          new BinaryOutputStreamWrapper(
+              workingDirectory
+                  .getRelative(executionOptions.executionLogBinaryFile)
+                  .getOutputStream()));
+    }
+
+    if (executionOptions.executionLogJsonFile != null) {
+      outputStreams.addStream(
+          new JsonOutputStreamWrapper(
+              workingDirectory
+                  .getRelative(executionOptions.executionLogJsonFile)
+                  .getOutputStream()));
+    }
+
+    AsynchronousFileOutputStream outStream = null;
+    if (executionOptions.executionLogFile != null) {
+      rawOutput = env.getRuntime().getFileSystem().getPath(executionOptions.executionLogFile);
+      outStream =
+          new AsynchronousFileOutputStream(
+              workingDirectory.getRelative(executionOptions.executionLogFile));
+    } else if (!outputStreams.isEmpty()) {
+      // Execution log requested but raw log file not specified
+      File file = File.createTempFile("exec", ".log");
+      rawOutput = fileSystem.getPath(file.getAbsolutePath());
+      outStream = new AsynchronousFileOutputStream(rawOutput);
+    }
+
+    if (outStream == null) {
+      // No logging needed
+      clear();
+      return;
+    }
+
+    spawnLogContext = new SpawnLogContext(env.getExecRoot(), outStream);
+  }
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     env.getEventBus().register(this);
-    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    if (executionOptions != null
-        && executionOptions.executionLogFile != null
-        && !executionOptions.executionLogFile.isEmpty()) {
-      try {
-        spawnLogContext = new SpawnLogContext(
-            env.getExecRoot(),
-            new AsynchronousFileOutputStream(executionOptions.executionLogFile));
-      } catch (IOException e) {
-        env.getReporter().handle(Event.error(e.getMessage()));
-        env.getBlazeModuleEnvironment().exit(new AbruptExitException(
-            "Error found creating SpawnLogContext", ExitCode.COMMAND_LINE_ERROR));
-      }
+
+    try {
+      initOutputs(env);
+    } catch (IOException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      env.getBlazeModuleEnvironment()
+          .exit(
+              new AbruptExitException(
+                  "Error initializing execution log", ExitCode.COMMAND_LINE_ERROR, e));
+    }
+
+    if (spawnLogContext != null) {
       builder.addActionContext(spawnLogContext);
       builder.addStrategyByContext(SpawnLogContext.class, "");
-    } else {
-      spawnLogContext = null;
     }
   }
 
   @Override
-  public void afterCommand() {
+  public void afterCommand() throws AbruptExitException {
+    boolean done = false;
     if (spawnLogContext != null) {
       try {
         spawnLogContext.close();
+        if (!outputStreams.isEmpty()) {
+          InputStream in = rawOutput.getInputStream();
+          StableSort.stableSort(in, outputStreams);
+          outputStreams.close();
+        }
+        done = true;
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        throw new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
       } finally {
-        spawnLogContext = null;
+        if (!done && !outputStreams.isEmpty()) {
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      "Execution log might not have been populated. Raw execution log is at "
+                          + rawOutput));
+        }
+        clear();
       }
     }
   }

@@ -855,6 +855,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_execlog_test",
+    srcs = ["bazel_execlog_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "new_local_repo_test",
     srcs = ["new_local_repo_test.sh"],
     data = [":test-deps"],

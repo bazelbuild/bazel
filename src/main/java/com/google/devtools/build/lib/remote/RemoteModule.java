@@ -174,8 +174,10 @@ public final class RemoteModule extends BlazeModule {
 
     try {
       List<ClientInterceptor> interceptors = new ArrayList<>();
-      if (!remoteOptions.experimentalRemoteGrpcLog.isEmpty()) {
-        rpcLogFile = new AsynchronousFileOutputStream(remoteOptions.experimentalRemoteGrpcLog);
+      if (remoteOptions.experimentalRemoteGrpcLog != null) {
+        rpcLogFile =
+            new AsynchronousFileOutputStream(
+                env.getWorkingDirectory().getRelative(remoteOptions.experimentalRemoteGrpcLog));
         interceptors.add(new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock()));
       }
 
