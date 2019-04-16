@@ -594,6 +594,7 @@ genrule(
 )
 
 JAVA_VERSIONS = ("9", "10")
+
 [
     genrule(
         name = "java_tools_dist_java" + java_version,
