@@ -42,6 +42,7 @@
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
+#include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
 #include "src/tools/launcher/util/launcher_util.h"
 #include "third_party/ijar/common.h"
@@ -1098,7 +1099,7 @@ bool CreateCommandLine(const Path& path, const std::wstring& args,
 bool StartSubprocess(const Path& path, const std::wstring& args,
                      const Path& outerr, std::unique_ptr<Tee>* tee,
                      LARGE_INTEGER* start_time,
-                     bazel::windows::AutoHandle* process) {
+                     bazel::windows::WaitableProcess* process) {
   SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
                                                NULL, TRUE};
 
@@ -1139,16 +1140,6 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
     return false;
   }
 
-  // Create an attribute object that specifies which particular handles shall
-  // the subprocess inherit. We pass this object to CreateProcessW.
-  std::unique_ptr<bazel::windows::AutoAttributeList> attr_list;
-  std::wstring werror;
-  if (!bazel::windows::AutoAttributeList::Create(
-          devnull_read, pipe_write, pipe_write_dup, &attr_list, &werror)) {
-    LogError(__LINE__, werror);
-    return false;
-  }
-
   // Open a handle to the test log file. The "tee" thread will write everything
   // into it that the subprocess writes to the pipe.
   bazel::windows::AutoHandle test_outerr;
@@ -1177,57 +1168,13 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
     return false;
   }
 
-  PROCESS_INFORMATION process_info;
-  STARTUPINFOEXW startup_info;
-  attr_list->InitStartupInfoExW(&startup_info);
-
-  std::unique_ptr<WCHAR[]> cmdline;
-  if (!CreateCommandLine(path, args, &cmdline)) {
+  std::wstring werror;
+  if (!process->Create(path.Get(), args, nullptr, L"", devnull_read, pipe_write,
+                       pipe_write_dup, start_time, &werror)) {
+    LogError(__LINE__, werror);
     return false;
   }
-
-  QueryPerformanceCounter(start_time);
-  if (CreateProcessW(NULL, cmdline.get(), NULL, NULL, TRUE,
-                     CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
-                     NULL, NULL, &startup_info.StartupInfo,
-                     &process_info) != 0) {
-    CloseHandle(process_info.hThread);
-    *process = process_info.hProcess;
-    return true;
-  } else {
-    DWORD err = GetLastError();
-    LogErrorWithValue(
-        __LINE__,
-        (std::wstring(L"CreateProcessW failed (") + cmdline.get() + L")")
-            .c_str(),
-        err);
-    return false;
-  }
-}
-
-int WaitForSubprocess(HANDLE process, LARGE_INTEGER* end_time) {
-  DWORD result = WaitForSingleObject(process, INFINITE);
-  QueryPerformanceCounter(end_time);
-  switch (result) {
-    case WAIT_OBJECT_0: {
-      DWORD exit_code;
-      if (!GetExitCodeProcess(process, &exit_code)) {
-        DWORD err = GetLastError();
-        LogErrorWithValue(__LINE__, "GetExitCodeProcess failed", err);
-        return 1;
-      }
-      return exit_code;
-    }
-    case WAIT_FAILED: {
-      DWORD err = GetLastError();
-      LogErrorWithValue(__LINE__, "WaitForSingleObject failed", err);
-      return 1;
-    }
-    default:
-      LogErrorWithValue(
-          __LINE__, "WaitForSingleObject returned unexpected result", result);
-      return 1;
-  }
+  return true;
 }
 
 bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
@@ -1385,14 +1332,27 @@ bool TeeImpl::MainFunc() const {
 int RunSubprocess(const Path& test_path, const std::wstring& args,
                   const Path& test_outerr, Duration* test_duration) {
   std::unique_ptr<Tee> tee;
-  bazel::windows::AutoHandle process;
+  bazel::windows::WaitableProcess process;
   LARGE_INTEGER start, end, freq;
   if (!StartSubprocess(test_path, args, test_outerr, &tee, &start, &process)) {
     LogError(__LINE__, std::wstring(L"Failed to start test process \"") +
                            test_path.Get() + L"\"");
     return 1;
   }
-  int result = WaitForSubprocess(process, &end);
+
+  std::wstring werror;
+  int wait_res = process.WaitFor(-1, &end, &werror);
+  if (wait_res != bazel::windows::WaitableProcess::kWaitSuccess) {
+    LogErrorWithValue(__LINE__, werror, wait_res);
+    return 1;
+  }
+
+  werror.clear();
+  int result = process.GetExitCode(&werror);
+  if (!werror.empty()) {
+    LogError(__LINE__, werror);
+    return 1;
+  }
 
   QueryPerformanceFrequency(&freq);
   end.QuadPart -= start.QuadPart;
