@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
@@ -40,6 +41,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
+  private final TreeDeleter treeDeleter;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool.
@@ -50,7 +52,11 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    * @param timeoutKillDelay additional grace period before killing timing out commands
    */
   ProcessWrapperSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay) {
+      CommandEnvironment cmdEnv,
+      Path sandboxBase,
+      String productName,
+      Duration timeoutKillDelay,
+      TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
@@ -60,6 +66,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             : new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
     this.timeoutKillDelay = timeoutKillDelay;
+    this.treeDeleter = treeDeleter;
   }
 
   @Override
@@ -107,7 +114,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
                 execRoot,
                 getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
             SandboxHelpers.getOutputs(spawn),
-            getWritableDirs(sandboxExecRoot, environment));
+            getWritableDirs(sandboxExecRoot, environment),
+            treeDeleter);
 
     return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }

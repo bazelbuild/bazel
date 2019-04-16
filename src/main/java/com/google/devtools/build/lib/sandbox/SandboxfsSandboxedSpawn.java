@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.SandboxfsProcess.Mapping;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -62,6 +63,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /** Map the targets of symlinks within the sandbox if true. */
   private final boolean mapSymlinkTargets;
 
+  /** Scheduler for tree deletions. */
+  private final TreeDeleter treeDeleter;
+
   /**
    * Writable directory where the spawn runner keeps control files and the execroot outside of the
    * sandboxfs instance.
@@ -95,6 +99,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    * @param writableDirs directories where the spawn can write files to, relative to the sandbox's
    *     dynamically-allocated execroot
    * @param mapSymlinkTargets map the targets of symlinks within the sandbox if true
+   * @param treeDeleter scheduler for tree deletions
    */
   SandboxfsSandboxedSpawn(
       SandboxfsProcess process,
@@ -104,7 +109,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       Map<PathFragment, Path> inputs,
       SandboxOutputs outputs,
       Set<PathFragment> writableDirs,
-      boolean mapSymlinkTargets) {
+      boolean mapSymlinkTargets,
+      TreeDeleter treeDeleter) {
     this.process = process;
     this.arguments = arguments;
     this.environment = environment;
@@ -121,6 +127,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     }
     this.writableDirs = writableDirs;
     this.mapSymlinkTargets = mapSymlinkTargets;
+    this.treeDeleter = treeDeleter;
 
     this.sandboxPath = sandboxPath;
     this.sandboxScratchDir = sandboxPath.getRelative("scratch");
@@ -184,7 +191,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     }
 
     try {
-      sandboxPath.deleteTree();
+      treeDeleter.deleteTree(sandboxPath);
     } catch (IOException e) {
       // This usually means that the Spawn itself exited but still has children running that
       // we couldn't wait for, which now block deletion of the sandbox directory.  (Those processes

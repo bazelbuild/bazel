@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -97,6 +98,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Duration timeoutKillDelay;
   private final @Nullable SandboxfsProcess sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
+  private final TreeDeleter treeDeleter;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -117,7 +119,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperDir,
       Duration timeoutKillDelay,
       @Nullable SandboxfsProcess sandboxfsProcess,
-      boolean sandboxfsMapSymlinkTargets) {
+      boolean sandboxfsMapSymlinkTargets,
+      TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.blazeDirs = cmdEnv.getDirectories();
@@ -131,6 +134,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.sandboxfsProcess = sandboxfsProcess;
     this.sandboxfsMapSymlinkTargets = sandboxfsMapSymlinkTargets;
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
+    this.treeDeleter = treeDeleter;
   }
 
   @Override
@@ -201,7 +205,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                   getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
               outputs,
               ImmutableSet.of(),
-              sandboxfsMapSymlinkTargets);
+              sandboxfsMapSymlinkTargets,
+              treeDeleter);
     } else {
       sandbox =
           new SymlinkedSandboxedSpawn(
@@ -215,7 +220,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                   execRoot,
                   getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
               outputs,
-              writableDirs);
+              writableDirs,
+              treeDeleter);
     }
 
     return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
@@ -323,7 +329,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  public void cleanupSandboxBase(Path sandboxBase) throws IOException {
+  public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
+    // Delete the inaccessible files synchronously, bypassing the treeDeleter. They are only a
+    // couple of files that can be deleted fast, and ensuring they are gone at the end of every
+    // build avoids annoying permission denied errors if the user happens to run "rm -rf" on the
+    // output base. (We have some tests that do that.)
     if (inaccessibleHelperDir.exists()) {
       inaccessibleHelperDir.chmod(0700);
       inaccessibleHelperDir.deleteTree();
@@ -333,6 +343,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       inaccessibleHelperFile.delete();
     }
 
-    super.cleanupSandboxBase(sandboxBase);
+    super.cleanupSandboxBase(sandboxBase, treeDeleter);
   }
 }
