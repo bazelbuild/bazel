@@ -176,10 +176,13 @@ def _introduces_version_requirement(target, target_attr, version):
             fail("Illegal state")
 
     # No good, check the direct deps' provider fields.
-    return not any([
-        _has_version_requirement(dep, version)
-        for dep in target_attr.deps
-    ])
+    if not hasattr(target_attr, "deps"):
+        return True
+    else:
+        return not any([
+            _has_version_requirement(dep, version)
+            for dep in target_attr.deps
+        ])
 
 def _empty_depswithpaths():
     """Initializes an empty `_DepsWithPathsInfo` object."""
@@ -235,11 +238,14 @@ def _find_requirements_impl(target, ctx):
     # Determine whether this target introduces a requirement. If so, any deps
     # that introduce that requirement are not propagated, though they might
     # still be considered top-most if an alternate path exists.
-    dep_tv_infos = [
-        d[_TransitiveVersionInfo]
-        for d in ctx.rule.attr.deps
-        if _TransitiveVersionInfo in d
-    ]
+    if not hasattr(ctx.rule.attr, "deps"):
+        dep_tv_infos = []
+    else:
+        dep_tv_infos = [
+            d[_TransitiveVersionInfo]
+            for d in ctx.rule.attr.deps
+            if _TransitiveVersionInfo in d
+        ]
 
     if not _has_version_requirement(target, "PY2"):
         new_py2 = _empty_depswithpaths()
