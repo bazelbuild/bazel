@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2.engine;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
 
 import com.google.common.collect.Iterables;
@@ -46,13 +45,7 @@ import org.junit.Test;
 /** Tests for {@link PostAnalysisQueryEnvironment}. */
 public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
-  /** Partial query to filter out implicit dependencies of GenRule rules. */
-  @Override
-  protected String getDependencyCorrectionWithGen() {
-    return getDependencyCorrection() + " - deps(" + GENRULE_SETUP + ")";
-  }
-
-  /** Partial query to filter out the platform labels. */
+  // Also filter out platform dependencies.
   @Override
   protected String getDependencyCorrection() {
     return " - deps(" + PLATFORM_LABEL + ")";
