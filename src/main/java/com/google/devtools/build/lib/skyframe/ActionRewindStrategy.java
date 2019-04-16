@@ -216,6 +216,42 @@ public class ActionRewindStrategy {
 
     HashMultimap<Artifact, ActionInput> lostInputsByDepOwners = HashMultimap.create();
     for (ActionInput lostInput : lostInputs) {
+      boolean foundLostInputDepOwner = false;
+      Artifact owner = inputOwners.getOwner(lostInput);
+
+      // Rewinding must invalidate all Skyframe paths from the failed action to the action which
+      // generates the lost input. Intermediate nodes not on the shortest path to that action may
+      // have values that depend on the output of that action. If these intermediate nodes are not
+      // invalidated, then their values may become stale.
+
+      Collection<Artifact> runfilesTransitiveOwners = null;
+      if (owner != null) {
+        runfilesTransitiveOwners = runfilesDepOwners.getDepOwners(owner);
+        for (Artifact runfilesTransitiveOwner : runfilesTransitiveOwners) {
+          if (failedActionDeps.contains(runfilesTransitiveOwner)) {
+            // The lost input's owning tree artifact or fileset is included in a runfiles middleman
+            // that the action directly depends on.
+            lostInputsByDepOwners.put(runfilesTransitiveOwner, lostInput);
+            foundLostInputDepOwner = true;
+          }
+        }
+      }
+
+      Collection<Artifact> runfilesOwners = runfilesDepOwners.getDepOwners(lostInput);
+      for (Artifact runfilesOwner : runfilesOwners) {
+        if (failedActionDeps.contains(runfilesOwner)) {
+          lostInputsByDepOwners.put(runfilesOwner, lostInput);
+          foundLostInputDepOwner = true;
+        }
+      }
+
+      if (owner != null && failedActionDeps.contains(owner)) {
+        // The lost input is included in a tree artifact or fileset that the action directly depends
+        // on.
+        lostInputsByDepOwners.put(owner, lostInput);
+        foundLostInputDepOwner = true;
+      }
+
       if (failedActionDeps.contains(lostInput)) {
         Preconditions.checkState(
             lostInput instanceof Artifact,
@@ -224,34 +260,11 @@ public class ActionRewindStrategy {
             lostInput,
             failedActionForLogging);
         lostInputsByDepOwners.put((Artifact) lostInput, lostInput);
-        continue;
+        foundLostInputDepOwner = true;
       }
 
-      Artifact owner = inputOwners.getOwner(lostInput);
-      if (owner != null && failedActionDeps.contains(owner)) {
-        // The lost input is included in a tree artifact or fileset that the action directly depends
-        // on.
-        lostInputsByDepOwners.put(owner, lostInput);
+      if (foundLostInputDepOwner) {
         continue;
-      }
-
-      Artifact runfilesDepOwner = runfilesDepOwners.getDepOwner(lostInput);
-      if (runfilesDepOwner != null && failedActionDeps.contains(runfilesDepOwner)) {
-        // The lost input is included in a runfiles middleman that the action directly depends on.
-        lostInputsByDepOwners.put(runfilesDepOwner, lostInput);
-        continue;
-      }
-
-      Artifact runfilesDepTransitiveOwner = null;
-      if (owner != null) {
-        runfilesDepTransitiveOwner = runfilesDepOwners.getDepOwner(owner);
-        if (runfilesDepTransitiveOwner != null
-            && failedActionDeps.contains(runfilesDepTransitiveOwner)) {
-          // The lost input is included in a tree artifact or fileset which is included in a
-          // runfiles middleman that the action directly depends on.
-          lostInputsByDepOwners.put(runfilesDepTransitiveOwner, lostInput);
-          continue;
-        }
       }
 
       // Rewinding can't do anything about a lost input that can't be associated with a direct dep
@@ -260,18 +273,14 @@ public class ActionRewindStrategy {
       // case, reevaluating the failed action (and no other deps) may help, because doing so may
       // rerun the generating spawn.
       //
-      // In other cases, such as with bugs, the second time the action fails will cause a crash in
-      // checkIfActionLostInputTwice. We log that this has occurred.
+      // In other cases, such as with bugs, when the action fails enough it will cause a crash in
+      // checkIfActionLostInputTooManyTimes. We log that this has occurred.
       logger.info(
           String.format(
               "lostInput not a dep of the failed action, and can't be associated with such a dep. "
-                  + "lostInput: %s, owner: %s, runfilesDepOwner: %s, runfilesDepTransitiveOwner: %s"
-                  + ", failedAction: %.10000s",
-              lostInput,
-              owner,
-              runfilesDepOwner,
-              runfilesDepTransitiveOwner,
-              failedActionForLogging));
+                  + "lostInput: %s, owner: %s, runfilesOwners: %s, runfilesTransitiveOwners:"
+                  + " %s, failedAction: %.10000s",
+              lostInput, owner, runfilesOwners, runfilesTransitiveOwners, failedActionForLogging));
     }
     return lostInputsByDepOwners;
   }
@@ -370,10 +379,9 @@ public class ActionRewindStrategy {
       // lostInputsByOwners.
       //
       // Rewinding is expected to be rare, so refining this may not be necessary.
-      if (!rewindGraph.addNode(input)) {
-        continue;
+      if (rewindGraph.addNode(input)) {
+        newlyVisitedArtifacts.add(input);
       }
-      newlyVisitedArtifacts.add(input);
       rewindGraph.putEdge(actionKey, input);
     }
 

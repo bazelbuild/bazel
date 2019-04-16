@@ -13,21 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import java.util.Collection;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A {@link ActionInputDepOwners} which, as a {@link ActionInputMapSink}, is mutable. */
 public class ActionInputDepOwnerMap implements ActionInputMapSink, ActionInputDepOwners {
 
   private final ImmutableSet<ActionInput> inputsOfInterest;
-  private final Map<ActionInput, Artifact> depOwnersByInputs;
+  private final Multimap<ActionInput, Artifact> depOwnersByInputs;
 
   public ActionInputDepOwnerMap(Collection<ActionInput> inputsOfInterest) {
     this.inputsOfInterest = ImmutableSet.copyOf(inputsOfInterest);
-    this.depOwnersByInputs = Maps.newHashMapWithExpectedSize(inputsOfInterest.size());
+    this.depOwnersByInputs =
+        HashMultimap.create(/*expectedKeys=*/ inputsOfInterest.size(), /*expectedValuesPerKey=*/ 1);
   }
 
   @Override
@@ -35,12 +36,11 @@ public class ActionInputDepOwnerMap implements ActionInputMapSink, ActionInputDe
     if (depOwner == null || !inputsOfInterest.contains(input)) {
       return false;
     }
-    return depOwnersByInputs.put(input, depOwner) == null;
+    return depOwnersByInputs.put(input, depOwner);
   }
 
   @Override
-  @Nullable
-  public Artifact getDepOwner(ActionInput input) {
+  public Collection<Artifact> getDepOwners(ActionInput input) {
     return depOwnersByInputs.get(input);
   }
 }
