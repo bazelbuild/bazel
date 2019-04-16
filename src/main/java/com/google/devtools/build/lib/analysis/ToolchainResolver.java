@@ -38,9 +38,10 @@ import com.google.devtools.build.lib.skyframe.PlatformLookupUtil;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsValue;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
+import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionFunction;
+import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionFunction.NoToolchainFoundException;
+import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
-import com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction.NoToolchainFoundException;
-import com.google.devtools.build.lib.skyframe.ToolchainResolutionValue;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException2;
@@ -114,8 +115,8 @@ public class ToolchainResolver {
    * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction} (to load platforms and
    * toolchains), to {@link
    * com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction}, and to {@link
-   * com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction}. This method return {@code
-   * null} to signal a SkyFrame restart is needed to resolve dependencies.
+   * SingleToolchainResolutionFunction}. This method returns {@code null} to signal a SkyFrame
+   * restart is needed to resolve dependencies.
    */
   @Nullable
   public UnloadedToolchainContext resolve() throws InterruptedException, ToolchainException {
@@ -286,10 +287,10 @@ public class ToolchainResolver {
       throws InterruptedException, ToolchainException, ValueMissingException {
 
     // Find the toolchains for the required toolchain types.
-    List<ToolchainResolutionValue.Key> registeredToolchainKeys = new ArrayList<>();
+    List<SingleToolchainResolutionValue.Key> registeredToolchainKeys = new ArrayList<>();
     for (Label toolchainTypeLabel : requiredToolchainTypeLabels) {
       registeredToolchainKeys.add(
-          ToolchainResolutionValue.key(
+          SingleToolchainResolutionValue.key(
               configurationKey,
               toolchainTypeLabel,
               platformKeys.targetPlatformKey(),
@@ -315,17 +316,17 @@ public class ToolchainResolver {
       try {
         ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>
             valueOrException = entry.getValue();
-        ToolchainResolutionValue toolchainResolutionValue =
-            (ToolchainResolutionValue) valueOrException.get();
-        if (toolchainResolutionValue == null) {
+        SingleToolchainResolutionValue singleToolchainResolutionValue =
+            (SingleToolchainResolutionValue) valueOrException.get();
+        if (singleToolchainResolutionValue == null) {
           valuesMissing = true;
           continue;
         }
 
-        ToolchainTypeInfo requiredToolchainType = toolchainResolutionValue.toolchainType();
+        ToolchainTypeInfo requiredToolchainType = singleToolchainResolutionValue.toolchainType();
         requiredToolchainTypesBuilder.add(requiredToolchainType);
         resolvedToolchains.putAll(
-            findPlatformsAndLabels(requiredToolchainType, toolchainResolutionValue));
+            findPlatformsAndLabels(requiredToolchainType, singleToolchainResolutionValue));
       } catch (NoToolchainFoundException e) {
         // Save the missing type and continue looping to check for more.
         missingToolchains.add(e.missingToolchainTypeLabel());
@@ -386,12 +387,13 @@ public class ToolchainResolver {
    * resolvedToolchains}.
    */
   private static Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> findPlatformsAndLabels(
-      ToolchainTypeInfo requiredToolchainType, ToolchainResolutionValue toolchainResolutionValue) {
+      ToolchainTypeInfo requiredToolchainType,
+      SingleToolchainResolutionValue singleToolchainResolutionValue) {
 
     Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains =
         HashBasedTable.create();
     for (Map.Entry<ConfiguredTargetKey, Label> entry :
-        toolchainResolutionValue.availableToolchainLabels().entrySet()) {
+        singleToolchainResolutionValue.availableToolchainLabels().entrySet()) {
       resolvedToolchains.put(entry.getKey(), requiredToolchainType, entry.getValue());
     }
     return resolvedToolchains;

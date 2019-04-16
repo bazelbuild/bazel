@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
@@ -47,9 +46,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/** Tests for {@link ToolchainResolutionValue} and {@link ToolchainResolutionFunction}. */
+/**
+ * Tests for {@link SingleToolchainResolutionValue} and {@link SingleToolchainResolutionFunction}.
+ */
 @RunWith(JUnit4.class)
-public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
+public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final ConfiguredTargetKey LINUX_CTKEY = Mockito.mock(ConfiguredTargetKey.class);
 
@@ -72,7 +73,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         /*nonceVersion=*/ null);
   }
 
-  private EvaluationResult<ToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
+  private EvaluationResult<SingleToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
       throws InterruptedException {
     ConfiguredTarget mockLinuxTarget = new SerializableConfiguredTarget(linuxPlatform);
     ConfiguredTarget mockMacTarget = new SerializableConfiguredTarget(macPlatform);
@@ -97,14 +98,14 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void testResolution_singleExecutionPlatform() throws Exception {
     SkyKey key =
-        ToolchainResolutionValue.key(
+        SingleToolchainResolutionValue.key(
             targetConfigKey, testToolchainTypeLabel, LINUX_CTKEY, ImmutableList.of(MAC_CTKEY));
-    EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
+    EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
 
-    ToolchainResolutionValue toolchainResolutionValue = result.get(key);
-    assertThat(toolchainResolutionValue.availableToolchainLabels())
+    SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
+    assertThat(singleToolchainResolutionValue.availableToolchainLabels())
         .containsExactly(MAC_CTKEY, makeLabel("//toolchain:toolchain_2_impl"));
   }
 
@@ -123,17 +124,17 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "'//extra:extra_toolchain')");
 
     SkyKey key =
-        ToolchainResolutionValue.key(
+        SingleToolchainResolutionValue.key(
             targetConfigKey,
             testToolchainTypeLabel,
             LINUX_CTKEY,
             ImmutableList.of(LINUX_CTKEY, MAC_CTKEY));
-    EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
+    EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
 
-    ToolchainResolutionValue toolchainResolutionValue = result.get(key);
-    assertThat(toolchainResolutionValue.availableToolchainLabels())
+    SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
+    assertThat(singleToolchainResolutionValue.availableToolchainLabels())
         .containsExactly(
             LINUX_CTKEY,
             makeLabel("//extra:extra_toolchain_impl"),
@@ -147,9 +148,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     rewriteWorkspace();
 
     SkyKey key =
-        ToolchainResolutionValue.key(
+        SingleToolchainResolutionValue.key(
             targetConfigKey, testToolchainTypeLabel, LINUX_CTKEY, ImmutableList.of(MAC_CTKEY));
-    EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
+    EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -162,30 +163,30 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void testToolchainResolutionValue_equalsAndHashCode() {
     new EqualsTester()
         .addEqualityGroup(
-            ToolchainResolutionValue.create(
+            SingleToolchainResolutionValue.create(
                 testToolchainType,
                 ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))),
-            ToolchainResolutionValue.create(
+            SingleToolchainResolutionValue.create(
                 testToolchainType,
                 ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))))
         // Different execution platform, same label.
         .addEqualityGroup(
-            ToolchainResolutionValue.create(
+            SingleToolchainResolutionValue.create(
                 testToolchainType,
                 ImmutableMap.of(MAC_CTKEY, makeLabel("//test:toolchain_impl_1"))))
         // Same execution platform, different label.
         .addEqualityGroup(
-            ToolchainResolutionValue.create(
+            SingleToolchainResolutionValue.create(
                 testToolchainType,
                 ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_2"))))
         // Different execution platform, different label.
         .addEqualityGroup(
-            ToolchainResolutionValue.create(
+            SingleToolchainResolutionValue.create(
                 testToolchainType,
                 ImmutableMap.of(MAC_CTKEY, makeLabel("//test:toolchain_impl_2"))))
         // Multiple execution platforms.
         .addEqualityGroup(
-            ToolchainResolutionValue.create(
+            SingleToolchainResolutionValue.create(
                 testToolchainType,
                 ImmutableMap.<ConfiguredTargetKey, Label>builder()
                     .put(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))
@@ -263,13 +264,12 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     public void repr(SkylarkPrinter printer) {}
 
     @Override
-    public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
+    public Object getIndex(Object key, Location loc, StarlarkContext context) {
       return null;
     }
 
     @Override
-    public boolean containsKey(Object key, Location loc, StarlarkContext context)
-        throws EvalException {
+    public boolean containsKey(Object key, Location loc, StarlarkContext context) {
       return false;
     }
   }
