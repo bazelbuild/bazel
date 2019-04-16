@@ -2151,4 +2151,43 @@ EOF
   expect_log "bar.bzl:4:3"
 }
 
+function test_missing_repo_reported() {
+  # Verify that, if a WORKSPACE cycle is reported due to
+  # a missing repository definition, the name of the actually
+  # missing repository is reported.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  cd main
+
+  cat > withimplicit.bzl <<'EOF'
+def _impl(ctx):
+  ctx.file("data.txt", ctx.attr.value)
+  ctx.file("data.bzl", "value = %s" % (ctx.attr.value,))
+  ctx.symlink(ctx.attr._generic_build_file, "BUILD")
+
+data_repo = repository_rule(
+  implementation = _impl,
+  attrs = { "value" : attr.string(),
+            "_generic_build_file" : attr.label(
+                default = Label("@this_repo_is_missing//:generic.BUILD")) },
+)
+EOF
+  touch BUILD
+  cat > WORKSPACE <<'EOF'
+load("//:withimplicit.bzl", "data_repo")
+
+data_repo(
+  name = "data",
+  value = "42")
+
+load("@data//:value.bzl", "value")
+EOF
+
+  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+
+  expect_log "add.*this_repo_is_missing.*WORKSPACE"
+}
+
 run_suite "external tests"

@@ -61,6 +61,17 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
   private static final Predicate<SkyKey> IS_LOCAL_REPOSITORY_LOOKUP =
       SkyFunctions.isSkyFunction(SkyFunctions.LOCAL_REPOSITORY_LOOKUP);
 
+  private static void requestRepoDefinitions(
+      ExtendedEventHandler eventHandler, Iterable<SkyKey> repos) {
+    for (SkyKey repo : repos) {
+      if (repo instanceof RepositoryValue.Key) {
+        eventHandler.post(
+            new RequestRepositoryInformationEvent(
+                ((RepositoryValue.Key) repo).argument().strippedName()));
+      }
+    }
+  }
+
   @Override
   public boolean maybeReportCycle(
       SkyKey topLevelKey,
@@ -142,50 +153,64 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       eventHandler.handle(Event.error(null, cycleMessage.toString()));
       // To help debugging, request that the information be printed about where the respective
       // repositories were defined.
-      for (SkyKey repo : repos) {
-        if (repo instanceof RepositoryValue.Key) {
-          eventHandler.post(
-              new RequestRepositoryInformationEvent(
-                  ((RepositoryValue.Key) repo).argument().strippedName()));
-        }
-      }
+      requestRepoDefinitions(eventHandler, repos);
       return true;
-    } else if (Iterables.any(cycle, IS_WORKSPACE_FILE)
-        || IS_REPOSITORY_DIRECTORY.apply(lastPathElement)
-        || IS_PACKAGE_SKY_KEY.apply(lastPathElement)
-        || IS_EXTERNAL_PACKAGE.apply(lastPathElement)
-        || IS_LOCAL_REPOSITORY_LOOKUP.apply(lastPathElement)) {
-      // We have a cycle in the workspace file, report as such.
+    } else if (Iterables.any(cycle, IS_REPOSITORY) && Iterables.any(cycle, IS_WORKSPACE_FILE)) {
+      Iterable<SkyKey> repos =
+          Iterables.filter(Iterables.concat(pathToCycle, cycle), IS_REPOSITORY);
+
+      StringBuilder message = new StringBuilder();
+
       if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
         Label fileLabel =
             ((SkylarkImportLookupValue.SkylarkImportLookupKey)
                     Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
                 .getImportLabel();
-        String repositoryName = fileLabel.getPackageIdentifier().getRepository().strippedName();
-        eventHandler.handle(
-            Event.error(
-                null,
-                "Failed to load Starlark extension '"
-                    + fileLabel
-                    + "'.\n"
-                    + "It usually happens when the repository is not defined prior to being used.\n"
-                    + "This could either mean you have to add the '"
-                    + fileLabel.getWorkspaceName()
-                    + "' repository with a statement like `http_archive` in your WORKSPACE file"
-                    + " (note that transitive dependencies are not added automatically), or"
-                    + " the repository '"
-                    + repositoryName
-                    + "' was defined too late in your WORKSPACE file."));
-        return true;
-      } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
-        PackageIdentifier pkg =
-            (PackageIdentifier)
-                Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
-        eventHandler.handle(Event.error(null, "cannot load package '" + pkg + "'"));
-        return true;
+        message.append("Failed to load Starlark extension '").append(fileLabel).append("'.\n");
       }
-    }
 
+      message
+          .append("Cycle in the workspace file detected. ")
+          .append("This indicates that a repository is used prior to being defined.\n")
+          .append(
+              "The following chain of repository dependencies lead to the missing definition.\n");
+      for (SkyKey repo : repos) {
+        if (repo instanceof RepositoryValue.Key) {
+          message
+              .append(" - ")
+              .append(((RepositoryValue.Key) repo).argument().getName())
+              .append("\n");
+        }
+      }
+      SkyKey missingRepo = Iterables.getLast(repos);
+      if (missingRepo instanceof RepositoryValue.Key) {
+        message
+            .append("This could either mean you have to add the '")
+            .append(((RepositoryValue.Key) missingRepo).argument().getName())
+            .append("' repository with a statement like `http_archive` in your WORKSPACE file")
+            .append(" (note that transitive dependencies are not added automatically), or move")
+            .append(" an existing definition earlier in your WORKSPACE file.");
+      }
+      eventHandler.handle(Event.error(message.toString()));
+      // To help debugging, request that the information be printed about where the respective
+      // repositories were defined.
+      requestRepoDefinitions(eventHandler, repos);
+      return true;
+    } else if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
+        Label fileLabel =
+            ((SkylarkImportLookupValue.SkylarkImportLookupKey)
+                    Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
+                .getImportLabel();
+      eventHandler.handle(
+          Event.error(null, "Failed to load Starlark extension '" + fileLabel + "'.\n"));
+        return true;
+    } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
+      PackageIdentifier pkg =
+          (PackageIdentifier)
+              Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
+      eventHandler.handle(Event.error(null, "cannot load package '" + pkg + "'"));
+      return true;
+    }
     return false;
   }
 }
