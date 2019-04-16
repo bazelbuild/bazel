@@ -217,7 +217,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    clientEnvironmentSupplier.set(env.getActionClientEnv());
+    clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
     resolvedFile = Optional.<RootedPath>absent();

@@ -246,6 +246,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.of(
+            PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.<String, String>of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
                 ImmutableMap.<RepositoryName, PathFragment>of()),

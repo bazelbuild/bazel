@@ -2440,6 +2440,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options);
+    setRepoEnv(options);
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteOutputsMode(
         remoteOptions != null
@@ -2499,6 +2500,17 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   @VisibleForTesting
   public void setActionEnv(Map<String, String> actionEnv) {
     PrecomputedValue.ACTION_ENV.set(injectable(), actionEnv);
+  }
+
+  private void setRepoEnv(OptionsProvider options) {
+    BuildConfiguration.Options opt = options.getOptions(BuildConfiguration.Options.class);
+    LinkedHashMap<String, String> repoEnv = new LinkedHashMap<>();
+    if (opt != null) {
+      for (Map.Entry<String, String> v : opt.repositoryEnvironment) {
+        repoEnv.put(v.getKey(), v.getValue());
+      }
+    }
+    PrecomputedValue.REPO_ENV.set(injectable(), repoEnv);
   }
 
   public PathPackageLocator createPackageLocator(

@@ -809,6 +809,80 @@ function test_skylark_repository_file_invalidation_batch() {
   file_invalidation_test_template --batch
 }
 
+function test_repo_env() {
+  setup_skylark_repository
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  # Make a rule depending on the environment variable FOO,
+  # properly recording its value. Also add a time stamp
+  # to verify that the rule is rerun.
+  ctx.execute(["bash", "-c", "echo FOO=$FOO > env.txt"])
+  ctx.execute(["bash", "-c", "date +%s >> env.txt"])
+  ctx.file("BUILD", 'exports_files(["env.txt"])')
+
+repo = repository_rule(
+  implementation = _impl,
+  environ = ["FOO"],
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "repoenv",
+  outs = ["repoenv.txt"],
+  srcs = ["@foo//:env.txt"],
+  cmd = "cp $< $@",
+)
+
+# Have a normal rule, unrelated to the external repository.
+# To test if it was rerun, make it non-hermetic and record a
+# time stamp.
+genrule(
+  name = "unrelated",
+  outs = ["unrelated.txt"],
+  cmd = "date +%s > $@",
+)
+EOF
+  cat > .bazelrc <<EOF
+build:foo --repo_env=FOO=foo
+build:bar --repo_env=FOO=bar
+EOF
+
+  bazel build --config=foo //:repoenv //:unrelated
+  cp `bazel info bazel-genfiles 2>/dev/null`/repoenv.txt repoenv1.txt
+  cp `bazel info bazel-genfiles 2> /dev/null`/unrelated.txt unrelated1.txt
+  echo; cat repoenv1.txt; echo; cat unrelated1.txt; echo
+
+  grep -q 'FOO=foo' repoenv1.txt \
+      || fail "Expected FOO to be visible to repo rules"
+
+  sleep 2 # ensure any rerun will have a different time stamp
+
+  FOO=CHANGED bazel build --config=foo //:repoenv //:unrelated
+  # nothing should change, as actions don't see FOO and for repositories
+  # the value is fixed by --repo_env
+  cp `bazel info bazel-genfiles 2>/dev/null`/repoenv.txt repoenv2.txt
+  cp `bazel info bazel-genfiles 2> /dev/null`/unrelated.txt unrelated2.txt
+  echo; cat repoenv2.txt; echo; cat unrelated2.txt; echo
+
+  diff repoenv1.txt repoenv2.txt \
+      || fail "Expected repository to not change"
+  diff unrelated1.txt unrelated2.txt \
+      || fail "Expected unrelated action to not be rerun"
+
+  bazel build --config=bar //:repoenv //:unrelated
+  # The new config should be picked up, but the unrelated target should
+  # not be rerun
+  cp `bazel info bazel-genfiles 3>/dev/null`/repoenv.txt repoenv3.txt
+  cp `bazel info bazel-genfiles 3> /dev/null`/unrelated.txt unrelated3.txt
+  echo; cat repoenv3.txt; echo; cat unrelated3.txt; echo
+
+  grep -q 'FOO=bar' repoenv3.txt \
+      || fail "Expected FOO to be visible to repo rules"
+  diff unrelated1.txt unrelated3.txt \
+      || fail "Expected unrelated action to not be rerun"
+}
+
 function test_skylark_repository_executable_flag() {
   setup_skylark_repository
 
