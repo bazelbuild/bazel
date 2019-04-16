@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.Collection;
 import java.util.Map;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
@@ -35,4 +37,20 @@ public interface BuildEventArtifactUploader {
    * Shutdown any resources associated with the uploader.
    */
   void shutdown();
+
+  /**
+   * Returns a {@link PathConverter} for the uploaded files, or {@code null} when the uploaded
+   * failed.
+   */
+  default ListenableFuture<PathConverter> uploadReferencedLocalFiles(
+      Collection<LocalFile> localFiles) {
+    Map<Path, LocalFile> localFileMap = Maps.newHashMapWithExpectedSize(localFiles.size());
+    for (LocalFile localFile : localFiles) {
+      // It is possible for targets to have duplicate artifacts (same path but different owners)
+      // in their output groups. Since they didn't trigger an artifact conflict they are the
+      // same file, so just skip either one
+      localFileMap.putIfAbsent(localFile.path, localFile);
+    }
+    return upload(localFileMap);
+  }
 }
