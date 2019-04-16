@@ -144,12 +144,25 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java_tools_test",
+    name = "bazel_java_tools_javac9_test",
     size = "small",
     srcs = ["bazel_java_tools_test.sh"],
+    args = ["java9"],
     data = [
         ":test-deps",
-        "//src:java_tools.zip",
+        "//src:java_tools_java9.zip",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "bazel_java_tools_javac10_test",
+    size = "small",
+    srcs = ["bazel_java_tools_test.sh"],
+    args = ["java10"],
+    data = [
+        ":test-deps",
+        "//src:java_tools_java10.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
