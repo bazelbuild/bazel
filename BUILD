@@ -133,6 +133,14 @@ constraint_value(
     visibility = ["//visibility:public"],
 )
 
+platform(
+    name = "default_host_platform",
+    parents = ["@bazel_tools//platforms:host_platform"],
+    contraint_values = [
+        ":highcpu_machine",
+    ],
+)
+
 # The default RBE platform where most actions run on
 platform(
     name = "rbe_ubuntu1604_default",
