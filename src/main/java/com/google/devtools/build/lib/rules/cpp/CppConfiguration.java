@@ -647,10 +647,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.dontEnableHostNonhost;
   }
 
-  public boolean disableCcContextQuoteIncludesHook() {
-    return cppOptions.disableCcContextQuoteIncludesHook;
-  }
-
   public boolean requireCtxInConfigureFeatures() {
     return cppOptions.requireCtxInConfigureFeatures;
   }

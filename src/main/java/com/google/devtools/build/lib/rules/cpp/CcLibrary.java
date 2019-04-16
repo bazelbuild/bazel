@@ -168,7 +168,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                     .collect(ImmutableList.toImmutableList()))
             .addCcCompilationContexts(
                 ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
-            .addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
     CcLinkingHelper linkingHelper =

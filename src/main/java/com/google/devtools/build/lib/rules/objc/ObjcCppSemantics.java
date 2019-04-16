@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
 
 /**
  * CppSemantics for objc builds.
@@ -128,11 +126,6 @@ public class ObjcCppSemantics implements CppSemantics {
       }
       actionBuilder.addMandatoryInputs(generatedHeaders.build());
     }
-  }
-
-  @Override
-  public List<PathFragment> getQuoteIncludes(RuleContext ruleContext) {
-    return ImmutableList.of();
   }
 
   @Override

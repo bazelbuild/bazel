@@ -725,14 +725,6 @@ public class CppOptions extends FragmentOptions {
   public boolean useLLVMCoverageMapFormat;
 
   @Option(
-      name = "experimental_disable_cc_context_quote_includes_hook",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
-  public boolean disableCcContextQuoteIncludesHook;
-
-  @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
