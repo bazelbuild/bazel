@@ -16,13 +16,8 @@
 #
 # Tests the examples provided in Bazel
 #
-
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
 # --- begin runfiles.bash initialization ---
+set -euo pipefail
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
       export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
@@ -42,6 +37,9 @@ else
   exit 1
 fi
 # --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 # $1 is equal to the $(JAVABASE) make variable
 javabase="$1"
