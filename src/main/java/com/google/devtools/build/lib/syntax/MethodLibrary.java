@@ -27,9 +27,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -44,13 +45,11 @@ import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /** A helper class containing built in functions for the Skylark language. */
+@SkylarkGlobalLibrary
 public class MethodLibrary {
 
-  private MethodLibrary() {}
-
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "min",
-      returnType = Object.class,
       doc =
           "Returns the smallest one of all given arguments. "
               + "If only one argument is provided, it must be a non-empty iterable. "
@@ -61,22 +60,16 @@ public class MethodLibrary {
           @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction min =
-      new BuiltinFunction("min") {
-        @SuppressWarnings("unused") // Accessed via Reflection.
-        public Object invoke(SkylarkList<?> args, Location loc, Environment env)
-            throws EvalException {
-          try {
-            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc, env);
-          } catch (ComparisonException e) {
-            throw new EvalException(loc, e);
-          }
-        }
-      };
+  public Object min(SkylarkList<?> args, Location loc, Environment env) throws EvalException {
+    try {
+      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc, env);
+    } catch (ComparisonException e) {
+      throw new EvalException(loc, e);
+    }
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "max",
-      returnType = Object.class,
       doc =
           "Returns the largest one of all given arguments. "
               + "If only one argument is provided, it must be a non-empty iterable."
@@ -87,18 +80,13 @@ public class MethodLibrary {
           @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction max =
-      new BuiltinFunction("max") {
-        @SuppressWarnings("unused") // Accessed via Reflection.
-        public Object invoke(SkylarkList<?> args, Location loc, Environment env)
-            throws EvalException {
-          try {
-            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc, env);
-          } catch (ComparisonException e) {
-            throw new EvalException(loc, e);
-          }
-        }
-      };
+  public Object max(SkylarkList<?> args, Location loc, Environment env) throws EvalException {
+    try {
+      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc, env);
+    } catch (ComparisonException e) {
+      throw new EvalException(loc, e);
+    }
+  }
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
   private static Object findExtreme(
@@ -114,9 +102,8 @@ public class MethodLibrary {
     }
   }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "all",
-      returnType = Boolean.class,
       doc =
           "Returns true if all elements evaluate to True or if the collection is empty. "
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
@@ -126,22 +113,18 @@ public class MethodLibrary {
         @Param(
             name = "elements",
             type = Object.class,
-            doc = "A string or a collection of elements.")
+            noneable = true,
+            doc = "A string or a collection of elements.",
+            legacyNamed = true)
       },
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction all =
-      new BuiltinFunction("all") {
-        @SuppressWarnings("unused") // Accessed via Reflection.
-        public Boolean invoke(Object collection, Location loc, Environment env)
-            throws EvalException {
-          return !hasElementWithBooleanValue(collection, false, loc, env);
-        }
-      };
+  public Boolean all(Object collection, Location loc, Environment env) throws EvalException {
+    return !hasElementWithBooleanValue(collection, false, loc, env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "any",
-      returnType = Boolean.class,
       doc =
           "Returns true if at least one element evaluates to True. "
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
@@ -151,18 +134,15 @@ public class MethodLibrary {
         @Param(
             name = "elements",
             type = Object.class,
-            doc = "A string or a collection of elements.")
+            noneable = true,
+            doc = "A string or a collection of elements.",
+            legacyNamed = true)
       },
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction any =
-      new BuiltinFunction("any") {
-        @SuppressWarnings("unused") // Accessed via Reflection.
-        public Boolean invoke(Object collection, Location loc, Environment env)
-            throws EvalException {
-          return hasElementWithBooleanValue(collection, true, loc, env);
-        }
-      };
+  public Boolean any(Object collection, Location loc, Environment env) throws EvalException {
+    return hasElementWithBooleanValue(collection, true, loc, env);
+  }
 
   private static boolean hasElementWithBooleanValue(
       Object collection, boolean value, Location loc, Environment env) throws EvalException {
@@ -175,35 +155,29 @@ public class MethodLibrary {
     return false;
   }
 
-  // supported list methods
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "sorted",
-      returnType = MutableList.class,
       doc =
           "Sort a collection. Elements should all belong to the same orderable type, they are "
               + "sorted by their value (in ascending order). "
               + "It is an error if elements are not comparable (for example int with string)."
               + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
-      parameters = {@Param(name = "self", type = Object.class, doc = "This collection.")},
+      parameters = {
+        @Param(name = "self", type = Object.class, doc = "This collection.", legacyNamed = true)
+      },
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction sorted =
-      new BuiltinFunction("sorted") {
-        public MutableList<?> invoke(Object self, Location loc, Environment env)
-            throws EvalException {
-          try {
-            return MutableList.copyOf(
-                env,
-                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)));
-          } catch (EvalUtils.ComparisonException e) {
-            throw new EvalException(loc, e);
-          }
-        }
-      };
+  public MutableList<?> sorted(Object self, Location loc, Environment env) throws EvalException {
+    try {
+      return MutableList.copyOf(
+          env, EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)));
+    } catch (EvalUtils.ComparisonException e) {
+      throw new EvalException(loc, e);
+    }
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "reversed",
-      returnType = MutableList.class,
       doc =
           "Returns a list that contains the elements of the original sequence in reversed order."
               + "<pre class=\"language-python\">reversed([3, 5, 4]) == [4, 5, 3]</pre>",
@@ -211,151 +185,130 @@ public class MethodLibrary {
         @Param(
             name = "sequence",
             type = Object.class,
-            doc = "The sequence to be reversed (string, list or tuple).")
+            doc = "The sequence to be reversed (string, list or tuple).",
+            legacyNamed = true),
       },
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction reversed =
-      new BuiltinFunction("reversed") {
-        @SuppressWarnings("unused") // Accessed via Reflection.
-        public MutableList<?> invoke(Object sequence, Location loc, Environment env)
-            throws EvalException {
-          // We only allow lists and strings.
-          if (sequence instanceof SkylarkDict) {
-            throw new EvalException(
-                loc, "Argument to reversed() must be a sequence, not a dictionary.");
-          } else if (sequence instanceof NestedSet || sequence instanceof SkylarkNestedSet) {
-            throw new EvalException(
-                loc, "Argument to reversed() must be a sequence, not a depset.");
-          }
-          ArrayDeque<Object> tmpList = new ArrayDeque<>();
-          for (Object element : EvalUtils.toIterable(sequence, loc, env)) {
-            tmpList.addFirst(element);
-          }
-          return MutableList.copyOf(env, tmpList);
-        }
-      };
+  public MutableList<?> reversed(Object sequence, Location loc, Environment env)
+      throws EvalException {
+    // We only allow lists and strings.
+    if (sequence instanceof SkylarkDict) {
+      throw new EvalException(loc, "Argument to reversed() must be a sequence, not a dictionary.");
+    } else if (sequence instanceof NestedSet || sequence instanceof SkylarkNestedSet) {
+      throw new EvalException(loc, "Argument to reversed() must be a sequence, not a depset.");
+    }
+    ArrayDeque<Object> tmpList = new ArrayDeque<>();
+    for (Object element : EvalUtils.toIterable(sequence, loc, env)) {
+      tmpList.addFirst(element);
+    }
+    return MutableList.copyOf(env, tmpList);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "tuple",
-      returnType = Tuple.class,
       doc =
           "Converts a collection (e.g. list, tuple or dictionary) to a tuple."
               + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      parameters = {@Param(name = "x", doc = "The object to convert.", legacyNamed = true)},
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction tuple =
-      new BuiltinFunction("tuple") {
-        public Tuple<?> invoke(Object x, Location loc, Environment env) throws EvalException {
-          return Tuple.copyOf(EvalUtils.toCollection(x, loc, env));
-        }
-      };
+  public Tuple<?> tuple(Object x, Location loc, Environment env) throws EvalException {
+    return Tuple.copyOf(EvalUtils.toCollection(x, loc, env));
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "list",
-      returnType = MutableList.class,
       doc =
           "Converts a collection (e.g. list, tuple or dictionary) to a list."
               + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
               + "list((2, 3, 2)) == [2, 3, 2]\n"
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      parameters = {@Param(name = "x", doc = "The object to convert.", legacyNamed = true)},
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction list =
-      new BuiltinFunction("list") {
-        public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
-          return MutableList.copyOf(env, EvalUtils.toCollection(x, loc, env));
-        }
-      };
+  public MutableList<?> list(Object x, Location loc, Environment env) throws EvalException {
+    return MutableList.copyOf(env, EvalUtils.toCollection(x, loc, env));
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "len",
-      returnType = Integer.class,
       doc = "Returns the length of a string, list, tuple, depset, or dictionary.",
-      parameters = {@Param(name = "x", doc = "The object to check length of.")},
+      parameters = {@Param(name = "x", doc = "The object to check length of.", legacyNamed = true)},
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction len =
-      new BuiltinFunction("len") {
-        public Integer invoke(Object x, Location loc, Environment env) throws EvalException {
-          if (x instanceof String) {
-            return ((String) x).length();
-          } else if (x instanceof Map) {
-            return ((Map<?, ?>) x).size();
-          } else if (x instanceof SkylarkList) {
-            return ((SkylarkList<?>) x).size();
-          } else if (x instanceof SkylarkNestedSet) {
-            if (env.getSemantics().incompatibleDepsetIsNotIterable()) {
-              throw new EvalException(
-                  loc,
-                  EvalUtils.getDataTypeName(x)
-                      + " is not iterable. You may use `len(<depset>.to_list())` instead. Use "
-                      + "--incompatible_depset_is_not_iterable=false to temporarily disable this "
-                      + "check.");
-            }
-            return ((SkylarkNestedSet) x).toCollection().size();
-          } else if (x instanceof Iterable) {
-            // Iterables.size() checks if x is a Collection so it's efficient in that sense.
-            return Iterables.size((Iterable<?>) x);
-          } else {
-            throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");
-          }
-        }
-      };
+  public Integer len(Object x, Location loc, Environment env) throws EvalException {
+    if (x instanceof String) {
+      return ((String) x).length();
+    } else if (x instanceof Map) {
+      return ((Map<?, ?>) x).size();
+    } else if (x instanceof SkylarkList) {
+      return ((SkylarkList<?>) x).size();
+    } else if (x instanceof SkylarkNestedSet) {
+      if (env.getSemantics().incompatibleDepsetIsNotIterable()) {
+        throw new EvalException(
+            loc,
+            EvalUtils.getDataTypeName(x)
+                + " is not iterable. You may use `len(<depset>.to_list())` instead. Use "
+                + "--incompatible_depset_is_not_iterable=false to temporarily disable this "
+                + "check.");
+      }
+      return ((SkylarkNestedSet) x).toCollection().size();
+    } else if (x instanceof Iterable) {
+      // Iterables.size() checks if x is a Collection so it's efficient in that sense.
+      return Iterables.size((Iterable<?>) x);
+    } else {
+      throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");
+    }
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "str",
-      returnType = String.class,
       doc =
           "Converts any object to string. This is useful for debugging."
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  private static final BuiltinFunction str =
-      new BuiltinFunction("str") {
-        public String invoke(Object x) {
-          return Printer.str(x);
-        }
-      };
+      parameters = {
+        @Param(name = "x", doc = "The object to convert.", legacyNamed = true, noneable = true)
+      })
+  public String str(Object x) {
+    return Printer.str(x);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "repr",
-      returnType = String.class,
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  private static final BuiltinFunction repr =
-      new BuiltinFunction("repr") {
-        public String invoke(Object x) {
-          return Printer.repr(x);
-        }
-      };
+      parameters = {
+        @Param(name = "x", doc = "The object to convert.", legacyNamed = true, noneable = true)
+      })
+  public String repr(Object x) {
+    return Printer.repr(x);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "bool",
-      returnType = Boolean.class,
       doc =
           "Constructor for the bool type. "
               + "It returns <code>False</code> if the object is <code>None</code>, <code>False"
               + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
-      parameters = {@Param(name = "x", doc = "The variable to convert.")})
-  private static final BuiltinFunction bool =
-      new BuiltinFunction("bool") {
-        public Boolean invoke(Object x) throws EvalException {
-          return EvalUtils.toBoolean(x);
-        }
-      };
+      parameters = {
+        @Param(name = "x", doc = "The variable to convert.", legacyNamed = true, noneable = true)
+      })
+  public Boolean bool(Object x) throws EvalException {
+    return EvalUtils.toBoolean(x);
+  }
 
-  @SkylarkSignature(
+  private final ImmutableMap<String, Integer> intPrefixes =
+      ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
+
+  @SkylarkCallable(
       name = "int",
-      returnType = Integer.class,
       doc =
           "Returns x as an int value."
               + "<ul>"
@@ -394,7 +347,7 @@ public class MethodLibrary {
               + "int(\"-0x10\", 0) == -16"
               + "</pre>",
       parameters = {
-        @Param(name = "x", type = Object.class, doc = "The string to convert."),
+        @Param(name = "x", type = Object.class, doc = "The string to convert.", legacyNamed = true),
         @Param(
             name = "base",
             type = Object.class,
@@ -403,117 +356,106 @@ public class MethodLibrary {
                 "The base used to interpret a string value; defaults to 10. Must be between 2 "
                     + "and 36 (inclusive), or 0 to detect the base as if <code>x</code> were an "
                     + "integer literal. This parameter must not be supplied if the value is not a "
-                    + "string.")
+                    + "string.",
+            legacyNamed = true)
       },
       useLocation = true)
-  private static final BuiltinFunction int_ =
-      new BuiltinFunction("int") {
-        private final ImmutableMap<String, Integer> intPrefixes =
-            ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
+  public Integer convertToInt(Object x, Object base, Location loc) throws EvalException {
+    if (x instanceof String) {
+      if (base == Runtime.UNBOUND) {
+        base = 10;
+      } else if (!(base instanceof Integer)) {
+        throw new EvalException(
+            loc, "base must be an integer (got '" + EvalUtils.getDataTypeName(base) + "')");
+      }
+      return fromString((String) x, loc, (Integer) base);
+    } else {
+      if (base != Runtime.UNBOUND) {
+        throw new EvalException(loc, "int() can't convert non-string with explicit base");
+      }
+      if (x instanceof Boolean) {
+        return ((Boolean) x).booleanValue() ? 1 : 0;
+      } else if (x instanceof Integer) {
+        return (Integer) x;
+      }
+      throw new EvalException(loc, Printer.format("%r is not of type string or int or bool", x));
+    }
+  }
 
-        @SuppressWarnings("unused")
-        public Integer invoke(Object x, Object base, Location loc) throws EvalException {
-          if (x instanceof String) {
-            if (base == Runtime.UNBOUND) {
-              base = 10;
-            } else if (!(base instanceof Integer)) {
-              throw new EvalException(
-                  loc, "base must be an integer (got '" + EvalUtils.getDataTypeName(base) + "')");
-            }
-            return fromString((String) x, loc, (Integer) base);
-          } else {
-            if (base != Runtime.UNBOUND) {
-              throw new EvalException(loc, "int() can't convert non-string with explicit base");
-            }
-            if (x instanceof Boolean) {
-              return ((Boolean) x).booleanValue() ? 1 : 0;
-            } else if (x instanceof Integer) {
-              return (Integer) x;
-            }
-            throw new EvalException(
-                loc, Printer.format("%r is not of type string or int or bool", x));
-          }
+  private int fromString(String string, Location loc, int base) throws EvalException {
+    String stringForErrors = string;
+
+    boolean isNegative = false;
+    if (string.isEmpty()) {
+      throw new EvalException(loc, Printer.format("string argument to int() cannot be empty"));
+    }
+    char c = string.charAt(0);
+    if (c == '+') {
+      string = string.substring(1);
+    } else if (c == '-') {
+      string = string.substring(1);
+      isNegative = true;
+    }
+
+    String prefix = getIntegerPrefix(string);
+    String digits;
+    if (prefix == null) {
+      // Nothing to strip. Infer base 10 if autodetection was requested (base == 0).
+      digits = string;
+      if (base == 0) {
+        if (string.length() > 1 && string.startsWith("0")) {
+          // We don't infer the base when input starts with '0' (due
+          // to confusion between octal and decimal).
+          throw new EvalException(
+              loc,
+              Printer.format(
+                  "cannot infer base for int() when value begins with a 0: %r", stringForErrors));
         }
+        base = 10;
+      }
+    } else {
+      // Strip prefix. Infer base from prefix if unknown (base == 0), or else verify its
+      // consistency.
+      digits = string.substring(prefix.length());
+      int expectedBase = intPrefixes.get(prefix);
+      if (base == 0) {
+        base = expectedBase;
+      } else if (base != expectedBase) {
+        throw new EvalException(
+            loc,
+            Printer.format("invalid literal for int() with base %d: %r", base, stringForErrors));
+      }
+    }
 
-        private int fromString(String string, Location loc, int base) throws EvalException {
-          String stringForErrors = string;
+    if (base < 2 || base > 36) {
+      throw new EvalException(loc, "int() base must be >= 2 and <= 36");
+    }
+    try {
+      // Negate by prepending a negative symbol, rather than by using arithmetic on the
+      // result, to handle the edge case of -2^31 correctly.
+      String parseable = isNegative ? "-" + digits : digits;
+      return Integer.parseInt(parseable, base);
+    } catch (NumberFormatException | ArithmeticException e) {
+      throw new EvalException(
+          loc,
+          Printer.format("invalid literal for int() with base %d: %r", base, stringForErrors),
+          e);
+    }
+  }
 
-          boolean isNegative = false;
-          if (string.isEmpty()) {
-            throw new EvalException(
-                loc, Printer.format("string argument to int() cannot be empty"));
-          }
-          char c = string.charAt(0);
-          if (c == '+') {
-            string = string.substring(1);
-          } else if (c == '-') {
-            string = string.substring(1);
-            isNegative = true;
-          }
+  @Nullable
+  private String getIntegerPrefix(String value) {
+    value = Ascii.toLowerCase(value);
+    for (String prefix : intPrefixes.keySet()) {
+      if (value.startsWith(prefix)) {
+        return prefix;
+      }
+    }
+    return null;
+  }
 
-          String prefix = getIntegerPrefix(string);
-          String digits;
-          if (prefix == null) {
-            // Nothing to strip. Infer base 10 if autodetection was requested (base == 0).
-            digits = string;
-            if (base == 0) {
-              if (string.length() > 1 && string.startsWith("0")) {
-                // We don't infer the base when input starts with '0' (due
-                // to confusion between octal and decimal).
-                throw new EvalException(
-                    loc,
-                    Printer.format(
-                        "cannot infer base for int() when value begins with a 0: %r",
-                        stringForErrors));
-              }
-              base = 10;
-            }
-          } else {
-            // Strip prefix. Infer base from prefix if unknown (base == 0), or else verify its
-            // consistency.
-            digits = string.substring(prefix.length());
-            int expectedBase = intPrefixes.get(prefix);
-            if (base == 0) {
-              base = expectedBase;
-            } else if (base != expectedBase) {
-              throw new EvalException(
-                  loc,
-                  Printer.format(
-                      "invalid literal for int() with base %d: %r", base, stringForErrors));
-            }
-          }
-
-          if (base < 2 || base > 36) {
-            throw new EvalException(loc, "int() base must be >= 2 and <= 36");
-          }
-          try {
-            // Negate by prepending a negative symbol, rather than by using arithmetic on the
-            // result, to handle the edge case of -2^31 correctly.
-            String parseable = isNegative ? "-" + digits : digits;
-            return Integer.parseInt(parseable, base);
-          } catch (NumberFormatException | ArithmeticException e) {
-            throw new EvalException(
-                loc,
-                Printer.format("invalid literal for int() with base %d: %r", base, stringForErrors),
-                e);
-          }
-        }
-
-        @Nullable
-        private String getIntegerPrefix(String value) {
-          value = Ascii.toLowerCase(value);
-          for (String prefix : intPrefixes.keySet()) {
-            if (value.startsWith(prefix)) {
-              return prefix;
-            }
-          }
-          return null;
-        }
-      };
-
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "dict",
-      returnType = SkylarkDict.class,
       doc =
           "Creates a <a href=\"dict.html\">dictionary</a> from an optional positional "
               + "argument and an optional set of keyword arguments. In the case where the same key "
@@ -527,49 +469,43 @@ public class MethodLibrary {
             defaultValue = "[]",
             doc =
                 "Either a dictionary or a list of entries. Entries must be tuples or lists with "
-                    + "exactly two elements: key, value."),
+                    + "exactly two elements: key, value.",
+            legacyNamed = true),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction dict =
-      new BuiltinFunction("dict") {
-        public SkylarkDict<?, ?> invoke(
-            Object args, SkylarkDict<String, Object> kwargs, Location loc, Environment env)
-            throws EvalException {
-          SkylarkDict<?, ?> argsDict =
-              (args instanceof SkylarkDict)
-                  ? (SkylarkDict<?, ?>) args
-                  : SkylarkDict.getDictFromArgs(args, loc, env);
-          return SkylarkDict.plus(argsDict, kwargs, env);
-        }
-      };
+  public SkylarkDict<?, ?> dict(
+      Object args, SkylarkDict<?, ?> kwargs, Location loc, Environment env) throws EvalException {
+    SkylarkDict<?, ?> argsDict =
+        (args instanceof SkylarkDict)
+            ? (SkylarkDict<?, ?>) args
+            : SkylarkDict.getDictFromArgs(args, loc, env);
+    return SkylarkDict.plus(argsDict, kwargs, env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "enumerate",
-      returnType = MutableList.class,
       doc =
           "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
               + " the input list.\n<pre class=\"language-python\">"
               + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
-      parameters = {@Param(name = "list", type = SkylarkList.class, doc = "input list.")},
+      parameters = {
+        @Param(name = "list", type = SkylarkList.class, doc = "input list.", legacyNamed = true)
+      },
       useEnvironment = true)
-  private static final BuiltinFunction enumerate =
-      new BuiltinFunction("enumerate") {
-        public MutableList<?> invoke(SkylarkList<?> input, Environment env) throws EvalException {
-          int count = 0;
-          ArrayList<SkylarkList<?>> result = new ArrayList<>(input.size());
-          for (Object obj : input) {
-            result.add(Tuple.of(count, obj));
-            count++;
-          }
-          return MutableList.wrapUnsafe(env, result);
-        }
-      };
+  public MutableList<?> enumerate(SkylarkList<?> input, Environment env) throws EvalException {
+    int count = 0;
+    ArrayList<SkylarkList<?>> result = new ArrayList<>(input.size());
+    for (Object obj : input) {
+      result.add(Tuple.of(count, obj));
+      count++;
+    }
+    return MutableList.wrapUnsafe(env, result);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "hash",
-      returnType = Integer.class,
       doc =
           "Return a hash value for a string. This is computed deterministically using the same "
               + "algorithm as Java's <code>String.hashCode()</code>, namely: "
@@ -578,17 +514,19 @@ public class MethodLibrary {
       // Deterministic hashing is important for the consistency of builds, hence why we
       // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
       // Python, which promise stable hashing only within a given execution of the program.
-      parameters = {@Param(name = "value", type = String.class, doc = "String value to hash.")})
-  private static final BuiltinFunction hash =
-      new BuiltinFunction("hash") {
-        public Integer invoke(String value) throws EvalException {
-          return value.hashCode();
-        }
-      };
+      parameters = {
+        @Param(
+            name = "value",
+            type = String.class,
+            doc = "String value to hash.",
+            legacyNamed = true)
+      })
+  public Integer hash(String value) throws EvalException {
+    return value.hashCode();
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "range",
-      returnType = SkylarkList.class,
       doc =
           "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
               + "<code>step</code> increment. If a single argument is provided, items will "
@@ -602,7 +540,8 @@ public class MethodLibrary {
             type = Integer.class,
             doc =
                 "Value of the start element if stop is provided, "
-                    + "otherwise value of stop and the actual start is 0"),
+                    + "otherwise value of stop and the actual start is 0",
+            legacyNamed = true),
         @Param(
             name = "stop_or_none",
             type = Integer.class,
@@ -610,62 +549,60 @@ public class MethodLibrary {
             defaultValue = "None",
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
-                    + "list; generation of the list stops before <code>stop</code> is reached."),
+                    + "list; generation of the list stops before <code>stop</code> is reached.",
+            legacyNamed = true),
         @Param(
             name = "step",
             type = Integer.class,
             defaultValue = "1",
-            doc = "The increment (default is 1). It may be negative.")
+            doc = "The increment (default is 1). It may be negative.",
+            legacyNamed = true)
       },
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction range =
-      new BuiltinFunction("range") {
-        public SkylarkList<Integer> invoke(
-            Integer startOrStop, Object stopOrNone, Integer step, Location loc, Environment env)
-            throws EvalException {
-          int start;
-          int stop;
-          if (stopOrNone == Runtime.NONE) {
-            start = 0;
-            stop = startOrStop;
-          } else {
-            start = startOrStop;
-            stop = Type.INTEGER.convert(stopOrNone, "'stop' operand of 'range'");
-          }
-          if (step == 0) {
-            throw new EvalException(loc, "step cannot be 0");
-          }
-          return RangeList.of(start, stop, step);
-        }
-      };
+  public SkylarkList<Integer> range(
+      Integer startOrStop, Object stopOrNone, Integer step, Location loc, Environment env)
+      throws EvalException {
+    int start;
+    int stop;
+    if (stopOrNone == Runtime.NONE) {
+      start = 0;
+      stop = startOrStop;
+    } else {
+      start = startOrStop;
+      stop = Type.INTEGER.convert(stopOrNone, "'stop' operand of 'range'");
+    }
+    if (step == 0) {
+      throw new EvalException(loc, "step cannot be 0");
+    }
+    return RangeList.of(start, stop, step);
+  }
 
   /** Returns true if the object has a field of the given name, otherwise false. */
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "hasattr",
-      returnType = Boolean.class,
       doc =
           "Returns True if the object <code>x</code> has an attribute or method of the given "
               + "<code>name</code>, otherwise False. Example:<br>"
               + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
       parameters = {
-        @Param(name = "x", doc = "The object to check."),
-        @Param(name = "name", type = String.class, doc = "The name of the attribute.")
+        @Param(name = "x", doc = "The object to check.", legacyNamed = true, noneable = true),
+        @Param(
+            name = "name",
+            type = String.class,
+            doc = "The name of the attribute.",
+            legacyNamed = true)
       },
       useEnvironment = true)
-  private static final BuiltinFunction hasattr =
-      new BuiltinFunction("hasattr") {
-        @SuppressWarnings("unused")
-        public Boolean invoke(Object obj, String name, Environment env) throws EvalException {
-          if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
-            return true;
-          }
-          // shouldn't this filter things with struct_field = false?
-          return DotExpression.hasMethod(env.getSemantics(), obj, name);
-        }
-      };
+  public Boolean hasAttr(Object obj, String name, Environment env) throws EvalException {
+    if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
+      return true;
+    }
+    // shouldn't this filter things with struct_field = false?
+    return DotExpression.hasMethod(env.getSemantics(), obj, name);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "getattr",
       doc =
           "Returns the struct's field of the given name if it exists. If not, it either returns "
@@ -676,70 +613,69 @@ public class MethodLibrary {
               + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
               + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
       parameters = {
-        @Param(name = "x", doc = "The struct whose attribute is accessed."),
-        @Param(name = "name", doc = "The name of the struct attribute."),
+        @Param(
+            name = "x",
+            doc = "The struct whose attribute is accessed.",
+            legacyNamed = true,
+            noneable = true),
+        @Param(name = "name", doc = "The name of the struct attribute.", legacyNamed = true),
         @Param(
             name = "default",
             defaultValue = "unbound",
             doc =
                 "The default value to return in case the struct "
-                    + "doesn't have an attribute of the given name.")
+                    + "doesn't have an attribute of the given name.",
+            legacyNamed = true,
+            noneable = true)
       },
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction getattr =
-      new BuiltinFunction("getattr") {
-        @SuppressWarnings("unused")
-        public Object invoke(
-            Object obj, String name, Object defaultValue, Location loc, Environment env)
-            throws EvalException, InterruptedException {
-          Object result = DotExpression.eval(obj, name, loc, env);
-          if (result == null) {
-            if (defaultValue != Runtime.UNBOUND) {
-              return defaultValue;
-            }
-            throw DotExpression.getMissingFieldException(
-                obj, name, loc, env.getSemantics(), "attribute");
-          }
-          return result;
-        }
-      };
+  public Object getAttr(Object obj, String name, Object defaultValue, Location loc, Environment env)
+      throws EvalException, InterruptedException {
+    Object result = DotExpression.eval(obj, name, loc, env);
+    if (result == null) {
+      if (defaultValue != Runtime.UNBOUND) {
+        return defaultValue;
+      }
+      throw DotExpression.getMissingFieldException(obj, name, loc, env.getSemantics(), "attribute");
+    }
+    return result;
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "dir",
-      returnType = MutableList.class,
       doc =
           "Returns a list of strings: the names of the attributes and "
               + "methods of the parameter object.",
-      parameters = {@Param(name = "x", doc = "The object to check.")},
+      parameters = {
+        @Param(name = "x", doc = "The object to check.", legacyNamed = true, noneable = true)
+      },
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction dir =
-      new BuiltinFunction("dir") {
-        public MutableList<?> invoke(Object object, Location loc, Environment env)
-            throws EvalException {
-          // Order the fields alphabetically.
-          Set<String> fields = new TreeSet<>();
-          if (object instanceof ClassObject) {
-            fields.addAll(((ClassObject) object).getFieldNames());
-          }
-          fields.addAll(Runtime.getBuiltinRegistry().getFunctionNames(object.getClass()));
-          fields.addAll(FuncallExpression.getMethodNames(env.getSemantics(), object.getClass()));
-          return MutableList.copyOf(env, fields);
-        }
-      };
+  public MutableList<?> dir(Object object, Location loc, Environment env) throws EvalException {
+    // Order the fields alphabetically.
+    Set<String> fields = new TreeSet<>();
+    if (object instanceof ClassObject) {
+      fields.addAll(((ClassObject) object).getFieldNames());
+    }
+    fields.addAll(Runtime.getBuiltinRegistry().getFunctionNames(object.getClass()));
+    fields.addAll(FuncallExpression.getMethodNames(env.getSemantics(), object.getClass()));
+    return MutableList.copyOf(env, fields);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "fail",
       doc =
           "Raises an error that cannot be intercepted. It can be used anywhere, "
               + "both in the loading phase and in the analysis phase.",
-      returnType = Runtime.NoneType.class,
       parameters = {
         @Param(
             name = "msg",
             type = Object.class,
-            doc = "Error to display for the user. The object is converted to a string."),
+            doc = "Error to display for the user. The object is converted to a string.",
+            defaultValue = "None",
+            legacyNamed = true,
+            noneable = true),
         @Param(
             name = "attr",
             type = String.class,
@@ -747,23 +683,20 @@ public class MethodLibrary {
             defaultValue = "None",
             doc =
                 "The name of the attribute that caused the error. This is used only for "
-                    + "error reporting.")
+                    + "error reporting.",
+            legacyNamed = true)
       },
       useLocation = true)
-  private static final BuiltinFunction fail =
-      new BuiltinFunction("fail") {
-        public Runtime.NoneType invoke(Object msg, Object attr, Location loc) throws EvalException {
-          String str = Printer.str(msg);
-          if (attr != Runtime.NONE) {
-            str = String.format("attribute %s: %s", attr, str);
-          }
-          throw new EvalException(loc, str);
-        }
-      };
+  public Runtime.NoneType fail(Object msg, Object attr, Location loc) throws EvalException {
+    String str = Printer.str(msg);
+    if (attr != Runtime.NONE) {
+      str = String.format("attribute %s: %s", attr, str);
+    }
+    throw new EvalException(loc, str);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "print",
-      returnType = Runtime.NoneType.class,
       doc =
           "Prints <code>args</code> as debug output. It will be prefixed with the string <code>"
               + "\"DEBUG\"</code> and the location (file and line number) of this call. The "
@@ -787,26 +720,21 @@ public class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction print =
-      new BuiltinFunction("print") {
-        public Runtime.NoneType invoke(
-            String sep, SkylarkList<?> starargs, Location loc, Environment env)
-            throws EvalException {
-          String msg = starargs.stream().map(Printer::debugPrint).collect(joining(sep));
-          // As part of the integration test "skylark_flag_test.sh", if the
-          // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
-          // the output.
-          if (env.getSemantics().internalSkylarkFlagTestCanary()) {
-            msg += "<== skylark flag test ==>";
-          }
-          env.handleEvent(Event.debug(loc, msg));
-          return Runtime.NONE;
-        }
-      };
+  public Runtime.NoneType print(String sep, SkylarkList<?> starargs, Location loc, Environment env)
+      throws EvalException {
+    String msg = starargs.stream().map(Printer::debugPrint).collect(joining(sep));
+    // As part of the integration test "skylark_flag_test.sh", if the
+    // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
+    // the output.
+    if (env.getSemantics().internalSkylarkFlagTestCanary()) {
+      msg += "<== skylark flag test ==>";
+    }
+    env.handleEvent(Event.debug(loc, msg));
+    return Runtime.NONE;
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "type",
-      returnType = String.class,
       doc =
           "Returns the type name of its argument. This is useful for debugging and "
               + "type-checking. Examples:"
@@ -820,18 +748,20 @@ public class MethodLibrary {
               + "<pre class=\"language-python\">"
               + "if type(x) == type([]):  # if x is a list"
               + "</pre>",
-      parameters = {@Param(name = "x", doc = "The object to check type of.")})
-  private static final BuiltinFunction type =
-      new BuiltinFunction("type") {
-        public String invoke(Object object) {
-          // There is no 'type' type in Skylark, so we return a string with the type name.
-          return EvalUtils.getDataTypeName(object, false);
-        }
-      };
+      parameters = {
+        @Param(
+            name = "x",
+            doc = "The object to check type of.",
+            legacyNamed = true,
+            noneable = true)
+      })
+  public String type(Object object) {
+    // There is no 'type' type in Skylark, so we return a string with the type name.
+    return EvalUtils.getDataTypeName(object, false);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "depset",
-      returnType = SkylarkNestedSet.class,
       doc =
           "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a "
               + "list of direct elements of the depset, and <code>transitive</code> parameter is "
@@ -861,14 +791,16 @@ public class MethodLibrary {
                 "Deprecated: Either an iterable whose items become the direct elements of "
                     + "the new depset, in left-to-right order, or else a depset that becomes "
                     + "a transitive element of the new depset. In the latter case, "
-                    + "<code>transitive</code> cannot be specified."),
+                    + "<code>transitive</code> cannot be specified.",
+            legacyNamed = true),
         @Param(
             name = "order",
             type = String.class,
             defaultValue = "\"default\"",
             doc =
                 "The traversal strategy for the new depset. See "
-                    + "<a href=\"depset.html\">here</a> for the possible values."),
+                    + "<a href=\"depset.html\">here</a> for the possible values.",
+            legacyNamed = true),
         @Param(
             name = "direct",
             type = SkylarkList.class,
@@ -888,55 +820,52 @@ public class MethodLibrary {
             defaultValue = "None")
       },
       useLocation = true)
-  private static final BuiltinFunction depset =
-      new BuiltinFunction("depset") {
-        public SkylarkNestedSet invoke(
-            Object items, String orderString, Object direct, Object transitive, Location loc)
-            throws EvalException {
-          Order order;
-          try {
-            order = Order.parse(orderString);
-          } catch (IllegalArgumentException ex) {
-            throw new EvalException(loc, ex);
-          }
+  public SkylarkNestedSet depset(
+      Object items, String orderString, Object direct, Object transitive, Location loc)
+      throws EvalException {
+    Order order;
+    try {
+      order = Order.parse(orderString);
+    } catch (IllegalArgumentException ex) {
+      throw new EvalException(loc, ex);
+    }
 
-          if (transitive == Runtime.NONE && direct == Runtime.NONE) {
-            // Legacy behavior.
-            return SkylarkNestedSet.of(order, items, loc);
-          }
+    if (transitive == Runtime.NONE && direct == Runtime.NONE) {
+      // Legacy behavior.
+      return SkylarkNestedSet.of(order, items, loc);
+    }
 
-          if (direct != Runtime.NONE && !isEmptySkylarkList(items)) {
-            throw new EvalException(
-                loc, "Do not pass both 'direct' and 'items' argument to depset constructor.");
-          }
+    if (direct != Runtime.NONE && !isEmptySkylarkList(items)) {
+      throw new EvalException(
+          loc, "Do not pass both 'direct' and 'items' argument to depset constructor.");
+    }
 
-          // Non-legacy behavior: either 'transitive' or 'direct' were specified.
-          Iterable<Object> directElements;
-          if (direct != Runtime.NONE) {
-            directElements = ((SkylarkList<?>) direct).getContents(Object.class, "direct");
-          } else {
-            SkylarkType.checkType(items, SkylarkList.class, "items");
-            directElements = ((SkylarkList<?>) items).getContents(Object.class, "items");
-          }
+    // Non-legacy behavior: either 'transitive' or 'direct' were specified.
+    Iterable<Object> directElements;
+    if (direct != Runtime.NONE) {
+      directElements = ((SkylarkList<?>) direct).getContents(Object.class, "direct");
+    } else {
+      SkylarkType.checkType(items, SkylarkList.class, "items");
+      directElements = ((SkylarkList<?>) items).getContents(Object.class, "items");
+    }
 
-          Iterable<SkylarkNestedSet> transitiveList;
-          if (transitive != Runtime.NONE) {
-            SkylarkType.checkType(transitive, SkylarkList.class, "transitive");
-            transitiveList =
-                ((SkylarkList<?>) transitive).getContents(SkylarkNestedSet.class, "transitive");
-          } else {
-            transitiveList = ImmutableList.of();
-          }
-          SkylarkNestedSet.Builder builder = SkylarkNestedSet.builder(order, loc);
-          for (Object directElement : directElements) {
-            builder.addDirect(directElement);
-          }
-          for (SkylarkNestedSet transitiveSet : transitiveList) {
-            builder.addTransitive(transitiveSet);
-          }
-          return builder.build();
-        }
-      };
+    Iterable<SkylarkNestedSet> transitiveList;
+    if (transitive != Runtime.NONE) {
+      SkylarkType.checkType(transitive, SkylarkList.class, "transitive");
+      transitiveList =
+          ((SkylarkList<?>) transitive).getContents(SkylarkNestedSet.class, "transitive");
+    } else {
+      transitiveList = ImmutableList.of();
+    }
+    SkylarkNestedSet.Builder builder = SkylarkNestedSet.builder(order, loc);
+    for (Object directElement : directElements) {
+      builder.addDirect(directElement);
+    }
+    for (SkylarkNestedSet transitiveSet : transitiveList) {
+      builder.addTransitive(transitiveSet);
+    }
+    return builder.build();
+  }
 
   private static boolean isEmptySkylarkList(Object o) {
     return o instanceof SkylarkList && ((SkylarkList) o).isEmpty();
@@ -946,7 +875,7 @@ public class MethodLibrary {
    * Returns a function-value implementing "select" (i.e. configurable attributes) in the specified
    * package context.
    */
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "select",
       doc =
           "<code>select()</code> is the helper function that makes a rule attribute "
@@ -954,29 +883,31 @@ public class MethodLibrary {
               + "configurable</a>. See "
               + "<a href=\"$BE_ROOT/functions.html#select\">build encyclopedia</a> for details.",
       parameters = {
-        @Param(name = "x", type = SkylarkDict.class, doc = "The parameter to convert."),
+        @Param(
+            name = "x",
+            type = SkylarkDict.class,
+            doc = "The parameter to convert.",
+            legacyNamed = true),
         @Param(
             name = "no_match_error",
             type = String.class,
             defaultValue = "''",
-            doc = "Optional custom error to report if no condition matches.")
+            doc = "Optional custom error to report if no condition matches.",
+            legacyNamed = true)
       },
       useLocation = true)
-  private static final BuiltinFunction select =
-      new BuiltinFunction("select") {
-        public Object invoke(SkylarkDict<?, ?> dict, String noMatchError, Location loc)
-            throws EvalException {
-          for (Object key : dict.keySet()) {
-            if (!(key instanceof String)) {
-              throw new EvalException(
-                  loc, String.format("Invalid key: %s. select keys must be label references", key));
-            }
-          }
-          return SelectorList.of(new SelectorValue(dict, noMatchError));
-        }
-      };
+  public Object select(SkylarkDict<?, ?> dict, String noMatchError, Location loc)
+      throws EvalException {
+    for (Object key : dict.keySet()) {
+      if (!(key instanceof String)) {
+        throw new EvalException(
+            loc, String.format("Invalid key: %s. select keys must be label references", key));
+      }
+    }
+    return SelectorList.of(new SelectorValue(dict, noMatchError));
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
       name = "zip",
       doc =
           "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "
@@ -989,36 +920,32 @@ public class MethodLibrary {
               + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
               + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
       extraPositionals = @Param(name = "args", doc = "lists to zip."),
-      returnType = MutableList.class,
       useLocation = true,
       useEnvironment = true)
-  private static final BuiltinFunction zip =
-      new BuiltinFunction("zip") {
-        public MutableList<?> invoke(SkylarkList<?> args, Location loc, Environment env)
-            throws EvalException {
-          Iterator<?>[] iterators = new Iterator<?>[args.size()];
-          for (int i = 0; i < args.size(); i++) {
-            iterators[i] = EvalUtils.toIterable(args.get(i), loc, env).iterator();
-          }
-          ArrayList<Tuple<?>> result = new ArrayList<>();
-          boolean allHasNext;
-          do {
-            allHasNext = !args.isEmpty();
-            List<Object> elem = Lists.newArrayListWithExpectedSize(args.size());
-            for (Iterator<?> iterator : iterators) {
-              if (iterator.hasNext()) {
-                elem.add(iterator.next());
-              } else {
-                allHasNext = false;
-              }
-            }
-            if (allHasNext) {
-              result.add(Tuple.copyOf(elem));
-            }
-          } while (allHasNext);
-          return MutableList.wrapUnsafe(env, result);
+  public MutableList<?> zip(SkylarkList<?> args, Location loc, Environment env)
+      throws EvalException {
+    Iterator<?>[] iterators = new Iterator<?>[args.size()];
+    for (int i = 0; i < args.size(); i++) {
+      iterators[i] = EvalUtils.toIterable(args.get(i), loc, env).iterator();
+    }
+    ArrayList<Tuple<?>> result = new ArrayList<>();
+    boolean allHasNext;
+    do {
+      allHasNext = !args.isEmpty();
+      List<Object> elem = Lists.newArrayListWithExpectedSize(args.size());
+      for (Iterator<?> iterator : iterators) {
+        if (iterator.hasNext()) {
+          elem.add(iterator.next());
+        } else {
+          allHasNext = false;
         }
-      };
+      }
+      if (allHasNext) {
+        result.add(Tuple.copyOf(elem));
+      }
+    } while (allHasNext);
+    return MutableList.wrapUnsafe(env, result);
+  }
 
   /** Skylark int type. */
   @SkylarkModule(
@@ -1053,17 +980,6 @@ public class MethodLibrary {
 
   /** Adds bindings for all the builtin functions of this class to the given map builder. */
   public static void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    for (BaseFunction function : allFunctions) {
-      builder.put(function.getName(), function);
-    }
-  }
-
-  private static final ImmutableList<BaseFunction> allFunctions =
-      ImmutableList.of(
-          all, any, bool, depset, dict, dir, fail, getattr, hasattr, hash, enumerate, int_, len,
-          list, max, min, print, range, repr, reversed, select, sorted, str, tuple, type, zip);
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(MethodLibrary.class);
+    Runtime.setupSkylarkLibrary(builder, new MethodLibrary());
   }
 }

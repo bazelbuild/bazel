@@ -660,7 +660,7 @@ public final class FuncallExpression extends Expression {
         String.format(
             "unexpected keyword%s %s",
             unexpectedKeywords.size() > 1 ? "s" : "",
-            Joiner.on(",").join(Iterables.transform(unexpectedKeywords, s -> "'" + s + "'"))),
+            Joiner.on(", ").join(Iterables.transform(unexpectedKeywords, s -> "'" + s + "'"))),
         method,
         objClass);
   }
