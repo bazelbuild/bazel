@@ -461,3 +461,5 @@ node_repositories()
 load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 
 sass_repositories()
+
+register_execution_platforms("//:rbe_ubuntu1604_default", "//:rbe_ubuntu1604_highcpu");
