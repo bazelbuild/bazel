@@ -210,6 +210,11 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
+  public int compareMergePriorityTo(XmlResourceValue value) {
+    return 0;
+  }
+
+  @Override
   public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
     sink.acceptSimpleResource(key.type(), key.name());
   }

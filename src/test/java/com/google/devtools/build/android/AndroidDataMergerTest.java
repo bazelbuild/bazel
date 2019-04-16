@@ -552,6 +552,46 @@ public class AndroidDataMergerTest {
   }
 
   @Test
+  public void mergeTransitiveConflictBetweenDataResourceXmlAndDataValueFile() throws Exception {
+    Path primaryRoot = fileSystem.getPath("primary");
+    Path transitiveRoot = fileSystem.getPath("transitive");
+
+    ParsedAndroidData transitiveDependency =
+        ParsedAndroidDataBuilder.buildOn(transitiveRoot, fqnFactory)
+            // Two drawable/ambiguous_name (one from xml, one from file) will create conflict.
+            .overwritable(
+                xml("drawable/ambiguous_name")
+                    .source("values/resources.xml")
+                    .value(
+                        SimpleXmlResourceValue.createWithValue(
+                            SimpleXmlResourceValue.Type.DRAWABLE, "#99000000")),
+                file("drawable/ambiguous_name").source("drawable/ambiguous_name.png"))
+            .build();
+
+    ParsedAndroidData directDependency = ParsedAndroidDataBuilder.empty();
+
+    UnvalidatedAndroidData primary =
+        AndroidDataBuilder.of(primaryRoot)
+            .createManifest("AndroidManifest.xml", "com.google.mergetest")
+            .buildUnvalidated();
+
+    AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
+
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
+
+    assertThat(loggingHandler.warnings)
+        .containsExactly(
+            MergeConflict.of(
+                    fqnFactory.parse("drawable/ambiguous_name"),
+                    DataResourceXml.createWithNoNamespace(
+                        transitiveRoot.resolve("res/values/resources.xml"),
+                        SimpleXmlResourceValue.createWithValue(
+                            SimpleXmlResourceValue.Type.DRAWABLE, "#99000000")),
+                    DataValueFile.from(transitiveRoot.resolve("res/drawable/ambiguous_name.png")))
+                .toConflictMessage());
+  }
+
+  @Test
   public void mergeDirectAndTransitiveConflict() throws Exception {
     Path primaryRoot = fileSystem.getPath("primary");
     Path directRoot = fileSystem.getPath("direct");

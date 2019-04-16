@@ -177,7 +177,12 @@ public class PublicXmlResourceValue implements XmlResourceValue {
     }
     return of(combined);
   }
-  
+
+  @Override
+  public int compareMergePriorityTo(XmlResourceValue value) {
+    return 0;
+  }
+
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
