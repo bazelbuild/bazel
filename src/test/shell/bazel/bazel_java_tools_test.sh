@@ -16,6 +16,9 @@
 
 # Load the test setup defined in the parent directory
 set -euo pipefail
+
+JAVA_TOOLS_JAVA_VERSION="$1"; shift
+
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
@@ -65,8 +68,8 @@ fi
 function expect_path_in_java_tools() {
   path="$1"; shift
 
-  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools.zip) | grep -c "$path")
-  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools"
+  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip) | grep -c "$path")
+  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip"
 }
 
 function test_java_tools_has_ijar() {
@@ -122,15 +125,17 @@ function test_java_tools_has_Runner() {
 }
 
 function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "java_tools/jdk_compiler"
+  expect_path_in_java_tools "java_tools/jdk_compiler.jar"
 }
 
 function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_tools/java_compiler"
+  expect_path_in_java_tools "java_tools/java_compiler.jar"
 }
 
 function test_java_tools_has_javac() {
+ if [[ "${JAVA_TOOLS_JAVA_VERSION}" == "java9" ]]; then
   expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
+ fi
 }
 
 function test_java_tools_has_jarjar() {
