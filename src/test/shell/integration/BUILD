@@ -401,12 +401,15 @@ sh_test(
     name = "discard_graph_edges_test",
     size = "medium",
     srcs = ["discard_graph_edges_test.sh"],
+    args = ["$(JAVABASE)"],
     data = [
         ":discard_graph_edges_lib.sh",
         ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 6,
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(

@@ -24,7 +24,6 @@ function extract_histogram_count() {
   local item="$2"
   # We can't use + here because Macs don't recognize it as a special character
   # by default.
-  grep "$item" "$histofile" \
-      | sed -e 's/^ *[0-9][0-9]*: *\([0-9][0-9]*\) .*$/\1/' \
-      || fail "Couldn't get item from $histofile"
+  (grep "$item" "$histofile" || echo "") \
+      | sed -e 's/^ *[0-9][0-9]*: *\([0-9][0-9]*\) .*$/\1/'
 }
