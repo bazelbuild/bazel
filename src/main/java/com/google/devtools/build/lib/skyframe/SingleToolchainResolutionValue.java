@@ -27,7 +27,7 @@ import java.util.List;
 
 /**
  * A value which represents the map of potential execution platforms and resolved toolchains for a
- * single toolchain type.This allows for a Skyframe cache per toolchain type.
+ * single toolchain type. This allows for a Skyframe cache per toolchain type.
  */
 @AutoCodec
 @AutoValue
