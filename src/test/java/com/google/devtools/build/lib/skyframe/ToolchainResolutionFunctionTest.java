@@ -161,7 +161,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(UnresolvedToolchainsException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -187,7 +186,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(UnresolvedToolchainsException.class);
     // Only one of the missing types will be reported, so do not check the specific error message.
   }
@@ -206,7 +204,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidPlatformException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -231,7 +228,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidPlatformException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -254,7 +250,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidPlatformException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -277,7 +272,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidPlatformException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -346,7 +340,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidConstraintValueException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -399,7 +392,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(NoMatchingPlatformException.class);
   }
 }

@@ -315,13 +315,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     // Find and return the first execution platform which has all required toolchains.
     Optional<ConfiguredTargetKey> selectedExecutionPlatformKey;
-    if (requiredToolchainTypeLabels.isEmpty()
-        && platformKeys.executionPlatformKeys().contains(platformKeys.hostPlatformKey())) {
-      // Fall back to the legacy behavior: use the host platform if it's available, otherwise the
-      // first execution platform.
-      selectedExecutionPlatformKey = Optional.of(platformKeys.hostPlatformKey());
-    } else {
-      // If there are no toolchains, this will return the first execution platform.
+    if (!requiredToolchainTypeLabels.isEmpty()) {
       selectedExecutionPlatformKey =
           findExecutionPlatformForToolchains(
               environment,
@@ -329,6 +323,15 @@ public class ToolchainResolutionFunction implements SkyFunction {
               requiredToolchainTypes,
               platformKeys.executionPlatformKeys(),
               resolvedToolchains);
+    } else if (platformKeys.executionPlatformKeys().contains(platformKeys.hostPlatformKey())) {
+      // Fall back to the legacy behavior: use the host platform if it's available, otherwise the
+      // first execution platform.
+      selectedExecutionPlatformKey = Optional.of(platformKeys.hostPlatformKey());
+    } else if (!platformKeys.executionPlatformKeys().isEmpty()) {
+      // Just use the first execution platform.
+      selectedExecutionPlatformKey = Optional.of(platformKeys.executionPlatformKeys().get(0));
+    } else {
+      selectedExecutionPlatformKey = Optional.empty();
     }
 
     if (!selectedExecutionPlatformKey.isPresent()) {
