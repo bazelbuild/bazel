@@ -23,24 +23,20 @@
 # --java_version         The version of the javac the given zip embeds.
 # --platform             The name of the platform where the zip was built.
 
-# Script used by the "java_tools binaries" Buildkite pipeline.
-
-platform="$1"; shift
-
-echo "Building java_tools binaries"
+# Script used by the "java_tools binaries" Buildkite pipeline to build the java tools archives
+# and upload them on GCS.
+#
+# The script has to be executed directly without invoking bazel:
+# $ src/upload_all_java_tools.sh
+#
+# The script cannot be invoked through a sh_binary using bazel because git
+# cannot be used through a sh_binary.
 
 commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel version | grep 'Build label' | cut -d' ' -f 3)
 
-if [[ "$platform" == "windows" ]]; then
-  bazel run src:upload_java_tools_java10 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
-  bazel run src:upload_java_tools_java9 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
-  bazel run src:upload_java_tools_dist_java10 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
-  bazel run src:upload_java_tools_dist_java9 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
-else
-  bazel run //src:upload_java_tools_java10 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
-  bazel run //src:upload_java_tools_java9 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
-  bazel run //src:upload_java_tools_dist_java10 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
-  bazel run //src:upload_java_tools_dist_java9 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
-fi
+bazel run src:upload_java_tools_java10 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
+bazel run src:upload_java_tools_java9 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
+bazel run src:upload_java_tools_dist_java10 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}
+bazel run src:upload_java_tools_dist_java9 -- --commit_hash ${commit_hash} --timestamp ${timestamp} --bazel_version ${bazel_version}

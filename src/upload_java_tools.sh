@@ -64,14 +64,18 @@ done
 
 java_tools_zip=$(rlocation io_bazel/${java_tools_zip_name})
 
+# Create a temp directory and a writable temp zip file to add a README.md file to
+# the initial zip.
 tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXX')
 trap "rm -fr $tmp_dir" EXIT
 tmp_zip="$tmp_dir/archive.zip"
 
+# Copy the initial zip to the temp zip and make it writable to be able to add
+# the README.md file.
 cp $java_tools_zip $tmp_zip
 chmod +w $tmp_zip
 
-# Create the README.md file.
+# Create the README.md file and add the re-build java tools instructions.
 readme_file="README.md"
 cat >${readme_file} <<EOF
 This Java tools version was built from the bazel repository at commit hash ${commit_hash}
@@ -83,6 +87,7 @@ $ git checkout ${commit_hash}
 $ bazel build //src:java_tools_java${java_version}.zip
 EOF
 
+# Add the README.md file to the temp zip.
 zip -rv "${tmp_zip}" "${readme_file}"
 
 gsutil_cmd="gsutil"
@@ -90,5 +95,6 @@ if [[ "$platform" == "windows" ]]; then
   gsutil_cmd="gsutil.cmd"
 fi
 
+# Upload the zip that contains the README.md to GCS.
 "$gsutil_cmd" cp "$tmp_zip" \
  "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/java_tools_javac${java_version}_${platform}-${commit_hash}-${timestamp}.zip"
