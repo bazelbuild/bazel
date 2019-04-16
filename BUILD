@@ -136,7 +136,7 @@ constraint_value(
 platform(
     name = "default_host_platform",
     parents = ["@bazel_tools//platforms:host_platform"],
-    contraint_values = [
+    constraint_values = [
         ":highcpu_machine",
     ],
 )
