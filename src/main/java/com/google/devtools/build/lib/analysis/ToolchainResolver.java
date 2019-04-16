@@ -63,7 +63,6 @@ public class ToolchainResolver {
   private final BuildConfigurationValue.Key configurationKey;
 
   // Optional data.
-  private String targetDescription = "";
   private ImmutableSet<Label> requiredToolchainTypeLabels = ImmutableSet.of();
   private ImmutableSet<Label> execConstraintLabels = ImmutableSet.of();
 
@@ -80,15 +79,6 @@ public class ToolchainResolver {
   public ToolchainResolver(Environment env, BuildConfigurationValue.Key configurationKey) {
     this.environment = checkNotNull(env);
     this.configurationKey = checkNotNull(configurationKey);
-  }
-
-  /**
-   * Sets a description of the target that toolchains will be resolved for. This is primarily useful
-   * for printing informative error messages, so that users can tell which targets had difficulty.
-   */
-  public ToolchainResolver setTargetDescription(String targetDescription) {
-    this.targetDescription = targetDescription;
-    return this;
   }
 
   /**
@@ -117,7 +107,7 @@ public class ToolchainResolver {
    * then an {@link UnloadedToolchainContext} generated. The {@link UnloadedToolchainContext} will
    * report the specific toolchain targets to depend on, and those can be found using the typical
    * dependency machinery. Once dependencies, including toolchains, have been loaded, the {@link
-   * UnloadedToolchainContext#load} method can be called to generate the final {@link
+   * ResolvedToolchainContext#load} method can be called to generate the final {@link
    * ResolvedToolchainContext} to be used by the target.
    *
    * <p>This makes several SkyFrame calls, particularly to {@link
@@ -133,7 +123,6 @@ public class ToolchainResolver {
     try {
       UnloadedToolchainContext.Builder unloadedToolchainContext =
           UnloadedToolchainContext.builder();
-      unloadedToolchainContext.setTargetDescription(targetDescription);
 
       // Determine the configuration being used.
       BuildConfigurationValue value =

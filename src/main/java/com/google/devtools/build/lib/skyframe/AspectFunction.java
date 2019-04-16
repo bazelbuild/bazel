@@ -415,11 +415,6 @@ public final class AspectFunction implements SkyFunction {
           ImmutableSet<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
           unloadedToolchainContext =
               new ToolchainResolver(env, BuildConfigurationValue.key(configuration))
-                  .setTargetDescription(
-                      String.format(
-                          "aspect %s applied to %s",
-                          aspect.getDescriptor().getDescription(),
-                          associatedConfiguredTargetAndData.getTarget()))
                   .setRequiredToolchainTypes(requiredToolchains)
                   .resolve();
         } catch (ToolchainException e) {
@@ -463,8 +458,16 @@ public final class AspectFunction implements SkyFunction {
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
       ResolvedToolchainContext toolchainContext = null;
       if (unloadedToolchainContext != null) {
+        String targetDescription =
+            String.format(
+                "aspect %s applied to %s",
+                aspect.getDescriptor().getDescription(),
+                associatedConfiguredTargetAndData.getTarget());
         toolchainContext =
-            unloadedToolchainContext.load(depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+            ResolvedToolchainContext.load(
+                unloadedToolchainContext,
+                targetDescription,
+                depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
       }
 
       return createAspect(
