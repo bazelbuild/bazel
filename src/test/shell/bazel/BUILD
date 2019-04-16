@@ -175,6 +175,7 @@ sh_test(
     size = "large",  # Downloads and compiles protobuf for *every* *test* *case*
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
+    exec_compatible_with = ["//:highcpu_machine"],
     tags = ["no_windows"],  # Doesn't work on Windows for unknown reason
 )
 
@@ -406,6 +407,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:git-repos",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    exec_compatible_with = ["//:highcpu_machine"],
 )
 
 sh_test(
@@ -697,6 +699,7 @@ sh_test(
         "//src:embedded_jdk_allmodules_cached",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    exec_compatible_with = ["//:highcpu_machine"],
     tags = ["block-network"],
 )
 
@@ -709,6 +712,7 @@ sh_test(
         ":test-deps",
         "//:bazel-distfile",
     ],
+    exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "no_windows",
         "slow",
