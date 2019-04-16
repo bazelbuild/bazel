@@ -181,10 +181,6 @@ public final class RemoteWorker {
   private SslContextBuilder getSslContextBuilder(RemoteWorkerOptions workerOptions) {
     SslContextBuilder sslClientContextBuilder = SslContextBuilder
         .forServer(new File(workerOptions.tlsCertificate), new File(workerOptions.tlsPrivateKey));
-    if (workerOptions.trustCertCollectionFilePath != null) {
-      sslClientContextBuilder.trustManager(new File(workerOptions.trustCertCollectionFilePath));
-      sslClientContextBuilder.clientAuth(ClientAuth.REQUIRE);
-    }
     return GrpcSslContexts.configure(sslClientContextBuilder, SslProvider.OPENSSL);
   }
 

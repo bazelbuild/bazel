@@ -70,7 +70,7 @@ public class AuthAndTLSOptions extends OptionsBase {
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "DEPRECATED. Specifies whether to use TLS for remote execution/caching and "
-            + "the build event service (BES)."
+            + "the build event service (BES). See #8061 for details."
   )
   public boolean tlsEnabled;
 
@@ -84,6 +84,7 @@ public class AuthAndTLSOptions extends OptionsBase {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
     },
     help = "If set to true, bazel will handle --tls_enabled as a not existing flag."
+        + "See #8061 for details."
   )
   public boolean incompatibleTlsEnabledRemoved;
 

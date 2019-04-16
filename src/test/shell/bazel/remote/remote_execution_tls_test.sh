@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests remote execution and caching.
+# Tests remote caching with TLS.
 #
 
 # Load the test setup defined in the parent directory
@@ -22,14 +22,14 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-cert_path="${BAZEL_RUNFILES}/third_party/tls_cert_test"
+cert_path="${BAZEL_RUNFILES}/third_party/test_tls_certificate"
 
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   attempts=1
-  while [ $attempts -le 1 ]; do
+  while [ $attempts -le 3 ]; do
     (( attempts++ ))
     worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
     "${BAZEL_RUNFILES}/src/tools/remote/worker" \
@@ -53,6 +53,17 @@ function set_up() {
   fi
 }
 
+function _prepareBasicRule(){
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+}
 function tear_down() {
   bazel clean >& $TEST_log
   if [ -s "${pid_file}" ]; then
@@ -66,14 +77,7 @@ function tear_down() {
 
 function test_remote_grpcs_cache() {
   # Test that if 'grpcs' is provided as a scheme for --remote_cache flag, remote cache works.
-  mkdir -p a
-  cat > a/BUILD <<EOF
-genrule(
-  name = 'foo',
-  outs = ["foo.txt"],
-  cmd = "echo \"foo bar\" > \$@",
-)
-EOF
+  _prepareBasicRule
 
   bazel build \
       --remote_cache=grpcs://localhost:${worker_port} \
@@ -84,14 +88,7 @@ EOF
 
 function test_remote_grpc_cache_with_legacy_tls_enabled() {
   # Test that if default scheme for --remote_cache flag with --tls_enabled, remote cache works.
-  mkdir -p a
-  cat > a/BUILD <<EOF
-genrule(
-  name = 'foo',
-  outs = ["foo.txt"],
-  cmd = "echo \"foo bar\" > \$@",
-)
-EOF
+  _prepareBasicRule
 
   bazel build \
       --remote_cache=localhost:${worker_port} \
@@ -103,14 +100,7 @@ EOF
 
 function test_remote_https_cache() {
   # Test that if 'https' is provided as a scheme for --remote_cache flag, remote cache works.
-  mkdir -p a
-  cat > a/BUILD <<EOF
-genrule(
-  name = 'foo',
-  outs = ["foo.txt"],
-  cmd = "echo \"foo bar\" > \$@",
-)
-EOF
+  _prepareBasicRule
 
   bazel build \
       --remote_cache=https://localhost:${worker_port} \
@@ -121,14 +111,7 @@ EOF
 
 function test_remote_cache_with_incompatible_tls_enabled_removed() {
   # Test that if --incompatible_tls_enabled_removed=true and --tls_enabled=true an error is thrown
-  mkdir -p a
-  cat > a/BUILD <<EOF
-genrule(
-  name = 'foo',
-  outs = ["foo.txt"],
-  cmd = "echo \"foo bar\" > \$@",
-)
-EOF
+  _prepareBasicRule
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \

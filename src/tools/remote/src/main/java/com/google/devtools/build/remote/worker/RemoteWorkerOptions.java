@@ -170,15 +170,6 @@ public class RemoteWorkerOptions extends OptionsBase {
   )
   public String tlsPrivateKey;
 
-  @Option(
-      name = "tls_trust_cert_collection",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Specify the TLS trust cert collection Path to be used."
-  )
-  public String trustCertCollectionFilePath;
-
   private static final int MAX_JOBS = 16384;
 
   /**
