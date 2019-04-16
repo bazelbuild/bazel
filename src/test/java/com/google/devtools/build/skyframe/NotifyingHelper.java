@@ -177,13 +177,9 @@ public class NotifyingHelper {
   /** Receiver to be informed when an event for a given key occurs. */
   public interface Listener {
     @ThreadSafe
-    void accept(SkyKey key, EventType type, Order order, Object context);
+    void accept(SkyKey key, EventType type, Order order, @Nullable Object context);
 
-    Listener NULL_LISTENER =
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {}
-        };
+    Listener NULL_LISTENER = (key, type, order, context) -> {};
   }
 
   private static class ErrorRecordingDelegatingListener implements Listener {
@@ -194,12 +190,14 @@ public class NotifyingHelper {
     }
 
     @Override
-    public void accept(SkyKey key, EventType type, Order order, Object context) {
+    public void accept(SkyKey key, EventType type, Order order, @Nullable Object context) {
       try {
         delegate.accept(key, type, order, context);
       } catch (Exception e) {
         TrackingAwaiter.INSTANCE.injectExceptionAndMessage(
-            e, "In NotifyingGraph: " + Joiner.on(", ").join(key, type, order, context));
+            e,
+            "In NotifyingGraph: "
+                + Joiner.on(", ").join(key, type, order, context == null ? "null" : context));
         throw e;
       }
     }

@@ -55,10 +55,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
-import com.google.devtools.build.skyframe.NotifyingHelper.Order;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -520,12 +517,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_library(name = 'cycle2', deps = ['cycle1'])");
     scratch.file("badbuild/BUILD", "");
     reporter.removeHandler(failFastHandler);
-    injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {}
-        },
-        /*deterministic=*/ true);
+    injectGraphListenerForTesting(Listener.NULL_LISTENER, /*deterministic=*/ true);
     try {
       update("//foo:top");
       fail();
