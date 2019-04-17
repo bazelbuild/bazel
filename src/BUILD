@@ -624,7 +624,7 @@ JAVA_VERSIONS = ("9", "10")
             "--java_tools_zip",
             "src/java_tools_dist_javac" + java_version + ".zip",
             "--gcs_java_tools_dir",
-            "tmp/dist",
+            "tmp/sources",
             "--java_version",
             java_version,
             "--platform",
