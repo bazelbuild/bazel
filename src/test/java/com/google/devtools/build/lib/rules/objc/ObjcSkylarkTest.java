@@ -15,11 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.objc.BundleableFile.BUNDLED_FIELD;
-import static com.google.devtools.build.lib.rules.objc.BundleableFile.BUNDLE_PATH_FIELD;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -1078,67 +1075,6 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanAccessProvidedBundleFiles() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=false");
-    // Since the collections of structs with Artifact values are extremely difficult to test with
-    // Truth, we fudge them in the Skylark side to return easily comparable dictionaries instead.
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "def _simplify_bundle_file(bf):",
-        "   return {'file': bf.file.path, 'bundle_path': bf.bundle_path}",
-        "def _test_rule_impl(ctx):",
-        "   dep = ctx.attr.deps[0]",
-        "   objc_provider = dep.objc",
-        "   bundle_file = [_simplify_bundle_file(bf) for bf in list(objc_provider.bundle_file)]",
-        "   return struct(",
-        "      bundle_file=bundle_file,",
-        "   )",
-        "test_rule = rule(implementation = _test_rule_impl,",
-        "   attrs = {",
-        "   'deps': attr.label_list(allow_files = False, mandatory = False, providers = ['objc'])",
-        "})");
-
-    scratch.file("examples/apple_skylark/a.m");
-    scratch.file("examples/apple_skylark/flattened/a/a.txt");
-    scratch.file("examples/apple_skylark/flattened/b.lproj/b.txt");
-    scratch.file("examples/apple_skylark/structured/c/c.txt");
-    scratch.file("examples/apple_skylark/structured/d/d.txt");
-    scratch.file(
-        "examples/apple_skylark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'test_rule')",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        "    resources = glob(['flattened/**']),",
-        "    structured_resources = glob(['structured/**']),",
-        ")",
-        "test_rule(",
-        "    name = 'my_target',",
-        "    deps = [':lib'],",
-        ")");
-
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-
-    Iterable<?> bundleFiles = (Iterable<?>)
-        skylarkTarget.get("bundle_file");
-    assertThat(bundleFiles).containsAllOf(ImmutableMap.of(
-        BUNDLE_PATH_FIELD, "a.txt",
-        BUNDLED_FIELD, "examples/apple_skylark/flattened/a/a.txt"
-    ), ImmutableMap.of(
-        BUNDLE_PATH_FIELD, "b.lproj/b.txt",
-        BUNDLED_FIELD, "examples/apple_skylark/flattened/b.lproj/b.txt"
-    ), ImmutableMap.of(
-        BUNDLE_PATH_FIELD, "structured/c/c.txt",
-        BUNDLED_FIELD, "examples/apple_skylark/structured/c/c.txt"
-    ), ImmutableMap.of(
-        BUNDLE_PATH_FIELD, "structured/d/d.txt",
-        BUNDLED_FIELD, "examples/apple_skylark/structured/d/d.txt"
-    ));
-  }
-
-  @Test
   public void testSkylarkCanAccessSdkFrameworks() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
@@ -1520,7 +1456,6 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "objc_import(",
         "   name='bundle_lib',",
         "   archives = ['bar.a'],",
-        "   strings=['foo.strings'],",
         ")");
 
     setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=true");
@@ -1556,14 +1491,12 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "objc_import(",
         "   name='bundle_lib',",
         "   archives = ['bar.a'],",
-        "   strings=['foo.strings'],",
         ")");
 
     setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=false");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    assertThat(skylarkTarget.get("strings"))
-        .isEqualTo("depset([<source file examples/apple_skylark/foo.strings>])");
+    assertThat(skylarkTarget.get("strings")).isEqualTo("depset([])");
   }
 
   private void checkSkylarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {

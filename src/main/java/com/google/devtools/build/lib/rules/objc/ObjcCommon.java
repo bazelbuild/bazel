@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_DIR;
@@ -40,14 +37,9 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -61,7 +53,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
@@ -101,53 +92,11 @@ public final class ObjcCommon {
     return inputs.build();
   }
 
-  /**
-   * Provides a way to access attributes that are common to all resources rules.
-   */
-  // TODO(bazel-team): Delete and move into support-specific attributes classes once ObjcCommon is
-  // gone.
-  static final class ResourceAttributes {
-    private final RuleContext ruleContext;
-
-    ResourceAttributes(RuleContext ruleContext) {
-      this.ruleContext = ruleContext;
-    }
-
-    ImmutableList<Artifact> strings() {
-      return ruleContext.getPrerequisiteArtifacts("strings", Mode.TARGET).list();
-    }
-
-    ImmutableList<Artifact> xibs() {
-      return ruleContext.getPrerequisiteArtifacts("xibs", Mode.TARGET).list();
-    }
-
-    ImmutableList<Artifact> storyboards() {
-      return ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET).list();
-    }
-
-    ImmutableList<Artifact> resources() {
-      return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
-    }
-
-    ImmutableList<Artifact> structuredResources() {
-      return ruleContext.getPrerequisiteArtifacts("structured_resources", Mode.TARGET).list();
-    }
-
-    ImmutableList<Artifact> datamodels() {
-      return ruleContext.getPrerequisiteArtifacts("datamodels", Mode.TARGET).list();
-    }
-
-    ImmutableList<Artifact> assetCatalogs() {
-      return ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET).list();
-    }
-  }
-
   static class Builder {
     private final RuleContext context;
     private final StarlarkSemantics semantics;
     private final BuildConfiguration buildConfiguration;
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
-    private Optional<ResourceAttributes> resourceAttributes = Optional.absent();
     private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
     private Iterable<SdkFramework> extraWeakSdkFrameworks = ImmutableList.of();
     private Iterable<String> extraSdkDylibs = ImmutableList.of();
@@ -196,15 +145,6 @@ public final class ObjcCommon {
           "compilationAttributes is already set to: %s",
           this.compilationAttributes);
       this.compilationAttributes = Optional.of(baseCompilationAttributes);
-      return this;
-    }
-
-    public Builder setResourceAttributes(ResourceAttributes baseResourceAttributes) {
-      Preconditions.checkState(
-          !this.resourceAttributes.isPresent(),
-          "resourceAttributes is already set to: %s",
-          this.resourceAttributes);
-      this.resourceAttributes = Optional.of(baseResourceAttributes);
       return this;
     }
 
@@ -398,12 +338,9 @@ public final class ObjcCommon {
 
     ObjcCommon build() {
 
-      Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
-
       ObjcProvider.Builder objcProvider =
           new ObjcProvider.Builder(semantics)
               .addAll(IMPORTED_LIBRARY, extraImportLibraries)
-              .addAll(BUNDLE_FILE, bundleImports)
               .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
               .addAll(WEAK_SDK_FRAMEWORK, extraWeakSdkFrameworks)
               .addAll(SDK_DYLIB, extraSdkDylibs)
@@ -483,33 +420,6 @@ public final class ObjcCommon {
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
             .addAll(WEAK_SDK_FRAMEWORK, attributes.weakSdkFrameworks())
             .addAll(SDK_DYLIB, attributes.sdkDylibs());
-      }
-
-      if (resourceAttributes.isPresent()) {
-        ResourceAttributes attributes = resourceAttributes.get();
-        objcProvider
-            .addAll(BUNDLE_FILE, BundleableFile.flattenedRawResourceFiles(attributes.resources()))
-            .addAll(
-                BUNDLE_FILE,
-                BundleableFile.structuredRawResourceFiles(attributes.structuredResources()))
-            .addAll(
-                XCASSETS_DIR,
-                uniqueContainers(attributes.assetCatalogs(), ASSET_CATALOG_CONTAINER_TYPE))
-            .addAll(ASSET_CATALOG, attributes.assetCatalogs())
-            .addAll(XCDATAMODEL, attributes.datamodels())
-            .addAll(XIB, attributes.xibs())
-            .addAll(STRINGS, attributes.strings())
-            .addAll(STORYBOARD, attributes.storyboards());
-      }
-
-      if (useLaunchStoryboard(context)) {
-        Artifact launchStoryboard =
-            context.getPrerequisiteArtifact("launch_storyboard", Mode.TARGET);
-        if (ObjcRuleClasses.STORYBOARD_TYPE.matches(launchStoryboard.getPath())) {
-          objcProvider.add(STORYBOARD, launchStoryboard);
-        } else {
-          objcProvider.add(XIB, launchStoryboard);
-        }
       }
 
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
@@ -607,18 +517,6 @@ public final class ObjcCommon {
       } catch (Exception e) {
         return false;
       }
-    }
-
-    /**
-     * Returns {@code true} if the given rule context has a launch storyboard set.
-     */
-    private static boolean useLaunchStoryboard(RuleContext ruleContext) {
-      if (!ruleContext.attributes().has("launch_storyboard", LABEL)) {
-        return false;
-      }
-      Artifact launchStoryboard =
-          ruleContext.getPrerequisiteArtifact("launch_storyboard", Mode.TARGET);
-      return launchStoryboard != null;
     }
   }
 

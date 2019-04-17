@@ -20,14 +20,12 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArt
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static org.junit.Assert.fail;
@@ -993,40 +991,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAssetCatalogsAttributeErrorForNotInXcAssetsDir() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--incompatible_disable_objc_library_resources=false");
-    scratch.file("lib/ac/notinxcassets1");
-    scratch.file("lib/ac/notinxcassets2");
-    scratch.file("lib/ac/foo.xcassets/isinxcassets");
-    checkError("lib", "lib",
-        String.format(ObjcCommon.NOT_IN_CONTAINER_ERROR_FORMAT,
-            "lib/ac/notinxcassets2", ImmutableList.of(ObjcCommon.ASSET_CATALOG_CONTAINER_TYPE)),
-        "objc_library(name = 'lib', srcs = ['src.m'], asset_catalogs = glob(['ac/**']))");
-  }
-
-  @Test
-  public void testXcdatamodelsAttributeErrorForNotInXcdatamodelDir() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--incompatible_disable_objc_library_resources=false");
-    scratch.file("lib/xcd/notinxcdatamodel1");
-    scratch.file("lib/xcd/notinxcdatamodel2");
-    scratch.file("lib/xcd/foo.xcdatamodel/isinxcdatamodel");
-    scratch.file("lib/xcd/bar.xcdatamodeld/isinxcdatamodeld");
-    checkError("lib", "lib",
-        String.format(ObjcCommon.NOT_IN_CONTAINER_ERROR_FORMAT,
-            "lib/xcd/notinxcdatamodel1", Xcdatamodels.CONTAINER_TYPES),
-        "objc_library(name = 'lib', srcs = ['src.m'], datamodels = glob(['xcd/**']))");
-  }
-
-  @Test
-  public void testProvidesStoryboardOptions() throws Exception {
-    checkProvidesStoryboardObjects(RULE_TYPE);
-  }
-
-  @Test
   public void testDoesNotUseCxxUnfilteredFlags() throws Exception {
     useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     createLibraryTargetWriter("//lib:lib")
@@ -1143,42 +1107,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testPopulatesCompilationArtifacts() throws Exception {
     checkPopulatesCompilationArtifacts(RULE_TYPE);
-  }
-
-  @Test
-  public void testProvidesXcassetCatalogsTransitively() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=false");
-    scratch.file("lib1/ac.xcassets/foo");
-    scratch.file("lib1/ac.xcassets/bar");
-    createLibraryTargetWriter("//lib1:lib1")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .set("asset_catalogs", "glob(['ac.xcassets/**'])")
-        .write();
-    scratch.file("lib2/ac.xcassets/baz");
-    scratch.file("lib2/ac.xcassets/42");
-    createLibraryTargetWriter("//lib2:lib2")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .set("asset_catalogs", "glob(['ac.xcassets/**'])")
-        .setList("deps", "//lib1:lib1")
-        .write();
-
-    ObjcProvider lib2Provider = providerForTarget("//lib2:lib2");
-    assertThat(Artifact.toExecPaths(lib2Provider.get(ASSET_CATALOG)))
-        .containsExactly(
-            "lib1/ac.xcassets/foo",
-            "lib1/ac.xcassets/bar",
-            "lib2/ac.xcassets/baz",
-            "lib2/ac.xcassets/42");
-    assertThat(lib2Provider.get(XCASSETS_DIR))
-        .containsExactly(
-            PathFragment.create("lib1/ac.xcassets"), PathFragment.create("lib2/ac.xcassets"));
-
-    ObjcProvider lib1Provider = providerForTarget("//lib1:lib1");
-    assertThat(Artifact.toExecPaths(lib1Provider.get(ASSET_CATALOG)))
-        .containsExactly("lib1/ac.xcassets/foo", "lib1/ac.xcassets/bar");
-    assertThat(lib1Provider.get(XCASSETS_DIR))
-        .containsExactly(PathFragment.create("lib1/ac.xcassets"))
-        .inOrder();
   }
 
   @Test
@@ -2048,94 +1976,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileAction = compileAction("//cc/lib", "a.o");
     assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
         .contains("cc/txt_dep/hdr.h");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_assetCatalogs() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', asset_catalogs = ['fg'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_datamodels() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', datamodels = ['fg'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_resources() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', resources = ['fg'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_storyboards() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', storyboards = ['fg.storyboard'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_strings() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', strings = ['fg.strings'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_structuredResources() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', structured_resources = ['fg'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_xibs() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', xibs = ['fg.xib'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_resourcesEmpty() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', resources = [])");
   }
 
   /** Regression test for https://github.com/bazelbuild/bazel/issues/7721. */
