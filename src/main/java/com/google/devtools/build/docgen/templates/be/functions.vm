@@ -245,52 +245,6 @@ package_group(
 </pre>
 
 <!-- =================================================================
-                              licenses()
-     =================================================================
--->
-
-<h2 id="licenses">licenses</h2>
-
-<pre>licenses(license_types)</pre>
-
-<p><code>licenses()</code> specifies the default license type (or types)
-   of the build rules in a <code>BUILD</code> file.
-
-   The <code>licenses()</code> directive should appear close to the
-   beginning of the <code>BUILD</code> file, before any build rules, as it
-   sets the <code>BUILD</code>-file scope default for build rule license
-   types.</p>
-
-<h3 id="licenses_args">Arguments</h3>
-
-<p>The argument, <code id="licenses.licence_types">license_types</code>,
-   is a list of license-type strings.
-   <!-- TODO(bazel-team): specify some examples -->
-
-</p>
-
-<p>Valid license types include:</p>
-<dl>
-  <dt><code>restricted</code></dt><dd>Requires mandatory source
-    distribution.</dd>
-  <dt><code>reciprocal</code></dt><dd>Allows usage of software freely in
-    <b>unmodified</b> form. Any modifications must be made freely
-    available.</dd>
-  <dt><code>notice</code></dt><dd>Original or modified third-party software may
-    be shipped without danger nor encumbering other sources. All of the
-    licenses in this category do, however, have an "original Copyright notice"
-    or "advertising clause", wherein any external distributions must include
-    the notice or clause specified in the license.</dd>
-  <dt><code>permissive</code></dt><dd>Code that is under a license but does not
-    require a notice.</dd>
-  <dt><code>unencumbered</code></dt><dd>Public domain, free for any use.</dd>
-</dl>
-licenses(["notice"])  # MIT license
-
-exports_files(["jquery-2.1.1.js"])
-</pre>
-
-<!-- =================================================================
                         exports_files([label, ...])
      =================================================================
   -->
