@@ -42,9 +42,10 @@ class WaitableProcess {
   bool Create(const std::wstring& argv0, const std::wstring& argv_rest,
               void* env, const std::wstring& wcwd, HANDLE stdin_process,
               HANDLE stdout_process, HANDLE stderr_process,
-              std::wstring* error);
+              LARGE_INTEGER* opt_out_start_time, std::wstring* error);
 
-  int WaitFor(int64_t timeout_msec, std::wstring* error);
+  int WaitFor(int64_t timeout_msec, LARGE_INTEGER* opt_out_end_time,
+              std::wstring* error);
 
   int GetExitCode(std::wstring* error);
 

@@ -314,7 +314,7 @@ class NativeProcess {
     return proc_.Create(
         wpath, bazel::windows::GetJavaWstring(env, java_argv_rest),
         env_map.ptr(), bazel::windows::GetJavaWpath(env, java_cwd),
-        stdin_process, stdout_process, stderr_process, &error_);
+        stdin_process, stdout_process, stderr_process, nullptr, &error_);
   }
 
   void CloseStdin() {
@@ -325,7 +325,7 @@ class NativeProcess {
 
   // Wait for this process to exit (or timeout).
   int WaitFor(int64_t timeout_msec) {
-    return proc_.WaitFor(timeout_msec, &error_);
+    return proc_.WaitFor(timeout_msec, nullptr, &error_);
   }
 
   // Returns the exit code of the process if it has already exited. If the
