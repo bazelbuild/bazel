@@ -185,8 +185,11 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       }
       env.getListener()
           .handle(
-              Event.info(
-                  "An error occurred during the fetch of repository '" + rule.getName() + "'"));
+              Event.error(
+                  "An error occurred during the fetch of repository '"
+                      + rule.getName()
+                      + "':\n   "
+                      + e.getMessage()));
       if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
         env.getListener().handle(Event.info(rule.getDefinitionInformation()));
       }
