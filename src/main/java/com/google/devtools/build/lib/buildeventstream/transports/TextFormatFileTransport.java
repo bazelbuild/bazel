@@ -18,7 +18,6 @@ import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
-import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.protobuf.TextFormat;
@@ -35,9 +34,8 @@ public final class TextFormatFileTransport extends FileTransport {
       BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      BuildEventServiceAbruptExitCallback abruptExitCallback,
       ArtifactGroupNamer namer) {
-    super(outputStream, options, uploader, abruptExitCallback, namer);
+    super(outputStream, options, uploader, namer);
   }
 
   @Override
