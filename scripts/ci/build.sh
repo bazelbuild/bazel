@@ -185,7 +185,7 @@ function release_to_gcs() {
       release_path="${release_name}/rc${rc}"
     fi
     create_index_html "${artifact_dir}" > "${artifact_dir}/index.html"
-    gsutil -m cp -a public-read "${artifact_dir}/**" "gs://bazel/${release_path}"
+    gsutil -m cp "${artifact_dir}/**" "gs://bazel/${release_path}"
   fi
 }
 
@@ -259,7 +259,7 @@ EOF
   reprepro -C jdk1.8 includedeb "${distribution}" "${deb_pkg_name}"
   reprepro -C jdk1.8 includedsc "${distribution}" "${deb_dsc_name}"
 
-  gsutil -m cp -a public-read -r dists pool "gs://bazel-apt"
+  gsutil -m cp -r dists pool "gs://bazel-apt"
 }
 
 function release_to_apt() {

@@ -61,7 +61,7 @@ then
   # should there be such a need, please file an issue.
   #
   # -a public-read: set the default ACL for uploaded archives to public-read for Bazel to download it.
-  gsutil cp -n -a public-read $(cd $SCRIPT_DIR && bazel info bazel-genfiles)/site/jekyll-tree.tar gs://bazel-mirror/bazel_versioned_docs/jekyll-tree-$DOC_VERSION.tar
+  gsutil cp -n $(cd $SCRIPT_DIR && bazel info bazel-genfiles)/site/jekyll-tree.tar gs://bazel-mirror/bazel_versioned_docs/jekyll-tree-$DOC_VERSION.tar
 
   log_info "Done."
   log_info "Now, please add \"$DOC_VERSION\" to the doc_versions list in <workspace>/site/_config.yml."
