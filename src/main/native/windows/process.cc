@@ -33,6 +33,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& argv_rest, void* env,
                              const std::wstring& wcwd, HANDLE stdin_process,
                              HANDLE stdout_process, HANDLE stderr_process,
+                             LARGE_INTEGER* opt_out_start_time,
                              std::wstring* error) {
   std::wstring cwd;
   std::wstring error_msg(AsShortPath(wcwd, &cwd));
@@ -177,11 +178,26 @@ bool WaitableProcess::Create(const std::wstring& argv0,
     return false;
   }
 
+  if (opt_out_start_time) {
+    QueryPerformanceCounter(opt_out_start_time);
+  }
   *error = L"";
   return true;
 }
 
-int WaitableProcess::WaitFor(int64_t timeout_msec, std::wstring* error) {
+int WaitableProcess::WaitFor(int64_t timeout_msec,
+                             LARGE_INTEGER* opt_out_end_time,
+                             std::wstring* error) {
+  struct Defer {
+    LARGE_INTEGER* t;
+    Defer(LARGE_INTEGER* cnt) : t(cnt) {}
+    ~Defer() {
+      if (t) {
+        QueryPerformanceCounter(t);
+      }
+    }
+  } defer_query_end_time(opt_out_end_time);
+
   DWORD win32_timeout = timeout_msec < 0 ? INFINITE : timeout_msec;
   int result;
   switch (WaitForSingleObject(process_, win32_timeout)) {
