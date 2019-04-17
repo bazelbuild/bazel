@@ -212,6 +212,12 @@ def _pkg_deb_impl(ctx):
         inputs = [ctx.outputs.deb],
         outputs = [ctx.outputs.out],
     )
+    output_groups = {"out": [ctx.outputs.out]}
+    if hasattr(ctx.outputs, "out_deb"):
+        output_groups["deb"] = ctx.outputs.deb
+    if hasattr(ctx.outputs, "out_changes"):
+        output_groups["changes"] = ctx.outputs.changes
+    return OutputGroupInfo(**output_groups)
 
 # A rule for creating a tar file, see README.md
 _real_pkg_tar = rule(
@@ -226,6 +232,7 @@ _real_pkg_tar = rule(
         "modes": attr.string_dict(),
         "mtime": attr.int(default = -1),
         "portable_mtime": attr.bool(default = True),
+        "out": attr.output(),
         "owner": attr.string(default = "0.0"),
         "ownername": attr.string(default = "."),
         "owners": attr.string_dict(),
@@ -244,9 +251,6 @@ _real_pkg_tar = rule(
             allow_files = True,
         ),
     },
-    outputs = {
-        "out": "%{name}.%{extension}",
-    },
 )
 
 def pkg_tar(**kwargs):
@@ -260,10 +264,17 @@ def pkg_tar(**kwargs):
                       "This attribute was renamed to `srcs`. " +
                       "Consider renaming it in your BUILD file.")
                 kwargs["srcs"] = kwargs.pop("files")
-    _real_pkg_tar(**kwargs)
+    if "extension" in kwargs and kwargs["extension"]:
+        extension = kwargs["extension"]
+    else:
+        extension = "tar"
+    _real_pkg_tar(
+        out = kwargs["name"] + "." + extension,
+        **kwargs
+    )
 
 # A rule for creating a deb file, see README.md
-pkg_deb = rule(
+_pkg_deb = rule(
     implementation = _pkg_deb_impl,
     attrs = {
         "data": attr.label(mandatory = True, allow_single_file = tar_filetype),
@@ -300,10 +311,27 @@ pkg_deb = rule(
             executable = True,
             allow_files = True,
         ),
-    },
-    outputs = {
-        "out": "%{name}.deb",
-        "deb": "%{package}_%{version}_%{architecture}.deb",
-        "changes": "%{package}_%{version}_%{architecture}.changes",
+        # Outputs.
+        "out": attr.output(mandatory = True),
+        "deb": attr.output(),
+        "changes": attr.output(),
     },
 )
+
+def pkg_deb(name, package, **kwargs):
+    """Creates a deb file. See README.md."""
+    version = kwargs.get("version", None)
+    architecture = kwargs.get("architecture", "all")
+    out_deb = None
+    out_changes = None
+    if version and architecture:
+        out_deb = "%s_%s_%s.deb" % (package, version, architecture)
+        out_changes = "%s_%s_%s.changes" % (package, version, architecture)
+    _pkg_deb(
+        name = name,
+        package = package,
+        out = name + ".deb",
+        deb = out_deb,
+        changes = out_changes,
+        **kwargs
+    )
