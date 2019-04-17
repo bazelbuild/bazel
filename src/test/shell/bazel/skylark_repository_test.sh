@@ -1260,6 +1260,114 @@ EOF
       || fail "expected success after successful sync"
 }
 
+function test_download_failure_message() {
+  # Regression test for #7850
+  # Verify that the for a failed downlaod, it is clearly indicated
+  # what was attempted to download and how it fails.
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  outs = ["it.txt"],
+  srcs = ["@ext_foo//:data.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+  ctx.symlink(ctx.attr.data, "data.txt")
+
+trivial_repo = repository_rule(
+  implementation = _impl,
+  attrs = { "data" : attr.label() },
+)
+EOF
+  cat > root.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def root_cause():
+  http_archive(
+    name = "this_is_the_root_cause",
+    urls = ["http://does.not.exist.example.com/some/file.tar"],
+  )
+
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:root.bzl", "root_cause")
+load("//:repo.bzl", "trivial_repo")
+
+root_cause()
+
+trivial_repo(
+  name = "ext_baz",
+  data = "@this_is_the_root_cause//:data.txt",
+)
+trivial_repo(
+  name = "ext_bar",
+  data = "@ext_baz//:data.txt",
+)
+
+trivial_repo(
+  name = "ext_foo",
+  data = "@ext_bar//:data.txt",
+)
+EOF
+
+  bazel build //:it > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+
+  # Extract the first error message printed
+  ed "${TEST_log}" <<'EOF'
+1
+/^ERROR
+.,/^[^ ]/-1w firsterror.log
+Q
+EOF
+  echo; echo "first error message which should focus on the root cause";
+  echo "=========="; cat firsterror.log; echo "=========="
+  # We expect it to contain the root cause, and the failure ...
+  grep -q 'this_is_the_root_cause' firsterror.log \
+      || fail "Root-cause repository not mentioned"
+  grep -q '[uU]nknown host.*does.not.exist.example.com' firsterror.log \
+      || fail "Failure reason not mentioned"
+  # ...but not be cluttered with information not related to the root cause
+  grep 'ext_foo' firsterror.log && fail "unrelated repo mentioned" || :
+  grep 'ext_bar' firsterror.log && fail "unrelated repo mentioned" || :
+  grep 'ext_baz' firsterror.log && fail "unrelated repo mentioned" || :
+  grep '//:it' firsterror.log && fail "unrelated target mentioned" || :
+
+  # Verify that the same is true, if the error is caused by a fail statement.
+  cat > root.bzl <<'EOF'
+def _impl(ctx):
+  fail("Here be dragons")
+
+repo = repository_rule(implementation=_impl, attrs = {})
+
+def root_cause():
+  repo(name = "this_is_the_root_cause")
+EOF
+  bazel build //:it > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+
+  # Extract the first error message printed
+  ed "${TEST_log}" <<'EOF'
+1
+/^ERROR
+.,/^[^ ]/-1w firsterror.log
+Q
+EOF
+  echo; echo "first error message which should focus on the root cause";
+  echo "=========="; cat firsterror.log; echo "=========="
+  grep -q 'this_is_the_root_cause' firsterror.log \
+      || fail "Root-cause repository not mentioned"
+  grep -q 'Here be dragons' firsterror.log \
+      || fail "fail error message not shown"
+  grep 'ext_foo' firsterror.log && fail "unrelated repo mentioned" || :
+  grep 'ext_bar' firsterror.log && fail "unrelated repo mentioned" || :
+  grep 'ext_baz' firsterror.log && fail "unrelated repo mentioned" || :
+  grep '//:it' firsterror.log && fail "unrelated target mentioned" || :
+}
+
 function test_circular_load_error_message() {
   cat > WORKSPACE <<'EOF'
 load("//:a.bzl", "total")
