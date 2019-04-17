@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -89,7 +90,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
     builder.setWorkspaceOnly();
-    return new RepositoryRuleFunction(builder);
+    return new RepositoryRuleFunction(builder, ast.getLocation());
   }
 
   private static final class RepositoryRuleFunction extends BaseFunction
@@ -97,10 +98,12 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     private final RuleClass.Builder builder;
     private Label extensionLabel;
     private String exportedName;
+    private final Location ruleClassDefinitionLocation;
 
-    public RepositoryRuleFunction(RuleClass.Builder builder) {
+    public RepositoryRuleFunction(RuleClass.Builder builder, Location ruleClassDefinitionLocation) {
       super("repository_rule", FunctionSignature.KWARGS);
       this.builder = builder;
+      this.ruleClassDefinitionLocation = ruleClassDefinitionLocation;
     }
 
     @Override
@@ -157,7 +160,11 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
         StringBuilder callStack =
             new StringBuilder("Call stack for the definition of repository '")
                 .append(externalRepoName)
-                .append("':");
+                .append("' which is a ")
+                .append(ruleClassName)
+                .append(" (rule definition at ")
+                .append(ruleClassDefinitionLocation.toString())
+                .append("):");
         for (DebugFrame frame : env.listFrames(ast.getLocation())) {
           callStack.append("\n - ").append(frame.location().toString());
         }
