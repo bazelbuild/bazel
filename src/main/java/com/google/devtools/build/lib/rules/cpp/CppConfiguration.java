@@ -665,4 +665,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public boolean saveFeatureState() {
     return cppOptions.saveFeatureState;
   }
+
+  public boolean useStandaloneLtoIndexingCommandLines() {
+    return cppOptions.useStandaloneLtoIndexingCommandLines;
+  }
 }

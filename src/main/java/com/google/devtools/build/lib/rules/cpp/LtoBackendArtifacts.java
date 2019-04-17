@@ -233,11 +233,6 @@ public final class LtoBackendArtifacts {
     builder.setProgressMessage("LTO Backend Compile %s", objectFile.getExecPath());
     builder.setMnemonic("CcLtoBackendCompile");
 
-    // The command-line doesn't specify the full path to clang++, so we set it in the
-    // environment.
-    PathFragment compiler = ccToolchain.getToolPathFragment(Tool.GCC, ruleErrorConsumer);
-
-    builder.setExecutable(compiler);
     CcToolchainVariables.Builder buildVariablesBuilder =
         CcToolchainVariables.builder(ccToolchain.getBuildVariables(buildOptions, cppConfiguration));
     if (index != null) {
@@ -277,8 +272,24 @@ public final class LtoBackendArtifacts {
     buildVariablesBuilder.addStringSequenceVariable(
         CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
-    List<String> execArgs = new ArrayList<>();
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
+
+    if (cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
+      if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
+        throw ruleErrorConsumer.throwWithRuleError(
+            "Thinlto build is requested, but the C++ toolchain doesn't define an action_config for"
+                + " 'lto-backend' action.");
+      }
+      PathFragment compiler =
+          PathFragment.create(
+              featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
+      builder.setExecutable(compiler);
+    } else {
+      PathFragment compiler = ccToolchain.getToolPathFragment(Tool.GCC, ruleErrorConsumer);
+      builder.setExecutable(compiler);
+    }
+
+    List<String> execArgs = new ArrayList<>();
     execArgs.addAll(
         CppHelper.getCommandLine(
             ruleErrorConsumer, featureConfiguration, buildVariables, CppActionNames.LTO_BACKEND));

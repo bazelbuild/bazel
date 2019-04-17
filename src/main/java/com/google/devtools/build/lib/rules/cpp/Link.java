@@ -245,13 +245,18 @@ public abstract class Link {
     public String getActionName() {
       return actionName;
     }
-    
-    /** Returns true iff this link type is executable */
+
+    /** Returns true iff this link type is executable. */
     public boolean isExecutable() {
       return (executable == Executable.EXECUTABLE);
     }
 
-    /** Returns true iff this link type is a dynamic library or transitive dynamic library */
+    /** Returns true iff this link type is a transitive dynamic library. */
+    public boolean isTransitiveDynamicLibrary() {
+      return this == DYNAMIC_LIBRARY;
+    }
+
+    /** Returns true iff this link type is a dynamic library or transitive dynamic library. */
     public boolean isDynamicLibrary() {
       return this == NODEPS_DYNAMIC_LIBRARY || this == DYNAMIC_LIBRARY;
     }

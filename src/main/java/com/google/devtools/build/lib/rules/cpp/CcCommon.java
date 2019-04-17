@@ -122,10 +122,14 @@ public final class CcCommon {
           CppActionNames.PREPROCESS_ASSEMBLE,
           CppActionNames.CLIF_MATCH,
           CppActionNames.LINKSTAMP_COMPILE,
-          CppActionNames.CC_FLAGS_MAKE_VARIABLE);
+          CppActionNames.CC_FLAGS_MAKE_VARIABLE,
+          CppActionNames.LTO_BACKEND);
 
   public static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(
+          CppActionNames.LTO_INDEX_EXECUTABLE,
+          CppActionNames.LTO_INDEX_DYNAMIC_LIBRARY,
+          CppActionNames.LTO_INDEX_NODEPS_DYNAMIC_LIBRARY,
           LinkTargetType.EXECUTABLE.getActionName(),
           Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());

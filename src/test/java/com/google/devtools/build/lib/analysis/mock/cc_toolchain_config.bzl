@@ -457,6 +457,20 @@ _thin_lto_feature = feature(
             ],
         ),
         flag_set(
+            actions = [
+                ACTION_NAMES.lto_index_for_executable,
+                ACTION_NAMES.lto_index_for_dynamic_library,
+                ACTION_NAMES.lto_index_for_nodeps_dynamic_library,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = ["--i_come_from_standalone_lto_index=%{user_link_flags}"],
+                    iterate_over = "user_link_flags",
+                    expand_if_available = "user_link_flags",
+                ),
+            ],
+        ),
+        flag_set(
             actions = [ACTION_NAMES.lto_indexing],
             flag_groups = [
                 flag_group(
