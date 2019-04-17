@@ -97,4 +97,4 @@ fi
 
 # Upload the zip that contains the README.md to GCS.
 "$gsutil_cmd" cp "$tmp_zip" \
- "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/java_tools_javac${java_version}_${platform}-${commit_hash}-${timestamp}.zip"
+ "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}-${timestamp}.zip"
