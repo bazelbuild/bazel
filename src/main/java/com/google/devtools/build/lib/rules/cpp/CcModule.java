@@ -27,12 +27,16 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -57,6 +61,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
@@ -72,8 +77,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
-public class CcModule
+public abstract class CcModule
     implements CcModuleApi<
+        SkylarkActionFactory,
         Artifact,
         CcToolchainProvider,
         FeatureConfigurationForStarlark,
@@ -82,7 +88,10 @@ public class CcModule
         LibraryToLink,
         CcToolchainVariables,
         SkylarkRuleContext,
-        CcToolchainConfigInfo> {
+        CcToolchainConfigInfo,
+        CcCompilationOutputs> {
+
+  public abstract CppSemantics getSemantics();
 
   @Override
   public Provider getCcToolchainProvider() {
@@ -1296,5 +1305,92 @@ public class CcModule
   @Override
   public boolean isCcToolchainResolutionEnabled(SkylarkRuleContext skylarkRuleContext) {
     return CppHelper.useToolchainResolution(skylarkRuleContext.getRuleContext());
+  }
+
+  protected Label getCallerLabel(Location location, Environment environment, String name)
+      throws EvalException {
+    Label label;
+    try {
+      label = Label.create(environment.getCallerLabel().getPackageName(), name);
+    } catch (LabelSyntaxException e) {
+      throw new EvalException(location, e);
+    }
+    return label;
+  }
+
+  protected Tuple<Object> compile(
+      SkylarkActionFactory skylarkActionFactoryApi,
+      FeatureConfigurationForStarlark skylarkFeatureConfiguration,
+      CcToolchainProvider skylarkCcToolchainProvider,
+      SkylarkList<Artifact> sources,
+      SkylarkList<Artifact> publicHeaders,
+      SkylarkList<Artifact> privateHeaders,
+      SkylarkList<String> includes,
+      SkylarkList<String> quoteIncludes,
+      SkylarkList<String> systemIncludes,
+      SkylarkList<String> defines,
+      SkylarkList<String> userCompileFlags,
+      SkylarkList<CcCompilationContext> ccCompilationContexts,
+      String name,
+      boolean disallowPicOutputs,
+      boolean disallowNopicOutputs,
+      Artifact grepIncludes,
+      SkylarkList<Artifact> headersForClifDoNotUseThisParam,
+      Location location,
+      Environment environment)
+      throws EvalException {
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    SkylarkActionFactory actions = skylarkActionFactoryApi;
+    CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
+    FeatureConfigurationForStarlark featureConfiguration =
+        convertFromNoneable(skylarkFeatureConfiguration, null);
+    Label label = getCallerLabel(location, environment, name);
+    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
+    CcCompilationHelper helper =
+        new CcCompilationHelper(
+                actions.asActionRegistry(location, actions),
+                actions.getActionConstructionContext(),
+                label,
+                grepIncludes,
+                getSemantics(),
+                featureConfiguration.getFeatureConfiguration(),
+                ccToolchainProvider,
+                fdoContext)
+            .addPublicHeaders(publicHeaders)
+            .addPrivateHeaders(privateHeaders)
+            .addSources(sources)
+            .addCcCompilationContexts(ccCompilationContexts)
+            .addIncludeDirs(
+                includes.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addQuoteIncludeDirs(
+                quoteIncludes.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addSystemIncludeDirs(
+                systemIncludes.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addDefines(defines)
+            .setCopts(userCompileFlags)
+            .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
+            .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam);
+    if (disallowNopicOutputs) {
+      helper.setGenerateNoPicAction(false);
+    }
+    if (disallowPicOutputs) {
+      helper.setGeneratePicAction(false);
+    }
+    try {
+      CompilationInfo compilationInfo = helper.compile();
+      return Tuple.of(
+          compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
+    } catch (RuleErrorException e) {
+      throw new EvalException(location, e);
+    }
   }
 }

@@ -20,13 +20,10 @@ import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
@@ -36,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
@@ -48,8 +46,6 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -72,8 +68,7 @@ public class BazelCcModule extends CcModule
         CcLinkingContext,
         CcToolchainVariables,
         CcToolchainConfigInfo> {
-
-  private static final List<String> SUPPORTED_OUTPUT_TYPES =
+  private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
       ImmutableList.of("executable", "dynamic_library");
 
   private enum Language {
@@ -81,15 +76,20 @@ public class BazelCcModule extends CcModule
     OBJC("objc"),
     OBJCPP("objc++");
 
-    private String representation;
+    private final String representation;
 
     Language(String representation) {
       this.representation = representation;
     }
 
-    private String getRepresentation() {
+    public String getRepresentation() {
       return representation;
     }
+  }
+
+  @Override
+  public CppSemantics getSemantics() {
+    return BazelCppSemantics.INSTANCE;
   }
 
   @Override
@@ -112,57 +112,26 @@ public class BazelCcModule extends CcModule
       Location location,
       Environment environment)
       throws EvalException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
+    return compile(
+        skylarkActionFactoryApi,
+        skylarkFeatureConfiguration,
+        skylarkCcToolchainProvider,
+        sources,
+        publicHeaders,
+        privateHeaders,
+        includes,
+        quoteIncludes,
+        systemIncludes,
+        defines,
+        userCompileFlags,
+        ccCompilationContexts,
+        name,
+        disallowPicOutputs,
+        disallowNopicOutputs,
+        /* grepIncludes= */ null,
+        SkylarkList.createImmutable(ImmutableList.of()),
         location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
-    SkylarkActionFactory actions = skylarkActionFactoryApi;
-    CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
-    FeatureConfigurationForStarlark featureConfiguration =
-        convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, environment, name);
-    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
-    CcCompilationHelper helper =
-        new CcCompilationHelper(
-                actions.asActionRegistry(location, actions),
-                actions.getActionConstructionContext(),
-                label,
-                /* grepIncludes= */ null,
-                BazelCppSemantics.INSTANCE,
-                featureConfiguration.getFeatureConfiguration(),
-                ccToolchainProvider,
-                fdoContext)
-            .addPublicHeaders(publicHeaders)
-            .addPrivateHeaders(privateHeaders)
-            .addSources(sources)
-            .addCcCompilationContexts(ccCompilationContexts)
-            .addIncludeDirs(
-                includes.stream()
-                    .map(PathFragment::create)
-                    .collect(ImmutableList.toImmutableList()))
-            .addQuoteIncludeDirs(
-                quoteIncludes.stream()
-                    .map(PathFragment::create)
-                    .collect(ImmutableList.toImmutableList()))
-            .addSystemIncludeDirs(
-                systemIncludes.stream()
-                    .map(PathFragment::create)
-                    .collect(ImmutableList.toImmutableList()))
-            .addDefines(defines)
-            .setCopts(userCompileFlags);
-    if (disallowNopicOutputs) {
-      helper.setGenerateNoPicAction(false);
-    }
-    if (disallowPicOutputs) {
-      helper.setGeneratePicAction(false);
-    }
-    try {
-      CompilationInfo compilationInfo = helper.compile();
-      return Tuple.of(
-          compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
-    } catch (RuleErrorException e) {
-      throw new EvalException(location, e);
-    }
+        environment);
   }
 
   @Override
@@ -348,16 +317,5 @@ public class BazelCcModule extends CcModule
     if (!SUPPORTED_OUTPUT_TYPES.contains(outputType)) {
       throw new EvalException(location, "Output type '" + outputType + "' is not supported");
     }
-  }
-
-  private Label getCallerLabel(Location location, Environment environment, String name)
-      throws EvalException {
-    Label label;
-    try {
-      label = Label.create(environment.getCallerLabel().getPackageName(), name);
-    } catch (LabelSyntaxException e) {
-      throw new EvalException(location, e);
-    }
-    return label;
   }
 }
