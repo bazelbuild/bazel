@@ -888,8 +888,6 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     return true;
   }
 
-  protected abstract boolean discardPackagesWhenDiscardingAnalysisObjects();
-
   /**
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
@@ -909,12 +907,34 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   @VisibleForTesting
   protected abstract Injectable injectable();
 
+  /**
+   * Types that are created during loading, use significant space, and are definitely not needed
+   * during execution unless explicitly named.
+   *
+   * <p>Some keys, like globs, may be re-evaluated during execution, so these types should only be
+   * discarded if reverse deps are not being tracked!
+   */
   private static final ImmutableSet<SkyFunctionName> LOADING_TYPES =
       ImmutableSet.of(
           SkyFunctions.PACKAGE,
           SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
           SkyFunctions.AST_FILE_LOOKUP,
           SkyFunctions.GLOB);
+
+  /** Data that should be discarded in {@link #discardPreExecutionCache}. */
+  protected enum DiscardType {
+    ALL,
+    ANALYSIS_REFS_ONLY,
+    LOADING_NODES_ONLY;
+
+    boolean discardsAnalysis() {
+      return this != LOADING_NODES_ONLY;
+    }
+
+    boolean discardsLoading() {
+      return this != ANALYSIS_REFS_ONLY;
+    }
+  }
 
   /**
    * Save memory by removing references to configured targets and aspects in Skyframe.
@@ -926,21 +946,26 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
    * phase. Instead, their analysis-time data is cleared while preserving the generating action info
    * needed for execution. The next build will delete the nodes (and recreate them if necessary).
    *
-   * <p>If {@link #discardPackagesWhenDiscardingAnalysisObjects} is true, then also delete
-   * loading-phase nodes (as determined by {@link #LOADING_TYPES}) from the graph.
+   * <p>{@code discardType} can be used to specify which data to discard.
    */
-  private void discardAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
-    topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
-    topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
+  protected void discardPreExecutionCache(
+      Collection<ConfiguredTarget> topLevelTargets,
+      Collection<AspectValue> topLevelAspects,
+      DiscardType discardType) {
+    if (discardType.discardsAnalysis()) {
+      topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
+      topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
+    }
     // This is to prevent throwing away Packages we may need during execution.
     ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
-    packageSetBuilder.addAll(
-        Collections2.transform(
-            topLevelTargets, target -> target.getLabel().getPackageIdentifier()));
-    packageSetBuilder.addAll(
-        Collections2.transform(
-            topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
+    if (discardType.discardsLoading()) {
+      packageSetBuilder.addAll(
+          Collections2.transform(
+              topLevelTargets, target -> target.getLabel().getPackageIdentifier()));
+      packageSetBuilder.addAll(
+          Collections2.transform(
+              topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
+    }
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
     try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", logger)) {
       lastAnalysisDiscarded = true;
@@ -954,37 +979,42 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         }
         SkyKey key = keyAndEntry.getKey();
         SkyFunctionName functionName = key.functionName();
-        // Keep packages for top-level targets and aspects in memory to get the target from later.
-        if (functionName.equals(SkyFunctions.PACKAGE)
-            && topLevelPackages.contains(key.argument())) {
-          continue;
+        if (discardType.discardsLoading()) {
+          // Keep packages for top-level targets and aspects in memory to get the target from later.
+          if (functionName.equals(SkyFunctions.PACKAGE)
+              && topLevelPackages.contains(key.argument())) {
+            continue;
+          }
+          if (LOADING_TYPES.contains(functionName)) {
+            it.remove();
+            continue;
+          }
         }
-        if (discardPackagesWhenDiscardingAnalysisObjects()
-            && LOADING_TYPES.contains(functionName)) {
-          it.remove();
-          continue;
-        }
-        if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-          ConfiguredTargetValue ctValue;
-          try {
-            ctValue = (ConfiguredTargetValue) entry.getValue();
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
-          }
-          // ctValue may be null if target was not successfully analyzed.
-          if (ctValue != null) {
-            ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
-          }
-        } else if (functionName.equals(SkyFunctions.ASPECT)) {
-          AspectValue aspectValue;
-          try {
-            aspectValue = (AspectValue) entry.getValue();
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
-          }
-          // value may be null if target was not successfully analyzed.
-          if (aspectValue != null) {
-            aspectValue.clear(!topLevelAspects.contains(aspectValue));
+        if (discardType.discardsAnalysis()) {
+          if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+            ConfiguredTargetValue ctValue;
+            try {
+              ctValue = (ConfiguredTargetValue) entry.getValue();
+            } catch (InterruptedException e) {
+              throw new IllegalStateException(
+                  "No interruption in in-memory retrieval: " + entry, e);
+            }
+            // ctValue may be null if target was not successfully analyzed.
+            if (ctValue != null) {
+              ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
+            }
+          } else if (functionName.equals(SkyFunctions.ASPECT)) {
+            AspectValue aspectValue;
+            try {
+              aspectValue = (AspectValue) entry.getValue();
+            } catch (InterruptedException e) {
+              throw new IllegalStateException(
+                  "No interruption in in-memory retrieval: " + entry, e);
+            }
+            // value may be null if target was not successfully analyzed.
+            if (aspectValue != null) {
+              aspectValue.clear(!topLevelAspects.contains(aspectValue));
+            }
           }
         }
       }
@@ -993,12 +1023,11 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
   /**
    * Saves memory by clearing analysis objects from Skyframe. Clears their data without deleting
-   * them (they will be deleted on the next build).
+   * them (they will be deleted on the next build). May also delete loading-phase objects from the
+   * graph.
    */
-  public void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
-    discardAnalysisCache(topLevelTargets, topLevelAspects);
-  }
+  public abstract void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects);
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
 
