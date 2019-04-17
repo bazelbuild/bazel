@@ -51,6 +51,5 @@ cp $android_tools_archive $versioned_android_tools_archive
 
 # Upload the tarball to GCS.
 # -n for no-clobber, so we don't overwrite existing files
-# -a public-read to make this tarball public
-gsutil cp -n -a public-read $versioned_android_tools_archive \
+gsutil cp -n $versioned_android_tools_archive \
   gs://bazel-mirror/bazel_android_tools/$VERSIONED_FILENAME
