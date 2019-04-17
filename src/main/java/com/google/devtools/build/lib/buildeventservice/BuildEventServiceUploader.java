@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
-import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -101,7 +100,6 @@ public final class BuildEventServiceUploader implements Runnable {
   private final BuildEventProtocolOptions buildEventProtocolOptions;
   private final boolean publishLifecycleEvents;
   private final Duration closeTimeout;
-  private final BuildEventServiceAbruptExitCallback abruptExitCallback;
   private final Sleeper sleeper;
   private final Clock clock;
   private final ArtifactGroupNamer namer;
@@ -156,7 +154,6 @@ public final class BuildEventServiceUploader implements Runnable {
       BuildEventProtocolOptions buildEventProtocolOptions,
       boolean publishLifecycleEvents,
       Duration closeTimeout,
-      BuildEventServiceAbruptExitCallback abruptExitCallback,
       Sleeper sleeper,
       Clock clock,
       ArtifactGroupNamer namer,
@@ -167,7 +164,6 @@ public final class BuildEventServiceUploader implements Runnable {
     this.buildEventProtocolOptions = buildEventProtocolOptions;
     this.publishLifecycleEvents = publishLifecycleEvents;
     this.closeTimeout = closeTimeout;
-    this.abruptExitCallback = abruptExitCallback;
     this.sleeper = sleeper;
     this.clock = clock;
     this.namer = namer;
@@ -234,6 +230,17 @@ public final class BuildEventServiceUploader implements Runnable {
       if (!closeTimeout.isZero()) {
         startCloseTimer(closeFuture, closeTimeout);
       }
+
+      final SettableFuture<Void> finalCloseFuture = closeFuture;
+      closeFuture.addListener(
+          () -> {
+            // Make sure to cancel any pending uploads if the closing is cancelled.
+            if (finalCloseFuture.isCancelled()) {
+              closeOnCancel();
+            }
+          },
+          MoreExecutors.directExecutor());
+
       return closeFuture;
     }
   }
@@ -264,10 +271,19 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
+  private void initCloseFutureOnFailure(Throwable cause) {
+    synchronized (lock) {
+      if (closeFuture == null) {
+        closeFuture = SettableFuture.create();
+      }
+      closeFuture.setException(cause);
+    }
+  }
+
   private void logAndExitAbruptly(String message, ExitCode exitCode, Throwable cause) {
     checkState(!exitCode.equals(ExitCode.SUCCESS));
-    logger.info(message);
-    abruptExitCallback.accept(new AbruptExitException(message, exitCode, cause));
+    logger.severe(message);
+    initCloseFutureOnFailure(new AbruptExitException(message, exitCode, cause));
   }
 
   @Override
@@ -298,47 +314,33 @@ public final class BuildEventServiceUploader implements Runnable {
         closeFuture.set(null);
       }
     } catch (InterruptedException e) {
-      try {
-        logger.info("Aborting the BES upload due to having received an interrupt");
-        synchronized (lock) {
-          Preconditions.checkState(
-              interruptCausedByTimeout || interruptCausedByCancel,
-              "Unexpected interrupt on BES uploader thread");
-          if (interruptCausedByTimeout) {
-            logAndExitAbruptly(
-                "The Build Event Protocol upload timed out",
-                ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-                e);
-          }
+      logger.info("Aborting the BES upload due to having received an interrupt");
+      synchronized (lock) {
+        Preconditions.checkState(
+            interruptCausedByTimeout || interruptCausedByCancel,
+            "Unexpected interrupt on BES uploader thread");
+        if (interruptCausedByTimeout) {
+          logAndExitAbruptly(
+              "The Build Event Protocol upload timed out",
+              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+              e);
         }
-      } finally {
-        // TODO(buchgr): Due to b/113035235 exitFunc needs to be called before the close future
-        // completes.
-        failCloseFuture(e);
       }
     } catch (StatusException e) {
-      try {
-        logAndExitAbruptly(
-            "The Build Event Protocol upload failed: " + besClient.userReadableError(e),
-            shouldRetryStatus(e.getStatus())
-                ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
-                : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-            e);
-      } finally {
-        failCloseFuture(e);
-      }
+      logAndExitAbruptly(
+          "The Build Event Protocol upload failed: " + besClient.userReadableError(e),
+          shouldRetryStatus(e.getStatus())
+              ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
+              : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+          e);
     } catch (LocalFileUploadException e) {
       Throwables.throwIfUnchecked(e.getCause());
-      try {
-        logAndExitAbruptly(
-            "The Build Event Protocol local file upload failed: " + e.getCause().getMessage(),
-            ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-            e.getCause());
-      } finally {
-        failCloseFuture(e.getCause());
-      }
+      logAndExitAbruptly(
+          "The Build Event Protocol local file upload failed: " + e.getCause().getMessage(),
+          ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+          e.getCause());
     } catch (Throwable e) {
-      failCloseFuture(e);
+      initCloseFutureOnFailure(e);
       logger.severe("BES upload failed due to a RuntimeException / Error. This is a bug.");
       throw e;
     } finally {
@@ -656,15 +658,6 @@ public final class BuildEventServiceUploader implements Runnable {
     closeTimer.start();
   }
 
-  private void failCloseFuture(Throwable cause) {
-    synchronized (lock) {
-      if (closeFuture == null) {
-        closeFuture = SettableFuture.create();
-      }
-      closeFuture.setException(cause);
-    }
-  }
-
   private PathConverter waitForLocalFileUploads(SendRegularBuildEventCommand orderedBuildEvent)
       throws LocalFileUploadException, InterruptedException {
     try {
@@ -732,22 +725,6 @@ public final class BuildEventServiceUploader implements Runnable {
     return (long) (DELAY_MILLIS * Math.pow(1.6, attempt));
   }
 
-  /**
-   * This method is only used in tests. Once TODO(b/113035235) is fixed the close future will also
-   * carry error messages.
-   */
-  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  public void throwUploaderError() throws Throwable {
-    synchronized (lock) {
-      checkState(closeFuture != null && closeFuture.isDone());
-      try {
-        closeFuture.get();
-      } catch (ExecutionException e) {
-        throw e.getCause();
-      }
-    }
-  }
-
   /** Thrown when encountered problems while uploading build event artifacts. */
   private class LocalFileUploadException extends Exception {
     LocalFileUploadException(Throwable cause) {
@@ -762,7 +739,6 @@ public final class BuildEventServiceUploader implements Runnable {
     private BuildEventProtocolOptions bepOptions;
     private boolean publishLifecycleEvents;
     private Duration closeTimeout;
-    private BuildEventServiceAbruptExitCallback abruptExitCallback;
     private Sleeper sleeper;
     private Clock clock;
     private ArtifactGroupNamer artifactGroupNamer;
@@ -803,11 +779,6 @@ public final class BuildEventServiceUploader implements Runnable {
       return this;
     }
 
-    Builder abruptExitCallback(BuildEventServiceAbruptExitCallback value) {
-      this.abruptExitCallback = value;
-      return this;
-    }
-
     Builder sleeper(Sleeper value) {
       this.sleeper = value;
       return this;
@@ -831,7 +802,6 @@ public final class BuildEventServiceUploader implements Runnable {
           checkNotNull(bepOptions),
           publishLifecycleEvents,
           checkNotNull(closeTimeout),
-          checkNotNull(abruptExitCallback),
           checkNotNull(sleeper),
           checkNotNull(clock),
           checkNotNull(artifactGroupNamer),
