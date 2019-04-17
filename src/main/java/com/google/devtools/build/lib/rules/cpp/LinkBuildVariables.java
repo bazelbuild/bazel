@@ -236,7 +236,7 @@ public enum LinkBuildVariables {
     }
 
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
-    if (!isLtoIndexing) {
+    if (!isLtoIndexing || cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
       userLinkFlagsWithLtoIndexingIfNeeded = userLinkFlags;
     } else {
       ImmutableList.Builder<String> opts = ImmutableList.builder();

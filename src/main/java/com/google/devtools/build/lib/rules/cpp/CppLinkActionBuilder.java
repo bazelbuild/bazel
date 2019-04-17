@@ -191,6 +191,20 @@ public class CppLinkActionBuilder {
 
   /** Returns the action name for purposes of querying the crosstool. */
   private String getActionName() {
+    // We check that this action is not lto-indexing, or when it is, it's either for executable
+    // or transitive or nodeps dynamic library.
+    Preconditions.checkArgument(
+        !isLtoIndexing || linkType.isExecutable() || linkType.isDynamicLibrary());
+    if (isLtoIndexing && cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
+      if (linkType.isExecutable()) {
+        return CppActionNames.LTO_INDEX_EXECUTABLE;
+      } else if (linkType.isTransitiveDynamicLibrary()) {
+        return CppActionNames.LTO_INDEX_DYNAMIC_LIBRARY;
+      } else {
+        return CppActionNames.LTO_INDEX_NODEPS_DYNAMIC_LIBRARY;
+      }
+    }
+
     return linkType.getActionName();
   }
 
@@ -859,6 +873,13 @@ public class CppLinkActionBuilder {
 
     CcToolchainVariables variables;
     try {
+      ImmutableList.Builder<String> userLinkFlags =
+          ImmutableList.<String>builder().addAll(linkopts).addAll(cppConfiguration.getLinkopts());
+
+      if (isLtoIndexing && cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
+        userLinkFlags.addAll(cppConfiguration.getLtoIndexOptions());
+      }
+
       variables =
           LinkBuildVariables.setupVariables(
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
@@ -875,10 +896,7 @@ public class CppLinkActionBuilder {
               featureConfiguration,
               useTestOnlyFlags,
               isLtoIndexing,
-              ImmutableList.<String>builder()
-                  .addAll(linkopts)
-                  .addAll(cppConfiguration.getLinkopts())
-                  .build(),
+              userLinkFlags.build(),
               toolchain.getInterfaceSoBuilder().getExecPathString(),
               interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
               ltoOutputRootPrefix,
@@ -921,6 +939,7 @@ public class CppLinkActionBuilder {
 
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder()
+            .setActionName(getActionName())
             .setLinkerInputArtifacts(expandedLinkerArtifacts)
             .setLinkTargetType(linkType)
             .setLinkingMode(linkingMode)

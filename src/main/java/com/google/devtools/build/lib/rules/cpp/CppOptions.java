@@ -739,6 +739,20 @@ public class CppOptions extends FragmentOptions {
   public boolean dontEnableHostNonhost;
 
   @Option(
+      name = "incompatible_make_thinlto_command_lines_standalone",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will not reuse C++ link action command lines for lto indexing command "
+              + "lines (see https://github.com/bazelbuild/bazel/issues/6791 for more information).")
+  public boolean useStandaloneLtoIndexingCommandLines;
+
+  @Option(
       name = "incompatible_require_ctx_in_configure_features",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -920,6 +934,7 @@ public class CppOptions extends FragmentOptions {
     host.removeLegacyWholeArchive = removeLegacyWholeArchive;
     host.dontEnableHostNonhost = dontEnableHostNonhost;
     host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
+    host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
     return host;
   }
 
