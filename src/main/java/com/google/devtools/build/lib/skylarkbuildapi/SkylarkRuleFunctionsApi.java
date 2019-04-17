@@ -153,9 +153,10 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             callbackEnabled = true,
             noneable = true,
             defaultValue = "None",
+            valueWhenDisabled = "None",
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
             doc =
-                "<b>Experimental:</b> This API is in the process of being redesigned."
-                    + "<p>A schema for defining predeclared outputs. Unlike "
+                "A schema for defining predeclared outputs. Unlike "
                     + "<a href='attr.html#output'><code>output</code></a> and "
                     + "<a href='attr.html#output_list'><code>output_list</code></a> attributes, "
                     + "the user does not specify the labels for these files. "

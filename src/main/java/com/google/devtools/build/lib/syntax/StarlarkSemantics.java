@@ -48,6 +48,7 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         StarlarkSemantics::incompatibleDisableObjcProviderResources),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
+    INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
     INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
@@ -167,6 +168,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoOutputAttrDefault();
 
+  public abstract boolean incompatibleNoRuleOutputsParam();
+
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
   public abstract boolean incompatibleNoTargetOutputGroup();
@@ -229,6 +232,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNoAttrLicense(true)
           .incompatibleNoKwargsInBuildFiles(false)
           .incompatibleNoOutputAttrDefault(true)
+          .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(true)
@@ -299,6 +303,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoAttrLicense(boolean value);
 
     public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
+
+    public abstract Builder incompatibleNoRuleOutputsParam(boolean value);
 
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
