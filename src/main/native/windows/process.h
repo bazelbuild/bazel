@@ -37,22 +37,24 @@ class WaitableProcess {
     kWaitError = 2,
   };
 
-  static bool Create(const std::wstring& argv0, const std::wstring& argv_rest,
-                     void* env, const std::wstring& wcwd, HANDLE stdin_process,
-                     HANDLE stdout_process, HANDLE stderr_process,
-                     AutoHandle* out_job, AutoHandle* out_ioport,
-                     AutoHandle* out_process, DWORD* out_pid,
-                     std::wstring* error);
+  WaitableProcess() : pid_(0), exit_code_(STILL_ACTIVE) {}
 
-  static int WaitFor(int64_t timeout_msec, DWORD pid, AutoHandle* in_out_job,
-                     AutoHandle* in_out_ioport, AutoHandle* in_out_process,
-                     DWORD* out_exit_code, std::wstring* error);
+  bool Create(const std::wstring& argv0, const std::wstring& argv_rest,
+              void* env, const std::wstring& wcwd, HANDLE stdin_process,
+              HANDLE stdout_process, HANDLE stderr_process,
+              std::wstring* error);
 
-  static int GetExitCode(const AutoHandle& process, DWORD pid,
-                         DWORD* out_exit_code, std::wstring* error);
+  int WaitFor(int64_t timeout_msec, std::wstring* error);
 
-  static bool Terminate(const AutoHandle& job, const AutoHandle& process,
-                        DWORD pid, DWORD* out_exit_code, std::wstring* error);
+  int GetExitCode(std::wstring* error);
+
+  bool Terminate(std::wstring* error);
+
+  DWORD GetPid() const { return pid_; }
+
+ private:
+  AutoHandle process_, job_, ioport_;
+  DWORD pid_, exit_code_;
 };
 
 }  // namespace windows

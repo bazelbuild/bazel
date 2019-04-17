@@ -150,8 +150,7 @@ class NativeOutputStream {
 
 class NativeProcess {
  public:
-  NativeProcess()
-      : stdout_(), stderr_(), exit_code_(STILL_ACTIVE), error_(L"") {}
+  NativeProcess() : stdout_(), stderr_(), error_(L"") {}
 
   ~NativeProcess() {
     stdout_.Close();
@@ -312,11 +311,10 @@ class NativeProcess {
       stderr_.SetHandle(pipe_read_h);
       stderr_process = pipe_write_h;
     }
-    return bazel::windows::WaitableProcess::Create(
+    return proc_.Create(
         wpath, bazel::windows::GetJavaWstring(env, java_argv_rest),
         env_map.ptr(), bazel::windows::GetJavaWpath(env, java_cwd),
-        stdin_process, stdout_process, stderr_process, &job_, &ioport_,
-        &process_, &pid_, &error_);
+        stdin_process, stdout_process, stderr_process, &error_);
   }
 
   void CloseStdin() {
@@ -327,26 +325,22 @@ class NativeProcess {
 
   // Wait for this process to exit (or timeout).
   int WaitFor(int64_t timeout_msec) {
-    return bazel::windows::WaitableProcess::WaitFor(
-        timeout_msec, pid_, &job_, &ioport_, &process_, &exit_code_, &error_);
+    return proc_.WaitFor(timeout_msec, &error_);
   }
 
   // Returns the exit code of the process if it has already exited. If the
   // process is still running, returns STILL_ACTIVE (= 259).
-  int GetExitCode() {
-    return bazel::windows::WaitableProcess::GetExitCode(process_, pid_,
-                                                        &exit_code_, &error_);
-  }
+  int GetExitCode() { return proc_.GetExitCode(&error_); }
 
-  DWORD GetPid() { return pid_; }
+  DWORD GetPid() const { return proc_.GetPid(); }
 
   jint WriteStdin(JNIEnv* env, jbyteArray java_bytes, jint offset,
                   jint length) {
     JavaByteArray bytes(env, java_bytes);
     if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
       error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"NativeProcess:WriteStdin", ToString(pid_),
-          L"Array index out of bounds");
+          WSTR(__FILE__), __LINE__, L"NativeProcess:WriteStdin",
+          ToString(GetPid()), L"Array index out of bounds");
       return -1;
     }
 
@@ -357,7 +351,7 @@ class NativeProcess {
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                 L"NativeProcess:WriteStdin",
-                                                ToString(pid_), err_code);
+                                                ToString(GetPid()), err_code);
       return -1;
     }
 
@@ -370,10 +364,7 @@ class NativeProcess {
   NativeOutputStream* GetStderrStream() { return &stderr_; }
 
   // Terminates this process (and subprocesses, if job objects are available).
-  bool Terminate() {
-    return bazel::windows::WaitableProcess::Terminate(job_, process_, pid_,
-                                                      &exit_code_, &error_);
-  }
+  bool Terminate() { return proc_.Terminate(&error_); }
 
   // Return the last error as a human-readable string and clear it.
   jstring GetLastErrorAsString(JNIEnv* env) {
@@ -387,12 +378,8 @@ class NativeProcess {
   bazel::windows::AutoHandle stdin_;
   NativeOutputStream stdout_;
   NativeOutputStream stderr_;
-  bazel::windows::AutoHandle process_;
-  bazel::windows::AutoHandle job_;
-  bazel::windows::AutoHandle ioport_;
-  DWORD pid_;
-  DWORD exit_code_;
   std::wstring error_;
+  bazel::windows::WaitableProcess proc_;
 };
 
 // Ensure we can safely cast jlong to void*.
