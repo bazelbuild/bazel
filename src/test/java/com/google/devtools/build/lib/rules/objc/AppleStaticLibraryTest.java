@@ -99,38 +99,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAvoidDepsProviders() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=false");
-    scratch.file(
-        "package/BUILD",
-        "apple_static_library(",
-        "    name = 'test',",
-        "    deps = [':objcLib'],",
-        "    platform_type = 'ios',",
-        "    avoid_deps = [':avoidLib'],",
-        ")",
-        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib', ':baseLib'])",
-        "objc_library(",
-        "    name = 'baseLib',",
-        "    srcs = [ 'base.m' ],",
-        "    sdk_frameworks = ['BaseSDK'],",
-        "    resources = [':base.png']",
-        ")",
-        "objc_library(",
-        "    name = 'avoidLib',",
-        "    srcs = [ 'c.m' ],",
-        "    sdk_frameworks = ['AvoidSDK'],",
-        "    resources = [':avoid.png']",
-        ")");
-
-    ObjcProvider provider =  getConfiguredTarget("//package:test")
-        .get(AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR).getDepsObjcProvider();
-    // Do not remove SDK_FRAMEWORK values in avoid_deps.
-    assertThat(provider.get(ObjcProvider.SDK_FRAMEWORK))
-        .containsAllOf(new SdkFramework("AvoidSDK"), new SdkFramework("BaseSDK"));
-  }
-
-  @Test
   public void testNoSrcs() throws Exception {
     scratch.file("package/BUILD",
         "apple_static_library(",

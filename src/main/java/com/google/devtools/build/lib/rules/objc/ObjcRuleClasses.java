@@ -42,14 +42,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
@@ -353,158 +351,6 @@ public class ObjcRuleClasses {
   static final FileType COVERAGE_NOTES = FileType.of(".gcno");
 
   /**
-   * Common attributes for {@code objc_*} rules that allow the definition of resources such as
-   * storyboards. These resources are used during compilation of the declaring rule as well as when
-   * bundling a dependent bundle (application, extension, etc.).
-   */
-  public static class ResourcesRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(strings) -->
-          Files which are plists of strings, often localizable.
-
-          These files are converted to binary plists (if they are not already)
-          and placed in the bundle root of the final package. If this file's
-          immediate containing directory is named *.lproj (e.g. en.lproj,
-          Base.lproj), it will be placed under a directory of that name in the
-          final bundle. This allows for localizable strings.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("strings", LABEL_LIST)
-                  .allowedFileTypes(STRINGS_TYPE)
-                  .direct_compile_time_input())
-          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(xibs) -->
-          Files which are .xib resources, possibly localizable.
-
-          These files are compiled to .nib files and placed the bundle root of
-          the final package. If this file's immediate containing directory is
-          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
-          directory of that name in the final bundle. This allows for
-          localizable UI.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("xibs", LABEL_LIST).direct_compile_time_input().allowedFileTypes(XIB_TYPE))
-          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(storyboards) -->
-          Files which are .storyboard resources, possibly localizable.
-
-          These files are compiled to .storyboardc directories, which are
-          placed in the bundle root of the final package. If the storyboards's
-          immediate containing directory is named *.lproj (e.g. en.lproj,
-          Base.lproj), it will be placed under a directory of that name in the
-          final bundle. This allows for localizable UI.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("storyboards", LABEL_LIST).allowedFileTypes(STORYBOARD_TYPE))
-          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(resources) -->
-          Files to include in the final application bundle.
-
-          Files that are processable resources, like .xib, .storyboard, .strings, .png, and others,
-          will be processed by the Apple bundling rules that have those files as dependencies. Other
-          file types that are not processed will be copied verbatim.
-
-          These files are placed in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
-          However, if they appear to be localized (i.e. are contained in a
-          directory called *.lproj), they will be placed in a directory of the
-          same name in the app bundle.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("resources", LABEL_LIST).legacyAllowAnyFileType().direct_compile_time_input())
-          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(structured_resources) -->
-          Files to include in the final application bundle.
-
-          They are not processed or compiled in any way besides the processing
-          done by the rules that actually generate them. In differences to
-          <code>resources</code> these files are placed in the bundle root in
-          the same structure passed to this argument, so
-          <code>["res/foo.png"]</code> will end up in
-          <code>Payload/foo.app/res/foo.png</code>.
-          <p>Note that in the generated Xcode project file, all files in the top directory of
-          the specified files will be included in the Xcode-generated app bundle. So
-          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
-          directory <code>res</code>.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("structured_resources", LABEL_LIST)
-                  .legacyAllowAnyFileType()
-                  .direct_compile_time_input())
-          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(datamodels) -->
-          Files that comprise the data models of the final linked binary.
-
-          Each file must have a containing directory named *.xcdatamodel, which
-          is usually contained by another *.xcdatamodeld (note the added d)
-          directory.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("datamodels", LABEL_LIST).legacyAllowAnyFileType().direct_compile_time_input())
-          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(asset_catalogs) -->
-          Files that comprise the asset catalogs of the final linked binary.
-
-          Each file must have a containing directory named *.xcassets. This
-          containing directory becomes the root of one of the asset catalogs
-          linked with any binary that depends directly or indirectly on this
-          target.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("asset_catalogs", LABEL_LIST)
-                  .legacyAllowAnyFileType()
-                  .direct_compile_time_input())
-          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(bundles) -->
-          The list of bundle targets that this target requires to be included
-          in the final bundle.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("bundles", LABEL_LIST)
-                  .direct_compile_time_input()
-                  // TODO(b/33618143): The native resource attributes are deprecated and will be
-                  // removed in the near future. By adding the new rule names here, the migration
-                  // path towards the end state is easier, as it will allow breaking the migration
-                  // into smaller chunks.
-                  .allowedRuleClasses("apple_bundle_import", "apple_resource_bundle")
-                  .allowedFileTypes())
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_resources_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(ResourceToolsRule.class, XcrunRule.class)
-          .build();
-    }
-  }
-
-  /**
-   * Common attributes for {@code objc_*} rules that process resources (by defining or consuming
-   * them).
-   */
-  public static class ResourceToolsRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("$plmerge", LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:plmerge")))
-          .add(
-              attr("$actoolwrapper", LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:actoolwrapper")))
-          .add(
-              attr("$ibtoolwrapper", LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:ibtoolwrapper")))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_resource_tools_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
    * Common attributes for {@code objc_*} rules that depend on a crosstool.
    */
   public static class CrosstoolRule implements RuleDefinition {
@@ -594,7 +440,7 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_compile_dependency_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(ResourcesRule.class, SdkFrameworksDependerRule.class)
+          .ancestors(SdkFrameworksDependerRule.class)
           .build();
     }
   }
@@ -1048,97 +894,6 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$apple_dylib_depending_rule")
           .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
-   * Common attributes for {@code objc_*} rules that create a bundle. Specifically, for rules
-   * which use the {@link Bundling} helper class.
-   */
-  public static class BundlingRule implements RuleDefinition {
-    static final String INFOPLIST_ATTR = "infoplist";
-    static final String FAMILIES_ATTR = "families";
-
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplist)[DEPRECATED] -->
-           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-
-           <p>Bazel will perform variable substitution on the plist file for the following values
-           (if they are strings in the top-level <code>dict</code> of the plist):</p>
-
-           <ul>
-             <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
-                in the bundle by blaze, which can be used as the value for
-                <code>CFBundleExecutable</code> within the plist.
-             <li><code>${BUNDLE_NAME}</code>: This target's name and bundle suffix (.bundle or .app)
-                in the form<code><var>name</var></code>.<code>suffix</code>.
-             <li><code>${PRODUCT_NAME}</code>: This target's name.
-          </ul>
-
-          <p>The key in <code>${}</code> may be suffixed with <code>:rfc1034identifier</code> (for
-          example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Bazel will
-          replicate Xcode's behavior and replace non-RFC1034-compliant characters with
-          <code>-</code>.</p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(INFOPLIST_ATTR, LABEL).allowedFileTypes(PLIST_TYPE))
-          /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplists) -->
-           Infoplist files to be merged. The merged output corresponds to <i>appname</i>-Info.plist
-           in Xcode projects.  Duplicate keys between infoplist files will cause an error if
-           and only if the values conflict.  If both <code>infoplist</code> and
-           <code>infoplists</code> are specified, the files defined in both attributes will be used.
-
-           <p>Bazel will perform variable substitution on the plist file for the following values
-           (if they are strings in the top-level <code>dict</code> of the plist):</p>
-
-           <ul>
-             <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
-                in the bundle by blaze, which can be used as the value for
-                <code>CFBundleExecutable</code> within the plist.
-             <li><code>${BUNDLE_NAME}</code>: This target's name and bundle suffix (.bundle or .app)
-                in the form<code><var>name</var></code>.<code>suffix</code>.
-             <li><code>${PRODUCT_NAME}</code>: This target's name.
-          </ul>
-
-          <p>The key in <code>${}</code> may be suffixed with <code>:rfc1034identifier</code> (for
-          example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Bazel will
-          replicate Xcode's behavior and replace non-RFC1034-compliant characters with
-          <code>-</code>.</p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("infoplists", BuildType.LABEL_LIST).allowedFileTypes(PLIST_TYPE))
-          /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(families) -->
-          The device families to which this bundle or binary is targeted.
-
-          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-          in Xcode project files. It is a list of one or more of the strings
-          <code>"iphone"</code> and <code>"ipad"</code>.
-
-          <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
-          empty.</p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr(FAMILIES_ATTR, STRING_LIST)
-                  .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
-          .add(
-              attr("$momcwrapper", LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:momcwrapper")))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_bundling_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(
-              AppleToolchain.RequiresXcodeConfigRule.class,
-              ResourcesRule.class,
-              ResourceToolsRule.class,
-              XcrunRule.class)
           .build();
     }
   }

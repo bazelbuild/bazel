@@ -75,17 +75,14 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new ObjcImportRule());
     builder.addRuleDefinition(new ObjcLibraryRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.BundlingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.DylibDependingRule(objcProtoAspect));
     builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
     builder.addRuleDefinition(new ObjcRuleClasses.PlatformRule());
     builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule(objcProtoAspect));
-    builder.addRuleDefinition(new ObjcRuleClasses.ResourcesRule());
     builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());
     builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.ResourceToolsRule());
     builder.addRuleDefinition(new ObjcRuleClasses.XcrunRule());
     builder.addRuleDefinition(new ObjcRuleClasses.LibtoolRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CrosstoolRule());
