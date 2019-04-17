@@ -2188,6 +2188,10 @@ EOF
   bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
 
   expect_log "add.*this_repo_is_missing.*WORKSPACE"
+  # Also verify that the repository class and its definition is reported, to
+  # help finding out where the implict dependency comes from.
+  expect_log 'data.*is.*data_repo'
+  expect_log 'data_repo.*main/withimplicit.bzl:6'
 }
 
 run_suite "external tests"
