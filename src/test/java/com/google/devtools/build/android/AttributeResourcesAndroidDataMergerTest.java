@@ -83,17 +83,40 @@ public final class AttributeResourcesAndroidDataMergerTest {
             TestParameters.builder()
                 .set1(Strength.WEAK, 1)
                 .set2(Strength.WEAK, 0xFFFF)
-                .setExpectedMergeConflict(
+                .setExpectedMergedAndroidData(
                     ctx ->
-                        MergeConflict.of(
-                            ctx.fqnFactory.parse("attr/ambiguousName"),
-                            DataResourceXml.createWithNoNamespace(
-                                ctx.transitiveRoot1.resolve("res/values/attrs.xml"),
-                                AttrXmlResourceValue.weakFromFormatEntries(
-                                    ReferenceResourceXmlAttrValue.asEntry())),
-                            DataResourceXml.createWithNoNamespace(
-                                ctx.transitiveRoot2.resolve("res/values/attrs.xml"),
-                                AttrXmlResourceValue.weakFromFormatEntries())))
+                        UnwrittenMergedAndroidData.of(
+                            ctx.primary.getManifest(),
+                            ParsedAndroidDataBuilder.empty(),
+                            ParsedAndroidDataBuilder.buildOn(ctx.fqnFactory)
+                                .overwritable(
+                                    xml("attr/ambiguousName")
+                                        .root(ctx.primaryRoot)
+                                        .source(ctx.transitiveAttr1.overwrite(ctx.transitiveAttr2))
+                                        .value(
+                                            AttrXmlResourceValue.weakFromFormatEntries(
+                                                ReferenceResourceXmlAttrValue.asEntry())))
+                                .build()))
+                .build()
+          },
+          {
+            TestParameters.builder()
+                .set1(Strength.WEAK, 0xFFFF)
+                .set2(Strength.WEAK, 1)
+                .setExpectedMergedAndroidData(
+                    ctx ->
+                        UnwrittenMergedAndroidData.of(
+                            ctx.primary.getManifest(),
+                            ParsedAndroidDataBuilder.empty(),
+                            ParsedAndroidDataBuilder.buildOn(ctx.fqnFactory)
+                                .overwritable(
+                                    xml("attr/ambiguousName")
+                                        .root(ctx.primaryRoot)
+                                        .source(ctx.transitiveAttr2.overwrite(ctx.transitiveAttr1))
+                                        .value(
+                                            AttrXmlResourceValue.weakFromFormatEntries(
+                                                ReferenceResourceXmlAttrValue.asEntry())))
+                                .build()))
                 .build()
           },
           {
@@ -209,6 +232,24 @@ public final class AttributeResourcesAndroidDataMergerTest {
                             DataResourceXml.createWithNoNamespace(
                                 ctx.transitiveRoot2.resolve("res/values/attrs.xml"),
                                 AttrXmlResourceValue.fromFormatEntries(
+                                    StringResourceXmlAttrValue.asEntry()))))
+                .build()
+          },
+          {
+            TestParameters.builder()
+                .set1(Strength.WEAK, 1)
+                .set2(Strength.WEAK, 2)
+                .setExpectedMergeConflict(
+                    ctx ->
+                        MergeConflict.of(
+                            ctx.fqnFactory.parse("attr/ambiguousName"),
+                            DataResourceXml.createWithNoNamespace(
+                                ctx.transitiveRoot1.resolve("res/values/attrs.xml"),
+                                AttrXmlResourceValue.weakFromFormatEntries(
+                                    ReferenceResourceXmlAttrValue.asEntry())),
+                            DataResourceXml.createWithNoNamespace(
+                                ctx.transitiveRoot2.resolve("res/values/attrs.xml"),
+                                AttrXmlResourceValue.weakFromFormatEntries(
                                     StringResourceXmlAttrValue.asEntry()))))
                 .build()
           },

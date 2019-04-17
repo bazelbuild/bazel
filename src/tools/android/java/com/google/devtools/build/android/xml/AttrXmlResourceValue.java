@@ -453,6 +453,12 @@ public class AttrXmlResourceValue implements XmlResourceValue {
       return 1;
     } else if (!that.weak && weak && (formats.isEmpty() || formats.equals(that.formats))) {
       return -1;
+    } else if (weak && that.weak) {
+      if (!formats.isEmpty() && that.formats.isEmpty()) {
+        return 1;
+      } else if (formats.isEmpty() && !that.formats.isEmpty()) {
+        return -1;
+      }
     }
     return 0;
   }
