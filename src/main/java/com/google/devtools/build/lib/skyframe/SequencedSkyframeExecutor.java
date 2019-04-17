@@ -575,8 +575,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
   }
 
   @Override
-  protected boolean discardPackagesWhenDiscardingAnalysisObjects() {
-    return !trackIncrementalState;
+  public void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+    discardPreExecutionCache(
+        topLevelTargets,
+        topLevelAspects,
+        trackIncrementalState ? DiscardType.ANALYSIS_REFS_ONLY : DiscardType.ALL);
   }
 
   @Override
