@@ -497,6 +497,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:dist_jars",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:dist_jars",
         "@googleapis//:dist_jars",
         "@remoteapis//:dist_jars",
     ],

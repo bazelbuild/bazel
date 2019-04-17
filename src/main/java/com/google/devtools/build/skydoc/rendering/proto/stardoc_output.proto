@@ -1,0 +1,66 @@
+// Copyright 2019 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Protos for Stardoc data.
+//
+// Stardoc collects information about Starlark functions, providers, and rules.
+syntax = "proto3";
+
+package stardoc_output;
+
+// option java_api_version = 2;
+option java_package = "com.google.devtools.build.skydoc.rendering.proto";
+option java_outer_classname = "StardocOutputProtos";
+
+// Representation of a Starlark rule attribute type. These generally
+// have a one-to-one correspondence with functions defined at
+// https://docs.bazel.build/versions/master/skylark/lib/attr.html.
+enum AttributeType {
+  UNKNOWN = 0;
+  // A special case of STRING; all rules have exactly one implicit
+  // attribute "name" of type NAME.
+  NAME = 1;
+  INT = 2;
+  LABEL = 3;
+  STRING = 4;
+  STRING_LIST = 5;
+  INT_LIST = 6;
+  LABEL_LIST = 7;
+  BOOLEAN = 8;
+  LABEL_STRING_DICT = 9;
+  STRING_DICT = 10;
+  STRING_LIST_DICT = 11;
+  OUTPUT = 12;
+  OUTPUT_LIST = 13;
+}
+
+// Representation of a Starlark rule attribute definition, comprised of an
+// attribute name, and a schema defined by a call to one of the 'attr' module
+// methods enumerated at
+// https://docs.bazel.build/versions/master/skylark/lib/attr.html
+message AttributeInfo {
+  // The name of the attribute.
+  string name = 1;
+
+  // The documentation string of the attribute, supplied via the 'doc'
+  // parameter to the schema-creation call.
+  string doc_string = 2;
+
+  // The type of the attribute, defined generally by which function is invoked
+  // in the attr module.
+  AttributeType type = 3;
+
+  // If true, all targets of the rule must specify a value for this attribute.
+  bool mandatory = 4;
+}

@@ -16,23 +16,24 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi.Descriptor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 
 /**
  * Fake implementation of {@link Descriptor}.
  */
 public class FakeDescriptor implements Descriptor {
-  private final Type type;
+  private final AttributeType type;
   private final String docString;
   private final boolean mandatory;
 
-  public FakeDescriptor(Type type, String docString, boolean mandatory) {
+  public FakeDescriptor(AttributeType type, String docString, boolean mandatory) {
     this.type = type;
     this.docString = docString;
     this.mandatory = mandatory;
   }
 
-  public Type getType() {
+  public AttributeType getType() {
     return type;
   }
 
@@ -46,4 +47,13 @@ public class FakeDescriptor implements Descriptor {
 
   @Override
   public void repr(SkylarkPrinter printer) {}
+
+  public AttributeInfo asAttributeInfo(String attributeName) {
+    return AttributeInfo.newBuilder()
+        .setName(attributeName)
+        .setDocString(getDocString())
+        .setType(getType())
+        .setMandatory(isMandatory())
+        .build();
+  }
 }

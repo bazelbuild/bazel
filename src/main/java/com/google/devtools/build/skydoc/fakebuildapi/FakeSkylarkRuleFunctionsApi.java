@@ -33,11 +33,11 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.skydoc.rendering.AttributeInfo;
-import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
 import com.google.devtools.build.skydoc.rendering.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
 public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<FileApi> {
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
-      new FakeDescriptor(Type.NAME, "A unique name for this target.", true);
+      new FakeDescriptor(AttributeType.NAME, "A unique name for this target.", true);
   private final List<RuleInfo> ruleInfoList;
   private final List<ProviderInfo> providerInfoList;
 
@@ -132,14 +132,11 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     }
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
-    attrInfos = attrsMapBuilder.build().entrySet().stream()
-        .filter(entry -> !entry.getKey().startsWith("_"))
-        .map(entry -> new AttributeInfo(
-            entry.getKey(),
-            entry.getValue().getDocString(),
-            entry.getValue().getType(),
-            entry.getValue().isMandatory()))
-        .collect(Collectors.toList());
+    attrInfos =
+        attrsMapBuilder.build().entrySet().stream()
+            .filter(entry -> !entry.getKey().startsWith("_"))
+            .map(entry -> entry.getValue().asAttributeInfo(entry.getKey()))
+            .collect(Collectors.toList());
     attrInfos.sort(new AttributeNameComparator());
 
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();

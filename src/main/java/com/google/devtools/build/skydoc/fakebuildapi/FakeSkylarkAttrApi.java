@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 
 /**
  * Fake implementation of {@link SkylarkAttrApi}.
@@ -39,7 +39,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.INT, doc, mandatory);
+    return new FakeDescriptor(AttributeType.INT, doc, mandatory);
   }
 
   @Override
@@ -52,7 +52,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.STRING, doc, mandatory);
+    return new FakeDescriptor(AttributeType.STRING, doc, mandatory);
   }
 
   @Override
@@ -72,7 +72,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.LABEL, doc, mandatory);
+    return new FakeDescriptor(AttributeType.LABEL, doc, mandatory);
   }
 
   @Override
@@ -86,7 +86,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.STRING_LIST, doc, mandatory);
+    return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory);
   }
 
   @Override
@@ -100,7 +100,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.INT_LIST, doc, mandatory);
+    return new FakeDescriptor(AttributeType.INT_LIST, doc, mandatory);
   }
 
   @Override
@@ -120,7 +120,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.LABEL_LIST, doc, mandatory);
+    return new FakeDescriptor(AttributeType.LABEL_LIST, doc, mandatory);
   }
 
   @Override
@@ -140,7 +140,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.LABEL_STRING_DICT, doc, mandatory);
+    return new FakeDescriptor(AttributeType.LABEL_STRING_DICT, doc, mandatory);
   }
 
   @Override
@@ -152,7 +152,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.BOOLEAN, doc, mandatory);
+    return new FakeDescriptor(AttributeType.BOOLEAN, doc, mandatory);
   }
 
   @Override
@@ -164,7 +164,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.OUTPUT, doc, mandatory);
+    return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory);
   }
 
   @Override
@@ -178,7 +178,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.OUTPUT_LIST, doc, mandatory);
+    return new FakeDescriptor(AttributeType.OUTPUT_LIST, doc, mandatory);
   }
 
   @Override
@@ -192,7 +192,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.STRING_DICT, doc, mandatory);
+    return new FakeDescriptor(AttributeType.STRING_DICT, doc, mandatory);
   }
 
   @Override
@@ -206,7 +206,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.STRING_LIST_DICT, doc, mandatory);
+    return new FakeDescriptor(AttributeType.STRING_LIST_DICT, doc, mandatory);
   }
 
   @Override
@@ -218,7 +218,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Environment env,
       StarlarkContext context)
       throws EvalException {
-    return new FakeDescriptor(Type.LICENSE, doc, mandatory);
+    return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory);
   }
 
   @Override

@@ -27,6 +27,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/repository:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/test:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering:srcs",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:srcs",
     ],
 )
 

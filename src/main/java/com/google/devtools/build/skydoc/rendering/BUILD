@@ -17,6 +17,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/tools/skylark/java/com/google/devtools/skylark/common",
         "//third_party:apache_velocity",
         "//third_party:guava",
