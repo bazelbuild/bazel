@@ -128,7 +128,7 @@ public class BuildEventServiceOptions extends OptionsBase {
 
   @Option(
       name = "bes_upload_mode",
-      defaultValue = "WAIT_FOR_UPLOAD_COMPLETE",
+      defaultValue = "wait_for_upload_complete",
       converter = BesUploadModeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
