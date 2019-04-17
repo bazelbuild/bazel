@@ -228,4 +228,18 @@ public class ObjectCodecsTest {
     assertThat((String) underTest.deserialize(underTest.serialize("hello"))).isEqualTo("hello");
     assertThat(underTest.deserialize(underTest.serialize(null))).isNull();
   }
+
+  private static class MyException extends Exception {}
+
+  @Test
+  public void exception() throws SerializationException {
+    MyException exception = new MyException();
+    // Force initialization of stack trace.
+    StackTraceElement[] stackTrace = exception.getStackTrace();
+    ObjectCodecs underTest = new ObjectCodecs(AutoRegistry.get(), ImmutableMap.of());
+    assertThat(
+            ((MyException) underTest.deserializeMemoized(underTest.serializeMemoized(exception)))
+                .getStackTrace())
+        .isEqualTo(stackTrace);
+  }
 }
