@@ -33,8 +33,6 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& argv_rest, void* env,
                              const std::wstring& wcwd, HANDLE stdin_process,
                              HANDLE stdout_process, HANDLE stderr_process,
-                             AutoHandle* out_job, AutoHandle* out_ioport,
-                             AutoHandle* out_process, DWORD* out_pid,
                              std::wstring* error) {
   std::wstring cwd;
   std::wstring error_msg(AsShortPath(wcwd, &cwd));
@@ -60,8 +58,8 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           commandline.size() + 1);
   // MDSN says that the default for job objects is that breakaway is not
   // allowed. Thus, we don't need to do any more setup here.
-  *out_job = CreateJobObject(NULL, NULL);
-  if (!out_job->IsValid()) {
+  job_ = CreateJobObject(NULL, NULL);
+  if (!job_.IsValid()) {
     DWORD err_code = GetLastError();
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                               L"WaitableProcess::Create", argv0, err_code);
@@ -71,7 +69,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
   job_info.BasicLimitInformation.LimitFlags =
       JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-  if (!SetInformationJobObject(*out_job, JobObjectExtendedLimitInformation,
+  if (!SetInformationJobObject(job_, JobObjectExtendedLimitInformation,
                                &job_info, sizeof(job_info))) {
     DWORD err_code = GetLastError();
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -79,17 +77,17 @@ bool WaitableProcess::Create(const std::wstring& argv0,
     return false;
   }
 
-  *out_ioport = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
-  if (!out_ioport->IsValid()) {
+  ioport_ = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
+  if (!ioport_.IsValid()) {
     DWORD err_code = GetLastError();
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                               L"WaitableProcess::Create", argv0, err_code);
     return false;
   }
   JOBOBJECT_ASSOCIATE_COMPLETION_PORT port;
-  port.CompletionKey = *out_job;
-  port.CompletionPort = *out_ioport;
-  if (!SetInformationJobObject(*out_job,
+  port.CompletionKey = job_;
+  port.CompletionPort = ioport_;
+  if (!SetInformationJobObject(job_,
                                JobObjectAssociateCompletionPortInformation,
                                &port, sizeof(port))) {
     DWORD err_code = GetLastError();
@@ -147,21 +145,21 @@ bool WaitableProcess::Create(const std::wstring& argv0,
     return false;
   }
 
-  *out_pid = process_info.dwProcessId;
-  *out_process = process_info.hProcess;
+  pid_ = process_info.dwProcessId;
+  process_ = process_info.hProcess;
   AutoHandle thread(process_info.hThread);
 
-  if (!AssignProcessToJobObject(*out_job, *out_process)) {
+  if (!AssignProcessToJobObject(job_, process_)) {
     BOOL is_in_job = false;
-    if (IsProcessInJob(*out_process, NULL, &is_in_job) && is_in_job &&
+    if (IsProcessInJob(process_, NULL, &is_in_job) && is_in_job &&
         !IsWindows8OrGreater()) {
       // Pre-Windows 8 systems don't support nested jobs, and Bazel is already
       // in a job.  We can't create nested jobs, so just revert to
       // TerminateProcess() and hope for the best. In batch mode, the launcher
       // puts Bazel in a job so that will take care of cleanup once the
       // command finishes.
-      *out_job = INVALID_HANDLE_VALUE;
-      *out_ioport = INVALID_HANDLE_VALUE;
+      job_ = INVALID_HANDLE_VALUE;
+      ioport_ = INVALID_HANDLE_VALUE;
     } else {
       DWORD err_code = GetLastError();
       *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -183,13 +181,10 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   return true;
 }
 
-int WaitableProcess::WaitFor(int64_t timeout_msec, DWORD pid,
-                             AutoHandle* in_out_job, AutoHandle* in_out_ioport,
-                             AutoHandle* in_out_process, DWORD* out_exit_code,
-                             std::wstring* error) {
+int WaitableProcess::WaitFor(int64_t timeout_msec, std::wstring* error) {
   DWORD win32_timeout = timeout_msec < 0 ? INFINITE : timeout_msec;
   int result;
-  switch (WaitForSingleObject(*in_out_process, win32_timeout)) {
+  switch (WaitForSingleObject(process_, win32_timeout)) {
     case WAIT_OBJECT_0:
       result = kWaitSuccess;
       break;
@@ -202,7 +197,7 @@ int WaitableProcess::WaitFor(int64_t timeout_msec, DWORD pid,
     default:
       DWORD err_code = GetLastError();
       *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"WaitableProcess::WaitFor", ToString(pid),
+                                L"WaitableProcess::WaitFor", ToString(pid_),
                                 err_code);
       return kWaitError;
   }
@@ -210,72 +205,69 @@ int WaitableProcess::WaitFor(int64_t timeout_msec, DWORD pid,
   // Ensure that the process is really terminated (if WaitForSingleObject
   // above timed out, we have to explicitly kill it) and that it doesn't
   // leave behind any subprocesses.
-  if (!Terminate(*in_out_job, *in_out_process, pid, out_exit_code, error)) {
+  if (!Terminate(error)) {
     return kWaitError;
   }
 
-  if (in_out_job->IsValid()) {
+  if (job_.IsValid()) {
     // Wait for the job object to complete, signalling that all subprocesses
     // have exited.
     DWORD CompletionCode;
     ULONG_PTR CompletionKey;
     LPOVERLAPPED Overlapped;
-    while (GetQueuedCompletionStatus(*in_out_ioport, &CompletionCode,
+    while (GetQueuedCompletionStatus(ioport_, &CompletionCode,
                                      &CompletionKey, &Overlapped, INFINITE) &&
-           !((HANDLE)CompletionKey == (HANDLE)*in_out_job &&
+           !((HANDLE)CompletionKey == (HANDLE)job_ &&
              CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
       // Still waiting...
     }
 
-    *in_out_job = INVALID_HANDLE_VALUE;
-    *in_out_ioport = INVALID_HANDLE_VALUE;
+    job_ = INVALID_HANDLE_VALUE;
+    ioport_ = INVALID_HANDLE_VALUE;
   }
 
   // Fetch and store the exit code in case Bazel asks us for it later,
   // because we cannot do this anymore after we closed the handle.
-  GetExitCode(*in_out_process, pid, out_exit_code, error);
+  GetExitCode(error);
 
-  if (in_out_process->IsValid()) {
-    *in_out_process = INVALID_HANDLE_VALUE;
+  if (process_.IsValid()) {
+    process_ = INVALID_HANDLE_VALUE;
   }
 
   return result;
 }
 
-int WaitableProcess::GetExitCode(const AutoHandle& process, DWORD pid,
-                                 DWORD* out_exit_code, std::wstring* error) {
-  if (*out_exit_code == STILL_ACTIVE) {
-    if (!GetExitCodeProcess(process, out_exit_code)) {
+int WaitableProcess::GetExitCode(std::wstring* error) {
+  if (exit_code_ == STILL_ACTIVE) {
+    if (!GetExitCodeProcess(process_, &exit_code_)) {
       DWORD err_code = GetLastError();
       *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"WaitableProcess::GetExitCode", ToString(pid),
+                                L"WaitableProcess::GetExitCode", ToString(pid_),
                                 err_code);
       return -1;
     }
   }
 
-  return *out_exit_code;
+  return exit_code_;
 }
 
-bool WaitableProcess::Terminate(const AutoHandle& job,
-                                const AutoHandle& process, DWORD pid,
-                                DWORD* out_exit_code, std::wstring* error) {
+bool WaitableProcess::Terminate(std::wstring* error) {
   static constexpr UINT exit_code = 130;  // 128 + SIGINT, like on Linux
 
-  if (job.IsValid()) {
-    if (!TerminateJobObject(job, exit_code)) {
+  if (job_.IsValid()) {
+    if (!TerminateJobObject(job_, exit_code)) {
       DWORD err_code = GetLastError();
       *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"WaitableProcess::Terminate", ToString(pid),
+                                L"WaitableProcess::Terminate", ToString(pid_),
                                 err_code);
       return false;
     }
-  } else if (process.IsValid()) {
-    if (!TerminateProcess(process, exit_code)) {
+  } else if (process_.IsValid()) {
+    if (!TerminateProcess(process_, exit_code)) {
       DWORD err_code = GetLastError();
       std::wstring our_error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                 L"WaitableProcess::Terminate",
-                                                ToString(pid), err_code);
+                                                ToString(pid_), err_code);
 
       // If the process exited, despite TerminateProcess having failed, we're
       // still happy and just ignore the error. It might have been a race
@@ -283,7 +275,7 @@ bool WaitableProcess::Terminate(const AutoHandle& job,
       // However, if the process is *still* running at this point (evidenced
       // by its exit code still being STILL_ACTIVE) then something went
       // really unexpectedly wrong and we should report that error.
-      if (GetExitCode(process, pid, out_exit_code, error) == STILL_ACTIVE) {
+      if (GetExitCode(error) == STILL_ACTIVE) {
         // Restore the error message from TerminateProcess - it will be much
         // more helpful for debugging in case something goes wrong here.
         *error = our_error;
@@ -291,10 +283,10 @@ bool WaitableProcess::Terminate(const AutoHandle& job,
       }
     }
 
-    if (WaitForSingleObject(process, INFINITE) != WAIT_OBJECT_0) {
+    if (WaitForSingleObject(process_, INFINITE) != WAIT_OBJECT_0) {
       DWORD err_code = GetLastError();
       *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"WaitableProcess::Terminate", ToString(pid),
+                                L"WaitableProcess::Terminate", ToString(pid_),
                                 err_code);
       return false;
     }
