@@ -182,7 +182,8 @@ static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
     // and deprecated the old one.
     NSDictionary *versionPlistContents;
 #if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_12
-    versionPlistContents = [[NSDictionary alloc] initWithContentsOfURL:versionPlistUrl                                                                                                                   error:nil];
+    versionPlistContents = [[NSDictionary alloc] initWithContentsOfURL:versionPlistUrl
+                                                                 error:nil];
 #else
     versionPlistContents = [[NSDictionary alloc] initWithContentsOfURL:versionPlistUrl];
 #endif
