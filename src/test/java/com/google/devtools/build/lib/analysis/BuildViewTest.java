@@ -1200,18 +1200,18 @@ public class BuildViewTest extends BuildViewTestBase {
         "x/extension.bzl",
         "def _aspect1_impl(target, ctx):",
         "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
-        "  return struct()",
+        "  return []",
         "aspect1 = aspect(_aspect1_impl, attr_aspects=['deps'])",
         "",
         "def _injecting_rule_impl(ctx):",
-        "  return struct()",
+        "  return []",
         "injecting_rule = rule(_injecting_rule_impl, ",
         "    attrs = { 'deps' : attr.label_list(aspects = [aspect1]) })",
         "",
         "def _action_rule_impl(ctx):",
         "  out = ctx.actions.declare_file(ctx.label.name)",
         "  ctx.actions.run_shell(outputs = [out], command = 'dontcare', mnemonic='Mnemonic')",
-        "  return struct()",
+        "  return []",
         "action_rule = rule(_action_rule_impl, attrs = { 'deps' : attr.label_list() })");
 
     scratch.file(

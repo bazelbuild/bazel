@@ -116,7 +116,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "  attrs = {'flag': attr.label()},",
         ")",
         "def _flag_propagating_wrapper_impl(ctx):",
-        "  return struct(providers = [config_common.FeatureFlagInfo(value='hello')])",
+        "  return [config_common.FeatureFlagInfo(value='hello')]",
         "flag_propagating_wrapper = rule(",
         "  implementation = _flag_propagating_wrapper_impl,",
         ")");
