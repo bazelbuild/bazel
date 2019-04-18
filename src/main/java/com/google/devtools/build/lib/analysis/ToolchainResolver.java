@@ -66,6 +66,7 @@ public class ToolchainResolver {
   // Optional data.
   private ImmutableSet<Label> requiredToolchainTypeLabels = ImmutableSet.of();
   private ImmutableSet<Label> execConstraintLabels = ImmutableSet.of();
+  private boolean shouldSanityCheckConfiguration = false;
 
   // Determined during execution.
   private boolean debug = false;
@@ -97,6 +98,17 @@ public class ToolchainResolver {
    */
   public ToolchainResolver setExecConstraintLabels(Set<Label> execConstraintLabels) {
     this.execConstraintLabels = ImmutableSet.copyOf(execConstraintLabels);
+    return this;
+  }
+
+  /**
+   * Sets whether the experimental retroactive trimming mode is in use. This determines whether
+   * sanity checks regarding the fragments in use for the configurations of platforms and toolchains
+   * are used - specifically, whether platforms use only the PlatformConfiguration, and toolchains
+   * do not use any configuration at all.
+   */
+  public ToolchainResolver setShouldSanityCheckConfiguration(boolean useSanityChecks) {
+    this.shouldSanityCheckConfiguration = useSanityChecks;
     return this;
   }
 
@@ -187,7 +199,9 @@ public class ToolchainResolver {
 
     // Load the host and target platforms early, to check for errors.
     PlatformLookupUtil.getPlatformInfo(
-        ImmutableList.of(hostPlatformKey, targetPlatformKey), environment);
+        ImmutableList.of(hostPlatformKey, targetPlatformKey),
+        environment,
+        shouldSanityCheckConfiguration);
     if (environment.valuesMissing()) {
       throw new ValueMissingException();
     }
@@ -245,7 +259,8 @@ public class ToolchainResolver {
     // platform is the host platform), Skyframe will return the correct results immediately without
     // need of a restart.
     Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap =
-        PlatformLookupUtil.getPlatformInfo(platformKeys, environment);
+        PlatformLookupUtil.getPlatformInfo(
+            platformKeys, environment, shouldSanityCheckConfiguration);
     if (platformInfoMap == null) {
       throw new ValueMissingException();
     }
@@ -367,7 +382,8 @@ public class ToolchainResolver {
     Map<ConfiguredTargetKey, PlatformInfo> platforms =
         PlatformLookupUtil.getPlatformInfo(
             ImmutableList.of(selectedExecutionPlatformKey.get(), platformKeys.targetPlatformKey()),
-            environment);
+            environment,
+            shouldSanityCheckConfiguration);
     if (platforms == null) {
       throw new ValueMissingException();
     }

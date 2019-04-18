@@ -313,6 +313,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               new ToolchainResolver(env, configuredTargetKey.getConfigurationKey())
                   .setRequiredToolchainTypes(requiredToolchains)
                   .setExecConstraintLabels(execConstraintLabels)
+                  .setShouldSanityCheckConfiguration(
+                      configuration.trimConfigurationsRetroactively())
                   .resolve();
           if (env.valuesMissing()) {
             return null;
