@@ -559,6 +559,24 @@ int CheckDirectoryStatus(const wstring& path) {
   return DirectoryStatus::kDirectoryEmpty;
 }
 
+int GetResultFromErrorCode(const wchar_t* function_name, const wstring& path,
+                           DWORD err, wstring* error) {
+  if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+    // The file disappeared, or one of its parent directories disappeared,
+    // or one of its parent directories is no longer a directory.
+    return DeletePathResult::kDoesNotExist;
+  }
+  if (err == ERROR_ACCESS_DENIED || err == ERROR_SHARING_VIOLATION) {
+    return DeletePathResult::kAccessDenied;
+  }
+  // Some unknown error occurred.
+  if (error) {
+     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                               function_name, path, err);
+  }
+  return DeletePathResult::kError;
+}
+
 int DeletePath(const wstring& path, wstring* error) {
   if (!IsAbsoluteNormalizedWindowsPath(path)) {
     if (error) {
@@ -571,162 +589,99 @@ int DeletePath(const wstring& path, wstring* error) {
   const std::wstring winpath(AddUncPrefixMaybe(path));
   const wchar_t* wpath = winpath.c_str();
 
-  if (!DeleteFileW(wpath)) {
-    DWORD err = GetLastError();
-    if (err == ERROR_SHARING_VIOLATION) {
-      // The file or directory is in use by some process or we have no
-      // permission to delete it.
-      return DeletePathResult::kAccessDenied;
-    } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
-      // The file or directory does not exist, or a parent directory does not
-      // exist, or a parent directory is actually a file.
-      return DeletePathResult::kDoesNotExist;
-    } else if (err != ERROR_ACCESS_DENIED) {
+  DWORD attr = GetFileAttributesW(wpath);
+  DWORD err;
+  if (attr == INVALID_FILE_ATTRIBUTES) {
+    return GetResultFromErrorCode(L"GetFileAttributesW", path,
+                                  GetLastError(), error);
+  }
+
+  if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+    // It's a directory or a junction, RemoveDirectoryW should be used.
+    //
+    // Sometimes a deleted directory lingers in its parent dir
+    // after the deleting handle has already been closed.
+    // In this case we check the content of the parent directory,
+    // if we don't find any valid file, we try to delete it again after 5 ms.
+    // But we don't want to hang infinitely because another application
+    // can hold the handle for a long time. So try at most 20 times,
+    // which means a process time of 100-120ms.
+    // Inspired by
+    // https://github.com/Alexpux/Cygwin/commit/28fa2a72f810670a0562ea061461552840f5eb70
+    // Useful link: https://stackoverflow.com/questions/31606978
+    int count;
+    for (count = 0; count < 20 && !RemoveDirectoryW(wpath); ++count) {
+      // Failed to delete the directory.
+      err = GetLastError();
+      if (err == ERROR_SHARING_VIOLATION || err == ERROR_ACCESS_DENIED) {
+        // The junction or directory is in use by another process, or we have
+        // no permission to delete it.
+        return DeletePathResult::kAccessDenied;
+      } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+        // The directory or one of its parent directories disappeared or is no
+        // longer a directory.
+        return DeletePathResult::kDoesNotExist;
+      } else if (err == ERROR_DIR_NOT_EMPTY) {
+        // We got ERROR_DIR_NOT_EMPTY error, but maybe the child files and
+        // dirs are already marked for deletion, let's check the status of the
+        // child elements to see if we should retry the delete operation.
+        switch (CheckDirectoryStatus(winpath)) {
+          case DirectoryStatus::kDirectoryNotEmpty:
+            // The directory is truely not empty.
+            return DeletePathResult::kDirectoryNotEmpty;
+          case DirectoryStatus::kDirectoryEmpty:
+            // If no children are pending deletion then the directory is now
+            // empty. We can try deleting it again without waiting.
+            continue;
+          case DirectoryStatus::kChildMarkedForDeletionExists:
+            // If all child elements are marked for deletion, then wait 5 ms for
+            // the system to delete the files and try deleting the directory
+            // again.
+            Sleep(5L);
+            continue;
+          case DirectoryStatus::kDoesNotExist:
+            // This case should never happen, because ERROR_DIR_NOT_EMPTY
+            // means the directory exists. But if it does happen, return an
+            // error message.
+            if (error) {
+              *error =
+                  MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                   L"RemoveDirectoryW", path, GetLastError());
+            }
+            return DeletePathResult::kError;
+        }
+      }
+
       // Some unknown error occurred.
       if (error) {
-        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeleteFileW",
-                                  path, err);
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                  L"RemoveDirectoryW", path, err);
       }
       return DeletePathResult::kError;
     }
 
-    // DeleteFileW failed with access denied, because the file is read-only or
-    // it is a directory.
-    DWORD attr = GetFileAttributesW(wpath);
-    if (attr == INVALID_FILE_ATTRIBUTES) {
-      err = GetLastError();
-      if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
-        // The file disappeared, or one of its parent directories disappeared,
-        // or one of its parent directories is no longer a directory.
-        return DeletePathResult::kDoesNotExist;
-      } else {
-        // Some unknown error occurred.
-        if (error) {
-          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                    L"GetFileAttributesW", path, err);
-        }
-        return DeletePathResult::kError;
-      }
+    if (count == 20) {
+      // After trying 20 times, the "deleted" sub-directories or files still
+      // won't go away, so just return kDirectoryNotEmpty error.
+      return DeletePathResult::kDirectoryNotEmpty;
     }
-
-    // DeleteFileW failed with access denied, but the path exists.
-    if (attr & FILE_ATTRIBUTE_DIRECTORY) {
-      // It's a directory or a junction.
-
-      // Sometimes a deleted directory lingers in its parent dir
-      // after the deleting handle has already been closed.
-      // In this case we check the content of the parent directory,
-      // if we don't find any valid file, we try to delete it again after 5 ms.
-      // But we don't want to hang infinitely because another application
-      // can hold the handle for a long time. So try at most 20 times,
-      // which means a process time of 100-120ms.
-      // Inspired by
-      // https://github.com/Alexpux/Cygwin/commit/28fa2a72f810670a0562ea061461552840f5eb70
-      // Useful link: https://stackoverflow.com/questions/31606978
-      int count = 20;
-      while (count > 0 && !RemoveDirectoryW(wpath)) {
-        // Failed to delete the directory.
-        err = GetLastError();
-        if (err == ERROR_SHARING_VIOLATION || err == ERROR_ACCESS_DENIED) {
-          // The junction or directory is in use by another process, or we have
-          // no permission to delete it.
-          return DeletePathResult::kAccessDenied;
-        } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
-          // The directory or one of its directories disappeared or is no longer
-          // a directory.
-          return DeletePathResult::kDoesNotExist;
-        } else if (err == ERROR_DIR_NOT_EMPTY) {
-          // We got ERROR_DIR_NOT_EMPTY error, but maybe the child files and
-          // dirs are already marked for deletion, let's check the status of the
-          // child elements to see if we should retry the delete operation.
-          switch (CheckDirectoryStatus(winpath)) {
-            case DirectoryStatus::kDirectoryNotEmpty:
-              // The directory is truely not empty.
-              return DeletePathResult::kDirectoryNotEmpty;
-            case DirectoryStatus::kDirectoryEmpty:
-              // If we didn't find any pending delete child files or dirs, it
-              // means at the time we check, the child elements marked for
-              // deletion are gone, the directory is now empty, we can then try
-              // to delete the directory again without waiting.
-              continue;
-            case DirectoryStatus::kChildMarkedForDeletionExists:
-              // If the directory only contains child elements marked for
-              // deletion, wait the system for 5 ms to clean them up and try to
-              // delete the directory again.
-              Sleep(5L);
-              continue;
-            case DirectoryStatus::kDoesNotExist:
-              // This case should never happen, because ERROR_DIR_NOT_EMPTY
-              // means the directory exists. But if it does happen, return an
-              // error message.
-              if (error) {
-                *error =
-                    MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                     L"RemoveDirectoryW", path, GetLastError());
-              }
-              return DeletePathResult::kError;
-          }
-        }
-
-        // Some unknown error occurred.
-        if (error) {
-          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                    L"RemoveDirectoryW", path, err);
-        }
-        return DeletePathResult::kError;
-      }
-
-      if (count == 0) {
-        // After trying 20 times, the "deleted" sub-directories or files still
-        // won't go away, so just return kDirectoryNotEmpty error.
-        return DeletePathResult::kDirectoryNotEmpty;
-      }
-    } else if (attr & FILE_ATTRIBUTE_READONLY) {
-      // It's a file and it's probably read-only.
-      // Make it writable then try deleting it again.
+  } else {
+    // It's a regular file or symlink, DeleteFileW should be used.
+    if (attr & FILE_ATTRIBUTE_READONLY) {
+      // Remove the read-only attribute.
       attr &= ~FILE_ATTRIBUTE_READONLY;
       if (!SetFileAttributesW(wpath, attr)) {
-        err = GetLastError();
-        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
-          // The file disappeared, or one of its parent directories disappeared,
-          // or one of its parent directories is no longer a directory.
-          return DeletePathResult::kDoesNotExist;
-        }
-        // Some unknown error occurred.
-        if (error) {
-          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                    L"SetFileAttributesW", path, err);
-        }
-        return DeletePathResult::kError;
+        return GetResultFromErrorCode(L"SetFileAttributesW", path,
+                                      GetLastError(), error);
       }
-
-      if (!DeleteFileW(wpath)) {
-        // Failed to delete the file again.
-        err = GetLastError();
-        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
-          // The file disappeared, or one of its parent directories disappeared,
-          // or one of its parent directories is no longer a directory.
-          return DeletePathResult::kDoesNotExist;
-        }
-
-        // Some unknown error occurred.
-        if (error) {
-          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeleteFileW",
-                                    path, err);
-        }
-        return DeletePathResult::kError;
-      }
-    } else {
-      if (error) {
-        *error = MakeErrorMessage(
-            WSTR(__FILE__), __LINE__,
-            (std::wstring(L"Unknown error, winpath=[") + winpath + L"]")
-                .c_str(),
-            path, err);
-      }
-      return DeletePathResult::kError;
+    }
+    if (!DeleteFileW(wpath)) {
+      // Failed to delete the file or symlink.
+      return GetResultFromErrorCode(L"DeleteFileW", path,
+                                    GetLastError(), error);
     }
   }
+
   return DeletePathResult::kSuccess;
 }
 
