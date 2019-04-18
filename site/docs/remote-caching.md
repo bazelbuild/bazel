@@ -245,7 +245,7 @@ Use the following flags to:
 * disable sandboxing
 
 ```
-build --remote_cache=http://replace-with-your.host:port
+build --remote_http_cache=http://replace-with-your.host:port
 build --spawn_strategy=standalone
 ```
 
@@ -254,7 +254,7 @@ following flags to read and write from the remote cache with sandboxing
 enabled:
 
 ```
-build --remote_cache=http://replace-with-your.host:port
+build --remote_http_cache=http://replace-with-your.host:port
 ```
 
 ### Read only from the remote cache
@@ -263,7 +263,7 @@ Use the following flags to: read from the remote cache with sandboxing
 disabled.
 
 ```
-build --remote_cache=http://replace-with-your.host:port
+build --remote_http_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
 build --spawn_strategy=standalone
 ```
@@ -272,7 +272,7 @@ Using the remote cache with sandboxing enabled is experimental. Use the
 following flags to read from the remote cache with sandboxing enabled:
 
 ```
-build --remote_cache=http://replace-with-your.host:port
+build --remote_http_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
 ```
 
@@ -311,7 +311,7 @@ is similar to curl's `--unix-socket` flag. Use the following to configure unix
 domain socket:
 
 ```
-build --remote_cache=http://replace-with-your.host:port
+build --remote_http_cache=http://replace-with-your.host:port
 build --remote_cache_proxy=unix:/replace/with/socket/path
 ```
 
