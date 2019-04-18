@@ -1739,15 +1739,34 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
           try {
             ConfiguredTarget mergedTarget =
                 MergedConfiguredTarget.of(configuredTarget, configuredAspects);
+            BuildConfigurationValue.Key configKey = mergedTarget.getConfigurationKey();
+            BuildConfiguration resolvedConfig = depConfig;
+            if (configKey == null) {
+              // Unfortunately, it's possible to get a configured target with a null configuration
+              // when depConfig is non-null, so we need to explicitly override it in that case.
+              resolvedConfig = null;
+            } else if (!configKey.equals(BuildConfigurationValue.key(depConfig))) {
+              // Retroactive trimming may change the configuration associated with the dependency.
+              // If it does, we need to get that instance.
+              // TODO(mstaib): doing these individually instead of doing them all at once may end
+              // up being wasteful use of Skyframe. Although these configurations are guaranteed
+              // to be in the Skyframe cache (because the dependency would have had to retrieve
+              // them to be created in the first place), looking them up repeatedly may be slower
+              // than just keeping a local cache and assigning the same configuration to all the
+              // CTs which need it. Profile this and see if there's a better way.
+              if (!depConfig.trimConfigurationsRetroactively()) {
+                throw new AssertionError(
+                    "Loading configurations mid-dependency resolution should ONLY happen when "
+                        + "retroactive trimming is enabled.");
+              }
+              resolvedConfig = getConfiguration(eventHandler, mergedTarget.getConfigurationKey());
+            }
             cts.put(
                 key,
                 new ConfiguredTargetAndData(
                     mergedTarget,
                     packageValue.getPackage().getTarget(configuredTarget.getLabel().getName()),
-                    // This is terrible, but our tests' use of configurations is terrible. It's only
-                    // by accident that getting a null-configuration ConfiguredTarget works even if
-                    // depConfig is not null.
-                    mergedTarget.getConfigurationKey() == null ? null : depConfig));
+                    resolvedConfig));
 
           } catch (DuplicateException | NoSuchTargetException e) {
             throw new IllegalStateException(
