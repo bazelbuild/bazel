@@ -59,21 +59,21 @@ public interface SkylarkNativeModuleApi {
             type = SkylarkList.class,
             generic1 = String.class,
             defaultValue = "[]",
-            legacyNamed = true,
+            named = true,
             doc = "The list of glob patterns to include."),
         @Param(
             name = "exclude",
             type = SkylarkList.class,
             generic1 = String.class,
             defaultValue = "[]",
-            legacyNamed = true,
+            named = true,
             doc = "The list of glob patterns to exclude."),
         // TODO(bazel-team): accept booleans as well as integers? (and eventually migrate?)
         @Param(
             name = "exclude_directories",
             type = Integer.class,
             defaultValue = "1",
-            legacyNamed = true,
+            named = true,
             doc = "A flag whether to exclude directories or not.")
       },
       useAst = true,
@@ -98,6 +98,7 @@ public interface SkylarkNativeModuleApi {
         @Param(
             name = "name",
             type = String.class,
+            // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             doc = "The name of the target.")
       },
@@ -147,7 +148,7 @@ public interface SkylarkNativeModuleApi {
             name = "srcs",
             type = SkylarkList.class,
             generic1 = String.class,
-            legacyNamed = true,
+            named = true,
             doc = "The list of files to export."),
         // TODO(bazel-team): make it possible to express the precise type ListOf(LabelDesignator)
         @Param(
@@ -155,7 +156,7 @@ public interface SkylarkNativeModuleApi {
             type = SkylarkList.class,
             defaultValue = "None",
             noneable = true,
-            legacyNamed = true,
+            named = true,
             doc =
                 "A visibility declaration can to be specified. The files will be visible to the "
                     + "targets specified. If no visibility is specified, the files will be visible "
@@ -165,7 +166,7 @@ public interface SkylarkNativeModuleApi {
             type = SkylarkList.class,
             generic1 = String.class,
             noneable = true,
-            legacyNamed = true,
+            named = true,
             defaultValue = "None",
             doc = "Licenses to be specified.")
       },
