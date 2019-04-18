@@ -451,7 +451,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * Returns the target-specific execution platform constraints, based on the rule definition and
    * any constraints added by the target.
    */
-  private static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
+  public static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
     NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
     ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
 
