@@ -368,7 +368,7 @@ class TestWrapperTest(test_base.TestBase):
     if not good or bad:
       self._FailWithOutput(stderr + stdout)
 
-  def _AssertTestArgs(self, flag, expected):
+  def _AssertTestArgs(self, flag):
     exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = bazel_bin[0]
@@ -394,7 +394,25 @@ class TestWrapperTest(test_base.TestBase):
     for line in stderr + stdout:
       if line.startswith('arg='):
         actual.append(str(line[len('arg='):]))
-    self.assertListEqual(expected, actual)
+    self.assertListEqual(
+        [
+            '(foo)',
+            # TODO(laszlocsomor): assert that "a b" is passed as one argument,
+            # not two, after https://github.com/bazelbuild/bazel/issues/6277
+            # is fixed.
+            '(a)',
+            '(b)',
+            # TODO(laszlocsomor): assert that the empty string argument is
+            # passed, after https://github.com/bazelbuild/bazel/issues/6276
+            # is fixed.
+            '(c d)',
+            '()',
+            '(bar)',
+            '(baz)',
+            '("x y")',
+            '("")',
+            '(qux)',
+        ], actual)
 
   def _AssertUndeclaredOutputs(self, flag):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
@@ -550,6 +568,35 @@ class TestWrapperTest(test_base.TestBase):
       xml_contents = [line.strip() for line in f.readlines()]
     self.assertListEqual(xml_contents, ['leave this'])
 
+  # Test that the native test wrapper can run tests from external repositories.
+  # See https://github.com/bazelbuild/bazel/issues/8088
+  # Unfortunately as of 2019-04-18 the legacy test wrapper (test-setup.sh) also
+  # has this bug, but I (@laszlocsomor) work on enabling the native test wrapper
+  # by default so fixing the legacy one seems to make little sense.
+  def testRunningTestFromExternalRepo(self):
+    self.ScratchFile('WORKSPACE',
+                     ['local_repository(name = "a", path = "a")'])
+    self.ScratchFile('a/WORKSPACE')
+    self.ScratchFile('BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile('a/BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile('x.py')
+    self.ScratchFile('a/x.py')
+
+    for flag in ['--legacy_external_runfiles', '--nolegacy_external_runfiles']:
+        for target in ['//:x', '@a//:x']:
+            exit_code, _, stderr = self.RunBazel([
+                'test',
+                '-t-',
+                '--incompatible_windows_native_test_wrapper',
+                '--test_output=errors',
+                '--verbose_failures',
+                flag,
+                target,
+            ])
+            self.AssertExitCode(exit_code, 0,
+                                ['flag=%s' % flag,
+                                 'target=%s' % target] + stderr)
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--noincompatible_windows_native_test_wrapper'
@@ -559,24 +606,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertRunfiles(flag)
     self._AssertShardedTest(flag)
     self._AssertUnexportsEnvvars(flag)
-    self._AssertTestArgs(
-        flag,
-        [
-            '(foo)',
-            # If https://github.com/bazelbuild/bazel/issues/6277 is ever fixed,
-            # then assert that (a b) is one argument.
-            '(a)',
-            '(b)',
-            # If https://github.com/bazelbuild/bazel/issues/6276 is ever fixed,
-            # then assert that there's an empty argument before (c d).
-            '(c d)',
-            '()',
-            '(bar)',
-            '(baz)',
-            '("x y")',
-            '("")',
-            '(qux)',
-        ])
+    self._AssertTestArgs(flag)
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
     self._AssertXmlGeneration(flag, split_xml=False)
@@ -593,26 +623,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertRunfiles(flag)
     self._AssertShardedTest(flag)
     self._AssertUnexportsEnvvars(flag)
-    self._AssertTestArgs(
-        flag,
-        [
-            '(foo)',
-            # TODO(laszlocsomor): assert that "a b" is passed as one argument,
-            # not two, after https://github.com/bazelbuild/bazel/issues/6277
-            # is fixed.
-            '(a)',
-            '(b)',
-            # TODO(laszlocsomor): assert that the empty string argument is
-            # passed, after https://github.com/bazelbuild/bazel/issues/6276
-            # is fixed.
-            '(c d)',
-            '()',
-            '(bar)',
-            '(baz)',
-            '("x y")',
-            '("")',
-            '(qux)',
-        ])
+    self._AssertTestArgs(flag)
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
     self._AssertXmlGeneration(flag, split_xml=False)
