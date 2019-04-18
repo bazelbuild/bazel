@@ -175,7 +175,7 @@ EOF
 
 function check_num_sos() {
   num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l | sed -e 's/[[:space:]]//g')
-  assert_equals "5" "$num_sos"
+  assert_equals "4" "$num_sos"
 }
 
 function check_soname() {
@@ -202,7 +202,7 @@ function test_android_binary() {
   setup_android_ndk_support
   create_android_binary
 
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
   bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
   check_num_sos
@@ -215,11 +215,11 @@ function test_android_binary_clang() {
   setup_android_ndk_support
   create_android_binary
 
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
   bazel build -s //java/bazel:bin \
       --fat_apk_cpu="$cpus" \
-      --android_compiler=clang5.0.300080 \
+      --android_compiler=clang8.0.1 \
       || fail "build failed"
   check_num_sos
   check_soname
@@ -234,6 +234,7 @@ cc_binary(
     name = "foo",
     srcs = ["foo.cc"],
     copts = ["-mfpu=neon"],
+    linkopts = ["-ldl"],
 )
 EOF
   cat > foo.cc <<EOF
@@ -241,7 +242,7 @@ EOF
 int main() { return 0; }
 EOF
   bazel build //:foo \
-    --compiler=clang5.0.300080 \
+    --compiler=clang8.0.1 \
     --cpu=armeabi-v7a \
     --crosstool_top=//external:android/crosstool \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
@@ -296,6 +297,7 @@ function test_stripped_cc_binary() {
 cc_binary(
     name = "foo",
     srcs = ["foo.cc"],
+    linkopts = ["-ldl"],
 )
 EOF
   cat > foo.cc <<EOF
@@ -308,7 +310,8 @@ EOF
     || fail "build failed"
 }
 
-function test_crosstool_stlport() {
+# stlport is no longer in the ndk
+function ignore_test_crosstool_stlport() {
   create_new_workspace
   setup_android_ndk_support
   cat > BUILD <<EOF
@@ -370,7 +373,8 @@ EOF
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 }
 
-function test_crosstool_gnu_libstdcpp() {
+# libstdcpp is no longer in the NDK
+function ignore_test_crosstool_gnu_libstdcpp() {
   create_new_workspace
   setup_android_ndk_support
   cat > BUILD <<EOF
@@ -406,7 +410,7 @@ function test_crosstool_libcpp_with_multiarch() {
   setup_android_ndk_support
   create_android_binary
 
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
   assert_build //java/bazel:bin \
     --fat_apk_cpu="$cpus" \
