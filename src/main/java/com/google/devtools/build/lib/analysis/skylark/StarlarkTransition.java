@@ -275,7 +275,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     return buildSettingTarget;
   }
 
-  // TODO(juliexxia): use an enum for "inputs"/"outputs" here and elsewhere in starlark transitions.
   private static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
       StarlarkTransition transition, Settings inputOrOutput) {
     List<String> toGet =
