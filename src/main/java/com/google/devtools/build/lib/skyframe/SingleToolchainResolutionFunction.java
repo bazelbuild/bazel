@@ -82,6 +82,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         key.toolchainTypeLabel(),
         key.availableExecutionPlatformKeys(),
         key.targetPlatformKey(),
+        configuration.trimConfigurationsRetroactively(),
         toolchains.registeredToolchains(),
         env,
         debug ? env.getListener() : null);
@@ -97,6 +98,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       Label toolchainTypeLabel,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys,
       ConfiguredTargetKey targetPlatformKey,
+      boolean sanityCheckConfigurations,
       ImmutableList<DeclaredToolchainInfo> toolchains,
       Environment env,
       @Nullable EventHandler eventHandler)
@@ -112,7 +114,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
                   .add(targetPlatformKey)
                   .addAll(availableExecutionPlatformKeys)
                   .build(),
-              env);
+              env,
+              sanityCheckConfigurations);
       if (env.valuesMissing()) {
         return null;
       }
