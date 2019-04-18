@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -59,8 +60,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     UnloadedToolchainContext.Key key = (UnloadedToolchainContext.Key) skyKey.argument();
 
     try {
-      UnloadedToolchainContext.Builder unloadedToolchainContext =
-          UnloadedToolchainContext.builder();
+      UnloadedToolchainContext.Builder builder = UnloadedToolchainContext.builder();
 
       // Determine the configuration being used.
       BuildConfigurationValue value =
@@ -70,10 +70,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       }
       BuildConfiguration configuration = value.getConfiguration();
       PlatformConfiguration platformConfiguration =
-          configuration.getFragment(PlatformConfiguration.class);
-      if (platformConfiguration == null) {
-        throw new ValueMissingException();
-      }
+          Preconditions.checkNotNull(configuration.getFragment(PlatformConfiguration.class));
 
       // Check if debug output should be generated.
       boolean debug =
@@ -99,11 +96,27 @@ public class ToolchainResolutionFunction implements SkyFunction {
           debug,
           key.configurationKey(),
           key.requiredToolchainTypeLabels(),
-          unloadedToolchainContext,
+          builder,
           platformKeys,
           key.shouldSanityCheckConfiguration());
 
-      return unloadedToolchainContext.build();
+      UnloadedToolchainContext unloadedToolchainContext = builder.build();
+      if (debug) {
+        String selectedToolchains =
+            unloadedToolchainContext.toolchainTypeToResolved().entrySet().stream()
+                .map(
+                    e ->
+                        String.format(
+                            "type %s -> toolchain %s", e.getKey().typeLabel(), e.getValue()))
+                .collect(joining(", "));
+        env.getListener()
+            .handle(
+                Event.info(
+                    String.format(
+                        "ToolchainResolution: Selected execution platform %s, %s",
+                        unloadedToolchainContext.executionPlatform().label(), selectedToolchains)));
+      }
+      return unloadedToolchainContext;
     } catch (ToolchainException e) {
       throw new ToolchainResolutionFunctionException(e);
     } catch (ValueMissingException e) {
@@ -276,7 +289,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       boolean debug,
       BuildConfigurationValue.Key configurationKey,
       ImmutableSet<Label> requiredToolchainTypeLabels,
-      UnloadedToolchainContext.Builder unloadedToolchainContext,
+      UnloadedToolchainContext.Builder builder,
       PlatformKeys platformKeys,
       boolean shouldSanityCheckConfiguration)
       throws InterruptedException, ValueMissingException, InvalidPlatformException,
@@ -377,14 +390,13 @@ public class ToolchainResolutionFunction implements SkyFunction {
       throw new ValueMissingException();
     }
 
-    unloadedToolchainContext.setRequiredToolchainTypes(requiredToolchainTypes);
-    unloadedToolchainContext.setExecutionPlatform(
-        platforms.get(selectedExecutionPlatformKey.get()));
-    unloadedToolchainContext.setTargetPlatform(platforms.get(platformKeys.targetPlatformKey()));
+    builder.setRequiredToolchainTypes(requiredToolchainTypes);
+    builder.setExecutionPlatform(platforms.get(selectedExecutionPlatformKey.get()));
+    builder.setTargetPlatform(platforms.get(platformKeys.targetPlatformKey()));
 
     Map<ToolchainTypeInfo, Label> toolchains =
         resolvedToolchains.row(selectedExecutionPlatformKey.get());
-    unloadedToolchainContext.setToolchainTypeToResolved(ImmutableBiMap.copyOf(toolchains));
+    builder.setToolchainTypeToResolved(ImmutableBiMap.copyOf(toolchains));
   }
 
   /**
@@ -425,22 +437,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
         continue;
       }
 
-      if (debug) {
-        String selectedToolchains =
-            toolchains.entrySet().stream()
-                .map(
-                    e ->
-                        String.format(
-                            "type %s -> toolchain %s", e.getKey().typeLabel(), e.getValue()))
-                .collect(joining(", "));
-        environment
-            .getListener()
-            .handle(
-                Event.info(
-                    String.format(
-                        "ToolchainResolver: Selected execution platform %s, %s",
-                        executionPlatformKey.getLabel(), selectedToolchains)));
-      }
       return Optional.of(executionPlatformKey);
     }
 
