@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -220,17 +221,17 @@ public class BazelRuleClassProvider {
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setRunfilesPrefix(LabelConstants.DEFAULT_REPOSITORY_DIRECTORY)
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
-              .setActionEnvironmentProvider(SHELL_ACTION_ENV);
-
-          builder.addConfigurationOptions(ShellConfiguration.Options.class);
-          builder.addConfigurationFragment(
-              new ShellConfiguration.Loader(
-                  SHELL_EXECUTABLE,
-                  ShellConfiguration.Options.class,
-                  StrictActionEnvOptions.class));
-          builder.addUniversalConfigurationFragment(ShellConfiguration.class);
-          builder.addConfigurationOptions(StrictActionEnvOptions.class);
-          builder.addConfigurationOptions(BuildConfiguration.Options.class);
+              .setActionEnvironmentProvider(SHELL_ACTION_ENV)
+              .addConfigurationOptions(ShellConfiguration.Options.class)
+              .addConfigurationFragment(
+                  new ShellConfiguration.Loader(
+                      SHELL_EXECUTABLE,
+                      ShellConfiguration.Options.class,
+                      StrictActionEnvOptions.class))
+              .addUniversalConfigurationFragment(ShellConfiguration.class)
+              .addUniversalConfigurationFragment(PlatformConfiguration.class)
+              .addConfigurationOptions(StrictActionEnvOptions.class)
+              .addConfigurationOptions(BuildConfiguration.Options.class);
         }
 
         @Override
