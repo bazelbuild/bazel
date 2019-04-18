@@ -213,9 +213,10 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "plain(name = 'c')",
         "plain(name = 'aspectdep', aspect_deps = ['a'])");
 
-    scratch.file("x/x.bzl",
+    scratch.file(
+        "x/x.bzl",
         "def _impl(ctx):",
-        "    return struct()",
+        "    return []",
         "",
         "rule_aspect = aspect(",
         "    implementation = _impl,",

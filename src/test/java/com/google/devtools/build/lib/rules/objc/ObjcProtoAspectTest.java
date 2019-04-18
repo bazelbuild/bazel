@@ -16,10 +16,14 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
@@ -210,9 +214,10 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     scratch.file("test_skylark/BUILD");
     scratch.file(
         "test_skylark/top_level_stub.bzl",
+        "MyInfo = provider()",
         "def top_level_stub_impl(ctx):",
         "  deps = hasattr(ctx.attr.deps[0], 'ObjcProto')",
-        "  return struct(dep = ctx.attr.deps[0])",
+        "  return MyInfo(dep = ctx.attr.deps[0])",
         "top_level_stub = rule(",
         "    top_level_stub_impl,",
         "    attrs = {",
@@ -245,7 +250,12 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
     ConfiguredTarget topTarget = getConfiguredTarget("//bin:link_target");
 
-    ConfiguredTarget depTarget = (ConfiguredTarget) topTarget.get("dep");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//test_skylark:top_level_stub.bzl", ImmutableMap.of()), "MyInfo");
+    StructImpl info = (StructImpl) topTarget.get(key);
+
+    ConfiguredTarget depTarget = (ConfiguredTarget) info.getValue("dep");
     ObjcProtoProvider objcProtoProvider = depTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
 
     assertThat(objcProtoProvider).isNotNull();

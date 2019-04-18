@@ -19,7 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
 import org.junit.Test;
@@ -69,11 +73,12 @@ public class XcodeConfigTest extends BuildViewTestCase {
   @Test
   public void testConfigAlias_configSetting() throws Exception {
     scratch.file("skylark/BUILD");
-    scratch.file("skylark/version_retriever.bzl",
+    scratch.file(
+        "skylark/version_retriever.bzl",
         "def _version_retriever_impl(ctx):",
         "  xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]",
         "  version = xcode_properties.xcode_version",
-        "  return struct(providers = [config_common.FeatureFlagInfo(value=version)])",
+        "  return [config_common.FeatureFlagInfo(value=version)]",
         "",
         "version_retriever = rule(",
         "  implementation = _version_retriever_impl,",
@@ -143,11 +148,12 @@ public class XcodeConfigTest extends BuildViewTestCase {
   @Test
   public void testDefaultVersion_configSetting() throws Exception {
     scratch.file("skylark/BUILD");
-    scratch.file("skylark/version_retriever.bzl",
+    scratch.file(
+        "skylark/version_retriever.bzl",
         "def _version_retriever_impl(ctx):",
         "  xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]",
         "  version = xcode_properties.xcode_version",
-        "  return struct(providers = [config_common.FeatureFlagInfo(value=version)])",
+        "  return [config_common.FeatureFlagInfo(value=version)]",
         "",
         "version_retriever = rule(",
         "  implementation = _version_retriever_impl,",
@@ -595,12 +601,14 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "    default_watchos_sdk_version = '4.0',",
         ")",
         "r(name='r')");
-    scratch.file("x/r.bzl",
+    scratch.file(
+        "x/r.bzl",
+        "MyInfo = provider()",
         "def _impl(ctx):",
         "  conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]",
         "  ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)",
         "  tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)",
-        "  return struct(",
+        "  return MyInfo(",
         "    xcode = conf.xcode_version(),",
         "    ios_sdk = conf.sdk_version_for_platform(ios),",
         "    tvos_sdk = conf.sdk_version_for_platform(tvos),",
@@ -617,11 +625,16 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "--tvos_sdk_version=2.5",
         "--watchos_minimum_os=4.5");
     ConfiguredTarget r = getConfiguredTarget("//x:r");
-    assertThat(r.get("xcode").toString()).isEqualTo("0.0");
-    assertThat(r.get("ios_sdk").toString()).isEqualTo("1.0");
-    assertThat(r.get("tvos_sdk").toString()).isEqualTo("2.5");
-    assertThat(r.get("macos_min").toString()).isEqualTo("3.0");
-    assertThat(r.get("watchos_min").toString()).isEqualTo("4.5");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//x:r.bzl", ImmutableMap.of()), "MyInfo");
+    StructImpl info = (StructImpl) r.get(key);
+
+    assertThat(info.getValue("xcode").toString()).isEqualTo("0.0");
+    assertThat(info.getValue("ios_sdk").toString()).isEqualTo("1.0");
+    assertThat(info.getValue("tvos_sdk").toString()).isEqualTo("2.5");
+    assertThat(info.getValue("macos_min").toString()).isEqualTo("3.0");
+    assertThat(info.getValue("watchos_min").toString()).isEqualTo("4.5");
   }
 
   @Test
@@ -694,13 +707,11 @@ public class XcodeConfigTest extends BuildViewTestCase {
   // configuration_field() skylark method and used in a skylark rule.
   @Test
   public void testConfigurationFieldForRule() throws Exception {
-    scratch.file("x/provider_grabber.bzl",
+    scratch.file(
+        "x/provider_grabber.bzl",
         "def _impl(ctx):",
         "  conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]",
-        "  return struct(",
-        "    providers = [conf],",
-        "  )",
-
+        "  return [conf]",
         "provider_grabber = rule(implementation = _impl,",
         "    attrs = { '_xcode_dep': attr.label(",
         "        default = configuration_field(",
@@ -728,12 +739,11 @@ public class XcodeConfigTest extends BuildViewTestCase {
   // configuration_field() skylark method and used in a skylark aspect.
   @Test
   public void testConfigurationFieldForAspect() throws Exception {
-    scratch.file("x/provider_grabber.bzl",
+    scratch.file(
+        "x/provider_grabber.bzl",
         "def _aspect_impl(target, ctx):",
         "  conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]",
-        "  return struct(",
-        "    providers = [conf],",
-        "  )",
+        "  return [conf]",
         "",
         "MyAspect = aspect(implementation = _aspect_impl,",
         "    attrs = { '_xcode_dep': attr.label(",
@@ -745,9 +755,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "",
         "def _rule_impl(ctx):",
         "  conf = ctx.attr.dep[0][apple_common.XcodeVersionConfig]",
-        "  return struct(",
-        "    providers = [conf],",
-        "  )",
+        "  return [conf]",
         "",
         "provider_grabber = rule(implementation = _rule_impl,",
         "    attrs = { 'dep' : ",
