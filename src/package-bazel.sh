@@ -39,7 +39,7 @@ cp $* ${PACKAGE_DIR}
 unzip -q -d recompress ${DEPLOY_JAR}
 cd recompress
 find . -type f -print0 | xargs -0 touch -t 198001010000.00
-zip -0qDr ../deploy-uncompressed.jar *
+find . -type f | sort | zip -q0DX@ ../deploy-uncompressed.jar
 cd ..
 
 # The server jar needs to be the first binary we extract. This is how the Bazel
