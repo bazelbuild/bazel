@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -62,12 +61,12 @@ public class PostConfiguredTargetFunction implements SkyFunction {
       };
 
   private final SkyframeExecutor.BuildViewProvider buildViewProvider;
-  private final RuleClassProvider ruleClassProvider;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
   private final BuildOptions defaultBuildOptions;
 
   public PostConfiguredTargetFunction(
       SkyframeExecutor.BuildViewProvider buildViewProvider,
-      RuleClassProvider ruleClassProvider,
+      ConfiguredRuleClassProvider ruleClassProvider,
       BuildOptions defaultBuildOptions) {
     this.buildViewProvider = Preconditions.checkNotNull(buildViewProvider);
     this.ruleClassProvider = ruleClassProvider;
@@ -126,7 +125,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
               /*aspect=*/ null,
               configConditions,
               /*toolchainLabels=*/ ImmutableSet.of(),
-              ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
+              ruleClassProvider.getTrimmingTransitionFactory());
       deps =
           ConfigurationResolver.resolveConfigurations(
               env, ctgValue, deps, hostConfiguration, ruleClassProvider, defaultBuildOptions);
