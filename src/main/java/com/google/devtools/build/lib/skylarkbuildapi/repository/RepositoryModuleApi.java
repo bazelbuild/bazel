@@ -40,7 +40,7 @@ public interface RepositoryModuleApi {
         @Param(
             name = "implementation",
             type = BaseFunction.class,
-            legacyNamed = true,
+            named = true,
             doc =
                 "the function implementing this rule, has to have exactly one parameter: "
                     + "<code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The function "
