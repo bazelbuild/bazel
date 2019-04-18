@@ -19,6 +19,8 @@
 #include <memory>
 #include <sstream>
 
+#include "src/main/native/windows/file.h"
+
 namespace bazel {
 namespace windows {
 
@@ -29,6 +31,52 @@ static std::wstring ToString(const T& e) {
   return s.str();
 }
 
+static bool ShortCwd(const std::wstring& input_cwd, std::wstring* result,
+                     std::wstring* error) {
+  if (input_cwd.empty()) {
+    result->clear();
+  } else {
+    std::wstring error_msg(AsShortPath(input_cwd, result));
+    if (!error_msg.empty()) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"ShortCwd", input_cwd, error_msg);
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool AbsoluteArgv0(std::wstring cwd, std::wstring argv0,
+                          std::wstring* result, std::wstring* error) {
+  if (IsAbsolute(argv0)) {
+    *result = argv0;
+  } else {
+    if (cwd.empty()) {
+      static constexpr DWORD kMaxPath = 0x8000;  // per MSDN
+      WCHAR buf[kMaxPath];
+      DWORD len = GetCurrentDirectoryW(kMaxPath, buf);
+      if (len == 0) {
+        DWORD err = GetLastError();
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                  L"GetCurrentDirectoryW", argv0, err);
+        return false;
+      }
+      if (buf[len] != L'\\') {
+        buf[len++] = L'\\';
+        buf[len] = 0;
+      }
+      *result = buf + argv0;
+    } else {
+      if (cwd[cwd.size() - 1] != L'\\') {
+        cwd.push_back(L'\\');
+      }
+      *result = cwd + argv0;
+    }
+  }
+  *result = RemoveUncPrefixMaybe(*result);
+  return true;
+}
+
 bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& argv_rest, void* env,
                              const std::wstring& wcwd, HANDLE stdin_process,
@@ -36,18 +84,31 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              LARGE_INTEGER* opt_out_start_time,
                              std::wstring* error) {
   std::wstring cwd;
-  std::wstring error_msg(AsShortPath(wcwd, &cwd));
-  if (!error_msg.empty()) {
-    *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                              L"WaitableProcess::Create", argv0, error_msg);
+  if (!ShortCwd(wcwd, &cwd, error)) {
+    return false;
+  }
+
+  std::wstring argv0abs;
+  if (!AbsoluteArgv0(cwd, argv0, &argv0abs, error)) {
+    return false;
+  }
+
+  if (!IsAbsoluteNormalizedWindowsPath(argv0abs)) {
+    *error = MakeErrorMessage(
+        WSTR(__FILE__), __LINE__,
+        L"WaitableProcess::Create", argv0,
+        std::wstring(L"argv0 is still not an absolute, normalized Windows"
+                     L" path (") +
+        argv0 + L") abs=(" + argv0abs + L") cwd=(" + cwd + L")");
     return false;
   }
 
   std::wstring argv0short;
-  error_msg = AsExecutablePathForCreateProcess(argv0, &argv0short);
+  std::wstring error_msg = AsExecutablePathForCreateProcess(argv0abs,
+                                                            &argv0short);
   if (!error_msg.empty()) {
-    *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                              L"WaitableProcess::Create", argv0, error_msg);
+    *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AbsoluteArgv0", argv0,
+                              error_msg);
     return false;
   }
 

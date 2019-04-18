@@ -45,6 +45,8 @@ std::wstring AddUncPrefixMaybe(const std::wstring& path);
 
 std::wstring RemoveUncPrefixMaybe(const std::wstring& path);
 
+bool IsAbsolute(const std::wstring& p);
+
 bool IsAbsoluteNormalizedWindowsPath(const std::wstring& p);
 
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations

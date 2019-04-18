@@ -44,7 +44,7 @@ wstring RemoveUncPrefixMaybe(const wstring& path) {
   return bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4) : path;
 }
 
-bool HasDriveSpecifierPrefix(const wstring& p) {
+bool IsAbsolute(const std::wstring& p) {
   if (HasUncPrefix(p.c_str())) {
     return p.size() >= 7 && iswalpha(p[4]) && p[5] == ':' && p[6] == '\\';
   } else {
@@ -63,7 +63,7 @@ bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
     return false;
   }
 
-  return HasDriveSpecifierPrefix(p) && p.find(L".\\") != 0 &&
+  return IsAbsolute(p) && p.find(L".\\") != 0 &&
          p.find(L"\\.\\") == wstring::npos && p.find(L"\\.") != p.size() - 2 &&
          p.find(L"..\\") != 0 && p.find(L"\\..\\") == wstring::npos &&
          p.find(L"\\..") != p.size() - 3;

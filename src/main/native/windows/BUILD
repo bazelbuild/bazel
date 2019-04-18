@@ -40,7 +40,10 @@ cc_library(
     visibility = [
         "//tools/test:__pkg__",
     ],
-    deps = [":lib-util"],
+    deps = [
+        ":lib-file",
+        ":lib-util",
+    ],
 )
 
 cc_library(
