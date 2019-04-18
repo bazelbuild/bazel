@@ -92,6 +92,7 @@ cc_toolchain_suite(
         "local|compiler": ":cc-compiler-local",
         "x64_windows|compiler": ":cc-compiler-x64_windows",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
+        "s390x|compiler": ":cc-compiler-s390x",
         "ppc|compiler": ":cc-compiler-ppc",
         "k8": ":cc-compiler-local",
         "piii": ":cc-compiler-local",
@@ -165,6 +166,34 @@ toolchain(
         "@bazel_tools//platforms:ppc",
     ],
     toolchain = ":cc-compiler-ppc",
+    toolchain_type = ":toolchain_type",
+)
+
+cc_toolchain(
+    name = "cc-compiler-s390x",
+    all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "s390x",
+    dwp_files = ":empty",
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    strip_files = ":empty",
+    supports_param_files = 1,
+    toolchain_config = ":local_linux",
+    toolchain_identifier = "local_linux",
+)
+
+toolchain(
+    name = "cc-toolchain-s390x",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:s390x",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:s390x",
+    ],
+    toolchain = ":cc-compiler-s390x",
     toolchain_type = ":toolchain_type",
 )
 
