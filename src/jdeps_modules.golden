@@ -1,6 +1,5 @@
 java.base
 java.compiler
-java.desktop
 java.instrument
 java.logging
 java.management

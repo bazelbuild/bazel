@@ -20,6 +20,8 @@ platforms:
     - "//tools/aquery_differ/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -40,6 +42,8 @@ platforms:
     - "//tools/aquery_differ/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -60,6 +64,8 @@ platforms:
     - "//tools/aquery_differ/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   ubuntu1804_nojava:
     build_flags:
     - "--javabase=@openjdk_linux_archive//:runtime"
@@ -119,6 +125,8 @@ platforms:
     - "-//src/tools/singlejar:zip64_test"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   ubuntu1804_java9:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -139,6 +147,8 @@ platforms:
     - "//tools/aquery_differ/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   ubuntu1804_java10:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -159,6 +169,8 @@ platforms:
     - "//tools/aquery_differ/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   ubuntu1804_java11:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -184,6 +196,8 @@ platforms:
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -213,6 +227,8 @@ platforms:
     - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
@@ -236,6 +252,8 @@ platforms:
     - "//src:all_windows_tests"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # TODO(twerth): Re-enable after java.desktop has been removed.
+    - "-//src/test/shell/bazel:jdeps_test"
   rbe_ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
