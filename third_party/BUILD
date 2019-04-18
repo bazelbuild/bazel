@@ -79,8 +79,8 @@ java_import(
 java_import(
     name = "android_common_25_0_0_lite",
     jars = [
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0-stripped.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
     ],
     deps = [

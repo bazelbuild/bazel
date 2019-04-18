@@ -27,3 +27,35 @@ index d0ca70b544..095a781f56 100644
 Commit 8fff824b40 was chosen as it was the latest commit before the release of the `manifest-merger:25.0.0` artifact.
 
 For more information, see <https://github.com/bazelbuild/bazel/issues/6645>.
+
+--
+
+The following jars contain the same contents as their versions without
+-stripped, except that we removed some classes from them.
+* com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar
+* com.android.tools_sdk-common_25.0.0-stripped.jar
+
+Classes removed:
+com/android/ide/common/util/AssetUtil.class
+com/android/ide/common/util/AssetUtil$FillEffect.class
+com/android/ide/common/util/AssetUtil$ShadowEffect.class
+com/android/ide/common/rendering/LayoutLibrary.class
+com/android/ide/common/rendering/api/IImageFactory.class
+com/android/ide/common/rendering/api/RenderSession.class
+com/android/ide/common/rendering/StaticRenderSession.class
+com/android/ide/common/vectordrawable/VdElement.class
+com/android/ide/common/vectordrawable/EllipseSolver.class
+com/android/ide/common/vectordrawable/SvgTree.class
+com/android/ide/common/vectordrawable/SvgGroupNode.class
+com/android/ide/common/vectordrawable/VdPath.class
+com/android/ide/common/vectordrawable/VdPath$Node.class
+com/android/ide/common/vectordrawable/SvgNode.class
+com/android/ide/common/vectordrawable/VdPreview.class
+com/android/ide/common/vectordrawable/SvgLeafNode.class
+com/android/ide/common/vectordrawable/VdTree.class
+com/android/ide/common/vectordrawable/VdNodeRender.class
+com/android/ide/common/vectordrawable/VdIcon.class
+com/android/ide/common/vectordrawable/VdGroup.class
+
+These are unused in the bazel code base (transitively) and were the last
+remaining bits on the java.desktop dependency.
