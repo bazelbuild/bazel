@@ -634,8 +634,9 @@ public class BuildEventStreamer {
     if (event instanceof TargetParsingCompleteEvent) {
       // If there is only one pattern and we have one failed pattern, then we already posted a
       // pattern expanded error, so we don't post the completion event.
-      // TODO(ulfjack): This is brittle. It would be better to always post one PatternExpanded event
-      // for each pattern given on the command line instead of one event for all of them combined.
+      // TODO(b/109727414): This is brittle. It would be better to always post one PatternExpanded
+      // event for each pattern given on the command line instead of one event for all of them
+      // combined.
       return ((TargetParsingCompleteEvent) event).getOriginalTargetPattern().size() == 1
           && !((TargetParsingCompleteEvent) event).getFailedTargetPatterns().isEmpty();
     }
