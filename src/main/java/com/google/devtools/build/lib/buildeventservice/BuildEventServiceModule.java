@@ -84,8 +84,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
   private static final Logger logger = Logger.getLogger(BuildEventServiceModule.class.getName());
   private static final GoogleLogger googleLogger = GoogleLogger.forEnclosingClass();
-  // TODO(lpino): Consider making the wait value configurable.
-  private static final Duration MAX_WAIT_FOR_PREVIOUS_INVOCATION = Duration.ofSeconds(5);
 
   private final AtomicReference<AbruptExitException> pendingAbruptExitException =
       new AtomicReference<>();
@@ -112,6 +110,11 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     // Don't hide unchecked exceptions as part of the error reporting.
     Throwables.throwIfUnchecked(exception);
     commandLineReporter.handle(Event.error(exception.getMessage()));
+  }
+
+  /** Maximum duration Bazel waits for the previous invocation to finish before cancelling it. */
+  protected Duration getMaxWaitForPreviousInvocation() {
+    return Duration.ofSeconds(5);
   }
 
   /** Report errors in the command line and possibly fail the build. */
@@ -156,14 +159,14 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       // infrastructure doesn't allow printing messages in the terminal in beforeCommand.
       Uninterruptibles.getUninterruptibly(
           Futures.allAsList(closeFuturesMap.values()),
-          MAX_WAIT_FOR_PREVIOUS_INVOCATION.getSeconds(),
+          getMaxWaitForPreviousInvocation().getSeconds(),
           TimeUnit.SECONDS);
     } catch (TimeoutException exception) {
       String msg =
           String.format(
               "Pending Build Event Protocol upload took more than %ds to finish. "
                   + "Cancelling and starting a new invocation...",
-              MAX_WAIT_FOR_PREVIOUS_INVOCATION.getSeconds());
+              getMaxWaitForPreviousInvocation().getSeconds());
       cmdLineReporter.handle(Event.warn(msg));
       googleLogger.atWarning().withCause(exception).log(msg);
     } catch (ExecutionException exception) {
@@ -308,7 +311,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     try {
       Uninterruptibles.getUninterruptibly(
           Futures.allAsList(closeFuturesMap.values()),
-          MAX_WAIT_FOR_PREVIOUS_INVOCATION.getSeconds(),
+          getMaxWaitForPreviousInvocation().getSeconds(),
           TimeUnit.SECONDS);
     } catch (TimeoutException | ExecutionException exception) {
       googleLogger.atWarning().withCause(exception).log(
