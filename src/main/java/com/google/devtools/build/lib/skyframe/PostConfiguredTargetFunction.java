@@ -107,6 +107,38 @@ public class PostConfiguredTargetFunction implements SkyFunction {
       return null;
     }
 
+    // Determine what toolchains are needed by this target.
+    UnloadedToolchainContext unloadedToolchainContext = null;
+    try {
+      if (configuredTargetAndData.getTarget() instanceof Rule) {
+        Rule rule = ((Rule) configuredTargetAndData.getTarget());
+        if (rule.getRuleClassObject().supportsPlatforms()) {
+          ImmutableSet<Label> requiredToolchains =
+              rule.getRuleClassObject().getRequiredToolchains();
+
+          // Collect local (target, rule) constraints for filtering out execution platforms.
+          ImmutableSet<Label> execConstraintLabels =
+              ConfiguredTargetFunction.getExecutionPlatformConstraints(rule);
+          unloadedToolchainContext =
+              (UnloadedToolchainContext)
+                  env.getValueOrThrow(
+                      UnloadedToolchainContext.key()
+                          .configurationKey(
+                              BuildConfigurationValue.key(
+                                  configuredTargetAndData.getConfiguration()))
+                          .requiredToolchainTypeLabels(requiredToolchains)
+                          .execConstraintLabels(execConstraintLabels)
+                          .build(),
+                      ToolchainException.class);
+          if (env.valuesMissing()) {
+            return null;
+          }
+        }
+      }
+    } catch (ToolchainException e) {
+      throw new PostConfiguredTargetFunctionException(e.asConfiguredValueCreationException());
+    }
+
     OrderedSetMultimap<DependencyKind, Dependency> deps;
     try {
       BuildConfiguration hostConfiguration =
@@ -124,7 +156,9 @@ public class PostConfiguredTargetFunction implements SkyFunction {
               hostConfiguration,
               /*aspect=*/ null,
               configConditions,
-              /*toolchainLabels=*/ ImmutableSet.of(),
+              unloadedToolchainContext == null
+                  ? ImmutableSet.of()
+                  : unloadedToolchainContext.resolvedToolchainLabels(),
               ruleClassProvider.getTrimmingTransitionFactory());
       deps =
           ConfigurationResolver.resolveConfigurations(
