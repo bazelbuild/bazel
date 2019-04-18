@@ -452,7 +452,7 @@ public final class Label
       name = "workspace_name",
       structField = true,
       doc =
-          "The repository part of this label. For isntance, "
+          "The repository part of this label. For instance, "
               + "<pre class=language-python>Label(\"@foo//bar:baz\").workspace_name"
               + " == \"foo\"</pre>")
   public String getWorkspaceName() {
