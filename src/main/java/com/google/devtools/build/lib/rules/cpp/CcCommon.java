@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -708,7 +710,23 @@ public final class CcCommon {
   /** Returns the Windows DEF file specified in win_def_file attribute of the rule. */
   @Nullable
   Artifact getWinDefFile() {
+    if (!ruleContext.isAttrDefined("win_def_file", LABEL)) {
+      return null;
+    }
+
     return ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
+  }
+
+  /**
+   * Returns the parser & Windows DEF file generator specified in $def_parser attribute of the rule.
+   */
+  @Nullable
+  Artifact getDefParser() {
+    if (!ruleContext.isAttrDefined("$def_parser", LABEL)) {
+      return null;
+    }
+
+    return ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST);
   }
 
   /** Provides support for instrumentation. */
