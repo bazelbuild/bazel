@@ -16,10 +16,15 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoModuleApi;
 import org.junit.Before;
@@ -34,7 +39,16 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
   public void setUp() throws Exception {
     useConfiguration("--proto_compiler=//proto:compiler"); // TODO check do we need that.
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
+    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
+    scratch.file("myinfo/BUILD");
     MockProtoSupport.setup(mockToolsConfig);
+  }
+
+  private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+    return (StructImpl) configuredTarget.get(key);
   }
 
   @Test
@@ -42,9 +56,10 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     useConfiguration("--incompatible_disable_legacy_proto_provider");
     scratch.file(
         "foo/test.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
         "  provider = ctx.attr.dep.proto", // NB: This is the legacy provider
-        "  return struct(direct_sources=provider.direct_sources)",
+        "  return MyInfo(direct_sources=provider.direct_sources)",
         "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
 
     scratch.file(
@@ -62,14 +77,15 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
   public void testProtoCommon() throws Exception {
     scratch.file(
         "foo/test.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
-        "  return struct(proto_common=proto_common)",
+        "  return MyInfo(proto_common=proto_common)",
         "test = rule(implementation = _impl, attrs = {})");
 
     scratch.file("foo/BUILD", "load(':test.bzl', 'test')", "test(name='test')");
 
     ConfiguredTarget test = getConfiguredTarget("//foo:test");
-    Object protoCommon = test.get("proto_common");
+    Object protoCommon = getMyInfoFromTarget(test).getValue("proto_common");
     assertThat(protoCommon).isInstanceOf(ProtoModuleApi.class);
   }
 
@@ -78,9 +94,10 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     useConfiguration("--incompatible_disable_legacy_proto_provider");
     scratch.file(
         "foo/test.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
         "  provider = ctx.attr.dep[ProtoInfo]", // NB: This is the modern provider
-        "  return struct(direct_sources=provider.direct_sources)",
+        "  return MyInfo(direct_sources=provider.direct_sources)",
         "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
 
     scratch.file(
@@ -91,7 +108,8 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     ConfiguredTarget test = getConfiguredTarget("//foo:test");
     @SuppressWarnings("unchecked")
-    Iterable<Artifact> directSources = (Iterable<Artifact>) test.get("direct_sources");
+    Iterable<Artifact> directSources =
+        (Iterable<Artifact>) getMyInfoFromTarget(test).getValue("direct_sources");
     assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
   }
 
@@ -100,9 +118,10 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     useConfiguration("--noincompatible_disable_legacy_proto_provider");
     scratch.file(
         "foo/test.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
         "  provider = ctx.attr.dep.proto", // NB: This is the legacy provider
-        "  return struct(direct_sources=provider.direct_sources)",
+        "  return MyInfo(direct_sources=provider.direct_sources)",
         "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
 
     scratch.file(
@@ -113,7 +132,8 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     ConfiguredTarget test = getConfiguredTarget("//foo:test");
     @SuppressWarnings("unchecked")
-    Iterable<Artifact> directSources = (Iterable<Artifact>) test.get("direct_sources");
+    Iterable<Artifact> directSources =
+        (Iterable<Artifact>) getMyInfoFromTarget(test).getValue("direct_sources");
     assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
   }
 
@@ -121,9 +141,10 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
   public void testProvider() throws Exception {
     scratch.file(
         "foo/test.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
         "  provider = ctx.attr.dep[ProtoInfo]", // NB: This is the modern provider
-        "  return struct(direct_sources=provider.direct_sources)",
+        "  return MyInfo(direct_sources=provider.direct_sources)",
         "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
 
     scratch.file(
@@ -134,7 +155,8 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     ConfiguredTarget test = getConfiguredTarget("//foo:test");
     @SuppressWarnings("unchecked")
-    Iterable<Artifact> directSources = (Iterable<Artifact>) test.get("direct_sources");
+    Iterable<Artifact> directSources =
+        (Iterable<Artifact>) getMyInfoFromTarget(test).getValue("direct_sources");
     assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
   }
 
@@ -143,9 +165,10 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     scratch.file(
         "foo/myTsetRule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "",
         "def _my_test_rule_impl(ctx):",
-        "    return struct(",
+        "    return MyInfo(",
         "        fetched_proto_source_root = ctx.attr.protodep.proto.proto_source_root",
         "    )",
         "",
@@ -169,7 +192,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
         ")");
 
     ConfiguredTarget ct = getConfiguredTarget("//foo:myRule");
-    String protoSourceRoot = (String) ct.get("fetched_proto_source_root");
+    String protoSourceRoot = (String) getMyInfoFromTarget(ct).getValue("fetched_proto_source_root");
 
     assertThat(protoSourceRoot).isEqualTo("foo");
   }
