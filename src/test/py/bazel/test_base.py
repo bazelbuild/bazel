@@ -19,6 +19,7 @@ import os
 import socket
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -121,6 +122,11 @@ class TestBase(unittest.TestCase):
   def IsUnix():
     """Returns true if the current platform is Unix platform."""
     return os.name == 'posix'
+
+  @staticmethod
+  def IsDarwin():
+    """Returns true if the current platform is Darwin."""
+    return sys.platform == 'darwin'
 
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.

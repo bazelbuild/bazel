@@ -236,6 +236,8 @@ class CcImportTest(test_base.TestBase):
     self.assertEqual(stdout[0], 'HelloWorld')
 
   def testCcImportHeaderCheck(self):
+    if self.IsDarwin():
+      return
     self.createProjectFiles(provide_header=False)
     # Build should fail, because lib/a.h is not declared in BUILD file, disable
     # sandbox so that bazel produces same error across different platforms.
