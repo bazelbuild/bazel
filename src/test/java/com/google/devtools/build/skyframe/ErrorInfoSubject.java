@@ -38,9 +38,7 @@ public class ErrorInfoSubject extends Subject<ErrorInfoSubject, ErrorInfo> {
   }
 
   public void rootCauseOfExceptionIs(SkyKey key) {
-    if (!getSubject().getRootCauseOfException().equals(key)) {
-      fail("has root cause of exception " + key);
-    }
+    check("getRootCauseOfException()").that(getSubject().getRootCauseOfException()).isEqualTo(key);
   }
 
   public void isTransient() {
