@@ -951,7 +951,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "examples/fake_rule.bzl",
         "def _fake_rule_impl(ctx):",
         "  myProvider = ctx.attr.deps[0][JavaInfo]",
-        "  return struct(providers = [myProvider])",
+        "  return myProvider",
         "",
         "fake_rule = rule(",
         "  implementation = _fake_rule_impl,",

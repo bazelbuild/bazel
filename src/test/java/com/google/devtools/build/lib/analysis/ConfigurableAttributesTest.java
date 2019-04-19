@@ -1000,7 +1000,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "      output=ctx.outputs.out_file,",
         "      content=ctx.attr.string_value,",
         "  )",
-        "  return struct()",
+        "  return []",
         "",
         "def _derived_value(string_value):",
         "  return Label(\"//test:%s\" % string_value)",

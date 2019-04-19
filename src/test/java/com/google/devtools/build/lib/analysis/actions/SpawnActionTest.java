@@ -442,12 +442,14 @@ public class SpawnActionTest extends BuildViewTestCase {
         "testrule(name='b')");
     scratch.file(
         "a/def.bzl",
+        "MyInfo = provider()",
         "def _aspect_impl(target, ctx):",
         "  f = ctx.actions.declare_file('foo.txt')",
         "  ctx.actions.run_shell(outputs = [f], command = 'echo foo > \"$1\"')",
-        "  return struct(output=f)",
+        "  return MyInfo(output=f)",
         "def _rule_impl(ctx):",
-        "  return struct(files=depset([artifact.output for artifact in ctx.attr.deps]))",
+        "  return DefaultInfo(",
+        "      files=depset([artifact[MyInfo].output for artifact in ctx.attr.deps]))",
         "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'], ",
         "    attrs = {'parameter': attr.string(values = ['param_value'])})",
         "testrule = rule(_rule_impl, attrs = { ",
