@@ -11,14 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Set;
 
 /**
@@ -26,9 +30,53 @@ import java.util.Set;
  * determined, but before the toolchain dependencies have been resolved.
  */
 @AutoValue
-public abstract class UnloadedToolchainContext implements ToolchainContext {
+public abstract class UnloadedToolchainContext implements ToolchainContext, SkyValue {
 
-  static Builder builder() {
+  /** Returns a new {@link Key.Builder}. */
+  public static Key.Builder key() {
+    return new AutoValue_UnloadedToolchainContext_Key.Builder()
+        .requiredToolchainTypeLabels(ImmutableSet.of())
+        .execConstraintLabels(ImmutableSet.of())
+        .shouldSanityCheckConfiguration(false);
+  }
+
+  /** {@link SkyKey} implementation used for {@link ToolchainResolutionFunction}. */
+  @AutoValue
+  public abstract static class Key implements SkyKey {
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.TOOLCHAIN_RESOLUTION;
+    }
+
+    abstract BuildConfigurationValue.Key configurationKey();
+
+    abstract ImmutableSet<Label> requiredToolchainTypeLabels();
+
+    abstract ImmutableSet<Label> execConstraintLabels();
+
+    abstract boolean shouldSanityCheckConfiguration();
+
+    /** Builder for {@link UnloadedToolchainContext.Key}. */
+    @AutoValue.Builder
+    public interface Builder {
+      Builder configurationKey(BuildConfigurationValue.Key key);
+
+      Builder requiredToolchainTypeLabels(ImmutableSet<Label> requiredToolchainTypeLabels);
+
+      Builder requiredToolchainTypeLabels(Label... requiredToolchainTypeLabels);
+
+      Builder execConstraintLabels(ImmutableSet<Label> execConstraintLabels);
+
+      Builder execConstraintLabels(Label... execConstraintLabels);
+
+      Builder shouldSanityCheckConfiguration(boolean shouldSanityCheckConfiguration);
+
+      Key build();
+    }
+  }
+
+  public static Builder builder() {
     return new AutoValue_UnloadedToolchainContext.Builder();
   }
 
@@ -51,7 +99,8 @@ public abstract class UnloadedToolchainContext implements ToolchainContext {
   }
 
   /** The map of toolchain type to resolved toolchain to be used. */
-  abstract ImmutableBiMap<ToolchainTypeInfo, Label> toolchainTypeToResolved();
+  // TODO(https://github.com/bazelbuild/bazel/issues/7935): Make this package-protected again.
+  public abstract ImmutableBiMap<ToolchainTypeInfo, Label> toolchainTypeToResolved();
 
   @Override
   public ImmutableSet<Label> resolvedToolchainLabels() {
