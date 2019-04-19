@@ -120,6 +120,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalEnableAndroidMigrationApis();
 
+  public abstract boolean experimentalGoogleLegacyApi();
+
   public abstract ImmutableList<String> experimentalJavaCommonCreateProviderEnabledPackages();
 
   public abstract boolean experimentalPlatformsApi();
@@ -208,6 +210,7 @@ public abstract class StarlarkSemantics {
           .experimentalBuildSettingApi(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableAndroidMigrationApis(false)
+          .experimentalGoogleLegacyApi(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
           .experimentalRestrictNamedParams(false)
@@ -255,6 +258,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
 
     public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
+
+    public abstract Builder experimentalGoogleLegacyApi(boolean value);
 
     public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 
