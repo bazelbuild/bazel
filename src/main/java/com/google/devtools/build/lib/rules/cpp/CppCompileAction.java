@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -1701,6 +1702,13 @@ public class CppCompileAction extends AbstractAction
             Iterables.transform(
                 usedModules, module -> (ActionLookupKey) module.getArtifactOwner()));
     if (env.valuesMissing()) {
+      ImmutableList<SkyKey> missingKeys =
+          actionLookupValues.entrySet().stream()
+              .filter(e -> e.getValue() == null)
+              .map(Map.Entry::getKey)
+              .collect(ImmutableList.toImmutableList());
+      BugReport.sendBugReport(
+          new IllegalStateException("Missing keys: " + missingKeys + ". Modules " + usedModules));
       return null;
     }
     ArrayList<ActionLookupData> executionValueLookups = new ArrayList<>(usedModules.size());

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -58,6 +59,16 @@ public final class TestCompletionFunction implements SkyFunction {
         ActionLookupValue actionLookupValue =
             ArtifactFunction.getActionLookupValue(actionLookupKey, env, testArtifact);
         if (actionLookupValue == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "Unexpected absent value for "
+                      + actionLookupKey
+                      + " from "
+                      + testArtifact
+                      + " and "
+                      + ct
+                      + " for "
+                      + skyKey));
           return null;
         }
         env.getValue(getActionLookupData(testArtifact, actionLookupKey, actionLookupValue));
