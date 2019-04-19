@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.ErrorInfoSubjectFactory.assertThatErrorInfo;
 
@@ -34,13 +35,13 @@ public class EvaluationResultSubject extends Subject<EvaluationResultSubject, Ev
 
   public void hasError() {
     if (!getSubject().hasError()) {
-      fail("has error");
+      failWithActual(simpleFact("expected to have error"));
     }
   }
 
   public void hasNoError() {
     if (getSubject().hasError()) {
-      fail("has no error");
+      failWithActual(simpleFact("expected to have no error"));
     }
   }
 
