@@ -65,7 +65,7 @@ public class PlatformMappingValueTest {
         new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of());
 
     BuildConfigurationValue.Key key =
-        BuildConfigurationValue.key(PLATFORM_FRAGMENT_CLASS, EMPTY_DIFF);
+        BuildConfigurationValue.keyWithoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, EMPTY_DIFF);
 
     BuildConfigurationValue.Key mapped =
         mappingValue.map(key, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
@@ -238,6 +238,6 @@ public class PlatformMappingValueTest {
     BuildOptions.OptionsDiffForReconstruction diff =
         BuildOptions.diffForReconstruction(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, modifiedOptions);
 
-    return BuildConfigurationValue.key(PLATFORM_FRAGMENT_CLASS, diff);
+    return BuildConfigurationValue.keyWithoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, diff);
   }
 }
