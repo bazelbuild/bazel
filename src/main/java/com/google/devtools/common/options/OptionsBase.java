@@ -19,6 +19,7 @@ import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Base class for all options classes. Extend this class, adding public instance fields annotated
@@ -119,8 +120,21 @@ public abstract class OptionsBase {
   }
 
   @Override
+  @SuppressWarnings("EqualsGetClass") // Options can only be equal if they are of the same type.
   public final boolean equals(Object that) {
-    return that instanceof OptionsBase && this.asMap().equals(((OptionsBase) that).asMap());
+    if (this == that) {
+      return true;
+    }
+    if (that == null || !getClass().equals(that.getClass())) {
+      return false;
+    }
+    OptionsBase other = (OptionsBase) that;
+    for (OptionDefinition def : OptionsParser.getOptionDefinitions(getClass())) {
+      if (!Objects.equals(getValueFromDefinition(def), other.getValueFromDefinition(def))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
