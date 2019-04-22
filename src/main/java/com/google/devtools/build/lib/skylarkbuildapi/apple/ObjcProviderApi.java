@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
@@ -96,6 +97,14 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc = "All header files. These may be either public or private headers."
   )
   public NestedSet<FileApiT> header();
+
+  @SkylarkCallable(
+      name = "direct_headers",
+      structField = true,
+      doc =
+          "Header files from this target directly (no transitive headers). "
+              + "These may be either public or private headers.")
+  public SkylarkList<FileApiT> directHeaders();
 
   @SkylarkCallable(name = "imported_library",
       structField = true,
@@ -183,6 +192,14 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public NestedSet<FileApiT> moduleMap();
 
+  @SkylarkCallable(
+      name = "direct_module_maps",
+      structField = true,
+      doc =
+          "Module map files from this target directly (no transitive module maps). "
+              + "Used to enforce proper use of private header files and for Swift compilation.")
+  public SkylarkList<FileApiT> directModuleMaps();
+
   @SkylarkCallable(name = "multi_arch_dynamic_libraries",
       structField = true,
       doc = "Combined-architecture dynamic libraries to include in the final bundle."
@@ -226,6 +243,12 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc = "All transitive source files."
   )
   public NestedSet<FileApiT> source();
+
+  @SkylarkCallable(
+      name = "direct_sources",
+      structField = true,
+      doc = "All direct source files from this target (no transitive files).")
+  public SkylarkList<FileApiT> directSources();
 
   @SkylarkCallable(
       name = "static_framework_file",
