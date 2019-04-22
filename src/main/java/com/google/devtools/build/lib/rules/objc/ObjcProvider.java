@@ -53,6 +53,36 @@ import java.util.Map;
 /**
  * A provider that provides all compiling and linking information in the transitive closure of its
  * deps that are needed for building Objective-C rules.
+ *
+ * <p>The functional contents within the provider are stored in three maps, each of which maps a
+ * {@link Key} to {@link NestedSet}. The three maps differ in how they are propagated to dependent
+ * providers:
+ *
+ * <ul>
+ *   <li>{@code items}: This map contains items that should be propagated transitively to all
+ *       dependent ObjcProviders. Most items are stored in this map.
+ *   <li>{@code strictDependencyItems}: This map contains items that should only be propagated to
+ *       directly dependent ObjcProviders, but not to indirect ones. This is used to implement
+ *       {@link ObjcProtoLibrary}'s requirement that its header path should only be propagated to
+ *       its direct dependency, and also the experimental (and soon-to-be-deprecated) feature to
+ *       propagate module maps only to direct dependencies.
+ *   <li>{@code nonPropagatedItems}: This map contains items that should not be propagated. There is
+ *       no longer any direct usage of this feature, but strictDependencyItems turn into
+ *       nonPropagatedItems when they get propagated to their dependent ObjcProviders.
+ * </ul>
+ *
+ * <p>All three maps contribute to the final value of a key in an ObjcProvider as returned by {@link
+ * #get(Key<E>)}.
+ *
+ * <p>New usage of {@code strictDependencyItems} and {@code nonPropagatedItems} is strongly
+ * discouraged, as they complicate ongoing tasks of migrating ObjcProvider to CcInfo.
+ *
+ * <p>There is a fourth map, {@code directItems}, that contains items whose values originate from
+ * this ObjcProvider (as opposed to those that came from a dependent ObjcProvider). {@link
+ * #KEYS_FOR_DIRECT} contains the keys whose items are inserted into this map. The map is created as
+ * a performance optimization for IDEs (i.e. Tulsi), so that the IDEs don't have to flatten large
+ * transitive nested sets returned by ObjcProvider queries. It does not materially affect other
+ * operations of the ObjcProvider.
  */
 @Immutable
 public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact> {
