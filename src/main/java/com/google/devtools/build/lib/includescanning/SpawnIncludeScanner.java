@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -274,20 +275,10 @@ public class SpawnIncludeScanner {
       throws IOException, ExecException, InterruptedException {
     Path output = getIncludesOutput(file, actionExecutionContext.getPathResolver(), fileType,
         placeNextToFile);
-    if (!inMemoryOutput && !placeNextToFile) {
-      try {
-        Path dir = output.getParentDirectory();
-        if (dir.isDirectory()) {
-          // If the output directory already exists, delete the old include file.
-          output.delete();
-        }
-        dir.createDirectoryAndParents();
-      } catch (IOException e) {
-        throw new IOException(
-            "Error creating output directory "
-                + output.getParentDirectory()
-                + ": "
-                + e.getMessage());
+    if (!inMemoryOutput) {
+      AbstractAction.deleteOutput(output, placeNextToFile ? file.getRoot() : null);
+      if (!placeNextToFile) {
+        output.getParentDirectory().createDirectoryAndParents();
       }
     }
 

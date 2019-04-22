@@ -381,26 +381,30 @@ public abstract class AbstractAction implements Action, ActionApi {
    */
   protected void deleteOutputs(Path execRoot) throws IOException {
     for (Artifact output : getOutputs()) {
-      deleteOutput(output);
+      deleteOutput(output.getPath(), output.getRoot());
     }
   }
 
   /**
-   * Helper method to remove an Artifact. If the Artifact refers to a directory recursively removes
-   * the contents of the directory.
+   * Helper method to remove an output file.
+   *
+   * <p>If the path refers to a directory, recursively removes the contents of the directory.
+   *
+   * @param path the output to remove
+   * @param root the root containing the output. This is used to sanity-check that we don't delete
+   *     arbitrary files in the file system.
    */
-  protected void deleteOutput(Artifact output) throws IOException {
-    Path path = output.getPath();
+  public static void deleteOutput(Path path, @Nullable ArtifactRoot root) throws IOException {
     try {
       // Optimize for the common case: output artifacts are files.
       path.delete();
     } catch (IOException e) {
       // Handle a couple of scenarios where the output can still be deleted, but make sure we're not
       // deleting random files on the filesystem.
-      if (output.getRoot() == null) {
+      if (root == null) {
         throw e;
       }
-      Root outputRoot = output.getRoot().getRoot();
+      Root outputRoot = root.getRoot();
       if (!outputRoot.contains(path)) {
         throw e;
       }
@@ -409,7 +413,7 @@ public abstract class AbstractAction implements Action, ActionApi {
       if (!parentDir.isWritable() && outputRoot.contains(parentDir)) {
         // Retry deleting after making the parent writable.
         parentDir.setWritable(true);
-        deleteOutput(output);
+        deleteOutput(path, root);
       } else if (path.isDirectory(Symlinks.NOFOLLOW)) {
         path.deleteTree();
       } else {
