@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -212,22 +213,19 @@ public final class AndroidRuleClasses {
   /** Android Split configuration transition for properly handling native dependencies */
   public static final class AndroidSplitTransition
       implements SplitTransition, AndroidSplitTransititionApi {
-    private static void setCrosstoolToAndroid(BuildOptions output, BuildOptions input) {
-      AndroidConfiguration.Options inputAndroidOptions =
-          input.get(AndroidConfiguration.Options.class);
-      AndroidConfiguration.Options outputAndroidOptions =
-          output.get(AndroidConfiguration.Options.class);
+    private static void setCrosstoolToAndroid(BuildOptions options) {
+      AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
 
-      CppOptions cppOptions = output.get(CppOptions.class);
-      if (inputAndroidOptions.androidCrosstoolTop != null
-          && !cppOptions.crosstoolTop.equals(inputAndroidOptions.androidCrosstoolTop)) {
+      CppOptions cppOptions = options.get(CppOptions.class);
+      if (androidOptions.androidCrosstoolTop != null
+          && !cppOptions.crosstoolTop.equals(androidOptions.androidCrosstoolTop)) {
         if (cppOptions.hostCrosstoolTop == null) {
           cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
         }
-        cppOptions.crosstoolTop = inputAndroidOptions.androidCrosstoolTop;
+        cppOptions.crosstoolTop = androidOptions.androidCrosstoolTop;
       }
 
-      outputAndroidOptions.configurationDistinguisher = ConfigurationDistinguisher.ANDROID;
+      androidOptions.configurationDistinguisher = ConfigurationDistinguisher.ANDROID;
     }
 
     @Override
@@ -248,11 +246,8 @@ public final class AndroidRuleClasses {
         } else {
 
           BuildOptions splitOptions = buildOptions.clone();
-          splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
-          splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
           splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
-          splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
-          setCrosstoolToAndroid(splitOptions, buildOptions);
+          setCommonAndroidOptions(androidOptions, splitOptions);
           return ImmutableList.of(splitOptions);
         }
 
@@ -268,14 +263,22 @@ public final class AndroidRuleClasses {
           // TODO(bazel-team): --android_cpu doesn't follow --cpu right now; it should.
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
           splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
-          splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
-          splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
-          splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
-          setCrosstoolToAndroid(splitOptions, buildOptions);
+          setCommonAndroidOptions(androidOptions, splitOptions);
           result.add(splitOptions);
         }
         return result.build();
       }
+    }
+
+    private void setCommonAndroidOptions(
+        AndroidConfiguration.Options androidOptions, BuildOptions newOptions) {
+      newOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+      newOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
+      newOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
+      setCrosstoolToAndroid(newOptions);
+
+      // Ensure platforms aren't set so that platform mapping can take place.
+      newOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
     }
 
     @Override
