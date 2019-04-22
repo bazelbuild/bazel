@@ -142,7 +142,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     return expandedActions.build();
   }
 
-  // TODO(jhorvitz): Move getKey to ActionAnalysisMetadata once all action templates implement it.
+  @Override
   public synchronized String getKey(ActionKeyContext actionKeyContext) {
     if (cachedKey != null) {
       return cachedKey;
