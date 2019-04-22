@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -299,8 +301,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Returns all child configurations resulting from a given split transition on a given
    * configuration.
    */
-  protected List<BuildConfiguration> getSplitConfigurations(BuildConfiguration configuration,
-      SplitTransition splitTransition) throws InterruptedException {
+  protected List<BuildConfiguration> getSplitConfigurations(
+      BuildConfiguration configuration, SplitTransition splitTransition)
+      throws InterruptedException, OptionsParsingException, InvalidConfigurationException {
     ImmutableList.Builder<BuildConfiguration> splitConfigs = ImmutableList.builder();
 
     for (BuildOptions splitOptions : splitTransition.split(configuration.getOptions())) {

@@ -880,3 +880,10 @@ sh_test(
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_test(
+    name = "platform_mapping_test",
+    srcs = ["platform_mapping_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)

@@ -74,33 +74,6 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTargetPlatform_multiple() throws Exception {
-    scratch.file(
-        "platforms/BUILD",
-        "platform(name = 'test_platform1')",
-        "platform(name = 'test_platform2')");
-
-    useConfiguration("--platforms=//platforms:test_platform1,//platforms:test_platform2");
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'my_skylark_rule',",
-        ")");
-    assertNoEvents();
-
-    PlatformConfigurationApi platformConfiguration = fetchPlatformConfiguration();
-    assertThat(platformConfiguration).isNotNull();
-    // Despite setting two platforms in the flag, only a single platform should be visible to the
-    // target.
-    assertThat(platformConfiguration.getTargetPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform1"));
-    assertThat(platformConfiguration.getTargetPlatforms())
-        .containsExactly(Label.parseAbsoluteUnchecked("//platforms:test_platform1"));
-  }
-
-  @Test
   public void testEnabledToolchainTypes() throws Exception {
     scratch.file(
         "toolchains/BUILD",

@@ -30,6 +30,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -47,14 +48,17 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -261,20 +265,38 @@ public final class ConfigurationResolver {
       }
 
       // If we get here, we have to get the configuration from Skyframe.
-      for (BuildOptions options : toOptions) {
-        if (sameFragments) {
-          keysToEntries.put(
-              BuildConfigurationValue.key(
-                  currentConfiguration.fragmentClasses(),
-                  BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
-              depsEntry);
+      PathFragment platformMappingPath =
+          currentConfiguration.getOptions().get(PlatformOptions.class).platformMappings;
+      PlatformMappingValue platformMappingValue =
+          (PlatformMappingValue) env.getValue(PlatformMappingValue.Key.create(platformMappingPath));
+      if (platformMappingValue == null) {
+        return null;
+      }
 
-        } else {
-          keysToEntries.put(
-              BuildConfigurationValue.key(
-                  depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
-              depsEntry);
+      try {
+        for (BuildOptions options : toOptions) {
+          if (sameFragments) {
+            keysToEntries.put(
+                BuildConfigurationValue.keyWithPlatformMapping(
+                    platformMappingValue,
+                    defaultBuildOptions,
+                    currentConfiguration.fragmentClasses(),
+                    BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
+                depsEntry);
+
+          } else {
+            keysToEntries.put(
+                BuildConfigurationValue.keyWithPlatformMapping(
+                    platformMappingValue,
+                    defaultBuildOptions,
+                    depFragments,
+                    BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
+                depsEntry);
+          }
         }
+      } catch (OptionsParsingException e) {
+        throw new ConfiguredTargetFunction.DependencyEvaluationException(
+            new InvalidConfigurationException(e));
       }
     }
 
@@ -631,7 +653,8 @@ public final class ConfigurationResolver {
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
-      SkyframeExecutor skyframeExecutor) {
+      SkyframeExecutor skyframeExecutor)
+      throws InvalidConfigurationException {
 
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
     for (TargetAndConfiguration targetAndConfig : defaultContext) {
