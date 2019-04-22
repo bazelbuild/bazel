@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 
 /** Wraps validated and packaged Android resource information */
 public class ValidatedAndroidResources extends MergedAndroidResources
-    implements ValidatedAndroidDataApi<Artifact> {
+    implements ValidatedAndroidDataApi<Artifact, AndroidResourcesInfo> {
   private final Artifact rTxt;
   private final Artifact sourceJar;
   private final Artifact apk;
@@ -116,6 +116,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
     this.staticLibrary = staticLibrary;
   }
 
+  @Override
   public AndroidResourcesInfo toProvider() {
     return getResourceDependencies().toInfo(this);
   }
@@ -123,6 +124,11 @@ public class ValidatedAndroidResources extends MergedAndroidResources
   @Override
   public Artifact getRTxt() {
     return rTxt;
+  }
+
+  @Override
+  public Artifact getJavaClassJar() {
+    return super.getClassJar();
   }
 
   @Override
