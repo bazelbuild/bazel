@@ -344,6 +344,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addInt(runNumber);
     fp.addInt(testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
     fp.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
+    fp.addStringMap(getExecutionInfo());
   }
 
   @Override
