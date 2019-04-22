@@ -963,7 +963,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     @Override
     public Options getNormalized() {
-      Options result = (Options) super.getNormalized();
+      Options result = (Options) clone();
 
       if (collapseDuplicateDefines) {
         LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
