@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -136,6 +137,62 @@ public class SpawnActionTemplateTest {
       builder.build(ActionsTestUtil.NULL_ACTION_OWNER);
       fail("Expected exception");
     } catch (NullPointerException expected) {}
+  }
+
+  @Test
+  public void getKey_same() {
+    ActionKeyContext keyContext = new ActionKeyContext();
+    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
+    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    Artifact executable = createDerivedArtifact("bin/cp");
+
+    // Use two different builders because the same builder would share the underlying
+    // SpawnActionBuilder.
+    SpawnActionTemplate actionTemplate =
+        builder(inputTreeArtifact, outputTreeArtifact)
+            .setExecutable(executable)
+            .setCommandLineTemplate(
+                createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
+            .setOutputPathMapper(IDENTITY_MAPPER)
+            .setMnemonics("ActionTemplate", "ExpandedAction")
+            .build(ActionsTestUtil.NULL_ACTION_OWNER);
+    SpawnActionTemplate actionTemplate2 =
+        builder(inputTreeArtifact, outputTreeArtifact)
+            .setExecutable(executable)
+            .setCommandLineTemplate(
+                createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
+            .setOutputPathMapper(IDENTITY_MAPPER)
+            .setMnemonics("ActionTemplate", "ExpandedAction")
+            .build(ActionsTestUtil.NULL_ACTION_OWNER);
+    assertThat(actionTemplate2.getKey(keyContext)).isEqualTo(actionTemplate.getKey(keyContext));
+  }
+
+  @Test
+  public void getKey_differs() {
+    ActionKeyContext keyContext = new ActionKeyContext();
+    SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
+    SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
+    Artifact executable = createDerivedArtifact("bin/cp");
+
+    // Use two different builders because the same builder would share the underlying
+    // SpawnActionBuilder.
+    SpawnActionTemplate actionTemplate =
+        builder(inputTreeArtifact, outputTreeArtifact)
+            .setExecutable(executable)
+            .setCommandLineTemplate(
+                createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
+            .setOutputPathMapper(IDENTITY_MAPPER)
+            .setMnemonics("ActionTemplate", "ExpandedAction")
+            .build(ActionsTestUtil.NULL_ACTION_OWNER);
+    SpawnActionTemplate actionTemplate2 =
+        builder(inputTreeArtifact, outputTreeArtifact)
+            .setExecutable(executable)
+            .setCommandLineTemplate(
+                createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
+            .setOutputPathMapper(IDENTITY_MAPPER)
+            .setMnemonics("ActionTemplate", "ExpandedAction2")
+            .build(ActionsTestUtil.NULL_ACTION_OWNER);
+    assertThat(actionTemplate2.getKey(keyContext)).isNotEqualTo(actionTemplate.getKey(keyContext));
   }
 
   @Test
