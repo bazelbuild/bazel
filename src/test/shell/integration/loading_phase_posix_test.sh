@@ -72,7 +72,8 @@ function test_glob_control_chars() {
   done
 }
 
-function test_glob_utf8() {
+# TODO(b/131100868): Re-enable this test.
+function DISABLED_test_glob_utf8() {
   local -r pkg="$FUNCNAME"
   mkdir $pkg
   echo "filegroup(name='t', srcs=glob(['*']))" > $pkg/BUILD
