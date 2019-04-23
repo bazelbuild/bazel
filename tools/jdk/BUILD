@@ -1,6 +1,7 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "JDK8_JVM_OPTS",
+    "JDK_JVM_OPTS_WITH_JAVAC9",
     "bootclasspath",
     "default_java_toolchain",
     "java_runtime_files",
@@ -149,18 +150,22 @@ remote_java_tools_filegroup(
 
 exports_files(["BUILD.java_tools"])
 
+DEPLOY_JAR_SUFFIX = "_deploy.jar"
+
 remote_java_tools_filegroup(
     name = "genclass",
     target = ":GenClass",
 )
 
 remote_java_tools_filegroup(
-    name = "GenClass_deploy.jar",
+    name = "GenClass",
+    name_suffix = DEPLOY_JAR_SUFFIX,
     target = ":java_tools/GenClass_deploy.jar",
 )
 
 remote_java_tools_filegroup(
-    name = "bazel-singlejar_deploy.jar",
+    name = "bazel-singlejar",
+    name_suffix = DEPLOY_JAR_SUFFIX,
     target = ":java_tools/bazel-singlejar_deploy.jar",
 )
 
@@ -170,7 +175,8 @@ remote_java_tools_filegroup(
 )
 
 remote_java_tools_filegroup(
-    name = "turbine_deploy.jar",
+    name = "turbine",
+    name_suffix = DEPLOY_JAR_SUFFIX,
     target = ":java_tools/turbine_deploy.jar",
 )
 
@@ -180,7 +186,8 @@ remote_java_tools_filegroup(
 )
 
 remote_java_tools_filegroup(
-    name = "turbine_direct_binary_deploy.jar",
+    name = "turbine_direct_binary",
+    name_suffix = DEPLOY_JAR_SUFFIX,
     target = ":java_tools/turbine_direct_binary_deploy.jar",
 )
 
@@ -190,7 +197,8 @@ remote_java_tools_filegroup(
 )
 
 remote_java_tools_filegroup(
-    name = "JavaBuilder_deploy.jar",
+    name = "JavaBuilder",
+    name_suffix = DEPLOY_JAR_SUFFIX,
     target = ":java_tools/JavaBuilder_deploy.jar",
 )
 
@@ -230,7 +238,8 @@ remote_java_tools_java_import(
 )
 
 remote_java_tools_filegroup(
-    name = "TestRunner_deploy.jar",
+    name = "TestRunner",
+    name_suffix = DEPLOY_JAR_SUFFIX,
     target = ":java_tools/Runner_deploy.jar",
 )
 
@@ -240,7 +249,8 @@ remote_java_tools_java_import(
 )
 
 remote_java_tools_filegroup(
-    name = "ExperimentalRunner_deploy.jar",
+    name = "ExperimentalRunner",
+    name_suffix = DEPLOY_JAR_SUFFIX,
     target = ":java_tools/ExperimentalRunner_deploy.jar",
 )
 
@@ -322,6 +332,25 @@ default_java_toolchain(
     source_version = "8",
     target_version = "8",
 )
+
+default_java_toolchain(
+    name = "toolchain_javac9",
+    source_version = "9",
+    target_version = "9",
+    genclass = ["@bazel_tools//tools/jdk:genclass_javac9"],
+    header_compiler = ["@bazel_tools//tools/jdk:turbine_javac9"],
+    header_compiler_direct = ["@bazel_tools//tools/jdk:turbine_direct_javac9"],
+    ijar = ["@bazel_tools//tools/jdk:ijar_javac9"],
+    javabuilder = ["@bazel_tools//tools/jdk:javabuilder_javac9"],
+    javac = ["@bazel_tools//tools/jdk:javac_jar_javac9"],
+    tools = [
+        "@bazel_tools//tools/jdk:java_compiler_jar_javac9",
+        "@bazel_tools//tools/jdk:jdk_compiler_jar_javac9",
+    ],
+    jvm_opts = JDK_JVM_OPTS_WITH_JAVAC9,
+    singlejar = ["@bazel_tools//tools/jdk:singlejar_javac9"],
+)
+
 
 # The 'vanilla' toolchain is an unsupported alternative to the default.
 #

@@ -18,7 +18,19 @@ JDK8_JVM_OPTS = [
     "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
 ]
 
-JDK9_JVM_OPTS = [
+DEFAULT_JAVAC_OVERRIDE_OPTS = [
+    # override the javac in the JDK.
+    "--patch-module=java.compiler=$(location @bazel_tools//tools/jdk:java_compiler_jar)",
+    "--patch-module=jdk.compiler=$(location @bazel_tools//tools/jdk:jdk_compiler_jar)",
+]
+
+JAVAC_OVERRIDE_OPTS_JAVAC9 = [
+    # override the javac in the JDK.
+    "--patch-module=java.compiler=$(location @bazel_tools//tools/jdk:java_compiler_jar_javac9)",
+    "--patch-module=jdk.compiler=$(location @bazel_tools//tools/jdk:jdk_compiler_jar_javac9)",
+]
+
+DEFAULT_JDK9_JVM_OPTS = [
     # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
     # G1 collector and having compact strings enabled.
     "-XX:+UseParallelOldGC",
@@ -33,16 +45,15 @@ JDK9_JVM_OPTS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
 
-    # override the javac in the JDK.
-    "--patch-module=java.compiler=$(location @bazel_tools//tools/jdk:java_compiler_jar)",
-    "--patch-module=jdk.compiler=$(location @bazel_tools//tools/jdk:jdk_compiler_jar)",
-
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
     # and: https://github.com/bazelbuild/bazel/issues/5599
     "--add-opens=java.base/java.nio=ALL-UNNAMED",
     "--add-opens=java.base/java.lang=ALL-UNNAMED",
 ]
+
+JDK9_JVM_OPTS = DEFAULT_JDK9_JVM_OPTS + DEFAULT_JAVAC_OVERRIDE_OPTS
+JDK_JVM_OPTS_WITH_JAVAC9 = DEFAULT_JDK9_JVM_OPTS +  JAVAC_OVERRIDE_OPTS_JAVAC9
 
 DEFAULT_JAVACOPTS = [
     "-XDskipDuplicateBridges=true",
