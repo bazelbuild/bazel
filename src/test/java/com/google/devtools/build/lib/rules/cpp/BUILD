@@ -25,6 +25,7 @@ java_test(
         "//tools/cpp:lib_cc_configure",
     ],
     tags = ["rules"],
+    shard_count = 5,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":CcImportBaseConfiguredTargetTest",
