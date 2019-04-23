@@ -93,7 +93,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
       // Determine the actual toolchain implementations to use.
       determineToolchainImplementations(
           env,
-          debug,
           key.configurationKey(),
           key.requiredToolchainTypeLabels(),
           builder,
@@ -275,7 +274,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .handle(
                 Event.info(
                     String.format(
-                        "ToolchainResolver: Removed execution platform %s from"
+                        "ToolchainResolution: Removed execution platform %s from"
                             + " available execution platforms, it is missing constraint %s",
                         platformInfo.label(), constraint.label())));
       }
@@ -285,8 +284,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
   }
 
   private void determineToolchainImplementations(
-      SkyFunction.Environment environment,
-      boolean debug,
+      Environment environment,
       BuildConfigurationValue.Key configurationKey,
       ImmutableSet<Label> requiredToolchainTypeLabels,
       UnloadedToolchainContext.Builder builder,
@@ -358,8 +356,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
     if (!requiredToolchainTypeLabels.isEmpty()) {
       selectedExecutionPlatformKey =
           findExecutionPlatformForToolchains(
-              environment,
-              debug,
               requiredToolchainTypes,
               platformKeys.executionPlatformKeys(),
               resolvedToolchains);
@@ -400,7 +396,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
   }
 
   /**
-   * Adds all of toolchain labels from{@code toolchainResolutionValue} to {@code
+   * Adds all of toolchain labels from {@code toolchainResolutionValue} to {@code
    * resolvedToolchains}.
    */
   private static Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> findPlatformsAndLabels(
@@ -421,8 +417,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
    * resolvedToolchains} and has all required toolchain types.
    */
   private static Optional<ConfiguredTargetKey> findExecutionPlatformForToolchains(
-      SkyFunction.Environment environment,
-      boolean debug,
       ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
       ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
       Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
