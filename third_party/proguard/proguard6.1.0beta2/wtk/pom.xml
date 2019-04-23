@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Maven POM file for the ProGuard Wireless Toolkit plugin. -->
+<project
+    xmlns="http://maven.apache.org/POM/4.0.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>net.sf.proguard</groupId>
+        <artifactId>proguard-parent</artifactId>
+        <version>6.1.0beta2</version>
+        <relativePath>../buildscripts/pom.xml</relativePath>
+    </parent>
+    <artifactId>proguard-wtk-plugin</artifactId>
+    <name>[${project.groupId}] ${project.artifactId}</name>
+
+    <build>
+        <sourceDirectory>src</sourceDirectory>
+        <plugins>
+            <plugin>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+        <resources>
+            <resource>
+                <directory>src</directory>
+                <excludes>
+                   <exclude>**/*.java</exclude>
+                </excludes>
+            </resource>
+        </resources>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>proguard-base</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>wtklib</groupId>
+            <artifactId>kenv</artifactId>
+            <version>2.2</version>
+            <scope>system</scope>
+            <systemPath>${wtk.home}/wtklib/kenv.zip</systemPath>
+        </dependency>
+    </dependencies>
+</project>

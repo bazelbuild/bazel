@@ -695,3 +695,10 @@ test_suite(
     ],
     visibility = ["//src:__pkg__"],
 )
+
+filegroup(
+    name = "proguard-jar",
+    srcs = [
+        "proguard/proguard6.1.0beta2/lib/proguard.jar",
+    ],
+)

@@ -1,0 +1,24 @@
+// Gradle build script for the ProGuard Wireless Toolkit plugin.
+
+apply plugin: 'java'
+
+sourceCompatibility = "${target}"
+targetCompatibility = "${target}"
+
+sourceSets.main {
+    java {
+        srcDirs = ['src']
+    }
+    resources {
+        srcDirs = ['src']
+        include '**/*.properties'
+        include '**/*.gif'
+        include '**/*.png'
+        include '**/*.pro'
+    }
+}
+
+dependencies {
+    compile project(':core')
+    compile files("${wtkHome}/wtklib/kenv.zip")
+}

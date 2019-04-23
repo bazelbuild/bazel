@@ -1,0 +1,32 @@
+// Gradle build script for ProGuard.
+
+apply plugin: 'java'
+
+repositories {
+    jcenter()
+}
+
+sourceCompatibility = "${target}"
+targetCompatibility = "${target}"
+
+sourceSets.main {
+    java {
+        srcDirs = ['src']
+    }
+    resources {
+        srcDirs = ['src']
+        include '**/*.properties'
+        include '**/*.gif'
+        include '**/*.png'
+        include '**/*.pro'
+    }
+}
+
+jar {
+    manifest.from 'src/META-INF/MANIFEST.MF'
+}
+
+
+dependencies {
+    compile "com.google.code.gson:gson:${gsonVersion}"
+}

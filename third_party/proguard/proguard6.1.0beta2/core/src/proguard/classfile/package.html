@@ -1,0 +1,15 @@
+<body>
+This package contains classes to represent the various elements of class files.
+<p>
+A class file is represented by the <code>{@link proguard.classfile.Clazz
+Clazz}</code> interface. This interface currently has two alternative
+representations:
+<ul>
+<li><code>{@link ProgramClass ProgramClass}</code>:
+    a complete representation that can be read, modified, and written back.
+<li><code>{@link LibraryClass LibraryClass}</code>:
+    an incomplete representation that can be only be read. It is however
+    more compact than <code>ProgramClass</code>, and sufficient for
+    analyzing class files from library jars.
+</ul>
+</body>

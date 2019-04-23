@@ -1,0 +1,65 @@
+<!-- Ant build script for the ProGuard GUI. -->
+
+<project name    = "gui"
+         default = "dist">
+
+  <property file = "../buildscripts/ant.properties"/>
+
+  <target name = "clean">
+    <delete quiet = "true">
+      <fileset dir = "out"/>
+    </delete>
+  </target>
+
+  <target name = "out">
+    <mkdir dir = "out"/>
+  </target>
+
+  <target name = "core">
+    <ant dir        = "../core"
+         target     = "compile"
+         inheritAll = "false"/>
+  </target>
+
+  <target name = "retrace">
+    <ant dir        = "../retrace"
+         target     = "compile"
+         inheritAll = "false"/>
+  </target>
+
+  <target name = "compile" depends = "out,core,retrace">
+    <javac nowarn            = "true"
+           deprecation       = "false"
+           includeantruntime = "false"
+           source            = "${target}"
+           target            = "${target}"
+           classpath         = "../core/out:../retrace/out"
+           srcdir            = "src"
+           destdir           = "out"
+           includes          = "proguard/gui/ProGuardGUI.java">
+      <compilerarg value = "-Xlint:none"/>
+    </javac>
+  </target>
+
+  <target name = "resources" depends = "out">
+    <copy todir = "out">
+      <fileset dir = "src">
+        <include name = "**/*.properties"/>
+        <include name = "**/*.png"/>
+        <include name = "**/*.gif"/>
+        <include name = "**/*.pro"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name = "lib">
+    <mkdir dir = "../lib"/>
+  </target>
+
+  <target name = "dist" depends = "compile,resources,lib">
+    <jar jarfile  = "../lib/proguardgui.jar"
+         manifest = "src/META-INF/MANIFEST.MF"
+         basedir  = "out"/>
+  </target>
+
+</project>
