@@ -1029,9 +1029,15 @@ inline bool GetWorkspaceName(std::wstring* result) {
   return GetEnv(L"TEST_WORKSPACE", result) && !result->empty();
 }
 
-inline void StripLeadingDotSlash(std::wstring* s) {
+inline void ComputeRunfilePath(const std::wstring& test_workspace,
+                               std::wstring* s) {
   if (s->size() >= 2 && (*s)[0] == L'.' && (*s)[1] == L'/') {
     s->erase(0, 2);
+  }
+  if (s->find(L"external/") == 0) {
+    s->erase(0, 9);
+  } else {
+    *s = test_workspace + L"/" + *s;
   }
 }
 
@@ -1058,8 +1064,7 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
       return false;
     }
 
-    StripLeadingDotSlash(&test_path);
-    test_path = workspace + L"/" + test_path;
+    ComputeRunfilePath(workspace, &test_path);
 
     std::string utf8_test_path;
     uint32_t err;
