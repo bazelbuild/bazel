@@ -133,18 +133,30 @@ sh_test(
     ],
 )
 
-sh_test(
-    name = "bazel_java_test",
-    size = "large",
-    timeout = "eternal",
-    srcs = ["bazel_java_test.sh"],
-    data = [":test-deps"],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
-    ],
-)
+JAVA_TOOLCHAINS = {
+    "javac10": "@bazel_tools//tools/jdk:toolchain",
+    "javac9": "@bazel_tools//tools/jdk:toolchain_javac9",
+}
+
+[
+    sh_test(
+        name = "bazel_java_test_" + javac_version,
+        size = "large",
+        timeout = "eternal",
+        srcs = ["bazel_java_test.sh"],
+        data = [":test-deps"],
+        args = [
+            "--java_toolchain=" + java_toolchain,
+            "--host_java_toolchain=" + java_toolchain
+        ],
+        tags = [
+            # TODO(laszlocsomor): make this run on Windows. Currently fails because
+            # the java_common provider doesn't work on Windows.
+            "no_windows",
+        ],
+    )
+    for javac_version, java_toolchain in JAVA_TOOLCHAINS.items()
+]
 
 sh_test(
     name = "bazel_java_tools_javac9_test",

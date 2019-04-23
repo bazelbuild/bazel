@@ -22,6 +22,11 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+echo "Test args are ${@}"
+
+# Add the java_toolchain flags to the bazelrc.
+add_to_bazelrc "build ${@}"
+
 function write_hello_library_files() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF

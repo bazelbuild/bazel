@@ -24,6 +24,7 @@ platforms:
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
+    - "-//src/test/shell/bazel/bazel_java_test_javac9"
     # TODO(twerth): Re-enable after java.desktop has been removed.
     - "-//src/test/shell/bazel:jdeps_test"
   ubuntu1604:
@@ -48,6 +49,7 @@ platforms:
     - "//tools/aquery_differ/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
+    - "-//src/test/shell/bazel/bazel_java_test_javac9"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # TODO(twerth): Re-enable after java.desktop has been removed.
@@ -74,6 +76,7 @@ platforms:
     - "//tools/aquery_differ/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
+    - "-//src/test/shell/bazel/bazel_java_test_javac9"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # TODO(twerth): Re-enable after java.desktop has been removed.
@@ -114,7 +117,8 @@ platforms:
     - "-//src/test/shell/bazel:bazel_coverage_sh_test"
     - "-//src/test/shell/bazel:bazel_determinism_test"
     - "-//src/test/shell/bazel:bazel_example_test"
-    - "-//src/test/shell/bazel:bazel_java_test"
+    - "-//src/test/shell/bazel/bazel_java_test_javac9"
+    - "-//src/test/shell/bazel:bazel_java_test_javac10"
     - "-//src/test/shell/bazel:bazel_random_characters_test"
     - "-//src/test/shell/bazel:bazel_repository_cache_test"
     - "-//src/test/shell/bazel:bazel_rules_test"
@@ -220,6 +224,7 @@ platforms:
     # Some prebuilt jars doesn't run with Java 11
     - "-//src/test/shell/bazel:external_integration_test"
     - "-//src/test/shell/bazel:maven_test"
+    - "-//src/test/shell/bazel/bazel_java_test_javac9"
     # Re-enable once bootstrap works with Java 11
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     # TODO(twerth): Re-enable after java.desktop has been removed.
@@ -257,7 +262,8 @@ platforms:
       # The below tests have been disabled because they are too slow on macOS.
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
     - "-//src/test/shell/bazel:bazel_determinism_test"
-    - "-//src/test/shell/bazel:bazel_java_test"
+    - "-//src/test/shell/bazel/bazel_java_test_javac9"
+    - "-//src/test/shell/bazel:bazel_java_test_javac10"
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     - "-//src/test/shell/bazel/remote:remote_execution_test"
     - "-//src/test/shell/bazel/remote:remote_execution_http_test"
@@ -291,6 +297,7 @@ platforms:
     test_targets:
     - "--"
     - "//src:all_windows_tests"
+    - "-//src/test/shell/bazel/bazel_java_test_javac9"
     # TODO(twerth): Re-enable after java.desktop has been removed.
     - "-//src/test/shell/bazel:jdeps_test"
   rbe_ubuntu1604:
