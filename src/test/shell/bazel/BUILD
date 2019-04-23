@@ -147,7 +147,7 @@ JAVA_TOOLCHAINS = {
         data = [":test-deps"],
         args = [
             "--java_toolchain=" + java_toolchain,
-            "--host_java_toolchain=" + java_toolchain
+            "--host_java_toolchain=" + java_toolchain,
         ],
         tags = [
             # TODO(laszlocsomor): make this run on Windows. Currently fails because
