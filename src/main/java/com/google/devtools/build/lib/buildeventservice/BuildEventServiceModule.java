@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -96,6 +97,15 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private ImmutableMap<BuildEventTransport, ListenableFuture<Void>> closeFuturesMap =
       ImmutableMap.of();
 
+  /**
+   * Holds the half-close futures for the upload of each transport. The completion of the half-close
+   * indicates that the client has sent all of the data to the server and is just waiting for
+   * acknowledgement. The client must still keep the data buffered locally in case acknowledgement
+   * fails.
+   */
+  private ImmutableMap<BuildEventTransport, ListenableFuture<Void>> halfCloseFuturesMap =
+      ImmutableMap.of();
+
   // TODO(lpino): Use Optional instead of @Nullable for the members below.
   @Nullable private OutErr outErr;
   @Nullable private ImmutableSet<BuildEventTransport> bepTransports;
@@ -147,6 +157,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         .values()
         .forEach(closeFuture -> closeFuture.cancel(/* mayInterruptIfRunning= */ true));
     closeFuturesMap = ImmutableMap.of();
+    halfCloseFuturesMap = ImmutableMap.of();
   }
 
   private void waitForPreviousInvocation() {
@@ -157,8 +168,12 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     try {
       // TODO(b/234994611): Find a way to print a meaningful message when waiting. The current
       // infrastructure doesn't allow printing messages in the terminal in beforeCommand.
+      ImmutableMap<BuildEventTransport, ListenableFuture<Void>> futureMap =
+          besOptions.besUploadMode == BesUploadMode.FULLY_ASYNC
+              ? halfCloseFuturesMap
+              : closeFuturesMap;
       Uninterruptibles.getUninterruptibly(
-          Futures.allAsList(closeFuturesMap.values()),
+          Futures.allAsList(futureMap.values()),
           getMaxWaitForPreviousInvocation().getSeconds(),
           TimeUnit.SECONDS);
     } catch (TimeoutException exception) {
@@ -278,6 +293,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     try {
       // TODO(b/130148250): Uninterruptibles.getUninterruptibly waits forever if no timeout is
       //  passed. We should fix this by waiting at most the value set by bes_timeout.
+      googleLogger.atInfo().log("Closing pending build event transports");
       Uninterruptibles.getUninterruptibly(
           Futures.allAsList(streamer.getCloseFuturesMap().values()));
     } catch (ExecutionException e) {
@@ -380,12 +396,14 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
   private void closeBepTransports() throws AbruptExitException {
     closeFuturesMap = streamer.getCloseFuturesMap();
+    halfCloseFuturesMap = streamer.getHalfClosedMap();
     switch (besOptions.besUploadMode) {
       case WAIT_FOR_UPLOAD_COMPLETE:
         waitForBuildEventTransportsToClose();
         return;
 
       case NOWAIT_FOR_UPLOAD_COMPLETE:
+      case FULLY_ASYNC:
         // When running asynchronously notify the UI immediately since we won't wait for the
         // uploads to close.
         for (BuildEventTransport bepTransport : bepTransports) {
