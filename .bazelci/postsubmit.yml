@@ -18,6 +18,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
     # TODO(twerth): Re-enable after java.desktop has been removed.
@@ -40,6 +41,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
     # TODO(twerth): Re-enable after java.desktop has been removed.
@@ -62,6 +64,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
     # TODO(twerth): Re-enable after java.desktop has been removed.
@@ -82,6 +85,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # We can't run Android tests without an installed Android SDK / NDK.
     - "-//src/test/java/com/google/devtools/build/android/..."
     - "-//src/test/shell/bazel/android/..."
@@ -145,6 +149,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # Some prebuilt jars doesn't run with Java 11
     - "-//src/test/shell/bazel:external_integration_test"
     - "-//src/test/shell/bazel:maven_test"
@@ -178,6 +183,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     - "-//src/test/shell/integration:minimal_jdk_test"
       # C++ coverage is not supported on macOS yet.
     - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
