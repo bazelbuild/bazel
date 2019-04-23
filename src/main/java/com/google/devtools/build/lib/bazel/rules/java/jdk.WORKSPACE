@@ -235,7 +235,7 @@ http_archive(
 http_archive(
     name = "remote_java_tools_javac9_linux",
     build_file = "@bazel_tools//tools/jdk:BUILD.java_tools",
-    #sha256 = "",
+    sha256 = "959fea38bb4cfd936f8001e53f16d6b39bcc2a97aeb7298d36f25d324d9a970b",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_linux-v1.0-rc1.zip",
     ],
@@ -244,7 +244,7 @@ http_archive(
 http_archive(
     name = "remote_java_tools_javac9_windows",
     build_file = "@bazel_tools//tools/jdk:BUILD.java_tools",
-    #sha256 = "",
+    sha256 = "03ad44fcdec06df0a6e53e1d0cf413f297f422f212898703b0efd79fde0c37d6",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_windows-v1.0-rc1.zip",
     ],
@@ -253,7 +253,7 @@ http_archive(
 http_archive(
     name = "remote_java_tools_javac9_darwin",
     build_file = "@bazel_tools//tools/jdk:BUILD.java_tools",
-    #sha256 = "",
+    sha256 = "e303baf2a488520f0f4d25b882a4c1b12df19c1828cfd14b17df5ec70c4886ce",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_darwin-v1.0-rc1.zip",
     ],
