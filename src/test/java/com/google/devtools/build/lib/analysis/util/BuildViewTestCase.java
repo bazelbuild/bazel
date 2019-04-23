@@ -140,6 +140,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -279,6 +280,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setWorkspaceFileHeaderListener(getWorkspaceFileListener())
             .build();
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
@@ -317,6 +319,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Creates or retrieves the rule class provider used in this test. */
   protected ConfiguredRuleClassProvider getRuleClassProvider() {
     return getAnalysisMock().createRuleClassProvider();
+  }
+
+  protected WorkspaceFileHeaderListener getWorkspaceFileListener() {
+    return null;
   }
 
   protected PackageFactory getPackageFactory() {
