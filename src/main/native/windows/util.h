@@ -66,6 +66,8 @@ class AutoHandle {
 
 class AutoAttributeList {
  public:
+  AutoAttributeList() {}
+
   static bool Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
                      std::unique_ptr<AutoAttributeList>* result,
                      std::wstring* error_msg = nullptr);
@@ -80,6 +82,7 @@ class AutoAttributeList {
  private:
   class StdHandles {
    public:
+    StdHandles();
     StdHandles(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h);
     size_t ValidHandlesCount() const { return valid_handles_; }
     HANDLE* ValidHandles() { return handle_array_; }
