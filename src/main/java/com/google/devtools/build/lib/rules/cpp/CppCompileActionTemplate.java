@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
@@ -37,10 +38,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time.
- */
-public final class CppCompileActionTemplate implements ActionTemplate<CppCompileAction> {
+/** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
+public final class CppCompileActionTemplate extends ActionKeyCacher
+    implements ActionTemplate<CppCompileAction> {
   private final CppCompileActionBuilder cppCompileActionBuilder;
   private final Artifact sourceTreeArtifact;
   private final Artifact outputTreeArtifact;
@@ -50,7 +50,6 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   private final ActionOwner actionOwner;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> allInputs;
-  private String cachedKey;
 
   /**
    * Creates an CppCompileActionTemplate.
@@ -143,10 +142,8 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   }
 
   @Override
-  public synchronized String getKey(ActionKeyContext actionKeyContext) {
-    if (cachedKey != null) {
-      return cachedKey;
-    }
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+      throws CommandLineExpansionException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
             sourceTreeArtifact,
@@ -155,28 +152,21 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
             dotdTreeArtifact,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
-    Fingerprint fp = new Fingerprint();
-    try {
-      CppCompileAction.computeKey(
-          actionKeyContext,
-          fp,
-          cppCompileActionBuilder.getActionClassId(),
-          cppCompileActionBuilder.getActionEnvironment(),
-          commandLine.getEnvironment(),
-          cppCompileActionBuilder.getExecutionInfo(),
-          CppCompileAction.computeCommandLineKey(
-              commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
-          cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
-          cppCompileActionBuilder.buildMandatoryInputs(),
-          cppCompileActionBuilder.buildPrunableHeaders(),
-          cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
-          cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-          cppCompileActionBuilder.buildInputsForInvalidation());
-      cachedKey = fp.hexDigestAndReset();
-    } catch (CommandLineExpansionException e) {
-      cachedKey = CppCompileAction.KEY_ERROR;
-    }
-    return cachedKey;
+    CppCompileAction.computeKey(
+        actionKeyContext,
+        fp,
+        cppCompileActionBuilder.getActionClassId(),
+        cppCompileActionBuilder.getActionEnvironment(),
+        commandLine.getEnvironment(),
+        cppCompileActionBuilder.getExecutionInfo(),
+        CppCompileAction.computeCommandLineKey(
+            commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
+        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
+        cppCompileActionBuilder.buildMandatoryInputs(),
+        cppCompileActionBuilder.buildPrunableHeaders(),
+        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
+        cppCompileActionBuilder.getBuiltinIncludeDirectories(),
+        cppCompileActionBuilder.buildInputsForInvalidation());
   }
 
   private boolean shouldCompileHeaders() {

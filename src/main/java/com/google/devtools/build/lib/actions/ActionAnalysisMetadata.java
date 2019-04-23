@@ -14,12 +14,25 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import javax.annotation.Nullable;
 
 /**
  * An Analysis phase interface for an {@link Action} or Action-like object, containing only
  * side-effect-free query methods for information needed during action analysis.
  */
 public interface ActionAnalysisMetadata {
+
+  /**
+   * Return this key from {@link #getKey} to signify a failed key computation.
+   *
+   * <p>Actions that return this value should fail to execute.
+   *
+   * <p>Consumers must either gracefully handle multiple failed actions having the same key,
+   * (recommended), or check against this value explicitly.
+   */
+  String KEY_ERROR = "1ea50e01-0349-4552-80cf-76cf520e8592";
+
   /**
    * Returns the owner of this executable if this executable can supply verbose information. This is
    * typically the rule that constructed it; see ActionOwner class comment for details. Returns
@@ -228,4 +241,11 @@ public interface ActionAnalysisMetadata {
   default boolean hasLooseHeaders() {
     return false;
   }
+
+  /**
+   * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution
+   * platform is {@code null}, then the host platform is assumed.
+   */
+  @Nullable
+  PlatformInfo getExecutionPlatform();
 }
