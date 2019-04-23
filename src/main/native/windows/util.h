@@ -68,24 +68,31 @@ class AutoAttributeList {
  public:
   static bool Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
                      std::unique_ptr<AutoAttributeList>* result,
-                     wstring* error_msg = nullptr);
+                     std::wstring* error_msg = nullptr);
   ~AutoAttributeList();
+
+  bool InheritAnyHandles() const { return handles_.ValidHandlesCount() > 0; }
 
   void InitStartupInfoExA(STARTUPINFOEXA* startup_info) const;
 
   void InitStartupInfoExW(STARTUPINFOEXW* startup_info) const;
 
  private:
-  struct StdHandles {
-    static constexpr size_t kHandleCount = 3;
-    union {
-      HANDLE handle_array[kHandleCount];
-      struct {
-        HANDLE stdin_h;
-        HANDLE stdout_h;
-        HANDLE stderr_h;
-      };
-    };
+  class StdHandles {
+   public:
+    StdHandles(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h);
+    size_t ValidHandlesCount() const { return valid_handles_; }
+    HANDLE* ValidHandles() { return handle_array_; }
+    HANDLE StdIn() const { return stdin_h_; }
+    HANDLE StdOut() const { return stdout_h_; }
+    HANDLE StdErr() const { return stderr_h_; }
+
+   private:
+    size_t valid_handles_;
+    HANDLE handle_array_[3];
+    HANDLE stdin_h_;
+    HANDLE stdout_h_;
+    HANDLE stderr_h_;
   };
 
   AutoAttributeList(std::unique_ptr<uint8_t[]>&& data, HANDLE stdin_h,
