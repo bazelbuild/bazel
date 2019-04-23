@@ -39,6 +39,8 @@ public abstract class StarlarkSemantics {
    * the exact name of the flag transformed to upper case (for error representation).
    */
   public enum FlagIdentifier {
+    EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES(
+        StarlarkSemantics::experimentalAllowIncrementalRepositoryUpdates),
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
         StarlarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
@@ -114,6 +116,8 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
+
   public abstract boolean experimentalBuildSettingApi();
 
   public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
@@ -209,6 +213,7 @@ public abstract class StarlarkSemantics {
           // <== Add new options here in alphabetic order ==>
           .experimentalBuildSettingApi(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
+          .experimentalAllowIncrementalRepositoryUpdates(false)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
@@ -253,6 +258,8 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
+
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);

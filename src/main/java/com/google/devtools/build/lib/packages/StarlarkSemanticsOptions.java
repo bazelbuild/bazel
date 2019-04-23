@@ -61,6 +61,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   // <== Add new options here in alphabetic order ==>
 
   @Option(
+      name = "experimental_allow_incremental_repository_updates",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If used, it is possible to define a mapping between external repositories"
+              + " and some (mostly likely ignored by .bazelignore) directories."
+              + " The repository rule can read and update files in those directories,"
+              + " and the changes will be visible in the same build."
+              + " Use attribute 'managed_directories' of the global workspace()"
+              + " function in WORKSPACE file to define the mapping.")
+  public boolean experimentalAllowIncrementalRepositoryUpdates;
+
+  @Option(
       name = "experimental_build_setting_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -581,6 +596,8 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public StarlarkSemantics toSkylarkSemantics() {
     return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
+        .experimentalAllowIncrementalRepositoryUpdates(
+            experimentalAllowIncrementalRepositoryUpdates)
         .experimentalBuildSettingApi(experimentalBuildSettingApi)
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
