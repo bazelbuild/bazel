@@ -183,6 +183,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/osx/crosstool/..."
     - "//tools/python/..."
     - "-//src/test/shell/integration:minimal_jdk_test"
       # C++ coverage is not supported on macOS yet.
