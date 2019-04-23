@@ -130,7 +130,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           /* lpCommandLine */ mutable_commandline.get(),
           /* lpProcessAttributes */ NULL,
           /* lpThreadAttributes */ NULL,
-          /* bInheritHandles */ TRUE,
+          /* bInheritHandles */ attr_list->InheritAnyHandles() ? TRUE : FALSE,
           /* dwCreationFlags */ CREATE_NO_WINDOW  // Don't create console
                                                   // window
               | CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break isn't propagated
