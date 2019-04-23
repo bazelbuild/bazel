@@ -145,7 +145,8 @@ public class AppleCcToolchain extends CcToolchain {
     if (XcodeConfig.getXcodeConfigProvider(ruleContext).getXcodeVersion() == null) {
       ruleContext.throwWithRuleError(
           "Xcode version must be specified to use an Apple CROSSTOOL. If your Xcode version has "
-              + "changed recently, try: \"bazel clean --expunge\" to re-run Xcode configuration");
+              + "changed recently, verify that \"xcode-select -p\" is correct and then try: "
+              + "\"bazel shutdown\" to re-run Xcode configuration");
     }
   }
 }
