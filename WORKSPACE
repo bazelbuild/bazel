@@ -192,9 +192,9 @@ http_file(
 http_file(
     name = "openjdk_linux_minimal",
     downloaded_file_path = "zulu-linux-minimal.tar.gz",
-    sha256 = "734cbfc9a5264e6cff4877d6694acb2305359531a503748879a84d4996b24932",
+    sha256 = "5123bc8dd21886761d1fd9ca0fb1898b3372d7243064a070ec81ca9c9d1a6791",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-linux_x64-minimal-7a3af9f6f98ce69c1ebd2931817c2664a18cf279-1552657479.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-linux_x64-minimal-524ae2ca2a782c9f15e00f08bd35b3f8ceacbd7f-1556011926.tar.gz",
     ],
 )
 
@@ -231,9 +231,9 @@ http_file(
 http_file(
     name = "openjdk_macos_minimal",
     downloaded_file_path = "zulu-macos-minimal.tar.gz",
-    sha256 = "fd2a39d8947c53879f3d809c2ff783fc279d96f4ef2cccefb34d1d1b9cc6165f",
+    sha256 = "ac56e44db46fd56ac78b39b6823daed4faa74a2677ac340c7d217f863884ec0f",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-macosx_x64-minimal-7a3af9f6f98ce69c1ebd2931817c2664a18cf279-1552657467.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-macosx_x64-minimal-524ae2ca2a782c9f15e00f08bd35b3f8ceacbd7f-1556003114.tar.gz",
     ],
 )
 
@@ -258,9 +258,9 @@ http_file(
 http_file(
     name = "openjdk_win_minimal",
     downloaded_file_path = "zulu-win-minimal.zip",
-    sha256 = "ce063face0ca9d539084731edf2ec92a3faa3c1d1b6915cf5ec1a09facbf52ac",
+    sha256 = "8e5dada6e9ebcc9ce29b4d051449bb95d3ee1e620e166da862224bbf15211f8b",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64-minimal-7a3af9f6f98ce69c1ebd2931817c2664a18cf279-1552657495.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64-minimal-524ae2ca2a782c9f15e00f08bd35b3f8ceacbd7f-1556003136.zip",
     ],
 )
 
