@@ -329,7 +329,7 @@ def main(unused_argv):
       maintainer=FLAGS.maintainer,
       section=FLAGS.section,
       architecture=FLAGS.architecture,
-      depends=GetFlagValue(FLAGS.depends),
+      depends=GetFlagValues(FLAGS.depends),
       suggests=FLAGS.suggests,
       enhances=FLAGS.enhances,
       preDepends=FLAGS.pre_depends,
