@@ -1,0 +1,28 @@
+// Gradle build script for the ProGuard GUI.
+
+apply plugin: 'java'
+
+sourceCompatibility = "${target}"
+targetCompatibility = "${target}"
+
+sourceSets.main {
+    java {
+        srcDirs = ['src']
+    }
+    resources {
+        srcDirs = ['src']
+        include '**/*.properties'
+        include '**/*.gif'
+        include '**/*.png'
+        include '**/*.pro'
+    }
+}
+
+dependencies {
+    compile project(':core')
+    compile project(':retrace')
+}
+
+jar {
+    manifest.from 'src/META-INF/MANIFEST.MF'
+}

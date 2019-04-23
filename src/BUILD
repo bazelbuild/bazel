@@ -22,10 +22,26 @@ filegroup(
     ],
 )
 
+genrule(
+    name = "proguardy",
+    srcs = [
+        ":proguard.conf",
+        ":embedded_jdk_vanilla",
+        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+    ],
+    outs = ["blubb"],
+    cmd = "$(location :proguard.sh) $(location //src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar) $(OUTS) $(location //third_party:proguard-jar) $(location :proguard.conf) $(location :embedded_jdk_vanilla)",
+    tools = [
+        ":proguard.sh",
+        "//third_party:proguard-jar"
+    ],
+)
+
 [genrule(
     name = "install_base_key-file" + suffix,
     srcs = [
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        #"//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        ":blubb",
         "//src/main/cpp:client",
         ":libunix",
         "//src/main/tools:build-runfiles",
@@ -342,7 +358,8 @@ filegroup(
         # The script assumes that the embedded tools zip (if exists) is the
         # first item here, the deploy jar the second and install base key is the
         # third
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        #"//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        ":blubb",
         "install_base_key" + suffix,
         ":libunix",
         "//src/main/tools:build-runfiles",

@@ -1,0 +1,127 @@
+###############################################################################
+# General settings.
+###############################################################################
+
+-verbose
+
+# We can debug the ProGuard configuration by instrumenting the code and
+# checking the log for feedback. Disable the option again for actual releases!
+
+#-addconfigurationdebugging
+
+# We can also disable the individual processing steps.
+
+#-dontshrink
+#-dontoptimize
+#-dontobfuscate
+
+# Specifically target Android.
+
+-android
+
+
+###############################################################################
+# Settings to handle reflection in the code.
+###############################################################################
+
+# Preserve annotated and generated classes for Dagger.
+
+-keepclassmembers,allowobfuscation class * {
+    @dagger.** *;
+}
+
+-keep class **$$ModuleAdapter
+-keep class **$$InjectAdapter
+-keep class **$$StaticInjection
+
+-if   class **$$ModuleAdapter
+-keep class <1>
+
+-if   class **$$InjectAdapter
+-keep class <1>
+
+-if   class **$$StaticInjection
+-keep class <1>
+
+-keepnames class dagger.Lazy
+
+# Preserve annotated and generated classes for Butterknife.
+
+-keep class **$$ViewBinder {
+    public static void bind(...);
+    public static void unbind(...);
+}
+
+-if   class **$$ViewBinder
+-keep class <1>
+
+-keep class **_ViewBinding {
+    <init>(<1>, android.view.View);
+}
+
+-if   class **_ViewBinding
+-keep class <1>
+
+# Preserve fields that are serialized with GSON.
+
+#-keepclassmembers class com.example.SerializedClass1,
+#                        com.example.SerializedClass2 {
+#    <fields>;
+#}
+
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+-keep,allowobfuscation @interface com.google.gson.annotations.**
+
+
+###############################################################################
+# Further optimizations.
+###############################################################################
+
+# If you wish, you can let the optimization step remove Android logging calls.
+
+#-assumenosideeffects class android.util.Log {
+#    public static boolean isLoggable(java.lang.String, int);
+#    public static int v(...);
+#    public static int i(...);
+#    public static int w(...);
+#    public static int d(...);
+#    public static int e(...);
+#}
+
+# In that case, it's especially useful to also clean up any corresponding
+# string concatenation calls.
+
+-assumenoexternalsideeffects class java.lang.StringBuilder {
+    public java.lang.StringBuilder();
+    public java.lang.StringBuilder(int);
+    public java.lang.StringBuilder(java.lang.String);
+    public java.lang.StringBuilder append(java.lang.Object);
+    public java.lang.StringBuilder append(java.lang.String);
+    public java.lang.StringBuilder append(java.lang.StringBuffer);
+    public java.lang.StringBuilder append(char[]);
+    public java.lang.StringBuilder append(char[], int, int);
+    public java.lang.StringBuilder append(boolean);
+    public java.lang.StringBuilder append(char);
+    public java.lang.StringBuilder append(int);
+    public java.lang.StringBuilder append(long);
+    public java.lang.StringBuilder append(float);
+    public java.lang.StringBuilder append(double);
+    public java.lang.String toString();
+}
+
+-assumenoexternalreturnvalues class java.lang.StringBuilder {
+    public java.lang.StringBuilder append(java.lang.Object);
+    public java.lang.StringBuilder append(java.lang.String);
+    public java.lang.StringBuilder append(java.lang.StringBuffer);
+    public java.lang.StringBuilder append(char[]);
+    public java.lang.StringBuilder append(char[], int, int);
+    public java.lang.StringBuilder append(boolean);
+    public java.lang.StringBuilder append(char);
+    public java.lang.StringBuilder append(int);
+    public java.lang.StringBuilder append(long);
+    public java.lang.StringBuilder append(float);
+    public java.lang.StringBuilder append(double);
+}

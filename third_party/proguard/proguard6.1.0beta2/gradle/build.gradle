@@ -1,0 +1,35 @@
+// Gradle build script for the ProGuard Gradle task.
+
+apply plugin: 'java'
+apply plugin: 'groovy'
+
+sourceCompatibility = "${target}"
+targetCompatibility = "${target}"
+
+sourceSets.main {
+    java {
+        srcDirs = ['src']
+    }
+
+    groovy {
+        srcDirs = ['src']
+    }
+
+    resources {
+        srcDirs = ['src']
+        include '**/*.gif'
+        include '**/*.png'
+        include '**/*.pro'
+    }
+}
+
+jar {
+    metaInf.from 'src/META-INF'
+}
+
+dependencies {
+    compile project(':core')
+    compile('com.android.tools.build:gradle:3.0.0')
+    compile gradleApi()
+    compile localGroovy()
+}

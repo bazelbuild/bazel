@@ -1,0 +1,51 @@
+<!-- Ant build script for the ProGuard annotations. -->
+
+<project name    = "annotations"
+         default = "dist">
+
+  <property file = "../buildscripts/ant.properties"/>
+
+  <target name = "clean">
+    <delete quiet = "true">
+      <fileset dir   = "out"/>
+    </delete>
+  </target>
+
+  <target name = "out">
+    <mkdir dir = "out"/>
+  </target>
+
+  <target name = "compile" depends = "out">
+    <javac nowarn            = "true"
+           deprecation       = "false"
+           includeantruntime = "false"
+           source            = "${target}"
+           target            = "${target}"
+           srcdir            = "src"
+           destdir           = "out"
+           includes          = "proguard/annotation/*.java">
+      <compilerarg value = "-Xlint:none"/>
+    </javac>
+  </target>
+
+  <target name = "resources" depends = "out">
+    <copy todir = "out">
+      <fileset dir = "src">
+        <include name = "proguard/*.properties"/>
+        <include name = "proguard/*.png"/>
+        <include name = "proguard/*.gif"/>
+        <include name = "proguard/*.pro"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name = "lib">
+    <mkdir dir = "../lib"/>
+  </target>
+
+  <target name = "dist" depends = "compile,resources,lib">
+    <jar jarfile  = "../lib/annotations.jar"
+         basedir  = "out"/>
+  </target>
+
+</project>

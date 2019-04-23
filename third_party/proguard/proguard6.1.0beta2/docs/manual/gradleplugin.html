@@ -1,0 +1,338 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+    <meta http-equiv="content-style-type" content="text/css">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <title>Gradle Plugin</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/gradle.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">Guardsquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+    <a class="largebutton" target="_top"  href="../index.html#manual/gradle.html">ProGuard index</a>
+    <a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+    <a class="largebutton" target="_top"  href="http://www.guardsquare.com/">Guardsquare</a>
+    <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Android Gradle Plugin</h2>
+
+Assuming R8 is not the default, you can enable ProGuard in the Android Gradle
+build process, by enabling minification in the <i>build.gradle</i>
+file of your project:
+
+<pre>
+android {
+    .....
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFile getDefaultProguardFile('proguard-android-optimize.pro')
+            proguardFile 'proguard-project.txt'
+        }
+    }
+}
+</pre>
+
+<p>
+You can find a complete sample project in <code>examples/android</code>
+in the ProGuard distribution.
+
+<h2>ProGuard Gradle Plugin</h2>
+
+Alternatively, you can enable ProGuard in the Android Gradle build process
+using ProGuard's own tuned plugin, by changing the <i>build.gradle</i> file of
+your project as follows:
+
+<pre>
+buildscript {
+    repositories {
+        flatDir dirs: '/usr/local/java/proguard/lib'
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.1.3'
+        classpath ':proguard:'
+    }
+}
+
+apply plugin: 'com.android.application'
+apply plugin: 'proguard'
+</pre>
+
+<p>
+Please make sure the repository path in the build script is set correctly for
+your system.
+
+<p>
+Each build type that should be processed by ProGuard needs to have a set of
+configuration files, as shown below:
+
+<pre>
+android {
+    .....
+    buildTypes {
+        debug {
+            minifyEnabled false
+            proguardFile getTunedProGuardFile('proguard-android-debug.pro')
+            proguardFile 'proguard-project.txt'
+        }
+        release {
+            minifyEnabled false
+            proguardFile getTunedProGuardFile('proguard-android-release.pro')
+            proguardFile 'proguard-project.txt'
+        }
+    }
+}
+</pre>
+
+<p>
+The setting "<i>minifyEnabled=false</i>" is needed to disable the
+obfuscation/shrinking capability of the standard gradle plugin to avoid that
+the project is obfuscated multiple times.
+
+<p>
+The lines with "<i>proguardFile getTunedProGuardFile</i>" are important. They
+apply optimized minimal settings for the Android platform. Your own
+configuration files then only need to contain project-specific settings.
+
+<p>
+You can find a complete sample project in <code>examples/android-plugin</code>
+in the ProGuard distribution.
+
+<h2>Settings</h2>
+
+The <b>ProGuard plugin</b> supports various settings that can be added to the
+<i>build.gradle</i> file to control its behavior:
+
+<pre>
+proguard {
+    incremental                false
+    transformExternalLibraries true
+    transformSubprojects       true
+}
+</pre>
+
+<dl>
+    <dt><code><b>incremental:</b></code></dt>
+    <dd>Support incremental builds, default: <b>false</b></dd>
+
+    <dt><code><b>transformExternalLibraries:</b></code></dt>
+    <dd>Processing also all external libraries, default: <b>true</b></dd>
+
+    <dt><code><b>transformSubproject:</b></code></dt>
+    <dd>Processing also all subprojects, default: <b>true</b></dd>
+</dl>
+
+<h2>Java 8 language support</h2>
+
+ProGuard can backport Java 8 language features to Dalvik and to older
+versions of Java, so you can use them in applications and libraries that
+work on all versions of Android.
+
+<p>
+The following language features are supported:
+<ul>
+    <li>lambda expressions (closures)</li>
+    <li>method references</li>
+    <li>try-with-resources statements</li>
+    <li>static interface methods</li>
+    <li>default interface methods</li>
+</ul>
+
+<p>
+Additions to the Java runtime library (like the stream API) can not be
+backported without additional runtime dependencies; see the next section.
+
+<p>
+In order to enable Java 8 language support, a Java 8 Compiler must be
+available when running gradle, i.e. by setting <i>JAVA_HOME</i>. You need to
+configure the <i>source</i> and <i>target</i> compatibility settings in your
+<i>build.gradle</i> script:
+
+<pre>
+android {
+    .....
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+</pre>
+
+<p>
+If you want to target a minimum API level less than 19, you should add
+the following configuration to your <i>proguard-project.txt</i>:
+
+<pre>
+-target 1.6
+</pre>
+
+<h2>Java 8 stream API support</h2>
+
+ProGuard can backport the Java 8 stream API to older versions of Android (&lt;
+API 24), so you can use it in applications that work on all versions of
+Android.
+
+<p>
+The following additions to Java 8 can be backported and thus be used in an
+application:
+<ul>
+    <li>classes added in <i>java.util.function</i> package</li>
+    <li>classes added in <i>java.util.stream</i> package</li>
+    <li>default and static methods added to interfaces in <i>java.lang</i> and <i>java.util</i> (e.g. Iterable, Collection)</li>
+    <li>static methods added to classes in <i>java.lang</i> (Integer, Long, Double) and <i>java.util</i> (Arrays)</li>
+    <li>classes added in <i>java.util</i> package (e.g. Optional, StringJoiner)</li>
+    <li>classes added/updated in <i>java.util.concurrent</i> package (e.f. ForkJoinPool)</li>
+</ul>
+
+<p>
+The following methods can not be backported and using them will fail the build:
+
+<ul>
+    <li>methods added to <i>java.util.Random</i> (e.g. ints, longs, doubles)</li>
+    <li>default method <i>remove()</i> in <i>java.util.Iterator</i>: classes that rely on a default implementation will not work</li>
+</ul>
+
+<p>
+In order to use the Java 8 stream API and enable backporting in ProGuard, you
+have to specify a minimum <i>compileSdkVersion</i> of <i>24</i>:
+
+<pre>
+android {
+    .....
+    compileSdkVersion 24 // or a higher version
+}
+</pre>
+
+<p>
+Furthermore, you need to add the <i>streamsupport</i> library as dependency to
+your project, e.g. like this:
+
+<pre>
+repositories {
+    jcenter()
+}
+
+dependencies {
+    ...
+    compile 'net.sourceforge.streamsupport:streamsupport:1.6.3'
+}
+</pre>
+
+<p>
+If you use the Java 8 stream API in your project, but ProGuard can not
+backport to the included <i>streamsupport</i> library (e.g. due to an
+incompatible version), ProGuard issues warnings in the console log.
+
+<p>
+Note: ProGuard currently only supports the core streamsupport library.
+Additional modules (cfuture, atomic, flow, literal) are not yet backported.
+Please contact <a href="https://www.guardsquare.com/">Guardsquare</a> if you
+want to use them as well.
+
+<h2>Java 8 time API support (JSR310)</h2>
+
+ProGuard can backport the <b>Java 8 time API</b> to older versions of Android
+(&lt; API 26), so you can use it in applications that work on all versions of
+Android.
+
+<p>
+The following additions to Java 8 can be backported and thus be used in an
+application:
+<ul>
+    <li>classes added in <i>java.time</i> package</li>
+</ul>
+
+<p>
+The <i>java.time</i> API includes various interfaces with default / static
+methods. ProGuard can backport the use of these methods can be backported, but
+in case you implement these interfaces yourself (which would be unusual), the
+resulting class can not be fully backported (due to missing default methods).
+This includes the following interfaces:
+
+<ul>
+    <li>java.time.chrono.ChronoLocalDate</li>
+    <li>java.time.chrono.ChronoLocalDateTime</li>
+    <li>java.time.chrono.Chronology</li>
+    <li>java.time.chrono.ChronoPeriod</li>
+    <li>java.time.chrono.ChronoZonedDateTime</li>
+    <li>java.time.chrono.Era</li>
+    <li>java.time.temporal.Temporal</li>
+    <li>java.time.temporal.TemporalAccessor</li>
+    <li>java.time.temporal.TemporalField</li>
+    <li>java.time.temporal.TemporalUnit</li>
+</ul>
+
+<p>
+In order to use the Java 8 time API and enable backporting in ProGuard,
+a minimum <i>compileSdkVersion</i> of <i>26</i> has to be used:
+
+<pre>
+android {
+    .....
+    compileSdkVersion 26 // or a higher version
+}
+</pre>
+
+<p>
+Furthermore, you need to add the <i>threetenbp</i> library as dependency to
+your project, e.g. like this:
+
+<pre>
+repositories {
+    jcenter()
+}
+
+dependencies {
+    ...
+    api group: 'org.threeten', name: 'threetenbp', version: '1.3.6'
+}
+</pre>
+
+<p>
+It is highly recommended to use the <i>threetenabp</i> library from Jake
+Wharton instead, which is just as a wrapper around the <i>threetenbp</i>
+library and provides an efficient way to initialize the timezone database:
+
+<pre>
+dependencies {
+    ...
+    compile 'com.jakewharton.threetenabp:threetenabp:1.0.5'
+}
+</pre>
+
+<p>
+Additionally, you have to initialize the timezone database in your application
+class like this:
+
+<pre>
+public void onCreate()
+{
+    super.onCreate();
+    ...
+    com.jakewharton.threetenabp.AndroidThreeTen.init(this);
+}
+</pre>
+
+<p>
+If you use the Java 8 stream API in your project, but ProGuard can not
+backport to the included <i>threetenbp</i> library (e.g. due to an
+incompatible version), ProGuard issues warnings in the console log.
+
+<hr />
+<address>
+    Copyright &copy; 2002-2019
+    <a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">Guardsquare</a>.
+</address>
+</body>
+</html>

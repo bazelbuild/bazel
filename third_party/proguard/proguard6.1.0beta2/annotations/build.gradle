@@ -1,0 +1,19 @@
+// Gradle build script for the ProGuard annotations.
+
+apply plugin: 'java'
+
+sourceCompatibility = "${target}"
+targetCompatibility = "${target}"
+
+sourceSets.main {
+    java {
+        srcDirs = ['src']
+    }
+    resources {
+        srcDirs = ['src']
+        include '**/*.properties'
+        include '**/*.gif'
+        include '**/*.png'
+        include '**/*.pro'
+    }
+}
