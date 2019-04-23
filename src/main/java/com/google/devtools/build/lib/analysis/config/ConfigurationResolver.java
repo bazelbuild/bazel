@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -197,6 +198,17 @@ public final class ConfigurationResolver {
 
       if (sameFragments) {
         if (transition == NoTransition.INSTANCE) {
+          if (ctgValue.getConfiguration().trimConfigurationsRetroactively()
+              && !dep.getAspects().isEmpty()) {
+            String message =
+                ctgValue.getLabel()
+                    + " has aspects attached, but these are not supported in retroactive"
+                    + " trimming mode.";
+            env.getListener()
+                .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
+            throw new ConfiguredTargetFunction.DependencyEvaluationException(
+                new InvalidConfigurationException(message));
+          }
           // The dep uses the same exact configuration. Let's re-use the current configuration and
           // skip adding a Skyframe dependency edge on it.
           putOnlyEntry(
@@ -211,6 +223,16 @@ public final class ConfigurationResolver {
           // uniquely frequent. It's possible, e.g., for every node in the configured target graph
           // to incur multiple host transitions. So we aggressively optimize to avoid hurting
           // analysis time.
+          if (hostConfiguration.trimConfigurationsRetroactively() && !dep.getAspects().isEmpty()) {
+            String message =
+                ctgValue.getLabel()
+                    + " has aspects attached, but these are not supported in retroactive"
+                    + " trimming mode.";
+            env.getListener()
+                .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
+            throw new ConfiguredTargetFunction.DependencyEvaluationException(
+                new InvalidConfigurationException(message));
+          }
           putOnlyEntry(
               resolvedDeps,
               dependencyEdge,
@@ -256,6 +278,17 @@ public final class ConfigurationResolver {
       if (sameFragments
           && toOptions.size() == 1
           && Iterables.getOnlyElement(toOptions).equals(currentConfiguration.getOptions())) {
+        if (ctgValue.getConfiguration().trimConfigurationsRetroactively()
+            && !dep.getAspects().isEmpty()) {
+          String message =
+              ctgValue.getLabel()
+                  + " has aspects attached, but these are not supported in retroactive"
+                  + " trimming mode.";
+          env.getListener()
+              .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
+          throw new ConfiguredTargetFunction.DependencyEvaluationException(
+              new InvalidConfigurationException(message));
+        }
         putOnlyEntry(
             resolvedDeps,
             dependencyEdge,
@@ -330,12 +363,25 @@ public final class ConfigurationResolver {
           // null out on missing values from *this specific Skyframe request*.
           return null;
         }
-        BuildConfigurationValue trimmedConfig = (BuildConfigurationValue) valueOrException.get();
+        BuildConfiguration trimmedConfig =
+            ((BuildConfigurationValue) valueOrException.get()).getConfiguration();
         for (Map.Entry<DependencyKind, Dependency> info : keysToEntries.get(key)) {
           Dependency originalDep = info.getValue();
+          if (trimmedConfig.trimConfigurationsRetroactively()
+              && !originalDep.getAspects().isEmpty()) {
+            String message =
+                ctgValue.getLabel()
+                    + " has aspects attached, but these are not supported in retroactive"
+                    + " trimming mode.";
+            env.getListener()
+                .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
+            throw new ConfiguredTargetFunction.DependencyEvaluationException(
+                new InvalidConfigurationException(message));
+          }
           DependencyEdge attr = new DependencyEdge(info.getKey(), originalDep.getLabel());
-          Dependency resolvedDep = Dependency.withConfigurationAndAspects(originalDep.getLabel(),
-              trimmedConfig.getConfiguration(), originalDep.getAspects());
+          Dependency resolvedDep =
+              Dependency.withConfigurationAndAspects(
+                  originalDep.getLabel(), trimmedConfig, originalDep.getAspects());
           Attribute attribute = attr.dependencyKind.getAttribute();
           if (attribute != null && attribute.getTransitionFactory().isSplit()) {
             resolvedDeps.put(attr, resolvedDep);
