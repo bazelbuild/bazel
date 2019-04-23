@@ -291,6 +291,9 @@ public final class AspectFunction implements SkyFunction {
         throw new IllegalStateException("Unexpected exception from BuildConfigurationFunction when "
             + "computing " + key.getAspectConfigurationKey(), e);
       }
+      if (aspectConfiguration.trimConfigurationsRetroactively()) {
+        throw new AssertionError("Aspects should NEVER be evaluated in retroactive trimming mode.");
+      }
     }
 
     ConfiguredTarget associatedTarget = baseConfiguredTargetValue.getConfiguredTarget();
@@ -320,6 +323,9 @@ public final class AspectFunction implements SkyFunction {
       configuration =
           ((BuildConfigurationValue) result.get(associatedTarget.getConfigurationKey()))
               .getConfiguration();
+      if (configuration.trimConfigurationsRetroactively()) {
+        throw new AssertionError("Aspects should NEVER be evaluated in retroactive trimming mode.");
+      }
     }
     try {
       associatedConfiguredTargetAndData =
