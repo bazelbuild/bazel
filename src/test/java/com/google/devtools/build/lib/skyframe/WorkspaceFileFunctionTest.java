@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -47,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import javax.annotation.Nullable;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.junit.Before;
@@ -68,6 +71,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   private ExternalPackageFunction externalSkyFunc;
   private WorkspaceASTFunction astSkyFunc;
   private FakeFileValue fakeWorkspaceFileValue;
+  private TestWorkspaceFileListener testWorkspaceFileListener;
 
   static class FakeFileValue extends FileValue {
     private boolean exists;
@@ -126,6 +130,12 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     externalSkyFunc = new ExternalPackageFunction();
     astSkyFunc = new WorkspaceASTFunction(ruleClassProvider);
     fakeWorkspaceFileValue = new FakeFileValue();
+  }
+
+  @Override
+  protected WorkspaceFileHeaderListener getWorkspaceFileListener() {
+    testWorkspaceFileListener = new TestWorkspaceFileListener();
+    return testWorkspaceFileListener;
   }
 
   @Override
@@ -388,5 +398,43 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     assertThat(getLabelMapping(pkg, "foo/bar"))
         .isEqualTo(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     MoreAsserts.assertNoEvents(pkg.getEvents());
+  }
+
+  @Test
+  public void testWorkspaceFileValueListener() throws Exception {
+    // Normally, syscalls cache is reset in the sync() method of the SkyframeExecutor, before
+    // diffing.
+    // But here we are calling only actual diffing part, exposed for testing:
+    // handleDiffsForTesting(), so we better turn off the syscalls cache.
+    skyframeExecutor.turnOffSyscallCacheForTesting();
+
+    createWorkspaceFile("workspace(name = 'old')");
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    assertThat(testWorkspaceFileListener.getLastWorkspaceName()).isEqualTo("old");
+    assertThat(testWorkspaceFileListener.getCnt()).isEqualTo(1);
+
+    createWorkspaceFile("workspace(name = 'changed')");
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    assertThat(testWorkspaceFileListener.getLastWorkspaceName()).isEqualTo("changed");
+    assertThat(testWorkspaceFileListener.getCnt()).isEqualTo(2);
+  }
+
+  private static class TestWorkspaceFileListener implements WorkspaceFileHeaderListener {
+    private String lastWorkspaceName;
+    private int cnt = 0;
+
+    @Override
+    public void workspaceHeaderChanged(@Nullable WorkspaceFileValue newValue) {
+      ++cnt;
+      lastWorkspaceName = newValue != null ? newValue.getPackage().getWorkspaceName() : null;
+    }
+
+    private String getLastWorkspaceName() {
+      return lastWorkspaceName;
+    }
+
+    private int getCnt() {
+      return cnt;
+    }
   }
 }
