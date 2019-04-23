@@ -20,6 +20,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -46,6 +47,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -72,6 +74,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -96,6 +99,7 @@ platforms:
     - "//src/tools/workspacelog/..."
     - "//third_party/ijar/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # We can't run Android tests without an installed Android SDK / NDK.
@@ -161,6 +165,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -198,6 +203,7 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/aquery_differ/..."
+    - "//tools/python/..."
       # C++ coverage is not supported on macOS yet.
     - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
