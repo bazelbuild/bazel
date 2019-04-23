@@ -43,6 +43,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.concurrent.ThreadSafe;
@@ -85,6 +86,7 @@ abstract class FileTransport implements BuildEventTransport {
     private final Function<BuildEventStreamProtos.BuildEvent, byte[]> serializeFunc;
 
     private final BuildEventArtifactUploader uploader;
+    private final AtomicBoolean isClosed = new AtomicBoolean();
 
     @VisibleForTesting
     final BlockingQueue<ListenableFuture<BuildEventStreamProtos.BuildEvent>> pendingWrites =
@@ -170,7 +172,9 @@ abstract class FileTransport implements BuildEventTransport {
     }
 
     public ListenableFuture<Void> close() {
-      if (closeFuture.isDone()) {
+      if (isClosed.getAndSet(true)) {
+        return closeFuture;
+      } else if (closeFuture.isDone()) {
         return closeFuture;
       }
 

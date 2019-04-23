@@ -131,6 +131,8 @@ public final class BuildEventServiceUploader implements Runnable {
   @GuardedBy("lock")
   private SettableFuture<Void> closeFuture;
 
+  private final SettableFuture<Void> halfCloseFuture = SettableFuture.create();
+
   /**
    * The thread that calls the lifecycle RPCs and does the build event upload. It's started lazily
    * on the first call to {@link #enqueueEvent(BuildEvent)} or {@link #close()} (which ever comes
@@ -459,6 +461,7 @@ public final class BuildEventServiceUploader implements Runnable {
                       lastEvent.getSequenceNumber(), lastEvent.getCreationTime());
               streamContext.sendOverStream(request);
               streamContext.halfCloseStream();
+              halfCloseFuture.set(null);
             }
             break;
 
