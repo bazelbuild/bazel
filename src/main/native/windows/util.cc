@@ -121,7 +121,11 @@ AutoAttributeList::StdHandles::StdHandles()
     : valid_handles_(0),
       stdin_h_(INVALID_HANDLE_VALUE),
       stdout_h_(INVALID_HANDLE_VALUE),
-      stderr_h_(INVALID_HANDLE_VALUE) {}
+      stderr_h_(INVALID_HANDLE_VALUE) {
+  handle_array_[0] = INVALID_HANDLE_VALUE;
+  handle_array_[1] = INVALID_HANDLE_VALUE;
+  handle_array_[2] = INVALID_HANDLE_VALUE;
+}
 
 AutoAttributeList::StdHandles::StdHandles(HANDLE stdin_h, HANDLE stdout_h,
                                           HANDLE stderr_h)
@@ -129,6 +133,9 @@ AutoAttributeList::StdHandles::StdHandles(HANDLE stdin_h, HANDLE stdout_h,
       stdin_h_(stdin_h),
       stdout_h_(stdout_h),
       stderr_h_(stderr_h) {
+  handle_array_[0] = INVALID_HANDLE_VALUE;
+  handle_array_[1] = INVALID_HANDLE_VALUE;
+  handle_array_[2] = INVALID_HANDLE_VALUE;
   if (stdin_h != INVALID_HANDLE_VALUE) {
     handle_array_[valid_handles_++] = stdin_h;
   }
