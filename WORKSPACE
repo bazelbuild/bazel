@@ -198,18 +198,6 @@ http_file(
     ],
 )
 
-# Used by CI to test Bazel on platforms without an installed system JDK.
-# TODO(twerth): Migrate to @remotejdk when https://github.com/bazelbuild/bazel/pull/6216 is merged.
-http_archive(
-    name = "openjdk_linux_archive",
-    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
-    sha256 = "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
-    strip_prefix = "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules",
-    urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz",
-    ],
-)
-
 http_file(
     name = "openjdk_macos",
     downloaded_file_path = "zulu-macos.tar.gz",
@@ -261,6 +249,47 @@ http_file(
     sha256 = "ce063face0ca9d539084731edf2ec92a3faa3c1d1b6915cf5ec1a09facbf52ac",
     urls = [
         "https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64-minimal-7a3af9f6f98ce69c1ebd2931817c2664a18cf279-1552657495.zip",
+    ],
+)
+
+# OpenJDK versions only used by CI to test Bazel with various JDKs.
+http_archive(
+    name = "openjdk12_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "529c99841d69e11a85aea967ccfb9d0fd40b98c5b68dbe1d059002655e0a9c13",
+    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-linux_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk11_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "ddb0fd4526089cf1ce2db36282c282263f587a9e8be373fa02f511a12923cc48",
+    strip_prefix = "zulu11.31.11-ca-jdk11.0.3-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu11.31.11-ca-jdk11.0.3/zulu11.31.11-ca-jdk11.0.3-linux_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk10_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "b3c2d762091a615b0c1424ebbd05d75cc114da3bf4f25a0dec5c51ea7e84146f",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-linux_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk9_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "45f2dfbee93b91b1468cf81d843fc6d9a47fef1f831c0b7ceff4f1eb6e6851c8",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
     ],
 )
 

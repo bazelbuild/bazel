@@ -74,12 +74,12 @@ platforms:
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
   ubuntu1804_nojava:
     build_flags:
-    - "--javabase=@openjdk_linux_archive//:runtime"
+    - "--javabase=@openjdk11_linux_archive//:runtime"
     build_targets:
     - "//src:bazel"
     - "//src:bazel_jdk_minimal"
     test_flags:
-    - "--javabase=@openjdk_linux_archive//:runtime"
+    - "--javabase=@openjdk11_linux_archive//:runtime"
     - "--test_timeout=1200"
     test_targets:
     - "--"
