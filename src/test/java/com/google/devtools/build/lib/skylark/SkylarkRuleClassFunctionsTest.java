@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
@@ -1738,6 +1737,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
   }
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/8026): Remove API.
   @Test
   public void testTargetsCanAddExecutionPlatformConstraints() throws Exception {
     registerDummyUserDefinedFunction();
@@ -1748,8 +1748,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "  execution_platform_constraints_allowed=True,",
         ")");
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
-    assertThat(c.executionPlatformConstraintsAllowed())
-        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
   }
 
   @Test

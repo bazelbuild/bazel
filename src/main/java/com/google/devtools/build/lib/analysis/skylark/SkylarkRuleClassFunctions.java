@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -220,7 +219,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                             toolsRepository
                                 + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
         .add(attr(":run_under", LABEL).value(RUN_UNDER))
-        .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
         .build();
   }
 
@@ -278,6 +276,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
+      // TODO(https://github.com/bazelbuild/bazel/issues/8026): Remove this.
       Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
@@ -397,9 +396,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           collectConstraintLabels(
               execCompatibleWith.getContents(String.class, "exec_compatile_with"),
               ast.getLocation()));
-    }
-    if (executionPlatformConstraintsAllowed) {
-      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
     }
 
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());

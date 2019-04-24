@@ -276,6 +276,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             defaultValue = "[]",
             doc = PROVIDES_DOC),
+        // TODO(https://github.com/bazelbuild/bazel/issues/8026): Remove this.
         @Param(
             name = "execution_platform_constraints_allowed",
             type = Boolean.class,
