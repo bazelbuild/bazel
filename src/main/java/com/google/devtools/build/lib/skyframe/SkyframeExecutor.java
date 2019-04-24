@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -142,6 +143,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -328,6 +330,11 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
   @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
   private final MutableSupplier<BigInteger> nonceVersion = new MutableSupplier<>();
+
+  private final TrimmedConfigurationCache<SkyKey, Label, OptionsDiffForReconstruction>
+      trimmingCache = TrimmedConfigurationProgressReceiver.buildCache();
+  private final TrimmedConfigurationProgressReceiver trimmingListener =
+      new TrimmedConfigurationProgressReceiver(trimmingCache);
 
   /** An {@link ArtifactResolverSupplier} that supports setting of an {@link ArtifactFactory}. */
   public static class MutableArtifactFactorySupplier implements ArtifactResolverSupplier {
@@ -534,7 +541,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
             shouldUnblockCpuWorkWhenFetchingDeps,
             defaultBuildOptions,
             configuredTargetProgress,
-            nonceVersion));
+            nonceVersion,
+            trimmingCache));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -797,6 +805,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   public void resetEvaluator() {
     init();
     emittedEventState.clear();
+    clearTrimmingCache();
     skyframeBuildView.reset();
   }
 
@@ -817,8 +826,23 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   public void handleAnalysisInvalidatingChange() {
     logger.info("Dropping configured target data");
     analysisCacheDiscarded = true;
+    clearTrimmingCache();
     skyframeBuildView.clearInvalidatedConfiguredTargets();
     skyframeBuildView.clearLegacyData();
+  }
+
+  /** Activates retroactive trimming (idempotently, so has no effect if already active). */
+  void activateRetroactiveTrimming() {
+    trimmingListener.activate();
+  }
+
+  /** Deactivates retroactive trimming (idempotently, so has no effect if already inactive). */
+  void deactivateRetroactiveTrimming() {
+    trimmingListener.deactivate();
+  }
+
+  protected void clearTrimmingCache() {
+    trimmingCache.clear();
   }
 
   /** Used with dump --rules. */
@@ -2798,6 +2822,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
     /** This receiver is only needed for loading, so it is null otherwise. */
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
+      trimmingListener.invalidated(skyKey, state);
       if (ignoreInvalidations) {
         return;
       }
@@ -2806,6 +2831,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
     @Override
     public void enqueueing(SkyKey skyKey) {
+      trimmingListener.enqueueing(skyKey);
       if (ignoreInvalidations) {
         return;
       }
@@ -2821,6 +2847,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         @Nullable SkyValue value,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
+      trimmingListener.evaluated(skyKey, value, evaluationSuccessState, state);
       if (ignoreInvalidations) {
         return;
       }
