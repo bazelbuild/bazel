@@ -231,9 +231,9 @@ public interface QueryEnvironment<T> {
   /**
    * An asynchronous computation of part of a query evaluation.
    *
-   * <p>A {@link QueryTaskFuture} can only be produced from scratch via {@link #eval},
-   * {@link #executeAsync}, {@link #immediateSuccessfulFuture}, {@link #immediateFailedFuture}, and
-   * {@link #immediateCancelledFuture}.
+   * <p>A {@link QueryTaskFuture} can only be produced from scratch via {@link #eval}, {@link
+   * #execute}, {@link #immediateSuccessfulFuture}, {@link #immediateFailedFuture}, and {@link
+   * #immediateCancelledFuture}.
    *
    * <p>Combined with the helper methods like {@link #whenSucceedsCall} below, this is very similar
    * to Guava's {@link ListenableFuture}.
@@ -301,15 +301,31 @@ public interface QueryEnvironment<T> {
     T call() throws QueryException, InterruptedException;
   }
 
+  /** Like Guava's AsyncCallable, but for {@link QueryTaskFuture}. */
+  @ThreadSafe
+  public interface QueryTaskAsyncCallable<T> {
+    /**
+     * Returns a {@link QueryTaskFuture} whose completion encapsulates the result of the
+     * computation.
+     */
+    QueryTaskFuture<T> call();
+  }
+
   /**
    * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
    * performed asynchronously.
    *
-   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
-   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
-   * {@link QueryTaskFuture#getIfSuccessful} iff {@code callable#call} does not throw an exception.
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
+   * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful} iff
+   * {@code callable#call} does not throw an exception.
    */
-  <R> QueryTaskFuture<R> executeAsync(QueryTaskCallable<R> callable);
+  <R> QueryTaskFuture<R> execute(QueryTaskCallable<R> callable);
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing both the given {@code callable} being performed
+   * asynchronously and also the returned {@link QueryTaskFuture} returned therein being completed.
+   */
+  <R> QueryTaskFuture<R> executeAsync(QueryTaskAsyncCallable<R> callable);
 
   /**
    * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
@@ -362,9 +378,9 @@ public interface QueryEnvironment<T> {
    * The sole package-protected subclass of {@link QueryTaskFuture}.
    *
    * <p>Do not subclass this class; it's an implementation detail. {@link QueryExpression} and
-   * {@link QueryFunction} implementations should use {@link #eval} and {@link #executeAsync} to get
-   * access to {@link QueryTaskFuture} instances and the then use the helper methods like
-   * {@link #whenSucceedsCall} to transform them.
+   * {@link QueryFunction} implementations should use {@link #eval} and {@link #execute} to get
+   * access to {@link QueryTaskFuture} instances and the then use the helper methods like {@link
+   * #whenSucceedsCall} to transform them.
    */
   abstract class QueryTaskFutureImplBase<T> extends QueryTaskFuture<T> {
     protected QueryTaskFutureImplBase() {
@@ -534,7 +550,7 @@ public interface QueryEnvironment<T> {
      *
      * @throws IllegalArgumentException if target is not a rule (according to {@link #isRule})
      */
-    List<T> getLabelListAttr(
+    Iterable<T> getLabelListAttr(
         QueryExpression caller, T target, String attrName, String errorMsgPrefix)
         throws QueryException, InterruptedException;
 
