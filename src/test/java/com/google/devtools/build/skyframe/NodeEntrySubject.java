@@ -32,7 +32,7 @@ public class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
   }
 
   public DefaultSubject hasVersionThat() {
-    return assertThat(getSubject().getVersion()).named(detail("Version"));
+    return check("getVersion()").that(getSubject().getVersion()).named(detail("Version"));
   }
 
   public IterableSubject hasTemporaryDirectDepsThat() {
