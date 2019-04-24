@@ -1,0 +1,28 @@
+# Configuration to build and test Bazel itself on RBE.
+build:remote --host_javabase=@bazel_toolchains//configs/ubuntu16_04_clang/1.2:jdk8
+build:remote --javabase=@bazel_toolchains//configs/ubuntu16_04_clang/1.2:jdk8
+build:remote --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:remote --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:remote --crosstool_top=@bazel_toolchains//configs/ubuntu16_04_clang/1.2/bazel_0.24.0/default:toolchain
+
+build:remote --extra_toolchains=@bazel_toolchains//configs/ubuntu16_04_clang/1.2/bazel_0.24.0/cpp:cc-toolchain-clang-x86_64-default
+build:remote --extra_execution_platforms=//:rbe_ubuntu1604_default
+build:remote --extra_execution_platforms=//:rbe_ubuntu1604_highcpu
+build:remote --host_platform=//:rbe_ubuntu1604_default
+build:remote --platforms=//:rbe_ubuntu1604_default
+
+build:remote --spawn_strategy=remote
+build:remote --strategy=Javac=remote
+build:remote --strategy=Closure=remote
+build:remote --strategy=Genrule=remote
+build:remote --define=EXECUTOR=remote
+
+build:remote --remote_instance_name=projects/bazel-untrusted/instances/default_instance
+build:remote --remote_executor=remotebuildexecution.googleapis.com
+build:remote --remote_timeout=1200
+build:remote --tls_enabled
+build:remote --google_default_credentials
+
+build:remote --jobs=100
+build:remote --action_env=PATH=/bin:/usr/bin:/usr/local/bin
+build:remote --disk_cache=
