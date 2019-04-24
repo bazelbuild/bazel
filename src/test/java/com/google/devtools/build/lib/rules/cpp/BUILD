@@ -24,6 +24,7 @@ java_test(
         "//tools/cpp:cc_toolchain_config_lib.bzl",
         "//tools/cpp:lib_cc_configure",
     ],
+    shard_count = 5,
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
