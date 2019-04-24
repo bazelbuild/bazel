@@ -643,14 +643,14 @@ JAVA_VERSIONS = ("9", "10")
 ]
 
 genrule(
-    name = "create_java_tools_build_and_workspace",
+    name = "create_java_tools_build",
     srcs = ["//tools/jdk:BUILD.java_tools"],
     outs = ["remote_java_tools/BUILD"],
     cmd = "cp $< $@",
 )
 
 genrule(
-    name = "java_tools_build_and_workspace_files",
+    name = "java_tools_build_zip",
     srcs = ["remote_java_tools/BUILD"],
     outs = ["java_tools_build_workspace.zip"],
     cmd = "zip -jX $@ $<"
