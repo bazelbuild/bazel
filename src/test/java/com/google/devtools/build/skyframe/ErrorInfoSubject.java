@@ -19,7 +19,6 @@ import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 import com.google.common.truth.ThrowableSubject;
-import com.google.common.truth.Truth;
 
 /**
  * {@link Subject} for {@link ErrorInfo}. Please add to this class if you need more
@@ -31,12 +30,16 @@ public class ErrorInfoSubject extends Subject<ErrorInfoSubject, ErrorInfo> {
   }
 
   public ThrowableSubject hasExceptionThat() {
-    return Truth.assertThat(getSubject().getException()).named("Exception in " + actualAsString());
+    return check("getException()")
+        .that(getSubject().getException())
+        .named("Exception in " + actualAsString());
   }
 
   public IterableSubject hasCycleInfoThat() {
     isNotNull();
-    return Truth.assertThat(getSubject().getCycleInfo()).named("CycleInfo in " + actualAsString());
+    return check("getCycleInfo()")
+        .that(getSubject().getCycleInfo())
+        .named("CycleInfo in " + actualAsString());
   }
 
   public void rootCauseOfExceptionIs(SkyKey key) {
