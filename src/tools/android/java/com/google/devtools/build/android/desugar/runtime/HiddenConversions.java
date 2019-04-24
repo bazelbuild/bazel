@@ -15,7 +15,6 @@ package com.google.devtools.build.android.desugar.runtime;
 
 import android.app.PendingIntent;
 import android.app.usage.UsageStatsManager;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Conversions for hidden Android APIs that use desugared primitives (see b/79121791). These are
@@ -62,25 +61,6 @@ public final class HiddenConversions {
         observedEntities,
         toDuration(timeLimit),
         toDuration(sessionThresholdTime),
-        limitReachedCallbackIntent,
-        sessionEndCallbackIntent);
-  }
-
-  public static void registerUsageSessionObserver(
-      UsageStatsManager receiver,
-      int sessionObserverId,
-      String[] observedEntities,
-      long timeLimit,
-      TimeUnit timeLimitUnit,
-      long sessionThreshold,
-      TimeUnit sessionThresholdUnit,
-      PendingIntent limitReachedCallbackIntent,
-      PendingIntent sessionEndCallbackIntent) {
-    receiver.registerUsageSessionObserver(
-        sessionObserverId,
-        observedEntities,
-        java.time.Duration.ofMillis(timeLimitUnit.toMillis(timeLimit)),
-        java.time.Duration.ofMillis(sessionThresholdUnit.toMillis(sessionThreshold)),
         limitReachedCallbackIntent,
         sessionEndCallbackIntent);
   }
