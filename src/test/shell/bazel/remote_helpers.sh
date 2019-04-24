@@ -16,19 +16,6 @@
 
 set -eu
 
-case "${PLATFORM}" in
-  darwin|freebsd)
-    function nc_l() {
-      nc -l $1
-    }
-    ;;
-  *)
-    function nc_l() {
-      nc -l -p $1 -q 1
-    }
-    ;;
-esac
-
 # Serves $1 as a file on localhost:$nc_port.  Sets the following variables:
 #   * nc_port - the port nc is listening on.
 #   * nc_log - the path to nc's log.
