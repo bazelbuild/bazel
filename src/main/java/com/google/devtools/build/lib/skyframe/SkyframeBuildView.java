@@ -305,6 +305,12 @@ public final class SkyframeBuildView {
         skyframeExecutor.handleAnalysisInvalidatingChange();
       }
     }
+    if (configurations.getTargetConfigurations().stream()
+        .anyMatch(BuildConfiguration::trimConfigurationsRetroactively)) {
+      skyframeExecutor.activateRetroactiveTrimming();
+    } else {
+      skyframeExecutor.deactivateRetroactiveTrimming();
+    }
     skyframeAnalysisWasDiscarded = false;
     this.configurations = configurations;
     setTopLevelHostConfiguration(configurations.getHostConfiguration());
