@@ -286,9 +286,7 @@ public class DigestUtils {
     // Profiling showed that MD5 engine instantiation was a hotspot, so create one instance for
     // this computation to amortize its cost.
     Fingerprint fp = new Fingerprint();
-    for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
-      xorWith(result, getDigest(fp, entry.getKey(), entry.getValue()));
-    }
+    mdMap.forEach((key, value) -> xorWith(result, getDigest(fp, key, value)));
     return new Md5Digest(result);
   }
 

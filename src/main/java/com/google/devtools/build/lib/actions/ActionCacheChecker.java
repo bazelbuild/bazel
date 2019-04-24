@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -146,11 +145,13 @@ public class ActionCacheChecker {
       Iterable<Artifact> actionInputs,
       MetadataHandler metadataHandler,
       boolean checkOutput) {
-    Iterable<Artifact> artifacts = checkOutput
-        ? Iterables.concat(action.getOutputs(), actionInputs)
-        : actionInputs;
     Map<String, FileArtifactValue> mdMap = new HashMap<>();
-    for (Artifact artifact : artifacts) {
+    if (checkOutput) {
+      for (Artifact artifact : action.getOutputs()) {
+        mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
+      }
+    }
+    for (Artifact artifact : actionInputs) {
       mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
     }
     return !DigestUtils.fromMetadata(mdMap).equals(entry.getFileDigest());
