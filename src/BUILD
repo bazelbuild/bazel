@@ -652,7 +652,7 @@ genrule(
 genrule(
     name = "java_tools_build_zip",
     srcs = ["remote_java_tools/BUILD"],
-    outs = ["java_tools_build_workspace.zip"],
+    outs = ["java_tools_build.zip"],
     cmd = "zip -jX $@ $<"
 )
 
@@ -663,7 +663,7 @@ genrule(
         name = "java_tools_java" + java_version + "_no_build_zip",
         srcs = [
             ":jars_java_tools_java" + java_version + ".zip",
-            ":java_tools_build_workspace.zip",
+            ":java_tools_build.zip",
             "//src/tools/singlejar:singlejar_transitive_zip",
             "//third_party/ijar:ijar_transitive_zip",
         ],
@@ -681,7 +681,7 @@ genrule(
         name = "java_tools_java" + java_version + "_zip",
         srcs = [
             "java_tools_java" + java_version + "_no_build.zip",
-            "java_tools_build_workspace.zip",
+            "java_tools_build.zip",
         ],
         outs = ["java_tools_java" + java_version + ".zip"],
         cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
