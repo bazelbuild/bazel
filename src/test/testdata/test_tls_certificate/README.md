@@ -1,8 +1,8 @@
 # TLS self-signed certificates for integration tests.
 
-**Valid until**: Jun 16 13:48:30 2999 GMT
+**Valid until**: Jun 25 11:43:59 2999 GMT
 
-**Generate on**: Apr 15 13:48:30 2019 GMT
+**Generate on**: Apr 24 11:43:59 2019 GMT
 
 **Generated with the script from**: https://github.com/grpc/grpc-java/tree/master/examples/example-tls
 
@@ -17,7 +17,7 @@ echo Generate CA key:
 openssl genrsa -passout pass:1111 -des3 -out ca.key 4096
 echo Generate CA certificate:
 # Generates ca.crt which is the trustCertCollectionFile
-openssl req -passin pass:1111 -new -x509 -days 365 -key ca.key -out ca.crt -subj "/CN=${SERVER_CN}"
+openssl req -passin pass:1111 -new -x509 -days 358000 -key ca.key -out ca.crt -subj "/CN=${SERVER_CN}"
 echo Generate server key:
 openssl genrsa -passout pass:1111 -des3 -out server.key 4096
 echo Generate server signing request:
