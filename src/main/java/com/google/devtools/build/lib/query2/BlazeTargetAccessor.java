@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.syntax.Type;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -63,12 +63,11 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public List<Target> getLabelListAttr(
+  public Iterable<Target> getLabelListAttr(
       QueryExpression caller, Target target, String attrName, String errorMsgPrefix)
       throws QueryException, InterruptedException {
     Preconditions.checkArgument(target instanceof Rule);
 
-    List<Target> result = new ArrayList<>();
     Rule rule = (Rule) target;
 
     AggregatingAttributeMapper attrMap = AggregatingAttributeMapper.of(rule);
@@ -78,15 +77,26 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
       return ImmutableList.of();
     }
 
-    for (Label label : attrMap.getReachableLabels(attrName, false)) {
-      try {
-        result.add(queryEnvironment.getTarget(label));
-      } catch (TargetNotFoundException e) {
-        queryEnvironment.reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
+    Set<Label> labels = attrMap.getReachableLabels(attrName, false);
+    // TODO(nharmata): Figure out how to make use of the package semaphore in the transitive
+    // callsites of this method.
+    Map<Label, Target> labelTargetMap = queryEnvironment.getTargets(labels);
+    // Optimize for the common-case of no missing targets.
+    if (labelTargetMap.size() != labels.size()) {
+      for (Label label : labels) {
+        if (!labelTargetMap.containsKey(label)) {
+          // If a target was missing, fetch it directly for the sole purpose of getting a useful
+          // error message.
+          try {
+            queryEnvironment.getTarget(label);
+          } catch (TargetNotFoundException e) {
+            queryEnvironment.reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
+          }
+        }
       }
-    }
 
-    return result;
+    }
+    return labelTargetMap.values();
   }
 
   @Override

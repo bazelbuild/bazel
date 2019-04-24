@@ -319,7 +319,7 @@ public abstract class ParallelVisitor<T, V> {
     public void process(Iterable<Target> partialResult)
         throws QueryException, InterruptedException {
       ParallelVisitor<?, ?> visitor = visitorFactory.create();
-      // TODO(nharmata): It's not ideal to have an operation like this in #process that blocks on
+      // TODO(b/131109214): It's not ideal to have an operation like this in #process that blocks on
       // another, potentially expensive computation. Refactor to something like "processAsync".
       visitor.visitAndWaitForCompletion(
           SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(partialResult));
