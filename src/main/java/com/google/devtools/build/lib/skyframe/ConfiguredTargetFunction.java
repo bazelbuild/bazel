@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -72,6 +73,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -150,6 +152,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
+  private final TrimmedConfigurationCache<SkyKey, Label, OptionsDiffForReconstruction>
+      configuredTargetCache;
+
   ConfiguredTargetFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
@@ -158,7 +163,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       BuildOptions defaultBuildOptions,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
-      Supplier<BigInteger> nonceVersion) {
+      Supplier<BigInteger> nonceVersion,
+      TrimmedConfigurationCache<SkyKey, Label, OptionsDiffForReconstruction>
+          configuredTargetCache) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -168,6 +175,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.defaultBuildOptions = defaultBuildOptions;
     this.configuredTargetProgress = configuredTargetProgress;
     this.nonceVersion = nonceVersion;
+    this.configuredTargetCache = configuredTargetCache;
   }
 
   private void acquireWithLogging(SkyKey key) throws InterruptedException {
