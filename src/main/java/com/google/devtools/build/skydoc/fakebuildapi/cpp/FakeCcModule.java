@@ -206,6 +206,7 @@ public class FakeCcModule
       SkylarkList<FileApi> nonCodeInputs,
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
+      Object grepIncludes,
       Location location,
       Environment environment,
       StarlarkContext starlarkContext)
