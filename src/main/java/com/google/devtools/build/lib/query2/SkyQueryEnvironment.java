@@ -661,7 +661,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @ThreadSafe
   @Override
   public NonExceptionalUniquifier<Target> createUniquifier() {
-    return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE);
+    return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE, queryEvaluationParallelismLevel);
   }
 
   @ThreadSafe
@@ -679,7 +679,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @ThreadSafe
   public Uniquifier<SkyKey> createSkyKeyUniquifier() {
-    return new UniquifierImpl<>(SkyKeyKeyExtractor.INSTANCE);
+    return new UniquifierImpl<>(SkyKeyKeyExtractor.INSTANCE, queryEvaluationParallelismLevel);
   }
 
   private ImmutableSet<PathFragment> getBlacklistedExcludes(TargetPatternKey targetPatternKey)
@@ -819,6 +819,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   private Target getLoadTarget(Label label, Package pkg) {
     return new FakeLoadTarget(label, pkg);
+  }
+
+  int getQueryEvaluationParallelismLevel() {
+    return queryEvaluationParallelismLevel;
   }
 
   @ThreadSafe
