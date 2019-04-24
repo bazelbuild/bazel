@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Utilites related to C++ support. */
@@ -852,4 +853,128 @@ public interface CcModuleApi<
       Object builtinSysroot,
       Object ccTargetOs)
       throws EvalException;
+
+  @SkylarkCallable(
+      name = "create_linking_context_from_compilation_outputs",
+      doc =
+          "Should be used for creating library rules that can propagate information downstream in"
+              + " order to be linked later by a top level rule that does transitive linking to"
+              + " create an executable or dynamic library.",
+      useLocation = true,
+      useEnvironment = true,
+      useContext = true,
+      parameters = {
+        @Param(
+            name = "actions",
+            type = SkylarkActionFactoryApi.class,
+            positional = false,
+            named = true,
+            doc = "<code>actions</code> object."),
+        @Param(
+            name = "feature_configuration",
+            doc = "<code>feature_configuration</code> to be queried.",
+            positional = false,
+            named = true,
+            type = FeatureConfigurationApi.class),
+        @Param(
+            name = "cc_toolchain",
+            doc = "<code>CcToolchainInfo</code> provider to be used.",
+            positional = false,
+            named = true,
+            type = CcToolchainProviderApi.class),
+        @Param(
+            name = "compilation_outputs",
+            doc = "Compilation outputs containing object files to link.",
+            positional = false,
+            named = true,
+            type = CcCompilationOutputsApi.class),
+        @Param(
+            name = "user_link_flags",
+            doc = "Additional list of linking options.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            noneable = true,
+            type = SkylarkList.class),
+        @Param(
+            name = "linking_contexts",
+            doc =
+                "Libraries from dependencies. These libraries will be linked into the output "
+                    + "artifact of the link() call, be it a binary or a library.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "name",
+            doc =
+                "This is used for naming the output artifacts of actions created by this "
+                    + "method.",
+            positional = false,
+            named = true,
+            type = String.class),
+        @Param(
+            name = "language",
+            doc = "Can be one of c++, objc or objc++.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "'c++'",
+            type = String.class),
+        @Param(
+            name = "alwayslink",
+            doc = "Whether this library should always be linked.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "False",
+            type = Boolean.class),
+        @Param(
+            name = "additional_inputs",
+            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "disallow_static_libraries",
+            doc = "Whether static libraries should be created.",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            type = Boolean.class),
+        @Param(
+            name = "disallow_dynamic_library",
+            doc = "Whether a dynamic library should be created.",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            type = Boolean.class),
+        @Param(
+            name = "grep_includes",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
+      })
+  Tuple<Object> createLinkingContextFromCompilationOutputs(
+      SkylarkActionFactoryT skylarkActionFactoryApi,
+      FeatureConfigurationT skylarkFeatureConfiguration,
+      CcToolchainProviderT skylarkCcToolchainProvider,
+      CompilationOutputsT compilationOutputs,
+      SkylarkList<String> userLinkFlags,
+      SkylarkList<LinkingContextT> linkingContexts,
+      String name,
+      String language,
+      boolean alwayslink,
+      SkylarkList<FileT> additionalInputs,
+      boolean disallowStaticLibraries,
+      boolean disallowDynamicLibraries,
+      Object grepIncludes,
+      Location location,
+      Environment environment,
+      StarlarkContext bazelStarlarkContext)
+      throws InterruptedException, EvalException;
 }
