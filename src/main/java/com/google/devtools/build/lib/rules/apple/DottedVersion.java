@@ -145,10 +145,13 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
 
     int numOriginalComponents = components.size();
 
-    // Remove trailing (but not the first) zero components for easier comparison and hashcoding.
+    // Remove trailing (but not the first or middle) zero components for easier comparison and
+    // hashcoding.
     for (int i = components.size() - 1; i > 0; i--) {
       if (components.get(i).equals(ZERO_COMPONENT)) {
         components.remove(i);
+      } else {
+        break;
       }
     }
 
