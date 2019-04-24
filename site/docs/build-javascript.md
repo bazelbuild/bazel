@@ -6,7 +6,9 @@ title: Building JavaScript Outputs
 # Building JavaScript Outputs
 
 Bazel supports an incremental and customizable means of building and testing
-JavaScript outputs from JavaScript, TypeScript, and Angular sources.
+JavaScript outputs from JavaScript and TypeScript sources.
+
+It can also support build steps needed for frameworks like Angular.
 
 **Note:** This document describes Bazel features and workflows that are useful,
 but the Bazel team has not fully verified and does not officially support
@@ -19,7 +21,7 @@ these features and workflows.
    *  [Step 1: Installing Bazel](#step-1-installing-bazel)
    *  [Step 2: Installing iBazel](#step-2-installing-ibazel)
    *  [Step 3: Configuring the `bazel.rc` file](#step-3-configuring-the-bazel-rc-file)
-   *  [Step 4: (Optional) Setting up Continuous Integration (CI)](#step-4-optional-setting-up-continuous-integration-ci)
+   *  [Step 4: Setup linting (optional)](#step-4-linting)
 *  [Building JavaScript inputs](#building-javascript)
 *  [Building TypeScript inputs](#building-typescript)
    *  [Compiling TypeScript inputs (`ts_library`)](#compiling-typescript-inputs-ts_library)
@@ -32,7 +34,7 @@ these features and workflows.
 Bazel rules for building JavaScript outputs are split into three layers, since
 you can use JavaScript without TypeScript, and TypeScript without Angular.
 This document assumes you are already familiar with Bazel and uses the
-[Angular for Bazel sample project](https://github.com/alexeagle/angular-bazel-example)
+[Angular for Bazel sample project](https://github.com/angular/angular-bazel-example)
 to illustrate the recommended configuration. You can use the sample project as a
 starting point and add your own code to it to start building with Bazel.
 
@@ -46,7 +48,9 @@ following:
 
 ### Step 1: Installing Bazel
 
-If you have not already done so, [Install Bazel](install.html).
+You can either [Install Bazel](install.html) following the same steps that you
+would for backend development, or you can install NodeJS with npm and run
+`npm install -g @bazel/bazel`.
 
 ### Step 2: Installing iBazel
 
@@ -101,21 +105,11 @@ template as needed.
 # Directory structure         #
 ###############################
 
-# Globally cache downloaded artifacts.
-build --experimental_repository_cache=~/.bazel_cache/
-test --experimental_repository_cache=~/.bazel_cache/
-run --experimental_repository_cache=~/.bazel_cache/
-
-# Don't create bazel-* symlinks in the WORKSPACE directory. These
-# symlinks require .gitignore and may scare users. Instead, run
-# `bazel info bazel-bin` to find out where the outputs are stored.
-build --symlink_prefix=/
-
-# Another good choice is to create a dist/ directory. Then you can
-# use build --symlink_prefix=dist/ to get folders like dist/bin.
+# Artifacts are typically placed in a directory called "dist"
 # Be aware that this setup will still create a bazel-out symlink in
-# your project directory, which you may need to exclude from the
+# your project directory, which you must exclude from version control and your
 # editor's search path.
+build --symlink_prefix=dist/
 
 ###############################
 # Output                      #
@@ -127,7 +121,6 @@ query --output=label_kind
 
 # By default, failing tests don't print any output, it's logged to a
 # file instead.
-
 test --test_output=errors
 
 # Show which actions are running under which workers and print all
@@ -148,20 +141,35 @@ build --strategy=TypeScriptCompile=worker --strategy=AngularTemplateCompile=work
 test:debug --test_arg=--node_options=--inspect-brk --test_output=streamed --test_strategy=exclusive --test_timeout=9999 --nocache_test_results
 ```
 
-### Step 4: (Optional) Setting up Continuous Integration (CI)
+### Step 4: Linting
 
-For building JavaScript outputs with Bazel in a CI setting, it's useful to use a
-container as the environment. The [ngcontainer Docker image](https://hub.docker.com/r/angular/ngcontainer/)
-is a ready-to-use environment you can use that makes your builds reproducible in
-other environments, such as your local machine. This reproducibility is
-especially convenient on CircleCI, which lets you choose a Docker image as the
-environment for your build. See the example [CircleCI configuration](https://github.com/alexeagle/angular-bazel-example/blob/master/.circleci/config.yml)
-in the sample project to learn more.
+Add the `buildifier` dependency to your project:
 
-**Tip:** When building in a CI environment, add settings to your `bazel.rc` file
-that are specific to CI using the `build:ci` and or `test:ci` prefixes. With
-this configuration, you can enable those CI-specific options by simply adding
-the `--config=ci` argument to your Bazel/iBazel commands.
+```sh
+npm install --save-dev @bazel/buildifier
+```
+
+or if you prefer Yarn,
+
+```sh
+yarn add -D @bazel/buildifier
+```
+
+then add scripts to your `package.json` that run Buildifier.
+We've selected a set of enabled warnings here, you could add and remove from
+this list.
+
+```json
+"scripts": {
+        "bazel:format": "find . -type f \\( -name \"*.bzl\" -or -name WORKSPACE -or -name BUILD -or -name BUILD.bazel \\) ! -path \"*/node_modules/*\" | xargs buildifier -v --warnings=attr-cfg,attr-license,attr-non-empty,attr-output-default,attr-single-file,constant-glob,ctx-actions,ctx-args,depset-iteration,depset-union,dict-concatenation,duplicated-name,filetype,git-repository,http-archive,integer-division,load,load-on-top,native-build,native-package,out-of-order-load,output-group,package-name,package-on-top,positional-args,redefined-variable,repository-name,same-origin-load,string-iteration,unsorted-dict-items,unused-variable",
+        "bazel:lint": "yarn bazel:format --lint=warn",
+        "bazel:lint-fix": "yarn bazel:format --lint=fix"
+}
+```
+
+> The Bazel team is aware that this configuration is not ergonomic. Follow https://github.com/bazelbuild/buildtools/issues/479
+
+> Also the Buildifier tool is not available on Windows. Follow https://github.com/bazelbuild/buildtools/issues/375
 
 ## Building JavaScript
 
@@ -170,41 +178,11 @@ rules to build NodeJS applications and execute JavaScript code within Bazel. You
 can execute JavaScript tools in the Bazel toolchain, binary programs, or tests.
 The NodeJS rules add the NodeJS runtime to your Bazel project.
 
-Most notable NodeJS rules include:
-
-*   `nodejs_binary` - builds an executable program based on JavaScript source
-    files and an entry point path relative to the output root. To provide extra
-    inputs to be read at runtime, put them in the data attribute.
-
-*   `jasmine_node_test` - runs JavaScript spec files through the Jasmine test
-    framework. See the [node_js API documentation](https://bazelbuild.github.io/rules_nodejs/)
-    for more information.
+See the documentation on that site for setup steps and to configure targets.
 
 ## Building TypeScript
 
-Use the [`rules_typescript`](https://github.com/bazelbuild/rules_typescript)
-rules to build JavaScript outputs from TypeScript inputs.
-
-To set up your Bazel project for building TypeScript inputs, do the following:
-
-1.  Make Bazel aware of the TypeScript build rules by adding the following entry
-    to your `WORKSPACE` file:
-
-    ```
-    http_archive(
-        name = "build_bazel_rules_typescript",
-        url = "https://github.com/bazelbuild/rules_typescript/archive/v0.13.0.zip",
-        strip_prefix = "rules_typescript-0.13.0",
-    )
-
-    load("@build_bazel_rules_typescript//:defs.bzl", "ts_setup_workspace")
-
-    ts_setup_workspace()
-
-    ```
-
-2.  Add the `--strategy` settings to your `bazel.rc` file as shown in the
-    example `.bazel.rc` file in ["Configuring the bazel.rc file"](#step-3-configuring-the-bazel-rc-file).
+See the https://www.npmjs.com/package/@bazel/typescript package.
 
 
 ### Compiling TypeScript inputs (`ts_library`)
