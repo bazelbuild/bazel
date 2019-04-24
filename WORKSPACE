@@ -277,13 +277,13 @@ http_file(
 )
 
 http_archive(
-  name = "bazel_toolchains",
-  sha256 = "67335b3563d9b67dc2550b8f27cc689b64fadac491e69ce78763d9ba894cc5cc",
-  strip_prefix = "bazel-toolchains-cddc376d428ada2927ad359211c3e356bd9c9fbb",
-  urls = [
-    "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/cddc376d428ada2927ad359211c3e356bd9c9fbb.tar.gz",
-    "https://github.com/bazelbuild/bazel-toolchains/archive/cddc376d428ada2927ad359211c3e356bd9c9fbb.tar.gz",
-  ],
+    name = "bazel_toolchains",
+    sha256 = "67335b3563d9b67dc2550b8f27cc689b64fadac491e69ce78763d9ba894cc5cc",
+    strip_prefix = "bazel-toolchains-cddc376d428ada2927ad359211c3e356bd9c9fbb",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/cddc376d428ada2927ad359211c3e356bd9c9fbb.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/cddc376d428ada2927ad359211c3e356bd9c9fbb.tar.gz",
+    ],
 )
 
 # Creates toolchain configuration for remote execution with BuildKite CI
@@ -434,6 +434,7 @@ http_archive(
 )
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
 git_repository(
     name = "java_tools_langtools_javac9",
     branch = "langtools_javac9",
@@ -462,4 +463,4 @@ load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 
 sass_repositories()
 
-register_execution_platforms("//:default_host_platform"); # buildozer: disable=positional-args
+register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
