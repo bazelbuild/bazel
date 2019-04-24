@@ -2,6 +2,60 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
+java_toolchain(
+    name = "toolchain",
+    source_version = "8",
+    target_version = "8",
+    forcibly_disable_header_compilation = 0,
+    genclass = [":Genclass"],
+    header_compiler = [":turbine"],
+    header_compiler_direct = [":turbine_direct"],
+    ijar = [":ijar"],
+    javabuilder = [":javabuilder"],
+    javac = [":javac_jar"],
+    tools = [
+        ":java_compiler_jar",
+        ":jdk_compiler_jar",
+    ],
+    javac_supports_workers = 1,
+    jvm_opts = [
+       # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+       # G1 collector and having compact strings enabled.
+       "-XX:+UseParallelOldGC",
+       "-XX:-CompactStrings",
+       # Allow JavaBuilder to access internal javac APIs.
+       "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+       "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+       "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+       "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+       "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+       "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+       "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+       "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+
+       # override the javac in the JDK.
+       "--patch-module=java.compiler=$(location :java_compiler_jar)",
+       "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
+
+       # quiet warnings from com.google.protobuf.UnsafeUtil,
+       # see: https://github.com/google/protobuf/issues/3781
+       # and: https://github.com/bazelbuild/bazel/issues/5599
+       "--add-opens=java.base/java.nio=ALL-UNNAMED",
+       "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    ],
+    misc = [
+       "-XDskipDuplicateBridges=true",
+       "-g",
+       "-parameters",
+   ],
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+       "proto": ["-source", "7", "-target", "7"],
+    },
+    singlejar = [":singlejar"],
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
+)
+
 filegroup(
     name = "ExperimentalRunner",
     srcs = ["java_tools/ExperimentalRunner_deploy.jar"],
