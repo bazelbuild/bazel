@@ -21,7 +21,7 @@ filegroup(
         "//src:srcs",
         "//tools:srcs",
         "//third_party:srcs",
-    ] + glob([".bazelci/*"]),
+        ] + glob([".bazelci/*"]) + [".bazelrc"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
