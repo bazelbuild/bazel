@@ -22,7 +22,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-cert_path="${BAZEL_RUNFILES}/third_party/test_tls_certificate"
+cert_path="${BAZEL_RUNFILES}/src/test/testdata/test_tls_certificate"
 
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")

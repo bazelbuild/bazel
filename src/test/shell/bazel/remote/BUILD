@@ -46,6 +46,6 @@ sh_test(
     data = [
         "//src/test/shell/bazel:test-deps",
         "//src/tools/remote:worker",
-        "//third_party/test_tls_certificate",
+        "//src/test/testdata/test_tls_certificate",
     ],
 )

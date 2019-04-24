@@ -35,7 +35,6 @@ filegroup(
         "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
-        "//third_party/test_tls_certificate",
         "//third_party/zlib:srcs",
         "//third_party/nanopb:srcs",
         "//third_party/def_parser:srcs",
