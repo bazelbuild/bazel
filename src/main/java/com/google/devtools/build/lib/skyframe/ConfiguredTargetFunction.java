@@ -608,6 +608,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .collect(Collectors.toList());
     if (configLabels.isEmpty()) {
       return NO_CONFIG_CONDITIONS;
+    } else if (ctgValue.getConfiguration().trimConfigurationsRetroactively()) {
+      String message =
+          target.getLabel()
+              + " has configurable attributes, but these are not supported in retroactive trimming "
+              + "mode.";
+      env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(target), message));
+      throw new DependencyEvaluationException(
+          new ConfiguredValueCreationException(
+              message, ctgValue.getLabel(), ctgValue.getConfiguration()));
     }
 
     // Collect the actual deps without a configuration transition (since by definition config
