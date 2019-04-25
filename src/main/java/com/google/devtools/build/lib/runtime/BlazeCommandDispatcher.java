@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -382,18 +381,7 @@ public class BlazeCommandDispatcher {
                   .getOptions(BlazeServerStartupOptions.class)
                   .oomMoreEagerlyThreshold;
         }
-        if (oomMoreEagerlyThreshold < 0 || oomMoreEagerlyThreshold > 100) {
-          reporter.handle(Event.error("--oom_more_eagerly_threshold must be non-negative percent"));
-          return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-        }
-        if (oomMoreEagerlyThreshold != 100) {
-          try {
-            RetainedHeapLimiter.maybeInstallRetainedHeapLimiter(oomMoreEagerlyThreshold);
-          } catch (OptionsParsingException e) {
-            reporter.handle(Event.error(e.getMessage()));
-            return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-          }
-        }
+        runtime.getRetainedHeapLimiter().updateThreshold(oomMoreEagerlyThreshold);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
