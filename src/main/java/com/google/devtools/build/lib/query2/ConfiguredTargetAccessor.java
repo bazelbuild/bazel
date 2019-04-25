@@ -19,9 +19,12 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,11 +38,15 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * A {@link TargetAccessor} for {@link ConfiguredTarget} objects.
@@ -180,5 +187,41 @@ class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
       throw new IllegalStateException("Thread interrupted in the middle of getting a Target.", e2);
     }
     return target;
+  }
+
+  @Nullable
+  public ToolchainContext getToolchainContext(Target target, BuildConfiguration config) {
+    return getToolchainContext(target, config, walkableGraph);
+  }
+
+  @Nullable
+  public static ToolchainContext getToolchainContext(
+      Target target, BuildConfiguration config, WalkableGraph walkableGraph) {
+    if (!(target instanceof Rule)) {
+      return null;
+    }
+
+    Rule rule = ((Rule) target);
+    if (!rule.getRuleClassObject().supportsPlatforms()) {
+      return null;
+    }
+
+    ImmutableSet<Label> requiredToolchains = rule.getRuleClassObject().getRequiredToolchains();
+
+    // Collect local (target, rule) constraints for filtering out execution platforms.
+    ImmutableSet<Label> execConstraintLabels =
+        ConfiguredTargetFunction.getExecutionPlatformConstraints(rule);
+    try {
+      return (UnloadedToolchainContext)
+          walkableGraph.getValue(
+              UnloadedToolchainContext.key()
+                  .configurationKey(BuildConfigurationValue.key(config))
+                  .requiredToolchainTypeLabels(requiredToolchains)
+                  .execConstraintLabels(execConstraintLabels)
+                  .build());
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(
+          "Thread interrupted in the middle of getting a ToolchainContext.", e);
+    }
   }
 }
