@@ -279,7 +279,10 @@ java_plugin(
 
 java_import(
     name = "auto_service_lib",
-    jars = ["auto/auto-service-1.0-rc4.jar"],
+    jars = [
+        "auto/auto-service-1.0-rc5.jar",
+        "auto/auto-service-annotations-1.0-rc5.jar"
+    ],
 )
 
 java_plugin(
@@ -312,8 +315,8 @@ java_library(
 java_import(
     name = "auto_value_value",
     jars = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.6.5.jar",
+        "auto/auto-value-annotations-1.6.5.jar",
     ],
 )
 
@@ -321,8 +324,8 @@ java_import(
 filegroup(
     name = "auto_value-jars",
     srcs = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.6.5.jar",
+        "auto/auto-value-annotations-1.6.5.jar",
     ],
 )
 
@@ -406,7 +409,8 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "guava/guava-25.1-jre.jar",
+        "guava/failureaccess-1.0.1.jar",
+        "guava/guava-27.1-jre.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
     ],
@@ -414,7 +418,10 @@ filegroup(
 
 java_import(
     name = "guava",
-    jars = ["guava/guava-25.1-jre.jar"],
+    jars = [
+        "guava/failureaccess-1.0.1.jar",
+        "guava/guava-27.1-jre.jar"
+    ],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
@@ -425,18 +432,18 @@ java_import(
 java_import(
     name = "flogger",
     jars = [
-        "flogger/flogger-0.3.1.jar",
-        "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar",
+        "flogger/flogger-0.4.jar",
+        "flogger/flogger-system-backend-0.4.jar",
+        "flogger/google-extensions-0.4.jar",
     ],
 )
 
 filegroup(
     name = "flogger-jars",
     srcs = [
-        "flogger/flogger-0.3.1.jar",
-        "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar",
+        "flogger/flogger-0.4.jar",
+        "flogger/flogger-system-backend-0.4.jar",
+        "flogger/google-extensions-0.4.jar",
     ],
 )
 
@@ -458,7 +465,9 @@ java_import(
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-25.1-jre.jar"],
+    srcs = [
+        "guava/guava-27.1-jre.jar",
+    ],
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -564,7 +573,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-25.1-jre.jar"],
+    jars = ["guava/guava-testlib-27.1-jre.jar"],
 )
 
 java_import(
@@ -601,7 +610,7 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.42.jar"],
+    jars = ["truth/truth-0.44.jar"],
     runtime_deps = [
         ":diffutils",
     ],
@@ -609,7 +618,7 @@ java_import(
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-0.42.jar"],
+    jars = ["truth8/truth-java8-extension-0.44.jar"],
 )
 
 java_import(
