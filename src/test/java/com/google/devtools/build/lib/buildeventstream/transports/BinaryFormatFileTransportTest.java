@@ -159,7 +159,6 @@ public class BinaryFormatFileTransportTest {
         .hasMessageThat()
         .contains("Unable to write all BEP events to file due to 'Task was cancelled.'");
 
-    assertThat(transport.writer.pendingWrites).isEmpty();
     try (InputStream in = new FileInputStream(output)) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isNull();
       assertThat(in.available()).isEqualTo(0);
@@ -185,9 +184,7 @@ public class BinaryFormatFileTransportTest {
             new LocalFilesArtifactUploader(),
             artifactGroupNamer);
 
-    // Close the stream.
-    transport.writer.out.close();
-    assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
+    transport.close().get();
 
     // This should not throw an exception.
     transport.sendBuildEvent(buildEvent);
@@ -223,8 +220,6 @@ public class BinaryFormatFileTransportTest {
     closeFuture.get();
     // This should not throw an exception, but also not perform any write.
     transport.sendBuildEvent(buildEvent);
-
-    assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
 
     // There should have only been one write.
     try (InputStream in = new FileInputStream(output)) {
@@ -268,8 +263,6 @@ public class BinaryFormatFileTransportTest {
     transport.sendBuildEvent(event2);
     transport.close().get();
 
-    assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
-
     try (InputStream in = new FileInputStream(output)) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
           .isEqualTo(event1.asStreamProto(null));
@@ -309,7 +302,6 @@ public class BinaryFormatFileTransportTest {
     transport.sendBuildEvent(event1);
     transport.close().get();
 
-    assertThat(transport.writer.pendingWrites).isEmpty();
     try (InputStream in = new FileInputStream(output)) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
           .isEqualTo(event1.asStreamProto(null));

@@ -59,7 +59,7 @@ abstract class FileTransport implements BuildEventTransport {
 
   private final BuildEventProtocolOptions options;
   private final BuildEventArtifactUploader uploader;
-  @VisibleForTesting final SequentialWriter writer;
+  private final SequentialWriter writer;
   private final ArtifactGroupNamer namer;
 
   FileTransport(
@@ -77,22 +77,22 @@ abstract class FileTransport implements BuildEventTransport {
   @VisibleForTesting
   static final class SequentialWriter implements Runnable {
     private static final Logger logger = Logger.getLogger(SequentialWriter.class.getName());
-    private static final ListenableFuture<BuildEventStreamProtos.BuildEvent> CLOSE =
-        Futures.immediateCancelledFuture();
+    private static final ListenableFuture<BuildEventStreamProtos.BuildEvent> CLOSE_EVENT_FUTURE =
+        Futures.immediateFailedFuture(
+            new IllegalStateException(
+                "A FileTransport is trying to write CLOSE_EVENT_FUTURE, this is a bug."));
+    private static final Duration FLUSH_INTERVAL = Duration.ofMillis(250);
 
     private final Thread writerThread;
-    @VisibleForTesting OutputStream out;
-    @VisibleForTesting static final Duration FLUSH_INTERVAL = Duration.ofMillis(250);
+    private final OutputStream out;
     private final Function<BuildEventStreamProtos.BuildEvent, byte[]> serializeFunc;
-
     private final BuildEventArtifactUploader uploader;
     private final AtomicBoolean isClosed = new AtomicBoolean();
+    private final SettableFuture<Void> closeFuture = SettableFuture.create();
 
     @VisibleForTesting
     final BlockingQueue<ListenableFuture<BuildEventStreamProtos.BuildEvent>> pendingWrites =
         new LinkedBlockingDeque<>();
-
-    private final SettableFuture<Void> closeFuture = SettableFuture.create();
 
     SequentialWriter(
         BufferedOutputStream outputStream,
@@ -115,7 +115,7 @@ abstract class FileTransport implements BuildEventTransport {
       try {
         Instant prevFlush = Instant.now();
         while ((buildEventF = pendingWrites.poll(FLUSH_INTERVAL.toMillis(), TimeUnit.MILLISECONDS))
-            != CLOSE) {
+            != CLOSE_EVENT_FUTURE) {
           if (buildEventF != null) {
             BuildEventStreamProtos.BuildEvent buildEvent = buildEventF.get();
             byte[] serialized = serializeFunc.apply(buildEvent);
@@ -163,13 +163,13 @@ abstract class FileTransport implements BuildEventTransport {
       }
       try {
         pendingWrites.clear();
-        pendingWrites.put(CLOSE);
+        pendingWrites.put(CLOSE_EVENT_FUTURE);
       } catch (InterruptedException e) {
         logger.log(Level.SEVERE, "Failed to immediately close the sequential writer.", e);
       }
     }
 
-    public ListenableFuture<Void> close() {
+    ListenableFuture<Void> close() {
       if (isClosed.getAndSet(true)) {
         return closeFuture;
       } else if (closeFuture.isDone()) {
@@ -186,7 +186,7 @@ abstract class FileTransport implements BuildEventTransport {
           MoreExecutors.directExecutor());
 
       try {
-        pendingWrites.put(CLOSE);
+        pendingWrites.put(CLOSE_EVENT_FUTURE);
       } catch (InterruptedException e) {
         closeNow();
         logger.log(Level.SEVERE, "Failed to close the sequential writer.", e);
@@ -194,11 +194,15 @@ abstract class FileTransport implements BuildEventTransport {
       }
       return closeFuture;
     }
+
+    private Duration getFlushInterval() {
+      return FLUSH_INTERVAL;
+    }
   }
 
   @Override
   public void sendBuildEvent(BuildEvent event) {
-    if (writer.closeFuture.isDone()) {
+    if (writer.isClosed.get()) {
       return;
     }
     if (!writer.pendingWrites.add(asStreamProto(event, namer))) {
@@ -251,4 +255,10 @@ abstract class FileTransport implements BuildEventTransport {
   public BuildEventArtifactUploader getUploader() {
     return uploader;
   }
+
+  /** Determines how often the {@link FileTransport} flushes events. */
+  Duration getFlushInterval() {
+    return writer.getFlushInterval();
+  }
 }
+
