@@ -27,6 +27,7 @@ filegroup(
     srcs = [
         "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "//src/main/cpp:client",
+        "//third_party/brotli/brotli-1.0.7:brotli",
         ":libunix",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
@@ -344,6 +345,7 @@ filegroup(
         # third
         "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "install_base_key" + suffix,
+        "//third_party/brotli/brotli-1.0.7:brotli",
         ":libunix",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",

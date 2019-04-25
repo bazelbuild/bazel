@@ -346,6 +346,7 @@ class GetInstallKeyFileProcessor : public PureZipExtractorProcessor {
                const devtools_ijar::u1 *data, const size_t size) override {
     string str(reinterpret_cast<const char *>(data), size);
     blaze_util::StripWhitespace(&str);
+    fprintf(stderr, "install base key file is '%s' and it is '%s'\n", filename, str.c_str());
     if (str.size() != 32) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "Failed to extract install_base_key: file size mismatch "
@@ -359,14 +360,35 @@ class GetInstallKeyFileProcessor : public PureZipExtractorProcessor {
   string *install_base_key_;
 };
 
+
+class AcceptEverythingProcessor : public PureZipExtractorProcessor {
+ public:
+  bool AcceptPure(const char *filename,
+                  const devtools_ijar::u4 attr) const override {
+    return true;
+  }
+
+  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
+    return AcceptPure(filename, attr);
+  }
+
+  void Process(const char *filename, const devtools_ijar::u4 attr,
+               const devtools_ijar::u1 *data, const size_t size) override {
+    fprintf(stderr, "Unwrapping '%s'.\n", filename);
+  }
+};
+
 // Populates globals->install_md5 and globals->extracted_binaries by reading the
 // ZIP entries in the Blaze binary.
 static void ComputeInstallMd5AndNoteAllFiles(const string &self_path) {
   NoteAllFilesZipProcessor note_all_files_processor(
       &globals->extracted_binaries);
   GetInstallKeyFileProcessor install_key_processor(&globals->install_md5);
-  CompoundZipProcessor processor({&note_all_files_processor,
-                                  &install_key_processor});
+  AcceptEverythingProcessor acceptEverythingProcessor;
+  CompoundZipProcessor processor({// FIXME: this makes it work the first, but not the second time: &note_all_files_processor,
+                                  &install_key_processor,
+                                  &acceptEverythingProcessor
+  });
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(self_path.c_str(), &processor));
   if (extractor == NULL) {
@@ -474,6 +496,15 @@ static vector<string> GetArgumentArray(
       }
     }
   }
+  if (java_library_path.str() == "-Djava.library.path=") {
+    // FIXME
+    java_library_path <<
+          real_install_dir << "/embedded_tools/jdk/lib/jli" << ":" <<
+          real_install_dir << "/embedded_tools/jdk/lib" << ":" <<
+          real_install_dir << "/embedded_tools/jdk/lib/server" << ":" <<
+          real_install_dir << "/";
+  }
+  fprintf(stderr, "java_library_path = '%s'\n", java_library_path.str().c_str());
   result.push_back(java_library_path.str());
 
   // Force use of latin1 for file names.
@@ -687,6 +718,8 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
   string argument_string = GetArgumentString(jvm_args_vector);
   const string binaries_dir =
       GetEmbeddedBinariesRoot(globals->options->install_base);
+  fprintf(stderr, "install_base is '%s'.\n", globals->options->install_base.c_str());
+  fprintf(stderr, "binaries_dir is '%s'.\n", binaries_dir.c_str());
   string server_dir =
       blaze_util::JoinPath(globals->options->output_base, "server");
   // Write the cmdline argument string to the server dir. If we get to this
@@ -704,6 +737,8 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 
   string exe =
       globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
+  fprintf(stderr, "EXE: '%s'\n", exe.c_str());
+  fprintf(stderr, "server jar = '%s'\n", globals->ServerJarPath().c_str());
   // Go to the workspace before we daemonize, so
   // we can still print errors to the terminal.
   GoToWorkspace(workspace_layout);
@@ -922,8 +957,9 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
 
   void Process(const char *filename, const devtools_ijar::u4 attr,
                const devtools_ijar::u1 *data, const size_t size) override {
-    dumper_->Dump(data, size,
-                  blaze_util::JoinPath(embedded_binaries_, filename));
+    string p = blaze_util::JoinPath(embedded_binaries_, filename);
+    fprintf(stderr, "Dumping '%s' to '%s'.\n", filename, p.c_str());
+    dumper_->Dump(data, size, p);
   }
 
  private:
@@ -946,8 +982,12 @@ static void ActuallyExtractData(const string &argv0,
   }
   ExtractBlazeZipProcessor extract_blaze_processor(embedded_binaries,
                                                    dumper.get());
+  // FIXME: we need to make sure this also works the second time
+  NoteAllFilesZipProcessor note_all_files_processor(
+      &globals->extracted_binaries);
 
-  CompoundZipProcessor processor({&extract_blaze_processor,
+  CompoundZipProcessor processor({// FIXME: this doesn't need to record outer zip stuff: &note_all_files_processor,
+                                  &extract_blaze_processor,
                                   &install_key_processor});
   if (!blaze_util::MakeDirectories(embedded_binaries, 0777)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
@@ -969,6 +1009,27 @@ static void ActuallyExtractData(const string &argv0,
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Failed to extract " << globals->options->product_name
         << " as a zip file: " << extractor->GetError();
+  }
+
+  // unwrap one more layer
+  std::string brotli = blaze_util::JoinPath(embedded_binaries, "/brotli");
+  std::string br_archive = blaze_util::JoinPath(embedded_binaries, "/package_jdk_minimal.zip_tmp.br");
+  std::string command;
+  blaze_util::JoinStrings({brotli, "-d", br_archive}, ' ', &command);
+  fprintf(stderr, "command is '%s'.\n", command.c_str());
+  int ret = system(command.c_str());
+
+  // keep unwrapping
+  std::string archive = blaze_util::JoinPath(embedded_binaries, "/package_jdk_minimal.zip_tmp");
+  CompoundZipProcessor inner_processor({&note_all_files_processor,
+                                  &extract_blaze_processor,
+                                  &install_key_processor});
+  std::unique_ptr<devtools_ijar::ZipExtractor> inner_extractor(
+      devtools_ijar::ZipExtractor::Create(archive.c_str(), &inner_processor));
+  if (inner_extractor->ProcessAll() < 0) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to extract inner zip file of " << globals->options->product_name
+        << " : " << extractor->GetError();
   }
 
   if (!dumper->Finish(&error)) {
@@ -1085,6 +1146,7 @@ static void ExtractData(const string &self_path) {
           << "' could not be renamed into place: " << GetLastErrorString();
     }
   } else {
+    fprintf(stderr, "install base in '%s' seems to exist already.\n", globals->options->install_base.c_str());
     if (!blaze_util::IsDirectory(globals->options->install_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "install base directory '" << globals->options->install_base

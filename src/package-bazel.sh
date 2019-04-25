@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -26,7 +26,8 @@ OUT=$1
 EMBEDDED_TOOLS=$2
 DEPLOY_JAR=$3
 INSTALL_BASE_KEY=$4
-shift 4
+BROTLI=$5
+shift 5
 
 TMP_DIR=${TMPDIR:-/tmp}
 PACKAGE_DIR="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
@@ -54,4 +55,6 @@ if [ -n "${EMBEDDED_TOOLS}" ]; then
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
-(cd ${PACKAGE_DIR} && find . -type f | sort | zip -q9DX@ "${WORKDIR}/${OUT}")
+(cd ${PACKAGE_DIR} && find . -type f | sort | zip -q0DX@ "${WORKDIR}/${OUT}_tmp")
+"${WORKDIR}/${BROTLI}" -Z "${WORKDIR}/${OUT}_tmp"
+zip -q0DXj "${WORKDIR}/${OUT}" "${WORKDIR}/${OUT}_tmp.br" "${WORKDIR}/${BROTLI}" ${PACKAGE_DIR}/install_base_key

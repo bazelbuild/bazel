@@ -1,0 +1,12 @@
+workspace(name = "org_brotli_research")
+
+local_repository(
+    name = "org_brotli",
+    path = "..",
+)
+
+new_local_repository(
+    name = "divsufsort",
+    build_file = "BUILD.libdivsufsort",
+    path = "libdivsufsort",
+)

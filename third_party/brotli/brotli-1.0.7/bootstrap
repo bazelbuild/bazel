@@ -1,0 +1,31 @@
+# !/bin/sh -e
+
+REQUIRED='is required, but not installed.'
+bc -v >/dev/null 2>&1 || { echo >&2 "'bc' $REQUIRED"; exit 1; }
+if [ `uname -s` != "FreeBSD" ]; then
+sed --version >/dev/null 2>&1 || { echo >&2 "'sed' $REQUIRED"; exit 1; }
+fi
+autoreconf --version >/dev/null 2>&1 || { echo >&2 "'autoconf' $REQUIRED"; exit 1; }
+
+# If libtool is not installed -> "error: Libtool library used but 'LIBTOOL' is undefined"
+
+mkdir m4 2>/dev/null
+
+BROTLI_ABI_HEX=`sed -n 's/#define BROTLI_ABI_VERSION 0x//p' c/common/version.h`
+BROTLI_ABI_INT=`echo "ibase=16;$BROTLI_ABI_HEX" | bc`
+BROTLI_ABI_CURRENT=`expr $BROTLI_ABI_INT / 16777216`
+BROTLI_ABI_REVISION=`expr $BROTLI_ABI_INT / 4096 % 4096`
+BROTLI_ABI_AGE=`expr $BROTLI_ABI_INT % 4096`
+BROTLI_ABI_INFO="$BROTLI_ABI_CURRENT:$BROTLI_ABI_REVISION:$BROTLI_ABI_AGE"
+
+BROTLI_VERSION_HEX=`sed -n 's/#define BROTLI_VERSION 0x//p' c/common/version.h`
+BROTLI_VERSION_INT=`echo "ibase=16;$BROTLI_VERSION_HEX" | bc`
+BROTLI_VERSION_MAJOR=`expr $BROTLI_VERSION_INT / 16777216`
+BROTLI_VERSION_MINOR=`expr $BROTLI_VERSION_INT / 4096 % 4096`
+BROTLI_VERSION_PATCH=`expr $BROTLI_VERSION_INT % 4096`
+BROTLI_VERSION="$BROTLI_VERSION_MAJOR.$BROTLI_VERSION_MINOR.$BROTLI_VERSION_PATCH"
+
+sed -i.bak -r "s/[0-9]+:[0-9]+:[0-9]+/$BROTLI_ABI_INFO/" Makefile.am
+sed -i.bak -r "s/\[[0-9]+\.[0-9]+\.[0-9]+\]/[$BROTLI_VERSION]/" configure.ac
+
+autoreconf --install --force --symlink || exit $

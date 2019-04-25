@@ -47,7 +47,7 @@ struct GlobalVariables {
   std::string ServerJarPath() const {
     // The server jar is called "A-server.jar" so it's the first binary we
     // extracted.
-    return extracted_binaries.empty() ? "" : extracted_binaries[0];
+    return extracted_binaries.empty() ? "A-server.jar" : extracted_binaries[0];
   }
 
   // Used to make concurrent invocations of this program safe.

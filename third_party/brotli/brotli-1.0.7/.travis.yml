@@ -1,0 +1,226 @@
+language: c
+sudo: false
+branches:
+  only:
+  - master
+matrix:
+  include:
+    ###
+    ## Linux builds using various versions of GCC.
+    ###
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=gcc-7 CXX_COMPILER=g++-7
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - gcc-7
+          - g++-7
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=gcc-4.4 CXX_COMPILER=g++-4.4
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - gcc-4.4
+          - g++-4.4
+
+    ###
+    ## Test that Autotools build works.
+    ###
+    - os: linux
+      env: BUILD_SYSTEM=autotools C_COMPILER=gcc-5 CXX_COMPILER=g++-5
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - gcc-5
+          - g++-5
+
+    ###
+    ## Test that fuzzer is compiling / working.
+    ###
+    - os: linux
+      env: BUILD_SYSTEM=fuzz C_COMPILER=clang-5.0 CXX_COMPILER=clang++-5.0 ASAN_OPTIONS=detect_leaks=0
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - llvm-toolchain-trusty-5.0
+          packages:
+          - clang-5.0
+
+    ###
+    ## clang on Linux
+    ###
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=clang-5.0 CXX_COMPILER=clang++-5.0
+      addons:
+        apt:
+          sources:
+          - llvm-toolchain-trusty-5.0
+          - ubuntu-toolchain-r-test
+          packages:
+          - clang-5.0
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=clang-3.5 CXX_COMPILER=clang++-3.5
+      addons:
+        apt:
+          sources:
+          - llvm-toolchain-trusty-3.5
+          - ubuntu-toolchain-r-test
+          packages:
+          - clang-3.5
+
+    ###
+    ## testing arm via qemu on Linux
+    ###
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=arm-linux-gnueabihf-gcc CXX_COMPILER=arm-linux-gnueabihf-g++ CFLAGS="-march=armv7-a -mfloat-abi=hard -mfpu=neon"
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - qemu
+          - gcc-arm-linux-gnueabihf
+          - libc6-dev-armhf-cross
+
+    ###
+    ## PGI Community Edition on Linux
+    ###
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=pgcc CXX_COMPILER=pgc++
+
+    ###
+    ## Python 2.7 and 3.6 builds on Linux
+    ###
+    - os: linux
+      language: python
+      python: 2.7
+      env: BUILD_SYSTEM=python C_COMPILER=gcc-5 CXX_COMPILER=g++-5
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - gcc-5
+          - g++-5
+    - os: linux
+      language: python
+      python: 3.6
+      env: BUILD_SYSTEM=python C_COMPILER=gcc-5 CXX_COMPILER=g++-5
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - gcc-5
+          - g++-5
+
+    ###
+    ## CMake on OS X
+    ##
+    ## These all work, but it seems unnecessary to actually build them
+    ## all since we already test all these versions of GCC on Linux.
+    ## We'll just test 4.4 and the most recent version.
+    ###
+    - os: osx
+      env: BUILD_SYSTEM=cmake C_COMPILER=gcc CXX_COMPILER=g++
+    - os: osx
+      env: BUILD_SYSTEM=cmake C_COMPILER=gcc-4.9 CXX_COMPILER=g++-4.9
+    - os: osx
+      env: BUILD_SYSTEM=cmake
+
+    ###
+    ## Python 2.7 OS X build (using the system /usr/bin/python)
+    ###
+    - os: osx
+      env: BUILD_SYSTEM=python C_COMPILER=gcc CXX_COMPILER=g++
+
+    ###
+    ## Sanitizers
+    ###
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=clang-5.0 CXX_COMPILER=clang++-5.0 SANITIZER=address ASAN_OPTIONS=detect_leaks=0
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - llvm-toolchain-trusty-5.0
+          packages:
+          - clang-5.0
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=clang-5.0 CXX_COMPILER=clang++-5.0 SANITIZER=thread
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - llvm-toolchain-trusty-5.0
+          packages:
+          - clang-5.0
+    - os: linux
+      env: BUILD_SYSTEM=cmake C_COMPILER=clang-5.0 CXX_COMPILER=clang++-5.0 SANITIZER=undefined CFLAGS="-fno-sanitize-recover=undefined,integer"
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - llvm-toolchain-trusty-5.0
+          packages:
+          - clang-5.0
+
+    - os: linux
+      env: BUILD_SYSTEM=maven
+      language: java
+
+    - os: linux
+      sudo: required
+      language: java
+      jdk: oraclejdk9
+      env: BUILD_SYSTEM=bazel
+      addons:
+        apt:
+          sources:
+            - sourceline: "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8"
+              key_url: "https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg"
+            - ubuntu-toolchain-r-test
+          packages:
+            - bazel
+
+    - os: osx
+      env: BUILD_SYSTEM=bazel
+      # Latest image with Java 1.8 (required to install Bazel).
+      osx_image: xcode9.3
+      language: java
+
+before_install:
+###
+## If we use the matrix to set CC/CXX Travis, overwrites the values,
+## so instead we use C/CXX_COMPILER, then copy the values to CC/CXX
+## here (after Travis has set CC/CXX).
+###
+- if [ -n "${C_COMPILER}" ]; then export CC="${C_COMPILER}"; fi
+- if [ -n "${CXX_COMPILER}" ]; then export CXX="${CXX_COMPILER}"; fi
+- scripts/.travis.sh before_install
+install:
+- scripts/.travis.sh install
+script:
+- scripts/.travis.sh script
+after_success:
+- scripts/.travis.sh after_success
+
+before_deploy:
+- scripts/.travis.sh before_deploy
+
+deploy:
+- provider: bintray
+  file: "scripts/.bintray.json"
+  user: "eustas"
+  key:
+    secure: "Kbam/lTAdz72fZivbs6riJT+Y4PbuKP7r6t5PAWxJxAAykjwnYTRe3zF472g9HCE14KYMsdB+KSYSgg6TGJnqGC9gL9xhhGU9U/WmA+vbMWS/MSnMWpK9IRpp77pM2i2NKZD4v33JuEwKFCBJP3Vj6QQ5Qd1NKdobuXJyznhgnw="
+  on:
+    condition: "${BUILD_SYSTEM} = bazel"
+  skip_cleanup: true

@@ -1,0 +1,18 @@
+# C
+*.o
+bin/
+buildfiles/
+**/obj/
+dist/
+**/bazel-*
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+
+# Tests
+*.txt.uncompressed
+*.br
+*.unbr

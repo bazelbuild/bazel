@@ -1,0 +1,132 @@
+.TH "BROTLI" "1" "February 2018" "brotli 1.0.0" "User commands"
+.SH "NAME"
+\fBbrotli\fR \- brotli, unbrotli \- compress or decompress files
+.SH SYNOPSIS
+.P
+\fBbrotli\fP [\fIOPTION|FILE\fR]\.\.\.
+.P
+\fBunbrotli\fP is equivalent to \fBbrotli \-\-decompress\fP
+.SH DESCRIPTION
+.P
+\fBbrotli\fP is a generic\-purpose lossless compression algorithm that compresses
+data using a combination of a modern variant of the \fBLZ77\fR algorithm, Huffman
+coding and 2\-nd order context modeling, with a compression ratio comparable to
+the best currently available general\-purpose compression methods\. It is similar
+in speed with deflate but offers more dense compression\.
+.P
+\fBbrotli\fP command line syntax similar to \fBgzip (1)\fP and \fBzstd (1)\fP\|\.
+Unlike \fBgzip (1)\fP, source files are preserved by default\. It is possible to
+remove them after processing by using the \fB\-\-rm\fP \fIoption\fR\|\.
+.P
+Arguments that look like "\fB\-\-name\fP" or "\fB\-\-name=value\fP" are \fIoptions\fR\|\. Every
+\fIoption\fR has a short form "\fB\-x\fP" or "\fB\-x value\fP"\. Multiple short form \fIoptions\fR
+could be coalesced:
+.RS 0
+.IP \(bu 2
+"\fB\-\-decompress \-\-stdout \-\-suffix=\.b\fP" works the same as
+.IP \(bu 2
+"\fB\-d \-s \-S \.b\fP" and
+.IP \(bu 2
+"\fB\-dsS \.b\fP"
+
+.RE
+.P
+\fBbrotli\fP has 3 operation modes:
+.RS 0
+.IP \(bu 2
+default mode is compression;
+.IP \(bu 2
+\fB\-\-decompress\fP option activates decompression mode;
+.IP \(bu 2
+\fB\-\-test\fP option switches to integrity test mode; this option is equivalent to
+"\fB\-\-decompress \-\-stdout\fP" except that the decompressed data is discarded
+instead of being written to standard output\.
+
+.RE
+.P
+Every non\-option argument is a \fIfile\fR entry\. If no \fIfiles\fR are given or \fIfile\fR
+is "\fB\-\fP", \fBbrotli\fP reads from standard input\. All arguments after "\fB\-\-\fP" are
+\fIfile\fR entries\.
+.P
+Unless \fB\-\-stdout\fP or \fB\-\-output\fP is specified, \fIfiles\fR are written to a new file
+whose name is derived from the source \fIfile\fR name:
+.RS 0
+.IP \(bu 2
+when compressing, a suffix is appended to the source filename to
+get the target filename
+.IP \(bu 2
+when decompressing, a suffix is removed from the source filename to
+get the target filename
+
+.RE
+.P
+Default suffix is \fB\|\.br\fP, but it could be specified with \fB\-\-suffix\fP option\.
+.P
+Conflicting or duplicate \fIoptions\fR are not allowed\.
+.SH OPTIONS
+.RS 0
+.IP \(bu 2
+\fB\-#\fP:
+  compression level (0\-9); bigger values cause denser, but slower compression
+.IP \(bu 2
+\fB\-c\fP, \fB\-\-stdout\fP:
+  write on standard output
+.IP \(bu 2
+\fB\-d\fP, \fB\-\-decompress\fP:
+  decompress mode
+.IP \(bu 2
+\fB\-f\fP, \fB\-\-force\fP:
+  force output file overwrite
+.IP \(bu 2
+\fB\-h\fP, \fB\-\-help\fP:
+  display this help and exit
+.IP \(bu 2
+\fB\-j\fP, \fB\-\-rm\fP:
+  remove source file(s); \fBgzip (1)\fP\-like behaviour
+.IP \(bu 2
+\fB\-k\fP, \fB\-\-keep\fP:
+  keep source file(s); \fBzstd (1)\fP\-like behaviour
+.IP \(bu 2
+\fB\-n\fP, \fB\-\-no\-copy\-stat\fP:
+  do not copy source file(s) attributes
+.IP \(bu 2
+\fB\-o FILE\fP, \fB\-\-output=FILE\fP
+  output file; valid only if there is a single input entry
+.IP \(bu 2
+\fB\-q NUM\fP, \fB\-\-quality=NUM\fP:
+  compression level (0\-11); bigger values cause denser, but slower compression
+.IP \(bu 2
+\fB\-t\fP, \fB\-\-test\fP:
+  test file integrity mode
+.IP \(bu 2
+\fB\-v\fP, \fB\-\-verbose\fP:
+  increase output verbosity
+.IP \(bu 2
+\fB\-w NUM\fP, \fB\-\-lgwin=NUM\fP:
+  set LZ77 window size (0, 10\-24) (default: 22); window size is
+  \fB(2**NUM \- 16)\fP; 0 lets compressor decide over the optimal value; bigger
+  windows size improve density; decoder might require up to window size
+  memory to operate
+.IP \(bu 2
+\fB\-S SUF\fP, \fB\-\-suffix=SUF\fP:
+  output file suffix (default: \fB\|\.br\fP)
+.IP \(bu 2
+\fB\-V\fP, \fB\-\-version\fP:
+  display version and exit
+.IP \(bu 2
+\fB\-Z\fP, \fB\-\-best\fP:
+  use best compression level (default); same as "\fB\-q 11\fP"
+
+.RE
+.SH SEE ALSO
+.P
+\fBbrotli\fP file format is defined in
+RFC 7932 \fIhttps://www\.ietf\.org/rfc/rfc7932\.txt\fR\|\.
+.P
+\fBbrotli\fP is open\-sourced under the
+MIT License \fIhttps://opensource\.org/licenses/MIT\fR\|\.
+.P
+Mailing list: https://groups\.google\.com/forum/#!forum/brotli
+.SH BUGS
+.P
+Report bugs at: https://github\.com/google/brotli/issues

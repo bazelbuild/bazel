@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+echo "Use Autotools, Bazel, CMake or Premake5 to generate projects / build files."
+echo "  Bazel: http://www.bazel.build/"
+echo "  CMake: https://cmake.org/"
+echo "  Premake5: https://premake.github.io/"
+echo "To generate Autotools 'configure' file run './bootstrap'."
+echo "Run './configure-cmake' for Autotools-like CMake configuration."
+echo "Or simply run 'make' to build and test command line tool."

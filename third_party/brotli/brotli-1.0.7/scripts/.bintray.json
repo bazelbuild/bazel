@@ -1,0 +1,19 @@
+{
+    "package": {
+        "name": "bin",
+        "repo": "brotli",
+        "subject": "eustas"
+    },
+
+    "version": {"name": "snapshot"},
+
+    "files": [
+        {
+            "includePattern": "brotli.zip",
+            "uploadPattern": "brotli-${TRAVIS_OS_NAME}-${RELEASE_DATE}.zip",
+            "matrix_params": {"override": 1}
+        }
+    ],
+
+    "publish": true
+}

@@ -1,0 +1,6 @@
+[submodule "research/esaxx"]
+	path = research/esaxx
+	url = https://github.com/hillbig/esaxx
+[submodule "research/libdivsufsort"]
+	path = research/libdivsufsort
+	url = https://github.com/y-256/libdivsufsort.git
