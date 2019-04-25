@@ -157,7 +157,7 @@ public class BinaryFormatFileTransportTest {
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertThat(expected)
         .hasMessageThat()
-        .containsMatch("Unable to write all BEP events to file due to Task was cancelled");
+        .contains("Unable to write all BEP events to file due to 'Task was cancelled.'");
 
     assertThat(transport.writer.pendingWrites).isEmpty();
     try (InputStream in = new FileInputStream(output)) {
