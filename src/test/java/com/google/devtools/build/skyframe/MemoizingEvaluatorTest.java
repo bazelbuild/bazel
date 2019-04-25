@@ -2647,7 +2647,8 @@ public class MemoizingEvaluatorTest {
           public void accept(SkyKey key, EventType type, Order order, Object context) {
             if (shouldNotBuildLeaf4.get()
                 && key.equals(leaf4)
-                && type != EventType.REMOVE_REVERSE_DEP) {
+                && type != EventType.REMOVE_REVERSE_DEP
+                && type != EventType.GET_BATCH) {
               throw new IllegalStateException(
                   "leaf4 should not have been considered this build: "
                       + type
