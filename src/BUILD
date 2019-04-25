@@ -567,6 +567,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
     "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
     "//third_party/jarjar:jarjar_command_deploy.jar",
+    "//third_party/java/proguard:proguard_deploy_with_license",
 ] + select({
     "//src/conditions:arm": ["//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar"],
     "//conditions:default": [],
