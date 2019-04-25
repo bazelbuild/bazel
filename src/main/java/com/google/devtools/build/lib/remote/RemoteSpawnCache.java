@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -58,9 +59,11 @@ import io.grpc.Context;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** A remote {@link SpawnCache} implementation. */
@@ -155,39 +158,48 @@ final class RemoteSpawnCache implements SpawnCache {
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
           result = remoteCache.getCachedActionResult(actionKey);
         }
-        // In case the remote cache returned a failed action (exit code != 0) we treat it as a
-        // cache miss
         if (result != null && result.getExitCode() == 0) {
-          InMemoryOutput inMemoryOutput = null;
-          boolean downloadOutputs =
-              shouldDownloadAllSpawnOutputs(
-                  remoteOutputsMode,
-                  /* exitCode = */ 0,
-                  hasTopLevelOutputs(spawn.getOutputFiles(), topLevelOutputs));
-          if (downloadOutputs) {
-            try (SilentCloseable c =
-                prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {
-              remoteCache.download(result, execRoot, context.getFileOutErr());
+          // In case the remote cache returned a failed action (exit code != 0) we treat it as a
+          // cache miss
+          List<String> expectedPaths = spawn.getOutputFiles().stream().map(
+            (actionInput) -> actionInput.getExecPathString()
+          ).collect(Collectors.toList());
+          Set<String> actualPaths = result.getOutputFilesList().stream().map(
+            (outputFile) -> outputFile.getPath()
+          ).collect(Collectors.toSet());
+          if (actualPaths.containsAll(expectedPaths)) // What a miss otherwise!
+          {
+            InMemoryOutput inMemoryOutput = null;
+            boolean downloadOutputs =
+                shouldDownloadAllSpawnOutputs(
+                    remoteOutputsMode,
+                    /* exitCode = */ 0,
+                    hasTopLevelOutputs(spawn.getOutputFiles(), topLevelOutputs));
+            if (downloadOutputs) {
+              try (SilentCloseable c =
+                  prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {
+                remoteCache.download(result, execRoot, context.getFileOutErr());
+              }
+            } else {
+              PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
+              // inject output metadata
+              try (SilentCloseable c =
+                  prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs minimal")) {
+                inMemoryOutput =
+                    remoteCache.downloadMinimal(
+                        result,
+                        spawn.getOutputFiles(),
+                        inMemoryOutputPath,
+                        context.getFileOutErr(),
+                        execRoot,
+                        context.getMetadataInjector());
+              }
             }
-          } else {
-            PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
-            // inject output metadata
-            try (SilentCloseable c =
-                prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs minimal")) {
-              inMemoryOutput =
-                  remoteCache.downloadMinimal(
-                      result,
-                      spawn.getOutputFiles(),
-                      inMemoryOutputPath,
-                      context.getFileOutErr(),
-                      execRoot,
-                      context.getMetadataInjector());
-            }
+            SpawnResult spawnResult =
+                createSpawnResult(
+                    result.getExitCode(), /* cacheHit= */ true, "remote", inMemoryOutput);
+            return SpawnCache.success(spawnResult);
           }
-          SpawnResult spawnResult =
-              createSpawnResult(
-                  result.getExitCode(), /* cacheHit= */ true, "remote", inMemoryOutput);
-          return SpawnCache.success(spawnResult);
         }
       } catch (CacheNotFoundException e) {
         // Intentionally left blank
