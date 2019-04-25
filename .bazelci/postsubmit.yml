@@ -13,6 +13,7 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
+    - "//src/java_tools/junitrunner/javatests/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
@@ -34,6 +35,7 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
+    - "//src/java_tools/junitrunner/javatests/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
@@ -55,6 +57,7 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
+    - "//src/java_tools/junitrunner/javatests/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
@@ -86,6 +89,7 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
+    - "//src/java_tools/junitrunner/javatests/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
@@ -149,6 +153,7 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
+    - "//src/java_tools/junitrunner/javatests/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
