@@ -38,6 +38,7 @@ cc_library(
     srcs = ["process.cc"],
     hdrs = ["process.h"],
     visibility = [
+        "//src/main/cpp:__pkg__",
         "//tools/test:__pkg__",
     ],
     deps = [":lib-util"],
@@ -48,6 +49,7 @@ cc_library(
     srcs = ["util.cc"],
     hdrs = ["util.h"],
     visibility = [
+        "//src/main/cpp:__pkg__",
         "//src/tools/launcher/util:__pkg__",
         "//tools/test:__pkg__",
     ],
