@@ -75,8 +75,6 @@ class AutoAttributeList {
 
   bool InheritAnyHandles() const { return handles_.ValidHandlesCount() > 0; }
 
-  void InitStartupInfoExA(STARTUPINFOEXA* startup_info) const;
-
   void InitStartupInfoExW(STARTUPINFOEXW* startup_info) const;
 
  private:
