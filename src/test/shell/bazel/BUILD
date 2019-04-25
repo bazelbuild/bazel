@@ -155,6 +155,7 @@ sh_test(
         "//tools/android/runtime_deps:android_tools.tar.gz",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["no_windows"],
 )
 
 sh_test(
