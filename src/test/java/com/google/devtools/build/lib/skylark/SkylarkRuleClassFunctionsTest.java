@@ -1739,10 +1739,18 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testTargetsCanAddExecutionPlatformConstraints() throws Exception {
-    registerDummyUserDefinedFunction();
+  public void testTargetsCanAddExecutionPlatformConstraints_enabled() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.initialize();
+
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
+        "def impl():",
+        "  return 0",
         "r1 = rule(impl, ",
         "  toolchains=['//test:my_toolchain_type'],",
         "  execution_platform_constraints_allowed=True,",
@@ -1750,6 +1758,49 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+  }
+
+  @Test
+  public void testTargetsCanAddExecutionPlatformConstraints_notEnabled() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.initialize();
+
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "def impl():",
+        "  return 0",
+        "r1 = rule(impl, ",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  execution_platform_constraints_allowed=False,",
+        ")");
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    assertThat(c.executionPlatformConstraintsAllowed())
+        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_RULE);
+  }
+
+  @Test
+  public void testTargetsCanAddExecutionPlatformConstraints_disallowed() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS.toBuilder()
+            .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
+            .build();
+    ev = createEvaluationTestCase(semantics);
+    ev.setFailFast(false);
+    ev.initialize();
+
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "def impl():",
+        "  return 0",
+        "r1 = rule(impl, ",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  execution_platform_constraints_allowed=True,",
+        ")");
+    ev.assertContainsError("parameter 'execution_platform_constraints_allowed' is deprecated");
   }
 
   @Test
