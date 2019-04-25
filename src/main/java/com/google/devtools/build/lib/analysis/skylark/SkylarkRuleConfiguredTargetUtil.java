@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -583,8 +584,17 @@ public final class SkylarkRuleConfiguredTargetUtil {
       throw new EvalException(loc, "Test rules have to define runfiles");
     }
     if (executable != null || testRule) {
-      RunfilesSupport runfilesSupport = computedDefaultRunfiles.isEmpty()
-          ? null : RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
+      RunfilesSupport runfilesSupport = null;
+      if (!computedDefaultRunfiles.isEmpty()) {
+        Preconditions.checkNotNull(executable, "executable must not be null");
+        runfilesSupport =
+            RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
+        Map<PathFragment, Artifact> symlinks =
+            runfilesSupport.getRunfiles().asMapWithoutRootSymlinks();
+        if (!symlinks.containsValue(executable)) {
+          throw new EvalException(loc, "main program " + executable + " not included in runfiles");
+        }
+      }
       builder.setRunfilesSupport(runfilesSupport, executable);
     }
 
