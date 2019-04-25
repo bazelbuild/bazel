@@ -137,7 +137,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private void registerDummyUserDefinedFunction() throws Exception {
-    eval("def impl():\n" + "  return 0\n");
+    eval("def impl():", "  pass");
   }
 
   @Test
@@ -1747,10 +1747,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     ev = createEvaluationTestCase(semantics);
     ev.initialize();
 
+    registerDummyUserDefinedFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        "def impl():",
-        "  return 0",
         "r1 = rule(impl, ",
         "  toolchains=['//test:my_toolchain_type'],",
         "  execution_platform_constraints_allowed=True,",
@@ -1769,10 +1768,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     ev = createEvaluationTestCase(semantics);
     ev.initialize();
 
+    registerDummyUserDefinedFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        "def impl():",
-        "  return 0",
         "r1 = rule(impl, ",
         "  toolchains=['//test:my_toolchain_type'],",
         "  execution_platform_constraints_allowed=False,",
@@ -1792,10 +1790,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     ev.setFailFast(false);
     ev.initialize();
 
+    registerDummyUserDefinedFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        "def impl():",
-        "  return 0",
         "r1 = rule(impl, ",
         "  toolchains=['//test:my_toolchain_type'],",
         "  execution_platform_constraints_allowed=True,",
