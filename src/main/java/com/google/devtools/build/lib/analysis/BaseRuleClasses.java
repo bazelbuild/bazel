@@ -208,7 +208,6 @@ public class BaseRuleClasses {
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
           // The target itself and run_under both run on the same machine.
           .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
-          .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
           .build();
     }
 
@@ -389,6 +388,7 @@ public class BaseRuleClasses {
               attr("data", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .dontCheckConstraints())
+          .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
           .build();
     }
 
