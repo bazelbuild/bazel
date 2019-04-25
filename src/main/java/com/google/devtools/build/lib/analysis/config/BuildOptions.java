@@ -50,6 +50,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -307,7 +308,11 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
     maybeInitializeFingerprintAndHashCode();
     if (!Arrays.equals(fingerprint, optionsDiff.baseFingerprint)) {
-      throw new IllegalArgumentException("Can not reconstruct BuildOptions with a different base.");
+      throw new IllegalArgumentException("Cannot reconstruct BuildOptions with a different base.");
+    }
+    BuildOptions reconstructedOptions = optionsDiff.cachedReconstructed.get();
+    if (reconstructedOptions != null) {
+      return reconstructedOptions;
     }
     Builder builder = builder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
@@ -332,8 +337,9 @@ public final class BuildOptions implements Cloneable, Serializable {
       }
     }
     skylarkOptions.putAll(optionsDiff.extraSecondStarlarkOptions);
-    builder.addStarlarkOptions(skylarkOptions);
-    return builder.build();
+    reconstructedOptions = builder.addStarlarkOptions(skylarkOptions).build();
+    optionsDiff.cachedReconstructed = new SoftReference<>(reconstructedOptions);
+    return reconstructedOptions;
   }
 
   /**
@@ -673,7 +679,8 @@ public final class BuildOptions implements Cloneable, Serializable {
         second.computeChecksum(),
         diff.skylarkSecond,
         diff.extraStarlarkOptionsFirst,
-        diff.extraStarlarkOptionsSecond);
+        diff.extraStarlarkOptionsSecond,
+        second);
   }
 
   /**
@@ -827,7 +834,15 @@ public final class BuildOptions implements Cloneable, Serializable {
     private final List<Label> extraFirstStarlarkOptions;
     private final Map<Label, Object> extraSecondStarlarkOptions;
 
-    @VisibleForTesting
+    /**
+     * A soft reference to the reconstructed build options to save work and garbage creation in
+     * {@link #applyDiff}.
+     *
+     * <p>Promotes reuse of a single {@code BuildOptions} instance to preserve reference equality
+     * and limit fingerprint/hashCode initialization.
+     */
+    private SoftReference<BuildOptions> cachedReconstructed;
+
     public OptionsDiffForReconstruction(
         Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions,
         ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses,
@@ -836,7 +851,8 @@ public final class BuildOptions implements Cloneable, Serializable {
         String checksum,
         Map<Label, Object> differingStarlarkOptions,
         List<Label> extraFirstStarlarkOptions,
-        Map<Label, Object> extraSecondStarlarkOptions) {
+        Map<Label, Object> extraSecondStarlarkOptions,
+        @Nullable BuildOptions original) {
       this.differingOptions = differingOptions;
       this.extraFirstFragmentClasses = extraFirstFragmentClasses;
       this.extraSecondFragments = extraSecondFragments;
@@ -845,6 +861,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       this.differingStarlarkOptions = differingStarlarkOptions;
       this.extraFirstStarlarkOptions = extraFirstStarlarkOptions;
       this.extraSecondStarlarkOptions = extraSecondStarlarkOptions;
+      this.cachedReconstructed = new SoftReference<>(original);
     }
 
     private static OptionsDiffForReconstruction getEmpty(byte[] baseFingerprint, String checksum) {
@@ -856,7 +873,8 @@ public final class BuildOptions implements Cloneable, Serializable {
           checksum,
           ImmutableMap.of(),
           ImmutableList.of(),
-          ImmutableMap.of());
+          ImmutableMap.of(),
+          /*original=*/ null);
     }
 
     @Nullable
@@ -968,6 +986,15 @@ public final class BuildOptions implements Cloneable, Serializable {
         // If there is no extra data, the two options described by these diffs are equal.
         return ConfigurationComparer.Result.EQUAL;
       }
+    }
+
+    /**
+     * Clears {@link #cachedReconstructed} so that tests can cover the core logic of {@link
+     * #applyDiff}.
+     */
+    @VisibleForTesting
+    void clearCachedReconstructedForTesting() {
+      cachedReconstructed = new SoftReference<>(null);
     }
 
     private boolean hasChangeToStarlarkOptionUnchangedIn(OptionsDiffForReconstruction that) {
@@ -1133,7 +1160,8 @@ public final class BuildOptions implements Cloneable, Serializable {
                   checksum,
                   differingStarlarkOptions,
                   extraFirstStarlarkOptions,
-                  extraSecondStarlarkOptions);
+                  extraSecondStarlarkOptions,
+                  /*original=*/ null);
           cache.putBytesFromOptionsDiff(diff, bytes);
         }
         return diff;
