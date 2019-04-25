@@ -2010,7 +2010,6 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
                   transition,
                   depFragments,
                   ruleClassProvider,
-                  true,
                   defaultInputValues,
                   collectBuildSettingValues(transition, eventHandler, Settings.OUTPUTS));
           StarlarkTransition.replayEvents(eventHandler, transition);
@@ -2048,7 +2047,6 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
                   key.getTransition(),
                   depFragments,
                   ruleClassProvider,
-                  true,
                   defaultInputValues,
                   collectBuildSettingValues(key.getTransition(), eventHandler, Settings.OUTPUTS));
         } catch (TransitionException e) {

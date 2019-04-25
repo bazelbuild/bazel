@@ -357,7 +357,6 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
                 transition,
                 depFragments,
                 ruleClassProvider,
-                true,
                 defaultBuildSettingValues,
                 buildSettingOutputPackages);
         StarlarkTransition.replayEvents(env.getListener(), transition);
@@ -404,7 +403,6 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
                 transition,
                 depFragments,
                 ruleClassProvider,
-                true,
                 defaultBuildSettingValues,
                 buildSettingOutputPackages);
         for (BuildOptions toOption : toOptions) {

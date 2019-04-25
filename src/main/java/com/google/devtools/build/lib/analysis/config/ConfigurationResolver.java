@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -264,7 +263,6 @@ public final class ConfigurationResolver {
                   transition,
                   depFragments,
                   ruleClassProvider,
-                  !sameFragments,
                   defaultBuildSettingValues,
                   buildSettingPackages);
           StarlarkTransition.replayEvents(env.getListener(), transition);
@@ -530,9 +528,7 @@ public final class ConfigurationResolver {
   /**
    * Applies a configuration transition over a set of build options.
    *
-   * @return the build options for the transitioned configuration. If trimResults is true, only
-   *     options needed by the required fragments are included. Else the same options as the
-   *     original input are included (with different possible values, of course).
+   * @return the build options for the transitioned configuration.
    */
   @VisibleForTesting
   public static List<BuildOptions> applyTransition(
@@ -540,7 +536,6 @@ public final class ConfigurationResolver {
       ConfigurationTransition transition,
       Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
       RuleClassProvider ruleClassProvider,
-      boolean trimResults,
       ImmutableMap<Label, Object> buildSettingDefaults,
       Map<SkyKey, SkyValue> buildSettingPackages)
       throws TransitionException {
@@ -548,14 +543,6 @@ public final class ConfigurationResolver {
         addDefaultStarlarkOptions(fromOptions, buildSettingDefaults);
     // TODO(bazel-team): safety-check that this never mutates fromOptions.
     List<BuildOptions> result = transition.apply(fromOptionsWithDefaults);
-    if (trimResults) {
-      ImmutableList.Builder<BuildOptions> trimmedOptions = ImmutableList.builder();
-      for (BuildOptions toOptions : result) {
-        trimmedOptions.add(toOptions.trim(
-            BuildConfiguration.getOptionsClasses(requiredFragments, ruleClassProvider)));
-      }
-      result = trimmedOptions.build();
-    }
     // Post-process transitions on starlark build settings
     return StarlarkTransition.validate(transition, buildSettingPackages, result);
   }

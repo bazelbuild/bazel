@@ -589,7 +589,6 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
             transition,
             ruleClassProvider.getAllFragments(),
             ruleClassProvider,
-            false,
             ImmutableMap.of(),
             ImmutableMap.of())) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);
