@@ -601,15 +601,15 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.42.jar"],
-    runtime_deps = [
+    jars = ["truth/truth-0.44.jar"],
+    deps = [
         ":diffutils",
     ],
 )
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-0.42.jar"],
+    jars = ["truth8/truth-java8-extension-0.44.jar"],
 )
 
 java_import(
