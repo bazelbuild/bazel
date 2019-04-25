@@ -77,7 +77,7 @@ platforms:
     - "-//src/test/shell/bazel:maven_test"
     # Re-enable once bootstrap works with Java 11
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-  ubuntu1804_java9:
+  ubuntu1804_javabase9:
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 9 Javabase"
     shell_commands:
