@@ -762,6 +762,12 @@ public class RuleClass {
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
+          // TODO(https://github.com/bazelbuild/bazel/issues/8134): Define the attribute on a
+          // standard base class and remove this check entirely.
+          if (attrName.equals(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)) {
+            // Don't inherit: this will be re-created
+            continue;
+          }
           Preconditions.checkArgument(
               !attributes.containsKey(attrName) || attributes.get(attrName).equals(attribute),
               "Attribute %s is inherited multiple times in %s ruleclass",
