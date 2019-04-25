@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,6 +65,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -629,10 +632,39 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
+   * Cache for {@link OptionsDiffForReconstruction}, which is expensive to compute.
+   *
+   * <p>The reason for using {@linkplain CacheBuilder#weakKeys weak keys} is twofold: we want
+   * objects in the cache to be garbage collected, and we also want to use reference equality to
+   * avoid the expensive initialization in {@link #maybeInitializeFingerprintAndHashCode}.
+   */
+  private static final Cache<BuildOptions, OptionsDiffForReconstruction>
+      diffForReconstructionCache = CacheBuilder.newBuilder().weakKeys().build();
+
+  /**
    * Returns a {@link OptionsDiffForReconstruction} object that can be applied to {@code first} via
    * {@link #applyDiff} to get a {@link BuildOptions} object equal to {@code second}.
    */
   public static OptionsDiffForReconstruction diffForReconstruction(
+      BuildOptions first, BuildOptions second) {
+    OptionsDiffForReconstruction diff;
+    try {
+      diff =
+          diffForReconstructionCache.get(second, () -> createDiffForReconstruction(first, second));
+    } catch (ExecutionException e) {
+      throw new IllegalStateException(e);
+    }
+
+    // We need to ensure that the possibly cached diff was computed against the same base options.
+    // In practice this should always be the case, since callers pass in a "default" options
+    // instance as "first". To be safe however, we create an uncached diff if there is a mismatch.
+    // Note that this check should be fast because the fingerprints should be reference-equal.
+    return Arrays.equals(first.fingerprint, diff.baseFingerprint)
+        ? diff
+        : createDiffForReconstruction(first, second);
+  }
+
+  private static OptionsDiffForReconstruction createDiffForReconstruction(
       BuildOptions first, BuildOptions second) {
     OptionsDiff diff = diff(first, second);
     if (diff.areSame()) {

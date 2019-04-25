@@ -284,6 +284,31 @@ public final class BuildOptionsTest {
     assertThat(reconstructed).isSameAs(original);
   }
 
+  @Test
+  public void diffForReconstruction_calledTwiceWithSameArgs_returnsSameInstance() throws Exception {
+    BuildOptions one = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=one");
+    BuildOptions two = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=two");
+
+    OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
+    OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
+
+    assertThat(diff1).isSameAs(diff2);
+  }
+
+  @Test
+  public void diffForReconstruction_againstDifferentBase() throws Exception {
+    BuildOptions base1 = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=base1");
+    BuildOptions base2 = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=base2");
+    BuildOptions other = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=other");
+
+    OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(base1, other);
+    OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(base2, other);
+
+    assertThat(diff1).isNotEqualTo(diff2);
+    assertThat(base1.applyDiff(diff1)).isEqualTo(other);
+    assertThat(base2.applyDiff(diff2)).isEqualTo(other);
+  }
+
   private static ImmutableList.Builder<Class<? extends FragmentOptions>> makeOptionsClassBuilder() {
     return ImmutableList.<Class<? extends FragmentOptions>>builder()
         .addAll(BUILD_CONFIG_OPTIONS)
