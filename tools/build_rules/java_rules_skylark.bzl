@@ -36,8 +36,8 @@ def _java_library_impl(ctx):
 
     jars = ctx.files.jars
     neverlink_jars = ctx.files.neverlink_jars
-    compile_time_jars += jars + neverlink_jars
-    runtime_jars += jars
+    compile_time_jars = depset(jars + neverlink_jars, transitive = [compile_time_jars])
+    runtime_jars = depset(jars, transitive = [runtime_jars])
     compile_time_jars_list = compile_time_jars.to_list()  # TODO: This is weird.
 
     build_output = class_jar.path + ".build_output"
