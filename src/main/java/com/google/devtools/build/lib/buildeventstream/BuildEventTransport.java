@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.time.Duration;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -70,6 +71,14 @@ public interface BuildEventTransport {
    */
   default ListenableFuture<Void> getHalfCloseFuture() {
     return close();
+  }
+
+  /**
+   * Returns how long a caller should wait for the transport to finish uploading events and closing
+   * gracefully. Setting the timeout to {@link Duration#ZERO} means that there's no timeout.
+   */
+  default Duration getTimeout() {
+    return Duration.ZERO;
   }
 
   @VisibleForTesting
