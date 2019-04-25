@@ -548,7 +548,8 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
   if (cmdline_str.size() >= MAX_CMDLINE_LENGTH) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "Command line too long (" << cmdline_str.size() << " > "
-        << MAX_CMDLINE_LENGTH << ")";
+        << MAX_CMDLINE_LENGTH << "): "
+        << blaze_util::WstringToCstring(cmdline_str.c_str()).get();
   }
 
   // Copy command line into a mutable buffer.

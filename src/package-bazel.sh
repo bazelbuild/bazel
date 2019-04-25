@@ -35,23 +35,23 @@ trap "rm -fr ${PACKAGE_DIR}" EXIT
 
 cp $* ${PACKAGE_DIR}
 
-# Re"compress" the deploy jar. Saves ~10% of final binary size.
-unzip -q -d recompress ${DEPLOY_JAR}
-cd recompress
-find . -type f -print0 | xargs -0 touch -t 198001010000.00
-find . -type f | sort | zip -q0DX@ ../deploy-uncompressed.jar
-cd ..
+# # Re"compress" the deploy jar. Saves ~10% of final binary size.
+# unzip -q -d recompress ${DEPLOY_JAR}
+# cd recompress
+# find . -type f -print0 | xargs -0 touch -t 198001010000.00
+# find . -type f | sort | zip -q0DX@ ../deploy-uncompressed.jar
+# cd ..
 
 # The server jar needs to be the first binary we extract. This is how the Bazel
 # client knows what .jar to pass to the JVM.
-cp deploy-uncompressed.jar ${PACKAGE_DIR}/A-server.jar
+cp ${DEPLOY_JAR} ${PACKAGE_DIR}/A-server.jar
 cp ${INSTALL_BASE_KEY} ${PACKAGE_DIR}/install_base_key
 # The timestamp of embedded tools should already be zeroed out in the input zip
-touch -t 198001010000.00 ${PACKAGE_DIR}/*
+# touch -t 198001010000.00 ${PACKAGE_DIR}/*
 
 if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
-(cd ${PACKAGE_DIR} && find . -type f | sort | zip -q9DX@ "${WORKDIR}/${OUT}")
+(cd ${PACKAGE_DIR} && find . -type f | sort | zip -q0DX@ "${WORKDIR}/${OUT}")
