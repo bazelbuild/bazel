@@ -116,7 +116,7 @@ distdir_tar(
         "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
-        "android_tools_pkg-0.1.tar.gz",
+        "android_tools_pkg-0.2.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -129,7 +129,7 @@ distdir_tar(
         "2d9566b21fbe405acf5f7bf77eda30df72a4744c.tar.gz": "4a1318fed4831697b83ce879b3ab70ae09592b167e5bda8edaff45132d1c3b3f",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
-        "android_tools_pkg-0.1.tar.gz": "b71b10e8f067dd6bff446fb0d49239fe28b12cfd1ed24278d04b06cf54669862",
+        "android_tools_pkg-0.2.tar.gz": "04f85f2dd049e87805511e3babc5cea3f5e72332b1627e34f3a5461cc38e815f",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -164,8 +164,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
             "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
         ],
-        "android_tools_pkg-0.1.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.1.tar.gz",
+        "android_tools_pkg-0.2.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.2.tar.gz",
         ],
     },
 )
