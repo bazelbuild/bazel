@@ -74,8 +74,6 @@ public abstract class AbstractJavacTurbineCompilationTest {
     optionsBuilder
         .setOutput(output.toString())
         .setTempDir(tempdir.toString())
-        .addBootClassPathEntries(
-            JavacBootclasspath.asPaths().stream().map(Path::toString).collect(toImmutableList()))
         .setOutputDeps(outputDeps.toString())
         .addAllJavacOpts(Arrays.asList("-source", "8", "-target", "8"))
         .setTargetLabel("//test");
