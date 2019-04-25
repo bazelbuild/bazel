@@ -149,17 +149,15 @@ abstract class FileTransport implements BuildEventTransport {
     }
 
     private void exitFailure(Throwable e) {
+      String msg =
+          String.format("Unable to write all BEP events to file due to '%s'", e.getMessage());
       closeFuture.setException(
-          new AbruptExitException(
-              "Unable to write all BEP events to file due to " + e.getMessage(),
-              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-              e));
+          new AbruptExitException(msg, ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR, e));
       pendingWrites.clear();
-      logger.log(
-          Level.SEVERE, "Unable to write all BEP events to file due to " + e.getMessage(), e);
+      logger.log(Level.SEVERE, msg, e);
     }
 
-    void closeNow() {
+    private void closeNow() {
       if (closeFuture.isDone()) {
         return;
       }
