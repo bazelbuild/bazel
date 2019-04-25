@@ -29,12 +29,48 @@ static std::wstring ToString(const T& e) {
   return s.str();
 }
 
+static bool DupeHandle(HANDLE h, AutoHandle* out, std::wstring* error) {
+  HANDLE dup;
+  if (!DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &dup, 0,
+                       TRUE, DUPLICATE_SAME_ACCESS)) {
+    DWORD err = GetLastError();
+    *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DupeHandle", L"",
+                              err);
+    return false;
+  }
+  *out = dup;
+  return true;
+}
+
+bool WaitableProcess::Create(const std::wstring& argv0,
+                             const std::wstring& argv_rest, void* env,
+                             const std::wstring& wcwd, std::wstring* error) {
+  AutoHandle dup_in, dup_out, dup_err;
+  if (!DupeHandle(GetStdHandle(STD_INPUT_HANDLE), &dup_in, error) ||
+      !DupeHandle(GetStdHandle(STD_OUTPUT_HANDLE), &dup_out, error) ||
+      !DupeHandle(GetStdHandle(STD_ERROR_HANDLE), &dup_err, error)) {
+    return false;
+  }
+  return Create(argv0, argv_rest, env, wcwd, dup_in, dup_out, dup_err, nullptr,
+                true, error);
+}
+
 bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& argv_rest, void* env,
                              const std::wstring& wcwd, HANDLE stdin_process,
                              HANDLE stdout_process, HANDLE stderr_process,
                              LARGE_INTEGER* opt_out_start_time,
                              std::wstring* error) {
+  return Create(argv0, argv_rest, env, wcwd, stdin_process, stdout_process,
+                stderr_process, opt_out_start_time, false, error);
+}
+
+bool WaitableProcess::Create(const std::wstring& argv0,
+                             const std::wstring& argv_rest, void* env,
+                             const std::wstring& wcwd, HANDLE stdin_process,
+                             HANDLE stdout_process, HANDLE stderr_process,
+                             LARGE_INTEGER* opt_out_start_time,
+                             bool create_window, std::wstring* error) {
   std::wstring cwd;
   std::wstring error_msg(AsShortPath(wcwd, &cwd));
   if (!error_msg.empty()) {
@@ -131,8 +167,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           /* lpProcessAttributes */ NULL,
           /* lpThreadAttributes */ NULL,
           /* bInheritHandles */ attr_list->InheritAnyHandles() ? TRUE : FALSE,
-          /* dwCreationFlags */ CREATE_NO_WINDOW  // Don't create console
-                                                  // window
+          /* dwCreationFlags */ (create_window ? 0 : CREATE_NO_WINDOW)
               | CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break isn't propagated
               | CREATE_SUSPENDED  // So that it doesn't start a new job itself
               | EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,

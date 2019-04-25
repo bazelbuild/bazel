@@ -161,18 +161,6 @@ AutoAttributeList::operator LPPROC_THREAD_ATTRIBUTE_LIST() const {
   return reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(data_.get());
 }
 
-void AutoAttributeList::InitStartupInfoExA(STARTUPINFOEXA* startup_info) const {
-  ZeroMemory(startup_info, sizeof(STARTUPINFOEXA));
-  startup_info->StartupInfo.cb = sizeof(STARTUPINFOEXA);
-  if (InheritAnyHandles()) {
-    startup_info->StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-    startup_info->StartupInfo.hStdInput = handles_.StdIn();
-    startup_info->StartupInfo.hStdOutput = handles_.StdOut();
-    startup_info->StartupInfo.hStdError = handles_.StdErr();
-    startup_info->lpAttributeList = *this;
-  }
-}
-
 void AutoAttributeList::InitStartupInfoExW(STARTUPINFOEXW* startup_info) const {
   ZeroMemory(startup_info, sizeof(STARTUPINFOEXW));
   startup_info->StartupInfo.cb = sizeof(STARTUPINFOEXW);
