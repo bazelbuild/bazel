@@ -330,6 +330,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowNativeInBuildFile;
 
   @Option(
+      name = "incompatible_disallow_rule_execution_platform_constraints_allowed",
+      defaultValue = "False",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, disallow the use of the execution_platform_constraints_allowed "
+              + "attribute on rule().")
+  public boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed;
+
+  @Option(
       name = "incompatible_string_join_requires_strings",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -623,6 +637,8 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleDisallowOldOctalNotation(incompatibleDisallowOldOctalNotation)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
+        .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
+            incompatibleDisallowRuleExecutionPlatformConstraintsAllowed)
         .incompatibleExpandDirectories(incompatibleExpandDirectories)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleNoAttrLicense(incompatibleNoAttrLicense)

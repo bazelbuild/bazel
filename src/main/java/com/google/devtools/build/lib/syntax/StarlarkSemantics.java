@@ -164,6 +164,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowStructProviderSyntax();
 
+  public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
+
   public abstract boolean incompatibleExpandDirectories();
 
   public abstract boolean incompatibleNewActionsApi();
@@ -235,6 +237,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowOldOctalNotation(false)
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowStructProviderSyntax(false)
+          .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(false)
           .incompatibleNoAttrLicense(true)
@@ -305,6 +308,9 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowNativeInBuildFile(boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
+
+    public abstract Builder incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
+        boolean value);
 
     public abstract Builder incompatibleExpandDirectories(boolean value);
 

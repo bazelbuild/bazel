@@ -287,7 +287,9 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "label-list type is added, which must not already exist in "
                     + "<code>attrs</code>. Targets may use this attribute to specify additional "
                     + "constraints on the execution platform beyond those given in the "
-                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>."),
+                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>. "
+                    + "This will be deprecated and removed in the near future, and all rules will "
+                    + "be able to use <code>exec_compatible_with</code>."),
         @Param(
             name = "exec_compatible_with",
             type = SkylarkList.class,
