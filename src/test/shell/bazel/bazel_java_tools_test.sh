@@ -154,4 +154,8 @@ function test_java_tools_has_ExperimentalRunner() {
   expect_path_in_java_tools "java_tools/ExperimentalRunner_deploy.jar"
 }
 
+function test_java_tools_has_BUILD() {
+  expect_path_in_java_tools "BUILD"
+}
+
 run_suite "Java tools archive tests"
