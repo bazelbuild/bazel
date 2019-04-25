@@ -606,6 +606,7 @@ JAVA_VERSIONS = ("9", "10")
             "//src/tools/singlejar:embedded_java_tools",
             "//third_party/jarjar:srcs",
             "//third_party/ijar:transitive_sources",
+            "//third_party/java/jacoco:jacoco_source_jars_zip",
             "@java_tools_langtools_javac" + java_version + "//:srcs",
         ],
         outs = ["java_tools_dist_javac" + java_version + ".zip"],
@@ -642,6 +643,7 @@ JAVA_VERSIONS = ("9", "10")
     for java_version in JAVA_VERSIONS
 ]
 
+
 # Builds the remote Java tools archive. Not embedded or used in Bazel, but used
 # by the Java tools release process.
 [
@@ -651,6 +653,7 @@ JAVA_VERSIONS = ("9", "10")
             ":jars_java_tools_java" + java_version + ".zip",
             "//src/tools/singlejar:singlejar_transitive_zip",
             "//third_party/ijar:ijar_transitive_zip",
+            "//third_party/java/jacoco:jacoco_jars_zip",
         ],
         outs = ["java_tools_java" + java_version + ".zip"],
         cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
