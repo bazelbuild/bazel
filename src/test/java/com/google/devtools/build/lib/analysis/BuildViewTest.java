@@ -415,10 +415,6 @@ public class BuildViewTest extends BuildViewTestBase {
   // Regression test: "output_filter broken (but in a different way)"
   @Test
   public void testOutputFilterSeeWarning() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     runAnalysisWithOutputFilter(Pattern.compile(".*"));
     assertContainsEvent("please do not import '//java/a:A.java'");
   }
@@ -430,20 +426,12 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     runAnalysisWithOutputFilter(Pattern.compile("^//java/c"));
     assertNoEvents();
   }
 
   @Test
   public void testOutputFilterWithDebug() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     scratch.file(
         "java/a/BUILD",
         "java_library(name = 'a',",
@@ -626,10 +614,6 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testMultiBuildInvalidationRevalidation() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     scratch.file("java/a/A.java", "bla1");
     scratch.file("java/a/C.java", "bla2");
     scratch.file("java/a/BUILD",
