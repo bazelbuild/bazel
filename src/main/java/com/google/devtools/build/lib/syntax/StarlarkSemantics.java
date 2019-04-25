@@ -54,7 +54,8 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
     INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
-    INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
+    INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
+        StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
