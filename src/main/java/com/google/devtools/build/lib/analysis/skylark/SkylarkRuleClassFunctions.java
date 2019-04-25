@@ -399,9 +399,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               ast.getLocation()));
     }
 
-    if (funcallEnv.getSemantics().incompatibleDisallowRuleExecutionPlatformConstraintsAllowed()) {
-      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
-    } else if (executionPlatformConstraintsAllowed) {
+    if (executionPlatformConstraintsAllowed) {
       builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
     } else {
       builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);

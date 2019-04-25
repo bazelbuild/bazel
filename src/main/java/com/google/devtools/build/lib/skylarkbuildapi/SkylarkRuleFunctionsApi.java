@@ -282,6 +282,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             positional = false,
             defaultValue = "False",
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED,
+            valueWhenDisabled = "True",
             doc =
                 "If true, a special attribute named <code>exec_compatible_with</code> of "
                     + "label-list type is added, which must not already exist in "
