@@ -444,6 +444,16 @@ sh_test(
 )
 
 sh_test(
+    name = "repository_abort_test",
+    size = "large",
+    srcs = ["repository_abort_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "skylark_repository_test",
     size = "large",
     srcs = ["skylark_repository_test.sh"],
