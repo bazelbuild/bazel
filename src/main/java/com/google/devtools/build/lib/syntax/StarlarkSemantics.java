@@ -54,6 +54,8 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
     INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
+    INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
+        StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -162,6 +164,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
+  public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
+
   public abstract boolean incompatibleDisallowStructProviderSyntax();
 
   public abstract boolean incompatibleExpandDirectories();
@@ -234,6 +238,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowNativeInBuildFile(false)
           .incompatibleDisallowOldOctalNotation(false)
           .incompatibleDisallowOldStyleArgsAdd(true)
+          .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(false)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(false)
@@ -303,6 +308,9 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 
     public abstract Builder incompatibleDisallowNativeInBuildFile(boolean value);
+
+    public abstract Builder incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
+        boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
 
