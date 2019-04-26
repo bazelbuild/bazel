@@ -26,8 +26,6 @@ filegroup(
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
@@ -50,8 +48,6 @@ filegroup(
 filegroup(
     name = "gpl-srcs",
     srcs = [
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
     ],
 )
