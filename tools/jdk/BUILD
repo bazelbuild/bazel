@@ -147,7 +147,7 @@ remote_java_tools_filegroup(
     target = ":singlejar",
 )
 
-exports_files(["BUILD.java_tools"])
+exports_files(["BUILD.java_tools", "BUILD.java_tools.old"])
 
 remote_java_tools_filegroup(
     name = "genclass",
@@ -360,6 +360,7 @@ filegroup(
     srcs = [
         "BUILD.java_langtools",
         "BUILD.java_tools",
+        "BUILD.java_tools.old",
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
