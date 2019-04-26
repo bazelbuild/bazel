@@ -147,6 +147,18 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_android_tools_test",
+    size = "small",
+    srcs = ["bazel_android_tools_test.sh"],
+    data = [
+        ":test-deps",
+        "//tools/android/runtime_deps:android_tools.tar.gz",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "bazel_java_tools_javac9_test",
     size = "small",
     srcs = ["bazel_java_tools_test.sh"],
