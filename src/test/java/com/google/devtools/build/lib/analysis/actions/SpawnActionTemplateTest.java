@@ -85,8 +85,8 @@ public class SpawnActionTemplateTest {
         .addCommonInputs(ImmutableList.of(commonInput))
         .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    assertThat(actionTemplate.getTools()).containsAllOf(commonTool, executable);
-    assertThat(actionTemplate.getInputs()).containsAllOf(commonInput, commonTool, executable);
+    assertThat(actionTemplate.getTools()).containsAtLeast(commonTool, executable);
+    assertThat(actionTemplate.getInputs()).containsAtLeast(commonInput, commonTool, executable);
   }
 
   @Test
@@ -249,9 +249,9 @@ public class SpawnActionTemplateTest {
                 inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
 
     for (int i = 0; i < expandedActions.size(); ++i) {
-      assertThat(expandedActions.get(i).getInputs()).containsAllOf(
-          commonInput, commonTool, executable);
-      assertThat(expandedActions.get(i).getTools()).containsAllOf(commonTool, executable);
+      assertThat(expandedActions.get(i).getInputs())
+          .containsAtLeast(commonInput, commonTool, executable);
+      assertThat(expandedActions.get(i).getTools()).containsAtLeast(commonTool, executable);
     }
   }
 

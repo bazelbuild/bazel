@@ -1564,7 +1564,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             ruleContext, "[f.short_path for f in ruleContext.attr.dep.default_runfiles.files]");
     assertThat(filenames).isInstanceOf(SkylarkList.class);
     SkylarkList filenamesList = (SkylarkList) filenames;
-    assertThat(filenamesList).containsAllOf("test/lib.py", "test/lib2.py");
+    assertThat(filenamesList).containsAtLeast("test/lib.py", "test/lib2.py");
     Object emptyFilenames =
         evalRuleContextCode(
             ruleContext, "list(ruleContext.attr.dep.default_runfiles.empty_filenames)");

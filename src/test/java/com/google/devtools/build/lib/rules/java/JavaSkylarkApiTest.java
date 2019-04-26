@@ -1530,7 +1530,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaCompilationArgsProvider jlExportsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, jlExports);
     assertThat(prettyArtifactNames(jlExportsProvider.getRuntimeJars()))
-        .containsAllOf(
+        .containsAtLeast(
             "foo/libjl_bottom_for_deps.jar",
             "foo/libjl_bottom_for_runtime_deps.jar",
             "foo/libjl_bottom_for_exports.jar");
@@ -1567,7 +1567,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(
             prettyArtifactNames(
                 binary.getProvider(JavaRuntimeClasspathProvider.class).getRuntimeClasspath()))
-        .containsAllOf("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
+        .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
   }
 
   @Test
@@ -1593,7 +1593,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaCompilationArgsProvider compilationProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, importTarget);
     assertThat(prettyArtifactNames(compilationProvider.getRuntimeJars()))
-        .containsAllOf("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
+        .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
   }
 
   @Test

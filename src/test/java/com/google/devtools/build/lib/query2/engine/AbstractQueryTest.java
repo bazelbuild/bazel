@@ -546,7 +546,7 @@ public abstract class AbstractQueryTest<T> {
         "        cmd = 'echo $(SRCS) >$@')");
 
     List<String> result = evalToListOfStrings("deps(//s:my_rule)");
-    assertThat(result).containsAllOf("//s:dep2", "//s:dep1.txt", "//s:dep2.txt", "//s:my_rule");
+    assertThat(result).containsAtLeast("//s:dep2", "//s:dep1.txt", "//s:dep2.txt", "//s:my_rule");
     assertThat(result)
         .containsNoneOf("//deps:BUILD", "//deps:build_def", "//deps:skylark.bzl", "//s:BUILD");
   }

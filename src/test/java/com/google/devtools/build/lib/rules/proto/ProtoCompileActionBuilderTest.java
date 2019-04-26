@@ -267,7 +267,7 @@ public class ProtoCompileActionBuilderTest {
             Services.DISALLOW,
             /* protocOpts= */ ImmutableList.of("--foo", "--bar"));
 
-    assertThat(cmdLine.arguments()).containsAllOf("--disallow_services", "--foo", "--bar");
+    assertThat(cmdLine.arguments()).containsAtLeast("--disallow_services", "--foo", "--bar");
   }
 
   @Test

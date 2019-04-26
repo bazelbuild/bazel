@@ -68,7 +68,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     Artifact file = getDescriptorOutput("//x:foo");
 
     assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
-        .containsAllOf(
+        .containsAtLeast(
             "-Ix/foo.proto=x/foo.proto",
             "--descriptor_set_out=" + file.getExecPathString(),
             "x/foo.proto");
@@ -192,18 +192,18 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='dep2', srcs=['dep2.proto'])");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:nodeps")).getRemainingArguments())
-        .containsAllOf("--direct_dependencies", "x/nodeps.proto")
+        .containsAtLeast("--direct_dependencies", "x/nodeps.proto")
         .inOrder();
 
     assertThat(
             getGeneratingSpawnAction(getDescriptorOutput("//x:withdeps")).getRemainingArguments())
-        .containsAllOf("--direct_dependencies", "x/dep1.proto:x/dep2.proto:x/withdeps.proto")
+        .containsAtLeast("--direct_dependencies", "x/dep1.proto:x/dep2.proto:x/withdeps.proto")
         .inOrder();
 
     assertThat(
             getGeneratingSpawnAction(getDescriptorOutput("//x:depends_on_alias"))
                 .getRemainingArguments())
-        .containsAllOf(
+        .containsAtLeast(
             "--direct_dependencies", "x/dep1.proto:x/dep2.proto:x/depends_on_alias.proto")
         .inOrder();
   }
@@ -223,7 +223,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(file.getRootRelativePathString()).isEqualTo("x/foo-descriptor-set.proto.bin");
 
     assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
-        .containsAllOf("--direct_dependencies", "x/foo.proto:x/bar.proto")
+        .containsAtLeast("--direct_dependencies", "x/foo.proto:x/bar.proto")
         .inOrder();
   }
 
@@ -621,7 +621,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    strip_import_prefix = 'c')");
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
-    assertThat(commandLine).containsAllOf("--direct_dependencies", "d.proto:e.proto").inOrder();
+    assertThat(commandLine).containsAtLeast("--direct_dependencies", "d.proto:e.proto").inOrder();
   }
 
   @Test
@@ -646,7 +646,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b/e:e"));
     assertThat(commandLine)
-        .containsAllOf("--direct_dependencies", "d.proto:a/b/e/e.proto")
+        .containsAtLeast("--direct_dependencies", "d.proto:a/b/e/e.proto")
         .inOrder();
   }
 
@@ -666,7 +666,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    strip_import_prefix = 'c')");
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
-    assertThat(commandLine).containsAllOf("--direct_dependencies", "foo/d.proto").inOrder();
+    assertThat(commandLine).containsAtLeast("--direct_dependencies", "foo/d.proto").inOrder();
   }
 
   @Test

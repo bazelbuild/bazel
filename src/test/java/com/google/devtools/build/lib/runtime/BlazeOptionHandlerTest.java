@@ -246,7 +246,7 @@ public class BlazeOptionHandlerTest {
             ImmutableSet.of("c0", "c1"));
     assertThat(structuredRc).isEqualTo(structuredArgsFrom2SimpleRcsWithOnlyResidue());
     assertThat(eventHandler.getEvents())
-        .containsAllOf(
+        .containsAtLeast(
             Event.warn("inconsistency in generated command line args. Ignoring bogus argument\n"),
             Event.warn("inconsistency in generated command line args. Ignoring bogus argument\n"));
   }

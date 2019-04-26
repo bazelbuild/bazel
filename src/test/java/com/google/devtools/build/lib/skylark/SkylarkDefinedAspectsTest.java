@@ -356,7 +356,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
           return ((Label) o).getName();
         }));
 
-    assertThat(names).containsAllOf("xxx", "yyy");
+    assertThat(names).containsAtLeast("xxx", "yyy");
     // Third is the C++ toolchain; its name changes between Blaze and Bazel.
     assertThat(names).hasSize(3);
   }

@@ -430,7 +430,7 @@ public class SimpleBlobStoreActionCacheTest {
     assertThat(result).isEqualTo(expectedResult.build());
 
     assertThat(map.keySet())
-        .containsAllOf(wobbleDigest.getHash(), quxDigest.getHash(), barDigest.getHash());
+        .containsAtLeast(wobbleDigest.getHash(), quxDigest.getHash(), barDigest.getHash());
   }
 
   private ActionResult uploadDirectory(SimpleBlobStoreActionCache client, List<Path> outputs)
