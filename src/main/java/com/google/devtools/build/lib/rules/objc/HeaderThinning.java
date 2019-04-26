@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -74,7 +76,7 @@ public class HeaderThinning implements IncludeProcessing {
   }
 
   @Override
-  public Iterable<Artifact> determineAdditionalInputs(
+  public ListenableFuture<Iterable<Artifact>> determineAdditionalInputs(
       @Nullable IncludeScannerSupplier includeScannerSupplier,
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
@@ -84,10 +86,14 @@ public class HeaderThinning implements IncludeProcessing {
     if (headersListFile == null) {
       return null;
     }
-    return findRequiredHeaderInputs(action.getSourceFile(), headersListFile, getAllowedInputsMap(),
-        actionExecutionContext == null
-            ? ArtifactPathResolver.IDENTITY
-            : actionExecutionContext.getPathResolver());
+    return Futures.immediateFuture(
+        findRequiredHeaderInputs(
+            action.getSourceFile(),
+            headersListFile,
+            getAllowedInputsMap(),
+            actionExecutionContext == null
+                ? ArtifactPathResolver.IDENTITY
+                : actionExecutionContext.getPathResolver()));
   }
 
   /**

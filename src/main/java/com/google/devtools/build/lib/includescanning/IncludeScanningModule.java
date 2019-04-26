@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
+import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -56,6 +58,7 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.logging.Logger;
 
@@ -180,18 +183,30 @@ public class IncludeScanningModule extends BlazeModule {
       for (Artifact path : legalOutputPaths) {
         pathToLegalOutputArtifact.put(path.getExecPath(), path);
       }
-      scanner.process(
-          source,
-          ImmutableList.of(source),
-          // For Swig include scanning just point to the output file in the map.
-          new IncludeScanningHeaderData.Builder(
-                  pathToLegalOutputArtifact.build(), /*modularHeaders=*/ ImmutableSet.of())
-              .build(),
-          ImmutableList.of(),
-          includes,
-          actionExecutionMetadata,
-          actionExecContext,
-          grepIncludes);
+      try {
+        scanner
+            .processAsync(
+                source,
+                ImmutableList.of(source),
+                // For Swig include scanning just point to the output file in the map.
+                new IncludeScanningHeaderData.Builder(
+                        pathToLegalOutputArtifact.build(), /*modularHeaders=*/ ImmutableSet.of())
+                    .build(),
+                ImmutableList.of(),
+                includes,
+                actionExecutionMetadata,
+                actionExecContext,
+                grepIncludes)
+            .get();
+      } catch (ExecutionException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        if (e.getCause() instanceof IORuntimeException) {
+          throw ((IORuntimeException) e.getCause()).getCauseIOException();
+        }
+        Throwables.throwIfUnchecked(e.getCause());
+        throw new IllegalStateException(e.getCause());
+      }
     }
   }
 
