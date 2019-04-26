@@ -63,13 +63,28 @@ class HttpConnector {
   private final EventHandler eventHandler;
   private final ProxyHelper proxyHelper;
   private final Sleeper sleeper;
+  private final float timeoutScaling;
 
   HttpConnector(
-      Locale locale, EventHandler eventHandler, ProxyHelper proxyHelper, Sleeper sleeper) {
+      Locale locale,
+      EventHandler eventHandler,
+      ProxyHelper proxyHelper,
+      Sleeper sleeper,
+      float timeoutScaling) {
     this.locale = locale;
     this.eventHandler = eventHandler;
     this.proxyHelper = proxyHelper;
     this.sleeper = sleeper;
+    this.timeoutScaling = timeoutScaling;
+  }
+
+  HttpConnector(
+      Locale locale, EventHandler eventHandler, ProxyHelper proxyHelper, Sleeper sleeper) {
+    this(locale, eventHandler, proxyHelper, sleeper, 1.0f);
+  }
+
+  private int scale(int unscaled) {
+    return Math.round(unscaled * timeoutScaling);
   }
 
   URLConnection connect(
@@ -85,7 +100,7 @@ class HttpConnector {
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
     int redirects = 0;
-    int connectTimeout = MIN_CONNECT_TIMEOUT_MS;
+    int connectTimeout = scale(MIN_CONNECT_TIMEOUT_MS);
     while (true) {
       HttpURLConnection connection = null;
       try {
@@ -105,7 +120,7 @@ class HttpConnector {
         }
         connection.setConnectTimeout(connectTimeout);
         // The read timeout is always large because it stays in effect after this method.
-        connection.setReadTimeout(READ_TIMEOUT_MS);
+        connection.setReadTimeout(scale(READ_TIMEOUT_MS));
         // Java tries to abstract HTTP error responses for us. We don't want that. So we're going
         // to try and undo any IOException that doesn't appear to be a legitimate I/O exception.
         int code;
@@ -184,7 +199,7 @@ class HttpConnector {
         int timeout = IntMath.pow(2, retries) * MIN_RETRY_DELAY_MS;
         if (e instanceof SocketTimeoutException) {
           eventHandler.handle(Event.progress("Timeout connecting to " + url));
-          connectTimeout = Math.min(connectTimeout * 2, MAX_CONNECT_TIMEOUT_MS);
+          connectTimeout = Math.min(connectTimeout * 2, scale(MAX_CONNECT_TIMEOUT_MS));
           // If we got connect timeout, we're already doing exponential backoff, so no point
           // in sleeping too.
           timeout = 1;

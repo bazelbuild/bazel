@@ -277,6 +277,8 @@ public class BazelRepositoryModule extends BlazeModule {
         httpDownloader.setDistdir(ImmutableList.<Path>of());
       }
 
+      httpDownloader.setTimeoutScaling((float) repoOptions.httpTimeoutScaling);
+
       if (repoOptions.repositoryOverrides != null) {
         ImmutableMap.Builder<RepositoryName, PathFragment> builder = ImmutableMap.builder();
         for (RepositoryOverride override : repoOptions.repositoryOverrides) {
