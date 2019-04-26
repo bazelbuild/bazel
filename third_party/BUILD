@@ -50,8 +50,6 @@ filegroup(
 filegroup(
     name = "gpl-srcs",
     srcs = [
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
     ],
 )
