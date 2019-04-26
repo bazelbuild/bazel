@@ -357,7 +357,7 @@ class TestWrapperTest(test_base.TestBase):
         # to test for future (as of 2019-04-05) behavior.
         '--incompatible_windows_style_arg_escaping',
         'test',
-        '//foo:testargs_test.exe',
+        '//foo:testargs_test',
         '-t-',
         '--test_output=all',
         '--test_arg=baz',
