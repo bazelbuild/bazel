@@ -749,7 +749,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testExperimentalStarlarkConfig() throws Exception {
-    new SkylarkTest("--experimental_restrict_named_params")
+    new SkylarkTest("--incompatible_restrict_named_params")
         .testIfErrorContains(
             "parameter 'elements' may not be specified by name, "
                 + "for call to method join(elements) of 'string'",

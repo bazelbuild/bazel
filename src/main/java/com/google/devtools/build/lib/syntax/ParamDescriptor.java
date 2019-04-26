@@ -117,7 +117,7 @@ public final class ParamDescriptor {
     if (param.named()) {
       return true;
     }
-    return param.legacyNamed() && !starlarkSemantics.experimentalRestrictNamedParams();
+    return param.legacyNamed() && !starlarkSemantics.incompatibleRestrictNamedParams();
   }
 
   /** @see Param#name() */

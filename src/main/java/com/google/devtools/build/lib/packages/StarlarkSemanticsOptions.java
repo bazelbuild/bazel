@@ -140,19 +140,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "debugging.")
   public boolean experimentalPlatformsApi;
 
-  // TODO(cparsons): Change this flag to --incompatible instead of --experimental when it is
-  // fully implemented.
-  @Option(
-      name = "experimental_restrict_named_params",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If set to true, restricts a number of Starlark built-in function parameters to be "
-              + "only specifiable positionally (and not by keyword).")
-  public boolean experimentalRestrictNamedParams;
-
   // TODO(cparsons): Resolve and finalize the transition() API. The transition implementation
   // function should accept two mandatory parameters, 'settings' and 'attr'.
   @Option(
@@ -573,8 +560,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       effectTags = {OptionEffectTag.UNKNOWN})
   public boolean internalSkylarkFlagTestCanary;
 
-
-
   @Option(
       name = "incompatible_do_not_split_linking_cmdline",
       defaultValue = "false",
@@ -606,6 +591,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "frameworks.  See https://github.com/bazelbuild/bazel/issues/7944 for details.")
   public boolean incompatibleObjcFrameworkCleanup;
 
+  @Option(
+      name = "incompatible_restrict_named_params",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, restricts a number of Starlark built-in function parameters to be "
+              + "only specifiable positionally (and not by keyword).")
+  public boolean incompatibleRestrictNamedParams;
+
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
   public StarlarkSemantics toSkylarkSemantics() {
     return StarlarkSemantics.builder()
@@ -619,7 +618,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .experimentalJavaCommonCreateProviderEnabledPackages(
             experimentalJavaCommonCreateProviderEnabledPackages)
         .experimentalPlatformsApi(experimentalPlatformsApi)
-        .experimentalRestrictNamedParams(experimentalRestrictNamedParams)
         .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
@@ -651,6 +649,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleObjcFrameworkCleanup(incompatibleObjcFrameworkCleanup)
         .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
+        .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
         .incompatibleStaticNameResolutionInBuildFiles(incompatibleStaticNameResolutionInBuildFiles)
         .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)

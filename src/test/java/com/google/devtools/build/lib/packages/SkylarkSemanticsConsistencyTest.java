@@ -131,7 +131,6 @@ public class SkylarkSemanticsConsistencyTest {
             + ","
             + rand.nextDouble(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
-        "--experimental_restrict_named_params=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
@@ -161,6 +160,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_objc_framework_cleanup=" + rand.nextBoolean(),
         "--incompatible_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
+        "--incompatible_restrict_named_params=" + rand.nextBoolean(),
         "--incompatible_static_name_resolution_in_build_files=" + rand.nextBoolean(),
         "--incompatible_string_join_requires_strings=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
@@ -183,7 +183,6 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalJavaCommonCreateProviderEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalPlatformsApi(rand.nextBoolean())
-        .experimentalRestrictNamedParams(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
@@ -213,6 +212,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleObjcFrameworkCleanup(rand.nextBoolean())
         .incompatibleRemapMainRepo(rand.nextBoolean())
         .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
+        .incompatibleRestrictNamedParams(rand.nextBoolean())
         .incompatibleStaticNameResolutionInBuildFiles(rand.nextBoolean())
         .incompatibleStringJoinRequiresStrings(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())

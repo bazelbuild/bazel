@@ -132,8 +132,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalPlatformsApi();
 
-  public abstract boolean experimentalRestrictNamedParams();
-
   public abstract boolean experimentalStarlarkConfigTransitions();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
@@ -192,6 +190,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
+  public abstract boolean incompatibleRestrictNamedParams();
+
   public abstract boolean incompatibleStringJoinRequiresStrings();
 
   public abstract boolean incompatibleStaticNameResolutionInBuildFiles();
@@ -222,7 +222,6 @@ public abstract class StarlarkSemantics {
           .experimentalGoogleLegacyApi(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalPlatformsApi(false)
-          .experimentalRestrictNamedParams(false)
           .experimentalStarlarkConfigTransitions(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(false)
@@ -252,6 +251,7 @@ public abstract class StarlarkSemantics {
           .incompatibleObjcFrameworkCleanup(false)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
+          .incompatibleRestrictNamedParams(false)
           .incompatibleStaticNameResolutionInBuildFiles(false)
           .incompatibleStringJoinRequiresStrings(false)
           .internalSkylarkFlagTestCanary(false)
@@ -276,8 +276,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 
     public abstract Builder experimentalPlatformsApi(boolean value);
-
-    public abstract Builder experimentalRestrictNamedParams(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
@@ -337,6 +335,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRemapMainRepo(boolean value);
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
+
+    public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
     public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
