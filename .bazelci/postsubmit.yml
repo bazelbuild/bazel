@@ -23,6 +23,7 @@ platforms:
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."
   ubuntu1604:
     shell_commands:
@@ -47,6 +48,7 @@ platforms:
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."
   ubuntu1804:
     shell_commands:

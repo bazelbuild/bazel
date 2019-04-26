@@ -27,6 +27,7 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."
   ubuntu1604:
     shell_commands:
@@ -55,6 +56,7 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."
   ubuntu1804:
     shell_commands:
