@@ -325,6 +325,6 @@ public class VanillaJavaBuilderTest {
 
     ImmutableMap<String, byte[]> outputEntries = readJar(nativeHeaderOutput.toFile());
     assertThat(outputEntries.keySet())
-        .containsAllOf("test_BarWithNativeMethod.h", "test_FooWithNativeMethod.h");
+        .containsAtLeast("test_BarWithNativeMethod.h", "test_FooWithNativeMethod.h");
   }
 }
