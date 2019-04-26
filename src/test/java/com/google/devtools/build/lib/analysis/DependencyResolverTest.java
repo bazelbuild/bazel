@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -102,7 +101,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
             getHostConfiguration(),
             aspect != null ? Aspect.forNative(aspect) : null,
             ImmutableMap.of(),
-            /*toolchainLabels=*/ ImmutableSet.of(),
+            /*toolchainContext=*/ null,
             /*trimmingTransitionFactory=*/ null);
 
     return prerequisiteMap;
