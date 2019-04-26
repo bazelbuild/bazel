@@ -184,6 +184,11 @@ class HttpConnector {
         throw e;
       } catch (IllegalArgumentException e) {
         throw new UnrecoverableHttpException(e.getMessage());
+      } catch (SocketTimeoutException e) {
+        // SocketTimeoutExceptions are InterruptedExceptions; however they do not signify
+        // an external interruption, but simply a failed download due to some server timing
+        // out. So rethrow them as ordinary IOExceptions.
+        throw new IOException(e.getMessage(), e);
       } catch (IOException e) {
         if (connection != null) {
           // If we got here, it means we might not have consumed the entire payload of the

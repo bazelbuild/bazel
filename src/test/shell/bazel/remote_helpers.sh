@@ -143,6 +143,19 @@ function serve_not_found() {
   cd -
 }
 
+# Simulates a server timeing out while trying to generate a response.
+function serve_timeout() {
+  port_file=server-port.$$
+  cd "${TEST_TMPDIR}"
+  rm -f $port_file
+  python $python_server timeout  > $port_file &
+  nc_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  nc_port=$(head -n 1 $port_file)
+  fileserver_port=$nc_port
+  cd -
+}
+
 # Waits for the SimpleHTTPServer to actually start up before the test is run.
 # Otherwise the entire test can run before the server starts listening for
 # connections, which causes flakes.

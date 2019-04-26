@@ -413,6 +413,27 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_http_timeout() {
+  serve_timeout
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = 'toto',
+    urls = ['http://127.0.0.1:$nc_port/toto'],
+)
+EOF
+  date
+  bazel build --http_timeout_scaling=0.03 @toto//file > $TEST_log 2>&1 \
+      && fail "Expected failure" || :
+  date
+  kill_nc
+
+  expect_log '[Tt]imed\? \?out'
+  expect_not_log "interrupted"
+}
+
 # Tests downloading a file with a redirect.
 function test_http_redirect() {
   local test_file=$TEST_TMPDIR/toto
