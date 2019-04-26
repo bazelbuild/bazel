@@ -161,13 +161,14 @@ final class RemoteSpawnCache implements SpawnCache {
         if (result != null && result.getExitCode() == 0) {
           // In case the remote cache returned a failed action (exit code != 0) we treat it as a
           // cache miss
-          List<String> expectedPaths = spawn.getOutputFiles().stream().map(
-            (actionInput) -> actionInput.getExecPathString()
-          ).collect(Collectors.toList());
-          Set<String> actualPaths = result.getOutputFilesList().stream().map(
+          Set<String> actualFiles = result.getOutputFilesList().stream().map(
             (outputFile) -> outputFile.getPath()
           ).collect(Collectors.toSet());
-          if (actualPaths.containsAll(expectedPaths)) // What a miss otherwise!
+          Set<String> actualDirectories = result.getOutputDirectoriesList().stream().map(
+            (outputDirectory) -> outputDirectory.getPath()
+          ).collect(Collectors.toSet());
+          if (actualFiles.containsAll(command.getOutputFilesList())
+               && actualDirectories.containsAll(command.getOutputDirectoriesList())) // What a miss otherwise!
           {
             InMemoryOutput inMemoryOutput = null;
             boolean downloadOutputs =
