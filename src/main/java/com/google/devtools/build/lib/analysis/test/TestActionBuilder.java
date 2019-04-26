@@ -350,7 +350,6 @@ public final class TestActionBuilder {
           coverageArtifacts.add(coverageArtifact);
         }
 
-        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
         env.registerAction(
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
@@ -369,7 +368,10 @@ public final class TestActionBuilder {
                 run,
                 config,
                 ruleContext.getWorkspaceName(),
-                shExecutable));
+                (!isUsingTestWrapperInsteadOfTestSetupScript ||
+                 executionSettings.needsShell(isExecutedOnWindows))
+                    ? ShToolchain.getPathOrError(ruleContext)
+                    : null));
         results.add(cacheStatus);
       }
     }

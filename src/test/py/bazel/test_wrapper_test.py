@@ -210,32 +210,29 @@ class TestWrapperTest(test_base.TestBase):
         ],
         executable=True)
 
-  def _AssertPassingTest(self, flag):
+  def _AssertPassingTest(self, flags):
     exit_code, _, stderr = self.RunBazel([
         'test',
         '//foo:passing_test',
         '-t-',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
 
-  def _AssertFailingTest(self, flag):
+  def _AssertFailingTest(self, flags):
     exit_code, _, stderr = self.RunBazel([
         'test',
         '//foo:failing_test',
         '-t-',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 3, stderr)
 
-  def _AssertPrintingTest(self, flag):
+  def _AssertPrintingTest(self, flags):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
         '//foo:printing_test',
         '-t-',
         '--test_output=all',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
     lorem = False
     for line in stderr + stdout:
@@ -268,7 +265,7 @@ class TestWrapperTest(test_base.TestBase):
     if not user:
       self._FailWithOutput(stderr + stdout)
 
-  def _AssertRunfiles(self, flag):
+  def _AssertRunfiles(self, flags):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
         '//foo:runfiles_test',
@@ -276,8 +273,7 @@ class TestWrapperTest(test_base.TestBase):
         '--test_output=all',
         # Ensure Bazel does not create a runfiles tree.
         '--enable_runfiles=no',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
     mf = mf_only = rf_dir = None
     for line in stderr + stdout:
@@ -303,14 +299,13 @@ class TestWrapperTest(test_base.TestBase):
     if not os.path.isdir(rf_dir):
       self._FailWithOutput(stderr + stdout)
 
-  def _AssertShardedTest(self, flag):
+  def _AssertShardedTest(self, flags):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
         '//foo:sharded_test',
         '-t-',
         '--test_output=all',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
     status = None
     index_lines = []
@@ -328,14 +323,13 @@ class TestWrapperTest(test_base.TestBase):
     if sorted(index_lines) != ['INDEX=0 TOTAL=2', 'INDEX=1 TOTAL=2']:
       self._FailWithOutput(stderr + stdout)
 
-  def _AssertUnexportsEnvvars(self, flag):
+  def _AssertUnexportsEnvvars(self, flags):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
         '//foo:unexported_test',
         '-t-',
         '--test_output=all',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
     good = bad = None
     for line in stderr + stdout:
@@ -346,7 +340,7 @@ class TestWrapperTest(test_base.TestBase):
     if not good or bad:
       self._FailWithOutput(stderr + stdout)
 
-  def _AssertTestArgs(self, flag):
+  def _AssertTestArgs(self, flags):
     exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = bazel_bin[0]
@@ -364,8 +358,7 @@ class TestWrapperTest(test_base.TestBase):
         '--test_arg="x y"',
         '--test_arg=""',
         '--test_arg=qux',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
 
     actual = []
@@ -393,7 +386,7 @@ class TestWrapperTest(test_base.TestBase):
         ],
         actual)
 
-  def _AssertUndeclaredOutputs(self, flag):
+  def _AssertUndeclaredOutputs(self, flags):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
         ['info', 'bazel-testlogs'])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -404,8 +397,7 @@ class TestWrapperTest(test_base.TestBase):
         '//foo:undecl_test',
         '-t-',
         '--test_output=errors',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
 
     undecl_zip = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
@@ -450,7 +442,7 @@ class TestWrapperTest(test_base.TestBase):
     if mf_content[1] != 'out2/data2.dat\t16\tapplication/octet-stream':
       self._FailWithOutput(mf_content)
 
-  def _AssertUndeclaredOutputsAnnotations(self, flag):
+  def _AssertUndeclaredOutputsAnnotations(self, flags):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
         ['info', 'bazel-testlogs'])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -461,8 +453,7 @@ class TestWrapperTest(test_base.TestBase):
         '//foo:annot_test',
         '-t-',
         '--test_output=errors',
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
 
     undecl_annot = os.path.join(bazel_testlogs, 'foo', 'annot_test',
@@ -474,7 +465,7 @@ class TestWrapperTest(test_base.TestBase):
 
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
-  def _AssertXmlGeneration(self, flag, split_xml=False):
+  def _AssertXmlGeneration(self, flags, split_xml=False):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
         ['info', 'bazel-testlogs'])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -486,8 +477,7 @@ class TestWrapperTest(test_base.TestBase):
         '-t-',
         '--test_output=errors',
         '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
 
     test_xml = os.path.join(bazel_testlogs, 'foo', 'xml_test', 'test.xml')
@@ -524,7 +514,7 @@ class TestWrapperTest(test_base.TestBase):
         'stderr_line_2' not in stderr_lines[1]):
       self._FailWithOutput(xml_contents)
 
-  def _AssertXmlGeneratedByTestIsRetained(self, flag, split_xml=False):
+  def _AssertXmlGeneratedByTestIsRetained(self, flags, split_xml=False):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
         ['info', 'bazel-testlogs'])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -536,8 +526,7 @@ class TestWrapperTest(test_base.TestBase):
         '-t-',
         '--test_output=errors',
         '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
-        flag,
-    ])
+    ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
 
     test_xml = os.path.join(bazel_testlogs, 'foo', 'xml2_test', 'test.xml')
@@ -566,6 +555,7 @@ class TestWrapperTest(test_base.TestBase):
             'test',
             '-t-',
             '--incompatible_windows_native_test_wrapper',
+            '--shell_executable=',
             '--test_output=errors',
             '--verbose_failures',
             flag,
@@ -577,37 +567,38 @@ class TestWrapperTest(test_base.TestBase):
 
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
-    flag = '--noincompatible_windows_native_test_wrapper'
-    self._AssertPassingTest(flag)
-    self._AssertFailingTest(flag)
-    self._AssertPrintingTest(flag)
-    self._AssertRunfiles(flag)
-    self._AssertShardedTest(flag)
-    self._AssertUnexportsEnvvars(flag)
-    self._AssertTestArgs(flag)
-    self._AssertUndeclaredOutputs(flag)
-    self._AssertUndeclaredOutputsAnnotations(flag)
-    self._AssertXmlGeneration(flag, split_xml=False)
-    self._AssertXmlGeneration(flag, split_xml=True)
-    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
-    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
+    flags = ['--noincompatible_windows_native_test_wrapper']
+    self._AssertPassingTest(flags)
+    self._AssertFailingTest(flags)
+    self._AssertPrintingTest(flags)
+    self._AssertRunfiles(flags)
+    self._AssertShardedTest(flags)
+    self._AssertUnexportsEnvvars(flags)
+    self._AssertTestArgs(flags)
+    self._AssertUndeclaredOutputs(flags)
+    self._AssertUndeclaredOutputsAnnotations(flags)
+    self._AssertXmlGeneration(flags, split_xml=False)
+    self._AssertXmlGeneration(flags, split_xml=True)
+    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
+    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
-    flag = '--incompatible_windows_native_test_wrapper'
-    self._AssertPassingTest(flag)
-    self._AssertFailingTest(flag)
-    self._AssertPrintingTest(flag)
-    self._AssertRunfiles(flag)
-    self._AssertShardedTest(flag)
-    self._AssertUnexportsEnvvars(flag)
-    self._AssertTestArgs(flag)
-    self._AssertUndeclaredOutputs(flag)
-    self._AssertUndeclaredOutputsAnnotations(flag)
-    self._AssertXmlGeneration(flag, split_xml=False)
-    self._AssertXmlGeneration(flag, split_xml=True)
-    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
-    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
+    flags = ['--incompatible_windows_native_test_wrapper',
+             '--shell_executable=']
+    self._AssertPassingTest(flags)
+    self._AssertFailingTest(flags)
+    self._AssertPrintingTest(flags)
+    self._AssertRunfiles(flags)
+    self._AssertShardedTest(flags)
+    self._AssertUnexportsEnvvars(flags)
+    self._AssertTestArgs(flags)
+    self._AssertUndeclaredOutputs(flags)
+    self._AssertUndeclaredOutputsAnnotations(flags)
+    self._AssertXmlGeneration(flags, split_xml=False)
+    self._AssertXmlGeneration(flags, split_xml=True)
+    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
+    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
 
 
 if __name__ == '__main__':

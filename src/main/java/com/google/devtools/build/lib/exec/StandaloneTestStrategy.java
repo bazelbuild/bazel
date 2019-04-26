@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -366,7 +367,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     // configuration, not the machine Bazel happens to run on. Change this to something like:
     // testAction.getConfiguration().getExecOS() == OS.WINDOWS
     if (OS.getCurrent() == OS.WINDOWS && !action.isUsingTestWrapperInsteadOfTestSetupScript()) {
-      args.add(action.getShExecutable().getPathString());
+      // TestActionBuilder constructs TestRunnerAction with a 'null' shell path only when we use the
+      // native test wrapper. Something clearly went wrong.
+      Preconditions.checkNotNull(action.getShExecutableMaybe(), "%s", action);
+      args.add(action.getShExecutableMaybe().getPathString());
       args.add("-c");
       args.add("$0 $*");
     }
