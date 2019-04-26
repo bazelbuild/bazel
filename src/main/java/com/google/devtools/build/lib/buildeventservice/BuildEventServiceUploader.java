@@ -173,19 +173,28 @@ public final class BuildEventServiceUploader implements Runnable {
       }
       return;
     }
-    // BuildCompletingEvent marks the end of the build in the BEP event stream.
-    if (event instanceof BuildCompletingEvent) {
-      synchronized (lock) {
+
+    // The generation of the sequence number and the addition to the {@link #eventQueue} should be
+    // atomic since BES expects the events in that exact order.
+    // More details can be found in b/131393380.
+    // TODO(bazel-team): Consider relaxing this invariant by having a more relaxed order.
+    synchronized (lock) {
+      // BuildCompletingEvent marks the end of the build in the BEP event stream.
+      if (event instanceof BuildCompletingEvent) {
         this.buildStatus = extractBuildStatus((BuildCompletingEvent) event);
       }
+      ensureUploadThreadStarted();
+
+      // TODO(b/131393380): {@link #nextSeqNum} doesn't need to be an AtomicInteger if it's
+      //  always used under lock. It would be cleaner and more performant to update the sequence
+      //  number when we take the item off the queue.
+      eventQueue.addLast(
+          new SendRegularBuildEventCommand(
+              event,
+              localFileUploadFuture,
+              nextSeqNum.getAndIncrement(),
+              Timestamps.fromMillis(clock.currentTimeMillis())));
     }
-    ensureUploadThreadStarted();
-    eventQueue.addLast(
-        new SendRegularBuildEventCommand(
-            event,
-            localFileUploadFuture,
-            nextSeqNum.getAndIncrement(),
-            Timestamps.fromMillis(clock.currentTimeMillis())));
   }
 
   /**
@@ -201,8 +210,18 @@ public final class BuildEventServiceUploader implements Runnable {
 
     ensureUploadThreadStarted();
 
-    // Enqueue the last event which will terminate the upload.
-    eventQueue.addLast(new SendLastBuildEventCommand(nextSeqNum.getAndIncrement(), currentTime()));
+    // The generation of the sequence number and the addition to the {@link #eventQueue} should be
+    // atomic since BES expects the events in that exact order.
+    // More details can be found in b/131393380.
+    // TODO(bazel-team): Consider relaxing this invariant by having a more relaxed order.
+    synchronized (lock) {
+      // Enqueue the last event which will terminate the upload.
+      // TODO(b/131393380): {@link #nextSeqNum} doesn't need to be an AtomicInteger if it's
+      //  always used under lock. It would be cleaner and more performant to update the sequence
+      //  number when we take the item off the queue.
+      eventQueue.addLast(
+          new SendLastBuildEventCommand(nextSeqNum.getAndIncrement(), currentTime()));
+    }
 
     final SettableFuture<Void> finalCloseFuture = closeFuture;
     closeFuture.addListener(
