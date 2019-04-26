@@ -511,6 +511,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     ImmutableList<String> userLinkFlags =
         CcToolchainVariables.toStringList(
             testVariables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
-    assertThat(userLinkFlags).containsAllOf("-foo", "-bar").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-foo", "-bar").inOrder();
   }
 }

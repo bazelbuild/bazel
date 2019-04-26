@@ -1007,7 +1007,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
       CppLinkAction linkAction = builder.build();
       assertThat(linkAction.getCommandLine(expander))
-          .containsAllOf(
+          .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),
               objectFile.getExecPathString())

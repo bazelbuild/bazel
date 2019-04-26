@@ -1346,7 +1346,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(instrumentedFilesProvider).isNotNull();
 
     assertThat(Artifact.toRootRelativePaths(instrumentedFilesProvider.getInstrumentedFiles()))
-        .containsAllOf("examples/lib.m", "examples/bundle_lib.m");
+        .containsAtLeast("examples/lib.m", "examples/bundle_lib.m");
   }
 
   @Test
