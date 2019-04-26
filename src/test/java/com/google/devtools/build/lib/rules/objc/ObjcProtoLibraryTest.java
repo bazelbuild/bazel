@@ -297,7 +297,8 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/protobuf_compiler_wrapper.sh",
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/protobuf_compiler_helper.py",
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/proto_support");
-    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllIn(protoInputs);
+    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
+        .containsAtLeastElementsIn(protoInputs);
     assertThat(action.getInputs()).contains(inputFileList);
 
     FileWriteAction inputListAction = (FileWriteAction) getGeneratingAction(inputFileList);
@@ -320,7 +321,8 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         "package/file_a.proto",
         TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/well_known_type.proto");
 
-    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllIn(protoInputs);
+    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
+        .containsAtLeastElementsIn(protoInputs);
     assertThat(action.getInputs()).contains(inputFileList);
 
     FileWriteAction inputListAction = (FileWriteAction) getGeneratingAction(inputFileList);
@@ -556,7 +558,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     Artifact objListFile =
         ActionsTestUtil.getFirstArtifactEndingWith(linkedProtosAction.getInputs(), ".objlist");
     assertThat(linkedProtosAction.getArguments())
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             ImmutableList.of(
                 "-static",
                 "-filelist",

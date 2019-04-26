@@ -440,15 +440,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 compileActionA.getArguments(), "-F" + frameworkDir(ApplePlatform.IOS_SIMULATOR)))
         .isEqualTo(1);
     assertThat(compileActionA.getArguments())
-        .containsAllIn(AppleToolchain.DEFAULT_WARNINGS.values());
+        .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())
-        .containsAllIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+        .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
     assertThat(compileActionA.getArguments())
-        .containsAllIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
+        .containsAtLeastElementsIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
     assertThat(compileActionA.getArguments()).contains("-fobjc-arc");
     assertThat(compileActionA.getArguments()).containsAllOf("-c", "objc/a.m");
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAllIn(FASTBUILD_COPTS);
+    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments())
         .contains("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION);
     assertThat(compileActionA.getArguments()).contains("-arch i386");
@@ -489,9 +489,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 compileActionA.getArguments(), "-F" + frameworkDir(ApplePlatform.IOS_DEVICE)))
         .isEqualTo(1);
     assertThat(compileActionA.getArguments())
-        .containsAllIn(AppleToolchain.DEFAULT_WARNINGS.values());
+        .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())
-        .containsAllIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+        .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
     assertThat(compileActionA.getArguments())
         .containsNoneIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
 
@@ -499,7 +499,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).containsAllOf("-c", "objc/a.m");
 
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAllIn(FASTBUILD_COPTS);
+    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments())
         .contains("-miphoneos-version-min=" + DEFAULT_IOS_SDK_VERSION);
     assertThat(compileActionA.getArguments()).contains("-arch armv7");
@@ -620,7 +620,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     CommandAction compileActionA = compileAction(target, "a.o");
     assertThat(compileActionA.getArguments())
-        .containsAllIn(moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
+        .containsAtLeastElementsIn(
+            moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
     assertThat(compileActionA.getArguments()).contains("-fmodule-maps");
     assertThat(Artifact.toRootRelativePaths(compileActionA.getInputs()))
         .doesNotContain("objc/library/lib@a-foo_foobar.modulemaps/module.modulemap");
@@ -1349,7 +1350,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             new ImmutableList.Builder<String>()
                 .addAll(AppleToolchain.DEFAULT_WARNINGS.values())
                 .add("-fexceptions")
@@ -1466,7 +1467,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     // for creating binaries but is ignored for libraries.
     CommandAction archiveAction = archiveAction("//depender_lib:lib");
     assertThat(archiveAction.getArguments())
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             new ImmutableList.Builder<String>()
                 .add("-static")
                 .add("-filelist")
@@ -1832,13 +1833,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
     List<String> copts = ImmutableList.of("-fprofile-arcs", "-ftest-coverage");
-    assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "d.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAllIn(copts);
+    assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "d.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAtLeastElementsIn(copts);
   }
 
   @Test
@@ -1851,13 +1852,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
     List<String> copts = ImmutableList.of("-fprofile-instr-generate", "-fcoverage-mapping");
-    assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "d.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAllIn(copts);
+    assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "d.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAtLeastElementsIn(copts);
    }
 
   @Test

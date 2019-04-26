@@ -405,7 +405,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
     ParamFile paramFile = Iterables.getOnlyElement(cppLinkAction.getParamFilesList());
     Set<String> cmdlineArgs = new HashSet<>(cppLinkAction.getArgumentsList());
     Set<String> paramFileArgs = new HashSet<>(paramFile.getArgumentsList());
-    assertThat(cmdlineArgs).containsAllIn(paramFileArgs);
+    assertThat(cmdlineArgs).containsAtLeastElementsIn(paramFileArgs);
   }
 
   @Test

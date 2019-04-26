@@ -246,14 +246,14 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.enableV2=1",
             // Note that this includes only android.library and not android.library2
             "-Aandroid.databinding.directDependencyPkgs=[android.library]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
 
     // Regression test for b/63134122
     JavaCompileInfo javaCompileInfo =
         binCompileAction
             .getExtraActionInfo(actionKeyContext)
             .getExtension(JavaCompileInfo.javaCompileInfo);
-    assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
@@ -287,13 +287,13 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.enableV2=1",
             // Note that this includes only android.library and not android.library2
             "-Aandroid.databinding.directDependencyPkgs=[android.library]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
 
     JavaCompileInfo javaCompileInfo =
         binCompileAction
             .getExtraActionInfo(actionKeyContext)
             .getExtension(JavaCompileInfo.javaCompileInfo);
-    assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
@@ -1015,7 +1015,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of(
             "-Aandroid.databinding.directDependencyPkgs=[android.library1,android.library2]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
@@ -1035,7 +1035,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of("-Aandroid.databinding.directDependencyPkgs="
             + "[android.lib_with_exports,android.library1,android.library2]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
@@ -1062,7 +1062,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of("-Aandroid.databinding.directDependencyPkgs=[]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
   }
 
 }

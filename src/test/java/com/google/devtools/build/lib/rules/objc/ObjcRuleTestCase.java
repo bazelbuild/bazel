@@ -726,10 +726,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction protoActionC = (CommandAction) getGeneratingAction(protoHeaderC);
     CommandAction protoActionD = (CommandAction) getGeneratingAction(protoHeaderD);
 
-    assertThat(protoActionA.getInputs()).containsAllIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionB.getInputs()).containsAllIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionC.getInputs()).containsAllIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionD.getInputs()).containsAllIn(protoProvider.getPortableProtoFilters());
+    assertThat(protoActionA.getInputs())
+        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
+    assertThat(protoActionB.getInputs())
+        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
+    assertThat(protoActionC.getInputs())
+        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
+    assertThat(protoActionD.getInputs())
+        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
 
     assertThat(Artifact.toExecPaths(protoActionA.getInputs())).contains("protos/data_a.proto");
     assertThat(Artifact.toExecPaths(protoActionA.getInputs()))
@@ -1026,7 +1030,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction compileActionA = compileAction("//x:x", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsAllIn(allExpectedCoptsBuilder.build());
+        .containsAtLeastElementsIn(allExpectedCoptsBuilder.build());
   }
 
   protected void checkClangCoptsForDebugModeWithoutGlib(RuleType ruleType) throws Exception {
@@ -1043,8 +1047,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction compileActionA = compileAction("//x:x", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsAllIn(allExpectedCoptsBuilder.build()).inOrder();
-
+        .containsAtLeastElementsIn(allExpectedCoptsBuilder.build())
+        .inOrder();
   }
 
   private void addTransitiveDefinesUsage(RuleType topLevelRuleType) throws Exception {

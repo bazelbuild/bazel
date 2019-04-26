@@ -912,7 +912,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
       Iterable<String> arguments,
       Iterable<String> allowedArguments,
       Iterable<String> disallowedArguments) {
-    assertThat(arguments).containsAllIn(allowedArguments);
+    assertThat(arguments).containsAtLeastElementsIn(allowedArguments);
     assertThat(arguments).containsNoneIn(disallowedArguments);
   }
 

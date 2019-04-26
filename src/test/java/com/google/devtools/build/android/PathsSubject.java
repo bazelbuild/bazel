@@ -77,10 +77,10 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
     assertThat(
             new ZipFile(actual().toFile())
                 .stream()
-                .map(ZipEntry::getName)
-                .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
-                .collect(Collectors.toSet()))
-        .containsAllIn(Arrays.asList(paths));
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
+        .containsAtLeastElementsIn(Arrays.asList(paths));
   }
 
   void containsExactlyArchivedFilesIn(String... paths) throws IOException {

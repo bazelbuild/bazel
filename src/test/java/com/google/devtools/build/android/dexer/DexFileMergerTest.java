@@ -329,7 +329,7 @@ public class DexFileMergerTest {
     if (minimalMainDex) {
       assertThat(dexFiles.get("classes.dex")).containsExactlyElementsIn(mainDexList);
     } else {
-      assertThat(dexFiles.get("classes.dex")).containsAllIn(mainDexList);
+      assertThat(dexFiles.get("classes.dex")).containsAtLeastElementsIn(mainDexList);
     }
   }
 

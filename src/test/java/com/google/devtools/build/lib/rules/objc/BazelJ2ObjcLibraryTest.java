@@ -530,7 +530,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       throws Exception {
     CommandAction compileAction = getObjcCompileAction(archiveFile, objFileName);
     assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
-        .containsAllIn(compilationInputExecPaths);
+        .containsAtLeastElementsIn(compilationInputExecPaths);
   }
 
   protected CommandAction getObjcCompileAction(Artifact archiveFile, String objFileName)

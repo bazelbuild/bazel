@@ -2185,11 +2185,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(bClasspath).isEmpty();
     assertThat(cClasspath)
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, aTarget)
                 .getDirectCompileTimeJars());
     assertThat(cClasspath)
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, bTarget)
                 .getDirectCompileTimeJars());
     assertNoEvents();

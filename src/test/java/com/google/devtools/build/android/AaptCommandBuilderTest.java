@@ -297,6 +297,6 @@ public class AaptCommandBuilderTest {
                 .map(Splitter.on(' ')::split)
                 .flatMap(Streams::stream)
                 .collect(toList()))
-        .containsAllIn(resources);
+        .containsAtLeastElementsIn(resources);
   }
 }

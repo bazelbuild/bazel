@@ -783,7 +783,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         " Test bar FINISH",
         " Test baz START",
         " Test baz FINISH");
-    assertThat(messages).containsAllIn(expectedMessages);
+    assertThat(messages).containsAtLeastElementsIn(expectedMessages);
 
     // Now do an incremental rebuild of bar and baz,
     // and check the incremental progress percentages.
@@ -798,6 +798,6 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         " Test bar FINISH",
         " Test baz START",
         " Test baz FINISH");
-    assertThat(messages).containsAllIn(expectedMessages);
+    assertThat(messages).containsAtLeastElementsIn(expectedMessages);
   }
 }

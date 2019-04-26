@@ -78,7 +78,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
           .isNotEqualTo(target.getLabel());
     }
     assertThat(artifactsToStrings(copiedLibs))
-        .containsAllIn(ImmutableSet.copyOf(Arrays.asList(expectedLibNames)));
+        .containsAtLeastElementsIn(ImmutableSet.copyOf(Arrays.asList(expectedLibNames)));
   }
 
   protected String flagValue(String flag, List<String> args) {
@@ -173,7 +173,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     } else {
       fail(String.format("Failed to parse --primaryData: %s", actualFlagValue));
     }
-    assertThat(actualPaths).containsAllIn(expectedPaths);
+    assertThat(actualPaths).containsAtLeastElementsIn(expectedPaths);
   }
 
   protected List<String> getDirectDependentResourceDirs(List<String> actualArgs) {

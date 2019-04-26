@@ -212,7 +212,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
     boolean result = visitor.sync(reporter, labels, keepGoing, 200);
     assertThat(result).isNotSameAs(expectError);
     assertThat(getVisitedLabels(asLabelSet(startingLabels), skyframeExecutor))
-        .containsAllIn(asLabelSet(expectedLabels));
+        .containsAtLeastElementsIn(asLabelSet(expectedLabels));
   }
 
   protected void syncPackages() throws InterruptedException {
