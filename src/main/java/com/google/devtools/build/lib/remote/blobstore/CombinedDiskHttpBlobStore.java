@@ -20,8 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -29,18 +28,27 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+
 /**
  * A {@link SimpleBlobStore} implementation combining two blob stores. A local disk blob store and a
  * remote http blob store. If a blob isn't found in the first store, the second store is used, and
  * the blob added to the first. Put puts the blob on both stores.
  */
-public final class CombinedDiskHttpBlobStore extends OnDiskBlobStore {
+public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   private static final Logger logger = Logger.getLogger(CombinedDiskHttpBlobStore.class.getName());
-  private final SimpleBlobStore bsHttp;
 
-  public CombinedDiskHttpBlobStore(Path root, SimpleBlobStore bsHttp) {
-    super(root);
-    this.bsHttp = Preconditions.checkNotNull(bsHttp);
+
+  private final SimpleBlobStore httpCache;
+  private final OnDiskBlobStore diskCache;
+  private final Path root;
+
+  public CombinedDiskHttpBlobStore(SimpleBlobStore diskCache, SimpleBlobStore httpCache, Path root) {
+    Preconditions.checkNotNull(diskCache);
+    Preconditions.checkArgument(diskCache instanceof OnDiskBlobStore);
+    this.diskCache = (OnDiskBlobStore) diskCache;
+
+    this.httpCache = Preconditions.checkNotNull(httpCache);
+    this.root = root;
   }
 
   @Override
@@ -52,10 +60,20 @@ public final class CombinedDiskHttpBlobStore extends OnDiskBlobStore {
 
   @Override
   public ListenableFuture<Boolean> get(String key, OutputStream out) {
-    boolean foundOnDisk = super.containsKey(key);
+    return get(key, out, false);
+  }
+
+  @Override
+  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
+    return get(key, out, true);
+  }
+
+  private ListenableFuture<Boolean> get(String key, OutputStream out, boolean actionResult) {
+    String diskKey = actionResult ? OnDiskBlobStore.ACTION_KEY_PREFIX + key : key;
+    boolean foundOnDisk = diskCache.containsKey(diskKey);
 
     if (foundOnDisk) {
-      return super.get(key, out);
+      return diskCache.get(diskKey, out);
     } else {
       // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
       Path temp = toPath(UUID.randomUUID().toString());
@@ -67,83 +85,76 @@ public final class CombinedDiskHttpBlobStore extends OnDiskBlobStore {
         return Futures.immediateFailedFuture(e);
       }
       ListenableFuture<Boolean> chained =
-          Futures.transformAsync(
-              bsHttp.get(key, tempOut),
-              (found) -> {
-                if (!found) {
-                  return Futures.immediateFuture(false);
-                } else {
-                  Path target = toPath(key);
-                  // The following note and line is taken from OnDiskBlobStore.java
-                  // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the
-                  // case of machine
-                  // crashes (the OS may reorder the writes and the rename).
-                  temp.renameTo(target);
+              Futures.transformAsync(
+                      getFromHttp(key, tempOut, httpCache, actionResult),
+                      (found) -> {
+                        if (!found) {
+                          return Futures.immediateFuture(false);
+                        } else {
+                          Path target = toPath(diskKey);
+                          // The following note and line is taken from OnDiskBlobStore.java
+                          // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the
+                          // case of machine
+                          // crashes (the OS may reorder the writes and the rename).
+                          temp.renameTo(target);
 
-                  SettableFuture<Boolean> f = SettableFuture.create();
-                  try (InputStream in = target.getInputStream()) {
-                    ByteStreams.copy(in, out);
-                    f.set(true);
-                  } catch (IOException e) {
-                    f.setException(e);
-                  }
-                  return f;
+                          SettableFuture<Boolean> f = SettableFuture.create();
+                          try (InputStream in = target.getInputStream()) {
+                            ByteStreams.copy(in, out);
+                            f.set(true);
+                          } catch (IOException e) {
+                            f.setException(e);
+                          }
+                          return f;
+                        }
+                      },
+                      MoreExecutors.directExecutor());
+      chained.addListener(
+              () -> {
+                try {
+                  tempOut.close();
+                } catch (IOException e) {
+                  // not sure what to do here, we either are here because of another exception being
+                  // thrown,
+                  // or we have successfully used the file we are trying (and failing) to close
+                  logger.log(Level.WARNING, "Failed to close temporary file on get", e);
                 }
               },
               MoreExecutors.directExecutor());
-      chained.addListener(
-          () -> {
-            try {
-              tempOut.close();
-            } catch (IOException e) {
-              // not sure what to do here, we either are here because of another exception being
-              // thrown,
-              // or we have successfully used the file we are trying (and failing) to close
-              logger.log(Level.WARNING, "Failed to close temporary file on get", e);
-            }
-          },
-          MoreExecutors.directExecutor());
       return chained;
     }
   }
 
-  @Override
-  public boolean getActionResult(String key, OutputStream out)
-      throws IOException, InterruptedException {
-    if (super.getActionResult(key, out)) {
-      return true;
+  private ListenableFuture<Boolean> getFromHttp(String key, OutputStream tempOut, SimpleBlobStore httpCache, boolean actionResult) {
+    if (!actionResult) {
+      return httpCache.get(key, tempOut);
+    } else {
+      return httpCache.getActionResult(key, tempOut);
     }
-
-    try (ByteArrayOutputStream tmpOut = new ByteArrayOutputStream()) {
-      if (bsHttp.getActionResult(key, tmpOut)) {
-        byte[] tmp = tmpOut.toByteArray();
-        super.putActionResult(key, tmp);
-        ByteStreams.copy(new ByteArrayInputStream(tmp), out);
-        return true;
-      }
-    }
-
-    return false;
   }
 
   @Override
   public void put(String key, long length, InputStream in)
       throws IOException, InterruptedException {
-    super.put(key, length, in);
+    diskCache.put(key, length, in);
     try (InputStream inFile = toPath(key).getInputStream()) {
-      bsHttp.put(key, length, inFile);
+      httpCache.put(key, length, inFile);
     }
   }
 
   @Override
   public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
-    super.putActionResult(key, in);
-    bsHttp.putActionResult(key, in);
+    diskCache.putActionResult(key, in);
+    httpCache.putActionResult(key, in);
   }
 
   @Override
   public void close() {
-    super.close();
-    bsHttp.close();
+    diskCache.close();
+    httpCache.close();
+  }
+
+  protected Path toPath(String key) {
+    return root.getChild(key);
   }
 }

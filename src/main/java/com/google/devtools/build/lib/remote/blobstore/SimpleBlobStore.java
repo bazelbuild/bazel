@@ -47,8 +47,7 @@ public interface SimpleBlobStore {
    *
    * @return {@code true} if the {@code key} was found. {@code false} otherwise.
    */
-  boolean getActionResult(String actionKey, OutputStream out)
-      throws IOException, InterruptedException;
+  ListenableFuture<Boolean> getActionResult(String actionKey, OutputStream out);
 
   /**
    * Uploads a BLOB (as {@code in}) with length {@code length} indexed by {@code key} to the CAS.

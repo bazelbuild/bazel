@@ -55,9 +55,8 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean getActionResult(String key, OutputStream out)
-      throws IOException, InterruptedException {
-    return getFromFuture(get(ACTION_KEY_PREFIX + key, out));
+  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
+    return get(ACTION_KEY_PREFIX + key, out);
   }
 
   @Override

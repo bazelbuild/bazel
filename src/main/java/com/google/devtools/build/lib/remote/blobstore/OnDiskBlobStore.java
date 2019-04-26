@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,9 +56,8 @@ public class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean getActionResult(String key, OutputStream out)
-      throws IOException, InterruptedException {
-    return getFromFuture(get(ACTION_KEY_PREFIX + key, out));
+  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out){
+    return get(ACTION_KEY_PREFIX + key, out);
   }
 
   @Override
