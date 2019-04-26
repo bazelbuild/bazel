@@ -1,0 +1,128 @@
+Incompatible changes:
+
+  - (Starlark rules) The legacy "py" provider can no longer be passed
+    to or produced by native Python rules; use
+    [PyInfo](https://docs.bazel.build/versions/master/skylark/lib/PyIn
+    fo.html) instead. See
+    [#7298](https://github.com/bazelbuild/bazel/issues/7298) for more
+    information.
+  - (Python rules) The `default_python_version` attribute of the
+    `py_binary` and `py_test` rules has been renamed to
+    `python_version`. Also, the `--force_python` flag has been
+    renamed to `--python_version`. See
+    [#7308](https://github.com/bazelbuild/bazel/issues/7308) for more
+    information.
+  - (Python rules) The python version now changes to whatever version
+    is specified in a `py_binary` or `py_test`'s `python_version`
+    attribute, instead of being forced to the value set by a command
+    line flag. You can temporarily revert this change with
+    `--incompatible_allow_python_version_transitions=false`. See
+    [#7307](https://github.com/bazelbuild/bazel/issues/7307) for more
+    information.
+  - --incompatible_disable_third_party_license_checking` is enabled
+    by default
+  - Introduced --incompatible_use_python_toolchains, which supersedes
+    --python_top/--python_path. See #7899 and #7375 for more
+    information.
+  - Python 3 is now the default Python version (for `py_binary` and
+    `py_test` targets that don't specify the `python_version`
+    attribute). Targets that are built for Python 3 will no longer
+    have their output put in a separate `-py3` directory; instead
+    there is now a separate `-py2` directory for Python 2 targets.
+    See #7359 and #7593 for more information.
+  - objc_library resource attributes are now disabled by default.
+    Please migrate them to data instead. See
+    https://github.com/bazelbuild/bazel/issues/7594 for more info.
+  - Flip --incompatible_windows_escape_jvm_flags to true. See
+    https://github.com/bazelbuild/bazel/issues/7486
+
+New features:
+
+  - genrules now support a $(RULEDIR) variable that resolves to the
+    directory where the outputs of the rule are put.
+  - Added --incompatible_windows_native_test_wrapper flag: enables
+    using the Bash-less test wrapper on Windows. (No-op on other
+    platforms.)
+
+Important changes:
+
+  - incompatible_use_jdk11_as_host_javabase: makes JDK 11 the default
+    --host_javabase for remote jdk
+    (https://github.com/bazelbuild/bazel/issues/7219)
+  - Makes genquery somepath output deterministic.
+  - Tristate attributes of native rules now reject True/False (use
+    1/0)
+  - Rollback of "Tristate attributes of native rules now reject
+    True/False (use 1/0)"
+  - Tristate attributes of native rules now reject True/False (use
+    1/0)
+  - Added -incompatible_do_not_split_linking_cmdline flag. See #7670
+  - Tristate attributes of native rules now temporarily accept
+    True/False again
+  - `--incompatible_disable_legacy_crosstool_fields` has been flipped
+    (https://github.com/bazelbuild/bazel/issues/6861)
+    `--incompatible_disable_expand_if_all_available_in_flag_set` has
+    been flipped (https://github.com/bazelbuild/bazel/issues/7008)
+  - `--incompatible_disable_legacy_crosstool_fields` has been flipped
+    (https://github.com/bazelbuild/bazel/issues/6861)
+    `--incompatible_disable_expand_if_all_available_in_flag_set...
+    RELNOTES: None.
+  - --incompatible_no_transitive_loads is enabled by default.
+  - Makes TreeArtifact deterministic.
+  - --incompatible_no_transitive_loads is enabled by default.
+  - Android NDK C++ toolchain is now configured in Starlark. This
+    should be a backwards compatible change, but in case of bugs
+    blame unknown commit.
+  - `--incompatible_disable_legacy_crosstool_fields` has been flipped
+    (https://github.com/bazelbuild/bazel/issues/6861)
+    `--incompatible_disable_expand_if_all_available_in_flag_set` has
+    been flipped (https://github.com/bazelbuild/bazel/issues/7008)
+  - --incompatible_no_transitive_loads is enabled by default.
+  - --incompatible_bzl_disallow_load_after_statement is enabled
+  - Added `--incompatible_require_ctx_in_configure_features`, see
+    https://github.com/bazelbuild/bazel/issues/7793 for details.
+  - Flag --incompatible_merge_genfiles_directory is flipped. This
+    removes the directory `bazel-genfiles` in favor of `bazel-bin`.
+  - previously deprecated flag --experimental_remote_spawn_cache was
+    removed
+  - `--incompatible_disallow_load_labels_to_cross_package_boundaries`
+    is enabled by default
+  - Fix an issue where the Android resource processor did not surface
+    errors from aapt2 compile and link actions.
+  - --incompatible_no_attr_license is enabled by default
+  - `--incompatible_disable_crosstool_file` has been flipped
+    (https://github.com/bazelbuild/bazel/issues/7320)
+  - A new flag `--incompatible_string_join_requires_strings` is
+    introduced. The sequence argument of `string.join` must contain
+    only string elements.
+  - --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfile
+    s_tree has been flipped
+  - Incompatible flag `--incompatible_disable_legacy_cc_provider` has
+    been flipped (see https://github.com/bazelbuild/bazel/issues/7036
+    for details).
+  - Don't drop the analysis cache when the same --define flag is set
+    multiple times and the last value is the same (e.g. if the
+    current invocation was run with "--define foo=bar" and the
+    previous one was run with "--define foo=baz --define foo=bar").
+  - The --incompatible_disable_genrule_cc_toolchain_dependency flag
+    has been flipped (see
+    https://github.com/bazelbuild/bazel/issues/6867 for details).
+  - Incompatible change
+    `--incompatible_remove_cpu_and_compiler_attributes_from_cc_toolcha
+    in` has been flipped (see
+    https://github.com/bazelbuild/bazel/issues/7075 for details).
+  - --noexperimental_java_coverage is a no-op flag.
+  - --experimental_java_coverage/--incompatible_java_coverage flag was
+    removed. See #7425.
+  - incompatible_use_toolchain_providers_in_java_common: pass
+    JavaToolchainInfo and JavaRuntimeInfo providers to java_common
+    APIs instead of configured targets
+    (https://github.com/bazelbuild/bazel/issues/7186.)
+  - --incompatible_remote_symlinks has been flipped. The remote
+    caching and execution protocol will now represent symlinks in
+    outputs as such. See
+    https://github.com/bazelbuild/bazel/issues/7917 for more details.
+  - Bazel is now ~20MiB smaller, from unbundling the Android rules'
+    runtime dependencies.
+
+This release contains contributions from many people at Google, as well as Andreas Herrmann, Andrew Suffield, Andy Scott, Benjamin Peterson, Ed Baunton, George Gensure, Ian McGinnis, Ity Kaul, Jingwen Chen, John Millikin, Keith Smiley, Marwan Tammam, Mike Fourie, Oscar Bonilla, perwestling, petros, Ryan Beasley, silvergasp, Stanimir Mladenov, Travis Cline, Vladimir Chebotarev, ??.
