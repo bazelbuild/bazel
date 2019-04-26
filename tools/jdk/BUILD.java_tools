@@ -132,9 +132,9 @@ java_import(
     jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"],
     srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946-src.jar",
     exports = [
-        "//third_party:asm",
-        "//third_party:asm-commons",
-        "//third_party:asm-tree",
+        ":asm",
+        ":asm-commons",
+        ":asm-tree",
     ],
 )
 
@@ -148,8 +148,8 @@ java_import(
     jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946.jar"],
     srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946-src.jar",
     exports = [
-        ":core",
-        "//third_party:asm",
+        ":jacoco-core",
+        ":asm",
     ],
 )
 
@@ -162,6 +162,26 @@ java_import(
     name = "bazel-jacoco-agent-neverlink",
     jars = ["java_tools/third_party/java/jacoco/jacocoagent.jar"],
     neverlink = 1,
+)
+
+java_import(
+    name = "asm",
+    jars = ["java_tools/third_party/java/jacoco/asm-7.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-7.0-sources.jar",
+)
+
+java_import(
+    name = "asm-commons",
+    jars = ["java_tools/third_party/java/jacoco/asm-commons-7.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-commons-7.0-sources.jar",
+    runtime_deps = [":asm-tree"],
+)
+
+java_import(
+    name = "asm-tree",
+    jars = ["java_tools/third_party/java/jacoco/asm-tree-7.0.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-tree-7.0-sources.jar",
+    runtime_deps = [":asm"],
 )
 
 config_setting(
