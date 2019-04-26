@@ -111,9 +111,10 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         .containsExactly("nexus_6", "userdata_images.dat", "emulator-meta-data.pb");
 
     Runfiles runfiles = getDefaultRunfiles(target);
-    assertThat(ActionsTestUtil.execPaths(runfiles.getUnconditionalArtifacts())).containsAllOf(
-        getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
-        getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
+    assertThat(ActionsTestUtil.execPaths(runfiles.getUnconditionalArtifacts()))
+        .containsAtLeast(
+            getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
+            getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
 
     SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(getFilesToBuild(target)),
@@ -165,7 +166,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
 
     assertThat(action.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
     assertThat(ActionsTestUtil.execPaths(action.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
 

@@ -242,7 +242,7 @@ public class AarImportTest extends BuildViewTestCase {
     SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
     List<String> arguments = checkerAction.getArguments();
     assertThat(arguments)
-        .containsAllOf(
+        .containsAtLeast(
             "--bootclasspath_entry",
             "--classpath_entry",
             "--directdep",
@@ -296,7 +296,7 @@ public class AarImportTest extends BuildViewTestCase {
     SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
     List<String> arguments = checkerAction.getArguments();
     assertThat(arguments)
-        .containsAllOf(
+        .containsAtLeast(
             "--bootclasspath_entry",
             "--classpath_entry",
             "--input",
@@ -407,7 +407,7 @@ public class AarImportTest extends BuildViewTestCase {
                 "libapp.jar"));
     assertThat(appCompileAction).isNotNull();
     assertThat(ActionsTestUtil.prettyArtifactNames(appCompileAction.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             "a/_aar/foo/classes_and_libs_merged.jar",
             "a/_aar/bar/classes_and_libs_merged.jar",
             "a/_aar/baz/classes_and_libs_merged.jar");
@@ -511,7 +511,7 @@ public class AarImportTest extends BuildViewTestCase {
             Iterables.transform(
                 getGeneratingAction(binaryMergedManifest).getInputs(),
                 Artifact::getRootRelativePathString))
-        .containsAllOf(getAndroidManifest("//a:foo"), getAndroidManifest("//a:bar"));
+        .containsAtLeast(getAndroidManifest("//a:foo"), getAndroidManifest("//a:bar"));
   }
 
   private String getAndroidManifest(String aarImport) throws Exception {
