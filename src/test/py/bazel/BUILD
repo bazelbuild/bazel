@@ -158,7 +158,10 @@ py_test(
         "//conditions:default": ["empty_test.py"],
     }),
     data = select({
-        "//src/conditions:windows": [":printargs"],
+        "//src/conditions:windows": [
+            ":printargs",
+            "native_test.bzl",
+        ],
         "//conditions:default": [],
     }),
     main = select({
