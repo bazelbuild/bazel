@@ -281,7 +281,7 @@ public class TypeTest {
     List<String> converted =
         Type.STRING_LIST.convert(input, null);
     assertThat(converted).isEqualTo(input);
-    assertThat(converted).isNotSameAs(input);
+    assertThat(converted).isNotSameInstanceAs(input);
     assertThat(collectLabels(Type.STRING_LIST, input)).isEmpty();
   }
 
@@ -291,7 +291,7 @@ public class TypeTest {
                                    "wiz", "bang");
     Map<String, String> converted = Type.STRING_DICT.convert(input, null);
     assertThat(converted).isEqualTo(input);
-    assertThat(converted).isNotSameAs(input);
+    assertThat(converted).isNotSameInstanceAs(input);
     assertThat(collectLabels(Type.STRING_DICT, converted)).isEmpty();
   }
 
@@ -354,7 +354,7 @@ public class TypeTest {
             Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
             Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
     assertThat(converted).isEqualTo(expected);
-    assertThat(converted).isNotSameAs(expected);
+    assertThat(converted).isNotSameInstanceAs(expected);
     assertThat(collectLabels(BuildType.LABEL_LIST, converted)).containsExactlyElementsIn(expected);
   }
 
@@ -409,7 +409,7 @@ public class TypeTest {
             "foo", Arrays.asList("foo", "bar"),
             "wiz", Arrays.asList("bang"));
     assertThat(converted).isEqualTo(expected);
-    assertThat(converted).isNotSameAs(expected);
+    assertThat(converted).isNotSameInstanceAs(expected);
     assertThat(collectLabels(Type.STRING_LIST_DICT, converted)).isEmpty();
   }
 

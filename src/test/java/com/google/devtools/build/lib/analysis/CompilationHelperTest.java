@@ -98,7 +98,7 @@ public class CompilationHelperTest extends BuildViewTestCase {
     assertThat(middleman).hasSize(1);
     List<Artifact> middlemanWithSymlinks = getAggregatingMiddleman(rule, true);
     assertThat(middlemanWithSymlinks).hasSize(1);
-    assertThat(middlemanWithSymlinks.get(0)).isNotSameAs(middleman.get(0));
+    assertThat(middlemanWithSymlinks.get(0)).isNotSameInstanceAs(middleman.get(0));
   }
 
   /**

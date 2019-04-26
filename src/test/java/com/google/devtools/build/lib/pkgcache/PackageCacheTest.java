@@ -339,7 +339,7 @@ public class PackageCacheTest extends FoundationTestCase {
     invalidatePackages();
 
     Package newPkg = getPackage("pkg");
-    assertThat(newPkg).isNotSameAs(oldPkg);
+    assertThat(newPkg).isNotSameInstanceAs(oldPkg);
     assertThat(newPkg.getFilename().asPath()).isEqualTo(buildFile2);
     assertThat(newPkg.getSourceRoot()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
 

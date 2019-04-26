@@ -177,7 +177,7 @@ public final class BuildOptionsTest {
     BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
     BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
     assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameAs(two);
+    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
     BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
     assertThat(reconstructedOne).isSameAs(one);
     BuildOptions otherFragment = BuildOptions.of(ImmutableList.of(CppOptions.class));
@@ -241,7 +241,7 @@ public final class BuildOptionsTest {
     BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
 
     assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameAs(two);
+    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
 
     BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
 
@@ -259,7 +259,7 @@ public final class BuildOptionsTest {
     BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
 
     assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameAs(two);
+    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
   }
 
   @Test
@@ -273,7 +273,7 @@ public final class BuildOptionsTest {
     BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
 
     assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameAs(two);
+    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
   }
 
   @Test

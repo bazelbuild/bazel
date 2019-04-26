@@ -206,7 +206,7 @@ public class TestSummaryTest {
     assertThat(summaryCopy.getTarget()).isEqualTo(summary.getTarget());
     assertThat(summaryCopy.getStatus()).isEqualTo(summary.getStatus());
     assertThat(summaryCopy.numCached()).isEqualTo(summary.numCached());
-    assertThat(summaryCopy).isNotSameAs(summary);
+    assertThat(summaryCopy).isNotSameInstanceAs(summary);
     assertThat(summary.totalRuns()).isEqualTo(0);
     assertThat(summaryCopy.totalRuns()).isEqualTo(1);
 

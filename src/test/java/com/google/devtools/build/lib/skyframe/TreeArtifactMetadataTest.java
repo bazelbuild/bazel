@@ -163,7 +163,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       }
     });
     TreeArtifactValue valueTwo = evaluateTreeArtifact(treeArtifact, children);
-    assertThat(valueOne.getDigest()).isNotSameAs(valueTwo.getDigest());
+    assertThat(valueOne.getDigest()).isNotSameInstanceAs(valueTwo.getDigest());
     assertThat(valueOne).isEqualTo(valueTwo);
   }
 

@@ -164,7 +164,7 @@ public class NestedSetViewTest {
             .build();
     NestedSetView<String> v = new NestedSetView<>(a);
     NestedSetView<String> s = v.splitIfExceedsMaximumSize(2);
-    assertThat(s).isNotSameAs(v);
+    assertThat(s).isNotSameInstanceAs(v);
     assertThat(collectCheckSize(s, 2)).containsExactly("a", "b", "c");
   }
 
@@ -176,7 +176,7 @@ public class NestedSetViewTest {
             .build();
     NestedSetView<String> v = new NestedSetView<>(a);
     NestedSetView<String> s = v.splitIfExceedsMaximumSize(2);
-    assertThat(s).isNotSameAs(v);
+    assertThat(s).isNotSameInstanceAs(v);
     assertThat(collectCheckSize(s, 2)).containsExactly("a", "b", "c", "d", "e");
   }
 

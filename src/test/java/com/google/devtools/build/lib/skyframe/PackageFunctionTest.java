@@ -665,7 +665,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     // Another consequence of the bug is that change pruning would incorrectly cut off changes that
     // caused a dangling symlink potentially matched by a glob to come into existence.
     assertThat(newValue.getPackage().getTarget("dangling.txt").getName()).isEqualTo("dangling.txt");
-    assertThat(newValue.getPackage()).isNotSameAs(value.getPackage());
+    assertThat(newValue.getPackage()).isNotSameInstanceAs(value.getPackage());
   }
 
   // Regression test for Skyframe globbing incorrectly matching the package's directory path on

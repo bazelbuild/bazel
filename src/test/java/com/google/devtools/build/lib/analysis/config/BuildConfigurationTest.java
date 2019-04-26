@@ -234,7 +234,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         .isSameAs(config2.getFragment(J2ObjcConfiguration.class));
     // Distinct because the j2objc options differ:
     assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isNotSameAs(config3.getFragment(J2ObjcConfiguration.class));
+        .isNotSameInstanceAs(config3.getFragment(J2ObjcConfiguration.class));
   }
 
   @Test

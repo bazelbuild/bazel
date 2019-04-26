@@ -166,7 +166,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
     invalidatePackages();
     Package a2 = getPackage("a");
-    assertThat(a2).isNotSameAs(a1);
+    assertThat(a2).isNotSameInstanceAs(a1);
     assertThat(a2.containsErrors()).isFalse();
     assertNoEvents();
   }
@@ -187,7 +187,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     invalidatePackages();
 
     Package newPkg = getPackage("pkg");
-    assertThat(newPkg).isNotSameAs(oldPkg);
+    assertThat(newPkg).isNotSameInstanceAs(oldPkg);
     assertThat(newPkg.getTarget("bar")).isNotNull();
   }
 
@@ -205,7 +205,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
     invalidatePackages();
     Package a2 = getPackage("a");
-    assertThat(a2).isNotSameAs(a1);
+    assertThat(a2).isNotSameInstanceAs(a1);
     assertNoEvents();
   }
 
@@ -223,6 +223,6 @@ public class BuildFileModificationTest extends FoundationTestCase {
     invalidatePackages();
 
     Package newPkg = getPackage("pkg");
-    assertThat(newPkg).isNotSameAs(oldPkg);
+    assertThat(newPkg).isNotSameInstanceAs(oldPkg);
   }
 }

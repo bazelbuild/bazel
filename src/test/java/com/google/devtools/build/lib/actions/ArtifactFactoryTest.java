@@ -189,7 +189,8 @@ public class ArtifactFactoryTest {
     Artifact fooArtifact = artifactFactory.getSourceArtifact(fooRelative, clientRoot);
     artifactFactory.clear();
     setupRoots();
-    assertThat(artifactFactory.getSourceArtifact(fooRelative, clientRoot)).isNotSameAs(fooArtifact);
+    assertThat(artifactFactory.getSourceArtifact(fooRelative, clientRoot))
+        .isNotSameInstanceAs(fooArtifact);
   }
 
   @Test

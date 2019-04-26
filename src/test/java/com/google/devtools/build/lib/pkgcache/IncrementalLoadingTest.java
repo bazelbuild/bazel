@@ -136,7 +136,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/BUILD", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -174,7 +174,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/mybuild", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -187,7 +187,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("other/BUILD", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -214,7 +214,7 @@ public class IncrementalLoadingTest {
     tester.sync();
 
     Target a3 = tester.getTarget("//a:a");
-    assertThat(a3).isNotSameAs(a1);
+    assertThat(a3).isNotSameInstanceAs(a1);
   }
 
   @Test
@@ -230,7 +230,7 @@ public class IncrementalLoadingTest {
     Target a2 = tester.getTarget("//a:a");
     tester.sync();
 
-    assertThat(a2).isNotSameAs(a1);
+    assertThat(a2).isNotSameInstanceAs(a1);
   }
 
   @Test
@@ -257,7 +257,7 @@ public class IncrementalLoadingTest {
     tester.addFile("base/bar.txt", "also nothing");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -271,7 +271,7 @@ public class IncrementalLoadingTest {
     tester.removeFile("base/bar.txt");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertThat(newTarget).isNotSameAs(oldTarget);
+    assertThat(newTarget).isNotSameInstanceAs(oldTarget);
   }
 
   @Test
@@ -287,7 +287,7 @@ public class IncrementalLoadingTest {
 
     tester.sync();
     Target a2 = tester.getTarget("//a:a");
-    assertThat(a2).isNotSameAs(a1);
+    assertThat(a2).isNotSameInstanceAs(a1);
   }
 
   @Test
@@ -303,7 +303,7 @@ public class IncrementalLoadingTest {
     tester.addFile("c");
     tester.sync();
     Target a3 = tester.getTarget("//a:a");
-    assertThat(a3).isNotSameAs(a1);
+    assertThat(a3).isNotSameInstanceAs(a1);
   }
 
   @Test
