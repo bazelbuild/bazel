@@ -923,6 +923,10 @@ public class TestRunnerAction extends AbstractAction
       return getPath(xmlOutputPath);
     }
 
+    public Path getCoverageDirectory() {
+      return getPath(TestRunnerAction.this.getCoverageDirectory());
+    }
+
     public Path getCoverageDataPath() {
       return getPath(getCoverageData().getExecPath());
     }

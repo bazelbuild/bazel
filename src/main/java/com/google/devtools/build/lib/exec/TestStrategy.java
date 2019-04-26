@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -63,24 +64,32 @@ public abstract class TestStrategy implements TestActionContext {
    * not result in stale files.
    */
   protected void prepareFileSystem(
-      TestRunnerAction testAction, Path tmpDir, Path coverageDir, Path workingDirectory)
+      TestRunnerAction testAction, Path execRoot, Path tmpDir, Path workingDirectory)
       throws IOException {
-    if (testAction.isCoverageMode()) {
-      recreateDirectory(coverageDir);
+    if (tmpDir != null) {
+      recreateDirectory(tmpDir);
     }
-    recreateDirectory(tmpDir);
-    workingDirectory.createDirectoryAndParents();
+    if (workingDirectory != null) {
+      workingDirectory.createDirectoryAndParents();
+    }
+
+    ResolvedPaths resolvedPaths = testAction.resolve(execRoot);
+    if (testAction.isCoverageMode()) {
+      recreateDirectory(resolvedPaths.getCoverageDirectory());
+    }
+
+    resolvedPaths.getBaseDir().createDirectoryAndParents();
+    resolvedPaths.getUndeclaredOutputsDir().createDirectoryAndParents();
+    resolvedPaths.getUndeclaredOutputsAnnotationsDir().createDirectoryAndParents();
+    resolvedPaths.getSplitLogsDir().createDirectoryAndParents();
   }
 
   /**
    * Ensures that all directories used to run test are in the correct state and their content will
    * not result in stale files. Only use this if no local tmp and working directory are required.
    */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path coverageDir)
-      throws IOException {
-    if (testAction.isCoverageMode()) {
-      recreateDirectory(coverageDir);
-    }
+  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot) throws IOException {
+    prepareFileSystem(testAction, execRoot, null, null);
   }
 
   /** Removes directory if it exists and recreates it. */

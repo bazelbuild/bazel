@@ -97,7 +97,6 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     Path execRoot = actionExecutionContext.getExecRoot();
-    Path coverageDir = execRoot.getRelative(action.getCoverageDirectory());
     Path runfilesDir =
         getLocalRunfilesDirectory(
             action,
@@ -143,7 +142,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             ImmutableList.copyOf(action.getSpawnOutputs()),
             localResourceUsage);
     return new StandaloneTestRunnerSpawn(
-        action, actionExecutionContext, spawn, tmpDir, coverageDir, workingDirectory, execRoot);
+        action, actionExecutionContext, spawn, tmpDir, workingDirectory, execRoot);
   }
 
   private StandaloneFailedAttemptResult processFailedTestAttempt(
@@ -454,7 +453,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     private final ActionExecutionContext actionExecutionContext;
     private final Spawn spawn;
     private final Path tmpDir;
-    private final Path coverageDir;
     private final Path workingDirectory;
     private final Path execRoot;
 
@@ -463,14 +461,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         ActionExecutionContext actionExecutionContext,
         Spawn spawn,
         Path tmpDir,
-        Path coverageDir,
         Path workingDirectory,
         Path execRoot) {
       this.testAction = testAction;
       this.actionExecutionContext = actionExecutionContext;
       this.spawn = spawn;
       this.tmpDir = tmpDir;
-      this.coverageDir = coverageDir;
       this.workingDirectory = workingDirectory;
       this.execRoot = execRoot;
     }
@@ -483,7 +479,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     @Override
     public TestAttemptContinuation beginExecution()
         throws InterruptedException, IOException, ExecException {
-      prepareFileSystem(testAction, tmpDir, coverageDir, workingDirectory);
+      prepareFileSystem(testAction, actionExecutionContext.getExecRoot(), tmpDir, workingDirectory);
       return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
 

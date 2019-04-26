@@ -717,12 +717,12 @@ EOF
   bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
   # Check that the undeclared outputs directory doesn't exist.
-  outputs_dir=bazel-testlogs/dir/test/test.outputs/
-  [ ! -d $outputs_dir ] || fail "$outputs_dir was present after test"
+  outputs_zip=bazel-testlogs/dir/test/test.outputs/outputs.zip
+  [ ! -e $outputs_zip ] || fail "$outputs_zip was present after test"
 
   # Check that the undeclared outputs manifest directory doesn't exist.
-  outputs_manifest_dir=bazel-testlogs/dir/test/test.outputs_manifest/
-  [ ! -d $outputs_manifest_dir ] || fail "$outputs_manifest_dir was present after test"
+  outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
+  [ ! -d $outputs_manifest ] || fail "$outputs_manifest was present after test"
 }
 
 function test_test_with_nobuild_runfile_manifests() {
