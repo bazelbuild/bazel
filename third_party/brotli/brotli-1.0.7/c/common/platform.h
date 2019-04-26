@@ -466,20 +466,20 @@ static BROTLI_INLINE void BROTLI_UNALIGNED_STORE64LE(void* p, uint64_t v) {
 #endif
 
 #if defined(BROTLI_ENABLE_LOG)
-#define BROTLI_DCHECK(x) assert(x)
 #define BROTLI_LOG(x) printf x
 #else
-#define BROTLI_DCHECK(x)
 #define BROTLI_LOG(x)
 #endif
 
 #if defined(BROTLI_DEBUG) || defined(BROTLI_ENABLE_LOG)
+#define BROTLI_DCHECK(x) assert(x)
 static BROTLI_INLINE void BrotliDump(const char* f, int l, const char* fn) {
   fprintf(stderr, "%s:%d (%s)\n", f, l, fn);
   fflush(stderr);
 }
 #define BROTLI_DUMP() BrotliDump(__FILE__, __LINE__, __FUNCTION__)
 #else
+#define BROTLI_DCHECK(x)
 #define BROTLI_DUMP() (void)(0)
 #endif
 

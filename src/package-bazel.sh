@@ -56,5 +56,5 @@ if [ -n "${EMBEDDED_TOOLS}" ]; then
 fi
 
 (cd ${PACKAGE_DIR} && find . -type f | sort | zip -q0DX@ "${WORKDIR}/${OUT}_tmp")
-"${WORKDIR}/${BROTLI}" -Z "${WORKDIR}/${OUT}_tmp"
+"${WORKDIR}/${BROTLI}" -2 "${WORKDIR}/${OUT}_tmp"
 zip -q0DXj "${WORKDIR}/${OUT}" "${WORKDIR}/${OUT}_tmp.br" "${WORKDIR}/${BROTLI}" ${PACKAGE_DIR}/install_base_key

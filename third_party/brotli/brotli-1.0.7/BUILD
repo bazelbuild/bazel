@@ -7,12 +7,12 @@ package(
 
 licenses(["notice"])  # MIT
 
-exports_files(["LICENSE"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )
+
+exports_files(["LICENSE"])
 
 config_setting(
     name = "darwin",
@@ -44,11 +44,9 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
-    name = "msvc",
-    values = {"compiler": "msvc-cl"},
-    visibility = ["//visibility:public"],
-)
+load(":compiler_config_setting.bzl", "create_msvc_config")
+
+create_msvc_config()
 
 STRICT_C_OPTIONS = select({
     ":msvc": [],

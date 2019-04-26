@@ -414,7 +414,7 @@ static BROTLI_BOOL decompress_stream(BrotliDecoderState* dec,
       (*output).insert((*output).end(), buffer, buffer + buffer_length);
     }
   }
-  ok = result != BROTLI_DECODER_RESULT_ERROR;
+  ok = result != BROTLI_DECODER_RESULT_ERROR && !available_in;
 
   Py_END_ALLOW_THREADS
   return ok;
@@ -672,7 +672,7 @@ static PyObject* brotli_decompress(PyObject *self, PyObject *args, PyObject *key
     if (available_out != 0)
       output.insert(output.end(), next_out, next_out + available_out);
   }
-  ok = result == BROTLI_DECODER_RESULT_SUCCESS;
+  ok = result == BROTLI_DECODER_RESULT_SUCCESS && !available_in;
   BrotliDecoderDestroyInstance(state);
 
   Py_END_ALLOW_THREADS

@@ -28,34 +28,30 @@ extern "C" {
 void BrotliInitDistanceParams(BrotliEncoderParams* params,
     uint32_t npostfix, uint32_t ndirect) {
   BrotliDistanceParams* dist_params = &params->dist;
-  uint32_t alphabet_size, max_distance;
+  uint32_t alphabet_size_max;
+  uint32_t alphabet_size_limit;
+  uint32_t max_distance;
 
   dist_params->distance_postfix_bits = npostfix;
   dist_params->num_direct_distance_codes = ndirect;
 
-  alphabet_size = BROTLI_DISTANCE_ALPHABET_SIZE(
+  alphabet_size_max = BROTLI_DISTANCE_ALPHABET_SIZE(
       npostfix, ndirect, BROTLI_MAX_DISTANCE_BITS);
+  alphabet_size_limit = alphabet_size_max;
   max_distance = ndirect + (1U << (BROTLI_MAX_DISTANCE_BITS + npostfix + 2)) -
       (1U << (npostfix + 2));
 
   if (params->large_window) {
-    static const uint32_t bound[BROTLI_MAX_NPOSTFIX + 1] = {0, 4, 12, 28};
-    uint32_t postfix = 1U << npostfix;
-    alphabet_size = BROTLI_DISTANCE_ALPHABET_SIZE(
+    BrotliDistanceCodeLimit limit = BrotliCalculateDistanceCodeLimit(
+        BROTLI_MAX_ALLOWED_DISTANCE, npostfix, ndirect);
+    alphabet_size_max = BROTLI_DISTANCE_ALPHABET_SIZE(
         npostfix, ndirect, BROTLI_LARGE_MAX_DISTANCE_BITS);
-    /* The maximum distance is set so that no distance symbol used can encode
-       a distance larger than BROTLI_MAX_ALLOWED_DISTANCE with all
-       its extra bits set. */
-    if (ndirect < bound[npostfix]) {
-      max_distance = BROTLI_MAX_ALLOWED_DISTANCE - (bound[npostfix] - ndirect);
-    } else if (ndirect >= bound[npostfix] + postfix) {
-      max_distance = (3U << 29) - 4 + (ndirect - bound[npostfix]);
-    } else {
-      max_distance = BROTLI_MAX_ALLOWED_DISTANCE;
-    }
+    alphabet_size_limit = limit.max_alphabet_size;
+    max_distance = limit.max_distance;
   }
 
-  dist_params->alphabet_size = alphabet_size;
+  dist_params->alphabet_size_max = alphabet_size_max;
+  dist_params->alphabet_size_limit = alphabet_size_limit;
   dist_params->max_distance = max_distance;
 }
 

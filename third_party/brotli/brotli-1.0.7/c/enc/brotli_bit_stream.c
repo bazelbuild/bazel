@@ -956,18 +956,16 @@ void BrotliStoreMetaBlock(MemoryManager* m,
 
   size_t pos = start_pos;
   size_t i;
-  uint32_t num_distance_symbols = params->dist.alphabet_size;
-  uint32_t num_effective_distance_symbols = num_distance_symbols;
+  uint32_t num_distance_symbols = params->dist.alphabet_size_max;
+  uint32_t num_effective_distance_symbols = params->dist.alphabet_size_limit;
   HuffmanTree* tree;
   ContextLut literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
   BlockEncoder literal_enc;
   BlockEncoder command_enc;
   BlockEncoder distance_enc;
   const BrotliDistanceParams* dist = &params->dist;
-  if (params->large_window &&
-      num_effective_distance_symbols > BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS) {
-    num_effective_distance_symbols = BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS;
-  }
+  BROTLI_DCHECK(
+      num_effective_distance_symbols <= BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS);
 
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
 
@@ -1163,7 +1161,7 @@ void BrotliStoreMetaBlockTrivial(MemoryManager* m,
   uint8_t dist_depth[MAX_SIMPLE_DISTANCE_ALPHABET_SIZE];
   uint16_t dist_bits[MAX_SIMPLE_DISTANCE_ALPHABET_SIZE];
   HuffmanTree* tree;
-  uint32_t num_distance_symbols = params->dist.alphabet_size;
+  uint32_t num_distance_symbols = params->dist.alphabet_size_max;
 
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
 
@@ -1206,7 +1204,7 @@ void BrotliStoreMetaBlockFast(MemoryManager* m,
     BROTLI_BOOL is_last, const BrotliEncoderParams* params,
     const Command* commands, size_t n_commands,
     size_t* storage_ix, uint8_t* storage) {
-  uint32_t num_distance_symbols = params->dist.alphabet_size;
+  uint32_t num_distance_symbols = params->dist.alphabet_size_max;
   uint32_t distance_alphabet_bits =
       Log2FloorNonZero(num_distance_symbols - 1) + 1;
 

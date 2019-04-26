@@ -125,6 +125,9 @@ static BROTLI_INLINE void RingBufferWrite(
        later when we copy the last two bytes to the first two positions. */
     rb->buffer_[rb->size_ - 2] = 0;
     rb->buffer_[rb->size_ - 1] = 0;
+    /* Initialize tail; might be touched by "best_len++" optimization when
+       ring buffer is "full". */
+    rb->buffer_[rb->size_] = 241;
   }
   {
     const size_t masked_pos = rb->pos_ & rb->mask_;

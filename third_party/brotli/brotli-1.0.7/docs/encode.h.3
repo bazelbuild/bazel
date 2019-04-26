@@ -298,12 +298,24 @@ Flag that determines if 'Large Window Brotli' is used\&.
 \fB\fIBROTLI_PARAM_NPOSTFIX \fP\fP
 Recommended number of postfix bits (NPOSTFIX)\&. Encoder may change this value\&.
 .PP
-Range is from 0 to ::BROTLI_MAX_NPOSTFIX\&. 
+Range is from 0 to \fBBROTLI_MAX_NPOSTFIX\fP\&. 
 .TP
 \fB\fIBROTLI_PARAM_NDIRECT \fP\fP
 Recommended number of direct distance codes (NDIRECT)\&. Encoder may change this value\&.
 .PP
 Range is from 0 to (15 << NPOSTFIX) in steps of (1 << NPOSTFIX)\&. 
+.TP
+\fB\fIBROTLI_PARAM_STREAM_OFFSET \fP\fP
+Number of bytes of input stream already processed by a different instance\&. 
+.PP
+\fBNote:\fP
+.RS 4
+It is important to configure all the encoder instances with same parameters (except this one) in order to allow all the encoded parts obey the same restrictions implied by header\&.
+.RE
+.PP
+If offset is not 0, then stream header is omitted\&. In any case output start is byte aligned, so for proper streams stitching 'predecessor' stream must be flushed\&.
+.PP
+Range is not artificially limited, but all the values greater or equal to maximal window size have the same effect\&. Values greater than 2**30 are not allowed\&. 
 .SH "Function Documentation"
 .PP 
 .SS "\fBBROTLI_BOOL\fP BrotliEncoderCompress (int quality, int lgwin, \fBBrotliEncoderMode\fP mode, size_t input_size, const uint8_t input_buffer[input_size], size_t * encoded_size, uint8_t encoded_buffer[*encoded_size])"
@@ -314,6 +326,8 @@ Performs one-shot memory-to-memory compression\&. Compresses the data in \fCinpu
 \fBNote:\fP
 .RS 4
 If \fBBrotliEncoderMaxCompressedSize\fP(\fCinput_size\fP) returns non-zero value, then output is guaranteed to be no longer than that\&.
+.PP
+If \fClgwin\fP is greater than \fBBROTLI_MAX_WINDOW_BITS\fP then resulting stream might be incompatible with RFC 7932; to decode such streams, decoder should be configured with \fBBROTLI_DECODER_PARAM_LARGE_WINDOW\fP = \fC1\fP 
 .RE
 .PP
 \fBParameters:\fP

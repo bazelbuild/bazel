@@ -19,7 +19,8 @@ extern "C" {
 #define BROTLI_HUFFMAN_MAX_CODE_LENGTH 15
 
 /* Maximum possible Huffman table size for an alphabet size of (index * 32),
-   max code length 15 and root table bits 8. */
+   max code length 15 and root table bits 8. This table describes table sizes
+   for alphabets containing up to 1152 = 36 * 32 symbols. */
 static const uint16_t kMaxHuffmanTableSize[] = {
   256, 402, 436, 468, 500, 534, 566, 598, 630, 662, 694, 726, 758, 790, 822,
   854, 886, 920, 952, 984, 1016, 1048, 1080, 1112, 1144, 1176, 1208, 1240, 1272,
@@ -110,13 +111,13 @@ BROTLI_INTERNAL uint32_t BrotliBuildSimpleHuffmanTable(HuffmanCode* table,
     int root_bits, uint16_t* symbols, uint32_t num_symbols);
 
 /* Contains a collection of Huffman trees with the same alphabet size. */
-/* max_symbol is needed due to simple codes since log2(alphabet_size) could be
-   greater than log2(max_symbol). */
+/* alphabet_size_limit is needed due to simple codes, since
+   log2(alphabet_size_max) could be greater than log2(alphabet_size_limit). */
 typedef struct {
   HuffmanCode** htrees;
   HuffmanCode* codes;
-  uint16_t alphabet_size;
-  uint16_t max_symbol;
+  uint16_t alphabet_size_max;
+  uint16_t alphabet_size_limit;
   uint16_t num_htrees;
 } HuffmanTreeGroup;
 

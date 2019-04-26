@@ -31,6 +31,10 @@ class TestDecompress(_test_utils.TestCase):
         self._decompress(test_data)
         self._check_decompression(test_data)
 
+    def test_garbage_appended(self):
+        with self.assertRaises(brotli.error):
+            brotli.decompress(brotli.compress(b'a') + b'a')
+
 
 _test_utils.generate_test_methods(TestDecompress, for_decompression=True)
 

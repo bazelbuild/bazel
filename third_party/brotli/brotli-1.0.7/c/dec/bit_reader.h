@@ -65,6 +65,12 @@ BROTLI_INTERNAL void BrotliInitBitReader(BrotliBitReader* const br);
    reading. */
 BROTLI_INTERNAL BROTLI_BOOL BrotliWarmupBitReader(BrotliBitReader* const br);
 
+/* Fallback for BrotliSafeReadBits32. Extracted as noninlined method to unburden
+   the main code-path. Never called for RFC brotli streams, required only for
+   "large-window" mode and other extensions. */
+BROTLI_INTERNAL BROTLI_NOINLINE BROTLI_BOOL BrotliSafeReadBits32Slow(
+    BrotliBitReader* const br, uint32_t n_bits, uint32_t* val);
+
 static BROTLI_INLINE void BrotliBitReaderSaveState(
     BrotliBitReader* const from, BrotliBitReaderState* to) {
   to->val_ = from->val_;
@@ -237,15 +243,17 @@ static BROTLI_INLINE void BrotliBitReaderUnload(BrotliBitReader* br) {
 static BROTLI_INLINE void BrotliTakeBits(
   BrotliBitReader* const br, uint32_t n_bits, uint32_t* val) {
   *val = (uint32_t)BrotliGetBitsUnmasked(br) & BitMask(n_bits);
-  BROTLI_LOG(("[BrotliReadBits]  %d %d %d val: %6x\n",
+  BROTLI_LOG(("[BrotliTakeBits]  %d %d %d val: %6x\n",
       (int)br->avail_in, (int)br->bit_pos_, (int)n_bits, (int)*val));
   BrotliDropBits(br, n_bits);
 }
 
 /* Reads the specified number of bits from |br| and advances the bit pos.
-   Assumes that there is enough input to perform BrotliFillBitWindow. */
-static BROTLI_INLINE uint32_t BrotliReadBits(
+   Assumes that there is enough input to perform BrotliFillBitWindow.
+   Up to 24 bits are allowed to be requested from this method. */
+static BROTLI_INLINE uint32_t BrotliReadBits24(
     BrotliBitReader* const br, uint32_t n_bits) {
+  BROTLI_DCHECK(n_bits <= 24);
   if (BROTLI_64_BITS || (n_bits <= 16)) {
     uint32_t val;
     BrotliFillBitWindow(br, n_bits);
@@ -262,10 +270,32 @@ static BROTLI_INLINE uint32_t BrotliReadBits(
   }
 }
 
+/* Same as BrotliReadBits24, but allows reading up to 32 bits. */
+static BROTLI_INLINE uint32_t BrotliReadBits32(
+    BrotliBitReader* const br, uint32_t n_bits) {
+  BROTLI_DCHECK(n_bits <= 32);
+  if (BROTLI_64_BITS || (n_bits <= 16)) {
+    uint32_t val;
+    BrotliFillBitWindow(br, n_bits);
+    BrotliTakeBits(br, n_bits, &val);
+    return val;
+  } else {
+    uint32_t low_val;
+    uint32_t high_val;
+    BrotliFillBitWindow(br, 16);
+    BrotliTakeBits(br, 16, &low_val);
+    BrotliFillBitWindow(br, 16);
+    BrotliTakeBits(br, n_bits - 16, &high_val);
+    return low_val | (high_val << 16);
+  }
+}
+
 /* Tries to read the specified amount of bits. Returns BROTLI_FALSE, if there
-   is not enough input. |n_bits| MUST be positive. */
+   is not enough input. |n_bits| MUST be positive.
+   Up to 24 bits are allowed to be requested from this method. */
 static BROTLI_INLINE BROTLI_BOOL BrotliSafeReadBits(
     BrotliBitReader* const br, uint32_t n_bits, uint32_t* val) {
+  BROTLI_DCHECK(n_bits <= 24);
   while (BrotliGetAvailableBits(br) < n_bits) {
     if (!BrotliPullByte(br)) {
       return BROTLI_FALSE;
@@ -273,6 +303,23 @@ static BROTLI_INLINE BROTLI_BOOL BrotliSafeReadBits(
   }
   BrotliTakeBits(br, n_bits, val);
   return BROTLI_TRUE;
+}
+
+/* Same as BrotliSafeReadBits, but allows reading up to 32 bits. */
+static BROTLI_INLINE BROTLI_BOOL BrotliSafeReadBits32(
+    BrotliBitReader* const br, uint32_t n_bits, uint32_t* val) {
+  BROTLI_DCHECK(n_bits <= 32);
+  if (BROTLI_64_BITS || (n_bits <= 24)) {
+    while (BrotliGetAvailableBits(br) < n_bits) {
+      if (!BrotliPullByte(br)) {
+        return BROTLI_FALSE;
+      }
+    }
+    BrotliTakeBits(br, n_bits, val);
+    return BROTLI_TRUE;
+  } else {
+    return BrotliSafeReadBits32Slow(br, n_bits, val);
+  }
 }
 
 /* Advances the bit reader position to the next byte boundary and verifies

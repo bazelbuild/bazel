@@ -32,7 +32,7 @@ The basic commands to build, test and install brotli are:
     $ make
     $ make test
     $ make install
-  
+
 By default, debug binaries are built. To generate "release" `Makefile` specify `--disable-debug` option to `configure-cmake`.
 
 #### Bazel

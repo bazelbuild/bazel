@@ -43,6 +43,23 @@ BROTLI_BOOL BrotliWarmupBitReader(BrotliBitReader* const br) {
   return BROTLI_TRUE;
 }
 
+BROTLI_BOOL BrotliSafeReadBits32Slow(BrotliBitReader* const br,
+    uint32_t n_bits, uint32_t* val) {
+  uint32_t low_val;
+  uint32_t high_val;
+  BrotliBitReaderState memento;
+  BROTLI_DCHECK(n_bits <= 32);
+  BROTLI_DCHECK(n_bits > 24);
+  BrotliBitReaderSaveState(br, &memento);
+  if (!BrotliSafeReadBits(br, 16, &low_val) ||
+      !BrotliSafeReadBits(br, n_bits - 16, &high_val)) {
+    BrotliBitReaderRestoreState(br, &memento);
+    return BROTLI_FALSE;
+  }
+  *val = low_val | (high_val << 16);
+  return BROTLI_TRUE;
+}
+
 #if defined(__cplusplus) || defined(c_plusplus)
 }  /* extern "C" */
 #endif
