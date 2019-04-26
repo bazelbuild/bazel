@@ -8,6 +8,7 @@ filegroup(
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/aws-sdk-auth-lite:srcs",
         "//third_party/aws-sig-v4-test-suite:srcs",
+        "//third_party/brotli/brotli-1.0.7:srcs",
         "//third_party/css/bootstrap:srcs",
         "//third_party/css/font_awesome:srcs",
         "//third_party/ijar:srcs",

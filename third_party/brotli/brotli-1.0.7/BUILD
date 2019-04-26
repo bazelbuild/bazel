@@ -9,6 +9,11 @@ licenses(["notice"])  # MIT
 
 exports_files(["LICENSE"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
 config_setting(
     name = "darwin",
     values = {"cpu": "darwin"},
