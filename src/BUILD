@@ -605,6 +605,8 @@ JAVA_VERSIONS = ("9", "10")
             "//src/java_tools/junitrunner:srcs",
             "//src/java_tools/singlejar:srcs",
             "//src/tools/singlejar:embedded_java_tools",
+            "//third_party/checker_framework_dataflow:srcs",
+            "//third_party/checker_framework_javacutil:srcs",
             "//third_party/jarjar:srcs",
             "//third_party/ijar:transitive_sources",
             "//third_party/java/jacoco:jacoco_source_jars_zip",
