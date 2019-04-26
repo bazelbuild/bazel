@@ -226,7 +226,7 @@ public abstract class StarlarkSemantics {
           .experimentalStarlarkConfigTransitions(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(false)
-          .incompatibleDepsetUnion(false)
+          .incompatibleDepsetUnion(true)
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
