@@ -502,6 +502,17 @@ public class LexerTest {
   }
 
   @Test
+  public void testFirstCharIsTab() {
+    assertThat(names(tokens("\t"))).isEqualTo("NEWLINE EOF");
+    assertThat(lastErrorLocation.getStartOffset()).isEqualTo(0);
+    assertThat(lastErrorLocation.getEndOffset()).isEqualTo(0);
+    assertThat(lastError)
+        .isEqualTo(
+            "/some/path.txt:1: Tab characters are not allowed for indentation. Use spaces"
+                + " instead.");
+  }
+
+  @Test
   public void testLexerLocationCodec() throws Exception {
     new SerializationTester(createLexer("foo").createLocation(0, 2)).runTests();
   }

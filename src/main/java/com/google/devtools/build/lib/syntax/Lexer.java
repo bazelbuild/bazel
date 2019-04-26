@@ -298,9 +298,9 @@ public final class Lexer {
       } else if (c == '\r') {
         pos++;
       } else if (c == '\t') {
-        error("Tab characters are not allowed for indentation. Use spaces instead.");
         indentLen++;
         pos++;
+        error("Tab characters are not allowed for indentation. Use spaces instead.");
       } else if (c == '\n') { // entirely blank line: discard
         indentLen = 0;
         pos++;
