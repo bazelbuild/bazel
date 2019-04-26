@@ -161,21 +161,14 @@ public final class CppFileTypes {
   public static final FileType WINDOWS_DEF_FILE = FileType.of(".def");
 
   // Matches shared libraries with version names in the extension, i.e.
-  // libmylib.so.2 or libmylib.so.2.10.
+  // libmylib.so.2 or libmylib.so.2.10 or libmylib.so.1a_b35.
   private static final Pattern VERSIONED_SHARED_LIBRARY_PATTERN =
-     Pattern.compile("^.+\\.so(\\.\\d+)+$");
+     Pattern.compile("^.+\\.(so([\\.|\\w])+)$");
   public static final FileType VERSIONED_SHARED_LIBRARY =
       new FileType() {
         @Override
         public boolean apply(String path) {
-          // Because regex matching can be slow, we first do a quick digit check on the final
-          // character before risking the full-on regex match. This should eliminate the performance
-          // hit on practically every non-qualifying file type.
-          if (Character.isDigit(path.charAt(path.length() - 1))) {
-            return VERSIONED_SHARED_LIBRARY_PATTERN.matcher(path).matches();
-          } else {
-            return false;
-          }
+          return VERSIONED_SHARED_LIBRARY_PATTERN.matcher(path).matches();
         }
       };
 
