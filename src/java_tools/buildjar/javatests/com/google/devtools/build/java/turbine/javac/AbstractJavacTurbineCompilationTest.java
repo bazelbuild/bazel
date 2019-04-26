@@ -20,7 +20,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
-import com.google.devtools.build.java.bazel.JavacBootclasspath;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine.Result;
 import com.google.turbine.options.TurbineOptions;
 import java.io.BufferedWriter;
@@ -74,8 +73,6 @@ public abstract class AbstractJavacTurbineCompilationTest {
     optionsBuilder
         .setOutput(output.toString())
         .setTempDir(tempdir.toString())
-        .addBootClassPathEntries(
-            JavacBootclasspath.asPaths().stream().map(Path::toString).collect(toImmutableList()))
         .setOutputDeps(outputDeps.toString())
         .addAllJavacOpts(Arrays.asList("-source", "8", "-target", "8"))
         .setTargetLabel("//test");

@@ -13,7 +13,7 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
-    - "//src/java_tools/junitrunner/javatests/..."
+    - "//src/java_tools/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
@@ -22,6 +22,9 @@ platforms:
     - "//tools/python/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/buildjar/..."
+    - "-//src/java_tools/import_deps_checker/..."
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -35,7 +38,7 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
-    - "//src/java_tools/junitrunner/javatests/..."
+    - "//src/java_tools/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
@@ -44,6 +47,9 @@ platforms:
     - "//tools/python/..."
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/buildjar/..."
+    - "-//src/java_tools/import_deps_checker/..."
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -57,7 +63,7 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
-    - "//src/java_tools/junitrunner/javatests/..."
+    - "//src/java_tools/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
@@ -71,6 +77,8 @@ platforms:
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     # TODO(iirina): Re-enable after #7952 was released.
     - "-//src/test/shell/bazel:embedded_tools_deps_test"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/import_deps_checker/..."
   ubuntu1804_javabase9:
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 9 Javabase"
@@ -89,13 +97,15 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
-    - "//src/java_tools/junitrunner/javatests/..."
+    - "//src/java_tools/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/aquery_differ/..."
     - "//tools/android/..."
     - "//tools/python/..."
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/import_deps_checker/..."
     # Currently broken tests on this platform.
     # These tests do not work without an installed system JDK:
     # (see https://github.com/bazelbuild/bazel/issues/6214#issuecomment-424813868)
@@ -153,13 +163,15 @@ platforms:
     test_targets:
     - "--"
     - "//scripts/..."
-    - "//src/java_tools/junitrunner/javatests/..."
+    - "//src/java_tools/..."
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/aquery_differ/..."
     - "//tools/android/..."
     - "//tools/python/..."
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+    - "-//src/java_tools/import_deps_checker/..."
     # Currently broken tests on this platform.
     # These tests do not work without an installed system JDK:
     # (see https://github.com/bazelbuild/bazel/issues/6214#issuecomment-424813868)

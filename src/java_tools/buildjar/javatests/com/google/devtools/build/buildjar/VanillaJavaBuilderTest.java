@@ -176,8 +176,6 @@ public class VanillaJavaBuilderTest {
                 source.toString(),
                 "--output",
                 output.toString(),
-                "--bootclasspath",
-                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
                 "--tempdir",
                 temporaryFolder.newFolder().toString(),
                 "--classdir",
