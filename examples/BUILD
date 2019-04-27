@@ -9,6 +9,7 @@ filegroup(
         "//examples/java-native:srcs",
         "//examples/java-skylark:srcs",
         "//examples/py:srcs",
+        "//examples/py/sdk:srcs",
         "//examples/py_native:srcs",
         "//examples/shell:srcs",
         "//examples/windows/dll:srcs",

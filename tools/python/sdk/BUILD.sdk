@@ -1,0 +1,39 @@
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "libs",
+    srcs = glob(
+        ["lib/**/*"],
+        exclude = [
+            "lib/pkgconfig/**",
+            "lib/{name}/site-packages/setuptools/command/launcher manifest.xml",
+            "lib/{name}/site-packages/setuptools/script (dev).tmpl"
+        ]
+    )
+)
+
+filegroup(
+    name = "includes",
+    srcs = glob(["include/**/*.h"])
+)
+
+filegroup(
+    name = "bins",
+    srcs = glob(["bin/*"])
+)
+
+filegroup(
+    name = "exec",
+    srcs = ["bin/{name}"]
+)
+
+py_runtime(
+    name = "runtime",
+    files = [
+        "//:libs",
+        "//:includes",
+        "//:bins",
+    ],
+    interpreter = "//:exec",
+    python_version = "{PY}"
+)

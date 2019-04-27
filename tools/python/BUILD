@@ -6,6 +6,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/python/runfiles:srcs",
+        "//tools/python/sdk:srcs",
     ],
 )
 
@@ -13,6 +14,7 @@ filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]) + [
         "//tools/python/runfiles:embedded_tools",
+        "//tools/python/sdk:embedded_tools",
     ],
     visibility = ["//tools:__pkg__"],
 )
