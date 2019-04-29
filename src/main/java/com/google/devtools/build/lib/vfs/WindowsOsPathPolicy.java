@@ -58,6 +58,9 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   @Override
   public int needsToNormalize(String path) {
     int n = path.length();
+    if (isDriveLetterAndColon(path)) {
+      return NEEDS_NORMALIZE;
+    }
     int normalizationLevel = NORMALIZED;
     int dotCount = 0;
     char prevChar = 0;
@@ -111,6 +114,9 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   public String normalize(String path, int normalizationLevel) {
     if (normalizationLevel == NORMALIZED) {
       return path;
+    }
+    if (isDriveLetterAndColon(path)) {
+      return path.charAt(0) + ":/";
     }
     if (normalizationLevel == NEEDS_SHORT_PATH_NORMALIZATION) {
       String resolvedPath = shortPathResolver.resolveShortPath(path);
@@ -167,6 +173,10 @@ class WindowsOsPathPolicy implements OsPathPolicy {
 
   private static boolean isDriveLetter(char c) {
     return ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'));
+  }
+
+  private static boolean isDriveLetterAndColon(String p) {
+    return p.length() == 2 && isDriveLetter(p.charAt(0)) && p.charAt(1) == ':';
   }
 
   @Override
