@@ -58,8 +58,6 @@ public class WorkerMultiplexer extends Thread {
    */
   private Subprocess process;
 
-  private Thread shutdownHook;
-
   WorkerMultiplexer() {
     semWorkerProcessResponse = new Semaphore(1);
     semResponseChecker = new Semaphore(1);
@@ -67,17 +65,6 @@ public class WorkerMultiplexer extends Thread {
     workerProcessResponse = new HashMap<>();
 
     final WorkerMultiplexer self = this;
-    this.shutdownHook =
-      new Thread(
-        () -> {
-          try {
-            self.shutdownHook = null;
-            self.destroyMultiplexer();
-          } finally {
-            // We can't do anything here.
-          }
-        });
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
   /**
@@ -104,9 +91,6 @@ public class WorkerMultiplexer extends Thread {
   }
 
   public synchronized void destroyMultiplexer() {
-    if (shutdownHook != null) {
-      Runtime.getRuntime().removeShutdownHook(shutdownHook);
-    }
     if (this.process != null) {
       destroyProcess(this.process);
     }
