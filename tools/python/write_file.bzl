@@ -29,7 +29,7 @@ Related discussion here [2].
 
 def _common_impl(ctx, is_executable):
     # ctx.actions.write creates a FileWriteAction which uses UTF-8 encoding.
-    out = ctx.actions.declare_file(ctx.outputs.out)
+    out = ctx.actions.declare_file(ctx.attr.out)
     ctx.actions.write(
         output = out,
         content = "\n".join(ctx.attr.content) if ctx.attr.content else "",
