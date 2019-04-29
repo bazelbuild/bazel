@@ -462,18 +462,20 @@ http_archive(
     ],
 )
 
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
-
-git_repository(
+http_archive(
     name = "java_tools_langtools_javac9",
-    branch = "langtools_javac9",
-    remote = "https://github.com/bazelbuild/java_tools.git",
+    sha256 = "3b6bbc47256acf2f61883901e2d4e3f9b292f5fe154a6912b928805de24cb864",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk9.zip",
+    ]
 )
 
-git_repository(
+http_archive(
     name = "java_tools_langtools_javac10",
-    branch = "langtools_javac10",
-    remote = "https://github.com/bazelbuild/java_tools.git",
+    sha256 = "e379c71e051eb83e3fc9a08c9b404712707d8920ffcf1e8fd59c844965f0b0dd",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk10.zip",
+    ]
 )
 
 load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")

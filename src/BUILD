@@ -589,6 +589,7 @@ genrule(
     srcs = JAVA_TOOLS_DEPLOY_JARS + [
         "@java_tools_langtools_javac10//:jdk_compiler_jar",
         "@java_tools_langtools_javac10//:java_compiler_jar",
+        "@java_tools_langtools_javac10//:javac_jar",
     ],
     outs = ["jars_java_tools_java10.zip"],
     cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
