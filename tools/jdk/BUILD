@@ -320,15 +320,31 @@ default_java_toolchain(
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
-    name = "toolchain",
+    name = "legacy_toolchain",
     source_version = "8",
     target_version = "8",
 )
 
-default_java_toolchain(
+alias(
+    name = "toolchain",
+    actual = select({
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
+        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
+        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
+    }),
+)
+
+alias(
     name = "remote_toolchain",
-    source_version = "8",
-    target_version = "8",
+    actual = select({
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain",
+        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
+        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
+    }),
 )
 
 # The 'vanilla' toolchain is an unsupported alternative to the default.
