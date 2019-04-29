@@ -14,7 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.jimfs.Jimfs;
@@ -142,18 +142,17 @@ public class ShellQuotedParamsFilePreProcessorTest {
         ImmutableList.of("ar'g1"),
         StandardCharsets.UTF_8,
         StandardOpenOption.CREATE);
-    try {
-      paramsFilePreProcessor.preProcess(ImmutableList.of("@" + paramsFile));
-      fail("expected OptionsParsingException");
-    } catch (OptionsParsingException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .isEqualTo(
-              String.format(
-                  ParamsFilePreProcessor.ERROR_MESSAGE_FORMAT,
-                  paramsFile,
-                  String.format(ParamsFilePreProcessor.UNFINISHED_QUOTE_MESSAGE_FORMAT, "'", 2)));
-    }
+    OptionsParsingException expected =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> paramsFilePreProcessor.preProcess(ImmutableList.of("@" + paramsFile)));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            String.format(
+                ParamsFilePreProcessor.ERROR_MESSAGE_FORMAT,
+                paramsFile,
+                String.format(ParamsFilePreProcessor.UNFINISHED_QUOTE_MESSAGE_FORMAT, "'", 2)));
   }
 
   @Test

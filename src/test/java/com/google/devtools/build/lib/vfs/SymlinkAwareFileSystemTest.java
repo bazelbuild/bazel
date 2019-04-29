@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.util.OS;
@@ -393,13 +394,11 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     assertThat(someLink.exists(Symlinks.NOFOLLOW)).isTrue(); // the link itself exists
     assertThat(someLink.exists()).isFalse(); // ...but the referent doesn't
     if (testFS.supportsSymbolicLinksNatively(someLink)) {
-      try {
-        someLink.resolveSymbolicLinks();
-      } catch (FileNotFoundException e) {
-        assertThat(e)
-            .hasMessageThat()
-            .isEqualTo(newPath.getParentDirectory() + " (No such file or directory)");
-      }
+      FileNotFoundException e =
+          assertThrows(FileNotFoundException.class, () -> someLink.resolveSymbolicLinks());
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(newPath.getParentDirectory() + " (No such file or directory)");
     }
   }
 

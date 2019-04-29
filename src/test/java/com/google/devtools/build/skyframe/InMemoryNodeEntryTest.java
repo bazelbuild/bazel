@@ -843,7 +843,7 @@ public class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void getGroupedDirectDeps() throws InterruptedException {
+  public void getCompressedDirectDepsForDoneEntry() throws InterruptedException {
     InMemoryNodeEntry entry = new InMemoryNodeEntry();
     ImmutableList<ImmutableSet<SkyKey>> groupedDirectDeps = ImmutableList.of(
         ImmutableSet.of(key("1A")),
@@ -869,7 +869,8 @@ public class InMemoryNodeEntryTest {
     }
     entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
     int i = 0;
-    GroupedList<SkyKey> entryGroupedDirectDeps = entry.getGroupedDirectDeps();
+    GroupedList<SkyKey> entryGroupedDirectDeps =
+        GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
     assertThat(Iterables.size(entryGroupedDirectDeps)).isEqualTo(groupedDirectDeps.size());
     for (Iterable<SkyKey> depGroup : entryGroupedDirectDeps) {
       assertThat(depGroup).containsExactlyElementsIn(groupedDirectDeps.get(i++));

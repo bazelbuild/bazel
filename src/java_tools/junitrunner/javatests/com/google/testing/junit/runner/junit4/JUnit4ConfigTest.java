@@ -15,9 +15,9 @@
 package com.google.testing.junit.runner.junit4;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.testing.junit.runner.junit4.JUnit4Config.JUNIT_API_VERSION_PROPERTY;
 import static com.google.testing.junit.runner.junit4.JUnit4Config.SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY;
-import static org.junit.Assert.fail;
 
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
 import java.util.Properties;
@@ -51,36 +51,27 @@ public class JUnit4ConfigTest {
   public void testGetJUnitRunnerApiVersion_failsIfNotNumeric() {
     JUnit4Config config = createConfigWithApiVersion("I love pesto");
 
-    try {
-      config.getJUnitRunnerApiVersion();
-      fail("exception expected");
-    } catch (IllegalStateException expected) {
-      assertThat(expected).hasMessageThat().contains("I love pesto");
-    }
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class, () -> config.getJUnitRunnerApiVersion());
+    assertThat(expected).hasMessageThat().contains("I love pesto");
   }
 
   @Test
   public void testGetJUnitRunnerApiVersion_failsIfNotAnInteger() {
     JUnit4Config config = createConfigWithApiVersion("3.14");
 
-    try {
-      config.getJUnitRunnerApiVersion();
-      fail("exception expected");
-    } catch (IllegalStateException expected) {
-      assertThat(expected).hasMessageThat().contains("3.14");
-    }
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class, () -> config.getJUnitRunnerApiVersion());
+    assertThat(expected).hasMessageThat().contains("3.14");
   }
 
   @Test
   public void testGetJUnitRunnerApiVersion_failsIfNotOne() {
     JUnit4Config config = createConfigWithApiVersion("13");
 
-    try {
-      config.getJUnitRunnerApiVersion();
-      fail("exception expected");
-    } catch (IllegalStateException expected) {
-      assertThat(expected).hasMessageThat().contains("13");
-    }
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class, () -> config.getJUnitRunnerApiVersion());
+    assertThat(expected).hasMessageThat().contains("13");
   }
 
   @Test

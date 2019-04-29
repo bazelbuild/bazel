@@ -452,6 +452,7 @@ java_library(
         ":vfs_filesystem_test",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 

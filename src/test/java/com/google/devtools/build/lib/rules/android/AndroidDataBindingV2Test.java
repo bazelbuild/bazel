@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -448,9 +448,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     final DataBindingV2Provider dataBindingV2Provider = a.get(DataBindingV2Provider.PROVIDER);
 
-    assertThat(dataBindingV2Provider)
-        .named(DataBindingV2Provider.NAME)
-        .isNotNull();
+    assertWithMessage(DataBindingV2Provider.NAME).that(dataBindingV2Provider).isNotNull();
 
     assertThat(
         dataBindingV2Provider
@@ -520,9 +518,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         ")");
 
     ConfiguredTarget b = getConfiguredTarget("//java/b:b");
-    Truth.assertThat(b.get(DataBindingV2Provider.PROVIDER))
-        .named("DataBindingV2Info")
-        .isNotNull();
+    assertWithMessage("DataBindingV2Info").that(b.get(DataBindingV2Provider.PROVIDER)).isNotNull();
   }
 
   @Test

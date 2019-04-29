@@ -454,6 +454,18 @@ public final class CcLinkingHelper {
               ccLinkingOutputsBuilder, libraryToLinkBuilder, usePic, libraryIdentifier, ccOutputs);
     }
 
+    if (shouldCreateStaticLibraries
+        && featureConfiguration.isEnabled(CppRuleClasses.DISABLE_WHOLE_ARCHIVE_FOR_STATIC_LIB)
+        && (staticLinkType == LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY)) {
+      ruleErrorConsumer.throwWithAttributeError(
+          "alwayslink",
+          "alwayslink should not be True for a target with the"
+              + " disable_whole_archive_for_static_lib feature enabled.");
+    }
+
+    libraryToLinkBuilder.setDisableWholeArchive(
+        featureConfiguration.isEnabled(CppRuleClasses.DISABLE_WHOLE_ARCHIVE_FOR_STATIC_LIB));
+
     if (hasBuiltDynamicLibrary || shouldCreateStaticLibraries) {
       ccLinkingOutputsBuilder.setLibraryToLink(libraryToLinkBuilder.build());
     }

@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -400,16 +401,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(attributes.get("my-labellist-attr", BuildType.LABEL_LIST)).isEmpty();
     assertThat(attributes.get("my-stringlist-attr", Type.STRING_LIST))
         .isEqualTo(Arrays.asList("foo", "bar"));
-    try {
-      attributes.get("my-labellist-attr", Type.STRING); // wrong type
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "Attribute my-labellist-attr is of type list(label) "
-                  + "and not of type string in ruleA rule //testpackage:my-rule-A");
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class, () -> attributes.get("my-labellist-attr", Type.STRING));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Attribute my-labellist-attr is of type list(label) "
+                + "and not of type string in ruleA rule //testpackage:my-rule-A");
   }
 
   @Test
@@ -544,15 +543,16 @@ public class RuleClassTest extends PackageLoadingTestCase {
    */
   private void checkInvalidComputedDefault(Attribute computedDefault, String expectedMessage)
       throws Exception {
-    try {
-      createRule(getRuleClassWithComputedDefault(computedDefault), "myRule",
-              ImmutableMap.<String, Object>of(), testRuleLocation);
-      fail("Expected computed default \"" + computedDefault.getName() + "\" to fail with "
-          + "declaration errors");
-    } catch (IllegalArgumentException e) {
-      // Expected outcome.
-      assertThat(e).hasMessageThat().isEqualTo(expectedMessage);
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                createRule(
+                    getRuleClassWithComputedDefault(computedDefault),
+                    "myRule",
+                    ImmutableMap.<String, Object>of(),
+                    testRuleLocation));
+    assertThat(e).hasMessageThat().isEqualTo(expectedMessage);
   }
 
   /**
@@ -797,20 +797,19 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   @Test
   public void testOverrideWithWrongType() {
-    try {
-      RuleClass parentRuleClass = createParentRuleClass();
+    RuleClass parentRuleClass = createParentRuleClass();
 
-      RuleClass.Builder childRuleClassBuilder = new RuleClass.Builder(
-          "child_rule", RuleClassType.NORMAL, false, parentRuleClass);
-      childRuleClassBuilder.override(attr("attr", INTEGER));
-      fail();
-    } catch (IllegalStateException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "The type of the new attribute 'int' is different from "
-                  + "the original one 'string'.");
-    }
+    RuleClass.Builder childRuleClassBuilder =
+        new RuleClass.Builder("child_rule", RuleClassType.NORMAL, false, parentRuleClass);
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () -> childRuleClassBuilder.override(attr("attr", INTEGER)));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "The type of the new attribute 'int' is different from "
+                + "the original one 'string'.");
   }
 
   @Test
@@ -1050,12 +1049,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   private void expectError(RuleClassType type, String name) {
-    try {
-      type.checkName(name);
-      fail();
-    } catch (IllegalArgumentException expected) {
-      // expected
-    }
+    assertThrows(IllegalArgumentException.class, () -> type.checkName(name));
   }
 
   @Test

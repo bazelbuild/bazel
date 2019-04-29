@@ -14,7 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import org.junit.Test;
@@ -159,12 +159,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      // expected.
-    }
+    assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
   }
 
   @Test
@@ -474,12 +469,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
 
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      // expected.
-    }
+    assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
   }
 
   @Test
@@ -493,19 +483,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse();
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .isEqualTo(
-              "Invocation policy is applied after --config expansion, changing config values now "
-                  + "would have no effect and is disallowed to prevent confusion. Please remove "
-                  + "the following policy : flag_name: \"config\"\n"
-                  + "set_value {\n"
-                  + "  flag_value: \"foo\"\n"
-                  + "}\n");
-    }
+    OptionsParsingException expected =
+        assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            "Invocation policy is applied after --config expansion, changing config values now "
+                + "would have no effect and is disallowed to prevent confusion. Please remove "
+                + "the following policy : flag_name: \"config\"\n"
+                + "set_value {\n"
+                + "  flag_value: \"foo\"\n"
+                + "}\n");
   }
 }

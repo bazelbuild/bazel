@@ -136,7 +136,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       ConfiguredTarget target, boolean transitive) {
     Preconditions.checkNotNull(target);
     final AndroidResourcesInfo info = target.get(AndroidResourcesInfo.PROVIDER);
-    assertThat(info).named("No android resources exported from the target.").isNotNull();
+    assertWithMessage("No android resources exported from the target.").that(info).isNotNull();
     return getOnlyElement(
         transitive ? info.getTransitiveAndroidResources() : info.getDirectAndroidResources());
   }

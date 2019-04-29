@@ -37,11 +37,13 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       SkylarkList<?> include,
       SkylarkList<?> exclude,
       Integer excludeDirectories,
+      Boolean allowEmpty,
       FuncallExpression ast,
       Environment env)
       throws EvalException, ConversionException, InterruptedException {
     SkylarkUtils.checkLoadingPhase(env, "native.glob", ast.getLocation());
-    return PackageFactory.callGlob(null, include, exclude, excludeDirectories != 0, ast, env);
+    return PackageFactory.callGlob(
+        null, include, exclude, excludeDirectories != 0, allowEmpty, ast, env);
   }
 
   @Override

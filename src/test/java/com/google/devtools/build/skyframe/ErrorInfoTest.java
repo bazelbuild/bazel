@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -149,39 +150,41 @@ public class ErrorInfoTest {
 
   @Test
   public void testCannotCreateErrorInfoWithoutExceptionOrCycle() {
-    try {
-      new ErrorInfo(
-          NestedSetBuilder.<SkyKey>emptySet(Order.COMPILE_ORDER),
-          /*exception=*/ null,
-          /*rootCauseOfException=*/ null,
-          ImmutableList.<CycleInfo>of(),
-          false,
-          false,
-          false);
-    } catch (IllegalStateException e) {
-      // Brittle, but confirms we failed for the right reason.
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("At least one of exception and cycles must be non-null/empty, respectively");
-    }
+    // Brittle, but confirms we failed for the right reason.
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new ErrorInfo(
+                    NestedSetBuilder.<SkyKey>emptySet(Order.COMPILE_ORDER),
+                    /*exception=*/ null,
+                    /*rootCauseOfException=*/ null,
+                    ImmutableList.<CycleInfo>of(),
+                    false,
+                    false,
+                    false));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("At least one of exception and cycles must be non-null/empty, respectively");
   }
 
   @Test
   public void testCannotCreateErrorInfoWithExceptionButNoRootCause() {
-    try {
-      new ErrorInfo(
-          NestedSetBuilder.<SkyKey>emptySet(Order.COMPILE_ORDER),
-          new IOException("foo"),
-          /*rootCauseOfException=*/ null,
-          ImmutableList.<CycleInfo>of(),
-          false,
-          false,
-          false);
-    } catch (IllegalStateException e) {
-      // Brittle, but confirms we failed for the right reason.
-      assertThat(e)
-          .hasMessageThat()
-          .startsWith("exception and rootCauseOfException must both be null or non-null");
-    }
+    // Brittle, but confirms we failed for the right reason.
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new ErrorInfo(
+                    NestedSetBuilder.<SkyKey>emptySet(Order.COMPILE_ORDER),
+                    new IOException("foo"),
+                    /*rootCauseOfException=*/ null,
+                    ImmutableList.<CycleInfo>of(),
+                    false,
+                    false,
+                    false));
+    assertThat(e)
+        .hasMessageThat()
+        .startsWith("exception and rootCauseOfException must both be null or non-null");
   }
 }

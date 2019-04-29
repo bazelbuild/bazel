@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Settings;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -245,14 +244,9 @@ public final class ConfigurationResolver {
       FragmentsAndTransition transitionKey = new FragmentsAndTransition(depFragments, transition);
       List<BuildOptions> toOptions = transitionsMap.get(transitionKey);
       if (toOptions == null) {
-        // Default values for all build settings read in {@code transition}
-        ImmutableMap<Label, Object> defaultBuildSettingValues;
         try {
-          // TODO(juliexxia): combine these skyframe calls with other skyframe calls for this
-          // configured target.
-          defaultBuildSettingValues = StarlarkTransition.getDefaultInputValues(env, transition);
           ImmutableSet<SkyKey> buildSettingPackageKeys =
-              StarlarkTransition.getBuildSettingPackageKeys(transition, Settings.OUTPUTS);
+              StarlarkTransition.getAllBuildSettingPackageKeys(transition);
           Map<SkyKey, SkyValue> buildSettingPackages = env.getValues(buildSettingPackageKeys);
           if (env.valuesMissing()) {
             return null;
@@ -261,9 +255,6 @@ public final class ConfigurationResolver {
               applyTransition(
                   currentConfiguration.getOptions(),
                   transition,
-                  depFragments,
-                  ruleClassProvider,
-                  defaultBuildSettingValues,
                   buildSettingPackages);
           StarlarkTransition.replayEvents(env.getListener(), transition);
         } catch (TransitionException e) {
@@ -534,13 +525,12 @@ public final class ConfigurationResolver {
   public static List<BuildOptions> applyTransition(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
-      Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
-      RuleClassProvider ruleClassProvider,
-      ImmutableMap<Label, Object> buildSettingDefaults,
       Map<SkyKey, SkyValue> buildSettingPackages)
       throws TransitionException {
     BuildOptions fromOptionsWithDefaults =
-        addDefaultStarlarkOptions(fromOptions, buildSettingDefaults);
+        addDefaultStarlarkOptions(
+            fromOptions,
+            StarlarkTransition.getDefaultInputValues(buildSettingPackages, transition));
     // TODO(bazel-team): safety-check that this never mutates fromOptions.
     List<BuildOptions> result = transition.apply(fromOptionsWithDefaults);
     // Post-process transitions on starlark build settings

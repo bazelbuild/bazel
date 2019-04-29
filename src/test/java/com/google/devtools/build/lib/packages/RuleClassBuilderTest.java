@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -99,52 +99,36 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
 
   @Test
   public void testRuleClassTestNameValidity() throws Exception {
-    try {
-      new RuleClass.Builder("ruleA", RuleClassType.TEST, false).build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected exception.
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new RuleClass.Builder("ruleA", RuleClassType.TEST, false).build());
   }
 
   @Test
   public void testRuleClassNormalNameValidity() throws Exception {
-    try {
-      new RuleClass.Builder("ruleA_test", RuleClassType.NORMAL, false).build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected exception.
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new RuleClass.Builder("ruleA_test", RuleClassType.NORMAL, false).build());
   }
 
   @Test
   public void testDuplicateAttribute() throws Exception {
     RuleClass.Builder builder =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false).add(attr("a", STRING));
-    try {
-      builder.add(attr("a", STRING));
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected exception.
-    }
+    assertThrows(IllegalStateException.class, () -> builder.add(attr("a", STRING)));
   }
 
   @Test
   public void testPropertiesOfAbstractRuleClass() throws Exception {
-    try {
-      new RuleClass.Builder("$ruleA", RuleClassType.ABSTRACT, false).setOutputToGenfiles();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected exception.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> new RuleClass.Builder("$ruleA", RuleClassType.ABSTRACT, false).setOutputToGenfiles());
 
-    try {
-      new RuleClass.Builder("$ruleB", RuleClassType.ABSTRACT, false)
-          .setImplicitOutputsFunction(null);
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected exception.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new RuleClass.Builder("$ruleB", RuleClassType.ABSTRACT, false)
+                .setImplicitOutputsFunction(null));
   }
 
   @Test
@@ -161,15 +145,13 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("a", STRING).value("B"))
             .add(attr("tags", STRING_LIST))
             .build();
-    try {
-      // In case of multiple attribute inheritance the attributes must equal
-      new RuleClass.Builder("ruleC", RuleClassType.NORMAL, false, a, b).build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("Attribute a is inherited multiple times in ruleC ruleclass");
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new RuleClass.Builder("ruleC", RuleClassType.NORMAL, false, a, b).build());
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Attribute a is inherited multiple times in ruleC ruleclass");
   }
 
   @Test
@@ -189,12 +171,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     assertThat(c.hasAttr("a", INTEGER)).isTrue();
     assertThat(c.hasAttr("b", STRING)).isFalse();
 
-    try {
-      builder.removeAttribute("c");
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected exception.
-    }
+    assertThrows(IllegalStateException.class, () -> builder.removeAttribute("c"));
   }
 
   @Test

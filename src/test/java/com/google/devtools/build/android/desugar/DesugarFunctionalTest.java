@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.lang.reflect.Modifier.isFinal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -188,11 +189,11 @@ public class DesugarFunctionalTest {
     Method result = null;
     for (Method m : clazz.getDeclaredMethods()) {
       if (m.getName().startsWith("bridge$")) {
-        assertThat(result).named(m.getName()).isNull();
+        assertWithMessage(m.getName()).that(result).isNull();
         result = m;
       }
     }
-    assertThat(result).named(clazz.getSimpleName()).isNotNull();
+    assertWithMessage(clazz.getSimpleName()).that(result).isNotNull();
     return result;
   }
 

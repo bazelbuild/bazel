@@ -16,6 +16,7 @@ package com.google.testing.junit.runner.junit4;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -221,11 +222,8 @@ public class JUnit4RunnerTest {
     doAnswer(cancelTestRun(requestFactory))
         .when(mockRunListener).testStarted(testDescription);
 
-    try {
-      runner.run();
-      fail("exception expected");
-    } catch (RuntimeException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Test run interrupted");
+    RuntimeException e = assertThrows(RuntimeException.class, () -> runner.run());
+    assertThat(e).hasMessageThat().isEqualTo("Test run interrupted");
       assertWithMessage("Expected cause to be a StoppedByUserException")
           .that(e.getCause() instanceof StoppedByUserException)
           .isTrue();
@@ -233,8 +231,7 @@ public class JUnit4RunnerTest {
       InOrder inOrder = inOrder(mockRunListener);
       inOrder.verify(mockRunListener).testRunStarted(any(Description.class));
       inOrder.verify(mockRunListener).testStarted(testDescription);
-      inOrder.verify(mockRunListener).testFinished(testDescription);
-    }
+    inOrder.verify(mockRunListener).testFinished(testDescription);
   }
 
   private static Answer<Void> cancelTestRun(final CancellableRequestFactory requestFactory) {
@@ -397,12 +394,8 @@ public class JUnit4RunnerTest {
     config = new JUnit4Config(null, null, null, createProperties("2", false));
     JUnit4Runner runner = createRunner(SamplePassingTest.class);
 
-    try {
-      runner.run();
-      fail();
-    } catch (IllegalStateException e) {
-      assertThat(e).hasMessageThat().startsWith("Unsupported JUnit Runner API version");
-    }
+    IllegalStateException e = assertThrows(IllegalStateException.class, () -> runner.run());
+    assertThat(e).hasMessageThat().startsWith("Unsupported JUnit Runner API version");
   }
 
   /**

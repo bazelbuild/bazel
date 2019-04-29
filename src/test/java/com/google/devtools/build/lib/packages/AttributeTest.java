@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -71,12 +71,11 @@ public class AttributeTest {
 
   @Test
   public void testNonEmptyReqiresListType() throws Exception {
-    try {
-      attr("foo", Type.INTEGER).nonEmpty().value(3).build();
-      fail();
-    } catch (NullPointerException e) {
-      assertThat(e).hasMessageThat().isEqualTo("attribute 'foo' must be a list");
-    }
+    NullPointerException e =
+        assertThrows(
+            NullPointerException.class,
+            () -> attr("foo", Type.INTEGER).nonEmpty().value(3).build());
+    assertThat(e).hasMessageThat().isEqualTo("attribute 'foo' must be a list");
   }
 
   @Test
@@ -89,12 +88,11 @@ public class AttributeTest {
 
   @Test
   public void testSingleArtifactReqiresLabelType() throws Exception {
-    try {
-      attr("foo", Type.INTEGER).singleArtifact().value(3).build();
-      fail();
-    } catch (IllegalStateException e) {
-      assertThat(e).hasMessageThat().isEqualTo("attribute 'foo' must be a label-valued type");
-    }
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () -> attr("foo", Type.INTEGER).singleArtifact().value(3).build());
+    assertThat(e).hasMessageThat().isEqualTo("attribute 'foo' must be a label-valued type");
   }
 
   @Test
@@ -105,38 +103,13 @@ public class AttributeTest {
             .cfg(HostTransition.createFactory())
             .undocumented("")
             .value("y");
-    try {
-      builder.mandatory();
-      fail();
-    } catch (IllegalStateException expected) {
-      // expected
-    }
-    try {
-      builder.cfg(HostTransition.createFactory());
-      fail();
-    } catch (IllegalStateException expected) {
-      // expected
-    }
-    try {
-      builder.undocumented("");
-      fail();
-    } catch (IllegalStateException expected) {
-      // expected
-    }
-    try {
-      builder.value("z");
-      fail();
-    } catch (IllegalStateException expected) {
-      // expected
-    }
+    assertThrows(IllegalStateException.class, () -> builder.mandatory());
+    assertThrows(IllegalStateException.class, () -> builder.cfg(HostTransition.createFactory()));
+    assertThrows(IllegalStateException.class, () -> builder.undocumented(""));
+    assertThrows(IllegalStateException.class, () -> builder.value("z"));
 
-    builder = attr("$x", STRING);
-    try {
-      builder.undocumented("");
-      fail();
-    } catch (IllegalStateException expected) {
-      // expected
-    }
+    Attribute.Builder<String> builder2 = attr("$x", STRING);
+    assertThrows(IllegalStateException.class, () -> builder2.undocumented(""));
   }
 
   /**
@@ -332,16 +305,15 @@ public class AttributeTest {
 
   @Test
   public void allowedRuleClassesAndAllowedRuleClassesWithWarningsCannotOverlap() throws Exception {
-    try {
-      attr("x", LABEL_LIST)
-          .allowedRuleClasses("foo", "bar", "baz")
-          .allowedRuleClassesWithWarning("bar")
-          .allowedFileTypes()
-          .build();
-      fail("Expected illegal state exception because rule classes and rule classes with warning "
-          + "overlap");
-    } catch (IllegalStateException e) {
-      assertThat(e).hasMessageThat().contains("may not contain the same rule classes");
-    }
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                attr("x", LABEL_LIST)
+                    .allowedRuleClasses("foo", "bar", "baz")
+                    .allowedRuleClassesWithWarning("bar")
+                    .allowedFileTypes()
+                    .build());
+    assertThat(e).hasMessageThat().contains("may not contain the same rule classes");
   }
 }

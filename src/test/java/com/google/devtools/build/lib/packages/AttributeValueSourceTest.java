@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -59,12 +59,9 @@ public class AttributeValueSourceTest {
 
   private void assertNameIsNotValid(
       AttributeValueSource source, String name, String expectedExceptionMessage) throws Exception {
-    try {
-      source.validateSkylarkName(name, Location.BUILTIN);
-      fail("Expected an exception because of an invalid name.");
-    } catch (EvalException ex) {
-      assertThat(ex).hasMessageThat().isEqualTo(expectedExceptionMessage);
-    }
+    EvalException ex =
+        assertThrows(EvalException.class, () -> source.validateSkylarkName(name, Location.BUILTIN));
+    assertThat(ex).hasMessageThat().isEqualTo(expectedExceptionMessage);
   }
 
   @Test
@@ -89,18 +86,16 @@ public class AttributeValueSourceTest {
 
   private void assertTranslationFails(AttributeValueSource source, String invalidName)
       throws Exception {
-    try {
-      source.convertToNativeName(invalidName, Location.BUILTIN);
-      fail("Expected an exception because of an invalid name.");
-    } catch (EvalException ex) {
-      assertThat(ex)
-          .hasMessageThat()
-          .isEqualTo(
-              String.format(
-                  "When an attribute value is a function, the attribute must be private "
-                      + "(i.e. start with '_'). Found '%s'",
-                  invalidName));
-    }
+    EvalException ex =
+        assertThrows(
+            EvalException.class, () -> source.convertToNativeName(invalidName, Location.BUILTIN));
+    assertThat(ex)
+        .hasMessageThat()
+        .isEqualTo(
+            String.format(
+                "When an attribute value is a function, the attribute must be private "
+                    + "(i.e. start with '_'). Found '%s'",
+                invalidName));
   }
 
   @Test

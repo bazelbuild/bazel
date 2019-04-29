@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.fail;
 
@@ -1781,12 +1782,13 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     scratch.file("test/BUILD", "load(':aspect.bzl', 'r1')", "r1(name = 't1')");
     reporter.removeHandler(failFastHandler);
-    try {
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
       AnalysisResult result = update("//test:r1");
-      assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
-    } catch (TargetParsingException | ViewCreationFailedException expected) {
-      // expected.
+    } else {
+      assertThrows(TargetParsingException.class, () -> update("//test:r1"));
     }
     assertContainsEvent("aspect //test:aspect.bzl%my_aspect added more than once");
   }

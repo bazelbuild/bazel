@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -148,6 +149,14 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
       return this;
     }
 
+    private static String toString(ByteArrayOutputStream stream) {
+      try {
+        return new String(stream.toByteArray(), UTF_8);
+      } catch (IllegalStateException e) {
+        return "";
+      }
+    }
+
     /** Execute the command specified by {@link #addArguments(Iterable)}. */
     SkylarkExecutionResult execute() throws EvalException, InterruptedException {
       Preconditions.checkArgument(timeout > 0, "Timeout must be set prior to calling execute().");
@@ -189,8 +198,8 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
         } else if (status.exited()) {
           return new SkylarkExecutionResult(
               status.getExitCode(),
-              new String(e.getResult().getStdout(), UTF_8),
-              new String(e.getResult().getStderr(), UTF_8));
+              toString(e.getResult().getStdoutStream()),
+              toString(e.getResult().getStderrStream()));
         } else if (status.getTerminatingSignal() == 15) {
           // We have a bit of a problem here: we cannot distingusih between the case where
           // the SIGTERM was sent by something that the calling rule wants to legitimately handle,
@@ -203,8 +212,8 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
         } else {
           return new SkylarkExecutionResult(
               status.getRawExitCode(),
-              new String(e.getResult().getStdout(), UTF_8),
-              new String(e.getResult().getStderr(), UTF_8));
+              toString(e.getResult().getStdoutStream()),
+              toString(e.getResult().getStderrStream()));
         }
       } catch (CommandException e) {
         // 256 is outside of the standard range for exit code on Unixes. We are not guaranteed that

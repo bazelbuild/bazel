@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -87,12 +88,12 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     assertThat(arguments).contains("-DGPLATFORM=\"" + platform + "\"");
     assertThat(arguments).contains("-I.");
     String correctG3BuildTargetPattern = "-DG3_BUILD_TARGET=\".*" + buildTargetNameSuffix + "\"";
-    assertThat(Iterables.tryFind(arguments, (arg) -> arg.matches(correctG3BuildTargetPattern)))
-        .named("in " + arguments + " flag matching " + correctG3BuildTargetPattern)
+    assertWithMessage("in " + arguments + " flag matching " + correctG3BuildTargetPattern)
+        .that(Iterables.tryFind(arguments, (arg) -> arg.matches(correctG3BuildTargetPattern)))
         .isPresent();
     String fdoStampPattern = "-D" + CppConfiguration.FDO_STAMP_MACRO + "=\".*\"";
-    assertThat(Iterables.tryFind(arguments, (arg) -> arg.matches(fdoStampPattern)))
-        .named("in " + arguments + " flag matching " + fdoStampPattern)
+    assertWithMessage("in " + arguments + " flag matching " + fdoStampPattern)
+        .that(Iterables.tryFind(arguments, (arg) -> arg.matches(fdoStampPattern)))
         .isAbsent();
   }
 
