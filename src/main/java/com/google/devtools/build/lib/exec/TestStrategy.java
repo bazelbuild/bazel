@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPath
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -44,7 +45,9 @@ import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.EnumConverter;
 import java.io.Closeable;
 import java.io.IOException;
@@ -317,6 +320,45 @@ public abstract class TestStrategy implements TestActionContext {
       return new TestXmlOutputParser().parseXmlIntoTestResult(fileStream);
     } catch (IOException | TestXmlOutputParserException e) {
       return null;
+    }
+  }
+
+  /**
+   * Outputs test result to the stdout after test has finished (e.g. for --test_output=all or
+   * --test_output=errors). Will also try to group output lines together (up to 10000 lines) so
+   * parallel test outputs will not get interleaved.
+   */
+  protected void processTestOutput(
+      ActionExecutionContext actionExecutionContext,
+      TestResultData testResultData,
+      String testName,
+      Path testLog)
+      throws IOException {
+    boolean isPassed = testResultData.getTestPassed();
+    try {
+      if (TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
+        TestLogHelper.writeTestLog(
+            testLog, testName, actionExecutionContext.getFileOutErr().getOutputStream());
+      }
+    } finally {
+      if (isPassed) {
+        actionExecutionContext.getEventHandler().handle(Event.of(EventKind.PASS, null, testName));
+      } else {
+        if (testResultData.hasStatusDetails()) {
+          actionExecutionContext
+              .getEventHandler()
+              .handle(Event.error(testName + ": " + testResultData.getStatusDetails()));
+        }
+        if (testResultData.getStatus() == BlazeTestStatus.TIMEOUT) {
+          actionExecutionContext
+              .getEventHandler()
+              .handle(Event.of(EventKind.TIMEOUT, null, testName + " (see " + testLog + ")"));
+        } else {
+          actionExecutionContext
+              .getEventHandler()
+              .handle(Event.of(EventKind.FAIL, null, testName + " (see " + testLog + ")"));
+        }
+      }
     }
   }
 

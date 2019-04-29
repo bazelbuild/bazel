@@ -602,6 +602,7 @@ EOF
   expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
   expect_log_once "FAIL: //:fail (.*/fail/test.log)"
   expect_log_once "FAILED"
+  expect_log_once ".*/fail/test.log$"
   cat bazel-testlogs/fail/test_attempts/attempt_1.log &> $TEST_log
   assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
