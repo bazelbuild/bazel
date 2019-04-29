@@ -343,12 +343,15 @@ class Desugar {
   private final Set<String> visitedExceptionTypes = new HashSet<>();
   /** The counter to record the times of try-with-resources desugaring is invoked. */
   private final AtomicInteger numOfTryWithResourcesInvoked = new AtomicInteger();
+  /** The counter to record the times of UnsignedLongs desugaring is invoked. */
+  private final AtomicInteger numOfUnsignedLongsInvoked = new AtomicInteger();
 
   private final boolean outputJava7;
   private final boolean allowDefaultMethods;
   private final boolean allowTryWithResources;
   private final boolean allowCallsToObjectsNonNull;
   private final boolean allowCallsToLongCompare;
+  private final boolean allowCallsToLongUnsigned;
   /** An instance of Desugar is expected to be used ONLY ONCE */
   private boolean used;
 
@@ -363,6 +366,7 @@ class Desugar {
         !options.desugarTryWithResourcesIfNeeded || options.minSdkVersion >= 19;
     this.allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
     this.allowCallsToLongCompare = options.minSdkVersion >= 19 && !options.alwaysRewriteLongCompare;
+    this.allowCallsToLongUnsigned = options.minSdkVersion >= 26;
     this.used = false;
   }
 
@@ -530,12 +534,27 @@ class Desugar {
           });
     }
 
-    // 2. See if we need to copy try-with-resources runtime library
+    // 2. See if we rewrote Long.unsigned* methods
+    if (numOfUnsignedLongsInvoked.get() > 0) {
+      try (InputStream stream =
+          Desugar.class
+              .getClassLoader()
+              .getResourceAsStream(
+                  "com/google/devtools/build/android/desugar/runtime/UnsignedLongs.class")) {
+        outputFileProvider.write(
+            "com/google/devtools/build/android/desugar/runtime/UnsignedLongs.class",
+            ByteStreams.toByteArray(stream));
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+    }
+
+    // 3. See if we need to copy try-with-resources runtime library
     if (allowTryWithResources || options.desugarTryWithResourcesOmitRuntimeClasses) {
       // try-with-resources statements are okay in the output jar.
       return;
     }
-    if (this.numOfTryWithResourcesInvoked.get() <= 0) {
+    if (numOfTryWithResourcesInvoked.get() <= 0) {
       // the try-with-resources desugaring pass does nothing, so no need to copy these class files.
       return;
     }
@@ -733,6 +752,9 @@ class Desugar {
         // the inliner again
         visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
       }
+      if (!allowCallsToLongUnsigned) {
+        visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
+      }
       if (!allowCallsToLongCompare) {
         visitor = new LongCompareMethodRewriter(visitor, rewriter);
       }
@@ -798,6 +820,9 @@ class Desugar {
       // Not sure whether there will be implicit null check emitted by javac, so we rerun
       // the inliner again
       visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToLongUnsigned) {
+      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
     }
     if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor, rewriter);
@@ -882,6 +907,9 @@ class Desugar {
     }
     if (!allowCallsToObjectsNonNull) {
       visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToLongUnsigned) {
+      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
     }
     if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor, rewriter);
