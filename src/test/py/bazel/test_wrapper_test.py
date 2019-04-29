@@ -34,55 +34,49 @@ class TestWrapperTest(test_base.TestBase):
 
   def _CreateMockWorkspace(self):
     self.ScratchFile('WORKSPACE')
-    # All test targets are called <something>.bat, for the benefit of Windows.
-    # This makes test execution faster on Windows for the following reason:
-    #
-    # When building a sh_test rule, the main output's name is the same as the
-    # rule. On Unixes, this output is a symlink to the main script (the first
-    # entry in `srcs`), on Windows it's a copy of the file. In fact the main
-    # "script" does not have to be a script, it may be any executable file.
-    #
-    # On Unixes anything with the +x permission can be executed; the file's
-    # shebang line specifies the interpreter. On Windows, there's no such
-    # mechanism; Bazel runs the main script (which is typically a ".sh" file)
-    # through Bash. However, if the main file is a native executable, it's
-    # faster to run it directly than through Bash (plus it removes the need for
-    # Bash).
-    #
-    # Therefore on Windows, if the main script is a native executable (such as a
-    # ".bat" file) and has the same extension as the main file, Bazel (in case
-    # of sh_test) makes a copy of the file and runs it directly, rather than
-    # through Bash.
     self.ScratchFile('foo/BUILD', [
-        'sh_test(',
-        '    name = "passing_test.bat",',
-        '    srcs = ["passing.bat"],',
+        'load(":native_test.bzl", "bat_test", "exe_test")',
+        'bat_test(',
+        '    name = "passing_test",',
+        '    content = ["@exit /B 0"],',
         ')',
-        'sh_test(',
-        '    name = "failing_test.bat",',
-        '    srcs = ["failing.bat"],',
+        'bat_test(',
+        '    name = "failing_test",',
+        '    content = ["@exit /B 1"],',
         ')',
-        'sh_test(',
-        '    name = "printing_test.bat",',
-        '    srcs = ["printing.bat"],',
+        'bat_test(',
+        '    name = "printing_test",',
+        '    content = [',
+        '        "@echo lorem ipsum",',
+        '        "@echo HOME=%HOME%",',
+        '        "@echo TEST_SRCDIR=%TEST_SRCDIR%",',
+        '        "@echo TEST_TMPDIR=%TEST_TMPDIR%",',
+        '        "@echo USER=%USER%",',
+        '    ]',
         ')',
-        'sh_test(',
-        '    name = "runfiles_test.bat",',
-        '    srcs = ["runfiles.bat"],',
-        '    data = ["passing.bat"],',
+        'py_test(',
+        '    name = "runfiles_test",',
+        '    srcs = ["runfiles_test.py"],',
+        '    data = ["dummy.dat"],',
         ')',
-        'sh_test(',
-        '    name = "sharded_test.bat",',
-        '    srcs = ["sharded.bat"],',
+        'bat_test(',
+        '    name = "sharded_test",',
+        '    content = [',
+        '        "@echo STATUS=%TEST_SHARD_STATUS_FILE%",',
+        '        "@echo INDEX=%TEST_SHARD_INDEX% TOTAL=%TEST_TOTAL_SHARDS%",',
+        '    ],',
         '    shard_count = 2,',
         ')',
-        'sh_test(',
-        '    name = "unexported_test.bat",',
-        '    srcs = ["unexported.bat"],',
+        'bat_test(',
+        '    name = "unexported_test",',
+        '    content = [',
+        '        "@echo GOOD=%HOME%",',
+        '        "@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%",',
+        '    ],',
         ')',
-        'sh_test(',
-        '    name = "testargs_test.exe",',
-        '    srcs = ["testargs.exe"],',
+        'exe_test(',
+        '    name = "testargs_test",',
+        '    src = "testargs.exe",',
         r'    args = ["foo", "a b", "", "\"c d\"", "\"\"", "bar"],',
         ')',
         'py_test(',
@@ -104,36 +98,6 @@ class TestWrapperTest(test_base.TestBase):
         '    srcs = ["xml2_test.py"],',
         ')',
     ])
-    self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
-    self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
-    self.ScratchFile(
-        'foo/printing.bat', [
-            '@echo lorem ipsum',
-            '@echo HOME=%HOME%',
-            '@echo TEST_SRCDIR=%TEST_SRCDIR%',
-            '@echo TEST_TMPDIR=%TEST_TMPDIR%',
-            '@echo USER=%USER%',
-        ],
-        executable=True)
-    self.ScratchFile(
-        'foo/runfiles.bat', [
-            '@echo MF=%RUNFILES_MANIFEST_FILE%',
-            '@echo ONLY=%RUNFILES_MANIFEST_ONLY%',
-            '@echo DIR=%RUNFILES_DIR%',
-        ],
-        executable=True)
-    self.ScratchFile(
-        'foo/sharded.bat', [
-            '@echo STATUS=%TEST_SHARD_STATUS_FILE%',
-            '@echo INDEX=%TEST_SHARD_INDEX% TOTAL=%TEST_TOTAL_SHARDS%',
-        ],
-        executable=True)
-    self.ScratchFile(
-        'foo/unexported.bat', [
-            '@echo GOOD=%HOME%',
-            '@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%',
-        ],
-        executable=True)
 
     self.CopyFile(
         src_path=self.Rlocation('io_bazel/src/test/py/bazel/printargs.exe'),
@@ -171,6 +135,20 @@ class TestWrapperTest(test_base.TestBase):
 
     with open(dat_file_path, 'wb') as f:
       f.write(dat_file)
+
+    self.CopyFile(
+        src_path=self.Rlocation('io_bazel/src/test/py/bazel/native_test.bzl'),
+        dst_path='foo/native_test.bzl')
+
+    self.ScratchFile(
+        'foo/runfiles_test.py', [
+            'from __future__ import print_function',
+            'import os',
+            'print("MF=%s" % os.environ.get("RUNFILES_MANIFEST_FILE"))',
+            'print("ONLY=%s" % os.environ.get("RUNFILES_MANIFEST_ONLY"))',
+            'print("DIR=%s" % os.environ.get("RUNFILES_DIR"))',
+        ],
+        executable=True)
 
     self.ScratchFile(
         'foo/undecl_test.py', [
@@ -235,7 +213,7 @@ class TestWrapperTest(test_base.TestBase):
   def _AssertPassingTest(self, flag):
     exit_code, _, stderr = self.RunBazel([
         'test',
-        '//foo:passing_test.bat',
+        '//foo:passing_test',
         '-t-',
         flag,
     ])
@@ -244,7 +222,7 @@ class TestWrapperTest(test_base.TestBase):
   def _AssertFailingTest(self, flag):
     exit_code, _, stderr = self.RunBazel([
         'test',
-        '//foo:failing_test.bat',
+        '//foo:failing_test',
         '-t-',
         flag,
     ])
@@ -253,7 +231,7 @@ class TestWrapperTest(test_base.TestBase):
   def _AssertPrintingTest(self, flag):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
-        '//foo:printing_test.bat',
+        '//foo:printing_test',
         '-t-',
         '--test_output=all',
         flag,
@@ -293,7 +271,7 @@ class TestWrapperTest(test_base.TestBase):
   def _AssertRunfiles(self, flag):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
-        '//foo:runfiles_test.bat',
+        '//foo:runfiles_test',
         '-t-',
         '--test_output=all',
         # Ensure Bazel does not create a runfiles tree.
@@ -318,7 +296,7 @@ class TestWrapperTest(test_base.TestBase):
     mf_contents = TestWrapperTest._ReadFile(mf)
     # Assert that the data dependency is listed in the runfiles manifest.
     if not any(
-        line.split(' ', 1)[0].endswith('foo/passing.bat')
+        line.split(' ', 1)[0].endswith('foo/dummy.dat')
         for line in mf_contents):
       self._FailWithOutput(mf_contents)
 
@@ -328,7 +306,7 @@ class TestWrapperTest(test_base.TestBase):
   def _AssertShardedTest(self, flag):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
-        '//foo:sharded_test.bat',
+        '//foo:sharded_test',
         '-t-',
         '--test_output=all',
         flag,
@@ -353,7 +331,7 @@ class TestWrapperTest(test_base.TestBase):
   def _AssertUnexportsEnvvars(self, flag):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
-        '//foo:unexported_test.bat',
+        '//foo:unexported_test',
         '-t-',
         '--test_output=all',
         flag,
@@ -379,7 +357,7 @@ class TestWrapperTest(test_base.TestBase):
         # to test for future (as of 2019-04-05) behavior.
         '--incompatible_windows_style_arg_escaping',
         'test',
-        '//foo:testargs_test.exe',
+        '//foo:testargs_test',
         '-t-',
         '--test_output=all',
         '--test_arg=baz',
