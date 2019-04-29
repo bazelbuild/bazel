@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.util.Pair;
@@ -32,12 +33,12 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
    * These values are local files that are uploaded if required, and turned into URIs as part of the
    * process.
    */
-  private final Collection<Pair<String, Path>> logFiles;
+  private final Collection<LogFileEntry> logFiles;
 
   public BuildToolLogs(
       Collection<Pair<String, ByteString>> directValues,
       Collection<Pair<String, String>> directUris,
-      Collection<Pair<String, Path>> logFiles) {
+      Collection<LogFileEntry> logFiles) {
     this.directValues = directValues;
     this.directUris = directUris;
     this.logFiles = logFiles;
@@ -56,8 +57,8 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   @Override
   public Collection<LocalFile> referencedLocalFiles() {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
-    for (Pair<String, Path> logFile : logFiles) {
-      localFiles.add(new LocalFile(logFile.getSecond(), LocalFileType.LOG));
+    for (LogFileEntry logFile : logFiles) {
+      localFiles.add(logFile.toLocalFile());
     }
     return localFiles.build();
   }
@@ -80,14 +81,11 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
               .setUri(direct.getSecond())
               .build());
     }
-    for (Pair<String, Path> logFile : logFiles) {
-      String uri = converters.pathConverter().apply(logFile.getSecond());
+    for (LogFileEntry logFile : logFiles) {
+      String uri = converters.pathConverter().apply(logFile.localPath);
       if (uri != null) {
         toolLogs.addLog(
-            BuildEventStreamProtos.File.newBuilder()
-                .setName(logFile.getFirst())
-                .setUri(uri)
-                .build());
+            BuildEventStreamProtos.File.newBuilder().setName(logFile.name).setUri(uri).build());
       }
     }
     return GenericBuildEvent.protoChaining(this).setBuildToolLogs(toolLogs.build()).build();
@@ -96,5 +94,39 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   @Override
   public Collection<BuildEventId> postedAfter() {
     return ImmutableList.of(BuildEventId.buildFinished());
+  }
+
+  /** A local log file. */
+  public static class LogFileEntry {
+    private final String name;
+    private final Path localPath;
+    private final LocalFileType fileType;
+
+    public LogFileEntry(String name, Path localPath, LocalFileType fileType) {
+      this.name = name;
+      this.localPath = localPath;
+      this.fileType = fileType;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public Path getLocalPath() {
+      return localPath;
+    }
+
+    LocalFile toLocalFile() {
+      return new LocalFile(localPath, fileType);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("name", name)
+          .add("localPath", localPath)
+          .add("fileType", fileType)
+          .toString();
+    }
   }
 }
