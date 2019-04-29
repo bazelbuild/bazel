@@ -309,17 +309,6 @@ public class JavaCompileAction extends AbstractAction
     return continuation.execute();
   }
 
-  // TODO(b/119813262): Move this method to AbstractAction.
-  @Override
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    ActionContinuationOrResult continuation = beginExecution(actionExecutionContext);
-    while (!continuation.isDone()) {
-      continuation = continuation.execute();
-    }
-    return continuation.get();
-  }
-
   @Override
   protected String getRawProgressMessage() {
     StringBuilder sb = new StringBuilder("Building ");
