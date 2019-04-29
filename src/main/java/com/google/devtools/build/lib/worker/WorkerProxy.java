@@ -33,14 +33,10 @@ final class WorkerProxy extends Worker {
   private WorkerMultiplexer workerMultiplexer;
   private Thread shutdownHook;
 
-  WorkerProxy(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
+  WorkerProxy(WorkerKey workerKey, int workerId, Path workDir, Path logFile, WorkerMultiplexer workerMultiplexer) {
     super(workerKey, workerId, workDir, logFile);
     request = new ByteArrayOutputStream();
-    try {
-      this.workerMultiplexer = WorkerMultiplexerManager.getInstance(workerKey.hashCode());
-    } catch (InterruptedException e) {
-      // We can't do anything here.
-    }
+    this.workerMultiplexer = workerMultiplexer;
 
     final WorkerProxy self = this;
     this.shutdownHook =
