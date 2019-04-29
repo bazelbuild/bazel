@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.remote.blobstore;
 
 import com.google.common.base.Preconditions;
-import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
@@ -31,31 +29,25 @@ import java.util.logging.Logger;
 
 /**
  * A {@link SimpleBlobStore} implementation combining two blob stores. A local disk blob store and a
- * remote http blob store. If a blob isn't found in the first store, the second store is used, and
+ * remote blob store. If a blob isn't found in the first store, the second store is used, and
  * the blob added to the first. Put puts the blob on both stores.
  */
-public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
-  private static final Logger logger = Logger.getLogger(CombinedDiskHttpBlobStore.class.getName());
+public final class CombinedDiskRemoteBlobStore implements SimpleBlobStore {
+  private static final Logger logger = Logger.getLogger(CombinedDiskRemoteBlobStore.class.getName());
 
-
-  private final SimpleBlobStore httpCache;
+  private final SimpleBlobStore remoteCache;
   private final OnDiskBlobStore diskCache;
-  private final Path root;
 
-  public CombinedDiskHttpBlobStore(SimpleBlobStore diskCache, SimpleBlobStore httpCache, Path root) {
-    Preconditions.checkNotNull(diskCache);
-    Preconditions.checkArgument(diskCache instanceof OnDiskBlobStore);
-    this.diskCache = (OnDiskBlobStore) diskCache;
-
-    this.httpCache = Preconditions.checkNotNull(httpCache);
-    this.root = root;
+  public CombinedDiskRemoteBlobStore(OnDiskBlobStore diskCache, SimpleBlobStore remoteCache) {
+    this.diskCache = Preconditions.checkNotNull(diskCache);
+    this.remoteCache = Preconditions.checkNotNull(remoteCache);
   }
 
   @Override
   public boolean containsKey(String key) {
     // HTTP cache does not support containsKey.
     // Don't support it here either for predictable semantics.
-    throw new UnsupportedOperationException("HTTP Caching does not use this method.");
+    throw new UnsupportedOperationException("Remote Caching does not use this method.");
   }
 
   @Override
@@ -86,7 +78,7 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
       }
       ListenableFuture<Boolean> chained =
               Futures.transformAsync(
-                      getFromHttpCache(key, tempOut, httpCache, actionResult),
+                      getFromHttpCache(key, tempOut, remoteCache, actionResult),
                       (found) -> {
                         if (!found) {
                           return Futures.immediateFuture(false);
@@ -98,14 +90,7 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
                           // crashes (the OS may reorder the writes and the rename).
                           temp.renameTo(target);
 
-                          SettableFuture<Boolean> f = SettableFuture.create();
-                          try (InputStream in = target.getInputStream()) {
-                            ByteStreams.copy(in, out);
-                            f.set(true);
-                          } catch (IOException e) {
-                            f.setException(e);
-                          }
-                          return f;
+                          return diskCache.get(diskKey, out);
                         }
                       },
                       MoreExecutors.directExecutor());
@@ -138,19 +123,19 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
       throws IOException, InterruptedException {
     diskCache.put(key, length, in);
     try (InputStream inFile = diskCache.toPath(key).getInputStream()) {
-      httpCache.put(key, length, inFile);
+      remoteCache.put(key, length, inFile);
     }
   }
 
   @Override
   public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
     diskCache.putActionResult(key, in);
-    httpCache.putActionResult(key, in);
+    remoteCache.putActionResult(key, in);
   }
 
   @Override
   public void close() {
     diskCache.close();
-    httpCache.close();
+    remoteCache.close();
   }
 }
