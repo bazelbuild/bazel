@@ -133,9 +133,7 @@ function test_java_tools_has_java_compiler() {
 }
 
 function test_java_tools_has_javac() {
- if [[ "${JAVA_TOOLS_JAVA_VERSION}" == "java9" ]]; then
   expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
- fi
 }
 
 function test_java_tools_has_jarjar() {
