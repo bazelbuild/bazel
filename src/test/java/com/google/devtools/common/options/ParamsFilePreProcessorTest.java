@@ -14,7 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.jimfs.Jimfs;
@@ -79,15 +79,13 @@ public class ParamsFilePreProcessorTest {
   @Test
   public void testTooManyArgs() throws OptionsParsingException {
     List<String> rawArgs = ImmutableList.of("@paramsFile", "--foo", "foo val");
-    try {
-      paramsFilePreProcessor.preProcess(rawArgs);
-      fail("Expected OptionsParsingException");
-    } catch (OptionsParsingException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .isEqualTo(
-              String.format(ParamsFilePreProcessor.TOO_MANY_ARGS_ERROR_MESSAGE_FORMAT, rawArgs));
-    }
+    OptionsParsingException expected =
+        assertThrows(
+            OptionsParsingException.class, () -> paramsFilePreProcessor.preProcess(rawArgs));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            String.format(ParamsFilePreProcessor.TOO_MANY_ARGS_ERROR_MESSAGE_FORMAT, rawArgs));
   }
 
   @Test
@@ -100,18 +98,17 @@ public class ParamsFilePreProcessorTest {
     };
     String paramsFileName = "paramsFile";
     Path paramsFile = fileSystem.getPath(paramsFileName);
-    try {
-      exceptionParser.preProcess(ImmutableList.of("@" + paramsFileName));
-      fail("Expected OptionsParsingException");
-    } catch (OptionsParsingException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .isEqualTo(
-              String.format(
-                  ParamsFilePreProcessor.ERROR_MESSAGE_FORMAT,
-                  paramsFile,
-                  "Error parsing " + paramsFileName));
-    }
+    OptionsParsingException expected =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> exceptionParser.preProcess(ImmutableList.of("@" + paramsFileName)));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            String.format(
+                ParamsFilePreProcessor.ERROR_MESSAGE_FORMAT,
+                paramsFile,
+                "Error parsing " + paramsFileName));
   }
 
   @Test

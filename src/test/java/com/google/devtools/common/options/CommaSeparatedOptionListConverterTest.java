@@ -14,7 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.util.List;
 import org.junit.Test;
@@ -68,10 +68,10 @@ public class CommaSeparatedOptionListConverterTest {
 
   @Test
   public void valueisUnmodifiable() throws Exception {
-    try {
-      converter.convert("value").add("other");
-      fail("could modify value");
-    } catch (UnsupportedOperationException expected) {}
+    assertThrows(
+        "could modify value",
+        UnsupportedOperationException.class,
+        () -> converter.convert("value").add("other"));
   }
 
 }
