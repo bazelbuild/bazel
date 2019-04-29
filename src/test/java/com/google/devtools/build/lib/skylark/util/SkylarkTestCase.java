@@ -147,7 +147,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     for (Artifact artifact : artifacts) {
       artifactFilenames.add(artifact.getFilename());
     }
-    assertThat(artifactFilenames.build()).containsAllIn(Lists.newArrayList(expected));
+    assertThat(artifactFilenames.build()).containsAtLeastElementsIn(Lists.newArrayList(expected));
   }
 
   protected Object evalRuleClassCode(String... lines) throws Exception {

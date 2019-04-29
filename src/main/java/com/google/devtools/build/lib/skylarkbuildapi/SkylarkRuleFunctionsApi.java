@@ -51,46 +51,42 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
           + "provider is represented by its string name instead.";
 
   @SkylarkCallable(
-    name = "provider",
-    doc =
-        "Creates a declared provider 'constructor'. The return value of this "
-            + "function can be used to create \"struct-like\" values. Example:<br>"
-            + "<pre class=\"language-python\">data = provider()\n"
-            + "d = data(x = 2, y = 3)\n"
-            + "print(d.x + d.y) # prints 5</pre>",
-    parameters = {
-      @Param(
-        name = "doc",
-        type = String.class,
-        legacyNamed = true,
-        defaultValue = "''",
-        doc =
-            "A description of the provider that can be extracted by documentation generating tools."
-      ),
-      @Param(
-        name = "fields",
-        doc = "If specified, restricts the set of allowed fields. <br>"
-            + "Possible values are:"
-            + "<ul>"
-            + "  <li> list of fields:<br>"
-            + "       <pre class=\"language-python\">provider(fields = ['a', 'b'])</pre><p>"
-            + "  <li> dictionary field name -> documentation:<br>"
-            + "       <pre class=\"language-python\">provider(\n"
-            + "       fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b' })</pre>"
-            + "</ul>"
-            + "All fields are optional.",
-        allowedTypes = {
-            @ParamType(type = SkylarkList.class, generic1 = String.class),
-            @ParamType(type = SkylarkDict.class)
-        },
-        noneable = true,
-        named = true,
-        positional = false,
-        defaultValue = "None"
-      )
-    },
-    useLocation = true
-  )
+      name = "provider",
+      doc =
+          "Creates a declared provider 'constructor'. The return value of this "
+              + "function can be used to create \"struct-like\" values. Example:<br>"
+              + "<pre class=\"language-python\">data = provider()\n"
+              + "d = data(x = 2, y = 3)\n"
+              + "print(d.x + d.y) # prints 5</pre>",
+      parameters = {
+        @Param(
+            name = "doc",
+            type = String.class,
+            named = true,
+            defaultValue = "''",
+            doc =
+                "A description of the provider that can be extracted by documentation generating"
+                    + " tools."),
+        @Param(
+            name = "fields",
+            doc =
+                "If specified, restricts the set of allowed fields. <br>Possible values are:<ul> "
+                    + " <li> list of fields:<br>       <pre"
+                    + " class=\"language-python\">provider(fields = ['a', 'b'])</pre><p>  <li>"
+                    + " dictionary field name -> documentation:<br>       <pre"
+                    + " class=\"language-python\">provider(\n"
+                    + "       fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b'"
+                    + " })</pre></ul>All fields are optional.",
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class, generic1 = String.class),
+              @ParamType(type = SkylarkDict.class)
+            },
+            noneable = true,
+            named = true,
+            positional = false,
+            defaultValue = "None")
+      },
+      useLocation = true)
   public ProviderApi provider(String doc, Object fields, Location location) throws EvalException;
 
   @SkylarkCallable(
@@ -106,7 +102,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "implementation",
             type = BaseFunction.class,
-            legacyNamed = true,
+            named = true,
             doc =
                 "the function implementing this rule, must have exactly one parameter: "
                     + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
@@ -116,7 +112,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "test",
             type = Boolean.class,
-            legacyNamed = true,
+            named = true,
             defaultValue = "False",
             doc =
                 "Whether this rule is a test rule, that is, whether it may be the subject of a "
@@ -129,7 +125,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "attrs",
             type = SkylarkDict.class,
-            legacyNamed = true,
+            named = true,
             noneable = true,
             defaultValue = "None",
             doc =
@@ -149,13 +145,14 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
               @ParamType(type = NoneType.class),
               @ParamType(type = BaseFunction.class)
             },
-            legacyNamed = true,
+            named = true,
             callbackEnabled = true,
             noneable = true,
             defaultValue = "None",
+            valueWhenDisabled = "None",
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
             doc =
-                "<b>Experimental:</b> This API is in the process of being redesigned."
-                    + "<p>A schema for defining predeclared outputs. Unlike "
+                "A schema for defining predeclared outputs. Unlike "
                     + "<a href='attr.html#output'><code>output</code></a> and "
                     + "<a href='attr.html#output_list'><code>output_list</code></a> attributes, "
                     + "the user does not specify the labels for these files. "
@@ -205,7 +202,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "executable",
             type = Boolean.class,
-            legacyNamed = true,
+            named = true,
             defaultValue = "False",
             doc =
                 "Whether this rule is considered executable, that is, whether it may be the "
@@ -215,7 +212,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "output_to_genfiles",
             type = Boolean.class,
-            legacyNamed = true,
+            named = true,
             defaultValue = "False",
             doc =
                 "If true, the files will be generated in the genfiles directory instead of the "
@@ -224,7 +221,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "fragments",
             type = SkylarkList.class,
-            legacyNamed = true,
+            named = true,
             generic1 = String.class,
             defaultValue = "[]",
             doc =
@@ -233,7 +230,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "host_fragments",
             type = SkylarkList.class,
-            legacyNamed = true,
+            named = true,
             generic1 = String.class,
             defaultValue = "[]",
             doc =
@@ -242,7 +239,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "_skylark_testable",
             type = Boolean.class,
-            legacyNamed = true,
+            named = true,
             defaultValue = "False",
             doc =
                 "<i>(Experimental)</i><br/><br/>"
@@ -256,7 +253,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "toolchains",
             type = SkylarkList.class,
-            legacyNamed = true,
+            named = true,
             generic1 = String.class,
             defaultValue = "[]",
             doc =
@@ -267,7 +264,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             type = String.class,
-            legacyNamed = true,
+            named = true,
             defaultValue = "''",
             doc =
                 "A description of the rule that can be extracted by documentation generating "
@@ -285,12 +282,17 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             positional = false,
             defaultValue = "False",
+            disableWithFlag =
+                FlagIdentifier.INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED,
+            valueWhenDisabled = "True",
             doc =
                 "If true, a special attribute named <code>exec_compatible_with</code> of "
                     + "label-list type is added, which must not already exist in "
                     + "<code>attrs</code>. Targets may use this attribute to specify additional "
                     + "constraints on the execution platform beyond those given in the "
-                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>."),
+                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>. "
+                    + "This will be deprecated and removed in the near future, and all rules will "
+                    + "be able to use <code>exec_compatible_with</code>."),
         @Param(
             name = "exec_compatible_with",
             type = SkylarkList.class,
@@ -374,110 +376,103 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "Please see the <a href=\"../aspects.md\">introduction to Aspects</a> for more "
               + "details.",
       parameters = {
-          @Param(
-              name = "implementation",
-              type = BaseFunction.class,
-              legacyNamed = true,
-              doc =
-                  "the function implementing this aspect. Must have two parameters: "
-                      + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                      + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
-                      + "available via ctx.rule field. The function is called during the analysis "
-                      + "phase for each application of an aspect to a target."
-          ),
-          @Param(
-              name = "attr_aspects",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc = "List of attribute names.  The aspect propagates along dependencies specified "
-                  + "by attributes of a target with this name. The list can also contain a single "
-                  + "string '*': in that case aspect propagates along all dependencies of a target."
-          ),
-          @Param(
-              name = "attrs",
-              type = SkylarkDict.class,
-              legacyNamed = true,
-              noneable = true,
-              defaultValue = "None",
-              doc = "dictionary to declare all the attributes of the aspect.  "
-                  + "It maps from an attribute name to an attribute object "
-                  + "(see <a href=\"attr.html\">attr</a> module). "
-                  + "Aspect attributes are available to implementation function as fields of ctx "
-                  + "parameter. Implicit attributes starting with <code>_</code> must have default "
-                  + "values, and have type <code>label</code> or <code>label_list</code>. "
-                  + "Explicit attributes must have type <code>string</code>, and must use the "
-                  + "<code>values</code> restriction. If explicit attributes are present, the "
-                  + "aspect can only be used with rules that have attributes of the same name and "
-                  + "type, with valid values."
-          ),
-          @Param(
-              name = "required_aspect_providers",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              defaultValue = "[]",
-              doc = "Allow the aspect to inspect other aspects. If the aspect propagates along "
-                  + "a dependency, and the underlying rule sends a different aspect along that "
-                  + "dependency, and that aspect provides one of the providers listed here, this "
-                  + "aspect will see the providers provided by that aspect. "
-                  + "<p>The value should be either a list of providers, or a "
-                  + "list of lists of providers. This aspect will 'see'  the underlying aspects "
-                  + "that provide  ALL providers from at least ONE of these lists. A single list "
-                  + "of providers will be automatically converted to a list containing one list of "
-                  + "providers."
-          ),
-          @Param(
-              name = "provides",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              defaultValue = "[]",
-              doc = PROVIDES_DOC
-          ),
-          @Param(
-              name = "fragments",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the aspect requires "
-                      + "in target configuration."
-          ),
-          @Param(
-              name = "host_fragments",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the aspect requires "
-                      + "in host configuration."
-          ),
-          @Param(
-              name = "toolchains",
-              type = SkylarkList.class,
-              legacyNamed = true,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "<i>(Experimental)</i><br/><br/>"
-                      + "If set, the set of toolchains this rule requires. Toolchains will be "
-                      + "found by checking the current platform, and provided to the rule "
-                      + "implementation via <code>ctx.toolchain</code>."
-          ),
-          @Param(
-              name = "doc",
-              type = String.class,
-              legacyNamed = true,
-              defaultValue = "''",
-              doc = "A description of the aspect that can be extracted by documentation generating "
-                  + "tools."
-          )
+        @Param(
+            name = "implementation",
+            type = BaseFunction.class,
+            named = true,
+            doc =
+                "the function implementing this aspect. Must have two parameters: "
+                    + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
+                    + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
+                    + "available via ctx.rule field. The function is called during the analysis "
+                    + "phase for each application of an aspect to a target."),
+        @Param(
+            name = "attr_aspects",
+            type = SkylarkList.class,
+            named = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "List of attribute names.  The aspect propagates along dependencies specified by"
+                    + " attributes of a target with this name. The list can also contain a single "
+                    + "string '*': in that case aspect propagates along all dependencies of a"
+                    + " target."),
+        @Param(
+            name = "attrs",
+            type = SkylarkDict.class,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "dictionary to declare all the attributes of the aspect.  It maps from an"
+                    + " attribute name to an attribute object (see <a href=\"attr.html\">attr</a>"
+                    + " module). Aspect attributes are available to implementation function as"
+                    + " fields of ctx parameter. Implicit attributes starting with <code>_</code>"
+                    + " must have default values, and have type <code>label</code> or"
+                    + " <code>label_list</code>. Explicit attributes must have type"
+                    + " <code>string</code>, and must use the <code>values</code> restriction. If"
+                    + " explicit attributes are present, the aspect can only be used with rules"
+                    + " that have attributes of the same name and type, with valid values."),
+        @Param(
+            name = "required_aspect_providers",
+            type = SkylarkList.class,
+            named = true,
+            defaultValue = "[]",
+            doc =
+                "Allow the aspect to inspect other aspects. If the aspect propagates along a"
+                    + " dependency, and the underlying rule sends a different aspect along that "
+                    + "dependency, and that aspect provides one of the providers listed here, this"
+                    + " aspect will see the providers provided by that aspect. <p>The value should"
+                    + " be either a list of providers, or a list of lists of providers. This"
+                    + " aspect will 'see'  the underlying aspects that provide  ALL providers from"
+                    + " at least ONE of these lists. A single list of providers will be"
+                    + " automatically converted to a list containing one list of providers."),
+        @Param(
+            name = "provides",
+            type = SkylarkList.class,
+            named = true,
+            defaultValue = "[]",
+            doc = PROVIDES_DOC),
+        @Param(
+            name = "fragments",
+            type = SkylarkList.class,
+            named = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "List of names of configuration fragments that the aspect requires "
+                    + "in target configuration."),
+        @Param(
+            name = "host_fragments",
+            type = SkylarkList.class,
+            named = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "List of names of configuration fragments that the aspect requires "
+                    + "in host configuration."),
+        @Param(
+            name = "toolchains",
+            type = SkylarkList.class,
+            named = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "<i>(Experimental)</i><br/><br/>"
+                    + "If set, the set of toolchains this rule requires. Toolchains will be "
+                    + "found by checking the current platform, and provided to the rule "
+                    + "implementation via <code>ctx.toolchain</code>."),
+        @Param(
+            name = "doc",
+            type = String.class,
+            named = true,
+            defaultValue = "''",
+            doc =
+                "A description of the aspect that can be extracted by documentation generating "
+                    + "tools.")
       },
       useEnvironment = true,
-      useAst = true
-  )
+      useAst = true)
   public SkylarkAspectApi aspect(
       BaseFunction implementation,
       SkylarkList<?> attributeAspects,

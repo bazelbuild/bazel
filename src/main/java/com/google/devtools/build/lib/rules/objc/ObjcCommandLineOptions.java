@@ -319,7 +319,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If enabled, objc_library resource attributes are disallowed.")
+      help = "Unused. Will be removed in future versions of Bazel.")
   public boolean disableObjcLibraryResources;
 
   @Override

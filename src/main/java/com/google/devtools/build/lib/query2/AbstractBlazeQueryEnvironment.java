@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
@@ -229,6 +231,23 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
 
   public abstract Target getTarget(Label label)
       throws TargetNotFoundException, QueryException, InterruptedException;
+
+  /** Batch version of {@link #getTarget(Label)}. Missing targets are absent in the returned map. */
+  // TODO(http://b/128626678): Implement and use this in more places.
+  public Map<Label, Target> getTargets(Iterable<Label> labels)
+      throws InterruptedException, QueryException {
+    ImmutableMap.Builder<Label, Target> resultBuilder = ImmutableMap.builder();
+    for (Label label : labels) {
+      Target target;
+      try {
+        target = getTarget(label);
+      } catch (TargetNotFoundException e) {
+        continue;
+      }
+      resultBuilder.put(label, target);
+    }
+    return resultBuilder.build();
+  }
 
   protected boolean validateScope(Label label, boolean strict) throws QueryException {
     if (!labelFilter.apply(label)) {

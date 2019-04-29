@@ -38,9 +38,10 @@ public interface StructApi extends SkylarkValue {
       name = "to_proto",
       doc =
           "Creates a text message from the struct parameter. This method only works if all "
-              + "struct elements (recursively) are strings, ints, booleans, other structs or a "
-              + "list of these types. Quotes and new lines in strings are escaped. "
-              + "Keys are iterated in the sorted order. "
+              + "struct elements (recursively) are strings, ints, booleans, "
+              + "other structs or dicts or lists of these types. "
+              + "Quotes and new lines in strings are escaped. "
+              + "Struct keys are iterated in the sorted order. "
               + "Examples:<br><pre class=language-python>"
               + "struct(key=123).to_proto()\n# key: 123\n\n"
               + "struct(key=True).to_proto()\n# key: true\n\n"
@@ -51,7 +52,17 @@ public interface StructApi extends SkylarkValue {
               + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()\n"
               + "# key {\n#   inner_key: 1\n# }\n# key {\n#   inner_key: 2\n# }\n\n"
               + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()\n"
-              + "# key {\n#    inner_key {\n#     inner_inner_key: \"text\"\n#   }\n# }\n</pre>",
+              + "# key {\n#    inner_key {\n#     inner_inner_key: \"text\"\n#   }\n# }\n\n"
+              + "struct(foo={4: 3, 2: 1}).to_proto()\n"
+              + "# foo: {\n"
+              + "#   key: 4\n"
+              + "#   value: 3\n"
+              + "# }\n"
+              + "# foo: {\n"
+              + "#   key: 2\n"
+              + "#   value: 1\n"
+              + "# }\n"
+              + "</pre>",
       useLocation = true)
   public String toProto(Location loc) throws EvalException;
 

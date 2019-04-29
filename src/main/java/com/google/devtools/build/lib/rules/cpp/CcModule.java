@@ -27,12 +27,16 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -47,6 +51,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
@@ -57,6 +63,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
@@ -65,6 +72,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -72,8 +80,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
-public class CcModule
+public abstract class CcModule
     implements CcModuleApi<
+        SkylarkActionFactory,
         Artifact,
         CcToolchainProvider,
         FeatureConfigurationForStarlark,
@@ -82,7 +91,30 @@ public class CcModule
         LibraryToLink,
         CcToolchainVariables,
         SkylarkRuleContext,
-        CcToolchainConfigInfo> {
+        CcToolchainConfigInfo,
+        CcCompilationOutputs> {
+
+  private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
+      ImmutableList.of("executable", "dynamic_library");
+
+  /** Enum for strings coming in from Starlark representing languages */
+  protected enum Language {
+    CPP("c++"),
+    OBJC("objc"),
+    OBJCPP("objc++");
+
+    private final String representation;
+
+    Language(String representation) {
+      this.representation = representation;
+    }
+
+    public String getRepresentation() {
+      return representation;
+    }
+  }
+
+  public abstract CppSemantics getSemantics();
 
   @Override
   public Provider getCcToolchainProvider() {
@@ -1296,5 +1328,283 @@ public class CcModule
   @Override
   public boolean isCcToolchainResolutionEnabled(SkylarkRuleContext skylarkRuleContext) {
     return CppHelper.useToolchainResolution(skylarkRuleContext.getRuleContext());
+  }
+
+  @Override
+  public Tuple<Object> createLinkingContextFromCompilationOutputs(
+      SkylarkActionFactory skylarkActionFactoryApi,
+      FeatureConfigurationForStarlark skylarkFeatureConfiguration,
+      CcToolchainProvider skylarkCcToolchainProvider,
+      CcCompilationOutputs compilationOutputs,
+      SkylarkList<String> userLinkFlags,
+      SkylarkList<CcLinkingContext> linkingContexts,
+      String name,
+      String language,
+      boolean alwayslink,
+      SkylarkList<Artifact> additionalInputs,
+      boolean disallowStaticLibraries,
+      boolean disallowDynamicLibraries,
+      Object grepIncludes,
+      Location location,
+      Environment environment,
+      StarlarkContext starlarkContext)
+      throws InterruptedException, EvalException {
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    validateLanguage(location, language);
+    SkylarkActionFactory actions = skylarkActionFactoryApi;
+    CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
+    FeatureConfigurationForStarlark featureConfiguration =
+        convertFromNoneable(skylarkFeatureConfiguration, null);
+    Label label = getCallerLabel(location, actions, name);
+    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
+    LinkTargetType staticLinkTargetType = null;
+    if (language.equals(Language.CPP.getRepresentation())) {
+      staticLinkTargetType = LinkTargetType.STATIC_LIBRARY;
+    } else if (language.equals(Language.OBJC.getRepresentation())
+        || language.equals(Language.OBJCPP.getRepresentation())) {
+      staticLinkTargetType = LinkTargetType.OBJC_ARCHIVE;
+    } else {
+      throw new IllegalStateException("Language is not valid.");
+    }
+    CcLinkingHelper helper =
+        new CcLinkingHelper(
+                actions.getActionConstructionContext().getRuleErrorConsumer(),
+                label,
+                actions.asActionRegistry(location, actions),
+                actions.getActionConstructionContext(),
+                getSemantics(),
+                featureConfiguration.getFeatureConfiguration(),
+                ccToolchainProvider,
+                fdoContext,
+                actions.getActionConstructionContext().getConfiguration(),
+                actions
+                    .getActionConstructionContext()
+                    .getConfiguration()
+                    .getFragment(CppConfiguration.class),
+                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator())
+            .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
+            .addNonCodeLinkerInputs(additionalInputs)
+            .setShouldCreateStaticLibraries(!disallowStaticLibraries)
+            .setShouldCreateDynamicLibrary(
+                !disallowDynamicLibraries
+                    && !featureConfiguration
+                        .getFeatureConfiguration()
+                        .isEnabled(CppRuleClasses.TARGETS_WINDOWS))
+            .setStaticLinkType(staticLinkTargetType)
+            .setDynamicLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
+            .addLinkopts(userLinkFlags);
+    try {
+      CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+      ImmutableList<LibraryToLink> libraryToLink = ImmutableList.of();
+      if (!compilationOutputs.isEmpty()) {
+        ccLinkingOutputs = helper.link(compilationOutputs);
+        if (!ccLinkingOutputs.isEmpty()) {
+          libraryToLink =
+              ImmutableList.of(
+                  ccLinkingOutputs.getLibraryToLink().toBuilder()
+                      .setAlwayslink(alwayslink)
+                      .build());
+        }
+      }
+      CcLinkingContext linkingContext =
+          helper.buildCcLinkingContextFromLibrariesToLink(
+              libraryToLink, CcCompilationContext.EMPTY);
+      return Tuple.of(
+          CcLinkingContext.merge(
+              ImmutableList.<CcLinkingContext>builder()
+                  .add(linkingContext)
+                  .addAll(linkingContexts)
+                  .build()),
+          ccLinkingOutputs);
+    } catch (RuleErrorException e) {
+      throw new EvalException(location, e);
+    }
+  }
+
+  protected void validateLanguage(Location location, String language) throws EvalException {
+    if (!Arrays.stream(Language.values())
+        .map(Language::getRepresentation)
+        .collect(ImmutableList.toImmutableList())
+        .contains(language)) {
+      throw new EvalException(location, "Language '" + language + "' is not supported");
+    }
+  }
+
+  protected void validateOutputType(Location location, String outputType) throws EvalException {
+    if (!SUPPORTED_OUTPUT_TYPES.contains(outputType)) {
+      throw new EvalException(location, "Output type '" + outputType + "' is not supported");
+    }
+  }
+
+  protected Label getCallerLabel(Location location, SkylarkActionFactory actions, String name)
+      throws EvalException {
+    Label label;
+    try {
+      label =
+          Label.create(
+              actions.getActionConstructionContext().getActionOwner().getLabel().getPackageName(),
+              name);
+    } catch (LabelSyntaxException e) {
+      throw new EvalException(location, e);
+    }
+    return label;
+  }
+
+  protected Tuple<Object> compile(
+      SkylarkActionFactory skylarkActionFactoryApi,
+      FeatureConfigurationForStarlark skylarkFeatureConfiguration,
+      CcToolchainProvider skylarkCcToolchainProvider,
+      SkylarkList<Artifact> sources,
+      SkylarkList<Artifact> publicHeaders,
+      SkylarkList<Artifact> privateHeaders,
+      SkylarkList<String> includes,
+      SkylarkList<String> quoteIncludes,
+      SkylarkList<String> systemIncludes,
+      SkylarkList<String> defines,
+      SkylarkList<String> userCompileFlags,
+      SkylarkList<CcCompilationContext> ccCompilationContexts,
+      String name,
+      boolean disallowPicOutputs,
+      boolean disallowNopicOutputs,
+      Artifact grepIncludes,
+      SkylarkList<Artifact> headersForClifDoNotUseThisParam,
+      Location location,
+      Environment environment)
+      throws EvalException {
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    SkylarkActionFactory actions = skylarkActionFactoryApi;
+    CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
+    FeatureConfigurationForStarlark featureConfiguration =
+        convertFromNoneable(skylarkFeatureConfiguration, null);
+    Label label = getCallerLabel(location, actions, name);
+    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
+    CcCompilationHelper helper =
+        new CcCompilationHelper(
+                actions.asActionRegistry(location, actions),
+                actions.getActionConstructionContext(),
+                label,
+                grepIncludes,
+                getSemantics(),
+                featureConfiguration.getFeatureConfiguration(),
+                ccToolchainProvider,
+                fdoContext)
+            .addPublicHeaders(publicHeaders)
+            .addPrivateHeaders(privateHeaders)
+            .addSources(sources)
+            .addCcCompilationContexts(ccCompilationContexts)
+            .addIncludeDirs(
+                includes.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addQuoteIncludeDirs(
+                quoteIncludes.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addSystemIncludeDirs(
+                systemIncludes.stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addDefines(defines)
+            .setCopts(userCompileFlags)
+            .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
+            .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam);
+    if (disallowNopicOutputs) {
+      helper.setGenerateNoPicAction(false);
+    }
+    if (disallowPicOutputs) {
+      helper.setGeneratePicAction(false);
+    }
+    try {
+      CompilationInfo compilationInfo = helper.compile();
+      return Tuple.of(
+          compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
+    } catch (RuleErrorException e) {
+      throw new EvalException(location, e);
+    }
+  }
+
+  protected CcLinkingOutputs link(
+      SkylarkActionFactory actions,
+      FeatureConfigurationForStarlark skylarkFeatureConfiguration,
+      CcToolchainProvider skylarkCcToolchainProvider,
+      CcCompilationOutputs compilationOutputs,
+      SkylarkList<String> userLinkFlags,
+      SkylarkList<CcLinkingContext> linkingContexts,
+      String name,
+      String language,
+      String outputType,
+      boolean linkDepsStatically,
+      SkylarkList<Artifact> additionalInputs,
+      Object grepIncludes,
+      Location location,
+      Environment environment,
+      StarlarkContext starlarkContext)
+      throws InterruptedException, EvalException {
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    validateLanguage(location, language);
+    validateOutputType(location, outputType);
+    CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
+    FeatureConfigurationForStarlark featureConfiguration =
+        convertFromNoneable(skylarkFeatureConfiguration, null);
+    Label label = getCallerLabel(location, actions, name);
+    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
+    LinkTargetType dynamicLinkTargetType = null;
+    if (language.equals(Language.CPP.getRepresentation())) {
+      if (outputType.equals("executable")) {
+        dynamicLinkTargetType = LinkTargetType.EXECUTABLE;
+      } else if (outputType.equals("dynamic_library")) {
+        dynamicLinkTargetType = LinkTargetType.DYNAMIC_LIBRARY;
+      }
+    } else if (language.equals(Language.OBJC.getRepresentation())
+        && outputType.equals("executable")) {
+      dynamicLinkTargetType = LinkTargetType.OBJC_EXECUTABLE;
+    } else if (language.equals(Language.OBJCPP.getRepresentation())
+        && outputType.equals("executable")) {
+      dynamicLinkTargetType = LinkTargetType.OBJCPP_EXECUTABLE;
+    } else {
+      throw new EvalException(
+          location, "Language '" + language + "' does not support " + outputType);
+    }
+
+    CcLinkingHelper helper =
+        new CcLinkingHelper(
+                actions.getActionConstructionContext().getRuleErrorConsumer(),
+                label,
+                actions.asActionRegistry(location, actions),
+                actions.getActionConstructionContext(),
+                getSemantics(),
+                featureConfiguration.getFeatureConfiguration(),
+                ccToolchainProvider,
+                fdoContext,
+                actions.getActionConstructionContext().getConfiguration(),
+                actions
+                    .getActionConstructionContext()
+                    .getConfiguration()
+                    .getFragment(CppConfiguration.class),
+                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator())
+            .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
+            .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
+            .addNonCodeLinkerInputs(additionalInputs)
+            .setDynamicLinkType(dynamicLinkTargetType)
+            .addCcLinkingContexts(linkingContexts)
+            .addLinkopts(userLinkFlags);
+    try {
+      CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+      if (!compilationOutputs.isEmpty()) {
+        ccLinkingOutputs = helper.link(compilationOutputs);
+      }
+      return ccLinkingOutputs;
+    } catch (RuleErrorException e) {
+      throw new EvalException(location, e);
+    }
   }
 }

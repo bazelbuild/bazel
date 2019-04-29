@@ -69,7 +69,7 @@ public class ObjectCodecRegistryTest {
     assertThat(fooDescriptor.getCodec()).isSameAs(codec);
 
     CodecDescriptor barDefaultDescriptor = underTest.getCodecDescriptorForObject(15);
-    assertThat(barDefaultDescriptor.getCodec()).isNotSameAs(codec);
+    assertThat(barDefaultDescriptor.getCodec()).isNotSameInstanceAs(codec);
     assertThat(barDefaultDescriptor.getTag()).isNotEqualTo(fooDescriptor.getTag());
     assertThat(underTest.getCodecDescriptorByTag(barDefaultDescriptor.getTag()))
         .isSameAs(barDefaultDescriptor);

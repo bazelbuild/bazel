@@ -677,4 +677,19 @@ public class JavaOptions extends FragmentOptions {
     return host;
   }
 
+  @Override
+  public FragmentOptions getExec() {
+    JavaOptions exec = (JavaOptions) super.getExec();
+
+    exec.javaBase = getHostJavaBase();
+    exec.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
+
+    exec.pluginList = ImmutableList.of();
+    exec.javacOpts = hostJavacOpts;
+    exec.javaToolchain = hostJavaToolchain;
+
+    exec.javaLauncher = hostJavaLauncher;
+
+    return exec;
+  }
 }

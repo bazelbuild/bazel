@@ -95,6 +95,7 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
     ConstraintCollection collection2 =
         ConstraintCollection.builder().addConstraints(value1, value2b).build();
     assertThat(collection1.diff(collection2)).containsExactly(setting2);
-    assertThat(collection1.diff(collection2)).containsAllIn(collection2.diff(collection1));
+    assertThat(collection1.diff(collection2))
+        .containsAtLeastElementsIn(collection2.diff(collection1));
   }
 }

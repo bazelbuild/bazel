@@ -26,8 +26,8 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-The installer contains the Bazel binary<sup>1</sup>. Some additional libraries must
-also be installed for Bazel to work.
+The installer contains the Bazel binary. Some additional libraries must also be
+installed for Bazel to work.
 
 ### Step 1: Install required packages
 

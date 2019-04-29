@@ -38,6 +38,7 @@ public class FileSystemsTest {
 
   @Test
   public void testFileSystemsCanSwitchDefaults() {
-    assertThat(FileSystems.getJavaIoFileSystem()).isNotSameAs(FileSystems.getNativeFileSystem());
+    assertThat(FileSystems.getJavaIoFileSystem())
+        .isNotSameInstanceAs(FileSystems.getNativeFileSystem());
   }
 }

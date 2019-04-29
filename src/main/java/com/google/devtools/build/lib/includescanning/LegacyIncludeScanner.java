@@ -18,6 +18,8 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -417,7 +419,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
   }
 
   @Override
-  public void process(
+  public ListenableFuture<?> processAsync(
       Artifact mainSource,
       Collection<Artifact> sources,
       IncludeScanningHeaderData includeScanningHeaderData,
@@ -427,140 +429,34 @@ public class LegacyIncludeScanner implements IncludeScanner {
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
       throws IOException, ExecException, InterruptedException {
-    try {
-      // Because our IncludeVisitor can dynamically switch to in-thread execution, we could get
-      // unlucky and run one of the async calls on the main thread. Catch and rethrow the runtime
-      // exceptions as the appropriate corresponding checked exception.
-      processInternal(
-          mainSource,
-          sources,
-          includeScanningHeaderData,
-          cmdlineIncludes,
-          includes,
-          actionExecutionMetadata,
-          actionExecutionContext,
-          grepIncludes);
-    } catch (IORuntimeException e) {
-      throw e.getCauseIOException();
-    } catch (ExecRuntimeException e) {
-      throw e.getRealCause();
-    } catch (InterruptedRuntimeException e) {
-      throw e.getRealCause();
-    }
+    ImmutableSet<Artifact> pathHints =
+        prepare(actionExecutionContext.getEnvironmentForDiscoveringInputs());
+    IncludeVisitor visitor = new IncludeVisitor(includeScanningHeaderData.getModularHeaders());
+    return visitor.processInternal(
+        mainSource,
+        sources,
+        includeScanningHeaderData,
+        cmdlineIncludes,
+        includes,
+        actionExecutionMetadata,
+        actionExecutionContext,
+        grepIncludes,
+        pathHints);
   }
 
-  private void processInternal(
-      Artifact mainSource,
-      Collection<Artifact> sources,
-      IncludeScanningHeaderData includeScanningHeaderData,
-      List<String> cmdlineIncludes,
-      Set<Artifact> includes,
-      ActionExecutionMetadata actionExecutionMetadata,
-      ActionExecutionContext actionExecutionContext,
-      Artifact grepIncludes)
-      throws IOException, ExecException, InterruptedException {
-    Preconditions.checkArgument(mainSource == null || sources.contains(mainSource),
-        "The main source '%s' is not part of '%s'", mainSource, sources);
-    ImmutableSet.Builder<Artifact> pathHints = null;
-    SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
+  private ImmutableSet<Artifact> prepare(SkyFunction.Environment env) throws InterruptedException {
     if (parser.getHints() != null) {
-      pathHints = ImmutableSet.builderWithExpectedSize(quoteIncludePaths.size());
       Collection<Artifact> artifacts =
           parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
-      if (!env.valuesMissing()) {
-        pathHints.addAll(Preconditions.checkNotNull(artifacts, quoteIncludePaths));
+      if (env.valuesMissing()) {
+        throw new MissingDepException();
       }
+      ImmutableSet.Builder<Artifact> pathHints;
+      pathHints = ImmutableSet.builderWithExpectedSize(quoteIncludePaths.size());
+      pathHints.addAll(Preconditions.checkNotNull(artifacts, quoteIncludePaths));
+      return pathHints.build();
     }
-    if (env.valuesMissing()) {
-      throw new MissingDepException();
-    }
-
-    Set<ArtifactWithInclusionContext> visitedInclusions = Sets.newConcurrentHashSet();
-
-    IncludeVisitor visitor = new IncludeVisitor(includeScanningHeaderData.getModularHeaders());
-
-    try {
-      // Process cmd line includes, if specified.
-      if (mainSource != null && !cmdlineIncludes.isEmpty()) {
-        visitor.processCmdlineIncludes(
-            mainSource,
-            cmdlineIncludes,
-            grepIncludes,
-            includes,
-            includeScanningHeaderData.getPathToLegalOutputArtifact(),
-            actionExecutionMetadata,
-            actionExecutionContext,
-            visitedInclusions);
-        visitor.sync();
-      }
-
-      visitor.processBulkAsync(
-          sources,
-          includes,
-          includeScanningHeaderData.getPathToLegalOutputArtifact(),
-          actionExecutionMetadata,
-          actionExecutionContext,
-          visitedInclusions,
-          grepIncludes);
-      visitor.sync();
-
-      // Process include hints
-      // TODO(ulfjack): Make this code go away. Use the new hinted inclusions instead.
-      Hints hints = parser.getHints();
-      if (hints != null) {
-        // Follow "path" hints.
-        visitor.processBulkAsync(
-            pathHints.build(),
-            includes,
-            includeScanningHeaderData.getPathToLegalOutputArtifact(),
-            actionExecutionMetadata,
-            actionExecutionContext,
-            visitedInclusions,
-            grepIncludes);
-        // Follow "file" hints for the primary sources.
-        for (Artifact source : sources) {
-          visitor.processFileLevelHintsAsync(
-              hints,
-              source,
-              includes,
-              includeScanningHeaderData.getPathToLegalOutputArtifact(),
-              actionExecutionMetadata,
-              actionExecutionContext,
-              visitedInclusions,
-              grepIncludes);
-        }
-        visitor.sync();
-
-        // Follow "file" hints for all included headers, transitively.
-        Set<Artifact> frontier = includes;
-        while (!frontier.isEmpty()) {
-          Set<Artifact> adjacent = Sets.newConcurrentHashSet();
-          for (Artifact include : frontier) {
-            visitor.processFileLevelHintsAsync(
-                hints,
-                include,
-                adjacent,
-                includeScanningHeaderData.getPathToLegalOutputArtifact(),
-                actionExecutionMetadata,
-                actionExecutionContext,
-                visitedInclusions,
-                grepIncludes);
-          }
-          visitor.sync();
-          // Keep novel nodes as the next frontier.
-          for (Iterator<Artifact> iter = adjacent.iterator(); iter.hasNext(); ) {
-            if (!includes.add(iter.next())) {
-              iter.remove();
-            }
-          }
-          frontier = adjacent;
-        }
-      }
-    } catch (IOException | InterruptedException | ExecException | MissingDepException e) {
-      // Careful: Do not leak visitation threads if we have an exception in the initial thread.
-      visitor.sync();
-      throw e;
-    }
+    return ImmutableSet.of();
   }
 
   private static void checkForInterrupt(String operation, Object source)
@@ -590,8 +486,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
   }
 
   /**
-   * Implements a potentially parallel traversal over source files using a
-   * thread pool shared across different IncludeScanner instances.
+   * Implements a potentially parallel traversal over source files using a thread pool shared across
+   * different IncludeScanner instances.
    */
   private class IncludeVisitor extends AbstractQueueVisitor {
     /** The set of headers known to be part of a C++ module. Scanning can stop here. */
@@ -606,10 +502,106 @@ public class LegacyIncludeScanner implements IncludeScanner {
       this.modularHeaders = modularHeaders;
     }
 
-    /**
-     * Block for the completion of all outstanding visitations.
-     */
-    public void sync() throws IOException, ExecException, InterruptedException {
+    ListenableFuture<?> processInternal(
+        Artifact mainSource,
+        Collection<Artifact> sources,
+        IncludeScanningHeaderData includeScanningHeaderData,
+        List<String> cmdlineIncludes,
+        Set<Artifact> includes,
+        ActionExecutionMetadata actionExecutionMetadata,
+        ActionExecutionContext actionExecutionContext,
+        Artifact grepIncludes,
+        ImmutableSet<Artifact> pathHints)
+        throws InterruptedException, IOException, ExecException {
+      Set<ArtifactWithInclusionContext> visitedInclusions = Sets.newConcurrentHashSet();
+
+      try {
+        // Process cmd line includes, if specified.
+        if (mainSource != null && !cmdlineIncludes.isEmpty()) {
+          processCmdlineIncludes(
+              mainSource,
+              cmdlineIncludes,
+              grepIncludes,
+              includes,
+              includeScanningHeaderData.getPathToLegalOutputArtifact(),
+              actionExecutionMetadata,
+              actionExecutionContext,
+              visitedInclusions);
+          sync();
+        }
+
+        processBulkAsync(
+            sources,
+            includes,
+            includeScanningHeaderData.getPathToLegalOutputArtifact(),
+            actionExecutionMetadata,
+            actionExecutionContext,
+            visitedInclusions,
+            grepIncludes);
+        sync();
+
+        // Process include hints
+        // TODO(ulfjack): Make this code go away. Use the new hinted inclusions instead.
+        Hints hints = parser.getHints();
+        if (hints != null) {
+          // Follow "path" hints.
+          processBulkAsync(
+              pathHints,
+              includes,
+              includeScanningHeaderData.getPathToLegalOutputArtifact(),
+              actionExecutionMetadata,
+              actionExecutionContext,
+              visitedInclusions,
+              grepIncludes);
+          // Follow "file" hints for the primary sources.
+          for (Artifact source : sources) {
+            processFileLevelHintsAsync(
+                hints,
+                source,
+                includes,
+                includeScanningHeaderData.getPathToLegalOutputArtifact(),
+                actionExecutionMetadata,
+                actionExecutionContext,
+                visitedInclusions,
+                grepIncludes);
+          }
+          sync();
+
+          // Follow "file" hints for all included headers, transitively.
+          Set<Artifact> frontier = includes;
+          while (!frontier.isEmpty()) {
+            Set<Artifact> adjacent = Sets.newConcurrentHashSet();
+            for (Artifact include : frontier) {
+              processFileLevelHintsAsync(
+                  hints,
+                  include,
+                  adjacent,
+                  includeScanningHeaderData.getPathToLegalOutputArtifact(),
+                  actionExecutionMetadata,
+                  actionExecutionContext,
+                  visitedInclusions,
+                  grepIncludes);
+            }
+            sync();
+            // Keep novel nodes as the next frontier.
+            for (Iterator<Artifact> iter = adjacent.iterator(); iter.hasNext(); ) {
+              if (!includes.add(iter.next())) {
+                iter.remove();
+              }
+            }
+            frontier = adjacent;
+          }
+        }
+      } catch (IOException | InterruptedException | ExecException | MissingDepException e) {
+        // Careful: Do not leak visitation threads if we have an exception in the initial thread.
+        sync();
+        throw e;
+      }
+      return Futures.immediateFuture(null);
+    }
+
+    /** Block for the completion of all outstanding visitations. */
+    private void sync() throws IOException, ExecException, InterruptedException {
       try {
         super.awaitQuiescence(true);
       } catch (InterruptedException e) {

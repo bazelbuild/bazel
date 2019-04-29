@@ -34,7 +34,7 @@
 set -xeuo pipefail
 
 # The version of android_tools.tar.gz
-VERSION="0.1"
+VERSION="0.2"
 VERSIONED_FILENAME="android_tools_pkg-$VERSION.tar.gz"
 
 # Create a temp directory to hold the versioned tarball, and clean it up when the script exits.
@@ -51,6 +51,5 @@ cp $android_tools_archive $versioned_android_tools_archive
 
 # Upload the tarball to GCS.
 # -n for no-clobber, so we don't overwrite existing files
-# -a public-read to make this tarball public
-gsutil cp -n -a public-read $versioned_android_tools_archive \
+gsutil cp -n $versioned_android_tools_archive \
   gs://bazel-mirror/bazel_android_tools/$VERSIONED_FILENAME

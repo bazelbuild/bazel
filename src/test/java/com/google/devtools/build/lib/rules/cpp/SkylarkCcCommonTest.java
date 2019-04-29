@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -978,7 +980,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    srcs = ['dep1.cc'],",
         "    hdrs = ['dep1.h'],",
         "    includes = ['dep1/baz'],",
-        /*"    include_prefix = 'dep1/include_prefix',",*/
         "    defines = ['DEP1'],",
         ")",
         "cc_library(",
@@ -986,7 +987,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    srcs = ['dep2.cc'],",
         "    hdrs = ['dep2.h'],",
         "    includes = ['dep2/qux'],",
-        /*"    include_prefix = 'dep2/include_prefix',",*/
         "    defines = ['DEP2'],",
         ")",
         "crule(name='r')");
@@ -1142,6 +1142,46 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
   }
 
+  /** TODO(#8118): This test can go away once flag is flipped. */
+  @Test
+  public void testIncompatibleDepsetForLibrariesToLinkGetter() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.PIC,
+                    CppRuleClasses.SUPPORTS_PIC,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
+    setUpCcLinkingContextTest();
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
+
+    @SuppressWarnings("unchecked")
+    SkylarkNestedSet librariesToLink = info.getValue("libraries_to_link", SkylarkNestedSet.class);
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getStaticLibrary() != null)
+                .map(x -> x.getStaticLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.a", "b.a", "c.a", "d.a");
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getPicStaticLibrary() != null)
+                .map(x -> x.getPicStaticLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a");
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getDynamicLibrary() != null)
+                .map(x -> x.getDynamicLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
+  }
+
+  @Deprecated
   private void doTestCcLinkingContext(
       List<String> staticLibraryList,
       List<String> picStaticLibraryList,
@@ -4499,7 +4539,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withMakeVariables(Pair.of("CC_FLAGS", "-test-cflag1 -testcflag2")));
-    useConfiguration("--incompatible_disable_genrule_cc_toolchain_dependency");
 
     loadCcToolchainConfigLib();
     scratch.file(
@@ -4599,5 +4638,425 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("'a.so' does not have any of the allowed extensions .ifso, .tbd or .lib");
+  }
+
+  @Test
+  public void testCcOutputsMerging() throws Exception {
+    scratch.overwriteFile("tools/build_defs/foo/BUILD");
+    scratch.file(
+        "tools/build_defs/foo/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _cc_skylark_library_impl(ctx):",
+        "    c1 = cc_common.create_compilation_outputs(objects=depset([ctx.file.object1]),",
+        "        pic_objects=depset([ctx.file.pic_object1]))",
+        "    c2 = cc_common.create_compilation_outputs(objects=depset([ctx.file.object2]),",
+        "        pic_objects=depset([ctx.file.pic_object2]))",
+        "    compilation_outputs = cc_common.merge_compilation_outputs(",
+        "        compilation_outputs=[c1, c2])",
+        "    return [MyInfo(compilation_outputs=compilation_outputs)]",
+        "cc_skylark_library = rule(",
+        "    implementation = _cc_skylark_library_impl,",
+        "    attrs = {",
+        "      'object1': attr.label(allow_single_file=True),",
+        "      'pic_object1': attr.label(allow_single_file=True),",
+        "      'object2': attr.label(allow_single_file=True),",
+        "      'pic_object2': attr.label(allow_single_file=True),",
+        "    },",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        "    object1 = 'object1.o',",
+        "    pic_object1 = 'pic_object1.o',",
+        "    object2 = 'object2.o',",
+        "    pic_object2 = 'pic_object2.o',",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    @SuppressWarnings("unchecked")
+    CcCompilationOutputs compilationOutputs =
+        (CcCompilationOutputs) getMyInfoFromTarget(target).getValue("compilation_outputs");
+    assertThat(
+            AnalysisTestUtil.artifactsToStrings(
+                masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ true)))
+        .containsExactly("src foo/pic_object1.o", "src foo/pic_object2.o");
+    assertThat(
+            AnalysisTestUtil.artifactsToStrings(
+                masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
+        .containsExactly("src foo/object1.o", "src foo/object2.o");
+  }
+
+  @Test
+  public void testCreateOnlyPic() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", String.join("", "disallow_nopic_outputs=True"));
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(getFilenamesToBuild(target)).doesNotContain("skylark_lib.o");
+    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.pic.o");
+  }
+
+  @Test
+  public void testCreateOnlyNoPic() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", String.join("", "disallow_pic_outputs=True"));
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.o");
+    assertThat(getFilenamesToBuild(target)).doesNotContain("skylark_lib.pic.o");
+  }
+
+  @Test
+  public void testCreatePicAndNoPic() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
+    createFilesForTestingCompilation(scratch, "tools/build_defs/foo", "");
+    useConfiguration("--compilation_mode=opt");
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.pic.o");
+    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.o");
+  }
+
+  @Test
+  public void testDoNotCreateEitherPicOrNoPic() throws Exception {
+    createFilesForTestingCompilation(
+        scratch,
+        "tools/build_defs/foo",
+        String.join("", "disallow_nopic_outputs=True, disallow_pic_outputs=True"));
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:bin");
+    assertContainsEvent("Either PIC or no PIC actions have to be created.");
+  }
+
+  @Test
+  public void testCreateStaticLibraries() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER, CppRuleClasses.SUPPORTS_PIC));
+    createFilesForTestingLinking(scratch, "tools/build_defs/foo", /* linkProviderLines= */ "");
+    assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(
+            getFilesToBuild(target).toCollection().stream()
+                .map(x -> x.getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .contains("libskylark_lib.a");
+  }
+
+  @Test
+  public void testDoNotCreateStaticLibraries() throws Exception {
+    createFilesForTestingLinking(scratch, "tools/build_defs/foo", "disallow_static_libraries=True");
+    assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(
+            getFilesToBuild(target).toCollection().stream()
+                .map(x -> x.getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .doesNotContain("libskylark_lib.a");
+  }
+
+  private List<String> getFilenamesToBuild(ConfiguredTarget target) {
+    return getFilesToBuild(target).toCollection().stream()
+        .map(Artifact::getFilename)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  @Test
+  public void testCcNativeRuleDependingOnSkylarkDefinedRule() throws Exception {
+    createFiles(scratch, "tools/build_defs/cc");
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+  }
+
+  @Test
+  public void testUserCompileFlagsInRulesApi() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "user_compile_flags=['-COMPILATION_OPTION']");
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments()).contains("-COMPILATION_OPTION");
+  }
+
+  @Test
+  public void testIncludeDirs() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "includes=['foo/bar', 'baz/qux']");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments()).containsAllOf("-Ifoo/bar", "-Ibaz/qux");
+  }
+
+  @Test
+  public void testSystemIncludeDirs() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "system_includes=['foo/bar', 'baz/qux']");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments())
+        .containsAllOf("-isystem", "foo/bar", "-isystem", "baz/qux")
+        .inOrder();
+  }
+
+  @Test
+  public void testQuoteIncludeDirs() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "quote_includes=['foo/bar', 'baz/qux']");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments())
+        .containsAllOf("-iquote", "foo/bar", "-iquote", "baz/qux")
+        .inOrder();
+  }
+
+  @Test
+  public void testDefines() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "defines=['DEFINE1', 'DEFINE2']");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments()).containsAllOf("-DDEFINE1", "-DDEFINE2");
+  }
+
+  @Test
+  public void testHeaders() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDeclaredIncludeSrcs()))
+        .containsAllOf("src foo/dep2.h", "src foo/skylark_lib.h", "src foo/private_skylark_lib.h");
+  }
+
+  @Test
+  public void testCompileOutputHasSuffix() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    assertThat(artifactsToStrings(getFilesToBuild(target)))
+        .contains("bin foo/_objs/skylark_lib_suffix/skylark_lib.o");
+  }
+
+  @Test
+  public void testCompilationContexts() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments()).containsAllOf("-DDEFINE_DEP1", "-DDEFINE_DEP2");
+  }
+
+  @Test
+  public void testLinkingOutputs() throws Exception {
+    createFiles(scratch, "tools/build_defs/foo");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    @SuppressWarnings("unchecked")
+    SkylarkList<LibraryToLink> libraries =
+        (SkylarkList<LibraryToLink>) getMyInfoFromTarget(target).getValue("libraries");
+    assertThat(
+            libraries.stream()
+                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .contains("libskylark_lib.so");
+  }
+
+  @Test
+  public void testUserLinkFlags() throws Exception {
+    createFilesForTestingLinking(
+        scratch, "tools/build_defs/foo", "user_link_flags=['-LINKING_OPTION']");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getFlattenedUserLinkFlags())
+        .contains("-LINKING_OPTION");
+  }
+
+  @Test
+  public void testLinkingContexts() throws Exception {
+    createFilesForTestingLinking(scratch, "tools/build_defs/foo", /* linkProviderLines= */ "");
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    CppLinkAction action =
+        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), "bin"));
+    assertThat(action.getArguments()).containsAllOf("-DEP1_LINKOPT", "-DEP2_LINKOPT");
+  }
+
+  @Test
+  public void testAlwayslinkTrue() throws Exception {
+    createFilesForTestingLinking(scratch, "tools/build_defs/foo", "alwayslink=True");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    assertThat(
+            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toCollection().stream()
+                .filter(LibraryToLink::getAlwayslink)
+                .collect(ImmutableList.toImmutableList()))
+        .hasSize(1);
+  }
+
+  @Test
+  public void testAlwayslinkFalse() throws Exception {
+    createFilesForTestingLinking(scratch, "tools/build_defs/foo", "alwayslink=False");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    assertThat(
+            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toCollection().stream()
+                .filter(LibraryToLink::getAlwayslink)
+                .collect(ImmutableList.toImmutableList()))
+        .isEmpty();
+  }
+
+  @Test
+  public void testAdditionalInputs() throws Exception {
+    createFilesForTestingLinking(
+        scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_inputs");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getNonCodeInputs()).hasSize(1);
+  }
+
+  @Test
+  public void testFlagWhitelist() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_cc_skylark_api_enabled_packages=\"\"");
+    createFiles(scratch, "foo/bar");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:bin");
+    assertContainsEvent(
+        "You can try it out by passing "
+            + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that we "
+            + "will be making breaking changes to this API without prior warning.");
+  }
+
+  private static void createFilesForTestingCompilation(
+      Scratch scratch, String bzlFilePath, String compileProviderLines) throws Exception {
+    createFiles(scratch, bzlFilePath, compileProviderLines, "");
+  }
+
+  private static void createFilesForTestingLinking(
+      Scratch scratch, String bzlFilePath, String linkProviderLines) throws Exception {
+    createFiles(scratch, bzlFilePath, "", linkProviderLines);
+  }
+
+  private static void createFiles(Scratch scratch, String bzlFilePath) throws Exception {
+    createFiles(scratch, bzlFilePath, "", "");
+  }
+
+  private static void createFiles(
+      Scratch scratch, String bzlFilePath, String compileProviderLines, String linkProviderLines)
+      throws Exception {
+    String fragments = "    fragments = ['google_cpp', 'cpp'],";
+    if (AnalysisMock.get().isThisBazel()) {
+      fragments = "    fragments = ['cpp'],";
+    }
+    scratch.overwriteFile(bzlFilePath + "/BUILD");
+    scratch.file(
+        bzlFilePath + "/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _cc_skylark_library_impl(ctx):",
+        "    dep_compilation_contexts = []",
+        "    dep_linking_contexts = []",
+        "    for dep in ctx.attr._deps:",
+        "        dep_compilation_contexts.append(dep[CcInfo].compilation_context)",
+        "        dep_linking_contexts.append(dep[CcInfo].linking_context)",
+        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    feature_configuration = cc_common.configure_features(",
+        "        cc_toolchain=toolchain,",
+        "        requested_features = ctx.features,",
+        "        unsupported_features = ctx.disabled_features)",
+        "    (compilation_context, compilation_outputs) = cc_common.compile(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        cc_toolchain=toolchain,",
+        "        srcs=ctx.files.srcs,",
+        "        name=ctx.label.name + '_suffix',",
+        "        compilation_contexts = dep_compilation_contexts,",
+        "        public_hdrs=ctx.files.public_hdrs,",
+        "        private_hdrs=ctx.files.private_hdrs" + (compileProviderLines.isEmpty() ? "" : ","),
+        "        " + compileProviderLines,
+        "    )",
+        "    (linking_context,",
+        "     linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        compilation_outputs=compilation_outputs,",
+        "        name = ctx.label.name,",
+        "        linking_contexts = dep_linking_contexts,",
+        "        cc_toolchain=toolchain" + (linkProviderLines.isEmpty() ? "" : ","),
+        "        " + linkProviderLines,
+        "    )",
+        "    files_to_build = []",
+        "    files_to_build.extend(compilation_outputs.pic_objects)",
+        "    files_to_build.extend(compilation_outputs.objects)",
+        "    library_to_link = linking_outputs.library_to_link",
+        "    if library_to_link.pic_static_library != None:",
+        "       files_to_build.append(library_to_link.pic_static_library)",
+        "    files_to_build.append(library_to_link.dynamic_library)",
+        "    return [MyInfo(libraries=[library_to_link]),",
+        "            DefaultInfo(files=depset(files_to_build)),",
+        "            CcInfo(compilation_context=compilation_context,",
+        "                   linking_context=linking_context)]",
+        "cc_skylark_library = rule(",
+        "    implementation = _cc_skylark_library_impl,",
+        "    attrs = {",
+        "      'srcs': attr.label_list(allow_files=True),",
+        "      'public_hdrs': attr.label_list(allow_files=True),",
+        "      'private_hdrs': attr.label_list(allow_files=True),",
+        "      '_additional_inputs': attr.label_list(allow_files=True,"
+            + " default=['//foo:script.lds']),",
+        "      '_deps': attr.label_list(default=['//foo:dep1', '//foo:dep2']),",
+        "      '_cc_toolchain': attr.label(default =",
+        "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
+        "    },",
+        fragments,
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//" + bzlFilePath + ":extension.bzl', 'cc_skylark_library')",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['dep1.cc'],",
+        "    hdrs = ['dep1.h'],",
+        "    defines = ['DEFINE_DEP1'],",
+        "    linkopts = ['-DEP1_LINKOPT'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['dep2.cc'],",
+        "    hdrs = ['dep2.h'],",
+        "    defines = ['DEFINE_DEP2'],",
+        "    linkopts = ['-DEP2_LINKOPT'],",
+        ")",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        "    srcs = ['skylark_lib.cc'],",
+        "    public_hdrs = ['skylark_lib.h'],",
+        "    private_hdrs = ['private_skylark_lib.h'],",
+        ")",
+        "cc_binary(",
+        "    name = 'bin',",
+        "    deps = ['skylark_lib'],",
+        ")");
   }
 }

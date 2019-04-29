@@ -469,7 +469,7 @@ public class GlobTest {
     ImmutableList<String> paths = ImmutableList.of("a/A.java", "a/B.java", "a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "**/*.java")).containsExactly("c.cc");
     assertThat(removeExcludes(paths, "a/**/*.java")).containsExactly("c.cc");
-    assertThat(removeExcludes(paths, "**/nomatch.*")).containsAllIn(paths);
+    assertThat(removeExcludes(paths, "**/nomatch.*")).containsAtLeastElementsIn(paths);
     assertThat(removeExcludes(paths, "a/A.java")).containsExactly("a/B.java", "a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "a/?.java")).containsExactly("a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "a/*/C.java")).containsExactly("a/A.java", "a/B.java", "c.cc");
@@ -483,3 +483,4 @@ public class GlobTest {
         .containsExactly("a/b/*.java", "c.cc");
   }
 }
+

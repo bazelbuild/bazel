@@ -680,6 +680,16 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testStaticNameResolution() throws Exception {
+    newTest("--incompatible_static_name_resolution_in_build_files=true")
+        .testIfErrorContains("name 'foo' is not defined", "[foo for x in []]");
+
+    // legacy
+    new BuildTest("--incompatible_static_name_resolution_in_build_files=false")
+        .testStatement("str([foo for x in []])", "[]");
+  }
+
+  @Test
   public void testDefInBuild() throws Exception {
     new BuildTest()
         .testIfErrorContains(
@@ -707,5 +717,18 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testArgsForbiddenInBuild() throws Exception {
     new BuildTest()
         .testIfErrorContains("*args arguments are not allowed in BUILD files", "func(*array)");
+  }
+
+  @Test
+  public void testIncompatibleKwargsInBuildFiles() throws Exception {
+    new BuildTest("--incompatible_no_kwargs_in_build_files=true")
+        .testIfErrorContains(
+            "kwargs arguments are not allowed in BUILD files", "len(dict(**{'a': 1}))");
+
+    new BuildTest("--incompatible_no_kwargs_in_build_files=false")
+        .testStatement("len(dict(**{'a': 1}))", 1);
+
+    new SkylarkTest("--incompatible_no_kwargs_in_build_files")
+        .testStatement("len(dict(**{'a': 1}))", 1);
   }
 }

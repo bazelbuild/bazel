@@ -18,6 +18,7 @@ package tools.protos;
 
 option java_package = "com.google.devtools.build.lib.shell";
 option java_outer_classname = "Protos";
+option optimize_for = LITE_RUNTIME;
 
 // Verbatim representation of the rusage structure returned by getrusage(2).
 // For further details on all these cryptic names, see that manual page.

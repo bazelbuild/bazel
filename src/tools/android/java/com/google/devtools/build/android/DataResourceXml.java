@@ -432,4 +432,15 @@ public class DataResourceXml implements DataResource {
     DataResourceXml other = (DataResourceXml) value;
     return Objects.equals(xml, other.xml);
   }
+
+  @Override
+  public int compareMergePriorityTo(DataValue value) {
+    Preconditions.checkNotNull(value);
+    if (!(value instanceof DataResourceXml)) {
+      // This is an ambiguous conflict; return 0 meaning neither has priority.
+      return 0;
+    }
+    DataResourceXml other = (DataResourceXml) value;
+    return xml.compareMergePriorityTo(other.xml);
+  }
 }

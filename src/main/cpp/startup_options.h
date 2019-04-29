@@ -311,13 +311,13 @@ class StartupOptions {
   // their origin. This is populated by ProcessArgs.
   std::vector<RcStartupFlag> original_startup_options_;
 
-  // Whether to raise the soft coredump limit to the hard one or not.
-  bool unlimit_coredumps;
-
 #if defined(__APPLE__)
   // The QoS class to apply to the Bazel server process.
   qos_class_t macos_qos_class;
 #endif
+
+  // Whether to raise the soft coredump limit to the hard one or not.
+  bool unlimit_coredumps;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

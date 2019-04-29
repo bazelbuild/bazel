@@ -119,22 +119,22 @@ public class ParallelSkyQueryUtils {
 
     Function<ThreadSafeMutableSet<Target>, QueryTaskFuture<Predicate<SkyKey>>>
         getTransitiveClosureAsyncFunction =
-        universeValue -> {
-          ThreadSafeAggregateAllSkyKeysCallback aggregateAllCallback =
-              new ThreadSafeAggregateAllSkyKeysCallback(concurrencyLevel);
-          return env.executeAsync(
-              () -> {
-                Callback<Target> visitorCallback =
-                    ParallelVisitor.createParallelVisitorCallback(
-                        new UnfilteredSkyKeyTTVDTCVisitor.Factory(
-                            env,
-                            env.createSkyKeyUniquifier(),
-                            processResultsBatchSize,
-                            aggregateAllCallback));
-                visitorCallback.process(universeValue);
-                return Predicates.in(aggregateAllCallback.getResult());
-              });
-        };
+            universeValue -> {
+              ThreadSafeAggregateAllSkyKeysCallback aggregateAllCallback =
+                  new ThreadSafeAggregateAllSkyKeysCallback(concurrencyLevel);
+              return env.execute(
+                  () -> {
+                    Callback<Target> visitorCallback =
+                        ParallelVisitor.createParallelVisitorCallback(
+                            new UnfilteredSkyKeyTTVDTCVisitor.Factory(
+                                env,
+                                env.createSkyKeyUniquifier(),
+                                processResultsBatchSize,
+                                aggregateAllCallback));
+                    visitorCallback.process(universeValue);
+                    return Predicates.in(aggregateAllCallback.getResult());
+                  });
+            };
 
     return env.transformAsync(universeValueFuture, getTransitiveClosureAsyncFunction);
   }

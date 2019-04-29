@@ -29,6 +29,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -52,6 +54,8 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -70,6 +74,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptio
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -78,6 +83,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -93,6 +99,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -102,6 +109,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -141,6 +149,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
   private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
+  @Nullable private final WorkspaceFileHeaderListener workspaceFileHeaderListener;
+
   private SequencedSkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
       EvaluatorSupplier evaluatorSupplier,
@@ -159,7 +169,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
+      @Nullable WorkspaceFileHeaderListener workspaceFileHeaderListener) {
     super(
         skyframeExecutorConsumerOnInit,
         evaluatorSupplier,
@@ -185,6 +196,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
         /*nonexistentFileReceiver=*/ null);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
+    this.workspaceFileHeaderListener = workspaceFileHeaderListener;
   }
 
   @Override
@@ -301,7 +313,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
 
   /** Uses diff awareness on all the package paths to invalidate changed files. */
   @VisibleForTesting
-  public void handleDiffsForTesting(ExtendedEventHandler eventHandler) throws InterruptedException {
+  public void handleDiffsForTesting(ExtendedEventHandler eventHandler)
+      throws InterruptedException, AbruptExitException {
     if (super.lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
@@ -313,9 +326,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
 
   private void handleDiffs(
       ExtendedEventHandler eventHandler, boolean checkOutputFiles, OptionsProvider options)
-      throws InterruptedException {
+      throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles = 0;
+
+    if (workspaceFileHeaderListener != null) {
+      refreshWorkspaceHeader(eventHandler);
+    }
+
     Map<Root, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
         Maps.newHashMap();
     Set<Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet>>
@@ -575,8 +593,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
   }
 
   @Override
-  protected boolean discardPackagesWhenDiscardingAnalysisObjects() {
-    return !trackIncrementalState;
+  public void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+    discardPreExecutionCache(
+        topLevelTargets,
+        topLevelAspects,
+        trackIncrementalState ? DiscardType.ANALYSIS_REFS_ONLY : DiscardType.ALL);
   }
 
   @Override
@@ -799,6 +821,68 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
     }
   }
 
+  /**
+   * Calculate the new value of the WORKSPACE file header (WorkspaceFileValue with the index = 0),
+   * and call the listener, if the value has changed. Needed for incremental update of user-owned
+   * directories by repository rules.
+   */
+  private void refreshWorkspaceHeader(ExtendedEventHandler eventHandler)
+      throws InterruptedException, AbruptExitException {
+    Preconditions.checkNotNull(workspaceFileHeaderListener);
+
+    Root workspaceRoot = Root.fromPath(directories.getWorkspace());
+    RootedPath workspacePath =
+        RootedPath.toRootedPath(workspaceRoot, LabelConstants.WORKSPACE_FILE_NAME);
+    WorkspaceFileKey workspaceFileKey = WorkspaceFileValue.key(workspacePath);
+
+    WorkspaceFileValue oldValue =
+        (WorkspaceFileValue) memoizingEvaluator.getExistingValue(workspaceFileKey);
+    maybeInvalidateWorkspaceFileStateValue(workspacePath);
+    WorkspaceFileValue newValue =
+        (WorkspaceFileValue) evaluateSingleValue(workspaceFileKey, eventHandler);
+    if (!Objects.equals(newValue, oldValue)) {
+      workspaceFileHeaderListener.workspaceHeaderChanged(newValue);
+    }
+  }
+
+  // We only check the FileStateValue of the WORKSPACE file; we do not support the case
+  // when the WORKSPACE file is a symlink.
+  private void maybeInvalidateWorkspaceFileStateValue(RootedPath workspacePath)
+      throws InterruptedException, AbruptExitException {
+    SkyKey workspaceFileStateKey = FileStateValue.key(workspacePath);
+    SkyValue oldWorkspaceFileState = memoizingEvaluator.getExistingValue(workspaceFileStateKey);
+    if (oldWorkspaceFileState == null) {
+      // no need to invalidate if not cached
+      return;
+    }
+    FileStateValue newWorkspaceFileState;
+    try {
+      newWorkspaceFileState = FileStateValue.create(workspacePath, tsgm.get());
+      if (FileStateType.SYMLINK.equals(newWorkspaceFileState.getType())) {
+        throw new AbruptExitException(
+            "WORKSPACE file can not be a symlink if incrementally"
+                + " updated directories feature is enabled.",
+            ExitCode.PARSING_FAILURE);
+      }
+    } catch (IOException e) {
+      throw new AbruptExitException("Can not read WORKSPACE file.", ExitCode.PARSING_FAILURE, e);
+    }
+    if (!oldWorkspaceFileState.equals(newWorkspaceFileState)) {
+      recordingDiffer.invalidate(ImmutableSet.of(workspaceFileStateKey));
+    }
+  }
+
+  private SkyValue evaluateSingleValue(SkyKey key, ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setEventHander(eventHandler)
+            .build();
+    return buildDriver.evaluate(ImmutableSet.of(key), evaluationContext).get(key);
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -823,6 +907,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
     private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
     private List<BuildFileName> buildFilesByPriority;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
+    private WorkspaceFileHeaderListener workspaceFileHeaderListener;
 
     // Fields with default values.
     private ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
@@ -868,7 +953,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
               buildFilesByPriority,
               actionOnIOExceptionReadingBuildFile,
               defaultBuildOptions,
-              mutableArtifactFactorySupplier);
+              mutableArtifactFactorySupplier,
+              workspaceFileHeaderListener);
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -971,5 +1057,21 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor<BuildDrive
       this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
       return this;
     }
+
+    public Builder setWorkspaceFileHeaderListener(
+        WorkspaceFileHeaderListener workspaceFileHeaderListener) {
+      this.workspaceFileHeaderListener = workspaceFileHeaderListener;
+      return this;
+    }
+  }
+
+  /**
+   * Listener class to subscribe for WORKSPACE file header changes.
+   *
+   * <p>Changes to WORKSPACE file header are computed before the files difference is computed in
+   * {@link #handleDiffs(ExtendedEventHandler, boolean, OptionsProvider)}
+   */
+  public interface WorkspaceFileHeaderListener {
+    void workspaceHeaderChanged(@Nullable WorkspaceFileValue newValue);
   }
 }

@@ -196,6 +196,6 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
     useConfiguration("--python_top=" + pythonTopLabel);
     ConfiguredTarget target = getConfiguredTarget("//pkg:pybin");
     assertThat(collectRunfiles(target))
-        .containsAllOf(getSourceArtifact("pkg/data.txt"), getSourceArtifact("pkg/userdata.txt"));
+        .containsAtLeast(getSourceArtifact("pkg/data.txt"), getSourceArtifact("pkg/userdata.txt"));
   }
 }

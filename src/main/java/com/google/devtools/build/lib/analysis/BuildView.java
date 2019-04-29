@@ -73,8 +73,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.syntax.SkylarkImports;
-import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
+import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -316,7 +315,7 @@ public class BuildView {
         SkylarkImport skylarkImport;
         try {
           skylarkImport =
-              SkylarkImports.create(
+              SkylarkImport.create(
                   bzlFileLoadLikeString, /* repositoryMapping= */ ImmutableMap.of());
         } catch (SkylarkImportSyntaxException e) {
           throw new ViewCreationFailedException(
@@ -325,6 +324,11 @@ public class BuildView {
 
         String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
+          if (targetSpec.getConfiguration() != null
+              && targetSpec.getConfiguration().trimConfigurationsRetroactively()) {
+            throw new ViewCreationFailedException(
+                "Aspects were requested, but are not supported in retroactive trimming mode.");
+          }
           aspectConfigurations.put(
               Pair.of(targetSpec.getLabel(), aspect), targetSpec.getConfiguration());
           aspectKeys.add(
@@ -343,6 +347,11 @@ public class BuildView {
 
         if (aspectFactoryClass != null) {
           for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
+            if (targetSpec.getConfiguration() != null
+                && targetSpec.getConfiguration().trimConfigurationsRetroactively()) {
+              throw new ViewCreationFailedException(
+                  "Aspects were requested, but are not supported in retroactive trimming mode.");
+            }
             // For invoking top-level aspects, use the top-level configuration for both the
             // aspect and the base target while the top-level configuration is untrimmed.
             BuildConfiguration configuration = targetSpec.getConfiguration();

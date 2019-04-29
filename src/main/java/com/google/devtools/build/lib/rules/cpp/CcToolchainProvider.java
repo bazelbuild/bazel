@@ -882,11 +882,6 @@ public final class CcToolchainProvider extends ToolchainInfo
         .requireCtxInConfigureFeatures();
   }
 
-  public boolean disableGenruleCcToolchainDependency() {
-    return getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
-        .disableGenruleCcToolchainDependency();
-  }
-
   @VisibleForTesting
   NestedSet<Artifact> getStaticRuntimeLibForTesting() {
     return staticRuntimeLinkInputs;

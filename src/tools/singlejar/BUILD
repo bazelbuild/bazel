@@ -109,6 +109,8 @@ cc_test(
         ":zip_headers",
         ":zlib_interface",
     ],
+    # Requires at least 5 GiB of memory
+    exec_compatible_with = ["//:highcpu_machine"],
     deps = [
         ":combiners",
         ":input_jar",
@@ -327,6 +329,7 @@ cc_test(
 sh_test(
     name = "zip64_test",
     srcs = ["zip64_test.sh"],
+    args = ["$(JAVABASE)"],
     data = [
         ":singlejar",
         "//src/test/shell:bashunit",

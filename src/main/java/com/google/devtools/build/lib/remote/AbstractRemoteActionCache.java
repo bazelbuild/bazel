@@ -170,7 +170,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws IOException in case of a cache miss or if the remote cache is unavailable.
    * @throws ExecException in case clean up after a failed download failed.
    */
-  public void download(ActionResult result, Path execRoot, FileOutErr outErr)
+  public void download(ActionResult result, Path execRoot, FileOutErr origOutErr)
       throws ExecException, IOException, InterruptedException {
     ActionResultMetadata metadata = parseActionResultMetadata(result, execRoot);
 
@@ -197,8 +197,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
     IOException downloadException = null;
     InterruptedException interruptedException = null;
+    FileOutErr tmpOutErr = null;
     try {
-      downloads.addAll(downloadOutErr(result, outErr));
+      if (origOutErr != null) {
+        tmpOutErr = origOutErr.childOutErr();
+      }
+      downloads.addAll(downloadOutErr(result, tmpOutErr));
     } catch (IOException e) {
       downloadException = e;
     }
@@ -228,9 +232,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           // directories will not be re-created
           execRoot.getRelative(directory.getPath()).deleteTreesBelow();
         }
-        if (outErr != null) {
-          outErr.getOutputPath().delete();
-          outErr.getErrorPath().delete();
+        if (tmpOutErr != null) {
+          tmpOutErr.clearOut();
+          tmpOutErr.clearErr();
         }
       } catch (IOException e) {
         // If deleting of output files failed, we abort the build with a decent error message as
@@ -252,6 +256,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
     if (downloadException != null) {
       throw downloadException;
+    }
+
+    if (tmpOutErr != null) {
+      FileOutErr.dump(tmpOutErr, origOutErr);
+      tmpOutErr.clearOut();
+      tmpOutErr.clearErr();
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();

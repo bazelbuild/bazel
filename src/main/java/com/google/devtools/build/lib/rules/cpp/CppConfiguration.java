@@ -631,10 +631,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.targetLibcTopLabel;
   }
 
-  public boolean disableGenruleCcToolchainDependency() {
-    return cppOptions.disableGenruleCcToolchainDependency;
-  }
-
   public boolean enableLegacyCcProvider() {
     return !cppOptions.disableLegacyCcProvider;
   }
@@ -645,10 +641,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean dontEnableHostNonhost() {
     return cppOptions.dontEnableHostNonhost;
-  }
-
-  public boolean disableCcContextQuoteIncludesHook() {
-    return cppOptions.disableCcContextQuoteIncludesHook;
   }
 
   public boolean requireCtxInConfigureFeatures() {
@@ -672,5 +664,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean saveFeatureState() {
     return cppOptions.saveFeatureState;
+  }
+
+  public boolean useStandaloneLtoIndexingCommandLines() {
+    return cppOptions.useStandaloneLtoIndexingCommandLines;
   }
 }

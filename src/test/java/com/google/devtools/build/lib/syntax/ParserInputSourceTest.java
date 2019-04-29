@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
-import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -60,20 +59,6 @@ public class ParserInputSourceTest {
     ParserInputSource input = ParserInputSource.create(contentChars, PathFragment.create(pathName));
     assertThat(new String(input.getContent())).isEqualTo(content);
     assertThat(input.getPath().toString()).isEqualTo(pathName);
-  }
-
-
-  @Test
-  public void testIOExceptionIfInputFileDoesNotExistForSingleArgConstructor() {
-    try {
-      Path path = scratch.resolve("/does/not/exist");
-      byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
-      ParserInputSource.create(bytes, path.asFragment());
-      fail();
-    } catch (IOException e) {
-      String expected = "/does/not/exist (No such file or directory)";
-      assertThat(e).hasMessageThat().isEqualTo(expected);
-    }
   }
 
   @Test

@@ -161,6 +161,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
   private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
+  private final RetainedHeapLimiter retainedHeapLimiter = new RetainedHeapLimiter();
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -282,7 +283,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
     Path profilePath = null;
     try {
-      if (options.enableTracer) {
+      if (options.enableTracer || (options.removeBinaryProfile && options.profilePath != null)) {
         format =
             options.enableTracerCompression
                 ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
@@ -488,6 +489,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public QueryRuntimeHelper.Factory getQueryRuntimeHelperFactory() {
     return queryRuntimeHelperFactory;
+  }
+
+  RetainedHeapLimiter getRetainedHeapLimiter() {
+    return retainedHeapLimiter;
   }
 
   /**

@@ -120,7 +120,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void getAttributeNames() throws Exception {
-    assertThat(mapper.getAttributeNames()).containsAllOf("srcs", "linkstatic", "fromaspect");
+    assertThat(mapper.getAttributeNames()).containsAtLeast("srcs", "linkstatic", "fromaspect");
   }
 
   @Test

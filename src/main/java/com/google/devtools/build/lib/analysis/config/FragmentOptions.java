@@ -47,14 +47,23 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
    * Creates a new instance of this {@code FragmentOptions} with all flags adjusted as needed to
    * represent the host platform.
    */
-  @SuppressWarnings("unused")
   public FragmentOptions getHost() {
     return getDefault();
   }
 
   /**
-   * Creates a new instance of this {@code FragmentOptions} with all flags adjusted to be suitable
-   * for forming configurations.
+   * Creates a new instance of this {@code FragmentOptions} with all flags adjusted as needed to
+   * represent the execution platform.
+   */
+  public FragmentOptions getExec() {
+    return clone();
+  }
+
+  /**
+   * Returns an instance of {@code FragmentOptions} with all flags adjusted to be suitable for
+   * forming configurations.
+   *
+   * <p>If this instance is already suitable, it will be returned without creating a new instance.
    *
    * <p>Motivation: Sometimes a fragment's physical option values, as set by the options parser, do
    * not correspond to their logical interpretation. For example, an option may need custom code to
@@ -71,7 +80,7 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
    * method. Step 2) is the responsibility of each transition implementation.
    */
   public FragmentOptions getNormalized() {
-    return clone();
+    return this;
   }
 
   /** Tracks limitations on referring to an option in a {@code config_setting}. */

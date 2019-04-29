@@ -543,7 +543,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   private void assertStamped(ConfiguredTarget target) throws Exception {
     Artifact out = Iterables.getFirst(getFilesToBuild(target), null);
     List<String> inputs = ActionsTestUtil.baseArtifactNames(getGeneratingAction(out).getInputs());
-    assertThat(inputs).containsAllOf("build-info.txt", "build-changelist.txt");
+    assertThat(inputs).containsAtLeast("build-info.txt", "build-changelist.txt");
   }
 
   private void assertNotStamped(ConfiguredTarget target) throws Exception {

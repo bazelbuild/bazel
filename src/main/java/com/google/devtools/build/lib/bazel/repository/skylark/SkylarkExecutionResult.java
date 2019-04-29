@@ -13,14 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkExecutionResultApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
@@ -144,10 +148,8 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
       return this;
     }
 
-    /**
-     * Execute the command specified by {@link #addArguments(Iterable)}.
-     */
-    SkylarkExecutionResult execute() throws EvalException {
+    /** Execute the command specified by {@link #addArguments(Iterable)}. */
+    SkylarkExecutionResult execute() throws EvalException, InterruptedException {
       Preconditions.checkArgument(timeout > 0, "Timeout must be set prior to calling execute().");
       Preconditions.checkArgument(!args.isEmpty(), "No command specified.");
       Preconditions.checkState(!executed, "Command was already executed, cannot re-use builder.");
@@ -179,6 +181,31 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
         return new SkylarkExecutionResult(
             e.getResult().getTerminationStatus().getExitCode(), recorder.outAsLatin1(),
             recorder.errAsLatin1());
+      } catch (AbnormalTerminationException e) {
+        TerminationStatus status = e.getResult().getTerminationStatus();
+        if (status.timedOut()) {
+          // Signal a timeout by an exit code outside the normal range
+          return new SkylarkExecutionResult(256, "", e.getMessage());
+        } else if (status.exited()) {
+          return new SkylarkExecutionResult(
+              status.getExitCode(),
+              new String(e.getResult().getStdout(), UTF_8),
+              new String(e.getResult().getStderr(), UTF_8));
+        } else if (status.getTerminatingSignal() == 15) {
+          // We have a bit of a problem here: we cannot distingusih between the case where
+          // the SIGTERM was sent by something that the calling rule wants to legitimately handle,
+          // and the case where it was sent by bazel to abort the build, e.g., because something
+          // else failed.
+          //
+          // We just assume the latter to correctly handle aborts, accepting that rule authors have
+          // to write their rules without relying on the ability to handle termination by signal 15.
+          throw new InterruptedException();
+        } else {
+          return new SkylarkExecutionResult(
+              status.getRawExitCode(),
+              new String(e.getResult().getStdout(), UTF_8),
+              new String(e.getResult().getStderr(), UTF_8));
+        }
       } catch (CommandException e) {
         // 256 is outside of the standard range for exit code on Unixes. We are not guaranteed that
         // on all system it would be outside of the standard range.

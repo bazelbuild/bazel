@@ -725,14 +725,6 @@ public class CppOptions extends FragmentOptions {
   public boolean useLLVMCoverageMapFormat;
 
   @Option(
-      name = "experimental_disable_cc_context_quote_includes_hook",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
-  public boolean disableCcContextQuoteIncludesHook;
-
-  @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -745,6 +737,20 @@ public class CppOptions extends FragmentOptions {
           "If true, Bazel will not enable 'host' and 'nonhost' features in the c++ toolchain "
               + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
   public boolean dontEnableHostNonhost;
+
+  @Option(
+      name = "incompatible_make_thinlto_command_lines_standalone",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will not reuse C++ link action command lines for lto indexing command "
+              + "lines (see https://github.com/bazelbuild/bazel/issues/6791 for more information).")
+  public boolean useStandaloneLtoIndexingCommandLines;
 
   @Option(
       name = "incompatible_require_ctx_in_configure_features",
@@ -841,21 +847,6 @@ public class CppOptions extends FragmentOptions {
   public boolean doNotUseCpuTransformer;
 
   @Option(
-      name = "incompatible_disable_genrule_cc_toolchain_dependency",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, genrule will no longer automatically depend on the cc toolchain. Specifically, "
-              + "this means that the CC_FLAGS Make variable will not be available without using "
-              + "the new cc_flags_supplier rule.")
-  public boolean disableGenruleCcToolchainDependency;
-
-  @Option(
       name = "incompatible_disable_legacy_cc_provider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -935,7 +926,6 @@ public class CppOptions extends FragmentOptions {
 
     host.enableFdoProfileAbsolutePath = enableFdoProfileAbsolutePath;
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
-    host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
@@ -944,7 +934,46 @@ public class CppOptions extends FragmentOptions {
     host.removeLegacyWholeArchive = removeLegacyWholeArchive;
     host.dontEnableHostNonhost = dontEnableHostNonhost;
     host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
+    host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
     return host;
+  }
+
+  @Override
+  public FragmentOptions getExec() {
+    CppOptions exec = (CppOptions) super.getExec();
+
+    // The crosstool options are partially copied from the target configuration.
+    if (hostCrosstoolTop != null) {
+      exec.crosstoolTop = hostCrosstoolTop;
+      exec.cppCompiler = hostCppCompiler;
+    }
+
+    // hostLibcTop doesn't default to the target's libcTop.
+    // Only an explicit command-line option will change it.
+    // The default is whatever the host's crosstool (which might have been specified
+    // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
+    exec.libcTopLabel = hostLibcTopLabel;
+    // TODO(b/129045294): Remove once toolchain-transitions are implemented.
+    exec.targetLibcTopLabel = libcTopLabel;
+
+    // -g0 is the default, but allowMultiple options cannot have default values so we just pass
+    // -g0 first and let the user options override it.
+    ImmutableList.Builder<String> coptListBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> cxxoptListBuilder = ImmutableList.builder();
+    // Don't add -g0 if the host platform is Windows.
+    // Note that host platform is not necessarily the platform bazel is running on (foundry)
+    if (OS.getCurrent() != OS.WINDOWS) {
+      coptListBuilder.add("-g0");
+      cxxoptListBuilder.add("-g0");
+    }
+    exec.coptList = coptListBuilder.addAll(hostCoptList).build();
+    exec.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
+    exec.conlyoptList = ImmutableList.copyOf(hostConlyoptList);
+    exec.linkoptList = ImmutableList.copyOf(hostLinkoptList);
+
+    exec.stripBinaries = StripMode.ALWAYS;
+
+    return exec;
   }
 
   /**

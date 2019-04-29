@@ -115,7 +115,7 @@ The graph translates into a `BUILD` file like this:
 android_instrumentation_test(
     name = "my_test",
     test_app = ":my_test_app",
-    target_device = "@android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86_qemu2",
+    target_device = "@android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86",
 )
 
 # Test app and library
@@ -249,10 +249,10 @@ run the tests on. These `android_device` targets are defined in
 [`@android_test_support`](https://github.com/google/android-testing-support-library/tree/master/tools/android/emulated_devices).
 
 ```python
-$ bazel query --output=build @android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86_qemu2
+$ bazel query --output=build @android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86
 # .../external/android_test_support/tools/android/emulated_devices/generic_phone/BUILD:43:1
 android_device(
-  name = "android_23_x86_qemu2",
+  name = "android_23_x86",
   visibility = ["//visibility:public"],
   tags = ["requires-kvm"],
   generator_name = "generic_phone",
@@ -264,8 +264,8 @@ android_device(
   screen_density = 240,
   cache = 32,
   vm_heap = 256,
-  system_image = "@android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86_qemu2_images",
-  default_properties = "@android_test_support//tools/android/emulated_devices/generic_phone:_android_23_x86_qemu2_props",
+  system_image = "@android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86_images",
+  default_properties = "@android_test_support//tools/android/emulated_devices/generic_phone:_android_23_x86_props",
 )
 ```
 
@@ -278,7 +278,7 @@ The device target names use this template:
 In order to launch an `android_device`, the `system_image` for the selected API
 level is required. To download the system image, use Android SDK's
 `tools/bin/sdkmanager`. For example, to download the system image for
-`generic_phone:android_23_x86_qemu2`, run `$sdk/tools/bin/sdkmanager
+`generic_phone:android_23_x86`, run `$sdk/tools/bin/sdkmanager
 "system-images;android-23;default;x86"`.
 
 To see the full list of supported `android_device` targets in
@@ -492,7 +492,7 @@ $ tree bazel-testlogs/ui/espresso/BasicSample/BasicSampleInstrumentationTest
 │   ├── adb.7.ok.txt
 │   ├── adb.8.ok.txt
 │   ├── adb.9.ok.txt
-│   ├── android_23_x86_qemu2.1.ok.txt
+│   ├── android_23_x86.1.ok.txt
 │   └── exec-1
 │       ├── adb-2.txt
 │       ├── emulator-2.txt

@@ -99,7 +99,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * NodeEntry#getValueMaybeWithMetadata}. In the latter case, they should be processed using the
    * static methods of {@link ValueWithMetadata}.
    */
-  private final Map<SkyKey, SkyValue> previouslyRequestedDepsValues;
+  private final ImmutableMap<SkyKey, SkyValue> previouslyRequestedDepsValues;
 
   /**
    * The values newly requested from the graph.
@@ -204,7 +204,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         skyKey);
   }
 
-  private Map<SkyKey, SkyValue> batchPrefetch(
+  private ImmutableMap<SkyKey, SkyValue> batchPrefetch(
       SkyKey requestor, GroupedList<SkyKey> depKeys, Set<SkyKey> oldDeps, boolean assertDone)
       throws InterruptedException, UndonePreviouslyRequestedDeps {
     QueryableGraph.PrefetchDepsRequest request = null;
@@ -785,11 +785,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     // the data being written now is the same as the data already present in the entry.
     Set<SkyKey> reverseDeps =
         primaryEntry.setValue(valueWithMetadata, evaluationVersion, depFingerprintList);
-    if (AbstractParallelEvaluator.matchesMissingSkyKey(skyKey)) {
-      logger.atInfo().log(
-          "Set value for %s with %s (%s)",
-          skyKey, primaryEntry, System.identityHashCode(primaryEntry));
-    }
 
     // Note that if this update didn't actually change the entry, this version may not be
     // evaluationVersion.

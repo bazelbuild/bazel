@@ -49,8 +49,7 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.syntax.SkylarkImports;
-import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
+import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -468,7 +467,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     for (SkylarkImport notRemappedImport : unRemappedImports) {
       try {
         SkylarkImport newImport =
-            SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
+            SkylarkImport.create(notRemappedImport.getImportString(), repositoryMapping);
         builder.add(newImport);
       } catch (SkylarkImportSyntaxException ignored) {
         // This won't happen because we are constructing a SkylarkImport from a SkylarkImport so
@@ -542,6 +541,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   public static void execAndExport(BuildFileAST ast, Label extensionLabel,
       EventHandler eventHandler,
       com.google.devtools.build.lib.syntax.Environment extensionEnv) throws InterruptedException {
+    ast.replayLexerEvents(extensionEnv, eventHandler);
     ImmutableList<Statement> statements = ast.getStatements();
     for (Statement statement : statements) {
       ast.execTopLevelStatement(statement, extensionEnv, eventHandler);

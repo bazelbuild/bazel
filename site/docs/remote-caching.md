@@ -208,7 +208,7 @@ A Bazel request to upload an output file with the SHA256 hash `15e2b0d3...` to
 the CAS will look as follows:
 
 ```http
-PUT /cas/15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225 HTTP/1.1
+PUT /cache/cas/15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225 HTTP/1.1
 Host: localhost:8080
 Accept: */*
 Content-Length: 9

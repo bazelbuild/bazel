@@ -141,7 +141,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name = 'c_lib',",
         "    srcs = ['foo.cc'],",
         "    copts = [ '-Wmy-warning', '-frun-faster' ])");
-    assertThat(getCopts("//copts:c_lib")).containsAllOf("-Wmy-warning", "-frun-faster");
+    assertThat(getCopts("//copts:c_lib")).containsAtLeast("-Wmy-warning", "-frun-faster");
   }
 
   @Test
@@ -152,7 +152,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    srcs = ['foo.cc'],",
         "    copts = ['-Wmy-warning -frun-faster'])");
     List<String> copts = getCopts("//copts:c_lib");
-    assertThat(copts).containsAllOf("-Wmy-warning", "-frun-faster");
+    assertThat(copts).containsAtLeast("-Wmy-warning", "-frun-faster");
   }
 
   @Test
@@ -187,7 +187,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'archive_in_srcs_lib',",
             "           srcs = ['libstatic.a', 'libboth.a', 'libboth.so'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(archiveInSrcsTest));
-    assertThat(artifactNames).containsAllOf("libboth.so", "libstatic.a");
+    assertThat(artifactNames).containsAtLeast("libboth.so", "libstatic.a");
     assertThat(artifactNames).doesNotContain("libboth.a");
   }
 
@@ -419,7 +419,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     String includesRoot = "bang/bang_includes";
     assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
-        .containsAllOf(
+        .containsAtLeast(
             PathFragment.create(includesRoot),
             targetConfig.getGenfilesFragment().getRelative(includesRoot));
   }
@@ -767,7 +767,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'mylib',",
             "           srcs = ['libshared.so', 'libshared.so.1.1', 'foo.cc'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
-    assertThat(artifactNames).containsAllOf("libshared.so", "libshared.so.1.1");
+    assertThat(artifactNames).containsAtLeast("libshared.so", "libshared.so.1.1");
   }
 
   @Test

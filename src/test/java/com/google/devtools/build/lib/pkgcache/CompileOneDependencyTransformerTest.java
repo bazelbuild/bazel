@@ -70,7 +70,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         "foo/rule.bzl",
         "def _impl(ctx):",
         "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
-        "  return struct()",
+        "  return []",
         "crule_without_srcs = rule(",
         "  _impl,",
         "  attrs = { ",

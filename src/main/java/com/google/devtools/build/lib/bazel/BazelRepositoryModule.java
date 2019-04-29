@@ -217,7 +217,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    clientEnvironmentSupplier.set(env.getActionClientEnv());
+    clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
     resolvedFile = Optional.<RootedPath>absent();
@@ -227,7 +227,16 @@ public class BazelRepositoryModule extends BlazeModule {
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
       repositoryCache.setHardlink(repoOptions.useHardlinks);
-      skylarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
+      if (repoOptions.experimentalScaleTimeouts > 0.0) {
+        skylarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
+      } else {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Ingoring request to scale timeouts for repositories by a non-positive"
+                        + " factor"));
+        skylarkRepositoryFunction.setTimeoutScaling(1.0);
+      }
       if (repoOptions.experimentalRepositoryCache != null) {
         // A set but empty path indicates a request to disable the repository cache.
         if (!repoOptions.experimentalRepositoryCache.isEmpty()) {
@@ -275,6 +284,14 @@ public class BazelRepositoryModule extends BlazeModule {
                 .collect(Collectors.toList()));
       } else {
         httpDownloader.setDistdir(ImmutableList.<Path>of());
+      }
+
+      if (repoOptions.httpTimeoutScaling > 0) {
+        httpDownloader.setTimeoutScaling((float) repoOptions.httpTimeoutScaling);
+      } else {
+        env.getReporter()
+            .handle(Event.warn("Ingoring request to scale http timeouts by a non-positive factor"));
+        httpDownloader.setTimeoutScaling(1.0f);
       }
 
       if (repoOptions.repositoryOverrides != null) {

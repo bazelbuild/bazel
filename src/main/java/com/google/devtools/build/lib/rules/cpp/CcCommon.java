@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -122,10 +124,14 @@ public final class CcCommon {
           CppActionNames.PREPROCESS_ASSEMBLE,
           CppActionNames.CLIF_MATCH,
           CppActionNames.LINKSTAMP_COMPILE,
-          CppActionNames.CC_FLAGS_MAKE_VARIABLE);
+          CppActionNames.CC_FLAGS_MAKE_VARIABLE,
+          CppActionNames.LTO_BACKEND);
 
   public static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(
+          CppActionNames.LTO_INDEX_EXECUTABLE,
+          CppActionNames.LTO_INDEX_DYNAMIC_LIBRARY,
+          CppActionNames.LTO_INDEX_NODEPS_DYNAMIC_LIBRARY,
           LinkTargetType.EXECUTABLE.getActionName(),
           Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());
@@ -704,7 +710,23 @@ public final class CcCommon {
   /** Returns the Windows DEF file specified in win_def_file attribute of the rule. */
   @Nullable
   Artifact getWinDefFile() {
+    if (!ruleContext.isAttrDefined("win_def_file", LABEL)) {
+      return null;
+    }
+
     return ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
+  }
+
+  /**
+   * Returns the parser & Windows DEF file generator specified in $def_parser attribute of the rule.
+   */
+  @Nullable
+  Artifact getDefParser() {
+    if (!ruleContext.isAttrDefined("$def_parser", LABEL)) {
+      return null;
+    }
+
+    return ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST);
   }
 
   /** Provides support for instrumentation. */
@@ -984,9 +1006,8 @@ public final class CcCommon {
     FeatureConfiguration featureConfiguration = null;
     CppConfiguration cppConfiguration;
     if (toolchainProvider.requireCtxInConfigureFeatures()) {
-      // When this is flipped, this whole method will go away. But I'm keeping it there
-      // so we can experiment with flags before they are flipped.
-      Preconditions.checkArgument(toolchainProvider.disableGenruleCcToolchainDependency());
+      // When --incompatible_require_ctx_in_configure_features is flipped, this whole method will go
+      // away. But I'm keeping it there so we can experiment with flags before they are flipped.
       cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     } else {
       cppConfiguration =

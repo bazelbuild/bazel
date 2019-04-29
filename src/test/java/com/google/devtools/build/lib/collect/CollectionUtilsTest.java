@@ -102,7 +102,7 @@ public class CollectionUtilsTest {
 
     Iterable<Integer> mutableList = Lists.newArrayList(1, 2, 3);
     Iterable<Integer> converted = CollectionUtils.makeImmutable(mutableList);
-    assertThat(converted).isNotSameAs(mutableList);
+    assertThat(converted).isNotSameInstanceAs(mutableList);
     assertThat(ImmutableList.copyOf(converted)).isEqualTo(mutableList);
   }
 

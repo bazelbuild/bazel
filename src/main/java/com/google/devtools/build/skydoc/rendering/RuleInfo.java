@@ -16,6 +16,7 @@ package com.google.devtools.build.skydoc.rendering;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import java.util.Collection;
 
 /**

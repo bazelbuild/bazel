@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -124,4 +125,35 @@ public class BuildEventServiceOptions extends OptionsBase {
               + " backend. Bazel will output the URL appended by the invocation id to the"
               + " terminal.")
   public String besResultsUrl;
+
+  @Option(
+      name = "bes_upload_mode",
+      defaultValue = "wait_for_upload_complete",
+      converter = BesUploadModeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "Specifies whether the Build Event Service upload should block the build completion "
+              + "or should end the invocation immediately and finish the upload in the background.")
+  public BesUploadMode besUploadMode;
+
+  /** Determines the mode that will be used to upload data to the Build Event Service. */
+  public enum BesUploadMode {
+    /** Block at the end of the build waiting for the upload to complete */
+    WAIT_FOR_UPLOAD_COMPLETE,
+    /** Block at the beginning of the next build waiting for upload completion */
+    NOWAIT_FOR_UPLOAD_COMPLETE,
+    /**
+     * Block at the beginning of the next build waiting for the client to finish uploading the data,
+     * but possibly not blocking on the server acknowledgement.
+     */
+    FULLY_ASYNC,
+  }
+
+  /** Converter for {@link BesUploadMode} */
+  public static class BesUploadModeConverter extends EnumConverter<BesUploadMode> {
+    public BesUploadModeConverter() {
+      super(BesUploadMode.class, "Mode for uploading to the Build Event Service");
+    }
+  }
 }

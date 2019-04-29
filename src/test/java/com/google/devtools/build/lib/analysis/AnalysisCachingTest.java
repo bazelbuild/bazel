@@ -116,7 +116,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "java/b/BUILD", "java_library(name = 'b',", "             srcs = ['C.java'])");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertThat(current).isNotSameAs(old);
+    assertThat(current).isNotSameInstanceAs(old);
   }
 
   @Test
@@ -132,7 +132,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['A.java'])");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertThat(current).isNotSameAs(old);
+    assertThat(current).isNotSameInstanceAs(old);
   }
 
   // Regression test for:
@@ -343,7 +343,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     reporter.addHandler(failFastHandler);
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertThat(current).isNotSameAs(old);
+    assertThat(current).isNotSameInstanceAs(old);
   }
 
   private void assertNoTargetsVisited() {
@@ -468,7 +468,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
     update(aTarget);
     ConfiguredTarget updatedCT = getConfiguredTarget(aTarget);
-    assertThat(updatedCT).isNotSameAs(firstCT);
+    assertThat(updatedCT).isNotSameInstanceAs(firstCT);
 
     update(aTarget);
     ConfiguredTarget updated2CT = getConfiguredTarget(aTarget);
@@ -496,7 +496,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     ConfiguredTarget newBConfTarget = getConfiguredTarget(bTarget);
 
     assertThat(newAConfTarget).isSameAs(oldAConfTarget);
-    assertThat(newBConfTarget).isNotSameAs(oldBConfTarget);
+    assertThat(newBConfTarget).isNotSameInstanceAs(oldBConfTarget);
   }
 
   private int countObjectsPartiallyMatchingRegex(

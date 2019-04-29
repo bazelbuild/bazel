@@ -50,8 +50,6 @@ filegroup(
 filegroup(
     name = "gpl-srcs",
     srcs = [
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
     ],
 )
@@ -79,8 +77,8 @@ java_import(
 java_import(
     name = "android_common_25_0_0_lite",
     jars = [
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0-stripped.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
     ],
     deps = [
@@ -585,15 +583,6 @@ java_import(
 )
 
 java_import(
-    name = "mockito2",
-    jars = ["mockito/mockito-core-2.25.1.jar"],
-    deps = [
-        ":byte_buddy",
-        ":objenesis",
-    ],
-)
-
-java_import(
     name = "objenesis",
     jars = ["objenesis/objenesis-1_3.jar"],
 )
@@ -610,15 +599,15 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.42.jar"],
-    runtime_deps = [
+    jars = ["truth/truth-0.44.jar"],
+    deps = [
         ":diffutils",
     ],
 )
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-0.42.jar"],
+    jars = ["truth8/truth-java8-extension-0.44.jar"],
 )
 
 java_import(

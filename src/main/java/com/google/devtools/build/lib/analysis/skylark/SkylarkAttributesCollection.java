@@ -155,6 +155,12 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
         return;
       }
 
+      // Some legacy native attribute types do not have a valid Starlark type. Avoid exposing
+      // these to Starlark.
+      if (type == BuildType.DISTRIBUTIONS || type == BuildType.TRISTATE) {
+        return;
+      }
+
       // TODO(mstaib): Remove the LABEL_DICT_UNARY special case of this conditional
       // LABEL_DICT_UNARY was previously not treated as a dependency-bearing type, and was put into
       // Skylark as a Map<String, Label>; this special case preserves that behavior temporarily.

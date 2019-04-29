@@ -242,9 +242,24 @@ void WriteStatsToFile(struct rusage *rusage, const std::string &stats_path) {
 
   std::unique_ptr<tools::protos::ExecutionStatistics> execution_statistics =
       CreateExecutionStatisticsProto(rusage);
+  std::string serialized = execution_statistics->SerializeAsString();
 
-  if (!execution_statistics->SerializeToFileDescriptor(fd_out)) {
-    DIE("could not write resource usage to file: %s", stats_path.c_str());
+  if (serialized.empty()) {
+    DIE("invalid execution statistics message");
+  }
+
+  const char *remaining = serialized.c_str();
+  ssize_t remaining_size = serialized.size();
+
+  while (remaining_size > 0) {
+    ssize_t written = write(fd_out, remaining, remaining_size);
+    if (written < 0 && errno != EINTR && errno != EAGAIN) {
+      DIE("could not write resource usage to file '%s': %s",
+          stats_path.c_str(), strerror(errno));
+    }
+
+    remaining_size -= written;
+    remaining += written;
   }
 
   close(fd_out);

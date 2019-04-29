@@ -31,12 +31,14 @@ except ImportError:
 import random
 import socket
 import sys
+import time
 
 
 class Handler(BaseHTTPRequestHandler):
   """Handlers for testing HTTP server."""
   auth = False
   not_found = False
+  simulate_timeout = False
   filename = None
   redirect = None
   valid_header = b'Basic ' + base64.b64encode('foo:bar'.encode('ascii'))
@@ -53,6 +55,10 @@ class Handler(BaseHTTPRequestHandler):
     self.end_headers()
 
   def do_GET(self):  # pylint: disable=invalid-name
+    if self.simulate_timeout:
+      while True:
+        time.sleep(1)
+
     if self.not_found:
       self.send_response(404)
       self.end_headers()
@@ -96,6 +102,8 @@ def main(argv=None):
     Handler.redirect = argv[1]
   elif argv and argv[0] == '404':
     Handler.not_found = True
+  elif argv and argv[0] == 'timeout':
+    Handler.simulate_timeout = True
   elif argv:
     Handler.auth = True
 

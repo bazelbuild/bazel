@@ -52,6 +52,7 @@ public class AutoRegistry {
       ImmutableList.of(
           "java.io.FileNotFoundException",
           "java.io.IOException",
+          "java.lang.StackTraceElement",
           "java.lang.invoke.SerializedLambda",
           "com.google.common.base.Predicates$InPredicate",
           // Sadly, these builders are serialized as part of SkylarkCustomCommandLine$Builder, which

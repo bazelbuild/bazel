@@ -344,6 +344,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addInt(runNumber);
     fp.addInt(testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
     fp.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
+    fp.addStringMap(getExecutionInfo());
   }
 
   @Override
@@ -920,6 +921,10 @@ public class TestRunnerAction extends AbstractAction
     /** @return path to the optionally created XML output file created by the test. */
     public Path getXmlOutputPath() {
       return getPath(xmlOutputPath);
+    }
+
+    public Path getCoverageDirectory() {
+      return getPath(TestRunnerAction.this.getCoverageDirectory());
     }
 
     public Path getCoverageDataPath() {

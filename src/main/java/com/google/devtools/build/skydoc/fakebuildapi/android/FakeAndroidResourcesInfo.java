@@ -140,10 +140,21 @@ public class FakeAndroidResourcesInfo
   }
 
   /** Fake implementation of {@link ValidatedAndroidDataApi}. */
-  public static class FakeValidatedAndroidDataApi implements ValidatedAndroidDataApi<FileApi> {
+  public static class FakeValidatedAndroidDataApi
+      implements ValidatedAndroidDataApi<FileApi, FakeAndroidResourcesInfo> {
+
+    @Override
+    public FakeAndroidResourcesInfo toProvider() {
+      return null;
+    }
 
     @Override
     public FileApi getRTxt() {
+      return null;
+    }
+
+    @Override
+    public FileApi getJavaClassJar() {
       return null;
     }
 

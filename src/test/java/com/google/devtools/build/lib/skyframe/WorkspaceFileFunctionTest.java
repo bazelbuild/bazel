@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -25,13 +26,16 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -42,11 +46,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import javax.annotation.Nullable;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.junit.Before;
@@ -68,6 +74,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   private ExternalPackageFunction externalSkyFunc;
   private WorkspaceASTFunction astSkyFunc;
   private FakeFileValue fakeWorkspaceFileValue;
+  private TestWorkspaceFileListener testWorkspaceFileListener;
 
   static class FakeFileValue extends FileValue {
     private boolean exists;
@@ -126,6 +133,12 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     externalSkyFunc = new ExternalPackageFunction();
     astSkyFunc = new WorkspaceASTFunction(ruleClassProvider);
     fakeWorkspaceFileValue = new FakeFileValue();
+  }
+
+  @Override
+  protected WorkspaceFileHeaderListener getWorkspaceFileListener() {
+    testWorkspaceFileListener = new TestWorkspaceFileListener();
+    return testWorkspaceFileListener;
   }
 
   @Override
@@ -296,6 +309,104 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testManagedDirectories() throws Exception {
+    PrecomputedValue precomputedValue =
+        (PrecomputedValue)
+            getEnv().getValue(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting());
+    StarlarkSemantics semantics =
+        (StarlarkSemantics) Preconditions.checkNotNull(precomputedValue).get();
+    Injectable injectable = getSkyframeExecutor().injectable();
+    try {
+      StarlarkSemantics semanticsWithManagedDirectories =
+          StarlarkSemantics.builderWithDefaults()
+              .experimentalAllowIncrementalRepositoryUpdates(true)
+              .build();
+      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithManagedDirectories);
+
+      WorkspaceFileValue workspaceFileValue =
+          parseWorkspaceFileValue(
+              "workspace(",
+              "  name = 'rr',",
+              "  managed_directories = {'@repo1': ['dir1', 'dir2'], '@repo2': ['dir3/dir1/..']}",
+              ")");
+      ImmutableMap<PathFragment, RepositoryName> managedDirectories =
+          workspaceFileValue.getManagedDirectories();
+      assertThat(managedDirectories).isNotNull();
+      assertThat(managedDirectories).hasSize(3);
+      assertThat(managedDirectories)
+          .containsExactly(
+              PathFragment.create("dir1"), RepositoryName.create("@repo1"),
+              PathFragment.create("dir2"), RepositoryName.create("@repo1"),
+              PathFragment.create("dir3"), RepositoryName.create("@repo2"));
+
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': 'dir1', '@repo2': ['dir3']}",
+          "managed_directories attribute value should be of the type attr.string_list_dict(),"
+              + " mapping repository name to the list of managed directories.");
+
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': ['dir1'], '@repo2': ['dir1']}",
+          "managed_directories attribute should not contain multiple (or duplicate) repository"
+              + " mappings for the same directory ('dir1').");
+
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': ['']}", "Expected managed directory path to be non-empty string.");
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': ['/abc']}",
+          "Expected managed directory path ('/abc') to be relative to the workspace root.");
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': ['../abc']}",
+          "Expected managed directory path ('../abc') to be under the workspace root.");
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': ['a/b', 'a/b']}",
+          "managed_directories attribute should not contain multiple (or duplicate)"
+              + " repository mappings for the same directory ('a/b').");
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': [], '@repo1': [] }", "Duplicated key \"@repo1\" when creating dictionary");
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': ['a/b'], '@repo2': ['a/b/c/..'] }",
+          "managed_directories attribute should not contain multiple (or duplicate)"
+              + " repository mappings for the same directory ('a/b/c/..').");
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': ['a'], '@repo2': ['a/b'] }",
+          "managed_directories attribute value can not contain nested mappings."
+              + " 'a/b' is a descendant of 'a'.");
+      assertManagedDirectoriesParsingError(
+          "{'@repo1': ['a/b'], '@repo2': ['a'] }",
+          "managed_directories attribute value can not contain nested mappings."
+              + " 'a/b' is a descendant of 'a'.");
+
+      assertManagedDirectoriesParsingError(
+          "{'repo1': []}",
+          "Cannot parse repository name 'repo1'. Repository name should start with '@'.");
+    } finally {
+      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
+    }
+  }
+
+  private void assertManagedDirectoriesParsingError(
+      String managedDirectoriesValue, String expectedError)
+      throws IOException, InterruptedException {
+    WorkspaceFileValue workspaceFileValue =
+        parseWorkspaceFileValue(
+            "workspace(",
+            "  name = 'rr',",
+            "  managed_directories = " + managedDirectoriesValue,
+            ")");
+    Package pkg = workspaceFileValue.getPackage();
+    assertThat(pkg.containsErrors()).isTrue();
+    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedError);
+  }
+
+  private WorkspaceFileValue parseWorkspaceFileValue(String... lines)
+      throws IOException, InterruptedException {
+    RootedPath workspaceFile = createWorkspaceFile(lines);
+    WorkspaceFileKey key = WorkspaceFileValue.key(workspaceFile);
+    EvaluationResult<WorkspaceFileValue> result = eval(key);
+    return result.get(key);
+  }
+
+  @Test
   public void testInvalidRepo() throws Exception {
     RootedPath workspacePath = createWorkspaceFile("workspace(name = 'foo$')");
     PackageValue value =
@@ -388,5 +499,43 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     assertThat(getLabelMapping(pkg, "foo/bar"))
         .isEqualTo(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     MoreAsserts.assertNoEvents(pkg.getEvents());
+  }
+
+  @Test
+  public void testWorkspaceFileValueListener() throws Exception {
+    // Normally, syscalls cache is reset in the sync() method of the SkyframeExecutor, before
+    // diffing.
+    // But here we are calling only actual diffing part, exposed for testing:
+    // handleDiffsForTesting(), so we better turn off the syscalls cache.
+    skyframeExecutor.turnOffSyscallCacheForTesting();
+
+    createWorkspaceFile("workspace(name = 'old')");
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    assertThat(testWorkspaceFileListener.getLastWorkspaceName()).isEqualTo("old");
+    assertThat(testWorkspaceFileListener.getCnt()).isEqualTo(1);
+
+    createWorkspaceFile("workspace(name = 'changed')");
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    assertThat(testWorkspaceFileListener.getLastWorkspaceName()).isEqualTo("changed");
+    assertThat(testWorkspaceFileListener.getCnt()).isEqualTo(2);
+  }
+
+  private static class TestWorkspaceFileListener implements WorkspaceFileHeaderListener {
+    private String lastWorkspaceName;
+    private int cnt = 0;
+
+    @Override
+    public void workspaceHeaderChanged(@Nullable WorkspaceFileValue newValue) {
+      ++cnt;
+      lastWorkspaceName = newValue != null ? newValue.getPackage().getWorkspaceName() : null;
+    }
+
+    private String getLastWorkspaceName() {
+      return lastWorkspaceName;
+    }
+
+    private int getCnt() {
+      return cnt;
+    }
   }
 }

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -29,12 +28,9 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -58,16 +54,6 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         help = "An option that is sometimes set to null.")
     public Label nullable;
-
-    @Option(
-        name = "allow_multiple",
-        converter = Converters.AssignmentConverter.class,
-        defaultValue = "",
-        allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help = "Each --define option specifies an assignment for a build variable.")
-    public List<Map.Entry<String, String>> allowMultiple;
   }
 
   /** Loads a new {link @DummyTestFragment} instance. */
@@ -358,6 +344,9 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         .containsExactly("post-transition");
   }
 
+  private static final String CUTE_ANIMAL_DEFAULT =
+      "cows produce more milk when they listen to soothing music";
+
   private void writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests() throws Exception {
     writeWhitelistFile();
     scratch.file(
@@ -388,7 +377,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test')",
         "string_flag(",
         "  name = 'cute-animal-fact',",
-        "  build_setting_default = 'cows produce more milk when they listen to soothing music',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
         ")");
   }
 
@@ -551,6 +540,28 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     getConfiguredTarget("//test");
     assertContainsEvent(
         "attempting to transition on '//test:cute-animal-fact' which is not a build setting");
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting_dontStoreDefault() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:cute-animal-fact': '" + CUTE_ANIMAL_DEFAULT + "'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:cute-animal-fact']",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
+
+    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(configuration.getOptions().getStarlarkOptions())
+        .doesNotContainKey(Label.parseAbsoluteUnchecked("//test:cute-animal-fact"));
   }
 
   @Test
@@ -867,39 +878,5 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(TestOptions.class).testArguments)
         .containsExactly("post-transition");
-  }
-
-  @Test
-  public void testWriteNativeOption_allowMultipleOption() throws Exception {
-    writeWhitelistFile();
-    scratch.file(
-        "test/transitions.bzl",
-        "def _impl(settings, attr):",
-        "  return {",
-        "  '//command_line_option:allow_multiple': ['APRIL=SHOWERS', 'MAY=FLOWERS'],",
-        "  }",
-        "my_transition = transition(implementation = _impl, inputs = [],",
-        "  outputs = ['//command_line_option:allow_multiple'])");
-    scratch.file(
-        "test/rules.bzl",
-        "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
-        "    ),",
-        "  })");
-    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
-
-    useConfiguration("--allow_multiple=APRIL=FOOLS");
-
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).allowMultiple)
-        .containsExactly(
-            Maps.immutableEntry("APRIL", "SHOWERS"), Maps.immutableEntry("MAY", "FLOWERS"));
   }
 }

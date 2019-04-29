@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.SymlinkedSandboxedSpawn;
+import com.google.devtools.build.lib.sandbox.SynchronousTreeDeleter;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,7 +45,8 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
         ImmutableMap.of(),
         inputs,
         outputs,
-        ImmutableSet.of());
+        ImmutableSet.of(),
+        new SynchronousTreeDeleter());
     this.workDir = workDir;
     this.workerFiles = workerFiles;
   }

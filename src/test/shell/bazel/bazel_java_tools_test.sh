@@ -16,6 +16,9 @@
 
 # Load the test setup defined in the parent directory
 set -euo pipefail
+
+JAVA_TOOLS_JAVA_VERSION="$1"; shift
+
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
     if [[ -f "$0.runfiles_manifest" ]]; then
@@ -65,8 +68,8 @@ fi
 function expect_path_in_java_tools() {
   path="$1"; shift
 
-  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools.zip) | grep -c "$path")
-  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools"
+  count=$(zipinfo -1 $(rlocation io_bazel/src/java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip) | grep -c "$path")
+  [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_${JAVA_TOOLS_JAVA_VERSION}.zip"
 }
 
 function test_java_tools_has_ijar() {
@@ -122,11 +125,11 @@ function test_java_tools_has_Runner() {
 }
 
 function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "java_tools/jdk_compiler"
+  expect_path_in_java_tools "java_tools/jdk_compiler.jar"
 }
 
 function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_tools/java_compiler"
+  expect_path_in_java_tools "java_tools/java_compiler.jar"
 }
 
 function test_java_tools_has_javac() {
@@ -147,6 +150,21 @@ function test_java_tools_has_GenClass() {
 
 function test_java_tools_has_ExperimentalRunner() {
   expect_path_in_java_tools "java_tools/ExperimentalRunner_deploy.jar"
+}
+
+function test_java_tools_has_BUILD() {
+  expect_path_in_java_tools "BUILD"
+}
+
+function test_java_tools_has_jacocoagent() {
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-tree-7.0.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-commons-7.0.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-7.0.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/LICENSE"
 }
 
 run_suite "Java tools archive tests"

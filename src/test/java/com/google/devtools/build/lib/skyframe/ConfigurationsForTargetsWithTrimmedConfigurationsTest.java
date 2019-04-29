@@ -191,11 +191,14 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
 
     @Override
     public BuildOptions patch(BuildOptions options) {
+      if (!options.contains(TestConfiguration.TestOptions.class)) {
+        return options;
+      }
+
       BuildOptions result = options.clone();
       TestConfiguration.TestOptions testOpts = result.get(TestConfiguration.TestOptions.class);
-      ImmutableList<String> testArgs =
+      testOpts.testArguments =
           new ImmutableList.Builder<String>().addAll(testOpts.testArguments).add(argument).build();
-      testOpts.testArguments = testArgs;
       return result;
     }
   }
@@ -586,7 +589,6 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
             transition,
             ruleClassProvider.getAllFragments(),
             ruleClassProvider,
-            false,
             ImmutableMap.of(),
             ImmutableMap.of())) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);

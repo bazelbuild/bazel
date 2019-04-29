@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.File;
@@ -76,7 +78,6 @@ public class WorkspaceFactory {
   private final Path defaultSystemJavabaseDir;
   private final Mutability mutability;
 
-  private final boolean allowOverride;
   private final RuleFactory ruleFactory;
 
   private final WorkspaceGlobals workspaceGlobals;
@@ -119,7 +120,6 @@ public class WorkspaceFactory {
     this.installDir = installDir;
     this.workspaceDir = workspaceDir;
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
-    this.allowOverride = allowOverride;
     this.environmentExtensions = environmentExtensions;
     this.ruleFactory = new RuleFactory(ruleClassProvider, AttributeContainer::new);
     this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
@@ -206,7 +206,7 @@ public class WorkspaceFactory {
       }
     }
 
-    if (!ValidationEnvironment.checkBuildSyntax(ast.getStatements(), localReporter)
+    if (!ValidationEnvironment.checkBuildSyntax(ast.getStatements(), localReporter, workspaceEnv)
         || !ast.exec(workspaceEnv, localReporter)) {
       localReporter.handle(Event.error("Error evaluating WORKSPACE file"));
     }
@@ -420,5 +420,9 @@ public class WorkspaceFactory {
 
   public Map<String, Object> getVariableBindings() {
     return variableBindings;
+  }
+
+  public Map<PathFragment, RepositoryName> getManagedDirectories() {
+    return workspaceGlobals.getManagedDirectories();
   }
 }

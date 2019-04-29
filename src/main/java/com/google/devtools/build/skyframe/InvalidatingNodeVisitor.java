@@ -88,7 +88,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     this.executor =
         new AbstractQueueVisitor(
             /*parallelism=*/ DEFAULT_THREAD_COUNT,
-            /*keepAliveTime=*/ 1,
+            /*keepAliveTime=*/ 15,
             /*units=*/ TimeUnit.SECONDS,
             /*failFastOnException=*/ true,
             "skyframe-invalidator",

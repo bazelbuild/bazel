@@ -103,7 +103,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
         "    srcs = ['lib.cc', 'lib.h'],",
         ")");
     assertThat(ActionsTestUtil.baseArtifactNames(getApi("//pkg:check").getTransitiveHeaders()))
-        .containsAllOf("lib.h", "bin.h");
+        .containsAtLeast("lib.h", "bin.h");
     assertThat(ActionsTestUtil.baseArtifactNames(getApi("//pkg:check_lib").getTransitiveHeaders()))
         .contains("lib.h");
   }
@@ -137,7 +137,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
     assertThat(getApi("//pkg:check_lib").getLinkopts())
         .contains("-Wl,-M");
     assertThat(getApi("//pkg:dependent_lib").getLinkopts())
-        .containsAllOf("-lz", "-Wl,-M")
+        .containsAtLeast("-lz", "-Wl,-M")
         .inOrder();
     assertThat(getApi("//pkg:check").getLinkopts())
         .isEmpty();

@@ -20,14 +20,12 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArt
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static org.junit.Assert.fail;
@@ -145,7 +143,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CppCompileAction compileA = (CppCompileAction) compileAction("//objc:x", "a.o");
 
     assertThat(Artifact.toRootRelativePaths(compileA.getPossibleInputsForTesting()))
-        .containsAllOf("objc/a.m", "objc/hdr.h", "objc/private.h");
+        .containsAtLeast("objc/a.m", "objc/hdr.h", "objc/private.h");
     assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
         .containsExactly("objc/_objs/x/arc/a.o", "objc/_objs/x/arc/a.d");
   }
@@ -187,7 +185,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
     assertThat(compileAction.getArguments())
-        .containsAllOf("-stdlib=libc++", "-std=gnu++11", "-mios-simulator-version-min=9.10.11");
+        .containsAtLeast("-stdlib=libc++", "-std=gnu++11", "-mios-simulator-version-min=9.10.11");
   }
 
   @Test
@@ -203,7 +201,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
     assertThat(compileAction.getArguments())
-        .containsAllOf("-stdlib=libc++", "-std=gnu++11", "-mmacosx-version-min=9.10.11");
+        .containsAtLeast("-stdlib=libc++", "-std=gnu++11", "-mmacosx-version-min=9.10.11");
   }
 
   @Test
@@ -434,7 +432,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments())
         .contains("tools/osx/crosstool/iossim/" + WRAPPED_CLANG);
     assertThat(compileActionA.getArguments())
-        .containsAllOf("-isysroot", AppleToolchain.sdkDir()).inOrder();
+        .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
+        .inOrder();
     assertThat(Collections.frequency(compileActionA.getArguments(),
         "-F" + AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")).isEqualTo(1);
     assertThat(
@@ -442,15 +441,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 compileActionA.getArguments(), "-F" + frameworkDir(ApplePlatform.IOS_SIMULATOR)))
         .isEqualTo(1);
     assertThat(compileActionA.getArguments())
-        .containsAllIn(AppleToolchain.DEFAULT_WARNINGS.values());
+        .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())
-        .containsAllIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+        .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
     assertThat(compileActionA.getArguments())
-        .containsAllIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
+        .containsAtLeastElementsIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
     assertThat(compileActionA.getArguments()).contains("-fobjc-arc");
-    assertThat(compileActionA.getArguments()).containsAllOf("-c", "objc/a.m");
+    assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAllIn(FASTBUILD_COPTS);
+    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments())
         .contains("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION);
     assertThat(compileActionA.getArguments()).contains("-arch i386");
@@ -483,7 +482,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertRequiresDarwin(compileActionA);
     assertThat(compileActionA.getArguments()).contains("tools/osx/crosstool/ios/" + WRAPPED_CLANG);
     assertThat(compileActionA.getArguments())
-        .containsAllOf("-isysroot", AppleToolchain.sdkDir()).inOrder();
+        .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
+        .inOrder();
     assertThat(Collections.frequency(compileActionA.getArguments(),
         "-F" + AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")).isEqualTo(1);
     assertThat(
@@ -491,17 +491,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 compileActionA.getArguments(), "-F" + frameworkDir(ApplePlatform.IOS_DEVICE)))
         .isEqualTo(1);
     assertThat(compileActionA.getArguments())
-        .containsAllIn(AppleToolchain.DEFAULT_WARNINGS.values());
+        .containsAtLeastElementsIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())
-        .containsAllIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+        .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
     assertThat(compileActionA.getArguments())
         .containsNoneIn(CompilationSupport.SIMULATOR_COMPILE_FLAGS);
 
     assertThat(compileActionA.getArguments()).contains("-fobjc-arc");
-    assertThat(compileActionA.getArguments()).containsAllOf("-c", "objc/a.m");
+    assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
 
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAllIn(FASTBUILD_COPTS);
+    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments())
         .contains("-miphoneos-version-min=" + DEFAULT_IOS_SDK_VERSION);
     assertThat(compileActionA.getArguments()).contains("-arch armv7");
@@ -518,19 +518,32 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsAndInputArtifacts() throws Exception {
+  public void testCompileWithFrameworkImportsIncludesFlagsAndInputArtifactsPreCleanup()
+      throws Exception {
     useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    addBinWithTransitiveDepOnFrameworkImport();
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
+    addBinWithTransitiveDepOnFrameworkImport(false);
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
     assertThat(compileAction.getArguments()).doesNotContain("-framework");
     assertThat(Joiner.on("").join(compileAction.getArguments())).contains("-Ffx");
     assertThat(compileAction.getInputs())
-        .containsAllOf(
+        .containsAtLeast(
             getSourceArtifact("fx/fx1.framework/a"),
             getSourceArtifact("fx/fx1.framework/b"),
             getSourceArtifact("fx/fx2.framework/c"),
             getSourceArtifact("fx/fx2.framework/d"));
+  }
+
+  @Test
+  public void testCompileWithFrameworkImportsIncludesFlagsPostCleanup() throws Exception {
+    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+    addBinWithTransitiveDepOnFrameworkImport(true);
+    CommandAction compileAction = compileAction("//lib:lib", "a.o");
+
+    assertThat(compileAction.getArguments()).doesNotContain("-framework");
+    assertThat(Joiner.on("").join(compileAction.getArguments())).contains("-Ffx");
   }
 
   @Test
@@ -559,7 +572,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
 
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-    assertThat(compileActionA.getArguments()).containsAllOf("-Ifoo", "--monkeys=ios_i386");
+    assertThat(compileActionA.getArguments()).containsAtLeast("-Ifoo", "--monkeys=ios_i386");
   }
 
   @Test
@@ -584,7 +597,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("copts", "-bar")
         .write();
     List<String> args = compileAction("//lib:lib", "a.o").getArguments();
-    assertThat(args).containsAllOf("-fobjc-arc", "-foo", "-bar").inOrder();
+    assertThat(args).containsAtLeast("-fobjc-arc", "-foo", "-bar").inOrder();
   }
 
   @Test
@@ -609,7 +622,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     CommandAction compileActionA = compileAction(target, "a.o");
     assertThat(compileActionA.getArguments())
-        .containsAllIn(moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
+        .containsAtLeastElementsIn(
+            moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
     assertThat(compileActionA.getArguments()).contains("-fmodule-maps");
     assertThat(Artifact.toRootRelativePaths(compileActionA.getInputs()))
         .doesNotContain("objc/library/lib@a-foo_foobar.modulemaps/module.modulemap");
@@ -726,8 +740,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("copts", "-fmodules")
         .write();
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-    assertThat(compileActionA.getArguments()).containsAllOf("-fmodules",
-        "-fmodules-cache-path=" + getModulesCachePath());
+    assertThat(compileActionA.getArguments())
+        .containsAtLeast("-fmodules", "-fmodules-cache-path=" + getModulesCachePath());
   }
 
   @Test
@@ -740,8 +754,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-    assertThat(compileActionA.getArguments()).containsAllOf("-fmodules",
-        "-fmodules-cache-path=" + getModulesCachePath());
+    assertThat(compileActionA.getArguments())
+        .containsAtLeast("-fmodules", "-fmodules-cache-path=" + getModulesCachePath());
   }
 
   @Test
@@ -768,7 +782,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 "-o",
                 Iterables.getOnlyElement(archiveAction.getOutputs()).getExecPathString()));
     assertThat(baseArtifactNames(archiveAction.getInputs()))
-        .containsAllOf("a.o", "b.o", "lib-archive.objlist", CROSSTOOL_LINK_MIDDLEMAN);
+        .containsAtLeast("a.o", "b.o", "lib-archive.objlist", CROSSTOOL_LINK_MIDDLEMAN);
     assertThat(baseArtifactNames(archiveAction.getOutputs())).containsExactly("liblib.a");
     assertRequiresDarwin(archiveAction);
   }
@@ -797,7 +811,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 "-o",
                 Iterables.getOnlyElement(archiveAction.getOutputs()).getExecPathString()));
     assertThat(baseArtifactNames(archiveAction.getInputs()))
-        .containsAllOf("a.o", "b.o", "lib-archive.objlist");
+        .containsAtLeast("a.o", "b.o", "lib-archive.objlist");
     assertThat(baseArtifactNames(archiveAction.getOutputs())).containsExactly("liblib.a");
     assertRequiresDarwin(archiveAction);
   }
@@ -833,10 +847,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .getExecPathString()));
     // TODO(hlopko): make containsExactly once crosstools are updated so
     // link_dynamic_library.sh is not needed anymore
-    assertThat(baseArtifactNames(linkAction.getInputs())).containsAllOf(
-        "liblib_dep.a",
-        "liblib.a",
-        CROSSTOOL_LINK_MIDDLEMAN);
+    assertThat(baseArtifactNames(linkAction.getInputs()))
+        .containsAtLeast("liblib_dep.a", "liblib.a", CROSSTOOL_LINK_MIDDLEMAN);
   }
 
   @Test
@@ -870,10 +882,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .getExecPathString()));
     // TODO(hlopko): make containsExactly once crosstools are updated so
     // link_dynamic_library.sh is not needed anymore
-    assertThat(baseArtifactNames(linkAction.getInputs())).containsAllOf(
-        "liblib_dep.a",
-        "liblib.a",
-        CROSSTOOL_LINK_MIDDLEMAN);
+    assertThat(baseArtifactNames(linkAction.getInputs()))
+        .containsAtLeast("liblib_dep.a", "liblib.a", CROSSTOOL_LINK_MIDDLEMAN);
   }
 
   @Test
@@ -926,16 +936,16 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
 
     assertThat(compileAction("//lib1:lib1", "a.o").getArguments())
-        .containsAllOf("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
+        .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
         .inOrder();
     assertThat(compileAction("//lib1:lib1", "b.o").getArguments())
-        .containsAllOf("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
+        .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
         .inOrder();
     assertThat(compileAction("//lib2:lib2", "a.o").getArguments())
-        .containsAllOf("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64", "-DC=bar", "-DD")
+        .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64", "-DC=bar", "-DD")
         .inOrder();
     assertThat(compileAction("//lib2:lib2", "b.o").getArguments())
-        .containsAllOf("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64", "-DC=bar", "-DD")
+        .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64", "-DC=bar", "-DD")
         .inOrder();
     // TODO: Add tests for //bin:bin once experimental_objc_binary is implemented
   }
@@ -977,40 +987,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileAction("//objc:x", "e.o").getArguments()).doesNotContain("-std=gnu++11");
     assertThat(compileAction("//objc:x", "f.o").getArguments()).doesNotContain("-std=gnu++11");
     assertThat(compileAction("//objc:x", "g.o").getArguments()).contains("-std=gnu++11");
-  }
-
-  @Test
-  public void testAssetCatalogsAttributeErrorForNotInXcAssetsDir() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--incompatible_disable_objc_library_resources=false");
-    scratch.file("lib/ac/notinxcassets1");
-    scratch.file("lib/ac/notinxcassets2");
-    scratch.file("lib/ac/foo.xcassets/isinxcassets");
-    checkError("lib", "lib",
-        String.format(ObjcCommon.NOT_IN_CONTAINER_ERROR_FORMAT,
-            "lib/ac/notinxcassets2", ImmutableList.of(ObjcCommon.ASSET_CATALOG_CONTAINER_TYPE)),
-        "objc_library(name = 'lib', srcs = ['src.m'], asset_catalogs = glob(['ac/**']))");
-  }
-
-  @Test
-  public void testXcdatamodelsAttributeErrorForNotInXcdatamodelDir() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--incompatible_disable_objc_library_resources=false");
-    scratch.file("lib/xcd/notinxcdatamodel1");
-    scratch.file("lib/xcd/notinxcdatamodel2");
-    scratch.file("lib/xcd/foo.xcdatamodel/isinxcdatamodel");
-    scratch.file("lib/xcd/bar.xcdatamodeld/isinxcdatamodeld");
-    checkError("lib", "lib",
-        String.format(ObjcCommon.NOT_IN_CONTAINER_ERROR_FORMAT,
-            "lib/xcd/notinxcdatamodel1", Xcdatamodels.CONTAINER_TYPES),
-        "objc_library(name = 'lib', srcs = ['src.m'], datamodels = glob(['xcd/**']))");
-  }
-
-  @Test
-  public void testProvidesStoryboardOptions() throws Exception {
-    checkProvidesStoryboardObjects(RULE_TYPE);
   }
 
   @Test
@@ -1130,42 +1106,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testPopulatesCompilationArtifacts() throws Exception {
     checkPopulatesCompilationArtifacts(RULE_TYPE);
-  }
-
-  @Test
-  public void testProvidesXcassetCatalogsTransitively() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=false");
-    scratch.file("lib1/ac.xcassets/foo");
-    scratch.file("lib1/ac.xcassets/bar");
-    createLibraryTargetWriter("//lib1:lib1")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .set("asset_catalogs", "glob(['ac.xcassets/**'])")
-        .write();
-    scratch.file("lib2/ac.xcassets/baz");
-    scratch.file("lib2/ac.xcassets/42");
-    createLibraryTargetWriter("//lib2:lib2")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .set("asset_catalogs", "glob(['ac.xcassets/**'])")
-        .setList("deps", "//lib1:lib1")
-        .write();
-
-    ObjcProvider lib2Provider = providerForTarget("//lib2:lib2");
-    assertThat(Artifact.toExecPaths(lib2Provider.get(ASSET_CATALOG)))
-        .containsExactly(
-            "lib1/ac.xcassets/foo",
-            "lib1/ac.xcassets/bar",
-            "lib2/ac.xcassets/baz",
-            "lib2/ac.xcassets/42");
-    assertThat(lib2Provider.get(XCASSETS_DIR))
-        .containsExactly(
-            PathFragment.create("lib1/ac.xcassets"), PathFragment.create("lib2/ac.xcassets"));
-
-    ObjcProvider lib1Provider = providerForTarget("//lib1:lib1");
-    assertThat(Artifact.toExecPaths(lib1Provider.get(ASSET_CATALOG)))
-        .containsExactly("lib1/ac.xcassets/foo", "lib1/ac.xcassets/bar");
-    assertThat(lib1Provider.get(XCASSETS_DIR))
-        .containsExactly(PathFragment.create("lib1/ac.xcassets"))
-        .inOrder();
   }
 
   @Test
@@ -1362,7 +1302,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
     assertThat(baseArtifactNames(compileAction.getOutputs())).containsExactly("b.o", "b.d");
     assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
-        .containsAllOf("c.h", "b.S");
+        .containsAtLeast("c.h", "b.S");
   }
 
   @Test
@@ -1408,7 +1348,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             new ImmutableList.Builder<String>()
                 .addAll(AppleToolchain.DEFAULT_WARNINGS.values())
                 .add("-fexceptions")
@@ -1491,7 +1431,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             });
 
     assertThat(linkerInputArtifacts)
-        .containsAllOf(
+        .containsAtLeast(
             getBinArtifact(
                 "liblib.a", getConfiguredTarget("//cc:lib", getAppleCrosstoolConfiguration())),
             getBinArtifact(
@@ -1525,7 +1465,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     // for creating binaries but is ignored for libraries.
     CommandAction archiveAction = archiveAction("//depender_lib:lib");
     assertThat(archiveAction.getArguments())
-        .containsAllIn(
+        .containsAtLeastElementsIn(
             new ImmutableList.Builder<String>()
                 .add("-static")
                 .add("-filelist")
@@ -1675,7 +1615,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
     assertThat(baseArtifactNames(compileAction.getOutputs())).contains("b.o");
     assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
-        .containsAllOf("c.h", "b.asm");
+        .containsAtLeast("c.h", "b.asm");
   }
 
   @Test
@@ -1691,7 +1631,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
     assertThat(baseArtifactNames(compileAction.getOutputs())).contains("b.o");
     assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
-        .containsAllOf("c.h", "b.s");
+        .containsAtLeast("c.h", "b.s");
   }
 
   @Test
@@ -1891,13 +1831,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
     List<String> copts = ImmutableList.of("-fprofile-arcs", "-ftest-coverage");
-    assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "d.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAllIn(copts);
+    assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "d.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAtLeastElementsIn(copts);
   }
 
   @Test
@@ -1910,13 +1850,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
     List<String> copts = ImmutableList.of("-fprofile-instr-generate", "-fcoverage-mapping");
-    assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "d.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAllIn(copts);
-    assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAllIn(copts);
+    assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "d.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAtLeastElementsIn(copts);
+    assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAtLeastElementsIn(copts);
    }
 
   @Test
@@ -2035,94 +1975,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileAction = compileAction("//cc/lib", "a.o");
     assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
         .contains("cc/txt_dep/hdr.h");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_assetCatalogs() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', asset_catalogs = ['fg'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_datamodels() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', datamodels = ['fg'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_resources() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', resources = ['fg'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_storyboards() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', storyboards = ['fg.storyboard'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_strings() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', strings = ['fg.strings'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_structuredResources() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', structured_resources = ['fg'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_xibs() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', xibs = ['fg.xib'])");
-  }
-
-  @Test
-  public void testIncompatibleResourceAttributeFlag_resourcesEmpty() throws Exception {
-    useConfiguration("--incompatible_disable_objc_library_resources=true");
-
-    checkError(
-        "x",
-        "x",
-        "objc_library resource attributes are not allowed. Please use the 'data' attribute instead",
-        "objc_library(name = 'x', resources = [])");
   }
 
   /** Regression test for https://github.com/bazelbuild/bazel/issues/7721. */

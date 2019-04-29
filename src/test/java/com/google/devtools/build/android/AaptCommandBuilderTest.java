@@ -290,13 +290,13 @@ public class AaptCommandBuilderTest {
             new AaptCommandBuilder(aapt)
                 .addParameterableRepeated("-R", resources, workingDirectory)
                 .build())
-        .containsAllOf("-R", "@" + workingDirectory.resolve("params-R"));
+        .containsAtLeast("-R", "@" + workingDirectory.resolve("params-R"));
     assertThat(
             Files.readAllLines(workingDirectory.resolve("params-R"), StandardCharsets.UTF_8)
                 .stream()
                 .map(Splitter.on(' ')::split)
                 .flatMap(Streams::stream)
                 .collect(toList()))
-        .containsAllIn(resources);
+        .containsAtLeastElementsIn(resources);
   }
 }

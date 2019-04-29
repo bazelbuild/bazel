@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
@@ -57,16 +58,19 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public NestedSet<String> define();
 
-  @SkylarkCallable(name = "dynamic_framework_dir",
+  @SkylarkCallable(
+      name = "dynamic_framework_dir",
       structField = true,
-      doc = "Exec paths of .framework directories corresponding to dynamic frameworks to link."
-  )
+      doc = "Exec paths of .framework directories corresponding to dynamic frameworks to link.",
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
   public SkylarkNestedSet dynamicFrameworkDir();
 
-  @SkylarkCallable(name = "dynamic_framework_file",
+  @SkylarkCallable(
+      name = "dynamic_framework_file",
       structField = true,
-      doc = "Files in .framework directories belonging to a dynamically linked framework."
-  )
+      doc =
+          "The library files in .framework directories belonging to a dynamically linked "
+              + "framework.")
   public NestedSet<FileApiT> dynamicFrameworkFile();
 
   @SkylarkCallable(name = "exported_debug_artifacts",
@@ -93,6 +97,14 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc = "All header files. These may be either public or private headers."
   )
   public NestedSet<FileApiT> header();
+
+  @SkylarkCallable(
+      name = "direct_headers",
+      structField = true,
+      doc =
+          "Header files from this target directly (no transitive headers). "
+              + "These may be either public or private headers.")
+  public SkylarkList<FileApiT> directHeaders();
 
   @SkylarkCallable(name = "imported_library",
       structField = true,
@@ -180,6 +192,14 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public NestedSet<FileApiT> moduleMap();
 
+  @SkylarkCallable(
+      name = "direct_module_maps",
+      structField = true,
+      doc =
+          "Module map files from this target directly (no transitive module maps). "
+              + "Used to enforce proper use of private header files and for Swift compilation.")
+  public SkylarkList<FileApiT> directModuleMaps();
+
   @SkylarkCallable(name = "multi_arch_dynamic_libraries",
       structField = true,
       doc = "Combined-architecture dynamic libraries to include in the final bundle."
@@ -224,11 +244,16 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public NestedSet<FileApiT> source();
 
-  @SkylarkCallable(name = "static_framework_file",
+  @SkylarkCallable(
+      name = "direct_sources",
       structField = true,
-      doc = "Files in .framework directories that should be statically included as inputs "
-          + "when compiling and linking."
-  )
+      doc = "All direct source files from this target (no transitive files).")
+  public SkylarkList<FileApiT> directSources();
+
+  @SkylarkCallable(
+      name = "static_framework_file",
+      structField = true,
+      doc = "The library files in .framework directories that should be statically linked.")
   public NestedSet<FileApiT> staticFrameworkFile();
 
   @SkylarkCallable(
@@ -291,8 +316,37 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   @SkylarkCallable(
       name = "framework_dir",
       structField = true,
-      doc = "Returns all unique static framework directories (directories ending in '.framework') "
-          + "for all static framework files in this provider."
-  )
+      doc =
+          "Returns all unique static framework directories (directories ending in '.framework') "
+              + "for all static framework files in this provider.",
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
   public SkylarkNestedSet getStaticFrameworkDirsForSkylark();
+
+  @SkylarkCallable(
+      name = "dynamic_framework_names",
+      structField = true,
+      doc = "Returns all names of dynamic frameworks in this provider.",
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+  public NestedSet<String> dynamicFrameworkNames();
+
+  @SkylarkCallable(
+      name = "dynamic_framework_paths",
+      structField = true,
+      doc = "Returns all framework paths to dynamic frameworks in this provider.",
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+  public NestedSet<String> dynamicFrameworkPaths();
+
+  @SkylarkCallable(
+      name = "static_framework_names",
+      structField = true,
+      doc = "Returns all names of static frameworks in this provider.",
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+  public NestedSet<String> staticFrameworkNames();
+
+  @SkylarkCallable(
+      name = "static_framework_paths",
+      structField = true,
+      doc = "Returns all framework paths to static frameworks in this provider.",
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+  public NestedSet<String> staticFrameworkPaths();
 }

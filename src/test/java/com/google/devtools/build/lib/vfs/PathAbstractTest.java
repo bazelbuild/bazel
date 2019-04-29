@@ -64,7 +64,7 @@ public abstract class PathAbstractTest {
 
     // Sanity check our testing strategy
     String notNormal = "/a/../b";
-    assertThat(create(notNormal).getPathString()).isNotSameAs(notNormal);
+    assertThat(create(notNormal).getPathString()).isNotSameInstanceAs(notNormal);
   }
 
   @Test

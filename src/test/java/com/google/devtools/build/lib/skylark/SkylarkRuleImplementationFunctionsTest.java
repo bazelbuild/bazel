@@ -781,7 +781,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAllOf(
+        .containsAtLeast(
             "mytool.sh",
             "mytool",
             "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
@@ -923,7 +923,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ftb = depset() + ruleContext.files.srcs",
+            "ftb = depset(ruleContext.files.srcs)",
             "ruleContext.runfiles(transitive_files = ftb)");
     assertThat(ImmutableList.of("a.txt", "b.img"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
@@ -996,7 +996,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNsetContainsList() throws Exception {
     checkErrorContains(
-        "depsets cannot contain items of type 'list'", "depset() + [ruleContext.files.srcs]");
+        "depsets cannot contain items of type 'list'", "depset([[ruleContext.files.srcs]])");
   }
 
   @Test
@@ -2022,7 +2022,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
-    thrown.expectMessage("<rule context for //test:silly> is not of type string or int or bool");
+    thrown.expectMessage(
+        "expected value of type 'function' for parameter 'implementation', "
+            + "for call to function rule");
     getConfiguredTarget("//test:silly");
   }
 
@@ -2881,7 +2883,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         getGeneratingAction(
             Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
     assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
-        .containsAllOf("tool", "tool.sh", "data");
+        .containsAtLeast("tool", "tool.sh", "data");
   }
 
   @Test
@@ -2909,7 +2911,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         getGeneratingAction(
             Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
     assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
-        .containsAllOf("tool", "tool.sh", "data");
+        .containsAtLeast("tool", "tool.sh", "data");
   }
 
   // Verifies that configuration_field can only be used on 'label' attributes.
@@ -3206,3 +3208,4 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
   }
 }
+

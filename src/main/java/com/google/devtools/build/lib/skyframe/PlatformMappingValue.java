@@ -228,7 +228,7 @@ public final class PlatformMappingValue implements SkyValue {
       }
     }
 
-    return BuildConfigurationValue.key(
+    return BuildConfigurationValue.keyWithoutPlatformMapping(
         original.getFragments(),
         BuildOptions.diffForReconstruction(defaultBuildOptions, modifiedOptions));
   }

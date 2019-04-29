@@ -43,6 +43,15 @@ PREPROCESS_ASSEMBLE_ACTION_NAME = "preprocess-assemble"
 # Name of the action producing ThinLto index.
 LTO_INDEXING_ACTION_NAME = "lto-indexing"
 
+# Name of the action producing ThinLto index for executable.
+LTO_INDEX_FOR_EXECUTABLE_ACTION_NAME = "lto-index-for-executable"
+
+# Name of the action producing ThinLto index for dynamic library.
+LTO_INDEX_FOR_DYNAMIC_LIBRARY_ACTION_NAME = "lto-index-for-dynamic-library"
+
+# Name of the action producing ThinLto index for nodeps dynamic library.
+LTO_INDEX_FOR_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME = "lto-index-for-nodeps-dynamic-library"
+
 # Name of the action compiling lto bitcodes into native objects.
 LTO_BACKEND_ACTION_NAME = "lto-backend"
 
@@ -95,6 +104,9 @@ ACTION_NAMES = struct(
     preprocess_assemble = PREPROCESS_ASSEMBLE_ACTION_NAME,
     lto_indexing = LTO_INDEXING_ACTION_NAME,
     lto_backend = LTO_BACKEND_ACTION_NAME,
+    lto_index_for_executable = LTO_INDEX_FOR_EXECUTABLE_ACTION_NAME,
+    lto_index_for_dynamic_library = LTO_INDEX_FOR_DYNAMIC_LIBRARY_ACTION_NAME,
+    lto_index_for_nodeps_dynamic_library = LTO_INDEX_FOR_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,
     cpp_link_executable = CPP_LINK_EXECUTABLE_ACTION_NAME,
     cpp_link_dynamic_library = CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,
     cpp_link_nodeps_dynamic_library = CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,

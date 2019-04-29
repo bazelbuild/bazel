@@ -379,7 +379,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
 
     // TODO: Remove - assert was same order before
     assertThat(resourceDependencies.getTransitiveResources())
-        .containsAllOf(directResourceToKeep, transitiveResourceToKeep)
+        .containsAtLeast(directResourceToKeep, transitiveResourceToKeep)
         .inOrder();
 
     assertThat(filteredResourceDeps.getTransitiveResources())

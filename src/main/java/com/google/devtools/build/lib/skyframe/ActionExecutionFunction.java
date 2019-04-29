@@ -194,7 +194,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Preconditions.checkState(!env.valuesMissing(), "%s %s", action, state);
     }
     CheckInputResults checkedInputs = null;
-    Iterable<SkyKey> inputDepKeys =
+    Iterable<? extends SkyKey> inputDepKeys =
         toKeys(
             state.allInputs.getAllInputs(),
             action.discoversInputs() ? action.getMandatoryInputs() : null);
@@ -852,27 +852,19 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     return null;
   }
 
-  private static Iterable<SkyKey> toKeys(
+  private static Iterable<? extends SkyKey> toKeys(
       Iterable<Artifact> inputs, Iterable<Artifact> mandatoryInputs) {
     if (mandatoryInputs == null) {
       // This is a non inputs-discovering action, so no need to distinguish mandatory from regular
       // inputs.
-      return Iterables.transform(
-          inputs,
-          new Function<Artifact, SkyKey>() {
-            @Override
-            public SkyKey apply(Artifact artifact) {
-              return ArtifactSkyKey.key(artifact, true);
-            }
-          });
-    } else {
-      Collection<SkyKey> discoveredArtifacts = new HashSet<>();
-      Set<Artifact> mandatory = Sets.newHashSet(mandatoryInputs);
-      for (Artifact artifact : inputs) {
-        discoveredArtifacts.add(ArtifactSkyKey.key(artifact, mandatory.contains(artifact)));
-      }
-      return discoveredArtifacts;
+      return inputs;
     }
+    Collection<SkyKey> discoveredArtifacts = new HashSet<>();
+    Set<Artifact> mandatory = Sets.newHashSet(mandatoryInputs);
+    for (Artifact artifact : inputs) {
+      discoveredArtifacts.add(ArtifactSkyKey.key(artifact, mandatory.contains(artifact)));
+    }
+    return discoveredArtifacts;
   }
 
   private static class CheckInputResults {

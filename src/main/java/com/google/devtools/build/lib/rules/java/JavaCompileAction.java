@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -310,17 +309,6 @@ public class JavaCompileAction extends AbstractAction
     return continuation.execute();
   }
 
-  // TODO(b/119813262): Move this method to AbstractAction.
-  @Override
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    ActionContinuationOrResult continuation = beginExecution(actionExecutionContext);
-    while (!continuation.isDone()) {
-      continuation = continuation.execute();
-    }
-    return continuation.get();
-  }
-
   @Override
   protected String getRawProgressMessage() {
     StringBuilder sb = new StringBuilder("Building ");
@@ -543,12 +531,11 @@ public class JavaCompileAction extends AbstractAction
         } catch (CommandLineExpansionException e) {
           throw new ActionExecutionException(e, JavaCompileAction.this, /*catastrophe=*/ false);
         }
-        SpawnContinuation spawnContinuation =
-            actionExecutionContext
-                .getContext(SpawnActionContext.class)
-                .beginExecution(spawn, actionExecutionContext);
         return new JavaFallbackActionContinuation(
-            actionExecutionContext, results, spawnContinuation);
+                actionExecutionContext,
+                results,
+                SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext))
+            .execute();
       } catch (IOException e) {
         throw printIOExceptionAndConvertToActionExecutionException(actionExecutionContext, e);
       } catch (ExecException e) {

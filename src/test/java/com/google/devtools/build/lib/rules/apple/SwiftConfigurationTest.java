@@ -16,9 +16,15 @@ package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import java.util.List;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,14 +32,29 @@ import org.junit.runners.JUnit4;
 /** Tests for Skylark interface to SwiftConfiguration. */
 @RunWith(JUnit4.class)
 public class SwiftConfigurationTest extends BuildViewTestCase {
+  @Before
+  public void setupMyInfo() throws Exception {
+    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
+
+    scratch.file("myinfo/BUILD");
+  }
+
+  private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+    return (StructImpl) configuredTarget.get(key);
+  }
+
   @Test
   public void testSkylarkApi() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def swift_binary_impl(ctx):",
         "   copts = ctx.fragments.swift.copts()",
-        "   return struct(",
+        "   return MyInfo(",
         "      copts=copts,",
         "   )",
         "swift_binary = rule(",
@@ -54,9 +75,9 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/swift_skylark:my_target");
 
     @SuppressWarnings("unchecked")
-    List<String> copts = (List<String>) skylarkTarget.get("copts");
+    List<String> copts = (List<String>) getMyInfoFromTarget(skylarkTarget).getValue("copts");
 
-    assertThat(copts).containsAllOf("foo", "bar");
+    assertThat(copts).containsAtLeast("foo", "bar");
   }
 
   @Test
@@ -64,9 +85,10 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def swift_binary_impl(ctx):",
         "   copts = ctx.fragments.swift.copts()",
-        "   return struct(",
+        "   return MyInfo(",
         "      copts=copts,",
         "   )",
         "swift_binary = rule(",
@@ -86,9 +108,9 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
         getConfiguredTarget("//examples/swift_skylark:my_target", getHostConfiguration());
 
     @SuppressWarnings("unchecked")
-    List<String> copts = (List<String>) target.get("copts");
+    List<String> copts = (List<String>) getMyInfoFromTarget(target).getValue("copts");
 
     assertThat(copts).doesNotContain("foo");
-    assertThat(copts).containsAllOf("bar", "baz");
+    assertThat(copts).containsAtLeast("bar", "baz");
   }
 }

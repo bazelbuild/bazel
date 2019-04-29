@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
-import com.google.devtools.build.lib.buildeventstream.BuildEventServiceAbruptExitCallback;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
@@ -54,7 +53,6 @@ import org.mockito.MockitoAnnotations;
 public class JsonFormatFileTransportTest {
   private final BuildEventProtocolOptions defaultOpts =
       Options.getDefaults(BuildEventProtocolOptions.class);
-  private static final BuildEventServiceAbruptExitCallback NO_OP_EXIT_CALLBACK = (e) -> {};
 
   @Rule public TemporaryFolder tmp = new TemporaryFolder();
 
@@ -89,7 +87,6 @@ public class JsonFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            NO_OP_EXIT_CALLBACK,
             artifactGroupNamer);
     transport.sendBuildEvent(buildEvent);
 
@@ -105,44 +102,39 @@ public class JsonFormatFileTransportTest {
 
   /**
    * A thin wrapper around an OutputStream that counts number of bytes written and verifies flushes.
+   *
+   * <p>The methods below need to be syncrhonized because they override methods from {@link
+   * BufferedOutputStream} *not* because there's a concurrent access to the stream.
    */
-  private static final class WrappedOutputStream extends OutputStream {
-    private final OutputStream out;
+  private static final class WrappedOutputStream extends BufferedOutputStream {
     private long byteCount;
     private int flushCount;
 
-    public WrappedOutputStream(OutputStream out) {
+    WrappedOutputStream(OutputStream out) {
+      super(out);
       this.out = out;
     }
 
-    public long getByteCount() {
-      return byteCount;
-    }
-
-    public int getFlushCount() {
-      return flushCount;
-    }
-
     @Override
-    public void write(int b) throws IOException {
+    public synchronized void write(int b) throws IOException {
       out.write(b);
       byteCount++;
     }
 
     @Override
-    public void write(byte[] b) throws IOException {
+    public synchronized void write(byte[] b) throws IOException {
       out.write(b);
       byteCount += b.length;
     }
 
     @Override
-    public void write(byte[] b, int off, int len) throws IOException {
+    public synchronized void write(byte[] b, int off, int len) throws IOException {
       out.write(b, off, len);
       byteCount += len;
     }
 
     @Override
-    public void flush() throws IOException {
+    public synchronized void flush() throws IOException {
       out.flush();
       flushCount++;
     }
@@ -153,32 +145,29 @@ public class JsonFormatFileTransportTest {
     File output = tmp.newFile();
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
+    WrappedOutputStream wrappedOutputStream = new WrappedOutputStream(outputStream);
 
     BuildEventStreamProtos.BuildEvent started =
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
+
     JsonFormatFileTransport transport =
         new JsonFormatFileTransport(
-            outputStream,
-            defaultOpts,
-            new LocalFilesArtifactUploader(),
-            NO_OP_EXIT_CALLBACK,
-            artifactGroupNamer);
-    WrappedOutputStream out = new WrappedOutputStream(transport.writer.out);
-    transport.writer.out = out;
+            wrappedOutputStream, defaultOpts, new LocalFilesArtifactUploader(), artifactGroupNamer);
+
     transport.sendBuildEvent(buildEvent);
-    Thread.sleep(FileTransport.SequentialWriter.FLUSH_INTERVAL.toMillis() * 3);
+    Thread.sleep(transport.getFlushInterval().toMillis() * 3);
 
     // Some users, e.g. Tulsi, use JSON build event output for interactive use and expect the stream
     // to be flushed at regular short intervals.
-    assertThat(out.getFlushCount()).isGreaterThan(0);
+    assertThat(wrappedOutputStream.flushCount).isGreaterThan(0);
 
     // We know that large writes get flushed; test is valuable only if we check small writes,
     // meaning smaller than 8192, the default buffer size used by BufferedOutputStream.
-    assertThat(out.getByteCount()).isLessThan(8192L);
-    assertThat(out.getByteCount()).isGreaterThan(0L);
+    assertThat(wrappedOutputStream.byteCount).isLessThan(8192L);
+    assertThat(wrappedOutputStream.byteCount).isGreaterThan(0L);
 
     transport.close().get();
   }

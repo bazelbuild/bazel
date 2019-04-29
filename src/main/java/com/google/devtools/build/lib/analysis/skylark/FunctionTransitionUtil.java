@@ -33,15 +33,12 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -257,35 +254,17 @@ public class FunctionTransitionUtil {
           OptionDefinition def = optionInfo.getDefinition();
           Field field = def.getField();
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-
-          if (!def.allowsMultiple()) {
-            if (optionValue == null || def.getType().isInstance(optionValue)) {
-              field.set(options, optionValue);
-            } else if (optionValue instanceof String) {
-              field.set(options, def.getConverter().convert((String) optionValue));
-            } else {
-              throw new EvalException(
-                  starlarkTransition.getLocationForErrorReporting(),
-                  "Invalid value type for option '" + optionName + "'");
-            }
+          if (optionValue == null || def.getType().isInstance(optionValue)) {
+            field.set(options, optionValue);
+          } else if (optionValue instanceof String) {
+            field.set(options, def.getConverter().convert((String) optionValue));
           } else {
-            SkylarkList rawValues =
-                optionValue instanceof SkylarkList
-                    ? (SkylarkList) optionValue
-                    : SkylarkList.createImmutable(Collections.singletonList(optionValue));
-            List<Object> allValues = new ArrayList<>(rawValues.size());
-            for (Object singleValue : rawValues) {
-              if (singleValue instanceof String) {
-                allValues.add(def.getConverter().convert((String) singleValue));
-              } else {
-                allValues.add(singleValue);
-              }
-            }
-            field.set(options, ImmutableList.copyOf(allValues));
+            throw new EvalException(
+                starlarkTransition.getLocationForErrorReporting(),
+                "Invalid value type for option '" + optionName + "'");
           }
         } catch (IllegalAccessException e) {
-          throw new EvalException(
-              starlarkTransition.getLocationForErrorReporting(),
+          throw new RuntimeException(
               "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
           throw new EvalException(

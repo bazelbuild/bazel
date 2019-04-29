@@ -136,13 +136,23 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testFrameworkDepLinkFlags() throws Exception {
-    checkFrameworkDepLinkFlags(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
+  public void testFrameworkDepLinkFlagsPreCleanup() throws Exception {
+    checkFrameworkDepLinkFlags(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), false);
   }
 
   @Test
-  public void testDylibDependencies() throws Exception {
-    checkDylibDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
+  public void testFrameworkDepLinkFlagsPostCleanup() throws Exception {
+    checkFrameworkDepLinkFlags(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), true);
+  }
+
+  @Test
+  public void testDylibDependenciesPreCleanup() throws Exception {
+    checkDylibDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), false);
+  }
+
+  @Test
+  public void testDylibDependenciesPostCleanup() throws Exception {
+    checkDylibDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), true);
   }
 
   @Test

@@ -96,7 +96,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Before
-  public final void generateBuildFile() throws Exception {
+  public final void setupMyInfoAndGenerateBuildFile() throws Exception {
+    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
+    scratch.file("myinfo/BUILD");
     scratch.file(
         "foo/BUILD",
         "package(features = ['-f1', 'f2', 'f3'])",
@@ -232,6 +234,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testMandatoryProvidersListWithSkylark() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/BUILD",
             "load('//test:rules.bzl', 'skylark_rule', 'my_rule', 'my_other_rule')",
             "my_rule(name = 'mylib',",
@@ -275,6 +278,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testMandatoryProvidersListWithNative() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/BUILD",
             "load('//test:rules.bzl', 'my_rule', 'my_other_rule')",
             "my_rule(name = 'mylib',",
@@ -1146,7 +1150,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLabelKeyedStringDictAllowsRulesWithRequiredProviders() throws Exception {
+  public void testLabelKeyedStringDictAllowsRulesWithRequiredProviders_legacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "my_rule.bzl",
         "def _impl(ctx):",
@@ -1159,6 +1164,38 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         ")",
         "def _dep_impl(ctx):",
         "  return struct(my_provider=5)",
+        "my_dep_rule = rule(",
+        "  implementation = _dep_impl,",
+        "  attrs = {}",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule', 'my_dep_rule')",
+        "my_dep_rule(name='dep')",
+        "my_rule(name='r',",
+        "        label_dict={':dep': 'value'})");
+
+    invalidatePackages();
+    createRuleContext("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelKeyedStringDictAllowsRulesWithRequiredProviders() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(providers=[MyInfo]),",
+        "  }",
+        ")",
+        "def _dep_impl(ctx):",
+        "  return MyInfo(my_provider=5)",
         "my_dep_rule = rule(",
         "  implementation = _dep_impl,",
         "  attrs = {}",
@@ -1527,7 +1564,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             ruleContext, "[f.short_path for f in ruleContext.attr.dep.default_runfiles.files]");
     assertThat(filenames).isInstanceOf(SkylarkList.class);
     SkylarkList filenamesList = (SkylarkList) filenames;
-    assertThat(filenamesList).containsAllOf("test/lib.py", "test/lib2.py");
+    assertThat(filenamesList).containsAtLeast("test/lib.py", "test/lib2.py");
     Object emptyFilenames =
         evalRuleContextCode(
             ruleContext, "list(ruleContext.attr.dep.default_runfiles.empty_filenames)");
@@ -1545,7 +1582,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testAccessingRunfilesSymlinks() throws Exception {
+  public void testAccessingRunfilesSymlinks_legacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/a.py");
     scratch.file("test/b.py");
     scratch.file(
@@ -1595,7 +1633,59 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testAccessingRunfilesRootSymlinks() throws Exception {
+  @SuppressWarnings("unchecked")
+  public void testAccessingRunfilesSymlinks() throws Exception {
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def symlink_impl(ctx):",
+        "  symlinks = {",
+        "    'symlink_' + f.short_path: f",
+        "    for f in ctx.files.symlink",
+        "  }",
+        "  return DefaultInfo(",
+        "    runfiles = ctx.runfiles(",
+        "      symlinks=symlinks,",
+        "    )",
+        "  )",
+        "symlink_rule = rule(",
+        "  implementation = symlink_impl,",
+        "  attrs = {",
+        "    'symlink': attr.label(allow_files=True),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'symlink_rule')",
+        "symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')",
+        "sh_binary(",
+        "  name = 'test_with_symlink',",
+        "  srcs = ['test/b.py'],",
+        "  data = [':lib_with_symlink'],",
+        ")");
+    SkylarkRuleContext ruleWithSymlinkContext = createRuleContext("//test:test_with_symlink");
+    Object symlinkPaths =
+        evalRuleContextCode(
+            ruleWithSymlinkContext,
+            "[s.path for s in",
+            "ruleContext.attr.data[0].data_runfiles.symlinks]");
+    assertThat(symlinkPaths).isInstanceOf(SkylarkList.class);
+    SkylarkList<String> symlinkPathsList = (SkylarkList<String>) symlinkPaths;
+    assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
+    Object symlinkFilenames =
+        evalRuleContextCode(
+            ruleWithSymlinkContext,
+            "[s.target_file.short_path for s in",
+            "ruleContext.attr.data[0].data_runfiles.symlinks]");
+    assertThat(symlinkFilenames).isInstanceOf(SkylarkList.class);
+    SkylarkList<String> symlinkFilenamesList = (SkylarkList<String>) symlinkFilenames;
+    assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
+  }
+
+  @Test
+  public void testAccessingRunfilesRootSymlinks_legacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/a.py");
     scratch.file("test/b.py");
     scratch.file(
@@ -1606,6 +1696,58 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "    for f in ctx.files.root_symlink",
         "  }",
         "  return struct(",
+        "    runfiles = ctx.runfiles(",
+        "      root_symlinks=root_symlinks,",
+        "    )",
+        "  )",
+        "root_symlink_rule = rule(",
+        "  implementation = root_symlink_impl,",
+        "  attrs = {",
+        "    'root_symlink': attr.label(allow_files=True)",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'root_symlink_rule')",
+        "root_symlink_rule(name = 'lib_with_root_symlink', root_symlink = ':a.py')",
+        "sh_binary(",
+        "  name = 'test_with_root_symlink',",
+        "  srcs = ['test/b.py'],",
+        "  data = [':lib_with_root_symlink'],",
+        ")");
+    SkylarkRuleContext ruleWithRootSymlinkContext =
+        createRuleContext("//test:test_with_root_symlink");
+    Object rootSymlinkPaths =
+        evalRuleContextCode(
+            ruleWithRootSymlinkContext,
+            "[s.path for s in",
+            "ruleContext.attr.data[0].data_runfiles.root_symlinks]");
+    assertThat(rootSymlinkPaths).isInstanceOf(SkylarkList.class);
+    SkylarkList<String> rootSymlinkPathsList = (SkylarkList<String>) rootSymlinkPaths;
+    assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
+    Object rootSymlinkFilenames =
+        evalRuleContextCode(
+            ruleWithRootSymlinkContext,
+            "[s.target_file.short_path for s in",
+            "ruleContext.attr.data[0].data_runfiles.root_symlinks]");
+    assertThat(rootSymlinkFilenames).isInstanceOf(SkylarkList.class);
+    SkylarkList<String> rootSymlinkFilenamesList = (SkylarkList<String>) rootSymlinkFilenames;
+    assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testAccessingRunfilesRootSymlinks() throws Exception {
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def root_symlink_impl(ctx):",
+        "  root_symlinks = {",
+        "    'root_symlink_' + f.short_path: f",
+        "    for f in ctx.files.root_symlink",
+        "  }",
+        "  return DefaultInfo(",
         "    runfiles = ctx.runfiles(",
         "      root_symlinks=root_symlinks,",
         "    )",
@@ -1769,6 +1911,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testAbstractActionInterface() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     scratch.file("test/rules.bzl",
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
@@ -1811,6 +1956,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testCreatedActions() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
@@ -1892,6 +2040,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
@@ -2163,11 +2314,13 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     scratch.file("test/rules.bzl");
 
     for (String attribute : ctxAttributes) {
-      scratch.overwriteFile("test/rules.bzl",
+      scratch.overwriteFile(
+          "test/rules.bzl",
+          "load('//myinfo:myinfo.bzl', 'MyInfo')",
           "def _main_impl(ctx):",
           "  dep = ctx.attr.deps[0]",
           "  file = ctx.outputs.file",
-          "  foo = dep.dep_ctx." + attribute,
+          "  foo = dep[MyInfo].dep_ctx." + attribute,
           "main_rule = rule(",
           "  implementation = _main_impl,",
           "  attrs = {",
@@ -2176,7 +2329,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
           "  outputs = {'file': 'output.txt'},",
           ")",
           "def _dep_impl(ctx):",
-          "  return struct(dep_ctx = ctx)",
+          "  return MyInfo(dep_ctx = ctx)",
           "dep_rule = rule(implementation = _dep_impl)");
       invalidatePackages();
       try {

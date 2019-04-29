@@ -912,7 +912,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
       Iterable<String> arguments,
       Iterable<String> allowedArguments,
       Iterable<String> disallowedArguments) {
-    assertThat(arguments).containsAllIn(allowedArguments);
+    assertThat(arguments).containsAtLeastElementsIn(allowedArguments);
     assertThat(arguments).containsNoneIn(disallowedArguments);
   }
 
@@ -1007,7 +1007,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
       CppLinkAction linkAction = builder.build();
       assertThat(linkAction.getCommandLine(expander))
-          .containsAllOf(
+          .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),
               objectFile.getExecPathString())

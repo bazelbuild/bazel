@@ -47,7 +47,7 @@ function test_XmlOutputExercises() {
     || fail "sed to remove timestamps failed"
 
   # Removes the stacktrace from the XML files, it can vary between JDK versions.
-  sed -i.bak "$EXT_REGEX_FLAG" '/\w*at [a-zA-Z0-9\$\.]+\([a-zA-Z0-9 \.]*(:[0-9]+)?\)$/d' \
+  sed -i.bak "$EXT_REGEX_FLAG" '/\w*at [a-zA-Z0-9\$\./]+\([a-zA-Z0-9 \.]*(:[0-9]+)?\)$/d' \
       "${XML_OUTPUT_FILE}" || fail "sed to remove stacktraces failed"
 
   diff -wu $XML_GOLDEN_OUTPUT_FILE $XML_OUTPUT_FILE \

@@ -345,7 +345,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             .addCcCompilationContexts(CppHelper.getCompilationContextsFromDeps(deps))
             .addCcCompilationContexts(
                 ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
-            .addQuoteIncludeDirs(semantics.getQuoteIncludes(ruleContext))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
             .setFake(fake);
@@ -437,12 +436,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           }
         }
 
-        generatedDefFile =
-            CppHelper.createDefFileActions(
-                ruleContext,
-                ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST),
-                objectFiles.build(),
-                binary.getFilename());
+        Artifact defParser = common.getDefParser();
+        if (defParser != null) {
+          generatedDefFile =
+              CppHelper.createDefFileActions(
+                  ruleContext, defParser, objectFiles.build(), binary.getFilename());
+        }
         customDefFile = common.getWinDefFile();
       }
     }

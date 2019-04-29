@@ -28,8 +28,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.INFOPLIST_ATTR;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -39,8 +37,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -141,27 +137,6 @@ final class Bundling {
      */
     public Builder setAutomaticEntriesInfoplistInput(Artifact automaticEntriesInfoplist) {
       this.automaticEntriesInfoplistInput = automaticEntriesInfoplist;
-      return this;
-    }
-
-    /**
-     * Adds any info plists specified in the given rule's {@code infoplist}  or {@code infoplists}
-     * attribute as well as from its {@code options} as inputs to this bundle's {@code Info.plist}
-     * (which is merged from any such added plists plus some additional information).
-     */
-    public Builder addInfoplistInputFromRule(RuleContext ruleContext) {
-      Artifact infoplist =
-          ruleContext.getPrerequisiteArtifact(INFOPLIST_ATTR, Mode.TARGET);
-      if (infoplist != null) {
-        infoplistInputs.add(infoplist);
-      }
-
-      Iterable<Artifact> infoplists =
-          ruleContext.getPrerequisiteArtifacts("infoplists", Mode.TARGET).list();
-      if (infoplists != null) {
-        infoplistInputs.addAll(infoplists);
-      }
-
       return this;
     }
 
@@ -321,10 +296,10 @@ final class Bundling {
      * set of files returned.
      *
      * <p>Files can have the same bundle path for various illegal reasons and errors are raised for
-     * that separately (see {@link BundleSupport#validateResources}). There are situations though
-     * where the same file exists multiple times (for example in multi-architecture builds) and
-     * would conflict when creating the bundle. In all these cases it shouldn't matter which one is
-     * included and this class will select the first one.
+     * that separately. There are situations though where the same file exists multiple times (for
+     * example in multi-architecture builds) and would conflict when creating the bundle. In all
+     * these cases it shouldn't matter which one is included and this class will select the first
+     * one.
      */
     ImmutableList<BundleableFile> deduplicateByBundlePaths(
         ImmutableList<BundleableFile> bundleFiles) {
@@ -339,8 +314,8 @@ final class Bundling {
     }
 
     public Bundling build() {
-      Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
-      Preconditions.checkNotNull(families, FAMILIES_ATTR);
+      Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts should not be null");
+      Preconditions.checkNotNull(families, "families should not be null");
       NestedSet<Artifact> bundleInfoplistInputs = bundleInfoplistInputs();
       Optional<Artifact> bundleInfoplist = bundleInfoplist(bundleInfoplistInputs);
       Optional<Artifact> actoolzipOutput = actoolzipOutput();
@@ -631,8 +606,8 @@ final class Bundling {
   }
 
   /**
-   * Returns the list of {@link TargetDeviceFamily} values this bundle is targeting.
-   * If empty, the default values specified by {@link FAMILIES_ATTR} will be used.
+   * Returns the list of {@link TargetDeviceFamily} values this bundle is targeting. If empty, the
+   * default values specified by "families" will be used.
    */
   public ImmutableSet<TargetDeviceFamily> getTargetDeviceFamilies() {
     return families;

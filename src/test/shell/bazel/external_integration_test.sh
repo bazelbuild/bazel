@@ -413,6 +413,27 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_http_timeout() {
+  serve_timeout
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = 'toto',
+    urls = ['http://127.0.0.1:$nc_port/toto'],
+)
+EOF
+  date
+  bazel build --http_timeout_scaling=0.03 @toto//file > $TEST_log 2>&1 \
+      && fail "Expected failure" || :
+  date
+  kill_nc
+
+  expect_log '[Tt]imed\? \?out'
+  expect_not_log "interrupted"
+}
+
 # Tests downloading a file with a redirect.
 function test_http_redirect() {
   local test_file=$TEST_TMPDIR/toto
@@ -2149,6 +2170,49 @@ EOF
 
   expect_log "WORKSPACE:5:1"
   expect_log "bar.bzl:4:3"
+}
+
+function test_missing_repo_reported() {
+  # Verify that, if a WORKSPACE cycle is reported due to
+  # a missing repository definition, the name of the actually
+  # missing repository is reported.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  cd main
+
+  cat > withimplicit.bzl <<'EOF'
+def _impl(ctx):
+  ctx.file("data.txt", ctx.attr.value)
+  ctx.file("data.bzl", "value = %s" % (ctx.attr.value,))
+  ctx.symlink(ctx.attr._generic_build_file, "BUILD")
+
+data_repo = repository_rule(
+  implementation = _impl,
+  attrs = { "value" : attr.string(),
+            "_generic_build_file" : attr.label(
+                default = Label("@this_repo_is_missing//:generic.BUILD")) },
+)
+EOF
+  touch BUILD
+  cat > WORKSPACE <<'EOF'
+load("//:withimplicit.bzl", "data_repo")
+
+data_repo(
+  name = "data",
+  value = "42")
+
+load("@data//:value.bzl", "value")
+EOF
+
+  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+
+  expect_log "add.*this_repo_is_missing.*WORKSPACE"
+  # Also verify that the repository class and its definition is reported, to
+  # help finding out where the implict dependency comes from.
+  expect_log 'data.*is.*data_repo'
+  expect_log 'data_repo.*main/withimplicit.bzl:6'
 }
 
 run_suite "external tests"

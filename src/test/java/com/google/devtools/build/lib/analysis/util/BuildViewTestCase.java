@@ -85,12 +85,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.ConfigsMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -138,6 +140,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -246,6 +249,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.of(
+            PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.<String, String>of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
                 ImmutableMap.<RepositoryName, PathFragment>of()),
@@ -276,6 +280,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setWorkspaceFileHeaderListener(getWorkspaceFileListener())
             .build();
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
@@ -314,6 +319,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Creates or retrieves the rule class provider used in this test. */
   protected ConfiguredRuleClassProvider getRuleClassProvider() {
     return getAnalysisMock().createRuleClassProvider();
+  }
+
+  protected WorkspaceFileHeaderListener getWorkspaceFileListener() {
+    return null;
   }
 
   protected PackageFactory getPackageFactory() {
@@ -871,16 +880,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * may return null. In that case, use a debugger to inspect the {@link ErrorInfo} for the
    * evaluation, which is produced by the {@link MemoizingEvaluator#getExistingValue} call in {@link
    * SkyframeExecutor#getConfiguredTargetForTesting}. See also b/26382502.
+   *
+   * @throws AssertionError if the target cannot be transitioned into with the given configuration
    */
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
-    return view.getConfiguredTargetForTesting(reporter, BlazeTestUtils.convertLabel(label), config);
+    try {
+      return view.getConfiguredTargetForTesting(
+          reporter, BlazeTestUtils.convertLabel(label), config);
+    } catch (InvalidConfigurationException | StarlarkTransition.TransitionException e) {
+      throw new AssertionError(e);
+    }
   }
 
   /**
    * Returns a ConfiguredTargetAndData for the specified label, using the given build configuration.
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
-      Label label, BuildConfiguration config) {
+      Label label, BuildConfiguration config)
+      throws StarlarkTransition.TransitionException, InvalidConfigurationException {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
 
@@ -890,7 +907,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * config in the ConfiguredTargetAndData's ConfiguredTarget.
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, StarlarkTransition.TransitionException,
+          InvalidConfigurationException {
     return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
   }
 
@@ -1713,16 +1731,22 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Returns the configuration created by applying the given transition to the source configuration.
+   *
+   * @throws AssertionError if the transition couldn't be evaluated
    */
-  protected BuildConfiguration getConfiguration(BuildConfiguration fromConfig,
-      PatchTransition transition) throws InterruptedException {
+  protected BuildConfiguration getConfiguration(
+      BuildConfiguration fromConfig, PatchTransition transition) throws InterruptedException {
     if (transition == NoTransition.INSTANCE) {
       return fromConfig;
     } else if (transition == NullTransition.INSTANCE) {
       return null;
     } else {
-      return skyframeExecutor.getConfigurationForTesting(
-          reporter, fromConfig.fragmentClasses(), transition.patch(fromConfig.getOptions()));
+      try {
+        return skyframeExecutor.getConfigurationForTesting(
+            reporter, fromConfig.fragmentClasses(), transition.patch(fromConfig.getOptions()));
+      } catch (OptionsParsingException | InvalidConfigurationException e) {
+        throw new AssertionError(e);
+      }
     }
   }
 
@@ -1749,7 +1773,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ConfiguredTargetAndData ctad;
     try {
       ctad = getConfiguredTargetAndData(ct.getLabel().toString());
-    } catch (LabelSyntaxException e) {
+    } catch (LabelSyntaxException
+        | StarlarkTransition.TransitionException
+        | InvalidConfigurationException e) {
       throw new RuntimeException(e);
     }
     return getMapperFromConfiguredTargetAndTarget(ctad);

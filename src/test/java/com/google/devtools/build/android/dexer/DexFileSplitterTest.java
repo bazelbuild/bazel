@@ -155,7 +155,7 @@ public class DexFileSplitterTest {
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
     assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
     assertThat(dexEntries(outputArchives.get(0)))
-        .containsAllIn(expectedMainDexEntries());
+        .containsAtLeastElementsIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
   }
 

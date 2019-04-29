@@ -182,7 +182,7 @@ public class LabelValidatorTest {
   public void testPackageAndTargetHashCode_distinctButEqualObjects() {
     PackageAndTarget fooTarget1 = newFooTarget();
     PackageAndTarget fooTarget2 = newFooTarget();
-    assertThat(fooTarget2).isNotSameAs(fooTarget1);
+    assertThat(fooTarget2).isNotSameInstanceAs(fooTarget1);
     assertWithMessage("Should have same hash code")
         .that(fooTarget1.hashCode())
         .isEqualTo(fooTarget2.hashCode());
@@ -192,7 +192,7 @@ public class LabelValidatorTest {
   public void testPackageAndTargetEquals_distinctButEqualObjects() {
     PackageAndTarget fooTarget1 = newFooTarget();
     PackageAndTarget fooTarget2 = newFooTarget();
-    assertThat(fooTarget2).isNotSameAs(fooTarget1);
+    assertThat(fooTarget2).isNotSameInstanceAs(fooTarget1);
     assertWithMessage("Should be equal").that(fooTarget1).isEqualTo(fooTarget2);
   }
 

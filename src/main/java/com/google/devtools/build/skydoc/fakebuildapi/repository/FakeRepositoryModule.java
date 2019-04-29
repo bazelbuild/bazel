@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi.AttributeNameComparator;
-import com.google.devtools.build.skydoc.rendering.AttributeInfo;
-import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
  */
 public class FakeRepositoryModule implements RepositoryModuleApi {
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
-      new FakeDescriptor(Type.NAME, "A unique name for this repository.", true);
+      new FakeDescriptor(AttributeType.NAME, "A unique name for this repository.", true);
 
   private final List<RuleInfo> ruleInfoList;
 
@@ -66,13 +66,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     attrInfos =
         attrsMapBuilder.build().entrySet().stream()
             .filter(entry -> !entry.getKey().startsWith("_"))
-            .map(
-                entry ->
-                    new AttributeInfo(
-                        entry.getKey(),
-                        entry.getValue().getDocString(),
-                        entry.getValue().getType(),
-                        entry.getValue().isMandatory()))
+            .map(entry -> entry.getValue().asAttributeInfo(entry.getKey()))
             .collect(Collectors.toList());
     attrInfos.sort(new AttributeNameComparator());
 

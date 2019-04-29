@@ -21,6 +21,7 @@ import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -85,6 +86,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link AbstractRemoteActionCache}. */
 @RunWith(JUnit4.class)
@@ -686,6 +688,87 @@ public class AbstractRemoteActionCacheTests {
       assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
       assertThat(cache.getDownloadQueueSize()).isEqualTo(3);
       assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("download failed");
+    }
+  }
+
+  @Test
+  public void testDownloadWithStdoutStderrOnSuccess() throws Exception {
+    // Tests that fetching stdout/stderr as a digest works and that OutErr is still
+    // writable afterwards.
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+    FileOutErr outErr = new FileOutErr(stdout, stderr);
+    FileOutErr childOutErr = outErr.childOutErr();
+    FileOutErr spyOutErr = Mockito.spy(outErr);
+    FileOutErr spyChildOutErr = Mockito.spy(childOutErr);
+    when(spyOutErr.childOutErr()).thenReturn(spyChildOutErr);
+
+    DefaultRemoteActionCache cache = newTestCache();
+    Digest digestStdout = cache.addContents("stdout");
+    Digest digestStderr = cache.addContents("stderr");
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .setStdoutDigest(digestStdout)
+            .setStderrDigest(digestStderr)
+            .build();
+
+    cache.download(result, execRoot, spyOutErr);
+
+    verify(spyOutErr, Mockito.times(2)).childOutErr();
+    verify(spyChildOutErr).clearOut();
+    verify(spyChildOutErr).clearErr();
+    assertThat(outErr.getOutputPath().exists()).isTrue();
+    assertThat(outErr.getErrorPath().exists()).isTrue();
+
+    try {
+      outErr.getOutputStream().write(0);
+      outErr.getErrorStream().write(0);
+    } catch (IOException err) {
+      throw new AssertionError("outErr should still be writable after download finished.", err);
+    }
+  }
+
+  @Test
+  public void testDownloadWithStdoutStderrOnFailure() throws Exception {
+    // Test that when downloading stdout/stderr fails the OutErr is still writable
+    // and empty.
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+    FileOutErr outErr = new FileOutErr(stdout, stderr);
+    FileOutErr childOutErr = outErr.childOutErr();
+    FileOutErr spyOutErr = Mockito.spy(outErr);
+    FileOutErr spyChildOutErr = Mockito.spy(childOutErr);
+    when(spyOutErr.childOutErr()).thenReturn(spyChildOutErr);
+
+    DefaultRemoteActionCache cache = newTestCache();
+    // Don't add stdout/stderr as a known blob to the remote cache so that downloading it will fail
+    Digest digestStdout = digestUtil.computeAsUtf8("stdout");
+    Digest digestStderr = digestUtil.computeAsUtf8("stderr");
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .setStdoutDigest(digestStdout)
+            .setStderrDigest(digestStderr)
+            .build();
+    try {
+      cache.download(result, execRoot, spyOutErr);
+      fail("Expected IOException");
+    } catch (IOException e) {
+      verify(spyOutErr, Mockito.times(2)).childOutErr();
+      verify(spyChildOutErr).clearOut();
+      verify(spyChildOutErr).clearErr();
+      assertThat(outErr.getOutputPath().exists()).isFalse();
+      assertThat(outErr.getErrorPath().exists()).isFalse();
+
+      try {
+        outErr.getOutputStream().write(0);
+        outErr.getErrorStream().write(0);
+      } catch (IOException err) {
+        throw new AssertionError("outErr should still be writable after download failed.", err);
+      }
     }
   }
 

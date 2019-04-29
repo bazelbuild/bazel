@@ -83,9 +83,9 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
       // Second action: The dexer consumes the stripped jar to create the main dex class list.
       assertThat(mainDexList).isNotNull();
       SpawnAction mainDexAction = getGeneratingSpawnAction(mainDexList);
-      assertThat(mainDexAction.getArguments()).containsAllOf(
-          mainDexList.getExecPathString(),
-          strippedJar.getExecPathString()).inOrder();
+      assertThat(mainDexAction.getArguments())
+          .containsAtLeast(mainDexList.getExecPathString(), strippedJar.getExecPathString())
+          .inOrder();
     } else if (multidexMode == MultidexMode.MANUAL_MAIN_DEX) {
       // Manual main dex mode: strippedJar shouldn't exist and mainDexList should be provided.
       assertThat(strippedJar).isNull();
@@ -127,7 +127,7 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
     SpawnAction dexAction = getGeneratingSpawnAction(dexOutput);
 
     assertThat(dexAction.getRemainingArguments())
-        .containsAllOf(
+        .containsAtLeast(
             "--input",
             dexInput.getExecPathString(),
             "--output",

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
@@ -47,6 +48,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   private final Map<PathFragment, Path> inputs;
   private final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
+  private final TreeDeleter treeDeleter;
 
   public AbstractContainerizingSandboxedSpawn(
       Path sandboxPath,
@@ -55,7 +57,8 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       Map<String, String> environment,
       Map<PathFragment, Path> inputs,
       SandboxOutputs outputs,
-      Set<Path> writableDirs) {
+      Set<Path> writableDirs,
+      TreeDeleter treeDeleter) {
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
     this.arguments = arguments;
@@ -63,6 +66,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     this.inputs = inputs;
     this.outputs = outputs;
     this.writableDirs = writableDirs;
+    this.treeDeleter = treeDeleter;
   }
 
   @Override
@@ -189,7 +193,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   @Override
   public void delete() {
     try {
-      sandboxPath.deleteTree();
+      treeDeleter.deleteTree(sandboxPath);
     } catch (IOException e) {
       // This usually means that the Spawn itself exited, but still has children running that
       // we couldn't wait for, which now block deletion of the sandbox directory. On Linux this

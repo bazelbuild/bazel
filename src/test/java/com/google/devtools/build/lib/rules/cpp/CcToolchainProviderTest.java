@@ -21,6 +21,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
@@ -43,10 +47,11 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--cpu=k8", "--force_pic");
     scratch.file(
         "test/rule.bzl",
+        "MyInfo = provider()",
         "def _impl(ctx):",
         "  provider = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
         "  feature_configuration = cc_common.configure_features(cc_toolchain = provider)",
-        "  return struct(",
+        "  return MyInfo(",
         "    dirs = provider.built_in_include_directories,",
         "    sysroot = provider.sysroot,",
         "    cpu = provider.cpu,",
@@ -67,15 +72,19 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "my_rule(name = 'target')");
 
     ConfiguredTarget ct = getConfiguredTarget("//test:target");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "MyInfo");
+    StructImpl info = (StructImpl) ct.get(key);
 
-    assertThat((String) ct.get("ar_executable")).endsWith("/usr/bin/mock-ar");
+    assertThat((String) info.getValue("ar_executable")).endsWith("/usr/bin/mock-ar");
 
-    assertThat(ct.get("cpu")).isEqualTo("k8");
+    assertThat(info.getValue("cpu")).isEqualTo("k8");
 
-    assertThat(ct.get("sysroot")).isEqualTo("/usr/grte/v1");
+    assertThat(info.getValue("sysroot")).isEqualTo("/usr/grte/v1");
 
     @SuppressWarnings("unchecked")
-    boolean usePicForDynamicLibraries = (boolean) ct.get("use_pic_for_dynamic_libraries");
+    boolean usePicForDynamicLibraries = (boolean) info.getValue("use_pic_for_dynamic_libraries");
     assertThat(usePicForDynamicLibraries).isTrue();
   }
 

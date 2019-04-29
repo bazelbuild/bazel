@@ -254,7 +254,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
             .get();
     ImmutableList<Artifact> linkstampInputs =
         ImmutableList.copyOf(linkstampCompileAction.getInputs());
-    assertThat(linkstampInputs).containsAllOf(mainObject, bar);
+    assertThat(linkstampInputs).containsAtLeast(mainObject, bar);
   }
 
   @Test

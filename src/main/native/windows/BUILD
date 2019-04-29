@@ -34,10 +34,22 @@ cc_library(
 )
 
 cc_library(
+    name = "lib-process",
+    srcs = ["process.cc"],
+    hdrs = ["process.h"],
+    visibility = [
+        "//src/main/cpp:__pkg__",
+        "//tools/test:__pkg__",
+    ],
+    deps = [":lib-util"],
+)
+
+cc_library(
     name = "lib-util",
     srcs = ["util.cc"],
     hdrs = ["util.h"],
     visibility = [
+        "//src/main/cpp:__pkg__",
         "//src/tools/launcher/util:__pkg__",
         "//tools/test:__pkg__",
     ],
@@ -61,6 +73,7 @@ cc_binary(
     ],
     deps = [
         ":lib-file",
+        ":lib-process",
         ":lib-util",
     ],
 )

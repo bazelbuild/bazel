@@ -286,7 +286,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       FuncallExpression ast,
       Environment funcallEnv,
       StarlarkContext context)
-      throws EvalException, ConversionException {
+      throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
 
     BazelStarlarkContext bazelContext = (BazelStarlarkContext) context;
@@ -398,8 +398,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               execCompatibleWith.getContents(String.class, "exec_compatile_with"),
               ast.getLocation()));
     }
+
     if (executionPlatformConstraintsAllowed) {
       builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
+    } else {
+      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);
     }
 
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());

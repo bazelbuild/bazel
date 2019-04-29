@@ -76,7 +76,7 @@ Example usage:
 ```python
 # In your BUILD file...
 
-load("@bazel_tools//tools/python/toolchain.bzl", "py_runtime_pair")
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
 py_runtime(
     name = "my_py2_runtime",

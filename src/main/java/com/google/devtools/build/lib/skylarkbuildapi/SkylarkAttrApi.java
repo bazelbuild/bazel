@@ -350,7 +350,11 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             doc =
                 CONFIGURATION_DOC
-                    + " This parameter is required if <code>executable</code> is True."),
+                    + " This parameter is required if <code>executable</code> is True "
+                    + "to guard against accidentally building host tools in the "
+                    + "target configuration. <code>\"target\"</code> has no semantic "
+                    + "effect, so don't set it when <code>executable</code> is False "
+                    + "unless it really helps clarify your intentions."),
         @Param(
             name = ASPECTS_ARG,
             type = SkylarkList.class,

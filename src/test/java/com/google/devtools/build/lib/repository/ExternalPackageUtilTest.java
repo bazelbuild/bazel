@@ -214,7 +214,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
     assertThat(result.get(key).registeredToolchains())
         // There are default toolchains that are always registered, so just check for the ones added
-        .containsAllOf("//toolchain:tc1", "//toolchain:tc2")
+        .containsAtLeast("//toolchain:tc1", "//toolchain:tc2")
         .inOrder();
   }
 

@@ -809,6 +809,80 @@ function test_skylark_repository_file_invalidation_batch() {
   file_invalidation_test_template --batch
 }
 
+function test_repo_env() {
+  setup_skylark_repository
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  # Make a rule depending on the environment variable FOO,
+  # properly recording its value. Also add a time stamp
+  # to verify that the rule is rerun.
+  ctx.execute(["bash", "-c", "echo FOO=$FOO > env.txt"])
+  ctx.execute(["bash", "-c", "date +%s >> env.txt"])
+  ctx.file("BUILD", 'exports_files(["env.txt"])')
+
+repo = repository_rule(
+  implementation = _impl,
+  environ = ["FOO"],
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "repoenv",
+  outs = ["repoenv.txt"],
+  srcs = ["@foo//:env.txt"],
+  cmd = "cp $< $@",
+)
+
+# Have a normal rule, unrelated to the external repository.
+# To test if it was rerun, make it non-hermetic and record a
+# time stamp.
+genrule(
+  name = "unrelated",
+  outs = ["unrelated.txt"],
+  cmd = "date +%s > $@",
+)
+EOF
+  cat > .bazelrc <<EOF
+build:foo --repo_env=FOO=foo
+build:bar --repo_env=FOO=bar
+EOF
+
+  bazel build --config=foo //:repoenv //:unrelated
+  cp `bazel info bazel-genfiles 2>/dev/null`/repoenv.txt repoenv1.txt
+  cp `bazel info bazel-genfiles 2> /dev/null`/unrelated.txt unrelated1.txt
+  echo; cat repoenv1.txt; echo; cat unrelated1.txt; echo
+
+  grep -q 'FOO=foo' repoenv1.txt \
+      || fail "Expected FOO to be visible to repo rules"
+
+  sleep 2 # ensure any rerun will have a different time stamp
+
+  FOO=CHANGED bazel build --config=foo //:repoenv //:unrelated
+  # nothing should change, as actions don't see FOO and for repositories
+  # the value is fixed by --repo_env
+  cp `bazel info bazel-genfiles 2>/dev/null`/repoenv.txt repoenv2.txt
+  cp `bazel info bazel-genfiles 2> /dev/null`/unrelated.txt unrelated2.txt
+  echo; cat repoenv2.txt; echo; cat unrelated2.txt; echo
+
+  diff repoenv1.txt repoenv2.txt \
+      || fail "Expected repository to not change"
+  diff unrelated1.txt unrelated2.txt \
+      || fail "Expected unrelated action to not be rerun"
+
+  bazel build --config=bar //:repoenv //:unrelated
+  # The new config should be picked up, but the unrelated target should
+  # not be rerun
+  cp `bazel info bazel-genfiles 3>/dev/null`/repoenv.txt repoenv3.txt
+  cp `bazel info bazel-genfiles 3> /dev/null`/unrelated.txt unrelated3.txt
+  echo; cat repoenv3.txt; echo; cat unrelated3.txt; echo
+
+  grep -q 'FOO=bar' repoenv3.txt \
+      || fail "Expected FOO to be visible to repo rules"
+  diff unrelated1.txt unrelated3.txt \
+      || fail "Expected unrelated action to not be rerun"
+}
+
 function test_skylark_repository_executable_flag() {
   setup_skylark_repository
 
@@ -1184,6 +1258,114 @@ EOF
 
   bazel build @maytimeout//... \
       || fail "expected success after successful sync"
+}
+
+function test_download_failure_message() {
+  # Regression test for #7850
+  # Verify that the for a failed downlaod, it is clearly indicated
+  # what was attempted to download and how it fails.
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  outs = ["it.txt"],
+  srcs = ["@ext_foo//:data.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+  ctx.symlink(ctx.attr.data, "data.txt")
+
+trivial_repo = repository_rule(
+  implementation = _impl,
+  attrs = { "data" : attr.label() },
+)
+EOF
+  cat > root.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def root_cause():
+  http_archive(
+    name = "this_is_the_root_cause",
+    urls = ["http://does.not.exist.example.com/some/file.tar"],
+  )
+
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:root.bzl", "root_cause")
+load("//:repo.bzl", "trivial_repo")
+
+root_cause()
+
+trivial_repo(
+  name = "ext_baz",
+  data = "@this_is_the_root_cause//:data.txt",
+)
+trivial_repo(
+  name = "ext_bar",
+  data = "@ext_baz//:data.txt",
+)
+
+trivial_repo(
+  name = "ext_foo",
+  data = "@ext_bar//:data.txt",
+)
+EOF
+
+  bazel build //:it > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+
+  # Extract the first error message printed
+  ed "${TEST_log}" <<'EOF'
+1
+/^ERROR
+.,/^[^ ]/-1w firsterror.log
+Q
+EOF
+  echo; echo "first error message which should focus on the root cause";
+  echo "=========="; cat firsterror.log; echo "=========="
+  # We expect it to contain the root cause, and the failure ...
+  grep -q 'this_is_the_root_cause' firsterror.log \
+      || fail "Root-cause repository not mentioned"
+  grep -q '[uU]nknown host.*does.not.exist.example.com' firsterror.log \
+      || fail "Failure reason not mentioned"
+  # ...but not be cluttered with information not related to the root cause
+  grep 'ext_foo' firsterror.log && fail "unrelated repo mentioned" || :
+  grep 'ext_bar' firsterror.log && fail "unrelated repo mentioned" || :
+  grep 'ext_baz' firsterror.log && fail "unrelated repo mentioned" || :
+  grep '//:it' firsterror.log && fail "unrelated target mentioned" || :
+
+  # Verify that the same is true, if the error is caused by a fail statement.
+  cat > root.bzl <<'EOF'
+def _impl(ctx):
+  fail("Here be dragons")
+
+repo = repository_rule(implementation=_impl, attrs = {})
+
+def root_cause():
+  repo(name = "this_is_the_root_cause")
+EOF
+  bazel build //:it > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+
+  # Extract the first error message printed
+  ed "${TEST_log}" <<'EOF'
+1
+/^ERROR
+.,/^[^ ]/-1w firsterror.log
+Q
+EOF
+  echo; echo "first error message which should focus on the root cause";
+  echo "=========="; cat firsterror.log; echo "=========="
+  grep -q 'this_is_the_root_cause' firsterror.log \
+      || fail "Root-cause repository not mentioned"
+  grep -q 'Here be dragons' firsterror.log \
+      || fail "fail error message not shown"
+  grep 'ext_foo' firsterror.log && fail "unrelated repo mentioned" || :
+  grep 'ext_bar' firsterror.log && fail "unrelated repo mentioned" || :
+  grep 'ext_baz' firsterror.log && fail "unrelated repo mentioned" || :
+  grep '//:it' firsterror.log && fail "unrelated target mentioned" || :
 }
 
 function test_circular_load_error_message() {

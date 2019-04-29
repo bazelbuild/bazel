@@ -78,7 +78,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class BuildEventStreamer {
   private final Collection<BuildEventTransport> transports;
-  private final BuildEventStreamOptions options;
+  private final BuildEventStreamOptions besOptions;
 
   @GuardedBy("this")
   private Set<BuildEventId> announcedEvents;
@@ -120,6 +120,15 @@ public class BuildEventStreamer {
       ImmutableMap.of();
 
   /**
+   * Holds the half-close futures for the upload of each transport. The completion of the half-close
+   * indicates that the client has sent all of the data to the server and is just waiting for
+   * acknowledgement. The client must still keep the data buffered locally in case acknowledgement
+   * fails.
+   */
+  private ImmutableMap<BuildEventTransport, ListenableFuture<Void>> halfCloseFuturesMap =
+      ImmutableMap.of();
+
+  /**
    * Provider for stdout and stderr output.
    */
   public interface OutErrProvider {
@@ -144,7 +153,7 @@ public class BuildEventStreamer {
       BuildEventStreamOptions options,
       CountingArtifactGroupNamer artifactGroupNamer) {
     this.transports = transports;
-    this.options = options;
+    this.besOptions = options;
     this.announcedEvents = null;
     this.progressCount = 0;
     this.artifactGroupNamer = artifactGroupNamer;
@@ -341,10 +350,16 @@ public class BuildEventStreamer {
     ImmutableMap.Builder<BuildEventTransport, ListenableFuture<Void>> closeFuturesMapBuilder =
         ImmutableMap.builder();
     for (final BuildEventTransport transport : transports) {
-      ListenableFuture<Void> closeFuture = transport.close();
-      closeFuturesMapBuilder.put(transport, closeFuture);
+      closeFuturesMapBuilder.put(transport, transport.close());
     }
     closeFuturesMap = closeFuturesMapBuilder.build();
+
+    ImmutableMap.Builder<BuildEventTransport, ListenableFuture<Void>> halfCloseFuturesMapBuilder =
+        ImmutableMap.builder();
+    for (final BuildEventTransport transport : transports) {
+      halfCloseFuturesMapBuilder.put(transport, transport.getHalfCloseFuture());
+    }
+    halfCloseFuturesMap = halfCloseFuturesMapBuilder.build();
   }
 
   private void maybeReportArtifactSet(
@@ -355,11 +370,11 @@ public class BuildEventStreamer {
     }
     // We only split if the max number of entries is at least 2 (it must be at least a binary tree).
     // The method throws for smaller values.
-    if (options.maxNamedSetEntries >= 2) {
+    if (besOptions.maxNamedSetEntries >= 2) {
       // We only split the event after naming it to avoid splitting the same node multiple times.
       // Note that the artifactGroupNames keeps references to the individual pieces, so this can
       // double the memory consumption of large nested sets.
-      view = view.splitIfExceedsMaximumSize(options.maxNamedSetEntries);
+      view = view.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
     }
     for (NestedSetView<Artifact> transitive : view.transitives()) {
       maybeReportArtifactSet(pathResolver, transitive);
@@ -634,8 +649,9 @@ public class BuildEventStreamer {
     if (event instanceof TargetParsingCompleteEvent) {
       // If there is only one pattern and we have one failed pattern, then we already posted a
       // pattern expanded error, so we don't post the completion event.
-      // TODO(ulfjack): This is brittle. It would be better to always post one PatternExpanded event
-      // for each pattern given on the command line instead of one event for all of them combined.
+      // TODO(b/109727414): This is brittle. It would be better to always post one PatternExpanded
+      // event for each pattern given on the command line instead of one event for all of them
+      // combined.
       return ((TargetParsingCompleteEvent) event).getOriginalTargetPattern().size() == 1
           && !((TargetParsingCompleteEvent) event).getFailedTargetPatterns().isEmpty();
     }
@@ -645,7 +661,7 @@ public class BuildEventStreamer {
 
   /** Returns whether an {@link ActionExecutedEvent} should be published. */
   private boolean shouldPublishActionExecutedEvent(ActionExecutedEvent event) {
-    if (options.publishAllActions) {
+    if (besOptions.publishAllActions) {
       return true;
     }
     if (event.getException() != null) {
@@ -684,6 +700,19 @@ public class BuildEventStreamer {
     return closeFuturesMap;
   }
 
+  /**
+   * Returns the map from BEP transports to their corresponding half-close futures.
+   *
+   * <p>Half-close indicates that all client-side data is transmitted but still waiting on
+   * server-side acknowledgement. The client must buffer the information in case the server fails to
+   * acknowledge.
+   *
+   * <p>If this method is called before calling {@link #close()} then it will return an empty map.
+   */
+  public synchronized ImmutableMap<BuildEventTransport, ListenableFuture<Void>> getHalfClosedMap() {
+    return halfCloseFuturesMap;
+  }
+
   /** A builder for {@link BuildEventStreamer}. */
   public static class Builder {
     private Set<BuildEventTransport> buildEventTransports;
@@ -713,3 +742,4 @@ public class BuildEventStreamer {
     }
   }
 }
+

@@ -185,7 +185,12 @@ public class PlatformMappingFunction implements SkyFunction {
         platformsToFlags.put(platform, flags);
       }
 
-      return platformsToFlags.build();
+      try {
+        return platformsToFlags.build();
+      } catch (IllegalArgumentException e) {
+        throw throwParsingException(
+            e, "Got duplicate platform entries but each platform key must be unique");
+      }
     }
 
     private Label platform() throws PlatformMappingException {
@@ -202,9 +207,7 @@ public class PlatformMappingFunction implements SkyFunction {
         // mappings however only apply within a repository imported by the root repository.
         platform = Label.parseAbsolute(label, emptyRepositoryMapping);
       } catch (LabelSyntaxException e) {
-        throw new PlatformMappingException(
-            new PlatformMappingParsingException("Expected platform label but got " + label, e),
-            SkyFunctionException.Transience.PERSISTENT);
+        throw throwParsingException(e, "Expected platform label but got " + label);
       }
       return platform;
     }
@@ -234,7 +237,12 @@ public class PlatformMappingFunction implements SkyFunction {
         Label platform = platform();
         flagsToPlatforms.put(flags, platform);
       }
-      return flagsToPlatforms.build();
+      try {
+        return flagsToPlatforms.build();
+      } catch (IllegalArgumentException e) {
+        throw throwParsingException(
+            e, "Got duplicate flags entries but each flags key must be unique");
+      }
     }
 
     private String consume() {
@@ -249,6 +257,13 @@ public class PlatformMappingFunction implements SkyFunction {
       Preconditions.checkState(
           line.isPresent(), "Must make sure that a line exists before peeking.");
       return line.get();
+    }
+
+    private AssertionError throwParsingException(Exception e, String message)
+        throws PlatformMappingException {
+      throw new PlatformMappingException(
+          new PlatformMappingParsingException(message, e),
+          SkyFunctionException.Transience.PERSISTENT);
     }
 
     private void throwParsingException(String message) throws PlatformMappingException {

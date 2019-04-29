@@ -2647,7 +2647,8 @@ public class MemoizingEvaluatorTest {
           public void accept(SkyKey key, EventType type, Order order, Object context) {
             if (shouldNotBuildLeaf4.get()
                 && key.equals(leaf4)
-                && type != EventType.REMOVE_REVERSE_DEP) {
+                && type != EventType.REMOVE_REVERSE_DEP
+                && type != EventType.GET_BATCH) {
               throw new IllegalStateException(
                   "leaf4 should not have been considered this build: "
                       + type
@@ -5195,7 +5196,9 @@ public class MemoizingEvaluatorTest {
               }
             });
 
-    assertThat(tester.evalAndGetError(keepGoing, parentKey).getException()).isSameAs(parentExn);
+    Exception exception = tester.evalAndGetError(keepGoing, parentKey).getException();
+    assertThat(exception).isInstanceOf(SomeErrorException.class);
+    assertThat(exception).hasMessageThat().isEqualTo("bad");
   }
 
   /** Data encapsulating a graph inconsistency found during evaluation. */
