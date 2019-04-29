@@ -76,7 +76,7 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
       return diskCache.get(diskKey, out);
     } else {
       // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
-      Path temp = toPath(UUID.randomUUID().toString());
+      Path temp = diskCache.toPath(UUID.randomUUID().toString());
 
       OutputStream tempOut;
       try {
@@ -86,12 +86,12 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
       }
       ListenableFuture<Boolean> chained =
               Futures.transformAsync(
-                      getFromHttp(key, tempOut, httpCache, actionResult),
+                      getFromHttpCache(key, tempOut, httpCache, actionResult),
                       (found) -> {
                         if (!found) {
                           return Futures.immediateFuture(false);
                         } else {
-                          Path target = toPath(diskKey);
+                          Path target = diskCache.toPath(diskKey);
                           // The following note and line is taken from OnDiskBlobStore.java
                           // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the
                           // case of machine
@@ -125,7 +125,7 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
     }
   }
 
-  private ListenableFuture<Boolean> getFromHttp(String key, OutputStream tempOut, SimpleBlobStore httpCache, boolean actionResult) {
+  private ListenableFuture<Boolean> getFromHttpCache(String key, OutputStream tempOut, SimpleBlobStore httpCache, boolean actionResult) {
     if (!actionResult) {
       return httpCache.get(key, tempOut);
     } else {
@@ -137,7 +137,7 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   public void put(String key, long length, InputStream in)
       throws IOException, InterruptedException {
     diskCache.put(key, length, in);
-    try (InputStream inFile = toPath(key).getInputStream()) {
+    try (InputStream inFile = diskCache.toPath(key).getInputStream()) {
       httpCache.put(key, length, inFile);
     }
   }
@@ -152,9 +152,5 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   public void close() {
     diskCache.close();
     httpCache.close();
-  }
-
-  protected Path toPath(String key) {
-    return root.getChild(key);
   }
 }
