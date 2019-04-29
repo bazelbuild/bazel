@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -89,12 +89,7 @@ public class RelativePackageNameResolverTest {
   public void testTooFarUpwardsOneLevelThrows() throws Exception {
     createResolver("foo", true);
 
-    try {
-      resolver.resolve("../../bar");
-      fail("InvalidPackageNameException expected");
-    } catch (InvalidPackageNameException e) {
-      // good
-    }
+    assertThrows(InvalidPackageNameException.class, () -> resolver.resolve("../../bar"));
   }
 
   @Test
@@ -102,12 +97,7 @@ public class RelativePackageNameResolverTest {
     createResolver("foo/bar", true);
     assertResolvesTo("../../orange", "orange");
 
-    try {
-      resolver.resolve("../../../orange");
-      fail("InvalidPackageNameException expected");
-    } catch (InvalidPackageNameException e) {
-      // good
-    }
+    assertThrows(InvalidPackageNameException.class, () -> resolver.resolve("../../../orange"));
   }
 
   private void createResolver(String offset, boolean discardBuild) {

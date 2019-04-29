@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -112,20 +112,18 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
   @Test
   public void testBadPackageName() throws Exception {
-    try {
-      // PathFragment parsing de-double slashes, and normalization of the path fragment removes
-      // up reference (/../), so use triple dot /.../ that will always be a forbidden package name.
-      packages.createPackage(
-          "not even a legal/.../label",
-          RootedPath.toRootedPath(root, emptyBuildFile("not even a legal/.../label")));
-      fail();
-    } catch (NoSuchPackageException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "no such package 'not even a legal/.../label': "
-                  + "illegal package name: 'not even a legal/.../label' ");
-    }
+    NoSuchPackageException e =
+        assertThrows(
+            NoSuchPackageException.class,
+            () ->
+                packages.createPackage(
+                    "not even a legal/.../label",
+                    RootedPath.toRootedPath(root, emptyBuildFile("not even a legal/.../label"))));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "no such package 'not even a legal/.../label': "
+                + "illegal package name: 'not even a legal/.../label' ");
   }
 
   @Test
@@ -351,16 +349,12 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.getTarget("Z").getClass()).isSameAs(InputFile.class);
 
     // A is nothing
-    try {
-      pkg.getTarget("A");
-      fail();
-    } catch (NoSuchTargetException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "no such target '//foo:A': "
-                  + "target 'A' not declared in package 'foo' defined by /foo/BUILD");
-    }
+    NoSuchTargetException e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("A"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//foo:A': "
+                + "target 'A' not declared in package 'foo' defined by /foo/BUILD");
 
     // These are the only input files: BUILD, Z
     Set<String> inputFiles = Sets.newTreeSet();
@@ -488,44 +482,33 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     assertThat(pkg.getTarget("x.cc")).isNotNull(); // existing and mentioned.
 
-    try {
-      pkg.getTarget("y.cc"); // existing but not mentioned.
-      fail();
-    } catch (NoSuchTargetException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "no such target '//x:y.cc': "
-                  + "target 'y.cc' not declared in package 'x'; "
-                  + "however, a source file of this name exists.  "
-                  + "(Perhaps add 'exports_files([\"y.cc\"])' to x/BUILD?) "
-                  + "defined by /x/BUILD");
-    }
+    NoSuchTargetException e =
+        assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("y.cc"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:y.cc': "
+                + "target 'y.cc' not declared in package 'x'; "
+                + "however, a source file of this name exists.  "
+                + "(Perhaps add 'exports_files([\"y.cc\"])' to x/BUILD?) "
+                + "defined by /x/BUILD");
 
-    try {
-      pkg.getTarget("z.cc"); // non-existent and unmentioned.
-      fail();
-    } catch (NoSuchTargetException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "no such target '//x:z.cc': "
-                  + "target 'z.cc' not declared in package 'x' (did you mean 'x.cc'?) "
-                  + "defined by /x/BUILD");
-    }
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("z.cc"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:z.cc': "
+                + "target 'z.cc' not declared in package 'x' (did you mean 'x.cc'?) "
+                + "defined by /x/BUILD");
 
-    try {
-      pkg.getTarget("dir"); // existing directory but not mentioned.
-      fail();
-    } catch (NoSuchTargetException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "no such target '//x:dir': target 'dir' not declared in package 'x'; "
-                  + "however, a source directory of this name exists.  "
-                  + "(Perhaps add 'exports_files([\"dir\"])' to x/BUILD, "
-                  + "or define a filegroup?) defined by /x/BUILD");
-    }
+    e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("dir"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//x:dir': target 'dir' not declared in package 'x'; "
+                + "however, a source directory of this name exists.  "
+                + "(Perhaps add 'exports_files([\"dir\"])' to x/BUILD, "
+                + "or define a filegroup?) defined by /x/BUILD");
   }
 
   @Test
@@ -723,18 +706,18 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testGlobNegativeTest() throws Exception {
     // Negative test that assertGlob does throw an error when asserting against the wrong values.
-    try {
-      assertGlobMatches(
-          /*result=*/ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
-          /*includes=*/ ImmutableList.of("W*", "subdir"),
-          /*excludes=*/ ImmutableList.<String>of(),
-          /* excludeDirs= */ true);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("ERROR /globs/BUILD:2:73: name 'this_will_fail' is not defined");
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                assertGlobMatches(
+                    /*result=*/ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
+                    /*includes=*/ ImmutableList.of("W*", "subdir"),
+                    /*excludes=*/ ImmutableList.<String>of(),
+                    /* excludeDirs= */ true));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("ERROR /globs/BUILD:2:73: name 'this_will_fail' is not defined");
   }
 
   @Test

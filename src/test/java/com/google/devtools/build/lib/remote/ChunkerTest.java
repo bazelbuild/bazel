@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.TestCase.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
@@ -87,12 +87,7 @@ public class ChunkerTest {
 
     assertThat(chunker.hasNext()).isFalse();
 
-    try {
-      chunker.next();
-      fail("Should have thrown an exception");
-    } catch (NoSuchElementException expected) {
-      // Intentionally left empty.
-    }
+    assertThrows(NoSuchElementException.class, () -> chunker.next());
   }
 
   @Test
@@ -110,12 +105,7 @@ public class ChunkerTest {
 
     assertThat(chunker.hasNext()).isFalse();
 
-    try {
-      chunker.next();
-      fail("Should have thrown an exception");
-    } catch (NoSuchElementException expected) {
-      // Intentionally left empty.
-    }
+    assertThrows(NoSuchElementException.class, () -> chunker.next());
   }
 
   @Test

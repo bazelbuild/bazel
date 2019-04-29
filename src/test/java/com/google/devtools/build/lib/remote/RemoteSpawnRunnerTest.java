@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
@@ -400,12 +400,8 @@ public class RemoteSpawnRunnerTest {
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("expected IOException to be raised");
-    } catch (IOException e) {
-      assertThat(e).isSameAs(err);
-    }
+    IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
+    assertThat(e).isSameAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }
@@ -427,12 +423,8 @@ public class RemoteSpawnRunnerTest {
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("expected IOException to be raised");
-    } catch (IOException e) {
-      assertThat(e).isSameAs(err);
-    }
+    IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
+    assertThat(e).isSameAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }
@@ -452,12 +444,8 @@ public class RemoteSpawnRunnerTest {
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("expected IOException to be raised");
-    } catch (IOException e) {
-      assertThat(e).isSameAs(err);
-    }
+    IOException e = assertThrows(IOException.class, () -> runner.exec(spawn, policy));
+    assertThat(e).isSameAs(err);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
   }
@@ -743,14 +731,9 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("Exception expected");
-    } catch (SpawnExecException e) {
-      assertThat(e.getSpawnResult().exitCode())
-          .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-      assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
-    }
+    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
+    assertThat(e.getSpawnResult().exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
   }
 
   @Test
@@ -767,14 +750,9 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
-    try {
-      runner.exec(spawn, policy);
-      fail("Exception expected");
-    } catch (SpawnExecException e) {
-      assertThat(e.getSpawnResult().exitCode())
-          .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-      assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
-    }
+    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
+    assertThat(e.getSpawnResult().exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
   }
 
   @Test
@@ -917,12 +895,8 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
 
     // act
-    try {
-      runner.exec(spawn, policy);
-      fail("expected exception");
-    } catch (SpawnExecException e) {
-      assertThat(e.getMessage()).isEqualTo(downloadFailure.getMessage());
-    }
+    SpawnExecException e = assertThrows(SpawnExecException.class, () -> runner.exec(spawn, policy));
+    assertThat(e.getMessage()).isEqualTo(downloadFailure.getMessage());
 
     // assert
     verify(cache).downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any());

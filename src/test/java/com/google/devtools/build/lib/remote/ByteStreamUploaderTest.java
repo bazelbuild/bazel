@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
@@ -414,12 +415,8 @@ public class ByteStreamUploaderTest {
       }
     });
 
-    try {
-      uploader.uploadBlob(chunker, true);
-      fail("Should have thrown an exception.");
-    } catch (IOException e) {
-      assertThat(RemoteRetrierUtils.causedByStatus(e, Code.INTERNAL)).isTrue();
-    }
+    IOException e = assertThrows(IOException.class, () -> uploader.uploadBlob(chunker, true));
+    assertThat(RemoteRetrierUtils.causedByStatus(e, Code.INTERNAL)).isTrue();
 
     withEmptyMetadata.detach(prevContext);
   }
@@ -510,12 +507,8 @@ public class ByteStreamUploaderTest {
 
     byte[] blob = new byte[1];
     Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
-    try {
-      uploader.uploadBlob(chunker, true);
-      fail("Should have thrown an exception.");
-    } catch (IOException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(RejectedExecutionException.class);
-    }
+    IOException e = assertThrows(IOException.class, () -> uploader.uploadBlob(chunker, true));
+    assertThat(e).hasCauseThat().isInstanceOf(RejectedExecutionException.class);
 
     withEmptyMetadata.detach(prevContext);
   }
@@ -585,12 +578,8 @@ public class ByteStreamUploaderTest {
     byte[] blob = new byte[1];
     Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
 
-    try {
-      uploader.uploadBlob(chunker, true);
-      fail("Should have thrown an exception.");
-    } catch (IOException e) {
-      assertThat(numCalls.get()).isEqualTo(1);
-    }
+    assertThrows(IOException.class, () -> uploader.uploadBlob(chunker, true));
+    assertThat(numCalls.get()).isEqualTo(1);
 
     withEmptyMetadata.detach(prevContext);
   }

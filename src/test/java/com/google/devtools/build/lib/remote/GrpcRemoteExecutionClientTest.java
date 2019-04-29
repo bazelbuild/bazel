@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
@@ -886,16 +887,14 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    try {
-      client.exec(simpleSpawn, simplePolicy);
-      fail("Expected an exception");
-    } catch (SpawnExecException expected) {
-      assertThat(expected.getSpawnResult().status())
-          .isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
-      // Ensure we also got back the stack trace.
-      assertThat(expected).hasMessageThat()
-          .contains("GrpcRemoteExecutionClientTest.passUnavailableErrorWithStackTrace");
-    }
+    SpawnExecException expected =
+        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, simplePolicy));
+    assertThat(expected.getSpawnResult().status())
+        .isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
+    // Ensure we also got back the stack trace.
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("GrpcRemoteExecutionClientTest.passUnavailableErrorWithStackTrace");
   }
 
   @Test
@@ -909,15 +908,13 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    try {
-      client.exec(simpleSpawn, simplePolicy);
-      fail("Expected an exception");
-    } catch (ExecException expected) {
-      assertThat(expected).hasMessageThat().contains("whoa"); // Error details.
-      // Ensure we also got back the stack trace.
-      assertThat(expected).hasMessageThat()
-          .contains("GrpcRemoteExecutionClientTest.passInternalErrorWithStackTrace");
-    }
+    ExecException expected =
+        assertThrows(ExecException.class, () -> client.exec(simpleSpawn, simplePolicy));
+    assertThat(expected).hasMessageThat().contains("whoa"); // Error details.
+    // Ensure we also got back the stack trace.
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("GrpcRemoteExecutionClientTest.passInternalErrorWithStackTrace");
   }
 
   @Test
@@ -969,17 +966,15 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    try {
-      client.exec(simpleSpawn, simplePolicy);
-      fail("Expected an exception");
-    } catch (SpawnExecException expected) {
-      assertThat(expected.getSpawnResult().status())
-          .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
+    SpawnExecException expected =
+        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, simplePolicy));
+    assertThat(expected.getSpawnResult().status())
+        .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
       assertThat(expected).hasMessageThat().contains(DIGEST_UTIL.toString(stdOutDigest));
-      // Ensure we also got back the stack trace.
-      assertThat(expected).hasMessageThat()
-          .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
-    }
+    // Ensure we also got back the stack trace.
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
   }
 
   @Test
@@ -1032,18 +1027,15 @@ public class GrpcRemoteExecutionClientTest {
           }
         });
 
-    try {
-      client.exec(simpleSpawn, simplePolicy);
-      fail("Expected an exception");
-    } catch (SpawnExecException expected) {
-      assertThat(expected.getSpawnResult().status())
-          .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
+    SpawnExecException expected =
+        assertThrows(SpawnExecException.class, () -> client.exec(simpleSpawn, simplePolicy));
+    assertThat(expected.getSpawnResult().status())
+        .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
       assertThat(expected).hasMessageThat().contains(DIGEST_UTIL.toString(stdOutDigest));
-      // Ensure we also got back the stack trace.
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("passRepeatedOrphanedCacheMissErrorWithStackTrace");
-    }
+    // Ensure we also got back the stack trace.
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("passRepeatedOrphanedCacheMissErrorWithStackTrace");
   }
 
   @Test

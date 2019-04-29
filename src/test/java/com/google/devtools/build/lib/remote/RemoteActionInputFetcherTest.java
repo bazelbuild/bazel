@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -145,12 +145,9 @@ public class RemoteActionInputFetcherTest {
         new RemoteActionInputFetcher(remoteCache, execRoot, Context.current());
 
     // act
-    try {
-      actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider);
-      fail("expected IOException");
-    } catch (IOException e) {
-      // Intentionally left empty
-    }
+    assertThrows(
+        IOException.class,
+        () -> actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
 
     // assert
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();

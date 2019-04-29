@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Range;
@@ -151,13 +150,14 @@ public class RemoteRetrierTest {
     options.remoteMaxRetryAttempts = 0;
     RemoteRetrier retrier =
         new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
-    try {
-      retrier.execute(() -> {
-        throw thrown;
-      });
-      fail();
-    } catch (InterruptedException expected) {
-      assertThat(expected).isSameAs(thrown);
-    }
+    InterruptedException expected =
+        assertThrows(
+            InterruptedException.class,
+            () ->
+                retrier.execute(
+                    () -> {
+                      throw thrown;
+                    }));
+    assertThat(expected).isSameAs(thrown);
   }
 }

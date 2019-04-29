@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
@@ -1009,13 +1010,10 @@ public class GrpcRemoteCacheTest {
             responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
           }
         });
-    try {
-      getFromFuture(client.downloadBlob(digest));
-      fail("Should have thrown an exception.");
-    } catch (IOException e) {
-      Status st = Status.fromThrowable(e);
-      assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
-    }
+    IOException e =
+        assertThrows(IOException.class, () -> getFromFuture(client.downloadBlob(digest)));
+    Status st = Status.fromThrowable(e);
+    assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
   }
 
   @Test

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -123,11 +123,7 @@ public class GlobCacheTest {
   @Test
   public void testSafeGlobInvalidPattern() throws Exception {
     String invalidPattern = "Foo?.txt";
-    try {
-      cache.safeGlobUnsorted(invalidPattern, false);
-      fail("Expected pattern " + invalidPattern + " to fail");
-    } catch (BadGlobException expected) {
-    }
+    assertThrows(BadGlobException.class, () -> cache.safeGlobUnsorted(invalidPattern, false).get());
   }
 
   @Test
@@ -159,11 +155,7 @@ public class GlobCacheTest {
     assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.js", false),
         Pair.of("*.java", true));
 
-    try {
-      cache.getGlobUnsorted("invalid?");
-      fail("Expected an invalid regex exception");
-    } catch (BadGlobException expected) {
-    }
+    assertThrows(BadGlobException.class, () -> cache.getGlobUnsorted("invalid?"));
     assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.js", false),
         Pair.of("*.java", true));
 
@@ -253,31 +245,27 @@ public class GlobCacheTest {
   public void testGlobAllowEmpty() throws Exception {
     assertEmpty(cache.globUnsorted(list("*.java"), NONE, false, true));
 
-    try {
-      cache.globUnsorted(list("*.java"), NONE, false, false);
-      fail("Expected failure");
-    } catch (BadGlobException expected) {
-      assertThat(expected).hasMessageThat().contains("allow_empty");
-    }
+    BadGlobException expected =
+        assertThrows(
+            BadGlobException.class, () -> cache.globUnsorted(list("*.java"), NONE, false, false));
+    assertThat(expected).hasMessageThat().contains("allow_empty");
 
     assertThat(cache.globUnsorted(list("*.txt", "*.java"), NONE, false, true))
         .containsExactly("first.txt", "second.txt");
 
-    try {
-      cache.globUnsorted(list("*.txt", "*.java"), NONE, false, false);
-      fail("Expected failure");
-    } catch (BadGlobException expected) {
-      assertThat(expected).hasMessageThat().contains("allow_empty");
-    }
+    expected =
+        assertThrows(
+            BadGlobException.class,
+            () -> cache.globUnsorted(list("*.txt", "*.java"), NONE, false, false));
+    assertThat(expected).hasMessageThat().contains("allow_empty");
 
     assertEmpty(cache.globUnsorted(list("*.txt"), list("*.*"), false, true));
 
-    try {
-      cache.globUnsorted(list("*.txt"), list("*.*"), false, false);
-      fail("Expected failure");
-    } catch (BadGlobException expected) {
-      assertThat(expected).hasMessageThat().contains("allow_empty");
-    }
+    expected =
+        assertThrows(
+            BadGlobException.class,
+            () -> cache.globUnsorted(list("*.txt"), list("*.*"), false, false));
+    assertThat(expected).hasMessageThat().contains("allow_empty");
   }
 
   @Test
