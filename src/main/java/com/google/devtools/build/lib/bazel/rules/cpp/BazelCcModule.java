@@ -140,7 +140,7 @@ public class BazelCcModule extends CcModule
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, environment, name);
+    Label label = getCallerLabel(location, actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType dynamicLinkTargetType = null;
     if (language.equals(Language.CPP.getRepresentation())) {

@@ -1358,7 +1358,7 @@ public abstract class CcModule
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, environment, name);
+    Label label = getCallerLabel(location, actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType staticLinkTargetType = null;
     if (language.equals(Language.CPP.getRepresentation())) {
@@ -1439,11 +1439,14 @@ public abstract class CcModule
     }
   }
 
-  protected Label getCallerLabel(Location location, Environment environment, String name)
+  protected Label getCallerLabel(Location location, SkylarkActionFactory actions, String name)
       throws EvalException {
     Label label;
     try {
-      label = Label.create(environment.getCallerLabel().getPackageName(), name);
+      label =
+          Label.create(
+              actions.getActionConstructionContext().getActionOwner().getLabel().getPackageName(),
+              name);
     } catch (LabelSyntaxException e) {
       throw new EvalException(location, e);
     }
@@ -1479,7 +1482,7 @@ public abstract class CcModule
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, environment, name);
+    Label label = getCallerLabel(location, actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(
@@ -1552,7 +1555,7 @@ public abstract class CcModule
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, environment, name);
+    Label label = getCallerLabel(location, actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType dynamicLinkTargetType = null;
     if (language.equals(Language.CPP.getRepresentation())) {
