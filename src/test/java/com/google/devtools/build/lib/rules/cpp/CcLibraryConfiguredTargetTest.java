@@ -1523,4 +1523,27 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     // Should not crash
     scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");
   }
+
+  @Test
+  public void testAlwaysLinkAndDisableWholeArchiveError() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures("disable_whole_archive_for_static_lib_configuration"));
+
+    useConfiguration("--features=disable_whole_archive_for_static_lib");
+    // Should be fine.
+    assertThat(
+            scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'], srcs=['a.cc'])"))
+        .isNotNull();
+    // Should error out.
+    reporter.removeHandler(failFastHandler);
+    scratchConfiguredTarget(
+        "b", "b", "cc_library(name='b', hdrs=['b.h'], srcs=['b.cc'], alwayslink=1)");
+    assertContainsEvent(
+        "alwayslink should not be True for a target with the disable_whole_archive_for_static_lib"
+            + " feature enabled");
+  }
 }

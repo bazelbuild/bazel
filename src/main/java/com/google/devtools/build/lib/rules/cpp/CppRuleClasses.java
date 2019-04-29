@@ -394,6 +394,13 @@ public class CppRuleClasses {
   public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
 
   /**
+   * A feature marking that the target generates libraries that should not be put in a
+   * --whole-archive block.
+   */
+  public static final String DISABLE_WHOLE_ARCHIVE_FOR_STATIC_LIB =
+      "disable_whole_archive_for_static_lib";
+
+  /**
    * TODO(b/113358321): This feature should be enabled for CROSSTOOLs that work without linking
    * command line splitting. Eventually when every CROSSTOOL works without linking command line
    * splitting, this feature can be deleted. The flag --incompatible_do_not_split_linking_cmdline

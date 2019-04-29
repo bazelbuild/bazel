@@ -468,8 +468,13 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   // compiler.
   abstract boolean getMustKeepDebug();
 
+  abstract boolean getDisableWholeArchive();
+
   public static Builder builder() {
-    return new AutoValue_LibraryToLink.Builder().setMustKeepDebug(false).setAlwayslink(false);
+    return new AutoValue_LibraryToLink.Builder()
+        .setMustKeepDebug(false)
+        .setAlwayslink(false)
+        .setDisableWholeArchive(false);
   }
 
   LinkerInputs.LibraryToLink getStaticLibraryToLink() {
@@ -487,7 +492,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
             getObjectFiles(),
             getLtoCompilationContext(),
             getSharedNonLtoBackends(),
-            getMustKeepDebug());
+            getMustKeepDebug(),
+            getDisableWholeArchive());
     return staticLibraryToLink;
   }
 
@@ -506,7 +512,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
             getPicObjectFiles(),
             getPicLtoCompilationContext(),
             getPicSharedNonLtoBackends(),
-            getMustKeepDebug());
+            getMustKeepDebug(),
+            getDisableWholeArchive());
     return picStaticLibraryToLink;
   }
 
@@ -528,7 +535,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
               /* objectFiles */ ImmutableSet.of(),
               LtoCompilationContext.EMPTY,
               /* sharedNonLtoBackends */ ImmutableMap.of(),
-              getMustKeepDebug());
+              getMustKeepDebug(),
+              getDisableWholeArchive());
     }
     return dynamicLibraryToLink;
   }
@@ -551,7 +559,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
               /* objectFiles */ ImmutableSet.of(),
               LtoCompilationContext.EMPTY,
               /* sharedNonLtoBackends */ ImmutableMap.of(),
-              getMustKeepDebug());
+              getMustKeepDebug(),
+              getDisableWholeArchive());
     }
     return interfaceLibraryToLink;
   }
@@ -619,6 +628,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     public abstract Builder setAlwayslink(boolean alwayslink);
 
     public abstract Builder setMustKeepDebug(boolean mustKeepDebug);
+
+    public abstract Builder setDisableWholeArchive(boolean disableWholeArchive);
 
     // Methods just for validation, not to be called externally.
     abstract LibraryToLink autoBuild();
