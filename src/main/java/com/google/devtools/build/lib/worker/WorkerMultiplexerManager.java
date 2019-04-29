@@ -48,7 +48,7 @@ public class WorkerMultiplexerManager {
   public static WorkerMultiplexer getInstance(Integer workerHash) throws InterruptedException {
     semMultiplexer.acquire();
     if (!multiplexerInstance.containsKey(workerHash)) {
-      multiplexerInstance.put(workerHash, new WorkerMultiplexer(workerHash));
+      multiplexerInstance.put(workerHash, new WorkerMultiplexer());
       multiplexerRefCount.put(workerHash, 0);
     }
     multiplexerRefCount.put(workerHash, multiplexerRefCount.get(workerHash) + 1);

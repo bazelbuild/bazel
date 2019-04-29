@@ -29,17 +29,15 @@ import java.util.Set;
  * A proxy that talks to the multiplexers
  */
 final class WorkerProxy extends Worker {
-  private Integer workerHash;
   private ByteArrayOutputStream request;
   private WorkerMultiplexer workerMultiplexer;
   private Thread shutdownHook;
 
   WorkerProxy(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
     super(workerKey, workerId, workDir, logFile);
-    this.workerHash = workerKey.hashCode();
-    this.request = new ByteArrayOutputStream();
+    request = new ByteArrayOutputStream();
     try {
-      this.workerMultiplexer = WorkerMultiplexerManager.getInstance(workerHash);
+      this.workerMultiplexer = WorkerMultiplexerManager.getInstance(workerKey.hashCode());
     } catch (InterruptedException e) {
       // We can't do anything here.
     }
@@ -81,7 +79,7 @@ final class WorkerProxy extends Worker {
       Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
     try {
-      WorkerMultiplexerManager.removeInstance(workerHash);
+      WorkerMultiplexerManager.removeInstance(workerKey.hashCode());
     } catch (InterruptedException e) {
       // We can't do anything here.
     }

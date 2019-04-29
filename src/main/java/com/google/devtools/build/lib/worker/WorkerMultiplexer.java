@@ -59,14 +59,12 @@ public class WorkerMultiplexer extends Thread {
   private Subprocess process;
 
   private Thread shutdownHook;
-  private Integer workerHash;
 
-  WorkerMultiplexer(Integer workerHash) {
+  WorkerMultiplexer() {
     semWorkerProcessResponse = new Semaphore(1);
     semResponseChecker = new Semaphore(1);
     responseChecker = new HashMap<>();
     workerProcessResponse = new HashMap<>();
-    this.workerHash = workerHash;
 
     final WorkerMultiplexer self = this;
     this.shutdownHook =
