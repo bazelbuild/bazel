@@ -19,13 +19,16 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Utilites related to C++ support. */
 @SkylarkModule(
@@ -312,4 +315,48 @@ public interface BazelCcModuleApi<
       Environment environment,
       StarlarkContext starlarkContext)
       throws InterruptedException, EvalException;
+
+  @SkylarkCallable(
+      name = "create_compilation_outputs",
+      doc = "Create compilation outputs object.",
+      parameters = {
+        @Param(
+            name = "objects",
+            doc = "List of object files.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "pic_objects",
+            doc = "List of pic object files.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = NoneType.class)
+            }),
+      })
+  CompilationOutputsT createCompilationOutputsFromSkylark(
+      Object objectsObject, Object picObjectsObject);
+
+  @SkylarkCallable(
+      name = "merge_compilation_outputs",
+      doc = "Merge compilation outputs.",
+      parameters = {
+        @Param(
+            name = "compilation_outputs",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+      })
+  CompilationOutputsT mergeCcCompilationOutputsFromSkylark(
+      SkylarkList<CompilationOutputsT> compilationOutputs);
 }

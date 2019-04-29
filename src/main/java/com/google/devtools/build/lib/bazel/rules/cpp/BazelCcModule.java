@@ -191,4 +191,25 @@ public class BazelCcModule extends CcModule
       throw new EvalException(location, e);
     }
   }
+
+  @Override
+  public CcCompilationOutputs createCompilationOutputsFromSkylark(
+      Object objectsObject, Object picObjectsObject) {
+    CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
+    ccCompilationOutputsBuilder.addObjectFiles(
+        convertSkylarkListOrNestedSetToNestedSet(objectsObject, Artifact.class));
+    ccCompilationOutputsBuilder.addPicObjectFiles(
+        convertSkylarkListOrNestedSetToNestedSet(picObjectsObject, Artifact.class));
+    return ccCompilationOutputsBuilder.build();
+  }
+
+  @Override
+  public CcCompilationOutputs mergeCcCompilationOutputsFromSkylark(
+      SkylarkList<CcCompilationOutputs> compilationOutputs) {
+    CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
+    for (CcCompilationOutputs ccCompilationOutputs : compilationOutputs) {
+      ccCompilationOutputsBuilder.merge(ccCompilationOutputs);
+    }
+    return ccCompilationOutputsBuilder.build();
+  }
 }

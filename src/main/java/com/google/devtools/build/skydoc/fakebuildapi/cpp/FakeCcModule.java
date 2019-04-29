@@ -256,4 +256,16 @@ public class FakeCcModule
       throws EvalException {
     return null;
   }
+
+  @Override
+  public CcCompilationOutputsApi<FileApi> createCompilationOutputsFromSkylark(
+      Object objectsObject, Object picObjectsObject) {
+    return null;
+  }
+
+  @Override
+  public CcCompilationOutputsApi<FileApi> mergeCcCompilationOutputsFromSkylark(
+      SkylarkList<CcCompilationOutputsApi<FileApi>> compilationOutputs) {
+    return null;
+  }
 }
