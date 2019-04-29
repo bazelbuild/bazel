@@ -74,7 +74,17 @@ public interface SkylarkNativeModuleApi {
             type = Integer.class,
             defaultValue = "1",
             named = true,
-            doc = "A flag whether to exclude directories or not.")
+            doc = "A flag whether to exclude directories or not."),
+        @Param(
+            name = "allow_empty",
+            type = Boolean.class,
+            defaultValue = "True",
+            named = true,
+            doc =
+                "Whether we allow glob patterns to match nothing. If `allow_empty` is False, each"
+                    + " individual include pattern must match something and also the final"
+                    + " resultmust be non-empty (after the matches of the `exclude` patterns are"
+                    + " excluded).")
       },
       useAst = true,
       useEnvironment = true)
@@ -82,6 +92,7 @@ public interface SkylarkNativeModuleApi {
       SkylarkList<?> include,
       SkylarkList<?> exclude,
       Integer excludeDirectories,
+      Boolean allowEmpty,
       FuncallExpression ast,
       Environment env)
       throws EvalException, InterruptedException;

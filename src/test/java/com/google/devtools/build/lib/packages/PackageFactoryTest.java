@@ -678,8 +678,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobFails(
         "glob()",
         "insufficient arguments received by glob(include: sequence of strings, "
-            + "*, exclude: sequence of strings = [], exclude_directories: int = 1) "
-            + "(got 0, expected at least 1)");
+            + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
+            + "allow_empty: bool = True) (got 0, expected at least 1)");
   }
 
   @Test
@@ -688,7 +688,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobFails(
         "glob(['a'], ['b'])",
         "too many (2) positional arguments in call to glob(include: sequence of strings, "
-            + "*, exclude: sequence of strings = [], exclude_directories: int = 1)");
+            + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
+            + "allow_empty: bool = True)");
   }
 
   @Test
@@ -697,7 +698,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobFails(
         "glob(1,2,3,4)",
         "too many (4) positional arguments in call to glob(include: sequence of strings, "
-            + "*, exclude: sequence of strings = [], exclude_directories: int = 1)");
+            + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
+            + "allow_empty: bool = True)");
   }
 
   @Test
@@ -706,7 +708,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobFails(
         "glob(1, exclude=2)",
         "argument 'include' has type 'int', but should be 'sequence'\n"
-            + "in call to builtin function glob(include, *, exclude, exclude_directories)");
+            + "in call to builtin function glob(include, *, exclude, exclude_directories, "
+            + "allow_empty)");
   }
 
   @Test

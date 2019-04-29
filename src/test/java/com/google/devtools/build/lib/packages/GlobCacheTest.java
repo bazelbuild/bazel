@@ -174,16 +174,16 @@ public class GlobCacheTest {
 
   @Test
   public void testGlob() throws Exception {
-    assertEmpty(cache.globUnsorted(list("*.java"), NONE, false));
+    assertEmpty(cache.globUnsorted(list("*.java"), NONE, false, true));
 
-    assertThat(cache.globUnsorted(list("*.*"), NONE, false)).containsExactly(
-        "first.js", "first.txt", "second.js", "second.txt");
+    assertThat(cache.globUnsorted(list("*.*"), NONE, false, true))
+        .containsExactly("first.js", "first.txt", "second.js", "second.txt");
 
-    assertThat(cache.globUnsorted(list("*.*"), list("first.js"), false)).containsExactly(
-        "first.txt", "second.js", "second.txt");
+    assertThat(cache.globUnsorted(list("*.*"), list("first.js"), false, true))
+        .containsExactly("first.txt", "second.js", "second.txt");
 
-    assertThat(cache.globUnsorted(list("*.txt", "first.*"), NONE, false)).containsExactly(
-        "first.txt", "second.txt", "first.js");
+    assertThat(cache.globUnsorted(list("*.txt", "first.*"), NONE, false, true))
+        .containsExactly("first.txt", "second.txt", "first.js");
   }
 
   @Test
@@ -195,59 +195,101 @@ public class GlobCacheTest {
 
   @Test
   public void testSingleFileExclude_Star() throws Exception {
-    assertThat(cache.globUnsorted(list("*"), list("first.txt"), false)).containsExactly(
-        "BUILD", "bar", "first.js", "foo", "second.js", "second.txt");
+    assertThat(cache.globUnsorted(list("*"), list("first.txt"), false, true))
+        .containsExactly("BUILD", "bar", "first.js", "foo", "second.js", "second.txt");
   }
 
   @Test
   public void testSingleFileExclude_StarStar() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("first.txt"), false)).containsExactly(
-        "BUILD", "bar", "bar/first.js", "bar/second.js", "first.js", "foo", "foo/first.js",
-        "foo/second.js", "second.js", "second.txt");
+    assertThat(cache.globUnsorted(list("**"), list("first.txt"), false, true))
+        .containsExactly(
+            "BUILD",
+            "bar",
+            "bar/first.js",
+            "bar/second.js",
+            "first.js",
+            "foo",
+            "foo/first.js",
+            "foo/second.js",
+            "second.js",
+            "second.txt");
   }
 
   @Test
   public void testExcludeAll_Star() throws Exception {
-    assertThat(cache.globUnsorted(list("*"), list("*"), false)).isEmpty();
+    assertThat(cache.globUnsorted(list("*"), list("*"), false, true)).isEmpty();
   }
 
   @Test
   public void testExcludeAll_Star_NoMatchesAnyway() throws Exception {
-    assertThat(cache.globUnsorted(list("nope"), list("*"), false)).isEmpty();
+    assertThat(cache.globUnsorted(list("nope"), list("*"), false, true)).isEmpty();
   }
 
   @Test
   public void testExcludeAll_StarStar() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("**"), false)).isEmpty();
+    assertThat(cache.globUnsorted(list("**"), list("**"), false, true)).isEmpty();
   }
 
   @Test
   public void testExcludeAll_Manual() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("*", "*/*", "*/*/*"), false)).isEmpty();
+    assertThat(cache.globUnsorted(list("**"), list("*", "*/*", "*/*/*"), false, true)).isEmpty();
   }
 
   @Test
   public void testSingleFileExcludeDoesntMatch() throws Exception {
-    assertThat(cache.globUnsorted(list("first.txt"), list("nope.txt"), false)).containsExactly(
-        "first.txt");
+    assertThat(cache.globUnsorted(list("first.txt"), list("nope.txt"), false, true))
+        .containsExactly("first.txt");
   }
 
   @Test
   public void testExcludeDirectory() throws Exception {
-    assertThat(cache.globUnsorted(list("foo/*"), NONE, true)).containsExactly(
-        "foo/first.js", "foo/second.js");
-    assertThat(cache.globUnsorted(list("foo/*"), list("foo"), false)).containsExactly(
-        "foo/first.js", "foo/second.js");
+    assertThat(cache.globUnsorted(list("foo/*"), NONE, true, true))
+        .containsExactly("foo/first.js", "foo/second.js");
+    assertThat(cache.globUnsorted(list("foo/*"), list("foo"), false, true))
+        .containsExactly("foo/first.js", "foo/second.js");
+  }
+
+  @Test
+  public void testGlobAllowEmpty() throws Exception {
+    assertEmpty(cache.globUnsorted(list("*.java"), NONE, false, true));
+
+    try {
+      cache.globUnsorted(list("*.java"), NONE, false, false);
+      fail("Expected failure");
+    } catch (BadGlobException expected) {
+      assertThat(expected).hasMessageThat().contains("allow_empty");
+    }
+
+    assertThat(cache.globUnsorted(list("*.txt", "*.java"), NONE, false, true))
+        .containsExactly("first.txt", "second.txt");
+
+    try {
+      cache.globUnsorted(list("*.txt", "*.java"), NONE, false, false);
+      fail("Expected failure");
+    } catch (BadGlobException expected) {
+      assertThat(expected).hasMessageThat().contains("allow_empty");
+    }
+
+    assertEmpty(cache.globUnsorted(list("*.txt"), list("*.*"), false, true));
+
+    try {
+      cache.globUnsorted(list("*.txt"), list("*.*"), false, false);
+      fail("Expected failure");
+    } catch (BadGlobException expected) {
+      assertThat(expected).hasMessageThat().contains("allow_empty");
+    }
   }
 
   @Test
   public void testChildGlobWithChildExclude() throws Exception {
-    assertThat(cache.globUnsorted(list("foo/*"), list("foo/*"), false)).isEmpty();
+    assertThat(cache.globUnsorted(list("foo/*"), list("foo/*"), false, true)).isEmpty();
     assertThat(
-        cache.globUnsorted(list("foo/first.js", "foo/second.js"), list("foo/*"), false)).isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("foo/first.js"), false)).isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("*/first.js"), false)).isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("*/*"), false)).isEmpty();
+            cache.globUnsorted(list("foo/first.js", "foo/second.js"), list("foo/*"), false, true))
+        .isEmpty();
+    assertThat(cache.globUnsorted(list("foo/first.js"), list("foo/first.js"), false, true))
+        .isEmpty();
+    assertThat(cache.globUnsorted(list("foo/first.js"), list("*/first.js"), false, true)).isEmpty();
+    assertThat(cache.globUnsorted(list("foo/first.js"), list("*/*"), false, true)).isEmpty();
   }
 
   private void assertEmpty(Collection<?> glob) {
