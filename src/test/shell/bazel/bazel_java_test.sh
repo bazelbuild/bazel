@@ -1532,7 +1532,7 @@ my_rule = rule(
   attrs = {
     'output_jar' : attr.label(allow_single_file=True),
     'source_jars' : attr.label_list(allow_files=['.jar']),
-    "_java_toolchain": attr.label(default = Label("//tools/jdk:remote_toolchain"))
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain"))
   }
 )
 EOF
