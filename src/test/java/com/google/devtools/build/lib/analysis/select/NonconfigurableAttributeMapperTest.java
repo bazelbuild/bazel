@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -50,14 +50,13 @@ public class NonconfigurableAttributeMapperTest extends AbstractAttributeMapperT
 
   @Test
   public void testGetConfigurableAttribute() throws Exception {
-    try {
-      NonconfigurableAttributeMapper.of(rule).get("linkstatic", Type.BOOLEAN);
-      fail("Expected NonconfigurableAttributeMapper to fail on a configurable attribute type");
-    } catch (IllegalStateException e) {
-      // Expected outcome.
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("Attribute 'linkstatic' is potentially configurable - not allowed here");
-    }
+    IllegalStateException e =
+        assertThrows(
+            "Expected NonconfigurableAttributeMapper to fail on a configurable attribute type",
+            IllegalStateException.class,
+            () -> NonconfigurableAttributeMapper.of(rule).get("linkstatic", Type.BOOLEAN));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Attribute 'linkstatic' is potentially configurable - not allowed here");
   }
 }

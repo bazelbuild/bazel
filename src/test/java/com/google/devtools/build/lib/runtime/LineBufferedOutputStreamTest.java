@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -86,12 +86,7 @@ public class LineBufferedOutputStreamTest {
     MockOutputStream mos = new MockOutputStream();
     LineBufferedOutputStream cut = new LineBufferedOutputStream(mos, 4);
     mos.throwException = true;
-    try {
-      cut.write("aaaa".getBytes(StandardCharsets.UTF_8));
-      fail("IOException expected");
-    } catch (IOException e) {
-      // Expected.
-    }
+    assertThrows(IOException.class, () -> cut.write("aaaa".getBytes(StandardCharsets.UTF_8)));
     cut.write("a".getBytes(StandardCharsets.UTF_8));
     cut.close();
     assertThat(mos.writes).containsExactly("aaaa", "a");

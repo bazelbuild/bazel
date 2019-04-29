@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.ERROR;
 import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.IGNORE;
 import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.RESOLVE;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -100,12 +100,13 @@ public final class FilesetManifestTest {
     List<FilesetOutputSymlink> symlinks =
         ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
 
-    try {
-      FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), ERROR);
-      fail("Expected to throw");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().isEqualTo("runfiles target is not absolute: foo");
-    }
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                FilesetManifest.constructFilesetManifest(
+                    symlinks, PathFragment.create("out/foo"), ERROR));
+    assertThat(e).hasMessageThat().isEqualTo("runfiles target is not absolute: foo");
   }
 
   @Test
