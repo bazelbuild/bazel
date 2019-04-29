@@ -141,13 +141,13 @@ distdir_tar(
             "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         ],
         "java_tools_javac10_linux-v3.0.zip": [
-            "https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_linux-v3.0.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_linux-v3.0.zip",
         ],
         "java_tools_javac10_windows-v3.0.zip": [
-            "https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_windows-v3.0.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_windows-v3.0.zip",
         ],
         "java_tools_javac10_darwin-v3.0.zip": [
-            "https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_darwin-v3.0.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_darwin-v3.0.zip",
         ],
         "coverage_output_generator-v1.0.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip",
@@ -413,9 +413,9 @@ distdir_tar(
         "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz"],
         "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip": ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip"],
         "jdk10-server-release-1804.tar.xz": ["https://mirror.bazel.build/openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz"],
-        "java_tools_javac10_linux-v3.0.zip": ["https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_linux-v3.0.zip"],
-        "java_tools_javac10_windows-v3.0.zip": ["https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_windows-v3.0.zip"],
-        "java_tools_javac10_darwin-v3.0.zip": ["https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_darwin-v3.0.zip"],
+        "java_tools_javac10_linux-v3.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_linux-v3.0.zip"],
+        "java_tools_javac10_windows-v3.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_windows-v3.0.zip"],
+        "java_tools_javac10_darwin-v3.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_darwin-v3.0.zip"],
         "coverage_output_generator-v1.0.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip"],
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-linux_x64.tar.gz"],
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz"],
