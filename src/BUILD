@@ -667,7 +667,6 @@ genrule(
         name = "java_tools_java" + java_version + "_no_build_zip",
         srcs = [
             ":jars_java_tools_java" + java_version + ".zip",
-            ":java_tools_build.zip",
             "//src/tools/singlejar:singlejar_transitive_zip",
             "//third_party/ijar:ijar_transitive_zip",
             "//third_party/java/jacoco:jacoco_jars_zip",
