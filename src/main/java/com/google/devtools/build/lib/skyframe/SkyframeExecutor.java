@@ -86,7 +86,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Settings;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1996,22 +1995,12 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
         if (transition == NullTransition.INSTANCE) {
           continue;
         }
-        ImmutableMap<Label, Object> defaultInputValues;
         List<BuildOptions> toOptions = Collections.singletonList(fromOptions);
         try {
-          // TODO(juliexxia): combine these skyframe calls with other skyframe calls for this
-          // configured target.
-          defaultInputValues =
-              StarlarkTransition.getDefaultInputValues(
-                  collectBuildSettingValues(transition, eventHandler, Settings.INPUTS), transition);
+          Map<SkyKey, SkyValue> buildSettingPackages =
+              collectBuildSettingValues(transition, eventHandler);
           toOptions =
-              ConfigurationResolver.applyTransition(
-                  fromOptions,
-                  transition,
-                  depFragments,
-                  ruleClassProvider,
-                  defaultInputValues,
-                  collectBuildSettingValues(transition, eventHandler, Settings.OUTPUTS));
+              ConfigurationResolver.applyTransition(fromOptions, transition, buildSettingPackages);
           StarlarkTransition.replayEvents(eventHandler, transition);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
@@ -2034,21 +2023,13 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
           builder.put(key, null);
           continue;
         }
-        ImmutableMap<Label, Object> defaultInputValues;
         List<BuildOptions> toOptions = Collections.singletonList(fromOptions);
         try {
-          defaultInputValues =
-              StarlarkTransition.getDefaultInputValues(
-                  collectBuildSettingValues(key.getTransition(), eventHandler, Settings.INPUTS),
-                  key.getTransition());
+          Map<SkyKey, SkyValue> buildSettingPackages =
+              collectBuildSettingValues(key.getTransition(), eventHandler);
           toOptions =
               ConfigurationResolver.applyTransition(
-                  fromOptions,
-                  key.getTransition(),
-                  depFragments,
-                  ruleClassProvider,
-                  defaultInputValues,
-                  collectBuildSettingValues(key.getTransition(), eventHandler, Settings.OUTPUTS));
+                  fromOptions, key.getTransition(), buildSettingPackages);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
         }
@@ -2101,11 +2082,9 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   }
 
   private Map<SkyKey, SkyValue> collectBuildSettingValues(
-      ConfigurationTransition transition,
-      ExtendedEventHandler eventHandler,
-      Settings inputsOrOutputs) {
+      ConfigurationTransition transition, ExtendedEventHandler eventHandler) {
     ImmutableSet<SkyKey> buildSettingPackageKeys =
-        StarlarkTransition.getBuildSettingPackageKeys(transition, inputsOrOutputs);
+        StarlarkTransition.getAllBuildSettingPackageKeys(transition);
     EvaluationResult<SkyValue> buildSettingsResult =
         evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
     ImmutableMap.Builder<SkyKey, SkyValue> buildSettingValues = new ImmutableMap.Builder<>();
