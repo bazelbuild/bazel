@@ -17,6 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
+import static org.mockito.AdditionalAnswers.answerVoid;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Action;
@@ -36,6 +39,8 @@ import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.api.client.json.GenericJson;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
@@ -50,6 +55,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -87,6 +93,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -179,6 +186,10 @@ public class GrpcRemoteCacheTest {
   }
 
   private GrpcRemoteCache newClient(RemoteOptions remoteOptions) throws IOException {
+    return newClient(remoteOptions, () -> new ExponentialBackoff(remoteOptions));
+  }
+
+  private GrpcRemoteCache newClient(RemoteOptions remoteOptions, Supplier<Backoff> backoffSupplier) throws IOException {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.useGoogleDefaultCredentials = true;
     authTlsOptions.googleCredentials = "/exec/root/creds.json";
@@ -198,7 +209,7 @@ public class GrpcRemoteCacheTest {
     }
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            () -> new ExponentialBackoff(remoteOptions),
+            backoffSupplier,
             RemoteRetrier.RETRIABLE_GRPC_ERRORS,
             retryService);
     ReferenceCountedChannel channel =
@@ -501,17 +512,20 @@ public class GrpcRemoteCacheTest {
   static class TestChunkedRequestObserver implements StreamObserver<WriteRequest> {
     private final StreamObserver<WriteResponse> responseObserver;
     private final String contents;
-    private Chunker chunker;
+    private final Chunker chunker;
+    private final Digest digest;
 
     public TestChunkedRequestObserver(
         StreamObserver<WriteResponse> responseObserver, String contents, int chunkSizeBytes) {
       this.responseObserver = responseObserver;
       this.contents = contents;
+      byte[] blob = contents.getBytes(UTF_8);
       chunker =
-          Chunker.builder(DIGEST_UTIL)
-              .setInput(contents.getBytes(UTF_8))
+          Chunker.builder()
+              .setInput(blob)
               .setChunkSize(chunkSizeBytes)
               .build();
+      digest = DIGEST_UTIL.compute(blob);
     }
 
     @Override
@@ -519,7 +533,6 @@ public class GrpcRemoteCacheTest {
       assertThat(chunker.hasNext()).isTrue();
       try {
         Chunker.Chunk chunk = chunker.next();
-        Digest digest = chunk.getDigest();
         long offset = chunk.getOffset();
         ByteString data = chunk.getData();
         if (offset == 0) {
@@ -934,6 +947,15 @@ public class GrpcRemoteCacheTest {
                 };
               }
             });
+    doAnswer(
+        answerVoid((QueryWriteStatusRequest request, StreamObserver<QueryWriteStatusResponse> responseObserver) -> {
+            responseObserver.onNext(QueryWriteStatusResponse.newBuilder()
+                .setCommittedSize(0)
+                .setComplete(false)
+                .build());
+            responseObserver.onCompleted();
+        }))
+        .when(mockByteStreamImpl).queryWriteStatus(any(QueryWriteStatusRequest.class), any(StreamObserver.class));
     client.upload(
         actionKey,
         Action.getDefaultInstance(),
@@ -966,7 +988,8 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
-    final GrpcRemoteCache client = newClient();
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    final GrpcRemoteCache client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -989,12 +1012,15 @@ public class GrpcRemoteCacheTest {
           }
         });
     assertThat(new String(getFromFuture(client.downloadBlob(digest)), UTF_8)).isEqualTo("abcdefg");
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis();
   }
 
   @Test
   public void downloadBlobPassesThroughDeadlineExceededWithoutProgress()
       throws IOException, InterruptedException {
-    final GrpcRemoteCache client = newClient();
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    Mockito.when(mockBackoff.nextDelayMillis()).thenReturn(-1l);
+    final GrpcRemoteCache client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -1016,6 +1042,7 @@ public class GrpcRemoteCacheTest {
       Status st = Status.fromThrowable(e);
       assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
     }
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis();
   }
 
   @Test

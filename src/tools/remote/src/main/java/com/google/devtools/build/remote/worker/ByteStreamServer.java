@@ -83,8 +83,8 @@ final class ByteStreamServer extends ByteStreamImplBase {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
       Chunker c =
-          Chunker.builder(digestUtil)
-              .setInput(digest, getFromFuture(cache.downloadBlob(digest)))
+          Chunker.builder()
+              .setInput(getFromFuture(cache.downloadBlob(digest)))
               .build();
       while (c.hasNext()) {
         responseObserver.onNext(

@@ -18,6 +18,7 @@ filegroup(
 java_test(
     name = "remote",
     srcs = glob(["**/*.java"]),
+    size = "small",
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
