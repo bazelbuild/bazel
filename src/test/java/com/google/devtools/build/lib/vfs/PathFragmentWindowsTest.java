@@ -58,7 +58,8 @@ public class PathFragmentWindowsTest {
     PathFragment p5 = create("/c:");
     assertThat(p5.isAbsolute()).isTrue();
     assertThat(p5.getSegments()).containsExactly("c:");
-    assertThat(create("C:").isAbsolute()).isFalse();
+    assertThat(create("C:").isAbsolute()).isTrue();
+    assertThat(create("C:foo").isAbsolute()).isFalse();
 
     assertThat(create("/c:").isAbsolute()).isTrue();
     assertThat(create("/c:").getSegments()).containsExactly("c:");
@@ -67,7 +68,8 @@ public class PathFragmentWindowsTest {
     assertThat(create("/c")).isNotEqualTo(create("C:/"));
     assertThat(create("/c")).isNotEqualTo(create("C:"));
     assertThat(create("/c")).isNotEqualTo(create("/c:"));
-    assertThat(create("C:/")).isNotEqualTo(create("C:"));
+    assertThat(create("C:/")).isEqualTo(create("C:"));
+    assertThat(create("C:/abc")).isNotEqualTo(create("C:abc"));
     assertThat(create("C:/")).isNotEqualTo(create("/c:"));
   }
 
@@ -196,10 +198,8 @@ public class PathFragmentWindowsTest {
     assertThat(create("C:/foo/bar").startsWith(create("C:/foo"))).isTrue();
     assertThat(create("C:/foo/bar").startsWith(create("C:/"))).isTrue();
     assertThat(create("C:/").startsWith(create("C:/"))).isTrue();
-
-    // The first path is absolute, the second is not.
-    assertThat(create("C:/foo/bar").startsWith(create("C:"))).isFalse();
-    assertThat(create("C:/").startsWith(create("C:"))).isFalse();
+    assertThat(create("C:/foo/bar").startsWith(create("C:"))).isTrue();
+    assertThat(create("C:/").startsWith(create("C:"))).isTrue();
   }
 
   @Test
@@ -231,8 +231,13 @@ public class PathFragmentWindowsTest {
     // of drive C:\".
     // Bazel doesn't resolve such paths, and just takes them literally like normal path segments.
     // If the user attempts to open files under such paths, the file system API will give an error.
-    assertThat(create("C:").isAbsolute()).isFalse();
-    assertThat(create("C:").getSegments()).containsExactly("C:");
+    // Bazel special-cases paths like "C:" and treats them as "C:/".
+    assertThat(create("C:").isAbsolute()).isTrue();
+    assertThat(create("C:abc").isAbsolute()).isFalse();
+
+    assertThat(create("C:").getSegments()).isEmpty();
+    assertThat(create("C:/").getSegments()).isEmpty();
+    assertThat(create("C:abc").getSegments()).containsExactly("C:abc");
   }
 
   @Test
