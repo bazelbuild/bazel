@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
@@ -28,8 +29,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     doc =
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
-public interface CcLinkingContextApi<
-    FileT extends FileApi, LibraryToLinkT extends LibraryToLinkApi<FileT>> {
+public interface CcLinkingContextApi<FileT extends FileApi> {
   @SkylarkCallable(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
@@ -38,13 +38,16 @@ public interface CcLinkingContextApi<
 
   @SkylarkCallable(
       name = "libraries_to_link",
-      doc = "Returns the list of <code>LibraryToLink</code>.",
-      structField = true)
-  SkylarkList<LibraryToLinkT> getSkylarkLibrariesToLink();
+      doc =
+          "Returns the depset of <code>LibraryToLink</code>. May return a list but this is"
+              + "deprecated. See #8118.",
+      structField = true,
+      useEnvironment = true)
+  Object getSkylarkLibrariesToLink(Environment environment);
 
   @SkylarkCallable(
       name = "additional_inputs",
-      doc = "Returns the list of additional inputs, e.g.: linker scripts.",
+      doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       structField = true)
   SkylarkNestedSet getSkylarkNonCodeInputs();
 }

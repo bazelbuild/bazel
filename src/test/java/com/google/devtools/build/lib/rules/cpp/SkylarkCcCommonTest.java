@@ -1142,6 +1142,46 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
   }
 
+  /** TODO(#8118): This test can go away once flag is flipped. */
+  @Test
+  public void testIncompatibleDepsetForLibrariesToLinkGetter() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.PIC,
+                    CppRuleClasses.SUPPORTS_PIC,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
+    setUpCcLinkingContextTest();
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
+
+    @SuppressWarnings("unchecked")
+    SkylarkNestedSet librariesToLink = info.getValue("libraries_to_link", SkylarkNestedSet.class);
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getStaticLibrary() != null)
+                .map(x -> x.getStaticLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.a", "b.a", "c.a", "d.a");
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getPicStaticLibrary() != null)
+                .map(x -> x.getPicStaticLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a");
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getDynamicLibrary() != null)
+                .map(x -> x.getDynamicLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
+  }
+
+  @Deprecated
   private void doTestCcLinkingContext(
       List<String> staticLibraryList,
       List<String> picStaticLibraryList,

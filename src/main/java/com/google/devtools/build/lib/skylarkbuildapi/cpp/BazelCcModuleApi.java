@@ -44,7 +44,7 @@ public interface BazelCcModuleApi<
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         LinkingOutputsT extends CcLinkingOutputsApi<FileT>,
         LibraryToLinkT extends LibraryToLinkApi<FileT>,
-        LinkingContextT extends CcLinkingContextApi<FileT, LibraryToLinkT>,
+        LinkingContextT extends CcLinkingContextApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi>
     extends CcModuleApi<

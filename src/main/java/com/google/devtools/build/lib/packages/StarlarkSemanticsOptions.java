@@ -605,6 +605,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "only specifiable positionally (and not by keyword).")
   public boolean incompatibleRestrictNamedParams;
 
+  @Option(
+      name = "incompatible_depset_for_libraries_to_link_getter",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "When true, Bazel no longer returns a list from linking_context.libraries_to_link but "
+              + "returns a depset instead.")
+  public boolean incompatibleDepsetForLibrariesToLinkGetter;
+
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
   public StarlarkSemantics toSkylarkSemantics() {
     return StarlarkSemantics.builder()
@@ -654,6 +668,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
+        .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
         .build();
   }
 }

@@ -200,6 +200,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDoNotSplitLinkingCmdline();
 
+  public abstract boolean incompatibleDepsetForLibrariesToLinkGetter();
+
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
 
@@ -256,6 +258,7 @@ public abstract class StarlarkSemantics {
           .incompatibleStringJoinRequiresStrings(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(false)
+          .incompatibleDepsetForLibrariesToLinkGetter(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -345,6 +348,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 
     public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
+
+    public abstract Builder incompatibleDepsetForLibrariesToLinkGetter(boolean value);
 
     public abstract StarlarkSemantics build();
   }
