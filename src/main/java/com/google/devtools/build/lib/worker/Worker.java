@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,6 +59,10 @@ class Worker {
    * The path of the log file.
    */
   protected final Path logFile;
+  /**
+   * Stream for reading the WorkResponse.
+   */
+  protected RecordingInputStream recordingStream;
 
   private Subprocess process;
   private Thread shutdownHook;
@@ -153,12 +159,21 @@ class Worker {
     return !process.finished();
   }
 
-  InputStream getInputStream() {
-    return process.getInputStream();
+  void putRequest(WorkRequest request) throws IOException {
+    request.writeDelimitedTo(process.getOutputStream());
+    process.getOutputStream().flush();
   }
 
-  OutputStream getOutputStream() {
-    return process.getOutputStream();
+  WorkResponse getResponse() throws IOException {
+    recordingStream = new RecordingInputStream(process.getInputStream());
+    recordingStream.startRecording(4096);
+    // response can be null when the worker has already closed stdout at this point and thus
+    // the InputStream is at EOF.
+    return WorkResponse.parseDelimitedFrom(recordingStream);
+  }
+
+  RecordingInputStream getRecordingStream() {
+    return recordingStream;
   }
 
   public void prepareExecution(

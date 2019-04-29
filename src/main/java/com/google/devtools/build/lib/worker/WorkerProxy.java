@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.worker;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -82,25 +84,40 @@ final class WorkerProxy extends Worker {
   }
 
   /**
-   * Send the WorkRequest to worker process, and wait for WorkResponse. We have
-   * to set the semaphore to 0 in order to pause the WorkerProxy thread.
+   * Send the WorkRequest to worker process.
    */
   @Override
-  InputStream getInputStream() {
-    byte[] requestBytes = request.toByteArray();
-    request.reset();
+  void putRequest(WorkRequest request) throws IOException {
+    ByteArrayOutputStream requestOutputStream = new ByteArrayOutputStream();
+    request.writeDelimitedTo(requestOutputStream);
+    requestOutputStream.flush();
     try {
       workerMultiplexer.resetResponseChecker(workerId);
-      workerMultiplexer.putRequest(requestBytes);
-      return workerMultiplexer.getResponse(workerId);
-    } catch (Exception e) {
-      // Return empty InputStream if exception occurs.
-      return new ByteArrayInputStream(new byte[0]);
+      workerMultiplexer.putRequest(requestOutputStream.toByteArray());
+    } catch (InterruptedException e) {
+      // We can't throw InterruptedException to WorkerSpawnRunner because of the principle of override.
+      // InterruptedException will happen when Bazel is waiting for semaphore but user terminates the
+      // process, so we do nothing here. 
     }
   }
 
+  /**
+   * Wait for WorkResponse. We have to set the semaphore to 0
+   * in order to pause the WorkerProxy thread.
+   */
   @Override
-  OutputStream getOutputStream() {
-    return request;
+  WorkResponse getResponse() throws IOException {
+    RecordingInputStream recordingStream = new RecordingInputStream(new ByteArrayInputStream(new byte[0]));
+    try {
+      recordingStream = new RecordingInputStream(workerMultiplexer.getResponse(workerId));
+      recordingStream.startRecording(4096);
+    } catch (InterruptedException e) {
+      // We can't throw InterruptedException to WorkerSpawnRunner because of the principle of override.
+      // InterruptedException will happen when Bazel is waiting for semaphore but user terminates the
+      // process, so we do nothing here. 
+    }
+    // response can be null when the worker has already closed stdout at this point and thus
+    // the InputStream is at EOF.
+    return WorkResponse.parseDelimitedFrom(recordingStream);
   }
 }

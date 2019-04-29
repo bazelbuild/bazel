@@ -348,8 +348,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         }
 
         try {
-          request.writeDelimitedTo(worker.getOutputStream());
-          worker.getOutputStream().flush();
+          worker.putRequest(request);
         } catch (IOException e) {
           throw new UserExecException(
               ErrorMessage.builder()
@@ -362,16 +361,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
                   .toString());
         }
 
-        RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
-        recordingStream.startRecording(4096);
         try {
-          // response can be null when the worker has already closed stdout at this point and thus
-          // the InputStream is at EOF.
-          response = WorkResponse.parseDelimitedFrom(recordingStream);
+          response = worker.getResponse();
         } catch (IOException e) {
           // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
           // to stdout - it's probably a stack trace or some kind of error message that will help
           // the user figure out why the compiler is failing.
+          RecordingInputStream recordingStream = worker.getRecordingStream();
           recordingStream.readRemaining();
           throw new UserExecException(
               ErrorMessage.builder()
