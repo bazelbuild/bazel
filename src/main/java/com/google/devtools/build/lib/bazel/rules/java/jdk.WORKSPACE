@@ -208,7 +208,7 @@ http_archive(
     name = "remote_java_tools_linux",
     sha256 = "a5cccbf1d89650e209522ef2e14280bda361adf76c333e5d55a619d988b95543",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac10/v3.0/java_tools_javac10_linux-v3.0-rc3.zip",
+        "https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_linux-v3.0.zip",
     ],
 )
 
@@ -216,7 +216,7 @@ http_archive(
     name = "remote_java_tools_windows",
     sha256 = "976d6f509fd52dab729d66d1cd220d73367dac0f683846304c2e4a489911f5de",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac10/v3.0/java_tools_javac10_windows-v3.0-rc3.zip",
+        "https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_windows-v3.0.zip",
     ],
 )
 
@@ -224,7 +224,7 @@ http_archive(
     name = "remote_java_tools_darwin",
     sha256 = "3df083b8f5372bc384306b1fa40973debac1d7fa4b791e3dd35b1c462fb9bc61",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac10/v3.0/java_tools_javac10_darwin-v3.0-rc3.zip",
+        "https://mirror.bazel.build/v3.0bazel_java_tools/releases/javac10/v3.0/java_tools_javac10_darwin-v3.0.zip",
     ],
 )
 
