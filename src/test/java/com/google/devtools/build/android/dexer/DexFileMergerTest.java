@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.dexer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
@@ -302,9 +303,15 @@ public class DexFileMergerTest {
       Set<String> shard = dexFiles.get(expectedDexFileName(i));
       for (String c1 : prev) {
         for (String c2 : shard) {
-          assertThat(ZipEntryComparator.compareClassNames(c2, c1))
-              .named(c2 + " in shard " + i + " should compare as larger than " + c1
-                  + "; list of all shards for reference: " + dexFiles)
+          assertWithMessage(
+                  c2
+                      + " in shard "
+                      + i
+                      + " should compare as larger than "
+                      + c1
+                      + "; list of all shards for reference: "
+                      + dexFiles)
+              .that(ZipEntryComparator.compareClassNames(c2, c1))
               .isGreaterThan(0);
         }
       }

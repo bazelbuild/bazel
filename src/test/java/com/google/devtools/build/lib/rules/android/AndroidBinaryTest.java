@@ -369,8 +369,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         // If that's desired then we'll need to make sure dependency checking is done in another
         // action that APK artifacts depend on, in addition to the check that happens when building
         // deploy.jars, which we assert above.
-        assertThat(actionsTestUtil().artifactClosureOf(built))
-            .named("%s dependency on deploy.jar", built.getFilename())
+        assertWithMessage("%s dependency on deploy.jar", built.getFilename())
+            .that(actionsTestUtil().artifactClosureOf(built))
             .contains(singlejar.getPrimaryOutput());
         ++found;
       }
@@ -596,8 +596,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     for (Artifact input : getNonToolInputs(shardAction)) {
       String basename = input.getFilename();
       // all jars are converted to dex archives
-      assertThat(!basename.contains(".jar") || basename.endsWith(".jar.dex.zip"))
-          .named(basename).isTrue();
+      assertWithMessage(basename)
+          .that(!basename.contains(".jar") || basename.endsWith(".jar.dex.zip"))
+          .isTrue();
       // all jars are desugared before being converted
       if (basename.endsWith(".jar.dex.zip")) {
         assertThat(getGeneratingAction(input).getPrimaryInput().getFilename())
@@ -2935,7 +2936,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     ConfiguredTarget top = getConfiguredTarget("//java/com/google/android:foo");
     Artifact artifact = getBinArtifact("_dx/foo/_final_classes.dex.zip", top);
-    assertThat(artifact).named("_final_classes.dex.zip").isNotNull();
+    assertWithMessage("_final_classes.dex.zip").that(artifact).isNotNull();
     Action generatingAction = getGeneratingAction(artifact);
     assertThat(ActionsTestUtil.baseArtifactNames(generatingAction.getInputs()))
         .containsAtLeast("classes.dex.zip", /*canned*/ "java8_legacy.dex.zip");
@@ -2956,7 +2957,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     ConfiguredTarget top = getConfiguredTarget("//java/com/google/android:foo");
     Artifact artifact = getBinArtifact("_dx/foo/_final_classes.dex.zip", top);
-    assertThat(artifact).named("_final_classes.dex.zip").isNotNull();
+    assertWithMessage("_final_classes.dex.zip").that(artifact).isNotNull();
     Action generatingAction = getGeneratingAction(artifact);
     assertThat(ActionsTestUtil.baseArtifactNames(generatingAction.getInputs()))
         .containsAtLeast("classes.dex.zip", /*built*/ "_java8_legacy.dex.zip");

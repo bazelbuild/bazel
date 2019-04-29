@@ -14,6 +14,7 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Objects;
 import com.google.common.truth.FailureMetadata;
@@ -38,8 +39,8 @@ class UnwrittenMergedAndroidDataSubject
         assertThat(subject).isEqualTo(expected);
       }
       if (subject.getManifest() != null) {
-        assertThat(subject.getManifest().toString())
-            .named("manifest")
+        assertWithMessage("manifest")
+            .that(subject.getManifest().toString())
             .isEqualTo(expected.getManifest().toString());
       }
 
@@ -50,14 +51,14 @@ class UnwrittenMergedAndroidDataSubject
 
   private void compareDataSets(
       String identifier, ParsedAndroidData subject, ParsedAndroidData expected) {
-    assertThat(subject.getOverwritingResources())
-        .named("Overwriting " + identifier)
+    assertWithMessage("Overwriting " + identifier)
+        .that(subject.getOverwritingResources())
         .containsExactlyEntriesIn(expected.getOverwritingResources());
-    assertThat(subject.getCombiningResources())
-        .named("Combining " + identifier)
+    assertWithMessage("Combining " + identifier)
+        .that(subject.getCombiningResources())
         .containsExactlyEntriesIn(expected.getCombiningResources());
-    assertThat(subject.getAssets())
-        .named("Assets " + identifier)
+    assertWithMessage("Assets " + identifier)
+        .that(subject.getAssets())
         .containsExactlyEntriesIn(expected.getAssets());
   }
 }
