@@ -67,6 +67,29 @@ def workspace_and_buildfile(ctx):
         ctx.execute([bash_exe, "-c", "rm -f BUILD.bazel"])
         ctx.file("BUILD.bazel", ctx.attr.build_file_content)
 
+def _run_patch(ctx, bash_exe, patchfile, patch_args):
+    command = "{patchtool} {patch_args} < {patchfile}".format(
+        patchtool = ctx.attr.patch_tool,
+        patchfile = ctx.path(patchfile),
+        patch_args = " ".join([
+            "'%s'" % arg
+            for arg in patch_args
+        ]),
+    )
+    return ctx.execute([bash_exe, "-c", command])
+
+def _patch(ctx, bash_exe, patchfile, patch_args):
+    """Execute the patch command, with failure fallback from -p0 to -p1."""
+    st = _run_patch(ctx, bash_exe, patchfile, patch_args)
+    if st.return_code == 0:
+        return st
+
+    if "-p0" not in patch_args:
+        return st
+    new_args = [arg for arg in patch_args if arg != "-p0"]
+    new_args.append("-p1")
+    return _run_patch(ctx, bash_exe, patchfile, new_args)
+
 def patch(ctx):
     """Implementation of patching an already extracted repository.
 
@@ -82,15 +105,7 @@ def patch(ctx):
     if len(ctx.attr.patches) > 0 or len(ctx.attr.patch_cmds) > 0:
         ctx.report_progress("Patching repository")
     for patchfile in ctx.attr.patches:
-        command = "{patchtool} {patch_args} < {patchfile}".format(
-            patchtool = ctx.attr.patch_tool,
-            patchfile = ctx.path(patchfile),
-            patch_args = " ".join([
-                "'%s'" % arg
-                for arg in ctx.attr.patch_args
-            ]),
-        )
-        st = ctx.execute([bash_exe, "-c", command])
+        st = _patch(ctx, bash_exe, patchfile, ctx.attr.patch_args)
         if st.return_code:
             fail("Error applying patch %s:\n%s%s" %
                  (str(patchfile), st.stderr, st.stdout))
