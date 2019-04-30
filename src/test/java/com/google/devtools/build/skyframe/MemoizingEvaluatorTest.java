@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.EventIterableSubjectFactory.assertThatEvents;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.ErrorInfoSubjectFactory.assertThatErrorInfo;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
@@ -341,12 +342,7 @@ public class MemoizingEvaluatorTest {
   public void interruptBitCleared() throws Exception {
     SkyKey interruptKey = GraphTester.skyKey("interrupt");
     tester.getOrCreate(interruptKey).setBuilder(INTERRUPT_BUILDER);
-    try {
-      tester.eval(/*keepGoing=*/ true, interruptKey);
-      fail("Expected interrupt");
-    } catch (InterruptedException e) {
-      // Expected.
-    }
+    assertThrows(InterruptedException.class, () -> tester.eval(/*keepGoing=*/ true, interruptKey));
     assertThat(Thread.interrupted()).isFalse();
   }
 
@@ -391,17 +387,15 @@ public class MemoizingEvaluatorTest {
                 null,
                 ImmutableList.<SkyKey>of()));
 
-    try {
-      // When it is interrupted during evaluation (here, caused by the failure of the throwing
-      // SkyFunction during a no-keep-going evaluation),
-      EvaluationResult<StringValue> unexpectedResult =
-          tester.eval(/*keepGoing=*/ false, badInterruptkey, failKey);
-      fail(unexpectedResult.toString());
-    } catch (RuntimeException e) {
-      // Then the Evaluator#evaluate call throws a RuntimeException e where e.getCause() is the
-      // RuntimeException thrown by that SkyFunction.
-      assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("I don't like being woken up!");
-    }
+    // When it is interrupted during evaluation (here, caused by the failure of the throwing
+    // SkyFunction during a no-keep-going evaluation), then the Evaluator#evaluate call throws a
+    // RuntimeException e where e.getCause() is the
+    // RuntimeException thrown by that SkyFunction.
+    RuntimeException e =
+        assertThrows(
+            RuntimeException.class,
+            () -> tester.eval(/*keepGoing=*/ false, badInterruptkey, failKey));
+    assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("I don't like being woken up!");
   }
 
   @Test
@@ -3020,17 +3014,15 @@ public class MemoizingEvaluatorTest {
             }
           });
       tester.invalidate();
-      TestThread evalThread = new TestThread() {
-        @Override
-        public void runTest() {
-          try {
-            tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
-            fail();
-          } catch (InterruptedException e) {
-            // Expected.
-          }
-        }
-      };
+      TestThread evalThread =
+          new TestThread() {
+            @Override
+            public void runTest() {
+              assertThrows(
+                  InterruptedException.class,
+                  () -> tester.eval(/*keepGoing=*/ false, tops.toArray(new SkyKey[0])));
+            }
+          };
       evalThread.start();
       assertThat(notifyStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
       evalThread.interrupt();
@@ -3078,13 +3070,7 @@ public class MemoizingEvaluatorTest {
     manyDirtyValuesClearChildrenOnFail(/*interrupt=*/true);
   }
 
-  /**
-   * Regression test for case where the user requests that we delete nodes that are already in the
-   * queue to be dirtied. We should handle that gracefully and not complain.
-   */
-  @Test
-  public void deletingDirtyNodes() throws Exception {
-    SkyKey node0 = GraphTester.nonHermeticKey("node0");
+  private SkyKey makeTestKey(SkyKey node0) {
     SkyKey key = null;
     // Create a long chain of nodes. Most of them will not actually be dirtied, but the last one to
     // be dirtied will enqueue its parent for dirtying, so it will be in the queue for the next run.
@@ -3098,6 +3084,17 @@ public class MemoizingEvaluatorTest {
         tester.set(key, new StringValue("node0"));
       }
     }
+    return key;
+  }
+
+  /**
+   * Regression test for case where the user requests that we delete nodes that are already in the
+   * queue to be dirtied. We should handle that gracefully and not complain.
+   */
+  @Test
+  public void deletingDirtyNodes() throws Exception {
+    SkyKey node0 = GraphTester.nonHermeticKey("node0");
+    SkyKey key = makeTestKey(node0);
     // Seed the graph.
     assertThat(((StringValue) tester.evalAndGet(/*keepGoing=*/ false, key)).getValue())
         .isEqualTo("node0");
@@ -3109,12 +3106,7 @@ public class MemoizingEvaluatorTest {
     final Thread thread = Thread.currentThread();
     tester.progressReceiver.setNextInvalidationCallback(thread::interrupt);
 
-    try {
-      tester.eval(/*keepGoing=*/false, key);
-      fail();
-    } catch (InterruptedException e) {
-      // Expected.
-    }
+    assertThrows(InterruptedException.class, () -> tester.eval(/*keepGoing=*/ false, key));
 
     // Cleanup + paranoid check
     tester.progressReceiver.setNextInvalidationCallback(null);
@@ -3393,12 +3385,7 @@ public class MemoizingEvaluatorTest {
     // Evaluator will think leaf was interrupted because it threw, so it will be cleaned from graph.
     tester.getOrCreate(value, /*markAsModified=*/true).setBuilder(INTERRUPT_BUILDER);
     tester.invalidate();
-    try {
-      tester.eval(/*keepGoing=*/false, value);
-      fail();
-    } catch (InterruptedException e) {
-      // Expected.
-    }
+    assertThrows(InterruptedException.class, () -> tester.eval(/*keepGoing=*/ false, value));
     tester.getOrCreate(value, /*markAsModified=*/false).setBuilder(null);
   }
 
@@ -3490,12 +3477,9 @@ public class MemoizingEvaluatorTest {
     // Evaluator will think leaf was interrupted because it threw, so it will be cleaned from graph.
     tester.getOrCreate(leafKey, /*markAsModified=*/true).setBuilder(INTERRUPT_BUILDER);
     tester.invalidate();
-    try {
-      tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
-      fail();
-    } catch (InterruptedException e) {
-      // Expected.
-    }
+    assertThrows(
+        InterruptedException.class,
+        () -> tester.eval(/*keepGoing=*/ false, tops.toArray(new SkyKey[0])));
   }
 
   @Test
@@ -4428,12 +4412,7 @@ public class MemoizingEvaluatorTest {
 
     tester.differencer.inject(ImmutableMap.of(key, val));
     Thread.currentThread().interrupt();
-    try {
-      tester.evalAndGet(/*keepGoing=*/ false, key);
-      fail();
-    } catch (InterruptedException expected) {
-      // Expected.
-    }
+    assertThrows(InterruptedException.class, () -> tester.evalAndGet(/*keepGoing=*/ false, key));
     SkyValue newVal = tester.evalAndGet(/*keepGoing=*/ false, key);
     assertThat(newVal).isEqualTo(val);
   }
@@ -4988,13 +4967,7 @@ public class MemoizingEvaluatorTest {
     // And so is top,
     tester.getOrCreate(topKey, /*markAsModified=*/ true);
     tester.invalidate();
-    try {
-      // Then evaluation is interrupted,
-      tester.eval(/*keepGoing=*/ false, topKey);
-      fail();
-    } catch (InterruptedException e) {
-      // Expected.
-    }
+    assertThrows(InterruptedException.class, () -> tester.eval(/*keepGoing=*/ false, topKey));
     // But inactive is still present,
     assertThat(tester.driver.getEntryForTesting(inactiveKey)).isNotNull();
     // And still dirty,

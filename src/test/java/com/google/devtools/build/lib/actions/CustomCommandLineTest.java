@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.actions.CustomCommandLine.builder;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -965,12 +966,7 @@ public class CustomCommandLineTest {
             .addPlaceholderTreeArtifactExecPath("--argTwo", treeArtifactTwo)
             .build();
 
-    try {
-      commandLineTemplate.arguments();
-      fail("No substitution map provided, expected NullPointerException");
-    } catch (NullPointerException e) {
-      // expected
-    }
+    assertThrows(NullPointerException.class, () -> commandLineTemplate.arguments());
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {

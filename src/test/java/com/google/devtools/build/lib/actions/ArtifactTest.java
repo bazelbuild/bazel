@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,10 +64,9 @@ public class ArtifactTest {
   public void testConstruction_badRootDir() throws IOException {
     Path f1 = scratch.file("/exec/dir/file.ext");
     Path bogusDir = scratch.file("/exec/dir/bogus");
-    try {
-      new Artifact(ArtifactRoot.asDerivedRoot(execDir, bogusDir), f1.relativeTo(execDir));
-      fail("Expected IllegalArgumentException constructing artifact with a bad root dir");
-    } catch (IllegalArgumentException expected) {}
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Artifact(ArtifactRoot.asDerivedRoot(execDir, bogusDir), f1.relativeTo(execDir)));
   }
 
   @Test
@@ -115,11 +114,7 @@ public class ArtifactTest {
   @Test
   public void testRootPrefixedExecPath_nullRootDir() throws IOException {
     Path f1 = scratch.file("/exec/dir/file.ext");
-    try {
-      new Artifact(null, f1.relativeTo(execDir));
-      fail("Expected NullPointerException creating artifact with null root");
-    } catch (NullPointerException expected) {
-    }
+    assertThrows(NullPointerException.class, () -> new Artifact(null, f1.relativeTo(execDir)));
   }
 
   @Test

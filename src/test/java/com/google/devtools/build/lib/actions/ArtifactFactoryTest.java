@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ARTIFACT_OWNER;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -229,14 +229,15 @@ public class ArtifactFactoryTest {
     actionGraph.registerAction(originalAction);
 
     // Creating a second Action referring to the Artifact should create a conflict.
-    try {
-      Action action = new ActionsTestUtil.NullAction(NULL_ACTION_OWNER, a, b);
-      actionGraph.registerAction(action);
-      fail();
-    } catch (ActionConflictException e) {
-      assertThat(e.getArtifact()).isSameAs(a);
-      assertThat(actionGraph.getGeneratingAction(a)).isSameAs(originalAction);
-    }
+    Action action = new ActionsTestUtil.NullAction(NULL_ACTION_OWNER, a, b);
+    ActionConflictException e =
+        assertThrows(
+            ActionConflictException.class,
+            () -> {
+              actionGraph.registerAction(action);
+            });
+    assertThat(e.getArtifact()).isSameAs(a);
+    assertThat(actionGraph.getGeneratingAction(a)).isSameAs(originalAction);
   }
 
   private static class MockPackageRootResolver implements PackageRootResolver {

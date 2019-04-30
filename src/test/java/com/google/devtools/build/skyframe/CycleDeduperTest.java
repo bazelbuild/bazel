@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -42,21 +42,13 @@ public class CycleDeduperTest {
 
   @Test
   public void badCycle_Empty() throws Exception {
-    try {
-      cycleDeduper.seen(ImmutableList.<String>of());
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(IllegalStateException.class, () -> cycleDeduper.seen(ImmutableList.<String>of()));
   }
 
   @Test
   public void badCycle_NonUniqueMembers() throws Exception {
-    try {
-      cycleDeduper.seen(ImmutableList.<String>of("a", "b", "a"));
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> cycleDeduper.seen(ImmutableList.<String>of("a", "b", "a")));
   }
 }

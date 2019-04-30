@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
@@ -107,11 +106,7 @@ public class ReverseDepsUtilityTest {
     // Should only fail when we call getReverseDeps().
     ReverseDepsUtility.addReverseDeps(example, Collections.singleton(key));
     ReverseDepsUtility.removeReverseDep(example, key);
-    try {
-      ReverseDepsUtility.getReverseDeps(example);
-      fail();
-    } catch (IllegalStateException expected) {
-    }
+    assertThrows(IllegalStateException.class, () -> ReverseDepsUtility.getReverseDeps(example));
   }
 
   @Test
@@ -124,11 +119,8 @@ public class ReverseDepsUtilityTest {
     ReverseDepsUtility.addReverseDeps(example, Collections.singleton(key));
     ReverseDepsUtility.removeReverseDep(example, key);
     ReverseDepsUtility.checkReverseDep(example, fixedKey);
-    try {
-      ReverseDepsUtility.checkReverseDep(example, fixedKey);
-      fail();
-    } catch (IllegalStateException expected) {
-    }
+    assertThrows(
+        IllegalStateException.class, () -> ReverseDepsUtility.checkReverseDep(example, fixedKey));
   }
 
   @Test
