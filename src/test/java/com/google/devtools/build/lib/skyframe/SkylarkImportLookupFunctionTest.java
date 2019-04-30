@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.fail;
 
@@ -218,18 +219,19 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   public void testSkylarkImportFilenameWithControlChars() throws Exception {
     scratch.file("pkg/BUILD", "");
     scratch.file("pkg/ext.bzl", "load('//pkg:oops\u0000.bzl', 'a')");
-    try {
-      SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
-      SkyframeExecutorTestUtils.evaluate(
-          getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-      fail("Expected exception");
-    } catch (AssertionError e) {
-      String errorMessage = e.getMessage();
-      assertThat(errorMessage)
-          .contains(
-              "invalid target name 'oops<?>.bzl': "
-                  + "target names may not contain non-printable characters: '\\x00'");
-    }
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () -> {
+              SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
+              SkyframeExecutorTestUtils.evaluate(
+                  getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+            });
+    String errorMessage = e.getMessage();
+    assertThat(errorMessage)
+        .contains(
+            "invalid target name 'oops<?>.bzl': "
+                + "target names may not contain non-printable characters: '\\x00'");
   }
 
   @Test

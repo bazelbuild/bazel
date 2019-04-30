@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
@@ -520,12 +520,12 @@ public abstract class GlobFunctionTest {
   }
 
   private void assertIllegalPattern(String pattern) {
-    try {
-      GlobValue.key(PKG_ID, Root.fromPath(root), pattern, false, PathFragment.EMPTY_FRAGMENT);
-      fail("invalid pattern not detected: " + pattern);
-    } catch (InvalidGlobPatternException e) {
-      // Expected.
-    }
+    assertThrows(
+        "invalid pattern not detected: " + pattern,
+        InvalidGlobPatternException.class,
+        () ->
+            GlobValue.key(
+                PKG_ID, Root.fromPath(root), pattern, false, PathFragment.EMPTY_FRAGMENT));
   }
 
   /**
