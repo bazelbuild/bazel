@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.standalone;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -199,14 +199,10 @@ public class StandaloneSpawnStrategyTest {
 
   @Test
   public void testBinFalseYieldsException() throws Exception {
-    try {
-      run(createSpawn(getFalseCommand()));
-      fail();
-    } catch (ExecException e) {
-      assertWithMessage("got: " + e.getMessage())
-          .that(e.getMessage().startsWith("false failed: error executing command"))
-          .isTrue();
-    }
+    ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
+    assertWithMessage("got: " + e.getMessage())
+        .that(e.getMessage().startsWith("false failed: error executing command"))
+        .isTrue();
   }
 
   private static String getFalseCommand() {

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.matches;
@@ -617,13 +617,8 @@ public class LocalSpawnRunnerTest {
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    try {
-      runner.execAsync(SIMPLE_SPAWN, policy).get();
-      fail();
-    } catch (InterruptedException expected) {
-      // Clear the interrupted status or subsequent tests in the same process will fail.
-      Thread.interrupted();
-    }
+    assertThrows(InterruptedException.class, () -> runner.execAsync(SIMPLE_SPAWN, policy).get());
+    Thread.interrupted();
     assertThat(policy.lockOutputFilesCalled).isTrue();
   }
 

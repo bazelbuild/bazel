@@ -1452,6 +1452,7 @@ java_test(
     deps = [
         ":actions_testutil",
         ":guava_junit_truth",
+        ":testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
