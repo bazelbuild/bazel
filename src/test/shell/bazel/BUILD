@@ -247,7 +247,6 @@ sh_test(
     srcs = ["bazel_coverage_cc_test_gcc.sh"],
     data = [":test-deps"],
     tags = [
-        "local",
         "no_windows",
     ],
 )
@@ -257,7 +256,6 @@ sh_test(
     srcs = ["bazel_coverage_cc_test_llvm.sh"],
     data = [":test-deps"],
     tags = [
-        "local",
         "no_windows",
     ],
 )
@@ -267,7 +265,6 @@ sh_test(
     srcs = ["bazel_coverage_java_test.sh"],
     data = [":test-deps"],
     tags = [
-        "local",
         "no_windows",
     ],
 )
@@ -277,7 +274,6 @@ sh_test(
     srcs = ["bazel_coverage_sh_test.sh"],
     data = [":test-deps"],
     tags = [
-        "local",
         "no_windows",
     ],
 )
