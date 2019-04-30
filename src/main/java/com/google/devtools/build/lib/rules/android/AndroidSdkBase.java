@@ -32,16 +32,16 @@ import com.google.devtools.build.lib.syntax.Type;
 /** Implementation of the {@code android_sdk} rule. */
 public class AndroidSdkBase implements RuleConfiguredTargetFactory {
 
-  private final AndroidMigrationSemantics androidMigrationSemantics;
+  private final AndroidSemantics androidSemantics;
 
-  public AndroidSdkBase(AndroidMigrationSemantics androidMigrationSemantics) {
-    this.androidMigrationSemantics = androidMigrationSemantics;
+  protected AndroidSdkBase(AndroidSemantics androidSemantics) {
+    this.androidSemantics = androidSemantics;
   }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    androidMigrationSemantics.validateRuleContext(ruleContext);
+    androidSemantics.checkForMigrationTag(ruleContext);
 
     // If the user didn't specify --proguard_top, go with the proguard attribute in the android_sdk
     // rule. Otherwise, use what they told us to.

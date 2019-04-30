@@ -983,7 +983,12 @@ public final class AndroidRuleClasses {
 
     private final Label[] compatibleWithAndroidEnvironments;
 
-    public AndroidToolsDefaultsJarRule(Label... compatibleWithAndroidEnvironments) {
+    private final Class<? extends AndroidToolsDefaultsJar> factoryClass;
+
+    public AndroidToolsDefaultsJarRule(
+        Class<? extends AndroidToolsDefaultsJar> factoryClass,
+        Label... compatibleWithAndroidEnvironments) {
+      this.factoryClass = factoryClass;
       this.compatibleWithAndroidEnvironments = compatibleWithAndroidEnvironments;
     }
 
@@ -1006,7 +1011,7 @@ public final class AndroidRuleClasses {
       return Metadata.builder()
           .name("android_tools_defaults_jar")
           .ancestors(BaseRuleClasses.BaseRule.class)
-          .factoryClass(AndroidToolsDefaultsJar.class)
+          .factoryClass(factoryClass)
           .build();
     }
   }

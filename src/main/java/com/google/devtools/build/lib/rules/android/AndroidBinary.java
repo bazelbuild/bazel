@@ -103,16 +103,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   protected abstract CppSemantics createCppSemantics();
 
-  protected abstract AndroidMigrationSemantics createAndroidMigrationSemantics();
-
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CppSemantics cppSemantics = createCppSemantics();
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
+    androidSemantics.checkForMigrationTag(ruleContext);
     androidSemantics.validateAndroidBinaryRuleContext(ruleContext);
-    createAndroidMigrationSemantics().validateRuleContext(ruleContext);
     AndroidSdkProvider.verifyPresence(ruleContext);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();

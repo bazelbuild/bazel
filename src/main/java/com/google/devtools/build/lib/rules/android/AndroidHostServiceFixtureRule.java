@@ -27,6 +27,13 @@ import com.google.devtools.build.lib.packages.RuleClass;
 
 /** Rule definition for the {@code android_host_service_fixture} rule. */
 public class AndroidHostServiceFixtureRule implements RuleDefinition {
+
+  private final Class<? extends AndroidHostServiceFixture> factoryClass;
+
+  public AndroidHostServiceFixtureRule(Class<? extends AndroidHostServiceFixture> factoryClass) {
+    this.factoryClass = factoryClass;
+  }
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
@@ -52,7 +59,7 @@ public class AndroidHostServiceFixtureRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("android_host_service_fixture")
         .ancestors(BaseRuleClasses.RuleBase.class)
-        .factoryClass(AndroidHostServiceFixture.class)
+        .factoryClass(factoryClass)
         .build();
   }
 }

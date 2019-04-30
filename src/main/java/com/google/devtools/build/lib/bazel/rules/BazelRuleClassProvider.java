@@ -36,11 +36,15 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRul
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDevice;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDeviceScriptFixture;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidHostServiceFixture;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidInstrumentationTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect;
@@ -309,7 +313,8 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new AndroidSdkBaseRule());
           builder.addRuleDefinition(new BazelAndroidSdkRule());
-          builder.addRuleDefinition(new AndroidToolsDefaultsJarRule());
+          builder.addRuleDefinition(
+              new AndroidToolsDefaultsJarRule(BazelAndroidToolsDefaultsJar.class));
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidBaseRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
           builder.addRuleDefinition(
@@ -320,13 +325,15 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelAndroidBinaryRule());
           builder.addRuleDefinition(new AarImportBaseRule());
           builder.addRuleDefinition(new BazelAarImportRule());
-          builder.addRuleDefinition(new AndroidDeviceRule());
+          builder.addRuleDefinition(new AndroidDeviceRule(BazelAndroidDevice.class));
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidLocalTestRule());
           builder.addRuleDefinition(new AndroidInstrumentationTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidInstrumentationTestRule());
-          builder.addRuleDefinition(new AndroidDeviceScriptFixtureRule());
-          builder.addRuleDefinition(new AndroidHostServiceFixtureRule());
+          builder.addRuleDefinition(
+              new AndroidDeviceScriptFixtureRule(BazelAndroidDeviceScriptFixture.class));
+          builder.addRuleDefinition(
+              new AndroidHostServiceFixtureRule(BazelAndroidHostServiceFixture.class));
 
           AndroidBootstrap bootstrap =
               new AndroidBootstrap(

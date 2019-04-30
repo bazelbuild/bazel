@@ -19,6 +19,6 @@ import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestBas
 /** Implementation of {@code android_instrumentation_test} with Bazel semantics. */
 public class BazelAndroidInstrumentationTest extends AndroidInstrumentationTestBase {
   public BazelAndroidInstrumentationTest() {
-    super(BazelAndroidMigrationSemantics.INSTANCE);
+    super(BazelAndroidSemantics.INSTANCE);
   }
 }
