@@ -247,7 +247,15 @@ public final class TargetPatternValue implements SkyValue {
           }
         }
       } else if (excludeSingleTargets && laterParsedPattern.getType() == Type.SINGLE_TARGET) {
-        excludedSingleTargetsBuilder.add(laterParsedPattern.getSingleTargetLabel());
+        try {
+          Label label =
+              Label.parseAbsolute(
+                  laterParsedPattern.getSingleTargetPath(),
+                  /*repositoryMapping=*/ ImmutableMap.of());
+          excludedSingleTargetsBuilder.add(label);
+        } catch (LabelSyntaxException e) {
+          indicesOfNegativePatternsThatNeedToBeIncludedBuilder.add(j);
+        }
       } else {
         indicesOfNegativePatternsThatNeedToBeIncludedBuilder.add(j);
       }

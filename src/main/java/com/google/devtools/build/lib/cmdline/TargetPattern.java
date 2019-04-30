@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
+import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
@@ -281,8 +283,8 @@ public abstract class TargetPattern implements Serializable {
     throw new IllegalStateException();
   }
 
-  /** For patterns of type {@link Type#SINGLE_TARGET}, returns the {@link Label} of the target. */
-  public Label getSingleTargetLabel() {
+  /** For patterns of type {@link Type#SINGLE_TARGET}, returns the target path. */
+  public String getSingleTargetPath() {
     throw new IllegalStateException();
   }
 
@@ -304,11 +306,14 @@ public abstract class TargetPattern implements Serializable {
 
   private static final class SingleTarget extends TargetPattern {
 
-    private final Label label;
+    private final String targetName;
+    private final PackageIdentifier directory;
 
-    private SingleTarget(Label label, String originalPattern, String offset) {
+    private SingleTarget(
+        String targetName, PackageIdentifier directory, String originalPattern, String offset) {
       super(Type.SINGLE_TARGET, originalPattern, offset);
-      this.label = Preconditions.checkNotNull(label);
+      this.targetName = Preconditions.checkNotNull(targetName);
+      this.directory = Preconditions.checkNotNull(directory);
     }
 
     @Override
@@ -318,7 +323,7 @@ public abstract class TargetPattern implements Serializable {
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass) throws TargetParsingException, E, InterruptedException {
-      callback.process(resolver.getExplicitTarget(label).getTargets());
+      callback.process(resolver.getExplicitTarget(label(targetName)).getTargets());
     }
 
     @Override
@@ -328,7 +333,7 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
-      return label.getPackageIdentifier();
+      return directory;
     }
 
     @Override
@@ -337,8 +342,8 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public Label getSingleTargetLabel() {
-      return label;
+    public String getSingleTargetPath() {
+      return targetName;
     }
 
     @Override
@@ -350,12 +355,12 @@ public abstract class TargetPattern implements Serializable {
         return false;
       }
       SingleTarget that = (SingleTarget) o;
-      return label.equals(that.label);
+      return targetName.equals(that.targetName) && directory.equals(that.directory);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(getType(), label);
+      return Objects.hash(getType(), targetName, directory);
     }
   }
 
@@ -813,15 +818,18 @@ public abstract class TargetPattern implements Serializable {
       }
 
       if (includesRepo || wasOriginallyAbsolute || pattern.contains(":")) {
-        String fullLabelString = repository.getName() + "//" + pattern;
-        Label label;
+        PackageIdentifier packageIdentifier;
+        String fullLabel = repository.getName() + "//" + pattern;
         try {
-          label = Label.parseAbsolute(fullLabelString, ImmutableMap.of());
-        } catch (LabelSyntaxException e) {
+          PackageAndTarget packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
+          packageIdentifier =
+              PackageIdentifier.create(
+                  repository, PathFragment.create(packageAndTarget.getPackageName()));
+        } catch (BadLabelException e) {
           String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
           throw new TargetParsingException(error);
         }
-        return new SingleTarget(label, originalPattern, relativeDirectory);
+        return new SingleTarget(fullLabel, packageIdentifier, originalPattern, relativeDirectory);
       }
 
       // This is a stripped-down version of interpretPathAsTarget that does no I/O.  We have a basic
