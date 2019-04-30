@@ -45,77 +45,7 @@ public final class CombinedDiskRemoteBlobStore implements SimpleBlobStore {
 
   @Override
   public boolean containsKey(String key) {
-    // HTTP cache does not support containsKey.
-    // Don't support it here either for predictable semantics.
-    throw new UnsupportedOperationException("Remote Caching does not use this method.");
-  }
-
-  @Override
-  public ListenableFuture<Boolean> get(String key, OutputStream out) {
-    return get(key, out, false);
-  }
-
-  @Override
-  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
-    return get(key, out, true);
-  }
-
-  private ListenableFuture<Boolean> get(String key, OutputStream out, boolean actionResult) {
-    String diskKey = actionResult ? OnDiskBlobStore.ACTION_KEY_PREFIX + key : key;
-    boolean foundOnDisk = diskCache.containsKey(diskKey);
-
-    if (foundOnDisk) {
-      return diskCache.get(diskKey, out);
-    } else {
-      // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
-      Path temp = diskCache.toPath(UUID.randomUUID().toString());
-
-      OutputStream tempOut;
-      try {
-        tempOut = temp.getOutputStream();
-      } catch (IOException e) {
-        return Futures.immediateFailedFuture(e);
-      }
-      ListenableFuture<Boolean> chained =
-              Futures.transformAsync(
-                      getFromHttpCache(key, tempOut, remoteCache, actionResult),
-                      (found) -> {
-                        if (!found) {
-                          return Futures.immediateFuture(false);
-                        } else {
-                          Path target = diskCache.toPath(diskKey);
-                          // The following note and line is taken from OnDiskBlobStore.java
-                          // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the
-                          // case of machine
-                          // crashes (the OS may reorder the writes and the rename).
-                          temp.renameTo(target);
-
-                          return diskCache.get(diskKey, out);
-                        }
-                      },
-                      MoreExecutors.directExecutor());
-      chained.addListener(
-              () -> {
-                try {
-                  tempOut.close();
-                } catch (IOException e) {
-                  // not sure what to do here, we either are here because of another exception being
-                  // thrown,
-                  // or we have successfully used the file we are trying (and failing) to close
-                  logger.log(Level.WARNING, "Failed to close temporary file on get", e);
-                }
-              },
-              MoreExecutors.directExecutor());
-      return chained;
-    }
-  }
-
-  private ListenableFuture<Boolean> getFromHttpCache(String key, OutputStream tempOut, SimpleBlobStore httpCache, boolean actionResult) {
-    if (!actionResult) {
-      return httpCache.get(key, tempOut);
-    } else {
-      return httpCache.getActionResult(key, tempOut);
-    }
+    return diskCache.containsKey(key);
   }
 
   @Override
@@ -137,5 +67,80 @@ public final class CombinedDiskRemoteBlobStore implements SimpleBlobStore {
   public void close() {
     diskCache.close();
     remoteCache.close();
+  }
+
+  @Override
+  public ListenableFuture<Boolean> get(String key, OutputStream out) {
+    return get(key, out, /* actionResult= */false);
+  }
+
+  @Override
+  public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
+    return get(key, out, /* actionResult= */true);
+  }
+
+  private ListenableFuture<Boolean> get(String key, OutputStream out, boolean actionResult) {
+    String diskKey = actionResult ? OnDiskBlobStore.ACTION_KEY_PREFIX + key : key;
+    boolean foundOnDisk = diskCache.containsKey(diskKey);
+
+    if (foundOnDisk) {
+      return diskCache.get(diskKey, out);
+    } else {
+      return getFromRemoteAndSaveToDisk(key, out, actionResult, diskKey);
+    }
+  }
+
+  private ListenableFuture<Boolean> getFromRemoteAndSaveToDisk(String key, OutputStream out,
+      boolean actionResult, String diskKey) {
+    // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
+    Path temp = diskCache.toPath(UUID.randomUUID().toString());
+
+    OutputStream tempOut;
+    try {
+      tempOut = temp.getOutputStream();
+    } catch (IOException e) {
+      return Futures.immediateFailedFuture(e);
+    }
+    ListenableFuture<Boolean> chained =
+            Futures.transformAsync(
+                    getFromRemoteCache(key, tempOut, remoteCache, actionResult),
+                    (found) -> {
+                      if (!found) {
+                        return Futures.immediateFuture(false);
+                      } else {
+                        saveToDiskCache(diskKey, temp);
+                        return diskCache.get(diskKey, out);
+                      }
+                    },
+                    MoreExecutors.directExecutor());
+    chained.addListener(
+            () -> {
+              try {
+                tempOut.close();
+              } catch (IOException e) {
+                // not sure what to do here, we either are here because of another exception being
+                // thrown,
+                // or we have successfully used the file we are trying (and failing) to close
+                logger.log(Level.WARNING, "Failed to close temporary file on get", e);
+              }
+            },
+            MoreExecutors.directExecutor());
+    return chained;
+  }
+
+  private void saveToDiskCache(String diskKey, Path temp) throws IOException {
+    Path target = diskCache.toPath(diskKey);
+    // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the
+    // case of machine
+    // crashes (the OS may reorder the writes and the rename).
+    temp.renameTo(target);
+  }
+
+  private ListenableFuture<Boolean> getFromRemoteCache(String key, OutputStream tempOut, SimpleBlobStore remoteCache, boolean actionResult) {
+    if (!actionResult) {
+      return remoteCache.get(key, tempOut);
+    } else {
+      return remoteCache.getActionResult(key, tempOut);
+    }
   }
 }
