@@ -142,13 +142,8 @@ public class BazelCcModule extends CcModule
 
   @Override
   public CcCompilationOutputs createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject) {
-    CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
-    ccCompilationOutputsBuilder.addObjectFiles(
-        convertSkylarkListOrNestedSetToNestedSet(objectsObject, Artifact.class));
-    ccCompilationOutputsBuilder.addPicObjectFiles(
-        convertSkylarkListOrNestedSetToNestedSet(picObjectsObject, Artifact.class));
-    return ccCompilationOutputsBuilder.build();
+      Object objectsObject, Object picObjectsObject, Location location) throws EvalException {
+    return super.createCompilationOutputsFromSkylark(objectsObject, picObjectsObject, location);
   }
 
   @Override

@@ -319,6 +319,7 @@ public interface BazelCcModuleApi<
   @SkylarkCallable(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
+      useLocation = true,
       parameters = {
         @Param(
             name = "objects",
@@ -344,7 +345,7 @@ public interface BazelCcModuleApi<
             }),
       })
   CompilationOutputsT createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject);
+      Object objectsObject, Object picObjectsObject, Location location) throws EvalException;
 
   @SkylarkCallable(
       name = "merge_compilation_outputs",

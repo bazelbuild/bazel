@@ -259,7 +259,7 @@ public class FakeCcModule
 
   @Override
   public CcCompilationOutputsApi<FileApi> createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject) {
+      Object objectsObject, Object picObjectsObject, Location location) {
     return null;
   }
 

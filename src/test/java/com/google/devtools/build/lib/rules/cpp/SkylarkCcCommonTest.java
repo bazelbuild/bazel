@@ -4642,27 +4642,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcOutputsMerging() throws Exception {
-    scratch.overwriteFile("tools/build_defs/foo/BUILD");
-    scratch.file(
-        "tools/build_defs/foo/extension.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _cc_skylark_library_impl(ctx):",
-        "    c1 = cc_common.create_compilation_outputs(objects=depset([ctx.file.object1]),",
-        "        pic_objects=depset([ctx.file.pic_object1]))",
-        "    c2 = cc_common.create_compilation_outputs(objects=depset([ctx.file.object2]),",
-        "        pic_objects=depset([ctx.file.pic_object2]))",
-        "    compilation_outputs = cc_common.merge_compilation_outputs(",
-        "        compilation_outputs=[c1, c2])",
-        "    return [MyInfo(compilation_outputs=compilation_outputs)]",
-        "cc_skylark_library = rule(",
-        "    implementation = _cc_skylark_library_impl,",
-        "    attrs = {",
-        "      'object1': attr.label(allow_single_file=True),",
-        "      'pic_object1': attr.label(allow_single_file=True),",
-        "      'object2': attr.label(allow_single_file=True),",
-        "      'pic_object2': attr.label(allow_single_file=True),",
-        "    },",
-        ")");
+    setupCcOutputsTest();
     scratch.file(
         "foo/BUILD",
         "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
@@ -4685,6 +4665,26 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             AnalysisTestUtil.artifactsToStrings(
                 masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
         .containsExactly("src foo/object1.o", "src foo/object2.o");
+  }
+
+  @Test
+  public void testObjectsWrongExtension() throws Exception {
+    doTestCcOutputsWrongExtension("object1", "objects");
+  }
+
+  @Test
+  public void testPicObjectsWrongExtension() throws Exception {
+    doTestCcOutputsWrongExtension("pic_object1", "pic_objects");
+  }
+
+  @Test
+  public void testObjectsRightExtension() throws Exception {
+    doTestCcOutputsRightExtension("object1");
+  }
+
+  @Test
+  public void testPicObjectsRightExtension() throws Exception {
+    doTestCcOutputsRightExtension("pic_object1");
   }
 
   @Test
@@ -4939,66 +4939,34 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testPossibleSrcsExtensions() throws Exception {
-    doTestPossibleExtensions("srcs", CppFileTypes.ALL_C_CLASS_SOURCE.getExtensions());
+    doTestPossibleExtensionsOfSrcsAndHdrs("srcs", CppFileTypes.ALL_C_CLASS_SOURCE.getExtensions());
   }
 
   @Test
   public void testPossiblePrivateHdrExtensions() throws Exception {
-    doTestPossibleExtensions("private_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
+    doTestPossibleExtensionsOfSrcsAndHdrs("private_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
   }
 
   @Test
   public void testPossiblePublicHdrExtensions() throws Exception {
-    doTestPossibleExtensions("public_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
-  }
-
-  private void doTestPossibleExtensions(String attrName, List<String> extensions) throws Exception {
-    createFiles(scratch, "tools/build_defs/foo");
-    reporter.removeHandler(failFastHandler);
-
-    for (String extension : extensions) {
-      scratch.deleteFile("bar/BUILD");
-      scratch.file(
-          "bar/BUILD",
-          "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-          "cc_skylark_library(",
-          "    name = 'skylark_lib',",
-          "    " + attrName + " = ['file" + extension + "'],",
-          ")");
-      getConfiguredTarget("//bar:skylark_lib");
-      assertNoEvents();
-    }
+    doTestPossibleExtensionsOfSrcsAndHdrs("public_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
   }
 
   @Test
   public void testWrongSrcsExtensionGivesError() throws Exception {
-    doTestWrongExtension("srcs");
+    doTestWrongExtensionOfSrcsAndHdrs("srcs");
   }
 
   @Test
   public void testWrongPrivateHdrExtensionGivesError() throws Exception {
-    doTestWrongExtension("private_hdrs");
+    doTestWrongExtensionOfSrcsAndHdrs("private_hdrs");
   }
 
   @Test
   public void testWrongPublicHdrExtensionGivesError() throws Exception {
-    doTestWrongExtension("public_hdrs");
+    doTestWrongExtensionOfSrcsAndHdrs("public_hdrs");
   }
 
-  private void doTestWrongExtension(String attrName) throws Exception {
-    createFiles(scratch, "tools/build_defs/foo");
-    scratch.file(
-        "bar/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-        "cc_skylark_library(",
-        "    name = 'skylark_lib',",
-        "    " + attrName + " = ['skylark_lib.cannotpossiblybevalid'],",
-        ")");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bar:skylark_lib");
-    assertContainsEvent(
-        "has wrong extension. The list of possible extensions for '" + attrName + "'");
-  }
 
   @Test
   public void testWrongSrcExtensionGivesError() throws Exception {
@@ -5138,6 +5106,109 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_binary(",
         "    name = 'bin',",
         "    deps = ['skylark_lib'],",
+        ")");
+  }
+
+  private void doTestWrongExtensionOfSrcsAndHdrs(String attrName) throws Exception {
+    createFiles(scratch, "tools/build_defs/foo");
+    scratch.file(
+        "bar/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        "    " + attrName + " = ['skylark_lib.cannotpossiblybevalid'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bar:skylark_lib");
+    assertContainsEvent(
+        "has wrong extension. The list of possible extensions for '" + attrName + "'");
+  }
+
+  private void doTestPossibleExtensionsOfSrcsAndHdrs(String attrName, List<String> extensions)
+      throws Exception {
+    createFiles(scratch, "tools/build_defs/foo");
+    reporter.removeHandler(failFastHandler);
+
+    for (String extension : extensions) {
+      scratch.deleteFile("bar/BUILD");
+      scratch.file(
+          "bar/BUILD",
+          "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+          "cc_skylark_library(",
+          "    name = 'skylark_lib',",
+          "    " + attrName + " = ['file" + extension + "'],",
+          ")");
+      getConfiguredTarget("//bar:skylark_lib");
+      assertNoEvents();
+    }
+  }
+
+  private void doTestCcOutputsWrongExtension(String attrName, String paramName) throws Exception {
+    setupCcOutputsTest();
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        "    " + attrName + " = 'object.cannotpossiblybevalid',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:skylark_lib");
+    assertContainsEvent(
+        "has wrong extension. The list of possible extensions for '" + paramName + "'");
+  }
+
+  private void doTestCcOutputsRightExtension(String paramName) throws Exception {
+    setupCcOutputsTest();
+    reporter.removeHandler(failFastHandler);
+
+    for (String extension : Link.OBJECT_FILETYPES.getExtensions()) {
+      scratch.deleteFile("foo/BUILD");
+      scratch.file(
+          "foo/BUILD",
+          "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+          "cc_skylark_library(",
+          "    name = 'skylark_lib',",
+          "    " + paramName + " = 'object1" + extension + "',",
+          ")");
+      getConfiguredTarget("//foo:skylark_lib");
+      assertNoEvents();
+    }
+  }
+
+  private void setupCcOutputsTest() throws Exception {
+    scratch.overwriteFile("tools/build_defs/foo/BUILD");
+    scratch.file(
+        "tools/build_defs/foo/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _cc_skylark_library_impl(ctx):",
+        "    objects = []",
+        "    pic_objects = []",
+        "    if ctx.file.object1 != None:",
+        "        objects.append(ctx.file.object1)",
+        "    if ctx.file.pic_object1 != None:",
+        "        pic_objects.append(ctx.file.pic_object1)",
+        "    c1 = cc_common.create_compilation_outputs(objects=depset(objects),",
+        "        pic_objects=depset(pic_objects))",
+        "    objects = []",
+        "    pic_objects = []",
+        "    if ctx.file.object2 != None:",
+        "        objects.append(ctx.file.object2)",
+        "    if ctx.file.pic_object2 != None:",
+        "        pic_objects.append(ctx.file.pic_object2)",
+        "    c2 = cc_common.create_compilation_outputs(objects=depset(objects),",
+        "        pic_objects=depset(pic_objects))",
+        "    compilation_outputs = cc_common.merge_compilation_outputs(",
+        "        compilation_outputs=[c1, c2])",
+        "    return [MyInfo(compilation_outputs=compilation_outputs)]",
+        "cc_skylark_library = rule(",
+        "    implementation = _cc_skylark_library_impl,",
+        "    attrs = {",
+        "      'object1': attr.label(allow_single_file=True),",
+        "      'pic_object1': attr.label(allow_single_file=True),",
+        "      'object2': attr.label(allow_single_file=True),",
+        "      'pic_object2': attr.label(allow_single_file=True),",
+        "    },",
         ")");
   }
 }

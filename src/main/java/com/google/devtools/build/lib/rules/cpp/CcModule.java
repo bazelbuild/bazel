@@ -67,7 +67,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1491,15 +1491,19 @@ public abstract class CcModule
         "srcs",
         sources,
         CppFileTypes.ALL_C_CLASS_SOURCE,
-        FileType.of(
-            ImmutableList.<String>builder()
-                .addAll(CppFileTypes.CPP_SOURCE.getExtensions())
-                .addAll(CppFileTypes.C_SOURCE.getExtensions())
-                .build()));
+        FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE));
     validateExtensions(
-        location, "public_hdrs", publicHeaders, CppFileTypes.CPP_HEADER, CppFileTypes.CPP_HEADER);
+        location,
+        "public_hdrs",
+        publicHeaders,
+        FileTypeSet.of(CppFileTypes.CPP_HEADER),
+        FileTypeSet.of(CppFileTypes.CPP_HEADER));
     validateExtensions(
-        location, "private_hdrs", privateHeaders, CppFileTypes.CPP_HEADER, CppFileTypes.CPP_HEADER);
+        location,
+        "private_hdrs",
+        privateHeaders,
+        FileTypeSet.of(CppFileTypes.CPP_HEADER),
+        FileTypeSet.of(CppFileTypes.CPP_HEADER));
 
     CcCompilationHelper helper =
         new CcCompilationHelper(
@@ -1625,15 +1629,31 @@ public abstract class CcModule
     }
   }
 
+  protected CcCompilationOutputs createCompilationOutputsFromSkylark(
+      Object objectsObject, Object picObjectsObject, Location location) throws EvalException {
+    CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
+    NestedSet<Artifact> objects =
+        convertSkylarkListOrNestedSetToNestedSet(objectsObject, Artifact.class);
+    validateExtensions(
+        location, "objects", objects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
+    NestedSet<Artifact> picObjects =
+        convertSkylarkListOrNestedSetToNestedSet(picObjectsObject, Artifact.class);
+    validateExtensions(
+        location, "pic_objects", picObjects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
+    ccCompilationOutputsBuilder.addObjectFiles(objects);
+    ccCompilationOutputsBuilder.addPicObjectFiles(picObjects);
+    return ccCompilationOutputsBuilder.build();
+  }
+
   private void validateExtensions(
       Location location,
       String paramName,
       List<Artifact> files,
-      FileType validFileType,
-      FileType fileTypeForErrorMessage)
+      FileTypeSet validFileTypeSet,
+      FileTypeSet fileTypeForErrorMessage)
       throws EvalException {
     for (Artifact file : files) {
-      if (!validFileType.matches(file)) {
+      if (!validFileTypeSet.matches(file.getFilename())) {
         throw new EvalException(
             location,
             String.format(
