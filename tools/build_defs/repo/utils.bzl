@@ -88,7 +88,11 @@ def _patch(ctx, bash_exe, patchfile, patch_args):
         return st
     new_args = [arg for arg in patch_args if arg != "-p0"]
     new_args.append("-p1")
-    return _run_patch(ctx, bash_exe, patchfile, new_args)
+    p1_st = _run_patch(ctx, bash_exe, patchfile, new_args)
+    if p1_st.return_code == 0:
+        return p1_st
+    # Return original failure if -p1 fails too.
+    return st
 
 def patch(ctx):
     """Implementation of patching an already extracted repository.
