@@ -466,7 +466,7 @@ java_custom_library = rule(
 )
 EOF
    bazel build //g:test &> $TEST_log || fail "Failed to build //g:test"
-   jar tf bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to jar tf bazel-bin/g/libtest.jar"
+   zipinfo -1 bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to zipinfo -1 bazel-bin/g/libtest.jar"
    expect_log "g/A.class"
    expect_not_log "g/B.class"
  }
@@ -543,7 +543,7 @@ java_custom_library = rule(
 )
 EOF
    bazel build //g:test &> $TEST_log || fail "Failed to build //g:test"
-   jar tf bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to jar tf bazel-bin/g/libtest.jar"
+   zipinfo -1 bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to zipinfo -1 bazel-bin/g/libtest.jar"
    expect_log "g/A.class"
    expect_log "g/B.class"
  }

@@ -106,7 +106,6 @@ platforms:
     test_flags:
     - "--javabase=@openjdk9_linux_archive//:runtime"
     - "--test_timeout=1200"
-    - "--test_arg=-test_java_common_compile_sourcepath,-test_java_common_compile_sourcepath_with_implicit_class"
     test_targets:
     - "--"
     - "//scripts/..."
@@ -173,7 +172,6 @@ platforms:
     test_flags:
     - "--javabase=@openjdk10_linux_archive//:runtime"
     - "--test_timeout=1200"
-    - - "--test_arg=-test_java_common_compile_sourcepath,-test_java_common_compile_sourcepath_with_implicit_class
     test_targets:
     - "--"
     - "//scripts/..."
