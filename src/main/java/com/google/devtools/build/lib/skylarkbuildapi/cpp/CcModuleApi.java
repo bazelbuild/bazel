@@ -916,7 +916,7 @@ public interface CcModuleApi<
             type = String.class),
         @Param(
             name = "language",
-            doc = "Can be one of c++, objc or objc++.",
+            doc = "Only C++ supported for now. Do not use this parameter.",
             positional = false,
             named = true,
             noneable = true,
