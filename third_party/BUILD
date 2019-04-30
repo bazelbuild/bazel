@@ -333,6 +333,14 @@ java_import(
 )
 
 java_import(
+    name = "checker_framework_annotations",
+    jars = [
+        "checker_framework_annotations/checker-qual-2.6.0.jar",
+        "checker_framework_annotations/checker-compat-qual-2.6.0.jar",
+    ],
+)
+
+java_import(
     name = "compile_testing",
     jars = ["compile_testing/compile-testing-0.13.jar"],
 )
