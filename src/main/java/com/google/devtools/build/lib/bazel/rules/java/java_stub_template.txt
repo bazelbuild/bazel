@@ -314,12 +314,14 @@ function create_and_run_classpath_jar() {
     CLASSPATH_LINE="Class-Path:$MANIFEST_CLASSPATH"
     # No line in the MANIFEST.MF file may be longer than 72 bytes.
     # A space prefix indicates the line is still the content of the last attribute.
-    for ((i = 0; i < "${#CLASSPATH_LINE}"; i += 71)); do
+    IFS=$'\n'
+    WRAPPED_LINES=($(echo "$CLASSPATH_LINE" | fold -w 71))
+    for ((i = 0; i < "${#WRAPPED_LINES[*]}"; i += 1)); do
       PREFIX=" "
       if ((i == 0)); then
         PREFIX=""
       fi
-      echo "$PREFIX${CLASSPATH_LINE:$i:71}"
+      echo "$PREFIX${WRAPPED_LINES[$i]}"
     done
     echo "Created-By: Bazel"
   ) >$MANIFEST_FILE
