@@ -676,6 +676,10 @@ public final class CommandEnvironment {
     Path workspace = getWorkspace();
     Path workingDirectory;
     if (inWorkspace()) {
+      if (commonOptions.clientCwd.containsUplevelReferences()) {
+        throw new AbruptExitException(
+            "Client cwd contains uplevel references", ExitCode.COMMAND_LINE_ERROR);
+      }
       workingDirectory = workspace.getRelative(commonOptions.clientCwd);
     } else {
       workspace = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
