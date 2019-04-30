@@ -861,7 +861,6 @@ public interface CcModuleApi<
               + " order to be linked later by a top level rule that does transitive linking to"
               + " create an executable or dynamic library.",
       useLocation = true,
-      useEnvironment = true,
       useContext = true,
       parameters = {
         @Param(
@@ -974,7 +973,6 @@ public interface CcModuleApi<
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      Environment environment,
       StarlarkContext bazelStarlarkContext)
       throws InterruptedException, EvalException;
 }

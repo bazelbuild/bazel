@@ -1348,13 +1348,8 @@ public abstract class CcModule
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      Environment environment,
       StarlarkContext starlarkContext)
       throws InterruptedException, EvalException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
-        location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
     validateLanguage(location, language);
     SkylarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
@@ -1474,12 +1469,14 @@ public abstract class CcModule
       Artifact grepIncludes,
       SkylarkList<Artifact> headersForClifDoNotUseThisParam,
       Location location,
-      Environment environment)
+      @Nullable Environment environment)
       throws EvalException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
-        location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    if (environment != null) {
+      CcCommon.checkLocationWhitelisted(
+          environment.getSemantics(),
+          location,
+          environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    }
     SkylarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
@@ -1564,13 +1561,15 @@ public abstract class CcModule
       SkylarkList<Artifact> additionalInputs,
       Object grepIncludes,
       Location location,
-      Environment environment,
+      @Nullable Environment environment,
       StarlarkContext starlarkContext)
       throws InterruptedException, EvalException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
-        location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    if (environment != null) {
+      CcCommon.checkLocationWhitelisted(
+          environment.getSemantics(),
+          location,
+          environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    }
     validateLanguage(location, language);
     validateOutputType(location, outputType);
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);

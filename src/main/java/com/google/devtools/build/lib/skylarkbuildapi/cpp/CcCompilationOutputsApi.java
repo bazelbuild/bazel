@@ -35,7 +35,7 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> {
   /** @deprecated use {@link #getSkylarkObjects} or {@link #getSkylarkPicObjects}. */
   @SkylarkCallable(
       name = "object_files",
-      documented = false,
+      doc = "Do not use. Use eiher 'objects' or 'pic_objects'.",
       useEnvironment = true,
       useLocation = true,
       parameters = {
@@ -45,21 +45,9 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> {
   SkylarkList<FileT> getSkylarkObjectFiles(
       boolean usePic, Location location, Environment environment) throws EvalException;
 
-  @SkylarkCallable(
-      name = "objects",
-      documented = false,
-      useEnvironment = true,
-      useLocation = true,
-      structField = true)
-  SkylarkList<FileT> getSkylarkObjects(Location location, Environment environment)
-      throws EvalException;
+  @SkylarkCallable(name = "objects", documented = false, useLocation = true, structField = true)
+  SkylarkList<FileT> getSkylarkObjects(Location location) throws EvalException;
 
-  @SkylarkCallable(
-      name = "pic_objects",
-      documented = false,
-      useEnvironment = true,
-      useLocation = true,
-      structField = true)
-  SkylarkList<FileT> getSkylarkPicObjects(Location location, Environment environment)
-      throws EvalException;
+  @SkylarkCallable(name = "pic_objects", documented = false, useLocation = true, structField = true)
+  SkylarkList<FileT> getSkylarkPicObjects(Location location) throws EvalException;
 }

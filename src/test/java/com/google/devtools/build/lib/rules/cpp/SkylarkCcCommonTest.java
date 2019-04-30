@@ -4987,6 +4987,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testFlagWhitelist() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
     setSkylarkSemanticsOptions("--experimental_cc_skylark_api_enabled_packages=\"\"");
     createFiles(scratch, "foo/bar");
     reporter.removeHandler(failFastHandler);
@@ -4995,6 +4996,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "You can try it out by passing "
             + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that we "
             + "will be making breaking changes to this API without prior warning.");
+    }
   }
 
   private static void createFilesForTestingCompilation(

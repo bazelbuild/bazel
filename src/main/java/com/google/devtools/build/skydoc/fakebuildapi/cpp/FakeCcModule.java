@@ -208,7 +208,6 @@ public class FakeCcModule
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      Environment environment,
       StarlarkContext starlarkContext)
       throws InterruptedException, EvalException {
     return null;

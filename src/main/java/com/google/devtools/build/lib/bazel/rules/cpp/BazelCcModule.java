@@ -102,7 +102,7 @@ public class BazelCcModule extends CcModule
         /* grepIncludes= */ null,
         SkylarkList.createImmutable(ImmutableList.of()),
         location,
-        environment);
+        /* environment= */ null);
   }
 
   @Override
@@ -136,7 +136,7 @@ public class BazelCcModule extends CcModule
         additionalInputs,
         /* grepIncludes= */ null,
         location,
-        environment,
+        /* environment= */ null,
         starlarkContext);
   }
 

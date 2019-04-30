@@ -112,22 +112,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   @Override
-  public SkylarkList<Artifact> getSkylarkObjects(Location location, Environment environment)
-      throws EvalException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
-        location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+  public SkylarkList<Artifact> getSkylarkObjects(Location location) throws EvalException {
     return SkylarkList.createImmutable(getObjectFiles(/* usePic= */ false));
   }
 
   @Override
-  public SkylarkList<Artifact> getSkylarkPicObjects(Location location, Environment environment)
-      throws EvalException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
-        location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+  public SkylarkList<Artifact> getSkylarkPicObjects(Location location) throws EvalException {
     return SkylarkList.createImmutable(getObjectFiles(/* usePic= */ true));
   }
 
