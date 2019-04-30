@@ -106,6 +106,7 @@ platforms:
     test_flags:
     - "--javabase=@openjdk9_linux_archive//:runtime"
     - "--test_timeout=1200"
+    - "--test_arg=-test_java_common_compile_sourcepath,-test_java_common_compile_sourcepath_with_implicit_class"
     test_targets:
     - "--"
     - "//scripts/..."
@@ -172,6 +173,7 @@ platforms:
     test_flags:
     - "--javabase=@openjdk10_linux_archive//:runtime"
     - "--test_timeout=1200"
+    - - "--test_arg=-test_java_common_compile_sourcepath,-test_java_common_compile_sourcepath_with_implicit_class
     test_targets:
     - "--"
     - "//scripts/..."
@@ -259,6 +261,9 @@ platforms:
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
     - "-//src/test/shell/bazel:bazel_determinism_test"
     - "-//src/test/shell/bazel:bazel_java_test"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_released"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_head"
+    - "-//src/test/shell/bazel:bazel_java_test_jdk10_toolchain_head"
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     - "-//src/test/shell/bazel/remote:remote_execution_test"
     - "-//src/test/shell/bazel/remote:remote_execution_http_test"
