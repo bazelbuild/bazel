@@ -138,7 +138,66 @@ sh_test(
     size = "large",
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
+    args = ["@bazel_tools//tools/jdk:toolchain"],
     data = [":test-deps"],
+    tags = [
+        # TODO(laszlocsomor): make this run on Windows. Currently fails because
+        # the java_common provider doesn't work on Windows.
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_java_test_jdk9_released",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["bazel_java_test.sh"],
+    args = select({
+        "//src/conditions:darwin": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
+        "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
+        "//src/conditions:linux_x86_64": ["@remote_java_tools_javac9_test_linux//:toolchain"],
+    }),
+    data = [":test-deps"],
+    tags = [
+        # TODO(laszlocsomor): make this run on Windows. Currently fails because
+        # the java_common provider doesn't work on Windows.
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_java_test_jdk9_head",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["bazel_java_test.sh"],
+    args = [
+        "@local_java_tools//:toolchain",
+        "src/java_tools_java9.zip",
+    ],
+    data = [
+        ":test-deps",
+        "//src:java_tools_java9_zip",
+    ],
+    tags = [
+        # TODO(laszlocsomor): make this run on Windows. Currently fails because
+        # the java_common provider doesn't work on Windows.
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_java_test_jdk10_toolchain_head",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["bazel_java_test.sh"],
+    args = [
+        "@local_java_tools//:toolchain",
+        "src/java_tools_java10.zip",
+    ],
+    data = [
+        ":test-deps",
+        "//src:java_tools_java10_zip",
+    ],
     tags = [
         # TODO(laszlocsomor): make this run on Windows. Currently fails because
         # the java_common provider doesn't work on Windows.

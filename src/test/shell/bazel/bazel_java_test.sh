@@ -22,6 +22,59 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+echo "Test args are $@"
+
+JAVA_TOOLCHAIN="$1"; shift
+
+if [[ $# -eq 1 ]]; then
+    JAVA_TOOLS_ZIP="$1"; shift
+    JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+    echo "JAVA_TOOLS_ZIP_FILE_URL=$JAVA_TOOLS_ZIP_FILE_URL"
+fi
+JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
+ echo "JAVA_TOOLS_ZIP_FILE_URL=$JAVA_TOOLS_ZIP_FILE_URL"
+
+add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
+
+function set_up() {
+    cat >>WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+# java_tools versions only used to test Bazel with various JDK toolchains.
+EOF
+
+    if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
+    cat >>WORKSPACE <<EOF
+http_archive(
+    name = "local_java_tools",
+    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
+)
+EOF
+    fi
+
+    cat >>WORKSPACE <<EOF
+http_archive(
+    name = "remote_java_tools_javac9_test_linux",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_linux-v1.0-rc1.zip",
+    ],
+)
+
+http_archive(
+    name = "remote_java_tools_javac9_test_windows",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_windows-v1.0-rc1.zip",
+    ],
+)
+
+http_archive(
+    name = "remote_java_tools_javac9_test_darwin",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_darwin-v1.0-rc1.zip",
+    ],
+)
+EOF
+}
+
 function write_hello_library_files() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
@@ -193,7 +246,7 @@ java_custom_library = rule(
     "deps": attr.label_list(),
     "exports": attr.label_list(),
     "resources": attr.label_list(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -360,7 +413,7 @@ java_custom_library(
 )
 EOF
 
-  cat >g/java_custom_library.bzl <<'EOF'
+  cat >g/java_custom_library.bzl << EOF
 def _impl(ctx):
   output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
 
@@ -384,7 +437,7 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -436,7 +489,7 @@ java_custom_library(
 )
 EOF
 
-  cat >g/java_custom_library.bzl <<'EOF'
+  cat >g/java_custom_library.bzl << EOF
 def _impl(ctx):
   output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
 
@@ -461,7 +514,7 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -1380,7 +1433,7 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "jar": attr.label(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
     "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
@@ -1421,7 +1474,7 @@ my_rule = rule(
   implementation = _impl,
   attrs = {
     "compile_time_jars": attr.label_list(allow_files=True),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
+    "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
   }
 )
 EOF
@@ -1679,6 +1732,7 @@ function test_java_test_timeout_split_xml() {
 
 function test_wrapper_resolves_runfiles_to_subsuming_tree() {
     setup_clean_workspace
+    set_up
     mkdir -p java/com/google/runfiles/
     cat <<'EOF' > java/com/google/runfiles/EchoRunfiles.java
 package com.google.runfiles;
