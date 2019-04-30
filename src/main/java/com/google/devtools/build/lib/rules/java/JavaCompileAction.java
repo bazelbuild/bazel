@@ -192,7 +192,8 @@ public class JavaCompileAction extends AbstractAction
    */
   @VisibleForTesting
   ReducedClasspath getReducedClasspath(
-      ActionExecutionContext actionExecutionContext, JavaCompileActionContext context) {
+      ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
+      throws IOException {
     HashSet<String> direct = new HashSet<>();
     for (Artifact directJar : directJars) {
       direct.add(directJar.getExecPathString());
@@ -292,8 +293,15 @@ public class JavaCompileAction extends AbstractAction
       if (classpathMode == JavaClasspathMode.BAZEL) {
         JavaCompileActionContext context =
             actionExecutionContext.getContext(JavaCompileActionContext.class);
-        reducedClasspath = getReducedClasspath(actionExecutionContext, context);
-        spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
+        try {
+          reducedClasspath = getReducedClasspath(actionExecutionContext, context);
+          spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
+        } catch (IOException e) {
+          // There was an error reading some of the dependent .jdeps files. Fall back to a
+          // compilation with the full classpath.
+          reducedClasspath = null;
+          spawn = getFullSpawn(actionExecutionContext);
+        }
       } else {
         reducedClasspath = null;
         spawn = getFullSpawn(actionExecutionContext);
