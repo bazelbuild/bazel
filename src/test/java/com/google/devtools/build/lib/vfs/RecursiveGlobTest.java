@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -151,14 +151,11 @@ public class RecursiveGlobTest {
 
   private void assertIllegalWildcard(String pattern)
       throws Exception {
-    try {
-      new UnixGlob.Builder(tmpPath)
-          .addPattern(pattern)
-          .globInterruptible();
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().containsMatch("recursive wildcard must be its own segment");
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new UnixGlob.Builder(tmpPath).addPattern(pattern).globInterruptible());
+    assertThat(e).hasMessageThat().containsMatch("recursive wildcard must be its own segment");
   }
 
 }

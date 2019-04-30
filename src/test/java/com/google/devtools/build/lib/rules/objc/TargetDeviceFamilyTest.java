@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -52,12 +52,11 @@ public class TargetDeviceFamilyTest {
 
   private void checkFromNamesInRuleThrows(
       Class<? extends Exception> expectedClass, String... names) {
-    try {
-      TargetDeviceFamily.fromNamesInRule(ImmutableList.copyOf(names));
-      fail("should have thrown");
-    } catch (IllegalArgumentException expected) {
-      assertThat(expected.getClass()).isEqualTo(expectedClass);
-    }
+    IllegalArgumentException expected =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> TargetDeviceFamily.fromNamesInRule(ImmutableList.copyOf(names)));
+    assertThat(expected.getClass()).isEqualTo(expectedClass);
   }
 
   @Test

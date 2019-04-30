@@ -15,6 +15,7 @@ package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.lang.reflect.Modifier.isFinal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -245,13 +246,15 @@ public class DesugarFunctionalTest {
   // this "already-working" scenario.
   @Test
   public void testPrivateConstructorAccessedThroughJavacGeneratedBridge() {
-    try {
-      @SuppressWarnings("unused") // local is needed to make ErrorProne happy
-      ConstructorReference unused = ConstructorReference.emptyThroughJavacGeneratedBridge().get();
-      fail("RuntimeException expected");
-    } catch (RuntimeException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("got it!");
-    }
+    RuntimeException expected =
+        assertThrows(
+            RuntimeException.class,
+            () -> {
+              @SuppressWarnings("unused") // local is needed to make ErrorProne happy
+              ConstructorReference unused =
+                  ConstructorReference.emptyThroughJavacGeneratedBridge().get();
+            });
+    assertThat(expected).hasMessageThat().isEqualTo("got it!");
   }
 
   @Test
@@ -285,10 +288,12 @@ public class DesugarFunctionalTest {
     assertThat(ConcreteFunction.toInt().getClass().getDeclaredMethods())
         .hasLength(expectedBridgesFromSameTarget + 1);
     // Sanity check that we only copied over methods, no fields, from the functional interface
-    try {
-      ConcreteFunction.toInt().getClass().getDeclaredField("DO_NOT_COPY_INTO_LAMBDA_CLASSES");
-      fail("NoSuchFieldException expected");
-    } catch (NoSuchFieldException expected) {}
+    assertThrows(
+        NoSuchFieldException.class,
+        () ->
+            ConcreteFunction.toInt()
+                .getClass()
+                .getDeclaredField("DO_NOT_COPY_INTO_LAMBDA_CLASSES"));
     assertThat(SpecializedFunction.class.getDeclaredField("DO_NOT_COPY_INTO_LAMBDA_CLASSES"))
         .isNotNull(); // test sanity
   }

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
@@ -77,12 +77,7 @@ public class NativePathTest {
 
   @Test
   public void testDirectoryEntriesForFileThrowsException() {
-    try {
-      fs.getPath(aFile.getPath()).getDirectoryEntries();
-      fail("No exception thrown.");
-    } catch (IOException x) {
-      // The expected result.
-    }
+    assertThrows(IOException.class, () -> fs.getPath(aFile.getPath()).getDirectoryEntries());
   }
 
   @Test
@@ -114,12 +109,7 @@ public class NativePathTest {
 
   @Test
   public void testListNonExistingDirectoryThrowsException() {
-    try {
-      fs.getPath("/does/not/exist").getDirectoryEntries();
-      fail("No exception thrown.");
-    } catch (IOException ex) {
-      // success!
-    }
+    assertThrows(IOException.class, () -> fs.getPath("/does/not/exist").getDirectoryEntries());
   }
 
   private void assertPathSet(Collection<Path> actual, String... expected) {

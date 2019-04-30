@@ -19,6 +19,7 @@ import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensi
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isMimicStrategy;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isNullStrategy;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isReuseStrategy;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 import static org.objectweb.asm.ClassWriter.COMPUTE_MAXS;
 import static org.objectweb.asm.Opcodes.ASM5;
@@ -157,23 +158,20 @@ public class TryWithResourcesRewriterTest {
   @Test
   public void testSimpleTryWithResources() throws Throwable {
     {
-      try {
-        ClassUsingTryWithResources.simpleTryWithResources();
-        fail("Expected RuntimeException");
-      } catch (RuntimeException expected) {
-        assertThat(expected.getClass()).isEqualTo(RuntimeException.class);
+      RuntimeException expected =
+          assertThrows(
+              RuntimeException.class, () -> ClassUsingTryWithResources.simpleTryWithResources());
+      assertThat(expected.getClass()).isEqualTo(RuntimeException.class);
         assertThat(expected.getSuppressed()).hasLength(1);
-        assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
-      }
+      assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
     }
 
     try {
-      try {
-        desugaredClass.getMethod("simpleTryWithResources").invoke(null);
-        fail("Expected RuntimeException");
-      } catch (InvocationTargetException e) {
-        throw e.getCause();
-      }
+      InvocationTargetException e =
+          assertThrows(
+              InvocationTargetException.class,
+              () -> desugaredClass.getMethod("simpleTryWithResources").invoke(null));
+      throw e.getCause();
     } catch (RuntimeException expected) {
       String expectedStrategyName = getTwrStrategyClassNameSpecifiedInSystemProperty();
       assertThat(getStrategyClassName()).isEqualTo(expectedStrategyName);

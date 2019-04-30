@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -107,13 +107,10 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
     HeaderThinning headerThinning = new HeaderThinning(getPotentialHeaders(expectedHeaders));
     writeToHeadersListFile(action, "objc/a.h", "objc/b.h", "objc/c.h");
 
-    try {
-      determineAdditionalInputs(headerThinning, action);
-      fail("Exception was not thrown");
-    } catch (ExecException e) {
-      assertThat(e).hasMessageThat().containsMatch("(objc/c.h)");
-      assertThat(e).isInstanceOf(UserExecException.class);
-    }
+    ExecException e =
+        assertThrows(ExecException.class, () -> determineAdditionalInputs(headerThinning, action));
+    assertThat(e).hasMessageThat().containsMatch("(objc/c.h)");
+    assertThat(e).isInstanceOf(UserExecException.class);
   }
 
   @Test
