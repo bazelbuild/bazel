@@ -25,6 +25,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 echo "Test args are $@"
 
 JAVA_TOOLCHAIN="$1"; shift
+add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
 
 if [[ $# -eq 1 ]]; then
     JAVA_TOOLS_ZIP="$1"; shift
@@ -32,9 +33,6 @@ if [[ $# -eq 1 ]]; then
     echo "JAVA_TOOLS_ZIP_FILE_URL=$JAVA_TOOLS_ZIP_FILE_URL"
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
- echo "JAVA_TOOLS_ZIP_FILE_URL=$JAVA_TOOLS_ZIP_FILE_URL"
-
-add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
 
 function set_up() {
     cat >>WORKSPACE <<EOF

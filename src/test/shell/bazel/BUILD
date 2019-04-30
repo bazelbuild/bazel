@@ -148,7 +148,7 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java_test_jdk9_released",
+    name = "bazel_java_test_jdk9_toolchain_released",
     size = "large",
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
@@ -166,7 +166,7 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java_test_jdk9_head",
+    name = "bazel_java_test_jdk9_toolchain_head",
     size = "large",
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
