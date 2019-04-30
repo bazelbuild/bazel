@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.TestCase.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -211,11 +211,10 @@ public class SandboxfsSandboxedSpawnTest {
       assertThat(execRoot.getRelative("such/link-to-input-2").resolveSymbolicLinks())
           .isEqualTo(input2);
     } else {
-      try {
-        execRoot.getRelative("such/link-to-link.txt").resolveSymbolicLinks();
-        fail("Symlink resolution worked, which means the target was mapped when not expected");
-      } catch (IOException expected) {
-      }
+      assertThrows(
+          "Symlink resolution worked, which means the target was mapped when not expected",
+          IOException.class,
+          () -> execRoot.getRelative("such/link-to-link.txt").resolveSymbolicLinks());
     }
 
     // Targets of symlinks must have been mapped inside the sandbox only when requested.
