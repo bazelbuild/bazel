@@ -27,7 +27,7 @@ import java.util.UUID;
 /** A on-disk store for the remote action cache. */
 public class OnDiskBlobStore implements SimpleBlobStore {
   private final Path root;
-  static final String ACTION_KEY_PREFIX = "ac_";
+  private static final String ACTION_KEY_PREFIX = "ac_";
 
   public OnDiskBlobStore(Path root) {
     this.root = root;
@@ -35,13 +35,13 @@ public class OnDiskBlobStore implements SimpleBlobStore {
 
   @Override
   public boolean containsKey(String key) {
-    return toPath(key).exists();
+    return toPath(key, /* actionResult= */ false).exists();
   }
 
   @Override
   public ListenableFuture<Boolean> get(String key, OutputStream out) {
     SettableFuture<Boolean> f = SettableFuture.create();
-    Path p = toPath(key);
+    Path p = toPath(key, /* actionResult= */ false);
     if (!p.exists()) {
       f.set(false);
     } else {
@@ -57,19 +57,19 @@ public class OnDiskBlobStore implements SimpleBlobStore {
 
   @Override
   public ListenableFuture<Boolean> getActionResult(String key, OutputStream out){
-    return get(ACTION_KEY_PREFIX + key, out);
+    return get(getDiskKey(key, /* actionResult= */ true), out);
   }
 
   @Override
   public void put(String key, long length, InputStream in)
       throws IOException, InterruptedException {
-    Path target = toPath(key);
+    Path target = toPath(key, /* actionResult= */ false);
     if (target.exists()) {
       return;
     }
 
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
-    Path temp = toPath(UUID.randomUUID().toString());
+    Path temp = toPath(UUID.randomUUID().toString(), /* actionResult= */ false);
     try (OutputStream out = temp.getOutputStream()) {
       ByteStreams.copy(in, out);
     }
@@ -80,13 +80,17 @@ public class OnDiskBlobStore implements SimpleBlobStore {
 
   @Override
   public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
-    put(ACTION_KEY_PREFIX + key, in.length, new ByteArrayInputStream(in));
+    put(getDiskKey(key, /* actionResult= */ true), in.length, new ByteArrayInputStream(in));
   }
 
   @Override
   public void close() {}
 
-  protected Path toPath(String key) {
-    return root.getChild(key);
+  protected Path toPath(String key, boolean actionResult) {
+    return root.getChild(getDiskKey(key, actionResult));
+  }
+
+  private String getDiskKey(String key, boolean actionResult) {
+    return actionResult ? OnDiskBlobStore.ACTION_KEY_PREFIX + key : key;
   }
 }

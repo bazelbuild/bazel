@@ -52,7 +52,7 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
   public void put(String key, long length, InputStream in)
       throws IOException, InterruptedException {
     diskCache.put(key, length, in);
-    try (InputStream inFile = diskCache.toPath(key).getInputStream()) {
+    try (InputStream inFile = diskCache.toPath(key, /* actionResult= */ false).getInputStream()) {
       remoteCache.put(key, length, inFile);
     }
   }
@@ -71,29 +71,27 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
 
   @Override
   public ListenableFuture<Boolean> get(String key, OutputStream out) {
-    return get(key, out, /* actionResult= */false);
+    return get(key, out, /* actionResult= */ false);
   }
 
   @Override
   public ListenableFuture<Boolean> getActionResult(String key, OutputStream out) {
-    return get(key, out, /* actionResult= */true);
+    return get(key, out, /* actionResult= */ true);
   }
 
   private ListenableFuture<Boolean> get(String key, OutputStream out, boolean actionResult) {
-    String diskKey = actionResult ? OnDiskBlobStore.ACTION_KEY_PREFIX + key : key;
-    boolean foundOnDisk = diskCache.containsKey(diskKey);
+    boolean foundOnDisk = diskCache.toPath(key, actionResult).exists();
 
     if (foundOnDisk) {
-      return diskCache.get(diskKey, out);
+      return getFromCache(diskCache, key, out, actionResult);
     } else {
-      return getFromRemoteAndSaveToDisk(key, out, actionResult, diskKey);
+      return getFromRemoteAndSaveToDisk(key, out, actionResult);
     }
   }
 
-  private ListenableFuture<Boolean> getFromRemoteAndSaveToDisk(String key, OutputStream out,
-      boolean actionResult, String diskKey) {
+  private ListenableFuture<Boolean> getFromRemoteAndSaveToDisk(String key, OutputStream out, boolean actionResult) {
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
-    Path temp = diskCache.toPath(UUID.randomUUID().toString());
+    Path temp = diskCache.toPath(UUID.randomUUID().toString(), /* actionResult= */ false);
 
     OutputStream tempOut;
     try {
@@ -103,13 +101,13 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
     }
     ListenableFuture<Boolean> chained =
             Futures.transformAsync(
-                    getFromRemoteCache(key, tempOut, remoteCache, actionResult),
+                    getFromCache(remoteCache, key, tempOut, actionResult),
                     (found) -> {
                       if (!found) {
                         return Futures.immediateFuture(false);
                       } else {
-                        saveToDiskCache(diskKey, temp);
-                        return diskCache.get(diskKey, out);
+                        saveToDiskCache(key, temp, actionResult);
+                        return getFromCache(diskCache, key, out, actionResult);
                       }
                     },
                     MoreExecutors.directExecutor());
@@ -128,19 +126,20 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
     return chained;
   }
 
-  private void saveToDiskCache(String diskKey, Path temp) throws IOException {
-    Path target = diskCache.toPath(diskKey);
+  private void saveToDiskCache(String key, Path temp, boolean actionResult) throws IOException {
+    Path target = diskCache.toPath(key, actionResult);
     // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the
     // case of machine
     // crashes (the OS may reorder the writes and the rename).
     temp.renameTo(target);
   }
 
-  private ListenableFuture<Boolean> getFromRemoteCache(String key, OutputStream tempOut, SimpleBlobStore remoteCache, boolean actionResult) {
+  private ListenableFuture<Boolean> getFromCache(SimpleBlobStore blobStore, String key,
+      OutputStream tempOut, boolean actionResult) {
     if (!actionResult) {
-      return remoteCache.get(key, tempOut);
+      return blobStore.get(key, tempOut);
     } else {
-      return remoteCache.getActionResult(key, tempOut);
+      return blobStore.getActionResult(key, tempOut);
     }
   }
 }
