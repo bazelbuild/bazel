@@ -1595,7 +1595,6 @@ public abstract class CcModule
       throw new EvalException(
           location, "Language '" + language + "' does not support " + outputType);
     }
-
     CcLinkingHelper helper =
         new CcLinkingHelper(
                 actions.getActionConstructionContext().getRuleErrorConsumer(),
@@ -1617,13 +1616,11 @@ public abstract class CcModule
             .addNonCodeLinkerInputs(additionalInputs)
             .setDynamicLinkType(dynamicLinkTargetType)
             .addCcLinkingContexts(linkingContexts)
+            .setShouldCreateStaticLibraries(false)
             .addLinkopts(userLinkFlags);
     try {
-      CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-      if (!compilationOutputs.isEmpty()) {
-        ccLinkingOutputs = helper.link(compilationOutputs);
-      }
-      return ccLinkingOutputs;
+      return helper.link(
+          compilationOutputs != null ? compilationOutputs : CcCompilationOutputs.EMPTY);
     } catch (RuleErrorException e) {
       throw new EvalException(location, e);
     }

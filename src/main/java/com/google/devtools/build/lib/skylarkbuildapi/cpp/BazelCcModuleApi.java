@@ -240,7 +240,10 @@ public interface BazelCcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            type = CcCompilationOutputsApi.class),
+            allowedTypes = {
+              @ParamType(type = CcCompilationOutputsApi.class),
+              @ParamType(type = NoneType.class)
+            }),
         @Param(
             name = "user_link_flags",
             doc = "Additional list of linker options.",
@@ -303,7 +306,7 @@ public interface BazelCcModuleApi<
       SkylarkActionFactoryT skylarkActionFactoryApi,
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
-      CompilationOutputsT compilationOutputs,
+      Object compilationOutputs,
       SkylarkList<String> userLinkFlags,
       SkylarkList<LinkingContextT> linkingContexts,
       String name,

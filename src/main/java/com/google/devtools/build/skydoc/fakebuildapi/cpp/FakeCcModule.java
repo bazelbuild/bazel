@@ -219,7 +219,7 @@ public class FakeCcModule
       SkylarkActionFactoryApi skylarkActionFactoryApi,
       FeatureConfigurationApi skylarkFeatureConfiguration,
       CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
-      CcCompilationOutputsApi<FileApi> compilationOutputs,
+      Object compilationOutputs,
       SkylarkList<String> userLinkFlags,
       SkylarkList<CcLinkingContextApi<FileApi>> linkingContexts,
       String name,

@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -5209,6 +5210,115 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "      'object2': attr.label(allow_single_file=True),",
         "      'pic_object2': attr.label(allow_single_file=True),",
         "    },",
+        ")");
+  }
+
+  @Test
+  public void testTransitiveLinkWithDeps() throws Exception {
+    setupTestTransitiveLink(scratch, "        linking_contexts = dep_linking_contexts");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
+        .containsAllOf("bin foo/libdep1.a", "bin foo/libdep2.a");
+  }
+
+  @Test
+  public void testTransitiveLinkForDynamicLibrary() throws Exception {
+    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    assertThat(library).isNotNull();
+    Object executable = getMyInfoFromTarget(target).getValue("executable");
+    assertThat(EvalUtils.isNullOrNone(executable)).isTrue();
+  }
+
+  @Test
+  public void testTransitiveLinkForExecutable() throws Exception {
+    setupTestTransitiveLink(scratch, "output_type = 'executable'");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    assertThat(executable).isNotNull();
+    Object library = getMyInfoFromTarget(target).getValue("library");
+    assertThat(EvalUtils.isNullOrNone(library)).isTrue();
+  }
+
+  @Test
+  public void testTransitiveLinkWithCompilationOutputs() throws Exception {
+    setupTestTransitiveLink(scratch, "compilation_outputs=objects");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
+        .contains("src foo/file.o");
+  }
+
+  private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
+      throws Exception {
+    String fragments = "    fragments = ['google_cpp', 'cpp'],";
+    if (AnalysisMock.get().isThisBazel()) {
+      fragments = "    fragments = ['cpp'],";
+    }
+    scratch.overwriteFile("tools/build_defs/BUILD");
+    scratch.file(
+        "tools/build_defs/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _cc_bin_impl(ctx):",
+        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)",
+        "    dep_linking_contexts = []",
+        "    for dep in ctx.attr.deps:",
+        "        dep_linking_contexts.append(dep[CcInfo].linking_context)",
+        "    objects = cc_common.create_compilation_outputs(objects=depset(ctx.files.objects),",
+        "        pic_objects=depset(ctx.files.pic_objects))",
+        "    linking_outputs = cc_common.link(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        name = ctx.label.name,",
+        "        cc_toolchain=toolchain,",
+        "        " + Joiner.on("").join(additionalLines),
+        "    )",
+        "    return [",
+        "      MyInfo(",
+        "        library=linking_outputs.library_to_link,",
+        "        executable=linking_outputs.executable",
+        "      )",
+        "    ]",
+        "cc_bin = rule(",
+        "    implementation = _cc_bin_impl,",
+        "    attrs = {",
+        "      'objects': attr.label_list(allow_files=True),",
+        "      'pic_objects': attr.label_list(allow_files=True),",
+        "      'deps': attr.label_list(),",
+        "      '_cc_toolchain': attr.label(default =",
+        "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
+        "    },",
+        fragments,
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs:extension.bzl', 'cc_bin')",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['dep1.cc'],",
+        "    hdrs = ['dep1.h'],",
+        "    includes = ['dep1/baz'],",
+        "    defines = ['DEP1'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['dep2.cc'],",
+        "    hdrs = ['dep2.h'],",
+        "    includes = ['dep2/qux'],",
+        "    defines = ['DEP2'],",
+        ")",
+        "cc_bin(",
+        "    name = 'bin',",
+        "    objects = ['file.o'],",
+        "    pic_objects = ['file.pic.o'],",
+        "    deps = [':dep1', ':dep2'],",
         ")");
   }
 }
