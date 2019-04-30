@@ -166,11 +166,6 @@ sh_test(
         "@openjdk9_linux_archive//:runtime",
     ],
     data = [":test-deps"],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
-    ],
 )
 
 sh_test(
