@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.remote;
 import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.remote.blobstore.CombinedDiskRemoteBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.CombinedDiskHttpBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
@@ -123,7 +123,7 @@ public final class SimpleBlobStoreFactory {
 
     OnDiskBlobStore diskCache = new OnDiskBlobStore(cacheDir);
     SimpleBlobStore httpCache = createHttp(options, cred);
-    return new CombinedDiskRemoteBlobStore(diskCache, httpCache);
+    return new CombinedDiskHttpBlobStore(diskCache, httpCache);
   }
 
   private static boolean isDiskCache(RemoteOptions options) {
