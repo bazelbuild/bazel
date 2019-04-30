@@ -4938,6 +4938,85 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPossibleSrcsExtensions() throws Exception {
+    doTestPossibleExtensions("srcs", CppFileTypes.ALL_C_CLASS_SOURCE.getExtensions());
+  }
+
+  @Test
+  public void testPossiblePrivateHdrExtensions() throws Exception {
+    doTestPossibleExtensions("private_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
+  }
+
+  @Test
+  public void testPossiblePublicHdrExtensions() throws Exception {
+    doTestPossibleExtensions("public_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
+  }
+
+  private void doTestPossibleExtensions(String attrName, List<String> extensions) throws Exception {
+    createFiles(scratch, "tools/build_defs/foo");
+    reporter.removeHandler(failFastHandler);
+
+    for (String extension : extensions) {
+      scratch.deleteFile("bar/BUILD");
+      scratch.file(
+          "bar/BUILD",
+          "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+          "cc_skylark_library(",
+          "    name = 'skylark_lib',",
+          "    " + attrName + " = ['file" + extension + "'],",
+          ")");
+      getConfiguredTarget("//bar:skylark_lib");
+      assertNoEvents();
+    }
+  }
+
+  @Test
+  public void testWrongSrcsExtensionGivesError() throws Exception {
+    doTestWrongExtension("srcs");
+  }
+
+  @Test
+  public void testWrongPrivateHdrExtensionGivesError() throws Exception {
+    doTestWrongExtension("private_hdrs");
+  }
+
+  @Test
+  public void testWrongPublicHdrExtensionGivesError() throws Exception {
+    doTestWrongExtension("public_hdrs");
+  }
+
+  private void doTestWrongExtension(String attrName) throws Exception {
+    createFiles(scratch, "tools/build_defs/foo");
+    scratch.file(
+        "bar/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        "    " + attrName + " = ['skylark_lib.cannotpossiblybevalid'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bar:skylark_lib");
+    assertContainsEvent(
+        "has wrong extension. The list of possible extensions for '" + attrName + "'");
+  }
+
+  @Test
+  public void testWrongSrcExtensionGivesError() throws Exception {
+    createFiles(scratch, "tools/build_defs/foo");
+
+    scratch.file(
+        "bar/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        "    srcs = ['skylark_lib.qweqwe'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bar:skylark_lib");
+    assertContainsEvent("The list of possible extensions for 'srcs'");
+  }
+
+  @Test
   public void testFlagWhitelist() throws Exception {
     setSkylarkSemanticsOptions("--experimental_cc_skylark_api_enabled_packages=\"\"");
     createFiles(scratch, "foo/bar");
@@ -5009,10 +5088,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    files_to_build = []",
         "    files_to_build.extend(compilation_outputs.pic_objects)",
         "    files_to_build.extend(compilation_outputs.objects)",
-        "    library_to_link = linking_outputs.library_to_link",
-        "    if library_to_link.pic_static_library != None:",
-        "       files_to_build.append(library_to_link.pic_static_library)",
-        "    files_to_build.append(library_to_link.dynamic_library)",
+        "    library_to_link = None",
+        "    if len(ctx.files.srcs) > 0:",
+        "        library_to_link = linking_outputs.library_to_link",
+        "        if library_to_link.pic_static_library != None:",
+        "            files_to_build.append(library_to_link.pic_static_library)",
+        "        files_to_build.append(library_to_link.dynamic_library)",
         "    return [MyInfo(libraries=[library_to_link]),",
         "            DefaultInfo(files=depset(files_to_build)),",
         "            CcInfo(compilation_context=compilation_context,",

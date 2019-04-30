@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.base.StandardSystemProperty.LINE_SEPARATOR;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1484,6 +1486,21 @@ public abstract class CcModule
         convertFromNoneable(skylarkFeatureConfiguration, null);
     Label label = getCallerLabel(location, actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
+    validateExtensions(
+        location,
+        "srcs",
+        sources,
+        CppFileTypes.ALL_C_CLASS_SOURCE,
+        FileType.of(
+            ImmutableList.<String>builder()
+                .addAll(CppFileTypes.CPP_SOURCE.getExtensions())
+                .addAll(CppFileTypes.C_SOURCE.getExtensions())
+                .build()));
+    validateExtensions(
+        location, "public_hdrs", publicHeaders, CppFileTypes.CPP_HEADER, CppFileTypes.CPP_HEADER);
+    validateExtensions(
+        location, "private_hdrs", privateHeaders, CppFileTypes.CPP_HEADER, CppFileTypes.CPP_HEADER);
+
     CcCompilationHelper helper =
         new CcCompilationHelper(
                 actions.asActionRegistry(location, actions),
@@ -1605,6 +1622,27 @@ public abstract class CcModule
       return ccLinkingOutputs;
     } catch (RuleErrorException e) {
       throw new EvalException(location, e);
+    }
+  }
+
+  private void validateExtensions(
+      Location location,
+      String paramName,
+      List<Artifact> files,
+      FileType validFileType,
+      FileType fileTypeForErrorMessage)
+      throws EvalException {
+    for (Artifact file : files) {
+      if (!validFileType.matches(file)) {
+        throw new EvalException(
+            location,
+            String.format(
+                "'%s' has wrong extension. The list of possible extensions for '"
+                    + paramName
+                    + "' are: %s",
+                file.getExecPathString(),
+                Joiner.on(",").join(fileTypeForErrorMessage.getExtensions())));
+      }
     }
   }
 }

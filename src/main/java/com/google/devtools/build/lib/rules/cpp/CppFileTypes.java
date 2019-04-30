@@ -29,6 +29,14 @@ public final class CppFileTypes {
   public static final FileType C_SOURCE = FileType.of(".c");
   public static final FileType OBJC_SOURCE = FileType.of(".m");
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
+  public static final FileType ALL_C_CLASS_SOURCE =
+      FileType.of(
+          FileTypeSet.of(
+                  CppFileTypes.CPP_SOURCE,
+                  CppFileTypes.C_SOURCE,
+                  CppFileTypes.OBJCPP_SOURCE,
+                  CppFileTypes.OBJC_SOURCE)
+              .getExtensions());
 
   // Filetypes that generate LLVM bitcode when -flto is specified.
   public static final FileTypeSet LTO_SOURCE =
