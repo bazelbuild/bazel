@@ -226,7 +226,13 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   cat <<EOF >${BAZEL_TOOLS_REPO}/WORKSPACE
 workspace(name = 'bazel_tools')
 EOF
-  link_dir ${PWD}/src ${BAZEL_TOOLS_REPO}/src
+
+  mkdir -p "${BAZEL_TOOLS_REPO}/src/conditions"
+  link_file "${PWD}/src/conditions/BUILD.tools" \
+      "${BAZEL_TOOLS_REPO}/src/conditions/BUILD"
+  link_children "${PWD}" src/conditions "${BAZEL_TOOLS_REPO}"
+  link_children "${PWD}" src "${BAZEL_TOOLS_REPO}"
+
   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
 
   # Create @bazel_tools//tools/cpp/runfiles
