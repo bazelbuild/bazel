@@ -135,6 +135,7 @@ sh_test(
 
 sh_test(
     name = "bazel_java_test",
+    # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
@@ -142,11 +143,9 @@ sh_test(
         "@bazel_tools//tools/jdk:toolchain",
         "released",
     ],
-    data = [":test-deps"],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -165,7 +164,10 @@ sh_test(
         # --javabase value
         "@openjdk9_linux_archive//:runtime",
     ],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -184,11 +186,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src:java_tools_java9_zip",
-    ],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -208,11 +206,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src:java_tools_java10_zip",
-    ],
-    tags = [
-        # TODO(laszlocsomor): make this run on Windows. Currently fails because
-        # the java_common provider doesn't work on Windows.
-        "no_windows",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
