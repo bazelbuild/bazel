@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -363,10 +362,6 @@ public class WorkspaceFactory {
       }
       if (workspaceDir != null) {
         workspaceEnv.update("__workspace_dir__", workspaceDir.getPathString());
-      }
-      File javaHome = new File(System.getProperty("java.home"));
-      if (javaHome.getName().equalsIgnoreCase("jre")) {
-        javaHome = javaHome.getParentFile();
       }
       workspaceEnv.update("DEFAULT_SYSTEM_JAVABASE", getDefaultSystemJavabase());
 
