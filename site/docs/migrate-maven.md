@@ -78,33 +78,33 @@ the [Guava project](https://github.com/google/guava)
 
 Add the following snippet to the `WORKSPACE` file:
 
-    ```python
-    load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+```python
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-    RULES_JVM_EXTERNAL_TAG = "2.0.1"
-    RULES_JVM_EXTERNAL_SHA = "55e8d3951647ae3dffde22b4f7f8dee11b3f70f3f89424713debd7076197eaca"
+RULES_JVM_EXTERNAL_TAG = "2.0.1"
+RULES_JVM_EXTERNAL_SHA = "55e8d3951647ae3dffde22b4f7f8dee11b3f70f3f89424713debd7076197eaca"
 
-    http_archive(
-        name = "rules_jvm_external",
-        strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
-        sha256 = RULES_JVM_EXTERNAL_SHA,
-        url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
-    )
+http_archive(
+    name = "rules_jvm_external",
+    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
+    sha256 = RULES_JVM_EXTERNAL_SHA,
+    url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
+)
 
-    load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:defs.bzl", "maven_install")
 
-    maven_install(
-        artifacts = [
-            "com.google.code.findbugs:jsr305:1.3.9",
-            "com.google.errorprone:error_prone_annotations:2.0.18",
-            "com.google.j2objc:j2objc-annotations:1.1",
-        ],
-        repositories = [
-            "https://jcenter.bintray.com/",
-            "https://repo1.maven.org/maven2",
-        ],
-    )
-    ```
+maven_install(
+    artifacts = [
+        "com.google.code.findbugs:jsr305:1.3.9",
+        "com.google.errorprone:error_prone_annotations:2.0.18",
+        "com.google.j2objc:j2objc-annotations:1.1",
+    ],
+    repositories = [
+        "https://jcenter.bintray.com/",
+        "https://repo1.maven.org/maven2",
+    ],
+)
+```
 
 ### <a name="2-build"></a>2. Create one BUILD file
 
@@ -128,7 +128,7 @@ targets.
        *  To build projects with a single Maven module, use the
           `java_library` rule as follows:
 
-          ```bash
+          ```python
           java_library(
               name = "everything",
               srcs = glob(["src/main/java/**/*.java"]),
@@ -139,7 +139,7 @@ targets.
        *  To build projects with multiple Maven modules, use the
           `java_library` rule as follows:
 
-          ```bash
+          ```python
           java_library(
               name = "everything",
               srcs = glob([
@@ -157,7 +157,7 @@ targets.
           ```
        *  To build binaries, use the `java_binary` rule:
 
-          ```bash
+          ```python
           java_binary(
               name = "everything",
               srcs = glob(["src/main/java/**/*.java"]),
@@ -194,7 +194,7 @@ When migrating the Guava project to Bazel, initially one BUILD file is used
 to build the entire project. Here are the contents of this initial `BUILD`
 file in the workspace directory:
 
-```bash
+```python
 java_library(
     name = "everything",
     srcs = glob(["guava/src/**/*.java"]),
