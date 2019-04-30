@@ -22,8 +22,8 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -205,7 +205,7 @@ public class MultiArchSplitTransitionProvider
           if (cpus.isEmpty()) {
             cpus =
                 ImmutableList.of(
-                    AppleConfiguration.iosCpuFromCpu(buildOptions.get(Options.class).cpu));
+                    AppleConfiguration.iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu));
           }
           if (actualMinimumOsVersion != null
               && actualMinimumOsVersion.compareTo(DottedVersion.fromString("11.0")) >= 0) {

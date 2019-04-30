@@ -40,7 +40,7 @@ import com.google.devtools.common.options.OptionsParsingException;
  * collect_coverage.sh} to be on the inputs of the test. This is accomplished by an implicit
  * attribute {@code :coverage_support} which is resolved to the value of the configuration flag
  * {@code --coverage_support} (see {@link
- * com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options#coverageSupport}).
+ * com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions#coverageSupport}).
  *
  * <p>There are languages for which we do offline instrumentation, meaning that the coverage
  * instrumentation is added at compile time, e.g. for C++, and for others, we do online

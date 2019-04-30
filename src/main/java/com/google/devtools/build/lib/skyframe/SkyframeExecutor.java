@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -1483,7 +1484,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
     BuildOptions targetOptions = firstTargetConfig.getOptions();
     BuildOptions hostOptions =
-        targetOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
+        targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
             ? HostTransition.INSTANCE.patch(targetOptions)
             : targetOptions;
     BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
@@ -1925,8 +1926,8 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
 
   /**
    * Retrieves the configurations needed for the given deps. If {@link
-   * BuildConfiguration.Options#trimConfigurations()} is true, trims their fragments to only those
-   * needed by their transitive closures. Else unconditionally includes all fragments.
+   * CoreOptions#trimConfigurations()} is true, trims their fragments to only those needed by their
+   * transitive closures. Else unconditionally includes all fragments.
    *
    * <p>Skips targets with loading phase errors.
    */
@@ -2097,8 +2098,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
    * their transitive dependencies.
    */
   private static boolean useUntrimmedConfigs(BuildOptions options) {
-    return options.get(BuildConfiguration.Options.class).configsMode
-        == BuildConfiguration.Options.ConfigsMode.NOTRIM;
+    return options.get(CoreOptions.class).configsMode == CoreOptions.ConfigsMode.NOTRIM;
   }
 
   /**
@@ -2589,7 +2589,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   private void getActionEnvFromOptions(OptionsProvider options) {
     // ImmutableMap does not support null values, so use a LinkedHashMap instead.
     LinkedHashMap<String, String> actionEnvironment = new LinkedHashMap<>();
-    BuildConfiguration.Options opt = options.getOptions(BuildConfiguration.Options.class);
+    CoreOptions opt = options.getOptions(CoreOptions.class);
     if (opt != null) {
       for (Map.Entry<String, String> v : opt.actionEnvironment) {
         actionEnvironment.put(v.getKey(), v.getValue());
@@ -2604,7 +2604,7 @@ public abstract class SkyframeExecutor<T extends BuildDriver> implements Walkabl
   }
 
   private void setRepoEnv(OptionsProvider options) {
-    BuildConfiguration.Options opt = options.getOptions(BuildConfiguration.Options.class);
+    CoreOptions opt = options.getOptions(CoreOptions.class);
     LinkedHashMap<String, String> repoEnv = new LinkedHashMap<>();
     if (opt != null) {
       for (Map.Entry<String, String> v : opt.repositoryEnvironment) {

@@ -91,9 +91,9 @@ public final class ConfigurationResolver {
    * Translates a set of {@link Dependency} objects with configuration transition requests to the
    * same objects with resolved configurations.
    *
-   * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, these configurations
-   * only contain the fragments needed by the dep and its transitive closure. Else they
-   * unconditionally include all fragments.
+   * <p>If {@link BuildConfiguration#trimConfigurations()} is true, these configurations only
+   * contain the fragments needed by the dep and its transitive closure. Else they unconditionally
+   * include all fragments.
    *
    * <p>This method is heavily performance-optimized. Because {@link ConfiguredTargetFunction} calls
    * it over every edge in the configured target graph, small inefficiencies can have observable
@@ -648,7 +648,7 @@ public final class ConfigurationResolver {
    *       com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory}s over global
    *       top-level configurations.
    *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This is
-   *       triggered by {@link BuildConfiguration.Options#trimConfigurations}.
+   *       triggered by {@link BuildConfiguration#trimConfigurations}.
    * </ol>
    *
    * <p>Preserves the original input order (but merges duplicate nodes that might occur due to

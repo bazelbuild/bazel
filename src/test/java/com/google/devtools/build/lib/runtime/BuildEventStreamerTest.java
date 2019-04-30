@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -835,8 +836,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testReportedConfigurations() throws Exception {
     // Verify that configuration events are posted, but only once.
     BuildOptions defaultBuildOptions =
-        BuildOptions.of(
-            ImmutableList.<Class<? extends FragmentOptions>>of(BuildConfiguration.Options.class));
+        BuildOptions.of(ImmutableList.<Class<? extends FragmentOptions>>of(CoreOptions.class));
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),

@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
@@ -383,7 +383,7 @@ public class BuildViewTest extends BuildViewTestBase {
   public void testConfigurationShortName() throws Exception {
     // Check that output directory name is still the name, otherwise this test is not testing what
     // we expect.
-    BuildConfiguration.Options options = Options.getDefaults(BuildConfiguration.Options.class);
+    CoreOptions options = Options.getDefaults(CoreOptions.class);
     options.outputDirectoryName = "/home/wonkaw/wonka_chocolate/factory/out";
     assertWithMessage("The flag's name may have been changed; this test may need to be updated.")
         .that(options.asMap().get("output directory name"))

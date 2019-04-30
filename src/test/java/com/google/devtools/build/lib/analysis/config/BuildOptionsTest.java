@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -47,7 +46,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class BuildOptionsTest {
   private static final ImmutableList<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
-      ImmutableList.of(BuildConfiguration.Options.class);
+      ImmutableList.of(CoreOptions.class);
 
   @Test
   public void optionSetCaching() {
@@ -87,8 +86,7 @@ public final class BuildOptionsTest {
             BuildOptions.of(BUILD_CONFIG_OPTIONS, options1)
                 .equals(
                     BuildOptions.of(
-                        ImmutableList.of(BuildConfiguration.Options.class, CppOptions.class),
-                        options1)))
+                        ImmutableList.of(CoreOptions.class, CppOptions.class), options1)))
         .isFalse();
   }
 
@@ -368,7 +366,7 @@ public final class BuildOptionsTest {
   public void testMultiValueOptionImmutability() {
     BuildOptions options =
         BuildOptions.of(BUILD_CONFIG_OPTIONS, OptionsParser.newOptionsParser(BUILD_CONFIG_OPTIONS));
-    BuildConfiguration.Options coreOptions = options.get(Options.class);
+    CoreOptions coreOptions = options.get(CoreOptions.class);
     assertThrows(
         UnsupportedOperationException.class,
         () ->
@@ -385,10 +383,10 @@ public final class BuildOptionsTest {
 
     BuildOptions modified = original.applyParsingResult(parser);
 
-    assertThat(original.get(BuildConfiguration.Options.class).cpu)
-        .isNotEqualTo(modified.get(BuildConfiguration.Options.class).cpu);
-    assertThat(modified.get(BuildConfiguration.Options.class).cpu).isEqualTo("bar");
-    assertThat(modified.get(Options.class).stampBinaries).isFalse();
+    assertThat(original.get(CoreOptions.class).cpu)
+        .isNotEqualTo(modified.get(CoreOptions.class).cpu);
+    assertThat(modified.get(CoreOptions.class).cpu).isEqualTo("bar");
+    assertThat(modified.get(CoreOptions.class).stampBinaries).isFalse();
     assertThat(modified.getStarlarkOptions().get(Label.parseAbsoluteUnchecked("//custom:flag")))
         .isEqualTo("hello");
   }
@@ -396,8 +394,7 @@ public final class BuildOptionsTest {
   @Test
   public void parsingResultTransformNativeIgnored() throws Exception {
     ImmutableList.Builder<Class<? extends FragmentOptions>> fragmentClassesBuilder =
-        ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(BuildConfiguration.Options.class);
+        ImmutableList.<Class<? extends FragmentOptions>>builder().add(CoreOptions.class);
 
     BuildOptions original = BuildOptions.of(fragmentClassesBuilder.build());
 
@@ -430,8 +427,7 @@ public final class BuildOptionsTest {
 
     BuildOptions modified = original.applyParsingResult(parser);
 
-    assertThat(modified.get(BuildConfiguration.Options.class).defaultFeatures)
-        .containsExactly("foo");
+    assertThat(modified.get(CoreOptions.class).defaultFeatures).containsExactly("foo");
   }
 
   @Test
@@ -471,7 +467,7 @@ public final class BuildOptionsTest {
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
         ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(BuildConfiguration.Options.class)
+            .add(CoreOptions.class)
             .add(CppOptions.class)
             .build();
 
@@ -487,7 +483,7 @@ public final class BuildOptionsTest {
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
         ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(BuildConfiguration.Options.class)
+            .add(CoreOptions.class)
             .add(CppOptions.class)
             .build();
 
@@ -506,7 +502,7 @@ public final class BuildOptionsTest {
 
     ImmutableList<Class<? extends FragmentOptions>> fragmentClasses =
         ImmutableList.<Class<? extends FragmentOptions>>builder()
-            .add(BuildConfiguration.Options.class)
+            .add(CoreOptions.class)
             .add(CppOptions.class)
             .build();
 
@@ -550,11 +546,9 @@ public final class BuildOptionsTest {
   @Test
   public void trim_retainsBuildConfigurationOptions() throws Exception {
     BuildOptions original =
-        BuildOptions.of(
-            ImmutableList.of(
-                CppOptions.class, JavaOptions.class, BuildConfiguration.Options.class));
+        BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class, CoreOptions.class));
     BuildOptions trimmed = original.trim(ImmutableSet.of());
-    assertThat(trimmed.getFragmentClasses()).containsExactly(BuildConfiguration.Options.class);
+    assertThat(trimmed.getFragmentClasses()).containsExactly(CoreOptions.class);
   }
 
   @Test

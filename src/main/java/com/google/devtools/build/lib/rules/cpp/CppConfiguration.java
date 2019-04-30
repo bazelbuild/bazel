@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
@@ -139,7 +139,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   private final String transformedCpuFromOptions;
   // TODO(lberki): desiredCpu *should* be always the same as targetCpu, except that we don't check
-  // that the CPU we get from the toolchain matches BuildConfiguration.Options.cpu . So we store
+  // that the CPU we get from the toolchain matches CoreOptions.cpu . So we store
   // it here so that the output directory doesn't depend on the CToolchain. When we will eventually
   // verify that the two are the same, we can remove one of desiredCpu and targetCpu.
   private final String desiredCpu;
@@ -168,7 +168,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
 
-    Options commonOptions = options.get(Options.class);
+    CoreOptions commonOptions = options.get(CoreOptions.class);
     CompilationMode compilationMode = commonOptions.compilationMode;
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
@@ -493,7 +493,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
     // This is an assertion check vs. user error because users can't trigger this state.
     Verify.verify(
-        !(buildOptions.get(BuildConfiguration.Options.class).isHost && cppOptions.isFdo()),
+        !(buildOptions.get(CoreOptions.class).isHost && cppOptions.isFdo()),
         "FDO state should not propagate to the host configuration");
   }
 

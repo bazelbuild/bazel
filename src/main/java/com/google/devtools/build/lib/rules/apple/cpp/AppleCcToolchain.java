@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.apple.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -74,7 +74,7 @@ public class AppleCcToolchain extends CcToolchain {
     AppleConfiguration.Loader appleConfigurationLoader = new AppleConfiguration.Loader();
     AppleConfiguration appleConfiguration = appleConfigurationLoader.create(buildOptions);
     ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
-    String cpu = buildOptions.get(Options.class).cpu;
+    String cpu = buildOptions.get(CoreOptions.class).cpu;
 
     Map<String, String> appleEnv = getEnvironmentBuildVariables(xcodeConfig, cpu);
     CcToolchainVariables.Builder variables = CcToolchainVariables.builder();

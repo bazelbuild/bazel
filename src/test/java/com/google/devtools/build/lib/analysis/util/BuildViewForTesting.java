@@ -184,9 +184,9 @@ public class BuildViewForTesting {
   /**
    * Gets a configuration for the given target.
    *
-   * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, the configuration only
-   * includes the fragments needed by the fragment and its transitive closure. Else unconditionally
-   * includes all fragments.
+   * <p>If {@link BuildConfiguration#trimConfigurations()} is true, the configuration only includes
+   * the fragments needed by the fragment and its transitive closure. Else unconditionally includes
+   * all fragments.
    */
   @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(

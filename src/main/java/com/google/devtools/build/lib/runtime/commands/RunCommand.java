@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -200,7 +201,7 @@ public class RunCommand implements BlazeCommand  {
                 : env.getWorkspace());
     PathFragment prettyExecutablePath = prettyPrinter.getPrettyPath(executable.getPath());
 
-    RunUnder runUnder = env.getOptions().getOptions(BuildConfiguration.Options.class).runUnder;
+    RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).runUnder;
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
     // at the start of the command line.
     if (runUnder != null) {
@@ -247,7 +248,7 @@ public class RunCommand implements BlazeCommand  {
     }
     String targetString = targetAndArgs.get(0);
     List<String> commandLineArgs = targetAndArgs.subList(1, targetAndArgs.size());
-    RunUnder runUnder = options.getOptions(BuildConfiguration.Options.class).runUnder;
+    RunUnder runUnder = options.getOptions(CoreOptions.class).runUnder;
 
     OutErr outErr = env.getReporter().getOutErr();
     List<String> targets = (runUnder != null) && (runUnder.getLabel() != null)
@@ -382,8 +383,9 @@ public class RunCommand implements BlazeCommand  {
               Iterables.getOnlyElement(statusArtifacts));
       TestTargetExecutionSettings settings = testAction.getExecutionSettings();
       // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
-      Preconditions.checkState(settings.getRunfilesSymlinksCreated()
-          == options.getOptions(BuildConfiguration.Options.class).buildRunfiles);
+      Preconditions.checkState(
+          settings.getRunfilesSymlinksCreated()
+              == options.getOptions(CoreOptions.class).buildRunfiles);
 
       ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
       Path tmpDirRoot = TestStrategy.getTmpRoot(

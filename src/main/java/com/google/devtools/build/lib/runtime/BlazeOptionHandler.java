@@ -230,8 +230,8 @@ public final class BlazeOptionHandler {
   }
 
   /**
-   * TODO(bazel-team): When we move BuildConfiguration.Options options to be defined in starlark,
-   * make sure they're not passed in here during {@link #getOptionsResult}.
+   * TODO(bazel-team): When we move CoreOptions options to be defined in starlark, make sure they're
+   * not passed in here during {@link #getOptionsResult}.
    */
   ExitCode parseStarlarkOptions(CommandEnvironment env, ExtendedEventHandler eventHandler) {
     // For now, restrict starlark options to commands that already build to ensure that loading

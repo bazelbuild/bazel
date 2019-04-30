@@ -187,7 +187,7 @@ public class TransitiveTargetFunction
     for (String requiredOption : requiredOptions) {
       Class<? extends BuildConfiguration.Fragment> fragment =
           ruleClassProvider.getConfigurationFragmentForOption(requiredOption);
-      // Null values come from BuildConfiguration.Options, which is implicitly included.
+      // Null values come from CoreOptions, which is implicitly included.
       if (fragment != null) {
         optionsFragments.add(fragment);
       }

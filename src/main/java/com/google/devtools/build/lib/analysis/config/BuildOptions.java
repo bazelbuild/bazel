@@ -115,9 +115,9 @@ public final class BuildOptions implements Cloneable, Serializable {
         Lists.newArrayListWithExpectedSize(optionsClasses.size() + 1);
     for (FragmentOptions options : fragmentOptionsMap.values()) {
       if (optionsClasses.contains(options.getClass())
-          // TODO(bazel-team): make this non-hacky while not requiring BuildConfiguration access
+          // TODO(bazel-team): make this non-hacky while not requiring CoreOptions access
           // to BuildOptions.
-          || options.getClass().getName().endsWith("BuildConfiguration$Options")) {
+          || options.getClass().getName().endsWith("CoreOptions")) {
         retainedOptions.add(options);
       }
     }

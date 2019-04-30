@@ -21,8 +21,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -367,7 +367,7 @@ public final class CommandInterruptionTest {
                     // Can't create a Skylark environment without a tools repository!
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                     // Can't create a defaults package without the base options in there!
-                    builder.addConfigurationOptions(BuildConfiguration.Options.class);
+                    builder.addConfigurationOptions(CoreOptions.class);
                     builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
                   }
                 })

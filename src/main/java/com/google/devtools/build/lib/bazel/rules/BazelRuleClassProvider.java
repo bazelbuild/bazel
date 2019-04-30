@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
@@ -184,12 +184,11 @@ public class BazelRuleClassProvider {
         // Shell environment variables specified via options take precedence over the
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
-        for (Map.Entry<String, String> entry :
-            options.get(BuildConfiguration.Options.class).actionEnvironment) {
+        for (Map.Entry<String, String> entry : options.get(CoreOptions.class).actionEnvironment) {
           env.put(entry.getKey(), entry.getValue());
         }
 
-        if (!BuildConfiguration.runfilesEnabled(options.get(Options.class))) {
+        if (!BuildConfiguration.runfilesEnabled(options.get(CoreOptions.class))) {
           // Setting this environment variable is for telling the binary running
           // in a Bazel action when to use runfiles library or runfiles tree.
           // The downside is that it will discard cache for all actions once
@@ -235,7 +234,7 @@ public class BazelRuleClassProvider {
               .addUniversalConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(PlatformConfiguration.class)
               .addConfigurationOptions(StrictActionEnvOptions.class)
-              .addConfigurationOptions(BuildConfiguration.Options.class);
+              .addConfigurationOptions(CoreOptions.class);
         }
 
         @Override

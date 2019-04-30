@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -184,7 +185,7 @@ public final class TrimmableTestConfigurationFragments {
         // must be set, but it doesn't matter here what it's set to
         .setPrelude("//:prelude.bzl")
         // must be part of BuildOptions for various reasons e.g. dynamic configs
-        .addConfigurationOptions(BuildConfiguration.Options.class)
+        .addConfigurationOptions(CoreOptions.class)
         .addConfigurationFragment(new TestConfiguration.Loader())
         // needed for the default workspace
         .addRuleDefinition(new WorkspaceBaseRule())

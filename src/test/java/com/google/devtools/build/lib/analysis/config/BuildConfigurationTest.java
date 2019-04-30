@@ -112,9 +112,9 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testCaching() throws Exception {
-    BuildConfiguration.Options a = Options.getDefaults(BuildConfiguration.Options.class);
-    BuildConfiguration.Options b = Options.getDefaults(BuildConfiguration.Options.class);
-    // The String representations of the BuildConfiguration.Options must be equal even if these are
+    CoreOptions a = Options.getDefaults(CoreOptions.class);
+    CoreOptions b = Options.getDefaults(CoreOptions.class);
+    // The String representations of the CoreOptions must be equal even if these are
     // different objects, if they were created with the same options (no options in this case).
     assertThat(b.toString()).isEqualTo(a.toString());
     assertThat(b.cacheKey()).isEqualTo(a.cacheKey());
@@ -259,7 +259,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       throws Exception {
     BuildConfiguration config =
         create("--nocollapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
-    BuildConfiguration.Options options = config.getOptions().get(BuildConfiguration.Options.class);
+    CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableListMultimap.copyOf(options.commandLineBuildVariables))
         .containsExactly("a", "1", "a", "2")
         .inOrder();
@@ -270,7 +270,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testNormalization_definesWithDifferentNames() throws Exception {
     BuildConfiguration config =
         create("--collapse_duplicate_defines", "--define", "a=1", "--define", "b=2");
-    BuildConfiguration.Options options = config.getOptions().get(BuildConfiguration.Options.class);
+    CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
         .containsExactly("a", "1", "b", "2");
   }
@@ -279,7 +279,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testNormalization_definesWithSameName() throws Exception {
     BuildConfiguration config =
         create("--collapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
-    BuildConfiguration.Options options = config.getOptions().get(BuildConfiguration.Options.class);
+    CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
     assertThat(config).isEqualTo(create("--collapse_duplicate_defines", "--define", "a=2"));
   }
