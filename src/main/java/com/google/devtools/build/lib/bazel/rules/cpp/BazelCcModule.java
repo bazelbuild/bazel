@@ -16,29 +16,20 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -131,65 +122,22 @@ public class BazelCcModule extends CcModule
       Environment environment,
       StarlarkContext starlarkContext)
       throws InterruptedException, EvalException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
+    return super.link(
+        actions,
+        skylarkFeatureConfiguration,
+        skylarkCcToolchainProvider,
+        compilationOutputs,
+        userLinkFlags,
+        linkingContexts,
+        name,
+        language,
+        outputType,
+        linkDepsStatically,
+        additionalInputs,
+        /* grepIncludes= */ null,
         location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
-    validateLanguage(location, language);
-    validateOutputType(location, outputType);
-    CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
-    FeatureConfigurationForStarlark featureConfiguration =
-        convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, actions, name);
-    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
-    LinkTargetType dynamicLinkTargetType = null;
-    if (language.equals(Language.CPP.getRepresentation())) {
-      if (outputType.equals("executable")) {
-        dynamicLinkTargetType = LinkTargetType.EXECUTABLE;
-      } else if (outputType.equals("dynamic_library")) {
-        dynamicLinkTargetType = LinkTargetType.DYNAMIC_LIBRARY;
-      }
-    } else if (language.equals(Language.OBJC.getRepresentation())
-        && outputType.equals("executable")) {
-      dynamicLinkTargetType = LinkTargetType.OBJC_EXECUTABLE;
-    } else if (language.equals(Language.OBJCPP.getRepresentation())
-        && outputType.equals("executable")) {
-      dynamicLinkTargetType = LinkTargetType.OBJCPP_EXECUTABLE;
-    } else {
-      throw new EvalException(
-          location, "Language '" + language + "' does not support " + outputType);
-    }
-
-    CcLinkingHelper helper =
-        new CcLinkingHelper(
-                actions.getActionConstructionContext().getRuleErrorConsumer(),
-                label,
-                actions.asActionRegistry(location, actions),
-                actions.getActionConstructionContext(),
-                BazelCppSemantics.INSTANCE,
-                featureConfiguration.getFeatureConfiguration(),
-                ccToolchainProvider,
-                fdoContext,
-                actions.getActionConstructionContext().getConfiguration(),
-                actions
-                    .getActionConstructionContext()
-                    .getConfiguration()
-                    .getFragment(CppConfiguration.class),
-                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator())
-            .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
-            .addNonCodeLinkerInputs(additionalInputs)
-            .setDynamicLinkType(dynamicLinkTargetType)
-            .addCcLinkingContexts(linkingContexts)
-            .addLinkopts(userLinkFlags);
-    try {
-      CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-      if (!compilationOutputs.isEmpty()) {
-        ccLinkingOutputs = helper.link(compilationOutputs);
-      }
-      return ccLinkingOutputs;
-    } catch (RuleErrorException e) {
-      throw new EvalException(location, e);
-    }
+        environment,
+        starlarkContext);
   }
 
   @Override
