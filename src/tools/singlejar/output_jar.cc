@@ -294,8 +294,11 @@ bool OutputJar::Open() {
     return false;
   }
 
-  HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
-                             NULL, CREATE_ALWAYS, 0, NULL);
+  HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ | GENERIC_WRITE,
+                             // Must share for reading, otherwise
+                             // symlink-following file existence checks (e.g.
+                             // java.nio.file.Files.exists()) fail.
+                             FILE_SHARE_READ, NULL, CREATE_ALWAYS, 0, NULL);
   if (hFile == INVALID_HANDLE_VALUE) {
     diag_warn("%s:%d: CreateFileW failed for %S", __FILE__, __LINE__,
               wpath.c_str());

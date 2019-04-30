@@ -355,7 +355,10 @@ class RunfilesCreator {
         // Create an empty file
         HANDLE h = CreateFileW(it.first.c_str(),  // name of the file
                                GENERIC_WRITE,     // open for writing
-                               0,  // sharing mode, none in this case
+                               // Must share for reading, otherwise
+                               // symlink-following file existence checks (e.g.
+                               // java.nio.file.Files.exists()) fail.
+                               FILE_SHARE_READ,
                                0,  // use default security descriptor
                                CREATE_ALWAYS,  // overwrite if exists
                                FILE_ATTRIBUTE_NORMAL, 0);
