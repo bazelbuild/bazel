@@ -22,17 +22,21 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-echo "Test args are $@"
-
 JAVA_TOOLCHAIN="$1"; shift
 add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
 
-if [[ $# -eq 1 ]]; then
-    JAVA_TOOLS_ZIP="$1"; shift
+JAVA_TOOLS_ZIP="$1"; shift
+
+if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
     JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
     echo "JAVA_TOOLS_ZIP_FILE_URL=$JAVA_TOOLS_ZIP_FILE_URL"
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
+
+if [[ $# -gt 0 ]]; then
+    JAVABASE_VALUE="$1"; shift
+    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
+fi
 
 function set_up() {
     cat >>WORKSPACE <<EOF
@@ -68,6 +72,26 @@ http_archive(
     name = "remote_java_tools_javac9_test_darwin",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac9/v1.0/java_tools_javac9_darwin-v1.0-rc1.zip",
+    ],
+)
+
+http_archive(
+    name = "openjdk9_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "45f2dfbee93b91b1468cf81d843fc6d9a47fef1f831c0b7ceff4f1eb6e6851c8",
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "openjdk10_linux_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "b3c2d762091a615b0c1424ebbd05d75cc114da3bf4f25a0dec5c51ea7e84146f",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-linux_x64.tar.gz",
     ],
 )
 EOF

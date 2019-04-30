@@ -138,7 +138,10 @@ sh_test(
     size = "large",
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
-    args = ["@bazel_tools//tools/jdk:toolchain"],
+    args = [
+        "@bazel_tools//tools/jdk:toolchain",
+        "released",
+    ],
     data = [":test-deps"],
     tags = [
         # TODO(laszlocsomor): make this run on Windows. Currently fails because
@@ -156,7 +159,12 @@ sh_test(
         "//src/conditions:darwin": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
         "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
         "//src/conditions:linux_x86_64": ["@remote_java_tools_javac9_test_linux//:toolchain"],
-    }),
+    }) + [
+        # java_tools zip to test
+        "released",
+        # --javabase value
+        "@openjdk9_linux_archive//:runtime",
+    ],
     data = [":test-deps"],
     tags = [
         # TODO(laszlocsomor): make this run on Windows. Currently fails because
@@ -171,8 +179,12 @@ sh_test(
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
     args = [
+        # --java_toolchain
         "@local_java_tools//:toolchain",
+        # java_tools zip to test
         "src/java_tools_java9.zip",
+        # --javabase value
+        "@openjdk9_linux_archive//:runtime",
     ],
     data = [
         ":test-deps",
@@ -191,8 +203,12 @@ sh_test(
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
     args = [
+        # --java_toolchain
         "@local_java_tools//:toolchain",
+        # java_tools zip to test
         "src/java_tools_java10.zip",
+        # --javabase value
+        "@openjdk10_linux_archive//:runtime",
     ],
     data = [
         ":test-deps",
