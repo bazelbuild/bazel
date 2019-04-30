@@ -70,6 +70,45 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "test/skylark/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
+        "  return [",
+        "    {'//command_line_option:cpu': 'k8'},",
+        "    {'//command_line_option:cpu': 'armeabi-v7a'}",
+        "  ]",
+        "my_transition = transition(implementation = transition_func, inputs = [],",
+        "  outputs = ['//command_line_option:cpu'])",
+        "def impl(ctx): ",
+        "  return MyInfo(",
+        "    split_attr_deps = ctx.split_attr.deps,",
+        "    split_attr_dep = ctx.split_attr.dep,",
+        "    k8_deps = ctx.split_attr.deps.get('k8', None),",
+        "    attr_deps = ctx.attr.deps,",
+        "    attr_dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(cfg = my_transition),",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])",
+        "cc_binary(name = 'main2', srcs = ['main2.c'])");
+  }
+
+  private void writeBasicTestFiles_dictOfDict() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    writeWhitelistFile();
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def transition_func(settings, attr):",
         "  return {",
         "      't0': {'//command_line_option:cpu': 'k8'},",
         "      't1': {'//command_line_option:cpu': 'armeabi-v7a'},",
@@ -99,6 +138,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])",
         "cc_binary(name = 'main2', srcs = ['main2.c'])");
+  }
+
+  @Test
+  public void testFunctionSplitTransitionCheckSplitAttrDeps_dictOfDict() throws Exception {
+    writeBasicTestFiles_dictOfDict();
+    testSplitTransitionCheckSplitAttrDeps(getConfiguredTarget("//test/skylark:test"));
   }
 
   @Test
@@ -140,10 +185,10 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "test/not_whitelisted/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
-        "  return {",
-        "      't0': {'//command_line_option:cpu': 'k8'},",
-        "      't1': {'//command_line_option:cpu': 'armeabi-v7a'},",
-        "  }",
+        "  return [",
+        "    {'//command_line_option:cpu': 'k8'},",
+        "    {'//command_line_option:cpu': 'armeabi-v7a'}",
+        "  ]",
         "my_transition = transition(implementation = transition_func, inputs = [],",
         "  outputs = ['//command_line_option:cpu'])",
         "def impl(ctx): ",
@@ -258,11 +303,9 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "test/skylark/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
-        "  transitions = {}",
+        "  transitions = []",
         "  for cpu in settings['//command_line_option:fat_apk_cpu']:",
-        "    transitions[cpu] = {",
-        "      '//command_line_option:cpu': cpu,",
-        "    }",
+        "    transitions.append({'//command_line_option:cpu': cpu,})",
         "  return transitions",
         "my_transition = transition(implementation = transition_func, ",
         "  inputs = ['//command_line_option:fat_apk_cpu'],",

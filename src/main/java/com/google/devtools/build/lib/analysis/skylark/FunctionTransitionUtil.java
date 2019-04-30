@@ -70,22 +70,22 @@ public class FunctionTransitionUtil {
       throws EvalException, InterruptedException {
     // TODO(waltl): consider building this once and use it across different split
     // transitions.
-      Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
-      SkylarkDict<String, Object> settings =
-          buildSettings(buildOptions, optionInfoMap, starlarkTransition);
+    Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
+    SkylarkDict<String, Object> settings =
+        buildSettings(buildOptions, optionInfoMap, starlarkTransition);
 
-      ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+    ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
 
-      ImmutableList<Map<String, Object>> transitions =
-          starlarkTransition.getChangedSettings(settings, attrObject);
+    ImmutableList<Map<String, Object>> transitions =
+        starlarkTransition.evaluate(settings, attrObject);
     validateFunctionOutputsMatchesDeclaredOutputs(transitions, starlarkTransition);
 
-      for (Map<String, Object> transition : transitions) {
-        BuildOptions transitionedOptions =
-            applyTransition(buildOptions, transition, optionInfoMap, starlarkTransition);
-        splitBuildOptions.add(transitionedOptions);
-      }
-      return splitBuildOptions.build();
+    for (Map<String, Object> transition : transitions) {
+      BuildOptions transitionedOptions =
+          applyTransition(buildOptions, transition, optionInfoMap, starlarkTransition);
+      splitBuildOptions.add(transitionedOptions);
+    }
+    return splitBuildOptions.build();
   }
 
   /**
@@ -263,6 +263,10 @@ public class FunctionTransitionUtil {
                 starlarkTransition.getLocationForErrorReporting(),
                 "Invalid value type for option '" + optionName + "'");
           }
+        } catch (IllegalArgumentException e) {
+          throw new EvalException(
+              starlarkTransition.getLocationForErrorReporting(),
+              "IllegalArgumentError for option '" + optionName + "': " + e.getMessage());
         } catch (IllegalAccessException e) {
           throw new RuntimeException(
               "IllegalAccess for option " + optionName + ": " + e.getMessage());

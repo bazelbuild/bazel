@@ -95,6 +95,35 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBadReturnTypeFromTransition() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return 'cpu=k8'",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("Transition function must return a dictionary or list of dictionaries.");
+  }
+
+  @Test
   public void testOutputOnlyTransition() throws Exception {
     writeWhitelistFile();
     scratch.file(
@@ -223,10 +252,10 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
-        "  return {",
-        "      't0': {'//command_line_option:test_arg': ['split_one']},",
-        "      't1': {'//command_line_option:test_arg': ['split_two']},",
-        "  }",
+        "  return [",
+        "      {'//command_line_option:test_arg': ['split_one']},",
+        "      {'//command_line_option:test_arg': ['split_two']},",
+        "  ]",
         "my_transition = transition(implementation = _impl, inputs = [],",
         "  outputs = ['//command_line_option:test_arg'])");
     scratch.file(
