@@ -14,8 +14,17 @@ write_file(
         "//conditions:default": "2to3.sh",
     }),
     content = select({
-        "//src/conditions:host_windows": ["@exit /B 1"],
-        "//conditions:default": ["#!/bin/sh\nexit 1"],
+        "//src/conditions:host_windows": [
+            "@echo >&2 ERROR: 2to3 is not implemented in Bazel.",
+            "@echo >&2 See https://github.com/bazelbuild/bazel/issues/1393#issuecomment-431110617",
+            "@exit /B 1",
+        ],
+        "//conditions:default": [
+            "#!/bin/bash",
+            "echo >&2 'ERROR: 2to3 is not implemented in Bazel.'",
+            "echo >&2 'See https://github.com/bazelbuild/bazel/issues/1393#issuecomment-431110617'",
+            "exit 1",
+        ],
     }),
     is_executable = True,
 )
