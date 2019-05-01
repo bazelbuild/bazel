@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.util.concurrent.Futures;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
@@ -520,12 +522,42 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     storedExitCode.set(ExitCode.RESERVED.getNumericExitCode());
   }
 
+  @Override
+  public void cleanUpForCrash(int exitCode) {
+    EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
+    if (eventBus != null) {
+      try {
+        workspace
+            .getSkyframeExecutor()
+            .notifyCommandComplete(
+                new ExtendedEventHandler() {
+                  @Override
+                  public void post(Postable obj) {
+                    eventBus.post(obj);
+                  }
+
+                  @Override
+                  public void handle(Event event) {}
+                });
+      } catch (InterruptedException e) {
+        logger.severe("InterruptedException when crashing: " + e);
+        // Follow the convention of interrupting the current thread, even though nothing can throw
+        // an interrupt after this.
+        Thread.currentThread().interrupt();
+      }
+    }
+    notifyCommandComplete(exitCode);
+    // We don't call #shutDown() here because all it does is shut down the modules, and who knows if
+    // they can be trusted.  Instead, we call runtime#shutdownOnCrash() which attempts to cleanly
+    // shut down those modules that might have something pending to do as a best-effort operation.
+    shutDownModulesOnCrash();
+  }
+
   /**
    * Posts the {@link CommandCompleteEvent}, so that listeners can tidy up. Called by {@link
    * #afterCommand}, and by BugReport when crashing from an exception in an async thread.
    */
-  @VisibleForTesting
-  public void notifyCommandComplete(int exitCode) {
+  private void notifyCommandComplete(int exitCode) {
     if (!storedExitCode.compareAndSet(ExitCode.RESERVED.getNumericExitCode(), exitCode)) {
       // This command has already been called, presumably because there is a race between the main
       // thread and a worker thread that crashed. Don't try to arbitrate the dispute. If the main
@@ -692,7 +724,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /** Invokes {@link BlazeModule#blazeShutdownOnCrash()} on all registered modules. */
-  public void shutdownOnCrash() {
+  private void shutDownModulesOnCrash() {
     try {
       for (BlazeModule module : blazeModules) {
         module.blazeShutdownOnCrash();

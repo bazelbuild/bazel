@@ -60,8 +60,11 @@ public abstract class BugReport {
    */
   public interface BlazeRuntimeInterface {
     String getProductName();
-    void notifyCommandComplete(int exitCode);
-    void shutdownOnCrash();
+    /**
+     * Perform all possible clean-up before crashing, posting events etc. so long as crashing isn't
+     * significantly delayed or another crash isn't triggered.
+     */
+    void cleanUpForCrash(int exitCode);
   }
 
   public static void setRuntime(BlazeRuntimeInterface newRuntime) {
@@ -175,12 +178,7 @@ public abstract class BugReport {
         logCrash(throwable, sendBugReport, args);
         try {
           if (runtime != null) {
-            runtime.notifyCommandComplete(exitCodeToUse);
-            // We don't call runtime#shutDown() here because all it does is shut down the modules,
-            // and who knows if they can be trusted. Instead, we call runtime#shutdownOnCrash()
-            // which attempts to cleanly shutdown those modules that might have something pending
-            // to do as a best-effort operation.
-            runtime.shutdownOnCrash();
+            runtime.cleanUpForCrash(exitCodeToUse);
           }
           CustomExitCodePublisher.maybeWriteExitStatusFile(exitCodeToUse);
         } finally {
