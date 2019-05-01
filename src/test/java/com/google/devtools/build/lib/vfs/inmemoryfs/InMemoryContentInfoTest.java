@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -36,12 +36,7 @@ public class InMemoryContentInfoTest {
   public void testDirectoryCannotAddNullChild() {
     InMemoryDirectoryInfo directory = new InMemoryDirectoryInfo(clock);
 
-    try {
-      directory.addChild("bar", null);
-      fail("NullPointerException not thrown.");
-    } catch (NullPointerException e) {
-      // success.
-    }
+    assertThrows(NullPointerException.class, () -> directory.addChild("bar", null));
   }
 
   @Test
@@ -50,23 +45,13 @@ public class InMemoryContentInfoTest {
     InMemoryFileInfo otherFile = new InMemoryFileInfo(clock);
     directory.addChild("bar", otherFile);
 
-    try {
-      directory.addChild("bar", otherFile);
-      fail("IllegalArgumentException not thrown.");
-    } catch (IllegalArgumentException e) {
-      // success.
-    }
+    assertThrows(IllegalArgumentException.class, () -> directory.addChild("bar", otherFile));
   }
 
   @Test
   public void testDirectoryRemoveNonExistingChild() {
     InMemoryDirectoryInfo directory = new InMemoryDirectoryInfo(clock);
-    try {
-      directory.removeChild("bar");
-      fail();
-    } catch (IllegalArgumentException e) {
-      // success
-    }
+    assertThrows(IllegalArgumentException.class, () -> directory.removeChild("bar"));
   }
 
 }

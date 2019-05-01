@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.exec.apple;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableMap;
@@ -38,19 +38,18 @@ public class XcodeLocalEnvProviderTest {
   @Test
   public void testIOSEnvironmentOnNonDarwin() {
     assumeTrue(OS.getCurrent() == OS.DARWIN);
-    try {
-      new XcodeLocalEnvProvider(ImmutableMap.of())
-          .rewriteLocalEnv(
-              ImmutableMap.<String, String>of(
-                  AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",
-                  AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, "iPhoneSimulator"),
-              BinTools.forUnitTesting(fs.getPath("/tmp"), ImmutableSet.of("xcode-locator")),
-              "bazel");
-      fail("action should fail due to being unable to resolve SDKROOT");
-    } catch (IOException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Cannot locate iOS SDK on non-darwin operating system");
-    }
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                new XcodeLocalEnvProvider(ImmutableMap.of())
+                    .rewriteLocalEnv(
+                        ImmutableMap.<String, String>of(
+                            AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",
+                            AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, "iPhoneSimulator"),
+                        BinTools.forUnitTesting(
+                            fs.getPath("/tmp"), ImmutableSet.of("xcode-locator")),
+                        "bazel"));
+    assertThat(e).hasMessageThat().contains("Cannot locate iOS SDK on non-darwin operating system");
   }
 }

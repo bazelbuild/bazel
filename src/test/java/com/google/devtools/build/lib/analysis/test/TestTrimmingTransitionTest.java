@@ -18,7 +18,7 @@ import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
@@ -698,12 +698,7 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
         "    name = 'skylark_shared_dep',",
         ")");
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
-    try {
-      // When reached through a non-test target analysis should fail
-      update("//test:skylark_dep");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//test:skylark_dep"));
     assertContainsEvent("unknown option: 'test_arg'");
 
     update("//test:test_mode", "//test:skylark_test");
@@ -746,11 +741,7 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
         "    name = 'skylark_test',",
         ")");
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
-    try {
-      update("//test:skylark_dep");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//test:skylark_dep"));
     assertContainsEvent(
         "all rules of type skylark_test require the presence of all of "
             + "[TestConfiguration], but these were all disabled");

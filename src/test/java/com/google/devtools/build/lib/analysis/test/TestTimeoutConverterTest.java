@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.TestTimeout.TestTimeoutConverter;
@@ -45,12 +45,10 @@ public class TestTimeoutConverterTest {
   }
 
   protected void assertFailure(String option) {
-    try {
-      setTimeouts(option);
-      fail("Incorrectly parsed '" + option + "'");
-    } catch (OptionsParsingException e) {
-      // expected;
-    }
+    assertThrows(
+        "Incorrectly parsed '" + option + "'",
+        OptionsParsingException.class,
+        () -> setTimeouts(option));
   }
 
   @Test

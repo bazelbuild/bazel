@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -394,12 +394,8 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     Path b = testFS.getPath(bName);
     a.createSymbolicLink(PathFragment.create(bName));
     b.createSymbolicLink(PathFragment.create(aName));
-    try {
-      a.stat();
-      fail("Expected IOException");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
-    }
+    IOException e = assertThrows(IOException.class, () -> a.stat());
+    assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
   }
 
   @Test
@@ -409,11 +405,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
 
     Path a = testFS.getPath(aName);
     a.createSymbolicLink(PathFragment.create(aName));
-    try {
-      a.stat();
-      fail("Expected IOException");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
-    }
+    IOException e = assertThrows(IOException.class, () -> a.stat());
+    assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
   }
 }

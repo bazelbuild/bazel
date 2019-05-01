@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.profiler;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.profiler.Profiler.Format.BINARY_BAZEL_FORMAT;
 import static com.google.devtools.build.lib.profiler.Profiler.Format.JSON_TRACE_FILE_FORMAT;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -654,12 +654,8 @@ public class ProfilerTest {
         /* enableJsonMetadata= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
-    try {
-      profiler.stop();
-      fail();
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
-    }
+    IOException expected = assertThrows(IOException.class, () -> profiler.stop());
+    assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
   }
 
   @Test
@@ -685,12 +681,8 @@ public class ProfilerTest {
         /* enableJsonMetadata= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
-    try {
-      profiler.stop();
-      fail();
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
-    }
+    IOException expected = assertThrows(IOException.class, () -> profiler.stop());
+    assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
   }
 
   private ByteArrayOutputStream getJsonProfileOutputStream(boolean slimProfile) throws IOException {
