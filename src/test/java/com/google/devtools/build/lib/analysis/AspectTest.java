@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfi
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -291,12 +291,7 @@ public class AspectTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     // getConfiguredTarget() uses a separate code path that does not hit
     // SkyframeBuildView#configureTargets
-    try {
-      update("//a:a");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      // expected
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//a:a"));
     assertContainsEvent("Aspect error");
   }
 
@@ -314,12 +309,7 @@ public class AspectTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     // getConfiguredTarget() uses a separate code path that does not hit
     // SkyframeBuildView#configureTargets
-    try {
-      update("//a:a");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      // expected
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//a:a"));
     assertContainsEvent("Aspect error");
   }
 

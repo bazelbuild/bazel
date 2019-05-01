@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -438,13 +438,10 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':extra'])");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//java/a:a");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      assertThat(e).hasMessageThat().contains("Analysis of target '//java/a:a' failed");
-      assertContainsEvent("$(BUG) not defined");
-    }
+    ViewCreationFailedException e =
+        assertThrows(ViewCreationFailedException.class, () -> update("//java/a:a"));
+    assertThat(e).hasMessageThat().contains("Analysis of target '//java/a:a' failed");
+    assertContainsEvent("$(BUG) not defined");
   }
 
   @Test

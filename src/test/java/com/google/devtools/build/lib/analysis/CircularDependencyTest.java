@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -112,12 +112,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     Package pkg =
         createScratchPackageForImplicitCycle(
             "cycle", "java_library(name='jcyc',", "      srcs = ['libjcyc.jar', 'foo.java'])");
-    try {
-      pkg.getTarget("jcyc");
-      fail();
-    } catch (NoSuchTargetException e) {
-      /* ok */
-    }
+    assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("jcyc"));
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'jcyc' has file 'libjcyc.jar' as both an" + " input and an output");
   }

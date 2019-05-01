@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCountAtLeast;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -389,12 +390,10 @@ public class BuildViewTest extends BuildViewTestBase {
         .that(options.asMap().get("output directory name"))
         .isEqualTo("/home/wonkaw/wonka_chocolate/factory/out");
 
-    try {
-      useConfiguration("--output directory name=foo");
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --output directory name=foo");
-    }
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> useConfiguration("--output directory name=foo"));
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --output directory name=foo");
   }
 
   @Test
@@ -514,12 +513,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("badbuild/BUILD", "");
     reporter.removeHandler(failFastHandler);
     injectGraphListenerForTesting(Listener.NULL_LISTENER, /*deterministic=*/ true);
-    try {
-      update("//foo:top");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      // Expected.
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//foo:top"));
     assertContainsEvent("no such target '//badbuild:isweird': target 'isweird' not declared in "
         + "package 'badbuild'");
     assertContainsEvent("and referenced by '//foo:bad'");
@@ -561,12 +555,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("foo/BUILD",
         "cc_binary(name = 'foo', linkshared = 1, srcs = ['foo.cc'])");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//foo:foo");
-      fail(); // Expected ViewCreationFailedException.
-    } catch (ViewCreationFailedException e) {
-      // ok.
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//foo:foo"));
   }
 
   @Test
@@ -760,12 +749,8 @@ public class BuildViewTest extends BuildViewTestBase {
 
     reporter.removeHandler(failFastHandler);
 
-    try {
-      update("//actions_not_registered:foo");
-      fail("This build should fail because: 'linkshared' used in non-shared library");
-    } catch (ViewCreationFailedException e) {
-      assertThat(getActionGraph().getGeneratingAction(fooOut)).isNull();
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//actions_not_registered:foo"));
+    assertThat(getActionGraph().getGeneratingAction(fooOut)).isNull();
   }
 
   /**
@@ -870,22 +855,15 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_library(name = 'b')",
         "sh_library(name = 'z')");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//foo:zquery");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Analysis of target '//foo:zquery' failed; build aborted");
-    }
-    try {
-      update("//foo:query");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Analysis of target '//foo:query' failed; build aborted");
-    }
+    ViewCreationFailedException e =
+        assertThrows(ViewCreationFailedException.class, () -> update("//foo:zquery"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Analysis of target '//foo:zquery' failed; build aborted");
+    e = assertThrows(ViewCreationFailedException.class, () -> update("//foo:query"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Analysis of target '//foo:query' failed; build aborted");
   }
 
   /**
@@ -936,14 +914,11 @@ public class BuildViewTest extends BuildViewTestBase {
     // the cc_binary launcher.
     useConfiguration("--java_launcher=//foo:cpp");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//foo:java", "//foo:cpp");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .matches("Analysis of target '//foo:(java|cpp)' failed; build aborted.*");
-    }
+    ViewCreationFailedException expected =
+        assertThrows(ViewCreationFailedException.class, () -> update("//foo:java", "//foo:cpp"));
+    assertThat(expected)
+        .hasMessageThat()
+        .matches("Analysis of target '//foo:(java|cpp)' failed; build aborted.*");
     assertContainsEvent("cycle in dependency graph");
   }
 
@@ -954,14 +929,11 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("bar/BUILD",
         "BROKEN BROKEN BROKEN!!!");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//foo:test");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .matches("Analysis of target '//foo:test' failed; build aborted.*");
-    }
+    ViewCreationFailedException expected =
+        assertThrows(ViewCreationFailedException.class, () -> update("//foo:test"));
+    assertThat(expected)
+        .hasMessageThat()
+        .matches("Analysis of target '//foo:test' failed; build aborted.*");
   }
 
   /**
@@ -978,15 +950,12 @@ public class BuildViewTest extends BuildViewTestBase {
         "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
         "cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//cycle:foo");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-      assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("Analysis of target '//cycle:foo' failed; build aborted");
-    }
+    ViewCreationFailedException expected =
+        assertThrows(ViewCreationFailedException.class, () -> update("//cycle:foo"));
+    assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Analysis of target '//cycle:foo' failed; build aborted");
   }
 
   /**
@@ -1048,12 +1017,8 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("z/b/BUILD",
         "py_library(name='b', deps=['//z/a:a'])");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//z/b:b");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-      assertContainsEvent("no such package 'nonexistent'");
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//z/b:b"));
+    assertContainsEvent("no such package 'nonexistent'");
   }
 
   // regression test ("java.lang.IllegalStateException: cannot happen")
@@ -1065,12 +1030,8 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("z/b/BUILD",
         "py_library(name='b', deps=['//z/a:alib'])");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//z/b:b");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-      assertContainsEvent("no such package 'b'");
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//z/b:b"));
+    assertContainsEvent("no such package 'b'");
   }
 
   @Test
@@ -1085,11 +1046,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_library(name = 'b')",
         "undefined_symbol");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//parent:a");
-      fail();
-    } catch (ViewCreationFailedException expected) {
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//parent:a"));
     assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
     assertContainsEventWithFrequency(
         "Target '//child:b' contains an error and its package is in error and referenced "
@@ -1130,12 +1087,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_binary(name = 'okay', srcs = ['okay.sh'])");
     useConfiguration("--experimental_action_listener=//parent:a");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//okay");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      // Expected.
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//okay"));
     assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
     assertContainsEventWithFrequency(
         "Target '//child:b' contains an error and its package is in error and referenced "
@@ -1232,12 +1184,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "apple/BUILD",
         "py_library(name='apple', visibility=['//non:existent'])");
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//apple");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      // Expected.
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//apple"));
     assertDoesNotContainEvent("implicitly depends upon");
   }
 

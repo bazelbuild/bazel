@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -54,10 +54,6 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
     scratch.file("a/BUILD", "sh_library(name = 'a', srcs = glob(['a.sh']))");
     crashMessage = path -> path.toString().contains("a.sh") ? "bork" : null;
     reporter.removeHandler(failFastHandler);
-    try {
-      update("//b:b");
-      fail("Expected failure");
-    } catch (ViewCreationFailedException expected) {
-    }
+    assertThrows(ViewCreationFailedException.class, () -> update("//b:b"));
   }
 }
