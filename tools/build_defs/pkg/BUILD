@@ -32,6 +32,7 @@ py_test(
         "testenv.py",
     ],
     data = [":archive_testdata"],
+    python_version = "PY2",
     srcs_version = "PY2AND3",
     tags = [
         # archive.py requires xzcat, which is not available by default on Mac
@@ -52,6 +53,7 @@ py_test(
 py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
+    python_version = "PY2",
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
@@ -63,6 +65,7 @@ py_binary(
 py_binary(
     name = "make_deb",
     srcs = ["make_deb.py"],
+    python_version = "PY2",
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
@@ -75,6 +78,7 @@ py_binary(
 py_binary(
     name = "make_rpm",
     srcs = ["make_rpm.py"],
+    python_version = "PY2",
     srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
@@ -95,6 +99,7 @@ py_library(
 py_test(
     name = "make_rpm_test",
     srcs = ["make_rpm_test.py"],
+    python_version = "PY2",
     srcs_version = "PY2AND3",
     # rpmbuild is not available in windows
     tags = [
