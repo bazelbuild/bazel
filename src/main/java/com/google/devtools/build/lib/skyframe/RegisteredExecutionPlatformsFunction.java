@@ -21,6 +21,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -62,22 +64,19 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
     BuildConfiguration configuration = buildConfigurationValue.getConfiguration();
 
-    ImmutableList.Builder<String> targetPatternBuilder = new ImmutableList.Builder<>();
-
     // Get the execution platforms from the configuration.
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
-    if (platformConfiguration != null) {
-      targetPatternBuilder.addAll(platformConfiguration.getExtraExecutionPlatforms());
-    }
 
     // Get the registered execution platforms from the WORKSPACE.
-    List<String> workspaceExecutionPlatforms = getWorkspaceExecutionPlatforms(env);
+    ImmutableListMultimap<RepositoryName, String> workspaceExecutionPlatforms =
+        getWorkspaceExecutionPlatforms(env);
     if (workspaceExecutionPlatforms == null) {
       return null;
     }
-    targetPatternBuilder.addAll(workspaceExecutionPlatforms);
-    ImmutableList<String> targetPatterns = targetPatternBuilder.build();
+
+    ImmutableListMultimap<RepositoryName, String> targetPatterns =
+        mergeExecutionPlatforms(workspaceExecutionPlatforms, platformConfiguration);
 
     // Expand target patterns.
     ImmutableList<Label> platformLabels;
@@ -110,8 +109,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
    */
   @Nullable
   @VisibleForTesting
-  public static List<String> getWorkspaceExecutionPlatforms(Environment env)
-      throws InterruptedException {
+  public static ImmutableListMultimap<RepositoryName, String> getWorkspaceExecutionPlatforms(
+      Environment env) throws InterruptedException {
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
     if (externalPackageValue == null) {
@@ -120,6 +119,19 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     Package externalPackage = externalPackageValue.getPackage();
     return externalPackage.getRegisteredExecutionPlatforms();
+  }
+
+  private ImmutableListMultimap<RepositoryName, String> mergeExecutionPlatforms(
+      ImmutableListMultimap<RepositoryName, String> workspaceExecutionPlatforms,
+      @Nullable PlatformConfiguration platformConfiguration) {
+
+    ImmutableListMultimap.Builder<RepositoryName, String> builder = ImmutableListMultimap.builder();
+    // This ensures that execution platforms specified via a flag are considered first
+    if (platformConfiguration != null) {
+      builder.putAll(RepositoryName.MAIN, platformConfiguration.getExtraExecutionPlatforms());
+    }
+    builder.putAll(workspaceExecutionPlatforms);
+    return builder.build();
   }
 
   private ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(

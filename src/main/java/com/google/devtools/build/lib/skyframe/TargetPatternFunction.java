@@ -74,7 +74,14 @@ public class TargetPatternFunction implements SkyFunction {
               Iterables.addAll(results, partialResult);
             }
           };
+      RepositoryMappingValue repositoryMappingValue =
+          (RepositoryMappingValue)
+              env.getValue(RepositoryMappingValue.key(patternKey.getRepositoryName()));
+      if (repositoryMappingValue == null) {
+        return null;
+      }
       parsedPattern.eval(
+          repositoryMappingValue.getRepositoryMapping(),
           resolver,
           blacklisted.getPatterns(),
           excludedSubdirectories,

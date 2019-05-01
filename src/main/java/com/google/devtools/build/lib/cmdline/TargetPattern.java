@@ -144,14 +144,15 @@ public abstract class TargetPattern implements Serializable {
   }
 
   /**
-   * Evaluates the current target pattern, excluding targets under directories in both
-   * {@code blacklistedSubdirectories} and {@code excludedSubdirectories}, and returns the result.
+   * Evaluates the current target pattern, excluding targets under directories in both {@code
+   * blacklistedSubdirectories} and {@code excludedSubdirectories}, and returns the result.
    *
-   * @throws IllegalArgumentException if either {@code blacklistedSubdirectories} or
-   *      {@code excludedSubdirectories} is nonempty and this pattern does not have type
-   *      {@code Type.TARGETS_BELOW_DIRECTORY}.
+   * @throws IllegalArgumentException if either {@code blacklistedSubdirectories} or {@code
+   *     excludedSubdirectories} is nonempty and this pattern does not have type {@code
+   *     Type.TARGETS_BELOW_DIRECTORY}.
    */
   public abstract <T, E extends Exception> void eval(
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
@@ -160,21 +161,28 @@ public abstract class TargetPattern implements Serializable {
       throws TargetParsingException, E, InterruptedException;
 
   /**
-   * Evaluates this {@link TargetPattern} synchronously, feeding the result to the given
-   * {@code callback}, and then returns an appropriate immediate {@link ListenableFuture}.
+   * Evaluates this {@link TargetPattern} synchronously, feeding the result to the given {@code
+   * callback}, and then returns an appropriate immediate {@link ListenableFuture}.
    *
-   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an
-   * {@link ExecutionException}, the cause will be an instance of either
-   * {@link TargetParsingException} or the given {@code exceptionClass}.
+   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an {@link
+   * ExecutionException}, the cause will be an instance of either {@link TargetParsingException} or
+   * the given {@code exceptionClass}.
    */
   public final <T, E extends Exception> ListenableFuture<Void> evalAdaptedForAsync(
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<T, E> callback,
       Class<E> exceptionClass) {
     try {
-      eval(resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
+      eval(
+          repositoryMapping,
+          resolver,
+          blacklistedSubdirectories,
+          excludedSubdirectories,
+          callback,
+          exceptionClass);
       return Futures.immediateFuture(null);
     } catch (TargetParsingException e) {
       return Futures.immediateFailedFuture(e);
@@ -189,14 +197,15 @@ public abstract class TargetPattern implements Serializable {
   }
 
   /**
-   * Returns a {@link ListenableFuture} representing the asynchronous evaluation of this
-   * {@link TargetPattern} that feeds the results to the given {@code callback}.
+   * Returns a {@link ListenableFuture} representing the asynchronous evaluation of this {@link
+   * TargetPattern} that feeds the results to the given {@code callback}.
    *
-   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an
-   * {@link ExecutionException}, the cause will be an instance of either
-   * {@link TargetParsingException} or the given {@code exceptionClass}.
+   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an {@link
+   * ExecutionException}, the cause will be an instance of either {@link TargetParsingException} or
+   * the given {@code exceptionClass}.
    */
   public <T, E extends Exception> ListenableFuture<Void> evalAsync(
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
@@ -204,7 +213,12 @@ public abstract class TargetPattern implements Serializable {
       Class<E> exceptionClass,
       ListeningExecutorService executor) {
     return evalAdaptedForAsync(
-        resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
+        repositoryMapping,
+        resolver,
+        blacklistedSubdirectories,
+        excludedSubdirectories,
+        callback,
+        exceptionClass);
   }
 
   /**
@@ -276,8 +290,8 @@ public abstract class TargetPattern implements Serializable {
   /**
    * For patterns of type {@link Type#PATH_AS_TARGET}, returns the path in question.
    *
-   * <p>The interpretation of this path, of course, depends on the existence of packages.
-   * See {@link InterpretPathAsTarget#eval}.
+   * <p>The interpretation of this path, of course, depends on the existence of packages. See {@link
+   * TargetPattern#eval}.
    */
   public String getPathForPathAsTarget() {
     throw new IllegalStateException();
@@ -318,12 +332,15 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> void eval(
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
-        Class<E> exceptionClass) throws TargetParsingException, E, InterruptedException {
-      callback.process(resolver.getExplicitTarget(label(targetName)).getTargets());
+        Class<E> exceptionClass)
+        throws TargetParsingException, E, InterruptedException {
+      callback.process(
+          resolver.getExplicitTarget(label(targetName, repositoryMapping)).getTargets());
     }
 
     @Override
@@ -375,14 +392,17 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> void eval(
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback, Class<E> exceptionClass)
+        BatchCallback<T, E> callback,
+        Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       if (resolver.isPackage(PackageIdentifier.createInMainRepo(path))) {
         // User has specified a package name. lookout for default target.
-        callback.process(resolver.getExplicitTarget(label("//" + path)).getTargets());
+        callback.process(
+            resolver.getExplicitTarget(label("//" + path, repositoryMapping)).getTargets());
       } else {
 
         List<String> pieces = SLASH_SPLITTER.splitToList(path);
@@ -395,7 +415,8 @@ public abstract class TargetPattern implements Serializable {
             String targetName = SLASH_JOINER.join(pieces.subList(i, pieces.size()));
             callback.process(
                 resolver
-                    .getExplicitTarget(label("//" + packageName + ":" + targetName))
+                    .getExplicitTarget(
+                        label("//" + packageName + ":" + targetName, repositoryMapping))
                     .getTargets());
             return;
           }
@@ -460,10 +481,12 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> void eval(
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback, Class<E> exceptionClass)
+        BatchCallback<T, E> callback,
+        Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       if (checkWildcardConflict) {
         ResolvedTargets<T> targets = getWildcardConflict(resolver);
@@ -569,6 +592,7 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> void eval(
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -588,6 +612,7 @@ public abstract class TargetPattern implements Serializable {
 
     @Override
     public <T, E extends Exception> ListenableFuture<Void> evalAsync(
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -882,9 +907,11 @@ public abstract class TargetPattern implements Serializable {
 
   // Parse 'label' as a Label, mapping LabelSyntaxException into
   // TargetParsingException.
-  private static Label label(String label) throws TargetParsingException {
+  private static Label label(
+      String label, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws TargetParsingException {
     try {
-      return Label.parseAbsolute(label, ImmutableMap.of());
+      return Label.parseAbsolute(label, repositoryMapping);
     } catch (LabelSyntaxException e) {
       throw new TargetParsingException("invalid target format: '"
           + StringUtilities.sanitizeControlChars(label) + "'; "

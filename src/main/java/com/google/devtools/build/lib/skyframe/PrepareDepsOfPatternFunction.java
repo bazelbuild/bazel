@@ -99,8 +99,16 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     DepsOfPatternPreparer preparer =
         new DepsOfPatternPreparer(env, pkgPath.get(), traverseTestSuites);
 
+    RepositoryMappingValue repositoryMappingValue =
+        (RepositoryMappingValue)
+            env.getValue(RepositoryMappingValue.key(patternKey.getRepositoryName()));
+    if (repositoryMappingValue == null) {
+      return null;
+    }
+
     try {
       parsedPattern.eval(
+          repositoryMappingValue.getRepositoryMapping(),
           preparer,
           blacklistedSubdirectories,
           excludedSubdirectories,

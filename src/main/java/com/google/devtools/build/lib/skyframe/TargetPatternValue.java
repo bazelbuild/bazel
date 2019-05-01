@@ -15,12 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -114,7 +116,9 @@ public final class TargetPatternValue implements SkyValue {
   @ThreadSafe
   public static TargetPatternKey key(String pattern, FilteringPolicy policy, String offset)
       throws TargetParsingException {
-    return Iterables.getOnlyElement(keys(ImmutableList.of(pattern), policy, offset)).getSkyKey();
+    ImmutableListMultimap<RepositoryName, String> patternMap =
+        ImmutableListMultimap.of(RepositoryName.MAIN, pattern);
+    return Iterables.getOnlyElement(keys(patternMap, policy, offset)).getSkyKey();
   }
 
   /**
@@ -123,34 +127,41 @@ public final class TargetPatternValue implements SkyValue {
    * fails to parse, the element in the returned iterable corresponding to it will throw when its
    * {@link TargetPatternSkyKeyOrException#getSkyKey} method is called.
    *
-   * @param patterns The list of patterns, eg "-foo/biz...". If a pattern's first character is "-",
-   *     it is treated as a negative pattern.
+   * @param patterns A multimap from {@code RepositoryName}s of where the pattern originated ({@code
+   *     "@"}, i.e. main repository if the pattern appeared on the command line), to patterns, eg
+   *     "-foo/biz...". If a pattern's first character is "-", it is treated as a negative pattern.
    * @param policy The filtering policy, eg "only return test targets"
    * @param offset The offset to apply to relative target patterns.
    */
   @ThreadSafe
-  public static Iterable<TargetPatternSkyKeyOrException> keys(List<String> patterns,
-      FilteringPolicy policy, String offset) {
+  public static Iterable<TargetPatternSkyKeyOrException> keys(
+      ImmutableListMultimap<RepositoryName, String> patterns,
+      FilteringPolicy policy,
+      String offset) {
     TargetPattern.Parser parser = new TargetPattern.Parser(offset);
     ImmutableList.Builder<TargetPatternSkyKeyOrException> builder = ImmutableList.builder();
-    for (String pattern : patterns) {
-      boolean positive = !pattern.startsWith("-");
-      String absoluteValueOfPattern = positive ? pattern : pattern.substring(1);
-      TargetPattern targetPattern;
-      try {
-        targetPattern = parser.parse(absoluteValueOfPattern);
-      } catch (TargetParsingException e) {
-        builder.add(new TargetPatternSkyKeyException(e, absoluteValueOfPattern));
-        continue;
+
+    for (RepositoryName repositoryName : patterns.keySet()) {
+      for (String pattern : patterns.get(repositoryName)) {
+        boolean positive = !pattern.startsWith("-");
+        String absoluteValueOfPattern = positive ? pattern : pattern.substring(1);
+        TargetPattern targetPattern;
+        try {
+          targetPattern = parser.parse(absoluteValueOfPattern);
+        } catch (TargetParsingException e) {
+          builder.add(new TargetPatternSkyKeyException(e, absoluteValueOfPattern));
+          continue;
+        }
+        TargetPatternKey targetPatternKey =
+            new TargetPatternKey(
+                targetPattern,
+                positive ? policy : FilteringPolicies.NO_FILTER,
+                /*isNegative=*/ !positive,
+                offset,
+                ImmutableSet.<PathFragment>of(),
+                repositoryName);
+        builder.add(new TargetPatternSkyKeyValue(targetPatternKey));
       }
-      TargetPatternKey targetPatternKey =
-          new TargetPatternKey(
-              targetPattern,
-              positive ? policy : FilteringPolicies.NO_FILTER,
-              /*isNegative=*/ !positive,
-              offset,
-              ImmutableSet.<PathFragment>of());
-      builder.add(new TargetPatternSkyKeyValue(targetPatternKey));
     }
     return builder.build();
   }
@@ -196,7 +207,8 @@ public final class TargetPatternValue implements SkyValue {
         policy,
         original.isNegative(),
         original.getOffset(),
-        excludedSubdirectories);
+        excludedSubdirectories,
+        RepositoryName.MAIN);
   }
 
   private static class TargetPatternKeyWithExclusionsResult {
@@ -287,17 +299,21 @@ public final class TargetPatternValue implements SkyValue {
     private final String offset;
     private final ImmutableSet<PathFragment> excludedSubdirectories;
 
+    private final RepositoryName repositoryName;
+
     public TargetPatternKey(
         TargetPattern parsedPattern,
         FilteringPolicy policy,
         boolean isNegative,
         String offset,
-        ImmutableSet<PathFragment> excludedSubdirectories) {
+        ImmutableSet<PathFragment> excludedSubdirectories,
+        RepositoryName repositoryName) {
       this.parsedPattern = Preconditions.checkNotNull(parsedPattern);
       this.policy = Preconditions.checkNotNull(policy);
       this.isNegative = isNegative;
       this.offset = offset;
       this.excludedSubdirectories = Preconditions.checkNotNull(excludedSubdirectories);
+      this.repositoryName = Preconditions.checkNotNull(repositoryName);
     }
 
     @Override
@@ -327,6 +343,10 @@ public final class TargetPatternValue implements SkyValue {
 
     public ImmutableSet<PathFragment> getExcludedSubdirectories() {
       return excludedSubdirectories;
+    }
+
+    public RepositoryName getRepositoryName() {
+      return repositoryName;
     }
 
     ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
@@ -375,8 +395,8 @@ public final class TargetPatternValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(parsedPattern, isNegative, policy, offset,
-          excludedSubdirectories);
+      return Objects.hash(
+          parsedPattern, isNegative, policy, offset, excludedSubdirectories, repositoryName);
     }
 
     @Override
@@ -386,9 +406,12 @@ public final class TargetPatternValue implements SkyValue {
       }
       TargetPatternKey other = (TargetPatternKey) obj;
 
-      return other.isNegative == this.isNegative && other.parsedPattern.equals(this.parsedPattern)
-          && other.offset.equals(this.offset) && other.policy.equals(this.policy)
-          && other.excludedSubdirectories.equals(this.excludedSubdirectories);
+      return other.isNegative == this.isNegative
+          && other.parsedPattern.equals(this.parsedPattern)
+          && other.offset.equals(this.offset)
+          && other.policy.equals(this.policy)
+          && other.excludedSubdirectories.equals(this.excludedSubdirectories)
+          && other.repositoryName.equals(this.repositoryName);
     }
   }
 

@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
@@ -91,8 +93,12 @@ public class PrepareDepsOfPatternValue implements SkyValue {
         ImmutableList.builder();
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyException> resultExceptionsBuilder =
         ImmutableList.builder();
+    ImmutableListMultimap.Builder<RepositoryName, String> builder = ImmutableListMultimap.builder();
+    builder.putAll(RepositoryName.MAIN, patterns);
+    ImmutableListMultimap<RepositoryName, String> patternsMap = builder.build();
+
     Iterable<TargetPatternSkyKeyOrException> keysMaybe =
-        TargetPatternValue.keys(patterns, FilteringPolicies.NO_FILTER, offset);
+        TargetPatternValue.keys(patternsMap, FilteringPolicies.NO_FILTER, offset);
     ImmutableList.Builder<TargetPatternKey> targetPatternKeysBuilder = ImmutableList.builder();
     for (TargetPatternSkyKeyOrException keyMaybe : keysMaybe) {
       try {

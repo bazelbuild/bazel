@@ -144,6 +144,86 @@ toolchain(
 EOF
 }
 
+function test_toolchain_with_repository_remapping() {
+  write_test_toolchain
+  write_register_toolchain
+
+  # NOTE: fully qualified label "@main//toolchain:test_toolchain"
+  # is used here, but "//toolchain:test_toolchain" is used in
+  # the toolchain registration in the WORKSPACE file and the
+  # toolchain declaration. Bazel should treat those two labels
+  # as the same
+  rule_name="use_toolchain"
+  toolchain_name="test_toolchain"
+  mkdir -p toolchain
+  cat >> toolchain/rule_${rule_name}.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['@main//toolchain:${toolchain_name}']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain extra_str: "%s"' %
+         (message, toolchain.extra_str))
+  return []
+
+${rule_name} = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = ['@main//toolchain:${toolchain_name}'],
+)
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use --incompatible_remap_main_repo &> $TEST_log \
+      || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
+function test_platform_with_repository_remapping() {
+  cat > WORKSPACE <<EOF
+workspace(name = "main_ws")
+register_execution_platforms("@main_ws//platforms:my_host_platform")
+EOF
+
+  mkdir -p code
+  cat > code/BUILD <<EOF
+sh_library(
+  name = "foo",
+  srcs = ["foo.sh"],
+  exec_compatible_with = ["@main_ws//platforms:large_machine"]
+)
+EOF
+  echo "exit 0" > code/foo.sh
+
+  mkdir -p platforms
+  cat >> platforms/BUILD << EOF
+package(default_visibility = ["//visibility:public"])
+
+constraint_setting(name = "machine_size")
+constraint_value(name = "large_machine", constraint_setting = ":machine_size")
+
+platform(
+    name = "my_host_platform",
+    parents = ["@bazel_tools//platforms:host_platform"],
+    constraint_values = [
+        ":large_machine"
+    ]
+)
+EOF
+
+  # run both with flag and without
+  bazel build //code:foo || fail "Build failed without flag"
+  bazel build //code:foo --experimental_remap_main_repo || "Build failed with flag"
+}
+
 function test_toolchain_provider() {
   write_test_toolchain
 

@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
@@ -110,8 +112,14 @@ final class SkyframeTargetPatternEvaluator
       ImmutableList<String> targetPatterns,
       FilteringPolicy policy,
       boolean keepGoing) throws TargetParsingException {
+
+    ImmutableListMultimap.Builder<RepositoryName, String> patternsBuilder =
+        ImmutableListMultimap.builder();
+    patternsBuilder.putAll(RepositoryName.MAIN, targetPatterns);
+    ImmutableListMultimap<RepositoryName, String> patternsMap = patternsBuilder.build();
+
     Iterable<TargetPatternSkyKeyOrException> keysMaybe =
-        TargetPatternValue.keys(targetPatterns, policy, offset);
+        TargetPatternValue.keys(patternsMap, policy, offset);
     ImmutableList.Builder<TargetPatternKey> builder = ImmutableList.builder();
     for (TargetPatternSkyKeyOrException skyKeyOrException : keysMaybe) {
       try {

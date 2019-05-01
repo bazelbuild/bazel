@@ -191,7 +191,7 @@ public class WorkspaceFactory {
                 new BazelStarlarkContext(
                     /* toolsRepository= */ null,
                     /* fragmentNameToClass= */ null,
-                    ImmutableMap.of(),
+                    /* repoMapping= */ ImmutableMap.of(),
                     new SymbolGenerator<>(workspaceFileKey)))
             .build();
     SkylarkUtils.setPhase(workspaceEnv, Phase.WORKSPACE);

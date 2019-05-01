@@ -20,6 +20,7 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
@@ -72,7 +74,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -212,7 +213,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
     assertThatEvaluationResult(result).hasNoError();
 
-    assertThat(result.get(key).registeredToolchains())
+    assertThat(result.get(key).registeredToolchains().values())
         // There are default toolchains that are always registered, so just check for the ones added
         .containsAtLeast("//toolchain:tc1", "//toolchain:tc2")
         .inOrder();
@@ -234,7 +235,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
     assertThatEvaluationResult(result).hasNoError();
 
-    assertThat(result.get(key).registeredExecutionPlatforms())
+    assertThat(result.get(key).registeredExecutionPlatforms().values())
         .containsExactly("//platform:ep1", "//platform:ep2")
         .inOrder();
   }
@@ -296,11 +297,12 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   @AutoValue
   abstract static class GetRegisteredToolchainsValue implements SkyValue {
-    abstract ImmutableList<String> registeredToolchains();
+    abstract ImmutableListMultimap<RepositoryName, String> registeredToolchains();
 
-    static GetRegisteredToolchainsValue create(Iterable<String> registeredToolchains) {
+    static GetRegisteredToolchainsValue create(
+        ImmutableListMultimap<RepositoryName, String> registeredToolchains) {
       return new AutoValue_ExternalPackageUtilTest_GetRegisteredToolchainsValue(
-          ImmutableList.copyOf(registeredToolchains));
+          registeredToolchains);
     }
   }
 
@@ -310,7 +312,8 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredToolchains = RegisteredToolchainsFunction.getRegisteredToolchains(env);
+      ImmutableListMultimap<RepositoryName, String> registeredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(env);
       if (registeredToolchains == null) {
         return null;
       }
@@ -334,12 +337,12 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   @AutoValue
   abstract static class GetRegisteredExecutionPlatformsValue implements SkyValue {
-    abstract ImmutableList<String> registeredExecutionPlatforms();
+    abstract ImmutableListMultimap<RepositoryName, String> registeredExecutionPlatforms();
 
     static GetRegisteredExecutionPlatformsValue create(
-        Iterable<String> registeredExecutionPlatforms) {
+        ImmutableListMultimap<RepositoryName, String> registeredExecutionPlatforms) {
       return new AutoValue_ExternalPackageUtilTest_GetRegisteredExecutionPlatformsValue(
-          ImmutableList.copyOf(registeredExecutionPlatforms));
+          registeredExecutionPlatforms);
     }
   }
 
@@ -349,7 +352,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredExecutionPlatforms =
+      ImmutableListMultimap<RepositoryName, String> registeredExecutionPlatforms =
           RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
       if (registeredExecutionPlatforms == null) {
         return null;
