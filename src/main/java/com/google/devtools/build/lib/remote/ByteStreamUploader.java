@@ -246,6 +246,13 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       // been completed.
       SettableFuture<Void> uploadAndBookkeepingComplete = SettableFuture.create();
       uploadsInProgress.put(digest, uploadAndBookkeepingComplete);
+      uploadAndBookkeepingComplete.addListener(
+          () -> {
+            if (uploadAndBookkeepingComplete.isCancelled()) {
+              uploadResult.cancel(true);
+            }
+          },
+          MoreExecutors.directExecutor());
       uploadResult.addListener(
           () -> {
             synchronized (lock) {
