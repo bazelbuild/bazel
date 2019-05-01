@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Ascii;
@@ -1099,15 +1100,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void checkLoadingPhaseError(String target, String expectedErrorMessage) {
     reporter.removeHandler(failFastHandler);
-    try {
-      // The error happens during the loading of the Skylark file so checkError doesn't work here
-      getTarget(target);
-      fail(
-          String.format(
-              "checkLoadingPhaseError(): expected an exception with '%s' when loading target '%s'.",
-              expectedErrorMessage, target));
-    } catch (Exception expected) {
-    }
+    // The error happens during the loading of the Skylark file so checkError doesn't work here
+    assertThrows(Exception.class, () -> getTarget(target));
     assertContainsEvent(expectedErrorMessage);
   }
 

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -388,19 +388,18 @@ public final class DynamicCodecTest {
   @Test
   public void testNoCodecExample() throws Exception {
     ObjectCodecs codecs = new ObjectCodecs(AutoRegistry.get(), ImmutableMap.of());
-    try {
-      codecs.serializeMemoized(new NoCodecExample1());
-      fail();
-    } catch (SerializationException.NoCodecException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "java.io.BufferedInputStream ["
-                  + "java.io.BufferedInputStream, "
-                  + "com.google.devtools.build.lib.skyframe.serialization."
-                  + "DynamicCodecTest$NoCodecExample2, "
-                  + "com.google.devtools.build.lib.skyframe.serialization."
-                  + "DynamicCodecTest$NoCodecExample1]");
-    }
+    SerializationException.NoCodecException expected =
+        assertThrows(
+            SerializationException.NoCodecException.class,
+            () -> codecs.serializeMemoized(new NoCodecExample1()));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "java.io.BufferedInputStream ["
+                + "java.io.BufferedInputStream, "
+                + "com.google.devtools.build.lib.skyframe.serialization."
+                + "DynamicCodecTest$NoCodecExample2, "
+                + "com.google.devtools.build.lib.skyframe.serialization."
+                + "DynamicCodecTest$NoCodecExample1]");
   }
 }

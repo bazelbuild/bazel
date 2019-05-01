@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -104,22 +104,20 @@ public class ComparatorTester {
   private void testNullCompare(Object obj) {
     // Comparator does not require any specific behavior for null.
     if (comparator == null) {
-      try {
-        compare(obj, null);
-        fail("Expected NullPointerException in " + obj + ".compare(null)");
-      } catch (NullPointerException expected) {
-      }
+      assertThrows(
+          "Expected NullPointerException in " + obj + ".compare(null)",
+          NullPointerException.class,
+          () -> compare(obj, null));
     }
   }
 
   @SuppressWarnings("unchecked")
   private void testClassCast(Object obj) {
     if (comparator == null) {
-      try {
-        compare(obj, ICanNotBeCompared.INSTANCE);
-        fail("Expected ClassCastException in " + obj + ".compareTo(otherObject)");
-      } catch (ClassCastException expected) {
-      }
+      assertThrows(
+          "Expected ClassCastException in " + obj + ".compareTo(otherObject)",
+          ClassCastException.class,
+          () -> compare(obj, ICanNotBeCompared.INSTANCE));
     }
   }
 

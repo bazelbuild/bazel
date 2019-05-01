@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -86,12 +86,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     assertThat(env).containsEntry("LANG", "en_US");
     assertThat(env).containsKey("PATH");
     assertThat(env.get("PATH")).contains("/bin:/usr/bin");
-    try {
-      env.put("FOO", "bar");
-      fail("modifiable default environment");
-    } catch (UnsupportedOperationException ignored) {
-      //expected exception
-    }
+    assertThrows(UnsupportedOperationException.class, () -> env.put("FOO", "bar"));
   }
 
   @Test

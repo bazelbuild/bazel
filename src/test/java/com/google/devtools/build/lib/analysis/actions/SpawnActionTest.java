@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -415,18 +415,9 @@ public class SpawnActionTest extends BuildViewTestCase {
   @Test
   public void testMnemonicMustNotContainSpaces() {
     SpawnAction.Builder builder = builder();
-    try {
-      builder.setMnemonic("contains space");
-      fail("Expected exception");
-    } catch (IllegalArgumentException expected) {}
-    try {
-      builder.setMnemonic("contains\nnewline");
-      fail("Expected exception");
-    } catch (IllegalArgumentException expected) {}
-    try {
-      builder.setMnemonic("contains/slash");
-      fail("Expected exception");
-    } catch (IllegalArgumentException expected) {}
+    assertThrows(IllegalArgumentException.class, () -> builder.setMnemonic("contains space"));
+    assertThrows(IllegalArgumentException.class, () -> builder.setMnemonic("contains\nnewline"));
+    assertThrows(IllegalArgumentException.class, () -> builder.setMnemonic("contains/slash"));
   }
 
   /**
