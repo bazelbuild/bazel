@@ -16,7 +16,6 @@ title: Functions
   <ul>
     <li><a href="#package">package</a></li>
     <li><a href="#package_group">package_group</a></li>
-    <li><a href="#licenses">licenses</a></li>
     <li><a href="#exports_files">exports_files</a></li>
     <li><a href="#glob">glob</a></li>
     <li><a href="#select">select</a></li>
