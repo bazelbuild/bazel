@@ -29,6 +29,11 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# TODO(#8169): Make this test compatible with Python toolchains. Blocked on the
+# fact that there's no PY3 environment on our Mac workers
+# (bazelbuild/continuous-integration#578).
+add_to_bazelrc "build --incompatible_use_python_toolchains=false"
+
 function setup_android_instrumentation_test_env() {
   mkdir -p java/com/bin/res/values
   mkdir -p javatests/com/bin

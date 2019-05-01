@@ -79,6 +79,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "Failed to find the '%python_binary%' key in the stub script's template expansion action");
   }
 
+  // TODO(#8169): Delete tests of the legacy --python_top / --python_path behavior.
+
   @Test
   public void runtimeSetByPythonTop() throws Exception {
     scratch.file(
