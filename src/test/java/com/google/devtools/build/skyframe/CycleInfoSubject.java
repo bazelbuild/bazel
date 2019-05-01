@@ -28,11 +28,13 @@ public class CycleInfoSubject extends Subject<CycleInfoSubject, CycleInfo> {
 
   public IterableSubject hasPathToCycleThat() {
     return check("getPathToCycle()")
-        .that(getSubject().getPathToCycle())
-        .named("Path to cycle in " + actualAsString());
+        .withMessage("Path to cycle in " + actualAsString())
+        .that(getSubject().getPathToCycle());
   }
 
   public IterableSubject hasCycleThat() {
-    return check("getCycle()").that(getSubject().getCycle()).named("Cycle in " + actualAsString());
+    return check("getCycle()")
+        .withMessage("Cycle in " + actualAsString())
+        .that(getSubject().getCycle());
   }
 }
