@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -185,14 +184,13 @@ public class PathPackageLocatorTest extends FoundationTestCase {
 
   private static void checkFails(
       PathPackageLocator locator, String packageName, String expectedError) {
-    try {
-      locator.getPackageBuildFile(PackageIdentifier.createInMainRepo(packageName));
-      fail();
-    } catch (NoSuchPackageException e) {
-      String message = e.getMessage();
-      assertThat(message)
-          .containsMatch(Pattern.compile(Pattern.quote(expectedError), Pattern.CASE_INSENSITIVE));
-    }
+    NoSuchPackageException e =
+        assertThrows(
+            NoSuchPackageException.class,
+            () -> locator.getPackageBuildFile(PackageIdentifier.createInMainRepo(packageName)));
+    String message = e.getMessage();
+    assertThat(message)
+        .containsMatch(Pattern.compile(Pattern.quote(expectedError), Pattern.CASE_INSENSITIVE));
   }
 
   @Test

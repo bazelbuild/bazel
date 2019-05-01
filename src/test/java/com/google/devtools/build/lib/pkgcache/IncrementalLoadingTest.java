@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -310,12 +310,7 @@ public class IncrementalLoadingTest {
   public void testBuildFileWithSyntaxError() throws Exception {
     tester.addFile("a/BUILD", "sh_library(xyz='a')");
     tester.sync();
-    try {
-      tester.getTarget("//a:a");
-      fail();
-    } catch (NoSuchThingException e) {
-      // Expected
-    }
+    assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
 
     tester.modifyFile("a/BUILD", "sh_library(name='a')");
     tester.sync();
@@ -327,12 +322,7 @@ public class IncrementalLoadingTest {
     tester.addFile("a/BUILD.real", "sh_library(xyz='a')");
     tester.addSymlink("a/BUILD", "BUILD.real");
     tester.sync();
-    try {
-      tester.getTarget("//a:a");
-      fail();
-    } catch (NoSuchThingException e) {
-      // Expected
-    }
+    assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
     tester.modifyFile("a/BUILD.real", "sh_library(name='a')");
     tester.sync();
     tester.getTarget("//a:a");
@@ -345,11 +335,7 @@ public class IncrementalLoadingTest {
     tester.addFile("e/data.txt");
     throwOnReaddir = parentDir;
     tester.sync();
-    try {
-      tester.getTarget("//e:e");
-      fail("Expected exception");
-    } catch (NoSuchPackageException expected) {
-    }
+    assertThrows(NoSuchPackageException.class, () -> tester.getTarget("//e:e"));
     throwOnReaddir = null;
     tester.sync();
     Target target = tester.getTarget("//e:e");
@@ -375,12 +361,7 @@ public class IncrementalLoadingTest {
   public void testMissingPackages() throws Exception {
     tester.sync();
 
-    try {
-      tester.getTarget("//a:a");
-      fail();
-    } catch (NoSuchThingException e) {
-      // expected
-    }
+    assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
 
     tester.addFile("a/BUILD", "sh_library(name='a')");
     tester.sync();
@@ -402,12 +383,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("/b.bzl", "ERROR ERROR");
     tester.sync();
 
-    try {
-      tester.getTarget("//a:BUILD");
-      fail();
-    } catch (NoSuchThingException e) {
-      // expected
-    }
+    assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:BUILD"));
   }
 
 

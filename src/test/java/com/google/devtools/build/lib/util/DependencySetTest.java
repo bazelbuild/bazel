@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -178,12 +179,8 @@ public class DependencySetTest {
     Path dotd = scratch.file("/tmp/foo.d");
     FileSystemUtils.writeContent(
         dotd, ("hello.o: \\\n " + file1).getBytes(Charset.forName("UTF-8")));
-    try {
-      newDependencySet().read(dotd);
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().contains("File does not end in a newline");
-    }
+    IOException e = assertThrows(IOException.class, () -> newDependencySet().read(dotd));
+    assertThat(e).hasMessageThat().contains("File does not end in a newline");
   }
 
   /*

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Optional;
@@ -193,12 +194,9 @@ public class PackageCacheTest extends FoundationTestCase {
 
   // Check that a substring is present in an error message.
   private void checkGetPackageFails(String packageName, String expectedMessage) throws Exception {
-    try {
-      getPackage(packageName);
-      fail();
-    } catch (NoSuchPackageException e) {
-      assertThat(e).hasMessageThat().contains(expectedMessage);
-    }
+    NoSuchPackageException e =
+        assertThrows(NoSuchPackageException.class, () -> getPackage(packageName));
+    assertThat(e).hasMessageThat().contains(expectedMessage);
   }
 
   @Test
@@ -243,16 +241,13 @@ public class PackageCacheTest extends FoundationTestCase {
   @Test
   public void testGetNonexistentTarget() throws Exception {
     createPkg1();
-    try {
-      getTarget("//pkg1:not-there");
-      fail();
-    } catch (NoSuchTargetException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "no such target '//pkg1:not-there': target 'not-there' "
-                  + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD");
-    }
+    NoSuchTargetException e =
+        assertThrows(NoSuchTargetException.class, () -> getTarget("//pkg1:not-there"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//pkg1:not-there': target 'not-there' "
+                + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD");
   }
 
   /**
@@ -303,12 +298,9 @@ public class PackageCacheTest extends FoundationTestCase {
     Path brokenBuildFile = scratch.file("broken/BUILD");
     brokenBuildFile.setReadable(false);
 
-    try {
-      getPackage("broken");
-      fail();
-    } catch (BuildFileContainsErrorsException e) {
-      assertThat(e).hasMessageThat().contains("/workspace/broken/BUILD (Permission denied)");
-    }
+    BuildFileContainsErrorsException e =
+        assertThrows(BuildFileContainsErrorsException.class, () -> getPackage("broken"));
+    assertThat(e).hasMessageThat().contains("/workspace/broken/BUILD (Permission denied)");
     eventCollector.clear();
 
     // Update the BUILD file on disk so "broken" is no longer broken:
@@ -532,15 +524,11 @@ public class PackageCacheTest extends FoundationTestCase {
 
     // c/d is no longer a subpackage--even though there's a BUILD file in the
     // second root:
-    try {
-      getPackage("c/d");
-      fail();
-    } catch (NoSuchPackageException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "no such package 'c/d': Package is considered deleted due to --deleted_packages");
-    }
+    NoSuchPackageException e = assertThrows(NoSuchPackageException.class, () -> getPackage("c/d"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such package 'c/d': Package is considered deleted due to --deleted_packages");
 
     // Labels in the subpackage are no longer valid...
     assertLabelValidity(false, "//c/d:x");

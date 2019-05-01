@@ -16,7 +16,7 @@ package com.google.devtools.build.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.android.DensitySpecificManifestProcessor.PLAY_STORE_SUPPORTED_DENSITIES;
 import static com.google.devtools.build.android.DensitySpecificManifestProcessor.SCREEN_SIZES;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -151,24 +151,28 @@ public class DensitySpecificManifestProcessorTest {
         "<manifest xmlns:android='http://schemas.android.com/apk/res/android'",
         "          package='com.google.test'>",
         "</manifest>");
-    try {
-      new DensitySpecificManifestProcessor(ImmutableList.of("xhdpi"),
-          tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-      fail();
-    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
-      assertThat(e).hasMessageThat().contains("must be well-formed");
-    }
+    AndroidManifestProcessor.ManifestProcessingException e =
+        assertThrows(
+            AndroidManifestProcessor.ManifestProcessingException.class,
+            () ->
+                new DensitySpecificManifestProcessor(
+                        ImmutableList.of("xhdpi"),
+                        tmp.resolve("manifest-filtered/AndroidManifest.xml"))
+                    .process(manifest));
+    assertThat(e).hasMessageThat().contains("must be well-formed");
   }
 
   @Test public void testNoManifest() throws Exception {
     Path manifest = createManifest("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
-    try {
-      new DensitySpecificManifestProcessor(ImmutableList.of("xhdpi"),
-          tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-      fail();
-    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
-      assertThat(e).hasMessageThat().contains("Premature end of file.");
-    }
+    AndroidManifestProcessor.ManifestProcessingException e =
+        assertThrows(
+            AndroidManifestProcessor.ManifestProcessingException.class,
+            () ->
+                new DensitySpecificManifestProcessor(
+                        ImmutableList.of("xhdpi"),
+                        tmp.resolve("manifest-filtered/AndroidManifest.xml"))
+                    .process(manifest));
+    assertThat(e).hasMessageThat().contains("Premature end of file.");
   }
 
   @Test public void testNestedManifest() throws Exception {
@@ -179,13 +183,15 @@ public class DensitySpecificManifestProcessorTest {
         "            package='com.google.test'>",
         "  </manifest>",
         "</manifest>");
-    try {
-      new DensitySpecificManifestProcessor(ImmutableList.of("xhdpi"),
-          tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-      fail();
-    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
-      assertThat(e).hasMessageThat().contains("does not contain exactly one <manifest>");
-    }
+    AndroidManifestProcessor.ManifestProcessingException e =
+        assertThrows(
+            AndroidManifestProcessor.ManifestProcessingException.class,
+            () ->
+                new DensitySpecificManifestProcessor(
+                        ImmutableList.of("xhdpi"),
+                        tmp.resolve("manifest-filtered/AndroidManifest.xml"))
+                    .process(manifest));
+    assertThat(e).hasMessageThat().contains("does not contain exactly one <manifest>");
   }
 
   @Before

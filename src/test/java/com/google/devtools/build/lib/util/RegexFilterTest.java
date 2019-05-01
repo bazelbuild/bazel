@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
@@ -122,16 +122,13 @@ public class RegexFilterTest {
 
   @Test
   public void invalidExpression() throws Exception {
-    try {
-      createFilter("*a");
-      fail(); // OptionsParsingException should be thrown.
-    } catch (OptionsParsingException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "Failed to build valid regular expression: Dangling meta character '*' "
-                  + "near index");
-    }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> createFilter("*a"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Failed to build valid regular expression: Dangling meta character '*' "
+                + "near index");
   }
 
   @Test

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -109,13 +108,8 @@ public class LoadingPhaseRunnerTest {
   }
 
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
-    try {
-      tester.load(targetPattern);
-      fail();
-    } catch (TargetParsingException e) {
-      // Expected.
-      tester.assertContainsError("circular symlinks detected");
-    }
+    assertThrows(TargetParsingException.class, () -> tester.load(targetPattern));
+    tester.assertContainsError("circular symlinks detected");
     TargetPatternPhaseValue result = tester.loadKeepGoing(targetPattern);
     assertThat(result.hasError()).isTrue();
   }
@@ -152,11 +146,7 @@ public class LoadingPhaseRunnerTest {
 
   @Test
   public void testNonExistentPackageWithoutKeepGoing() throws Exception {
-    try {
-      tester.load("//does/not/exist");
-      fail();
-    } catch (TargetParsingException expected) {
-    }
+    assertThrows(TargetParsingException.class, () -> tester.load("//does/not/exist"));
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//does/not/exist");
   }
@@ -256,27 +246,22 @@ public class LoadingPhaseRunnerTest {
 
   @Test
   public void testMistypedTarget() throws Exception {
-    try {
-      tester.load("foo//bar:missing");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains(
-          "invalid target format 'foo//bar:missing': "
-          + "invalid package name 'foo//bar': "
-          + "package names may not contain '//' path separators");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("foo//bar:missing"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "invalid target format 'foo//bar:missing': "
+                + "invalid package name 'foo//bar': "
+                + "package names may not contain '//' path separators");
     ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(err.getPattern()).isEqualTo("foo//bar:missing");
   }
 
   @Test
   public void testEmptyTarget() throws Exception {
-    try {
-      tester.load("");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains("the empty string is not a valid target");
-    }
+    TargetParsingException e = assertThrows(TargetParsingException.class, () -> tester.load(""));
+    assertThat(e).hasMessageThat().contains("the empty string is not a valid target");
   }
 
   @Test
@@ -739,11 +724,7 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("bad/BUILD",
         "sh_binary(name = 'bad', srcs = ['bad.sh'])",
         "undefined_symbol");
-    try {
-      tester.load("//bad");
-      fail();
-    } catch (TargetParsingException expected) {
-    }
+    assertThrows(TargetParsingException.class, () -> tester.load("//bad"));
     tester.assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//bad");
@@ -795,13 +776,11 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("base/BUILD",
         "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
-    try {
-      tester.load("//base:hello");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat()
-          .contains("--compile_one_dependency target '//base:hello' must be a file");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("//base:hello"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("--compile_one_dependency target '//base:hello' must be a file");
   }
 
   @Test
@@ -820,12 +799,9 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("test/cycle2.bzl", "load(':cycle1.bzl', 'make_cycle')");
     // The skyframe target pattern evaluator isn't able to provide partial results in the presence
     // of cycles, so it simply raises an exception rather than returning an empty result.
-    try {
-      tester.load("//test:cycle1");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains("cycles detected");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("//test:cycle1"));
+    assertThat(e).hasMessageThat().contains("cycles detected");
     tester.assertContainsEventWithFrequency("cycle detected in extension", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//test:cycle1");
@@ -836,12 +812,9 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("test/BUILD", "load(':cycle1.bzl', 'make_cycle')");
     tester.addFile("test/cycle1.bzl", "load(':cycle2.bzl', 'make_cycle')");
     tester.addFile("test/cycle2.bzl", "load(':cycle1.bzl', 'make_cycle')");
-    try {
-      tester.load("//test:cycle1");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains("cycles detected");
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("//test:cycle1"));
+    assertThat(e).hasMessageThat().contains("cycles detected");
     tester.assertContainsEventWithFrequency("cycle detected in extension", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//test:cycle1");
@@ -954,12 +927,9 @@ public class LoadingPhaseRunnerTest {
   }
 
   private void expectError(String pattern, String message) throws Exception {
-    try {
-      tester.load(pattern);
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains(message);
-    }
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load(pattern));
+    assertThat(e).hasMessageThat().contains(message);
   }
 
   @Test
