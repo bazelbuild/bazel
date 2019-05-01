@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.rules.proto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -61,60 +61,55 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean experimentalProtoExtraActions;
 
     @Option(
-      name = "proto_compiler",
-      defaultValue = "@com_google_protobuf//:protoc",
-      converter = BuildConfiguration.LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "The label of the proto-compiler."
-    )
+        name = "proto_compiler",
+        defaultValue = "@com_google_protobuf//:protoc",
+        converter = CoreOptionConverters.LabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "The label of the proto-compiler.")
     public Label protoCompiler;
 
     @Option(
-      name = "proto_toolchain_for_javalite",
-      defaultValue = "@com_google_protobuf_javalite//:javalite_toolchain",
-      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos"
-    )
+        name = "proto_toolchain_for_javalite",
+        defaultValue = "@com_google_protobuf_javalite//:javalite_toolchain",
+        converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos")
     public Label protoToolchainForJavaLite;
 
     @Option(
-      name = "proto_toolchain_for_java",
-      defaultValue = "@com_google_protobuf//:java_toolchain",
-      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Label of proto_lang_toolchain() which describes how to compile Java protos"
-    )
+        name = "proto_toolchain_for_java",
+        defaultValue = "@com_google_protobuf//:java_toolchain",
+        converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "Label of proto_lang_toolchain() which describes how to compile Java protos")
     public Label protoToolchainForJava;
 
     @Option(
-      name = "proto_toolchain_for_j2objc",
-      defaultValue = "@bazel_tools//tools/j2objc:j2objc_proto_toolchain",
-      category = "flags",
-      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Label of proto_lang_toolchain() which describes how to compile j2objc protos"
-    )
+        name = "proto_toolchain_for_j2objc",
+        defaultValue = "@bazel_tools//tools/j2objc:j2objc_proto_toolchain",
+        category = "flags",
+        converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "Label of proto_lang_toolchain() which describes how to compile j2objc protos")
     public Label protoToolchainForJ2objc;
 
     @Option(
-      name = "proto_toolchain_for_cc",
-      defaultValue = "@com_google_protobuf//:cc_toolchain",
-      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Label of proto_lang_toolchain() which describes how to compile C++ protos"
-    )
+        name = "proto_toolchain_for_cc",
+        defaultValue = "@com_google_protobuf//:cc_toolchain",
+        converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "Label of proto_lang_toolchain() which describes how to compile C++ protos")
     public Label protoToolchainForCc;
 
     @Option(
         name = "strict_proto_deps",
         defaultValue = "error",
-        converter = BuildConfiguration.StrictDepsConverter.class,
+        converter = CoreOptionConverters.StrictDepsConverter.class,
         documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
         effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

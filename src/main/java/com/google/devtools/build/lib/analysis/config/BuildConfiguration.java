@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ClassToInstanceMap;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
@@ -53,15 +51,10 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -136,148 +129,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     @Nullable
     public String getOutputDirectoryName() {
       return null;
-    }
-  }
-
-  private static final Label convertOptionsLabel(String input) throws OptionsParsingException {
-    try {
-      // Check if the input starts with '/'. We don't check for "//" so that
-      // we get a better error message if the user accidentally tries to use
-      // an absolute path (starting with '/') for a label.
-      if (!input.startsWith("/") && !input.startsWith("@")) {
-        input = "//" + input;
-      }
-      return Label.parseAbsolute(input, ImmutableMap.of());
-    } catch (LabelSyntaxException e) {
-      throw new OptionsParsingException(e.getMessage());
-    }
-  }
-
-  /**
-   * A converter from strings to Labels.
-   */
-  public static class LabelConverter implements Converter<Label> {
-    @Override
-    public Label convert(String input) throws OptionsParsingException {
-      return convertOptionsLabel(input);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a build target label";
-    }
-  }
-
-  /** A converter from comma-separated strings to Label lists. */
-  public static class LabelListConverter implements Converter<List<Label>> {
-    @Override
-    public List<Label> convert(String input) throws OptionsParsingException {
-      ImmutableList.Builder result = ImmutableList.builder();
-      for (String label : Splitter.on(",").omitEmptyStrings().split(input)) {
-        result.add(convertOptionsLabel(label));
-      }
-      return result.build();
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a build target label";
-    }
-  }
-
-  /**
-   * A converter that returns null if the input string is empty, otherwise it converts
-   * the input to a label.
-   */
-  public static class EmptyToNullLabelConverter implements Converter<Label> {
-    @Override
-    public Label convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? null : convertOptionsLabel(input);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a build target label";
-    }
-  }
-
-  /**
-   * A label converter that returns a default value if the input string is empty.
-   */
-  public static class DefaultLabelConverter implements Converter<Label> {
-    private final Label defaultValue;
-
-    protected DefaultLabelConverter(String defaultValue) {
-      this.defaultValue = defaultValue.equals("null")
-          ? null
-          : Label.parseAbsoluteUnchecked(defaultValue);
-    }
-
-    @Override
-    public Label convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? defaultValue : convertOptionsLabel(input);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a build target label";
-    }
-  }
-
-  /** Flag converter for a map of unique keys with optional labels as values. */
-  public static class LabelMapConverter implements Converter<Map<String, Label>> {
-    @Override
-    public Map<String, Label> convert(String input) throws OptionsParsingException {
-      // Use LinkedHashMap so we can report duplicate keys more easily while preserving order
-      Map<String, Label> result = new LinkedHashMap<>();
-      for (String entry : Splitter.on(",").omitEmptyStrings().trimResults().split(input)) {
-        String key;
-        Label label;
-        int sepIndex = entry.indexOf('=');
-        if (sepIndex < 0) {
-          key = entry;
-          label = null;
-        } else {
-          key = entry.substring(0, sepIndex);
-          String value = entry.substring(sepIndex + 1);
-          label = value.isEmpty() ? null : convertOptionsLabel(value);
-        }
-        if (result.containsKey(key)) {
-          throw new OptionsParsingException("Key '" + key + "' appears twice");
-        }
-        result.put(key, label);
-      }
-      return Collections.unmodifiableMap(result);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a comma-separated list of keys optionally followed by '=' and a label";
-    }
-  }
-
-  /**
-   * Values for the --strict_*_deps option
-   */
-  public static enum StrictDepsMode {
-    /** Silently allow referencing transitive dependencies. */
-    OFF,
-    /** Warn about transitive dependencies being used directly. */
-    WARN,
-    /** Fail the build when transitive dependencies are used directly. */
-    ERROR,
-    /** Transition to strict by default. */
-    STRICT,
-    /** When no flag value is specified on the command line. */
-    DEFAULT
-  }
-
-  /**
-   * Converter for the --strict_*_deps option.
-   */
-  public static class StrictDepsConverter extends EnumConverter<StrictDepsMode> {
-    public StrictDepsConverter() {
-      super(StrictDepsMode.class, "strict dependency checking level");
     }
   }
 
