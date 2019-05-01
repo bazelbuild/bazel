@@ -215,10 +215,10 @@ public class GroupedListTest {
     GroupedList<String> groupedList = new GroupedList<>();
     groupedList.appendGroup(ImmutableList.of("a"));
     groupedList.appendGroup(ImmutableList.of("b", "c"));
-    assertThat(GroupedList.createCompressedWithTwoGroupes("a", ImmutableList.of("b", "c")))
+    assertThat(GroupedList.createCompressedWithTwoGroups("a", ImmutableList.of("b", "c")))
         .isEqualTo(groupedList.compress());
     groupedList.remove(ImmutableSet.of("b"));
-    assertThat(GroupedList.createCompressedWithTwoGroupes("a", ImmutableList.of("c")))
+    assertThat(GroupedList.createCompressedWithTwoGroups("a", ImmutableList.of("c")))
         .isEqualTo(groupedList.compress());
   }
 

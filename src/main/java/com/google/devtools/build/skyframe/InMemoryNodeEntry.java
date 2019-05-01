@@ -138,11 +138,8 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
 
-  /**
-   * Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations.
-   */
-  public InMemoryNodeEntry() {
-  }
+  /** Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations. */
+  public InMemoryNodeEntry() {}
 
   // Public only for use in alternate graph implementations.
   public KeepEdgesPolicy keepEdges() {
@@ -218,12 +215,12 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized @GroupedList.Compressed Object getCompressedDirectDepsForDoneEntry() {
     assertKeepDeps();
     Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
-    return Preconditions.checkNotNull(directDeps, "deps can't be null: %s", this);
+    Preconditions.checkNotNull(directDeps, "deps can't be null: %s", this);
+    return GroupedList.castAsCompressed(directDeps);
   }
 
   public int getNumDirectDeps() {
-    Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
-    return GroupedList.numElements(directDeps);
+    return GroupedList.numElements(getCompressedDirectDepsForDoneEntry());
   }
 
   @Override
@@ -520,7 +517,8 @@ public class InMemoryNodeEntry implements NodeEntry {
     assertKeepDeps();
     if (isDone()) {
       dirtyBuildingState =
-          DirtyBuildingState.create(dirtyType, GroupedList.create(directDeps), value);
+          DirtyBuildingState.create(
+              dirtyType, GroupedList.create(getCompressedDirectDepsForDoneEntry()), value);
       value = null;
       directDeps = null;
       return new MarkedDirtyResult(ReverseDepsUtility.getReverseDeps(this));
@@ -733,7 +731,7 @@ public class InMemoryNodeEntry implements NodeEntry {
         .add(
             "directDeps",
             isDone() && keepEdges() != KeepEdgesPolicy.NONE
-                ? GroupedList.create(directDeps)
+                ? GroupedList.create(getCompressedDirectDepsForDoneEntry())
                 : directDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this))
         .add("dirtyBuildingState", dirtyBuildingState);
