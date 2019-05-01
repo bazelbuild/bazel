@@ -167,10 +167,16 @@ abstract class AbstractParallelEvaluator {
         int childEvaluationPriority)
         throws InterruptedException {
       Preconditions.checkState(!entry.isDone(), "%s %s", skyKey, entry);
-      DependencyState dependencyState =
-          depAlreadyExists
-              ? childEntry.checkIfDoneForDirtyReverseDep(skyKey)
-              : childEntry.addReverseDepAndCheckIfDone(skyKey);
+      DependencyState dependencyState;
+      try {
+        dependencyState =
+            depAlreadyExists
+                ? childEntry.checkIfDoneForDirtyReverseDep(skyKey)
+                : childEntry.addReverseDepAndCheckIfDone(skyKey);
+      } catch (IllegalStateException e) {
+        // Add some more context regarding crashes.
+        throw new IllegalStateException(e.getMessage() + " child key: " + child, e);
+      }
       switch (dependencyState) {
         case DONE:
           if (entry.signalDep(childEntry.getVersion(), child)) {
