@@ -462,8 +462,7 @@ public class SkylarkRepositoryContext
               "Couldn't hash downloaded file (" + downloadedPath.getPathString() + ")", e),
           Transience.PERSISTENT);
     }
-    SkylarkDict<String, Object> dict =
-        SkylarkDict.of(null, "sha256", finalSha256, "susccess", true);
+    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256, "success", true);
     return StructProvider.STRUCT.createStruct(dict, null);
   }
 
